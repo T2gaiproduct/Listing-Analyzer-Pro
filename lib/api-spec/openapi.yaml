@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Amazon Listing Auditor API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: audits
+    description: Listing audit operations
+  - name: competitors
+    description: Competitor analysis operations
 paths:
   /healthz:
     get:
@@ -24,6 +27,173 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /audits:
+    get:
+      operationId: listAudits
+      tags: [audits]
+      summary: List all audits
+      responses:
+        "200":
+          description: List of audits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Audit"
+    post:
+      operationId: createAudit
+      tags: [audits]
+      summary: Create and run a new listing audit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAuditBody"
+      responses:
+        "201":
+          description: Audit created and analyzed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditWithResults"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /audits/stats:
+    get:
+      operationId: getAuditStats
+      tags: [audits]
+      summary: Get aggregate stats across all audits
+      responses:
+        "200":
+          description: Aggregate audit stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditStats"
+
+  /audits/{id}:
+    get:
+      operationId: getAudit
+      tags: [audits]
+      summary: Get a specific audit with full results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit with results and competitors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditWithResults"
+        "404":
+          description: Audit not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteAudit
+      tags: [audits]
+      summary: Delete an audit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Audit not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /audits/{id}/competitors:
+    get:
+      operationId: listCompetitors
+      tags: [competitors]
+      summary: List all competitors for an audit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of competitors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Competitor"
+    post:
+      operationId: addCompetitor
+      tags: [competitors]
+      summary: Add a competitor listing to an audit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCompetitorBody"
+      responses:
+        "201":
+          description: Competitor added and analyzed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Competitor"
+        "404":
+          description: Audit not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /competitors/{id}:
+    delete:
+      operationId: deleteCompetitor
+      tags: [competitors]
+      summary: Delete a competitor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Competitor not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +204,272 @@ components:
       required:
         - status
 
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    ScoreDetail:
+      type: object
+      properties:
+        score:
+          type: integer
+          description: Score from 0 to 100
+        issues:
+          type: array
+          items:
+            type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - score
+        - issues
+        - suggestions
+
+    AuditResult:
+      type: object
+      properties:
+        titleScore:
+          $ref: "#/components/schemas/ScoreDetail"
+        bulletScore:
+          $ref: "#/components/schemas/ScoreDetail"
+        imageScore:
+          $ref: "#/components/schemas/ScoreDetail"
+        keywordScore:
+          $ref: "#/components/schemas/ScoreDetail"
+        overallScore:
+          type: integer
+        summary:
+          type: string
+      required:
+        - titleScore
+        - bulletScore
+        - imageScore
+        - keywordScore
+        - overallScore
+        - summary
+
+    Audit:
+      type: object
+      properties:
+        id:
+          type: integer
+        productName:
+          type: string
+        asin:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        overallScore:
+          type: integer
+        status:
+          type: string
+          enum: [pending, complete, failed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - productName
+        - overallScore
+        - status
+        - createdAt
+        - updatedAt
+
+    AuditWithResults:
+      type: object
+      properties:
+        id:
+          type: integer
+        productName:
+          type: string
+        asin:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        title:
+          type: string
+        bulletPoints:
+          type: array
+          items:
+            type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+        targetKeywords:
+          type: array
+          items:
+            type: string
+        overallScore:
+          type: integer
+        status:
+          type: string
+          enum: [pending, complete, failed]
+        result:
+          $ref: "#/components/schemas/AuditResult"
+        competitors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Competitor"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - productName
+        - title
+        - bulletPoints
+        - imageUrls
+        - targetKeywords
+        - overallScore
+        - status
+        - result
+        - competitors
+        - createdAt
+        - updatedAt
+
+    CreateAuditBody:
+      type: object
+      properties:
+        productName:
+          type: string
+          description: Internal product name for reference
+        asin:
+          type: string
+          description: Amazon Standard Identification Number
+        category:
+          type: string
+          description: Product category
+        title:
+          type: string
+          description: Amazon listing title
+        bulletPoints:
+          type: array
+          items:
+            type: string
+          description: Product bullet points (feature descriptions)
+        imageUrls:
+          type: array
+          items:
+            type: string
+          description: URLs of product images
+        targetKeywords:
+          type: array
+          items:
+            type: string
+          description: Target keywords to check for
+      required:
+        - productName
+        - title
+        - bulletPoints
+        - imageUrls
+        - targetKeywords
+
+    Competitor:
+      type: object
+      properties:
+        id:
+          type: integer
+        auditId:
+          type: integer
+        productName:
+          type: string
+        asin:
+          type: ["string", "null"]
+        title:
+          type: string
+        bulletPoints:
+          type: array
+          items:
+            type: string
+        imageCount:
+          type: integer
+        targetKeywords:
+          type: array
+          items:
+            type: string
+        overallScore:
+          type: integer
+        strengths:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - auditId
+        - productName
+        - title
+        - bulletPoints
+        - imageCount
+        - targetKeywords
+        - overallScore
+        - strengths
+        - weaknesses
+        - createdAt
+
+    AddCompetitorBody:
+      type: object
+      properties:
+        productName:
+          type: string
+        asin:
+          type: string
+        title:
+          type: string
+        bulletPoints:
+          type: array
+          items:
+            type: string
+        imageCount:
+          type: integer
+        targetKeywords:
+          type: array
+          items:
+            type: string
+      required:
+        - productName
+        - title
+        - bulletPoints
+        - imageCount
+        - targetKeywords
+
+    AuditStats:
+      type: object
+      properties:
+        totalAudits:
+          type: integer
+        averageScore:
+          type: integer
+        highScoreCount:
+          type: integer
+        lowScoreCount:
+          type: integer
+        recentAudits:
+          type: array
+          items:
+            $ref: "#/components/schemas/Audit"
+      required:
+        - totalAudits
+        - averageScore
+        - highScoreCount
+        - lowScoreCount
+        - recentAudits
