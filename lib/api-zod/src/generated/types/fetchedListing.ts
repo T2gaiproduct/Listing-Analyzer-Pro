@@ -6,12 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateAuditBody {
+export interface FetchedListing {
   productName: string;
-  asin?: string;
-  category?: string;
+  asin: string;
+  /** @nullable */
+  category?: string | null;
   title: string;
   bulletPoints: string[];
   imageUrls: string[];
   targetKeywords: string[];
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  price?: string | null;
+  /** @nullable */
+  rating?: string | null;
 }

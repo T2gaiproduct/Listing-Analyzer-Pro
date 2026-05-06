@@ -13,6 +13,46 @@ export interface ApiError {
   error: string;
 }
 
+/**
+ * Either asin or url must be provided
+ */
+export interface FetchListingBody {
+  /** Amazon ASIN (e.g. B09G9FPHY6) */
+  asin?: string;
+  /** Amazon product URL */
+  url?: string;
+}
+
+export interface FetchedListing {
+  productName: string;
+  asin: string;
+  /** @nullable */
+  category?: string | null;
+  title: string;
+  bulletPoints: string[];
+  imageUrls: string[];
+  targetKeywords: string[];
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  price?: string | null;
+  /** @nullable */
+  rating?: string | null;
+}
+
+export interface GeneratedContent {
+  title: string;
+  bulletPoints: string[];
+  keywords: string[];
+  htmlDescription: string;
+}
+
+export interface GeneratedImages {
+  main: string[];
+  infographic: string[];
+  lifestyle: string[];
+}
+
 export interface ScoreDetail {
   /** Score from 0 to 100 */
   score: number;
@@ -90,24 +130,19 @@ export interface AuditWithResults {
   status: AuditWithResultsStatus;
   result: AuditResult;
   competitors: Competitor[];
+  generatedContent?: GeneratedContent;
+  generatedImages?: GeneratedImages;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateAuditBody {
-  /** Internal product name for reference */
   productName: string;
-  /** Amazon Standard Identification Number */
   asin?: string;
-  /** Product category */
   category?: string;
-  /** Amazon listing title */
   title: string;
-  /** Product bullet points (feature descriptions) */
   bulletPoints: string[];
-  /** URLs of product images */
   imageUrls: string[];
-  /** Target keywords to check for */
   targetKeywords: string[];
 }
 

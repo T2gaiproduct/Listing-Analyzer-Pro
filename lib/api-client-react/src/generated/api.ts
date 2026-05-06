@@ -24,6 +24,10 @@ import type {
   AuditWithResults,
   Competitor,
   CreateAuditBody,
+  FetchListingBody,
+  FetchedListing,
+  GeneratedContent,
+  GeneratedImages,
   HealthStatus,
 } from "./api.schemas";
 
@@ -111,6 +115,92 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Fetch Amazon listing data by ASIN or URL
+ */
+export const getFetchListingUrl = () => {
+  return `/api/fetch-listing`;
+};
+
+export const fetchListing = async (
+  fetchListingBody: FetchListingBody,
+  options?: RequestInit,
+): Promise<FetchedListing> => {
+  return customFetch<FetchedListing>(getFetchListingUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(fetchListingBody),
+  });
+};
+
+export const getFetchListingMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fetchListing>>,
+    TError,
+    { data: BodyType<FetchListingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof fetchListing>>,
+  TError,
+  { data: BodyType<FetchListingBody> },
+  TContext
+> => {
+  const mutationKey = ["fetchListing"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof fetchListing>>,
+    { data: BodyType<FetchListingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return fetchListing(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FetchListingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fetchListing>>
+>;
+export type FetchListingMutationBody = BodyType<FetchListingBody>;
+export type FetchListingMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Fetch Amazon listing data by ASIN or URL
+ */
+export const useFetchListing = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fetchListing>>,
+    TError,
+    { data: BodyType<FetchListingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof fetchListing>>,
+  TError,
+  { data: BodyType<FetchListingBody> },
+  TContext
+> => {
+  return useMutation(getFetchListingMutationOptions(options));
+};
 
 /**
  * @summary List all audits
@@ -513,6 +603,174 @@ export const useDeleteAudit = <
   TContext
 > => {
   return useMutation(getDeleteAuditMutationOptions(options));
+};
+
+/**
+ * @summary Generate optimized listing content using AI
+ */
+export const getGenerateContentUrl = (id: number) => {
+  return `/api/audits/${id}/generate-content`;
+};
+
+export const generateContent = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GeneratedContent> => {
+  return customFetch<GeneratedContent>(getGenerateContentUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGenerateContentMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateContent>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateContent>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["generateContent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateContent>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return generateContent(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateContentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateContent>>
+>;
+
+export type GenerateContentMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Generate optimized listing content using AI
+ */
+export const useGenerateContent = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateContent>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateContent>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getGenerateContentMutationOptions(options));
+};
+
+/**
+ * @summary Generate product images using AI
+ */
+export const getGenerateImagesUrl = (id: number) => {
+  return `/api/audits/${id}/generate-images`;
+};
+
+export const generateImages = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GeneratedImages> => {
+  return customFetch<GeneratedImages>(getGenerateImagesUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGenerateImagesMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateImages>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateImages>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["generateImages"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateImages>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return generateImages(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateImagesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateImages>>
+>;
+
+export type GenerateImagesMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Generate product images using AI
+ */
+export const useGenerateImages = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateImages>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateImages>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getGenerateImagesMutationOptions(options));
 };
 
 /**

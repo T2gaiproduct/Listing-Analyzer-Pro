@@ -7,6 +7,8 @@ import {
   DeleteAuditParams,
 } from "@workspace/api-zod";
 import { analyzeListingWithAI } from "../lib/analyzer";
+import { generateListingContent } from "../lib/content-generator";
+import { generateProductImages } from "../lib/image-generator";
 
 const router: IRouter = Router();
 
@@ -188,6 +190,62 @@ router.delete("/audits/:id", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
+});
+
+router.post("/audits/:id/generate-content", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  try {
+    const generatedContent = await generateListingContent({
+      productName: audit.productName,
+      asin: audit.asin,
+      category: audit.category,
+      currentTitle: audit.title,
+      currentBullets: audit.bulletPoints as string[],
+      currentKeywords: audit.targetKeywords as string[],
+      auditSummary: audit.result?.summary,
+    });
+
+    await db.update(auditsTable)
+      .set({ generatedContent, updatedAt: new Date() })
+      .where(eq(auditsTable.id, id));
+
+    res.json(generatedContent);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Content generation failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/audits/:id/generate-images", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  try {
+    const generatedImages = await generateProductImages({
+      auditId: id,
+      productName: audit.productName,
+      category: audit.category,
+      title: audit.title,
+      bulletPoints: audit.bulletPoints as string[],
+    });
+
+    await db.update(auditsTable)
+      .set({ generatedImages, updatedAt: new Date() })
+      .where(eq(auditsTable.id, id));
+
+    res.json(generatedImages);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Image generation failed";
+    res.status(500).json({ error: message });
+  }
 });
 
 export default router;

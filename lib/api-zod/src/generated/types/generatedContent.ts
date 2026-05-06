@@ -6,12 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateAuditBody {
-  productName: string;
-  asin?: string;
-  category?: string;
+export interface GeneratedContent {
   title: string;
   bulletPoints: string[];
-  imageUrls: string[];
-  targetKeywords: string[];
+  keywords: string[];
+  htmlDescription: string;
 }

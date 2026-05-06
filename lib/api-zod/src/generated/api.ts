@@ -16,6 +16,29 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * @summary Fetch Amazon listing data by ASIN or URL
+ */
+export const FetchListingBody = zod
+  .object({
+    asin: zod.string().optional().describe("Amazon ASIN (e.g. B09G9FPHY6)"),
+    url: zod.string().optional().describe("Amazon product URL"),
+  })
+  .describe("Either asin or url must be provided");
+
+export const FetchListingResponse = zod.object({
+  productName: zod.string(),
+  asin: zod.string(),
+  category: zod.string().nullish(),
+  title: zod.string(),
+  bulletPoints: zod.array(zod.string()),
+  imageUrls: zod.array(zod.string()),
+  targetKeywords: zod.array(zod.string()),
+  description: zod.string().nullish(),
+  price: zod.string().nullish(),
+  rating: zod.string().nullish(),
+});
+
+/**
  * @summary List all audits
  */
 export const ListAuditsResponseItem = zod.object({
@@ -34,20 +57,13 @@ export const ListAuditsResponse = zod.array(ListAuditsResponseItem);
  * @summary Create and run a new listing audit
  */
 export const CreateAuditBody = zod.object({
-  productName: zod.string().describe("Internal product name for reference"),
-  asin: zod
-    .string()
-    .optional()
-    .describe("Amazon Standard Identification Number"),
-  category: zod.string().optional().describe("Product category"),
-  title: zod.string().describe("Amazon listing title"),
-  bulletPoints: zod
-    .array(zod.string())
-    .describe("Product bullet points (feature descriptions)"),
-  imageUrls: zod.array(zod.string()).describe("URLs of product images"),
-  targetKeywords: zod
-    .array(zod.string())
-    .describe("Target keywords to check for"),
+  productName: zod.string(),
+  asin: zod.string().optional(),
+  category: zod.string().optional(),
+  title: zod.string(),
+  bulletPoints: zod.array(zod.string()),
+  imageUrls: zod.array(zod.string()),
+  targetKeywords: zod.array(zod.string()),
 });
 
 /**
@@ -130,6 +146,21 @@ export const GetAuditResponse = zod.object({
       createdAt: zod.coerce.date(),
     }),
   ),
+  generatedContent: zod
+    .object({
+      title: zod.string(),
+      bulletPoints: zod.array(zod.string()),
+      keywords: zod.array(zod.string()),
+      htmlDescription: zod.string(),
+    })
+    .optional(),
+  generatedImages: zod
+    .object({
+      main: zod.array(zod.string()),
+      infographic: zod.array(zod.string()),
+      lifestyle: zod.array(zod.string()),
+    })
+    .optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -139,6 +170,33 @@ export const GetAuditResponse = zod.object({
  */
 export const DeleteAuditParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Generate optimized listing content using AI
+ */
+export const GenerateContentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GenerateContentResponse = zod.object({
+  title: zod.string(),
+  bulletPoints: zod.array(zod.string()),
+  keywords: zod.array(zod.string()),
+  htmlDescription: zod.string(),
+});
+
+/**
+ * @summary Generate product images using AI
+ */
+export const GenerateImagesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GenerateImagesResponse = zod.object({
+  main: zod.array(zod.string()),
+  infographic: zod.array(zod.string()),
+  lifestyle: zod.array(zod.string()),
 });
 
 /**

@@ -17,7 +17,22 @@ export const auditResultSchema = z.object({
   summary: z.string(),
 });
 
+export const generatedContentSchema = z.object({
+  title: z.string(),
+  bulletPoints: z.array(z.string()),
+  keywords: z.array(z.string()),
+  htmlDescription: z.string(),
+});
+
+export const generatedImagesSchema = z.object({
+  main: z.array(z.string()),
+  infographic: z.array(z.string()),
+  lifestyle: z.array(z.string()),
+});
+
 export type AuditResult = z.infer<typeof auditResultSchema>;
+export type GeneratedContent = z.infer<typeof generatedContentSchema>;
+export type GeneratedImages = z.infer<typeof generatedImagesSchema>;
 
 export const auditsTable = pgTable("audits", {
   id: serial("id").primaryKey(),
@@ -31,6 +46,8 @@ export const auditsTable = pgTable("audits", {
   overallScore: integer("overall_score").notNull().default(0),
   status: text("status").notNull().default("pending"),
   result: jsonb("result").$type<AuditResult>(),
+  generatedContent: jsonb("generated_content").$type<GeneratedContent>(),
+  generatedImages: jsonb("generated_images").$type<GeneratedImages>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

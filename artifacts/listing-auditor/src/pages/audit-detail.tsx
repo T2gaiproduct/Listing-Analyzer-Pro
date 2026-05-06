@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useGetAudit, useDeleteAudit, useDeleteCompetitor, getListAuditsQueryKey, getGetAuditStatsQueryKey, getGetAuditQueryKey } from "@workspace/api-client-react";
+import {
+  useGetAudit, useDeleteAudit, useDeleteCompetitor,
+  useGenerateContent, useGenerateImages,
+  getListAuditsQueryKey, getGetAuditStatsQueryKey, getGetAuditQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScoreRing, ScoreBadge } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,9 +22,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, Plus, Trash2, CheckCircle2, AlertCircle, Lightbulb,
-  Type, AlignLeft, Image, Tag, Users, ChevronDown, ChevronUp, ExternalLink
+  Type, AlignLeft, Image, Tag, Users, ChevronDown, ChevronUp,
+  Wand2, Loader2, Copy, Download, ImageIcon, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function copyToClipboard(text: string, label: string, toast: ReturnType<typeof useToast>["toast"]) {
+  navigator.clipboard.writeText(text).then(() => {
+    toast({ title: `${label} copied` });
+  });
+}
 
 interface ScoreCardProps {
   icon: React.ElementType;
@@ -31,15 +43,12 @@ interface ScoreCardProps {
 
 function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardProps) {
   const [expanded, setExpanded] = useState(true);
-
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-muted rounded-lg">
-              <Icon className="w-4 h-4 text-foreground/70" />
-            </div>
+            <div className="p-2 bg-muted rounded-lg"><Icon className="w-4 h-4 text-foreground/70" /></div>
             <CardTitle className="text-base font-semibold">{title}</CardTitle>
           </div>
           <div className="flex items-center gap-3">
@@ -50,7 +59,6 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
           </div>
         </div>
       </CardHeader>
-
       {expanded && (
         <CardContent className="space-y-4 pt-0">
           {issues.length > 0 && (
@@ -62,14 +70,12 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
               <ul className="space-y-1.5">
                 {issues.map((issue, i) => (
                   <li key={i} className="text-sm text-foreground/80 flex gap-2">
-                    <span className="text-rose-400 mt-0.5 shrink-0">•</span>
-                    <span>{issue}</span>
+                    <span className="text-rose-400 mt-0.5 shrink-0">•</span><span>{issue}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
-
           {suggestions.length > 0 && (
             <div>
               <div className="flex items-center gap-1.5 mb-2">
@@ -79,8 +85,7 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
               <ul className="space-y-1.5">
                 {suggestions.map((s, i) => (
                   <li key={i} className="text-sm text-foreground/80 flex gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                    <span>{s}</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" /><span>{s}</span>
                   </li>
                 ))}
               </ul>
@@ -89,6 +94,15 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
         </CardContent>
       )}
     </Card>
+  );
+}
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const { toast } = useToast();
+  return (
+    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copyToClipboard(text, label, toast)}>
+      <Copy className="w-3 h-3 mr-1" /> Copy
+    </Button>
   );
 }
 
@@ -103,16 +117,15 @@ export default function AuditDetail({ id }: { id: number }) {
 
   const deleteAudit = useDeleteAudit();
   const deleteCompetitor = useDeleteCompetitor();
+  const generateContent = useGenerateContent();
+  const generateImages = useGenerateImages();
 
   if (isLoading) {
     return (
       <div className="space-y-8 animate-in fade-in">
         <Skeleton className="h-10 w-80" />
-        <div className="grid grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}
-        </div>
-        <Skeleton className="h-64" />
-        <Skeleton className="h-64" />
+        <div className="grid grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}</div>
+        <Skeleton className="h-64" /><Skeleton className="h-64" />
       </div>
     );
   }
@@ -146,6 +159,26 @@ export default function AuditDetail({ id }: { id: number }) {
     });
   };
 
+  const handleGenerateContent = () => {
+    generateContent.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+        toast({ title: "Content generated", description: "Your optimized listing content is ready." });
+      },
+      onError: () => toast({ title: "Generation failed", variant: "destructive" }),
+    });
+  };
+
+  const handleGenerateImages = () => {
+    generateImages.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+        toast({ title: "Images generated", description: "6 product images are ready to download." });
+      },
+      onError: () => toast({ title: "Image generation failed", variant: "destructive" }),
+    });
+  };
+
   const result = audit.result;
   const scoreCategories = [
     { icon: Type, title: "Title Analysis", ...result.titleScore },
@@ -154,30 +187,30 @@ export default function AuditDetail({ id }: { id: number }) {
     { icon: Tag, title: "Keywords", ...result.keywordScore },
   ];
 
+  const gc = audit.generatedContent;
+  const gi = audit.generatedImages;
+  const allGenImages = gi ? [...(gi.main ?? []), ...(gi.infographic ?? []), ...(gi.lifestyle ?? [])] : [];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-start justify-between border-b pb-6">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="icon" asChild className="-ml-2 mt-1">
             <Link href="/"><ArrowLeft className="w-4 h-4" /></Link>
           </Button>
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-3xl font-bold tracking-tight">{audit.productName}</h1>
-              {audit.asin && (
-                <Badge variant="outline" className="font-mono text-xs">{audit.asin}</Badge>
-              )}
-              {audit.category && (
-                <Badge variant="secondary" className="text-xs uppercase tracking-wider">{audit.category}</Badge>
-              )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h1 className="text-2xl font-bold tracking-tight truncate max-w-xl">{audit.productName}</h1>
+              {audit.asin && <Badge variant="outline" className="font-mono text-xs shrink-0">{audit.asin}</Badge>}
+              {audit.category && <Badge variant="secondary" className="text-xs max-w-xs truncate shrink-0">{(audit.category.split("›").pop() ?? audit.category.split(">").pop() ?? audit.category).trim()}</Badge>}
             </div>
             <p className="text-muted-foreground text-sm">Audited {format(new Date(audit.createdAt), 'MMMM d, yyyy')}</p>
           </div>
         </div>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10" data-testid="button-delete-audit">
+            <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
               <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
             </Button>
           </AlertDialogTrigger>
@@ -194,194 +227,380 @@ export default function AuditDetail({ id }: { id: number }) {
         </AlertDialog>
       </div>
 
-      {/* Overall Score + Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-1 flex items-center justify-center p-6 border-border/50">
-          <div className="text-center space-y-3">
-            <ScoreRing score={audit.overallScore} size="xl" />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Overall Score</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="md:col-span-2 border-border/50">
-          <CardHeader>
-            <CardTitle className="text-base">AI Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm leading-relaxed text-foreground/80">{result.summary}</p>
-            <Separator />
-            <div className="grid grid-cols-2 gap-3">
-              {scoreCategories.map(cat => (
-                <div key={cat.title} className="flex items-center gap-3">
-                  <cat.icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm text-muted-foreground flex-1">{cat.title}</span>
-                  <ScoreBadge score={cat.score} />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Title preview */}
-      <Card className="border-border/50 bg-muted/30">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Listing Title</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-foreground font-medium leading-relaxed">{audit.title}</p>
-          <p className="text-xs text-muted-foreground mt-2 font-mono">{audit.title.length} characters</p>
-        </CardContent>
-      </Card>
-
-      {/* Score Cards */}
-      <div>
-        <h2 className="text-xl font-bold tracking-tight mb-4">Detailed Analysis</h2>
-        <div className="grid gap-4">
-          {scoreCategories.map(cat => (
-            <ScoreCard
-              key={cat.title}
-              icon={cat.icon}
-              title={cat.title}
-              score={cat.score}
-              issues={cat.issues}
-              suggestions={cat.suggestions}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Keywords & Bullets preview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Tag className="w-4 h-4 text-muted-foreground" />
-              Target Keywords
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {audit.targetKeywords.map((kw, i) => (
-                <Badge key={i} variant="outline" className="text-xs" data-testid={`keyword-${i}`}>{kw}</Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Image className="w-4 h-4 text-muted-foreground" />
-              Images ({audit.imageUrls.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {audit.imageUrls.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No images provided</p>
-            ) : (
-              <ul className="space-y-1">
-                {audit.imageUrls.slice(0, 4).map((url, i) => (
-                  <li key={i} className="text-xs font-mono text-muted-foreground truncate hover:text-foreground transition-colors">
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                      {url}
-                    </a>
-                  </li>
-                ))}
-                {audit.imageUrls.length > 4 && (
-                  <li className="text-xs text-muted-foreground">+{audit.imageUrls.length - 4} more</li>
-                )}
-              </ul>
+      {/* Tabs */}
+      <Tabs defaultValue="audit">
+        <TabsList className="mb-6">
+          <TabsTrigger value="audit">Audit Results</TabsTrigger>
+          <TabsTrigger value="content">
+            Generated Content
+            {gc && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
+          </TabsTrigger>
+          <TabsTrigger value="images">
+            Generated Images
+            {gi && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
+          </TabsTrigger>
+          <TabsTrigger value="competitors">
+            Competitors
+            {audit.competitors.length > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">{audit.competitors.length}</Badge>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Competitor Analysis */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="w-5 h-5 text-muted-foreground" />
-            Competitor Analysis
-          </h2>
-          <Button asChild size="sm" variant="outline" data-testid="button-add-competitor">
-            <Link href={`/audits/${id}/competitors/new`}>
-              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
-            </Link>
-          </Button>
-        </div>
+        {/* ── AUDIT TAB ── */}
+        <TabsContent value="audit" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1 flex items-center justify-center p-6 border-border/50">
+              <div className="text-center space-y-3">
+                <ScoreRing score={audit.overallScore} size="xl" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Overall Score</p>
+              </div>
+            </Card>
+            <Card className="md:col-span-2 border-border/50">
+              <CardHeader><CardTitle className="text-base">AI Summary</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm leading-relaxed text-foreground/80">{result.summary}</p>
+                <Separator />
+                <div className="grid grid-cols-2 gap-3">
+                  {scoreCategories.map(cat => (
+                    <div key={cat.title} className="flex items-center gap-3">
+                      <cat.icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground flex-1">{cat.title}</span>
+                      <ScoreBadge score={cat.score} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-        {audit.competitors.length === 0 ? (
-          <Card className="border-dashed bg-muted/20">
-            <CardContent className="py-10 text-center">
-              <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="font-semibold text-foreground/70 mb-1">No competitors added</p>
-              <p className="text-sm text-muted-foreground mb-4">Compare your listing against top competitors to find gaps and opportunities.</p>
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/audits/${id}/competitors/new`}><Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor</Link>
-              </Button>
+          <Card className="border-border/50 bg-muted/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Current Listing Title</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-foreground font-medium leading-relaxed">{audit.title}</p>
+              <p className="text-xs text-muted-foreground mt-2 font-mono">{audit.title.length} characters</p>
             </CardContent>
           </Card>
-        ) : (
-          <div className="space-y-4">
-            {/* Comparison header */}
-            <div className="grid grid-cols-5 gap-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4">
-              <span className="col-span-2">Competitor</span>
-              <span className="text-center">Score</span>
-              <span className="col-span-2">Strengths / Weaknesses</span>
+
+          <div>
+            <h2 className="text-xl font-bold tracking-tight mb-4">Detailed Analysis</h2>
+            <div className="grid gap-4">
+              {scoreCategories.map(cat => (
+                <ScoreCard key={cat.title} icon={cat.icon} title={cat.title} score={cat.score} issues={cat.issues} suggestions={cat.suggestions} />
+              ))}
             </div>
-            {audit.competitors.map(competitor => (
-              <Card key={competitor.id} className="border-border/50" data-testid={`competitor-card-${competitor.id}`}>
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-5 gap-4 items-start">
-                    <div className="col-span-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-sm">{competitor.productName}</p>
-                        {competitor.asin && (
-                          <Badge variant="outline" className="font-mono text-[10px]">{competitor.asin}</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{competitor.title}</p>
-                    </div>
-                    <div className="flex justify-center">
-                      <ScoreRing score={competitor.overallScore} size="sm" showLabel={false} />
-                    </div>
-                    <div className="col-span-2 space-y-3">
-                      {competitor.strengths.slice(0, 2).map((s, i) => (
-                        <div key={i} className="flex gap-1.5 items-start">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                          <span className="text-xs text-foreground/80">{s}</span>
-                        </div>
-                      ))}
-                      {(competitor.weaknesses ?? []).slice(0, 2).map((w, i) => (
-                        <div key={i} className="flex gap-1.5 items-start">
-                          <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                          <span className="text-xs text-foreground/80">{w}</span>
-                        </div>
-                      ))}
-                    </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2"><Tag className="w-4 h-4 text-muted-foreground" />Target Keywords</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {audit.targetKeywords.map((kw, i) => <Badge key={i} variant="outline" className="text-xs">{kw}</Badge>)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2"><Image className="w-4 h-4 text-muted-foreground" />Images ({audit.imageUrls.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {audit.imageUrls.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No images provided</p>
+                ) : (
+                  <div className="flex gap-2 flex-wrap">
+                    {audit.imageUrls.slice(0, 6).map((url, i) => (
+                      <img key={i} src={url} alt="" className="w-12 h-12 object-contain rounded border bg-white" />
+                    ))}
+                    {audit.imageUrls.length > 6 && <span className="text-xs text-muted-foreground self-center">+{audit.imageUrls.length - 6} more</span>}
                   </div>
-                  <div className="flex justify-end mt-3 border-t pt-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 text-xs"
-                      onClick={() => handleDeleteCompetitor(competitor.id)}
-                      disabled={deleteCompetitor.isPending}
-                      data-testid={`button-delete-competitor-${competitor.id}`}
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" /> Remove
-                    </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ── CONTENT TAB ── */}
+        <TabsContent value="content" className="space-y-6">
+          {!gc ? (
+            <Card className="border-dashed">
+              <CardContent className="py-16 flex flex-col items-center gap-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Wand2 className="w-7 h-7 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Generate Optimized Listing Content</h3>
+                  <p className="text-muted-foreground text-sm max-w-md">
+                    Our AI will create an Amazon-ready title (200 chars), 5 keyword-rich bullet points, 10 backend search terms, and a full HTML product description — all following Amazon guidelines.
+                  </p>
+                </div>
+                <Button onClick={handleGenerateContent} disabled={generateContent.isPending} size="lg" className="mt-2">
+                  {generateContent.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
+                  ) : (
+                    <><Wand2 className="w-4 h-4 mr-2" />Generate Content</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-muted-foreground" />
+                  Amazon-Ready Content
+                </h2>
+                <Button variant="outline" size="sm" onClick={handleGenerateContent} disabled={generateContent.isPending}>
+                  {generateContent.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Regenerate</>}
+                </Button>
+              </div>
+
+              {/* Title */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Type className="w-3.5 h-3.5" /> Title
+                    <Badge variant="outline" className={cn("text-xs font-mono ml-2", gc.title.length > 200 ? "text-destructive" : "text-muted-foreground")}>
+                      {gc.title.length}/200
+                    </Badge>
+                  </CardTitle>
+                  <CopyButton text={gc.title} label="Title" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-foreground font-medium leading-relaxed">{gc.title}</p>
+                </CardContent>
+              </Card>
+
+              {/* Bullet Points */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <AlignLeft className="w-3.5 h-3.5" /> Bullet Points
+                  </CardTitle>
+                  <CopyButton text={gc.bulletPoints.join("\n")} label="Bullet points" />
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3">
+                    {gc.bulletPoints.map((bp, i) => (
+                      <li key={i} className="flex gap-3 group">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                        <span className="text-sm leading-relaxed text-foreground/90">{bp}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Keywords */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Tag className="w-3.5 h-3.5" /> Backend Search Keywords
+                  </CardTitle>
+                  <CopyButton text={gc.keywords.join(", ")} label="Keywords" />
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {gc.keywords.map((kw, i) => (
+                      <Badge key={i} className="text-xs bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary/20 cursor-default">{kw}</Badge>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+
+              {/* HTML Description */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">HTML Description</CardTitle>
+                  <div className="flex gap-2">
+                    <CopyButton text={gc.htmlDescription} label="HTML description" />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div
+                    className="prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
+                    dangerouslySetInnerHTML={{ __html: gc.htmlDescription }}
+                  />
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-mono">View raw HTML</summary>
+                    <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-x-auto whitespace-pre-wrap font-mono">{gc.htmlDescription}</pre>
+                  </details>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── IMAGES TAB ── */}
+        <TabsContent value="images" className="space-y-6">
+          {!gi ? (
+            <Card className="border-dashed">
+              <CardContent className="py-16 flex flex-col items-center gap-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ImageIcon className="w-7 h-7 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Generate AI Product Images</h3>
+                  <p className="text-muted-foreground text-sm max-w-md">
+                    Creates 6 DALL-E images ready for Amazon upload: 2 clean main product shots, 2 feature infographics, and 2 lifestyle photos showing the product in use.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">Takes 60–90 seconds to generate all 6 images.</p>
+                </div>
+                <Button onClick={handleGenerateImages} disabled={generateImages.isPending} size="lg" className="mt-2">
+                  {generateImages.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating images...</>
+                  ) : (
+                    <><ImageIcon className="w-4 h-4 mr-2" />Generate 6 Images</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                  Generated Images
+                </h2>
+                <Button variant="outline" size="sm" onClick={handleGenerateImages} disabled={generateImages.isPending}>
+                  {generateImages.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <>Regenerate All</>}
+                </Button>
+              </div>
+
+              {(["main", "infographic", "lifestyle"] as const).map(type => {
+                const images = gi[type] ?? [];
+                const labels: Record<string, string> = {
+                  main: "Main Product Images",
+                  infographic: "Infographic Images",
+                  lifestyle: "Lifestyle Images",
+                };
+                const descriptions: Record<string, string> = {
+                  main: "Clean white background — ready for Amazon's main product image requirement",
+                  infographic: "Feature callout layout for secondary image slots",
+                  lifestyle: "In-context usage shots for conversion optimization",
+                };
+                if (images.length === 0) return null;
+                return (
+                  <div key={type}>
+                    <div className="mb-3">
+                      <h3 className="font-semibold text-base">{labels[type]}</h3>
+                      <p className="text-xs text-muted-foreground">{descriptions[type]}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {images.map((imgPath, i) => (
+                        <Card key={i} className="overflow-hidden border-border/50 group">
+                          <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+                            <img
+                              src={imgPath}
+                              alt={`${type} ${i + 1}`}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <CardContent className="p-3 flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground font-mono">{type}_{i + 1}.png</span>
+                            <a
+                              href={imgPath}
+                              download={`${audit.asin || audit.productName}_${type}_${i + 1}.png`}
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Download
+                            </a>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {allGenImages.length > 0 && (
+                <div className="pt-2 flex justify-end">
+                  <p className="text-xs text-muted-foreground">
+                    {allGenImages.length} images generated — right-click to save or use the Download links above
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── COMPETITORS TAB ── */}
+        <TabsContent value="competitors" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              <Users className="w-5 h-5 text-muted-foreground" />Competitor Analysis
+            </h2>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/audits/${id}/competitors/new`}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
+              </Link>
+            </Button>
           </div>
-        )}
-      </div>
+
+          {audit.competitors.length === 0 ? (
+            <Card className="border-dashed bg-muted/20">
+              <CardContent className="py-10 text-center">
+                <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="font-semibold text-foreground/70 mb-1">No competitors added</p>
+                <p className="text-sm text-muted-foreground mb-4">Compare your listing against top competitors to find gaps.</p>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/audits/${id}/competitors/new`}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Competitor</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-5 gap-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4">
+                <span className="col-span-2">Competitor</span>
+                <span className="text-center">Score</span>
+                <span className="col-span-2">Strengths / Weaknesses</span>
+              </div>
+              {audit.competitors.map(competitor => (
+                <Card key={competitor.id} className="border-border/50">
+                  <CardContent className="p-5">
+                    <div className="grid grid-cols-5 gap-4 items-start">
+                      <div className="col-span-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-sm">{competitor.productName}</p>
+                          {competitor.asin && <Badge variant="outline" className="font-mono text-[10px]">{competitor.asin}</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{competitor.title}</p>
+                      </div>
+                      <div className="flex justify-center">
+                        <ScoreRing score={competitor.overallScore} size="sm" showLabel={false} />
+                      </div>
+                      <div className="col-span-2 space-y-2">
+                        {competitor.strengths.slice(0, 2).map((s, i) => (
+                          <div key={i} className="flex gap-1.5 items-start">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                            <span className="text-xs text-foreground/80">{s}</span>
+                          </div>
+                        ))}
+                        {(competitor.weaknesses ?? []).slice(0, 2).map((w, i) => (
+                          <div key={i} className="flex gap-1.5 items-start">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                            <span className="text-xs text-foreground/80">{w}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-3 border-t pt-3">
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 text-xs"
+                        onClick={() => handleDeleteCompetitor(competitor.id)} disabled={deleteCompetitor.isPending}>
+                        <Trash2 className="w-3 h-3 mr-1" /> Remove
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

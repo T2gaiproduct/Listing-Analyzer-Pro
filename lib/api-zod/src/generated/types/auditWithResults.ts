@@ -8,6 +8,8 @@
 import type { AuditResult } from "./auditResult";
 import type { AuditWithResultsStatus } from "./auditWithResultsStatus";
 import type { Competitor } from "./competitor";
+import type { GeneratedContent } from "./generatedContent";
+import type { GeneratedImages } from "./generatedImages";
 
 export interface AuditWithResults {
   id: number;
@@ -24,6 +26,8 @@ export interface AuditWithResults {
   status: AuditWithResultsStatus;
   result: AuditResult;
   competitors: Competitor[];
+  generatedContent?: GeneratedContent;
+  generatedImages?: GeneratedImages;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -2,10 +2,12 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import auditsRouter from "./audits";
 import competitorsRouter from "./competitors";
+import fetchListingRouter from "./fetch-listing";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(fetchListingRouter);
 router.use(auditsRouter);
 router.use(competitorsRouter);
 
