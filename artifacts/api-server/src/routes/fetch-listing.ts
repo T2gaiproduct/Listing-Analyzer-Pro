@@ -16,7 +16,9 @@ router.post("/fetch-listing", async (req, res): Promise<void> => {
     res.json(listing);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch listing";
-    res.status(400).json({ error: message });
+    req.log.warn({ err, asin, url }, "fetch-listing failed");
+    const isCaptcha = message.toLowerCase().includes("captcha") || message.toLowerCase().includes("blocked");
+    res.status(isCaptcha ? 503 : 400).json({ error: message, captchaBlocked: isCaptcha });
   }
 });
 
