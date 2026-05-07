@@ -159,13 +159,21 @@ export default function AuditDetail({ id }: { id: number }) {
     });
   };
 
+  const formatAiError = (err: unknown): string => {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (raw.toLowerCase().includes("spend limit") || raw.includes("403")) {
+      return "The AI service monthly spend limit has been reached. Please upgrade your Replit plan to continue.";
+    }
+    return raw || "Something went wrong. Please try again.";
+  };
+
   const handleGenerateContent = () => {
     generateContent.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
         toast({ title: "Content generated", description: "Your optimized listing content is ready." });
       },
-      onError: () => toast({ title: "Generation failed", variant: "destructive" }),
+      onError: (err) => toast({ title: "Content generation failed", description: formatAiError(err), variant: "destructive" }),
     });
   };
 
@@ -180,10 +188,7 @@ export default function AuditDetail({ id }: { id: number }) {
           toast({ title: "Image generation failed", description: "No images were returned. Please try again.", variant: "destructive" });
         }
       },
-      onError: (err) => {
-        const msg = err instanceof Error ? err.message : "Please try again.";
-        toast({ title: "Image generation failed", description: msg, variant: "destructive" });
-      },
+      onError: (err) => toast({ title: "Image generation failed", description: formatAiError(err), variant: "destructive" }),
     });
   };
 
@@ -202,6 +207,18 @@ export default function AuditDetail({ id }: { id: number }) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Failed banner */}
+      {audit.status === "failed" && (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-destructive">AI Analysis Failed</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              The AI service could not analyze this listing. This is usually caused by a monthly spend limit being reached on the Replit AI integration — upgrading your Replit plan will resolve it.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between border-b pb-6">
         <div className="flex items-start gap-4">

@@ -80,6 +80,8 @@ router.post("/audits", async (req, res): Promise<void> => {
 
     res.status(201).json({ ...updatedAudit, competitors });
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err, auditId: audit.id }, "AI analysis failed");
     await db
       .update(auditsTable)
       .set({ status: "failed", updatedAt: new Date() })
@@ -90,6 +92,7 @@ router.post("/audits", async (req, res): Promise<void> => {
       result: null,
       competitors: [],
       status: "failed",
+      failureReason: errMsg,
     });
   }
 });
