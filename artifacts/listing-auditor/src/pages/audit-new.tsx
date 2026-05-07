@@ -65,10 +65,11 @@ export default function AuditNew() {
         onError: (err) => {
           const msg = err instanceof Error ? err.message : "Unknown error";
           const isBlocked = msg.toLowerCase().includes("captcha") || msg.toLowerCase().includes("blocked");
+          const isNotFound = msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("404");
           toast({
-            title: "Auto-fetch failed",
+            title: isBlocked ? "Amazon blocked the request" : isNotFound ? "Product not found" : "Auto-fetch failed",
             description: isBlocked
-              ? "Amazon blocked the request from this server. Switch to 'Paste Manually' to enter your listing data."
+              ? "Amazon blocks automated fetches from cloud servers. Switch to 'Paste Manually' to enter your listing data."
               : msg,
             variant: "destructive",
           });
@@ -182,7 +183,7 @@ export default function AuditNew() {
                 </p>
                 <div className="flex gap-3">
                   <Input
-                    placeholder="B09G9FPHY6  or  https://amazon.com/dp/B09G9FPHY6"
+                    placeholder="B09G9FPHY6  or  https://www.amazon.in/dp/B09G9FPHY6"
                     value={asinInput}
                     onChange={e => setAsinInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") handleFetch(); }}

@@ -50,9 +50,19 @@ const BASE_HEADERS = {
   "sec-ch-ua-platform": '"Windows"',
 };
 
-async function getSessionCookies(): Promise<string> {
+function extractMarketplaceDomain(url: string): string {
   try {
-    const res = await fetch("https://www.amazon.com/", {
+    const host = new URL(url).hostname; // e.g. www.amazon.in
+    const match = host.match(/amazon\.[a-z.]+$/i);
+    return match ? match[0] : "amazon.com";
+  } catch {
+    return "amazon.com";
+  }
+}
+
+async function getSessionCookies(domain: string): Promise<string> {
+  try {
+    const res = await fetch(`https://www.${domain}/`, {
       headers: BASE_HEADERS,
       signal: AbortSignal.timeout(8000),
     });
@@ -70,12 +80,13 @@ async function getSessionCookies(): Promise<string> {
   }
 }
 
-async function fetchAmazonPage(asin: string, cookies: string): Promise<string> {
-  const url = `https://www.amazon.com/dp/${asin}?th=1&psc=1`;
+async function fetchAmazonPage(asin: string, cookies: string, domain = "amazon.com"): Promise<string> {
+  const url = `https://www.${domain}/dp/${asin}?th=1&psc=1`;
   const headers: Record<string, string> = {
     ...BASE_HEADERS,
+    "Accept-Language": domain.endsWith(".in") ? "en-IN,en;q=0.9" : "en-US,en;q=0.9",
     "Sec-Fetch-Site": "same-origin",
-    Referer: "https://www.amazon.com/",
+    Referer: `https://www.${domain}/`,
   };
   if (cookies) headers["Cookie"] = cookies;
 
@@ -240,18 +251,18 @@ function extractKeywords(title: string, bullets: string[]): string[] {
   return [...new Set([...phrases.slice(0, 4), ...singles])].slice(0, 10);
 }
 
-export async function fetchListingByAsin(asin: string): Promise<FetchedListing> {
+export async function fetchListingByAsin(asin: string, domain = "amazon.com"): Promise<FetchedListing> {
   const normalizedAsin = asin.trim().toUpperCase();
   if (!isValidAsin(normalizedAsin)) {
     throw new Error(`Invalid ASIN format: ${asin}. Must be 10 alphanumeric characters (e.g. B09G9FPHY6).`);
   }
 
   // Fetch session cookies first to bypass basic bot detection
-  const cookies = await getSessionCookies();
+  const cookies = await getSessionCookies(domain);
 
   let html: string;
   try {
-    html = await fetchAmazonPage(normalizedAsin, cookies);
+    html = await fetchAmazonPage(normalizedAsin, cookies, domain);
   } catch (err) {
     if (err instanceof Error && err.message === "CAPTCHA") {
       throw new Error(
@@ -261,11 +272,16 @@ export async function fetchListingByAsin(asin: string): Promise<FetchedListing> 
     }
     // Retry once without cookies
     try {
-      html = await fetchAmazonPage(normalizedAsin, "");
+      html = await fetchAmazonPage(normalizedAsin, "", domain);
     } catch (retryErr) {
       if (retryErr instanceof Error && retryErr.message === "CAPTCHA") {
         throw new Error(
           "Amazon blocked this request (CAPTCHA). Please use the manual entry option to paste your listing data directly.",
+        );
+      }
+      if (retryErr instanceof Error && retryErr.message.includes("404") && domain === "amazon.com") {
+        throw new Error(
+          `Product not found on amazon.com. If this is a non-US listing, paste the full URL from your marketplace (e.g. https://www.amazon.in/dp/${normalizedAsin}).`,
         );
       }
       throw retryErr;
@@ -291,7 +307,8 @@ export async function fetchListingByUrl(url: string): Promise<FetchedListing> {
       "Could not find an ASIN in that URL. Please paste a direct Amazon product page URL (e.g. https://amazon.com/dp/B09G9FPHY6).",
     );
   }
-  return fetchListingByAsin(asin);
+  const domain = extractMarketplaceDomain(url);
+  return fetchListingByAsin(asin, domain);
 }
 
 export async function fetchListing(input: { asin?: string; url?: string }): Promise<FetchedListing> {
