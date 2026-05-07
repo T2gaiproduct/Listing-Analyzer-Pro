@@ -1,4 +1,4 @@
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { generateImageBuffer } from "@workspace/integrations-openai-ai-server/image";
 import * as fs from "fs";
 import * as path from "path";
 import type { GeneratedImages } from "@workspace/db";
@@ -13,21 +13,12 @@ function ensureDir(dir: string): void {
 
 async function generateAndSaveImage(
   prompt: string,
-  outputPath: string
+  outputPath: string,
 ): Promise<string> {
-  const response = await openai.images.generate({
-    model: "dall-e-3",
-    prompt,
-    n: 1,
-    size: "1024x1024",
-    response_format: "b64_json",
-    quality: "standard",
-  });
-
-  const b64 = response.data[0]?.b64_json;
-  if (!b64) throw new Error("No image data returned from OpenAI");
-
-  const buffer = Buffer.from(b64, "base64");
+  const buffer = await generateImageBuffer(prompt, "1024x1024");
+  if (!buffer || buffer.length === 0) {
+    throw new Error("No image data returned from OpenAI");
+  }
   fs.writeFileSync(outputPath, buffer);
   return outputPath;
 }
@@ -43,63 +34,69 @@ export async function generateProductImages(data: {
   ensureDir(dir);
 
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const topFeature = data.bulletPoints[0]?.slice(0, 120) || "";
-  const secondFeature = data.bulletPoints[1]?.slice(0, 120) || "";
 
   const imageSpecs = [
     {
       type: "main",
       index: 0,
-      prompt: `Professional Amazon product photography of ${productDesc}. Pure white background (#FFFFFF), centered product, studio lighting with soft shadows, multiple angles showing the full product. No text, no logos, no props. High-resolution commercial product photo, photo-realistic, 8K quality.`,
+      prompt: `Professional Amazon product photography of ${productDesc}. Pure white background, centered product, studio lighting with soft shadows. No text, no logos, no watermarks. High-resolution commercial product photo.`,
     },
     {
       type: "main",
       index: 1,
-      prompt: `Professional Amazon product photo of ${productDesc} showing all included accessories and components laid out flat. Pure white background, overhead shot (flat lay), studio lighting. No text overlays. Clean, commercial photography style.`,
+      prompt: `Professional Amazon product photo of ${productDesc} showing all included accessories laid out flat. Pure white background, overhead flat-lay shot, studio lighting. No text overlays. Clean commercial photography.`,
     },
     {
       type: "infographic",
       index: 0,
-      prompt: `Amazon listing infographic image for ${productDesc}. Clean white background with the product prominently displayed in the center. Minimalist design with 3-4 simple arrow callout lines pointing to key product parts. Modern flat design style with navy blue (#003087) and orange (#FF6600) accent colors. Professional e-commerce graphic. No text (text will be added separately). Photo-realistic product rendering.`,
+      prompt: `Amazon listing infographic image for ${productDesc}. Clean white background with the product prominently displayed in the center. Simple arrow callout lines pointing to key product features. Modern design with navy blue and orange accent colors. No text — only visual layout.`,
     },
     {
       type: "infographic",
       index: 1,
-      prompt: `Amazon product comparison/specification infographic for ${productDesc}. Split layout showing the product prominently on a white background with simple geometric icon placeholders for feature highlights. Clean, modern design with navy and orange color scheme. Professional e-commerce style. No text. Icon boxes arranged around the product.`,
+      prompt: `Amazon product feature highlight image for ${productDesc}. Product on white background with geometric icon placeholders for feature callouts arranged around it. Clean, modern e-commerce design with navy and orange color scheme. No text.`,
     },
     {
       type: "lifestyle",
       index: 0,
-      prompt: `Amazon lifestyle product photo of ${productDesc} being used by a person in a modern, aspirational setting. Natural lighting, realistic environment, genuine use case. Professional photography. The product is the hero of the image. Warm, inviting atmosphere. Shot on camera, photo-realistic.`,
+      prompt: `Amazon lifestyle product scene for ${productDesc}. The product is placed prominently in a modern, beautifully decorated home setting. Warm natural lighting, clean and aspirational interior design. No people. Product is the focal point. Professional commercial photography aesthetic.`,
     },
     {
       type: "lifestyle",
       index: 1,
-      prompt: `Amazon lifestyle image showing ${productDesc} in a beautifully styled real-world setting. Aspirational home or office environment with perfect styling and professional photography. The product is prominently featured and in active use. Natural daylight or warm artificial lighting. Premium lifestyle aesthetic, editorial quality.`,
+      prompt: `Amazon product scene for ${productDesc} styled in an upscale, contemporary environment. The product is displayed prominently on a clean surface with tasteful props and natural light. No people, no text. Editorial-quality product styling, premium brand aesthetic.`,
     },
   ];
 
   const results: GeneratedImages = { main: [], infographic: [], lifestyle: [] };
-  const errors: string[] = [];
+  const errors: Array<{ spec: string; error: string }> = [];
 
-  await Promise.all(
-    imageSpecs.map(async (spec) => {
-      const filename = `${spec.type}_${spec.index}.png`;
-      const filePath = path.join(dir, filename);
-      const urlPath = `/api/images/${data.auditId}/${filename}`;
-
-      try {
-        await generateAndSaveImage(spec.prompt, filePath);
-        results[spec.type as keyof GeneratedImages].push(urlPath);
-      } catch (err) {
-        errors.push(`${spec.type}_${spec.index}: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    })
-  );
+  // Generate sequentially to avoid rate limits (gpt-image-1 is expensive)
+  for (const spec of imageSpecs) {
+    const filename = `${spec.type}_${spec.index}.png`;
+    const filePath = path.join(dir, filename);
+    const urlPath = `/api/images/${data.auditId}/${filename}`;
+    try {
+      await generateAndSaveImage(spec.prompt, filePath);
+      results[spec.type as keyof GeneratedImages].push(urlPath);
+    } catch (err) {
+      errors.push({
+        spec: `${spec.type}_${spec.index}`,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   results.main.sort();
   results.infographic.sort();
   results.lifestyle.sort();
+
+  const totalGenerated = results.main.length + results.infographic.length + results.lifestyle.length;
+
+  if (totalGenerated === 0) {
+    const errorSummary = errors.map((e) => `${e.spec}: ${e.error}`).join("; ");
+    throw new Error(`All image generations failed: ${errorSummary}`);
+  }
 
   return results;
 }

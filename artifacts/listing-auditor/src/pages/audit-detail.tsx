@@ -171,11 +171,19 @@ export default function AuditDetail({ id }: { id: number }) {
 
   const handleGenerateImages = () => {
     generateImages.mutate({ id }, {
-      onSuccess: () => {
+      onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
-        toast({ title: "Images generated", description: "6 product images are ready to download." });
+        const count = (data.main?.length ?? 0) + (data.infographic?.length ?? 0) + (data.lifestyle?.length ?? 0);
+        if (count > 0) {
+          toast({ title: "Images generated", description: `${count} product images are ready to download.` });
+        } else {
+          toast({ title: "Image generation failed", description: "No images were returned. Please try again.", variant: "destructive" });
+        }
       },
-      onError: () => toast({ title: "Image generation failed", variant: "destructive" }),
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : "Please try again.";
+        toast({ title: "Image generation failed", description: msg, variant: "destructive" });
+      },
     });
   };
 
@@ -190,6 +198,7 @@ export default function AuditDetail({ id }: { id: number }) {
   const gc = audit.generatedContent;
   const gi = audit.generatedImages;
   const allGenImages = gi ? [...(gi.main ?? []), ...(gi.infographic ?? []), ...(gi.lifestyle ?? [])] : [];
+  const hasGeneratedImages = allGenImages.length > 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -437,7 +446,7 @@ export default function AuditDetail({ id }: { id: number }) {
 
         {/* ── IMAGES TAB ── */}
         <TabsContent value="images" className="space-y-6">
-          {!gi ? (
+          {!hasGeneratedImages ? (
             <Card className="border-dashed">
               <CardContent className="py-16 flex flex-col items-center gap-4 text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
