@@ -266,6 +266,29 @@ router.post("/audits/:id/generate-images", async (req, res): Promise<void> => {
   }
 });
 
+function buildAllRecordsFromAudit(audit: typeof auditsTable.$inferSelect): ImageRecord[] {
+  if (audit.imageRecords && (audit.imageRecords as ImageRecord[]).length > 0) {
+    return audit.imageRecords as ImageRecord[];
+  }
+  const legacy = audit.generatedImages as { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null;
+  if (!legacy) return [];
+  const records: ImageRecord[] = [];
+  (["main", "infographic", "lifestyle"] as const).forEach((t) => {
+    (legacy[t] ?? []).forEach((url, i) => {
+      records.push({
+        id: `${t}_${i}`,
+        type: t,
+        index: i,
+        style: "premium",
+        aspectRatio: "1:1",
+        currentUrl: url,
+        versions: [],
+      });
+    });
+  });
+  return records;
+}
+
 router.post("/audits/:id/images/:type/:index/regenerate", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id ?? "");
   const index = parseInt(req.params.index ?? "");
@@ -279,9 +302,9 @@ router.post("/audits/:id/images/:type/:index/regenerate", async (req, res): Prom
   const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  const records = (audit.imageRecords as ImageRecord[] | null) ?? [];
+  const records = buildAllRecordsFromAudit(audit);
   const recordId = `${type}_${index}`;
-  let existingRecord = records.find(r => r.id === recordId);
+  const existingRecord = records.find(r => r.id === recordId);
 
   if (!existingRecord) {
     res.status(404).json({ error: `Image ${recordId} not found. Generate all images first.` });
@@ -325,7 +348,7 @@ router.post("/audits/:id/images/:type/:index/edit", async (req, res): Promise<vo
   const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  const records = (audit.imageRecords as ImageRecord[] | null) ?? [];
+  const records = buildAllRecordsFromAudit(audit);
   const recordId = `${type}_${index}`;
   const existingRecord = records.find(r => r.id === recordId);
 

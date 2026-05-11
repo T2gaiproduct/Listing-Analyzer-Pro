@@ -454,7 +454,7 @@ export function ImageGallery({
       <Dialog
         open={!!editRecord}
         onOpenChange={(open) => {
-          if (!open) setEditRecord(null);
+          if (!open && !loadingIds.has(editRecord?.id ?? "")) setEditRecord(null);
         }}
       >
         <DialogContent className="max-w-2xl">
@@ -482,11 +482,17 @@ export function ImageGallery({
                   <p className="text-xs font-medium text-muted-foreground mb-2">
                     After (shown on apply)
                   </p>
-                  <div className="rounded-lg border bg-muted/40 aspect-square flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <div className="rounded-lg border bg-muted/40 aspect-square flex flex-col items-center justify-center gap-3 text-muted-foreground">
                     {loadingIds.has(editRecord.id) ? (
                       <>
-                        <RefreshCw className="h-6 w-6 animate-spin" />
-                        <span className="text-xs">Applying edit…</span>
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                          <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-primary" />
+                        </div>
+                        <div className="text-center px-4">
+                          <p className="text-sm font-medium text-foreground">Generating edit…</p>
+                          <p className="text-xs mt-1">This takes 30–60 seconds</p>
+                        </div>
                       </>
                     ) : (
                       <>
