@@ -1,0 +1,297 @@
+Build and upgrade the existing Amazon Listing Auditor & Optimizer Tool on Replit into a complete AI-powered SaaS platform with enterprise-level architecture, modern UI/UX, role-based access, payment integration, and scalable credit-based billing.
+
+Core Objective:
+Transform the current tool into a professional SaaS application that helps Amazon sellers optimize listings, generate high-converting content, create premium product images, and manage their account usage through a subscription + credits system.
+
+========================================
+
+AI MODEL & IMAGE GENERATION IMPROVEMENTS
+========================================
+
+Current Issue:
+The generated product images are not detailed, attractive, or conversion-focused enough for ecommerce buyers.
+
+Requirements:
+
+Replace or integrate the image generation flow with ChatGPT/OpenAI image generation capabilities for better-quality AI-generated ecommerce creatives.
+Generated images should look like:
+Premium Amazon listing images
+High-conversion ecommerce creatives
+Clean white background product shots
+Infographics
+Lifestyle images
+Feature highlight graphics
+Comparison graphics
+Dimensions/specification graphics
+Brand story banners
+Ensure images are:
+Detailed
+Realistic
+Sharp
+Professionally composed
+Mobile-friendly
+Amazon-compliant
+
+Image Editing Feature:
+
+In the image generation section, add an option:
+“Edit Generated Image with Manual Prompt”
+User should be able to:
+Enter additional prompt instructions
+Modify generated images
+Regenerate specific image only
+Choose styles like:
+Premium
+Minimal
+Luxury
+Modern
+Infographic
+Lifestyle
+Add:
+Aspect ratio options
+Resolution selector
+Download options
+Version history
+Before vs After preview
+
+Convert the tool into a full SaaS platform with scalable backend architecture.
+
+Tech Expectations:
+
+Modern frontend
+Responsive design
+Fast dashboard
+Modular backend
+Scalable database structure
+Secure authentication
+API-ready architecture
+Multi-user support
+Role-based permissions
+Enterprise-ready deployment
+
+Suggested Stack:
+
+Frontend: React / Next.js
+Backend: Node.js / Express
+Database: PostgreSQL or MongoDB
+Authentication: JWT/Auth Provider
+Cloud Storage: AWS S3 or equivalent
+Queue/Workers for AI jobs
+Stripe/Razorpay payment integration
+Credit-based billing engine
+
+Create a professional frontend website where customers can:
+
+Browse software features
+View pricing plans
+Compare packages
+Watch demos
+Read FAQs
+Read testimonials
+Contact support
+View use cases
+Sign up
+Sign in
+Buy subscriptions
+Upgrade plans
+Access dashboard
+
+Pages Required:
+
+Home
+Features
+Pricing
+About
+Contact
+Login
+Signup
+Dashboard
+Blog
+Help Center
+Terms & Privacy
+
+UI Requirements:
+
+Premium SaaS design
+Enterprise-level look
+Clean animations
+Modern cards/tables
+Responsive mobile UI
+Dark/light mode
+SEO optimized
+
+Create 4 SaaS packages:
+
+Package A
+Package B
+Package C
+Package D (Enterprise)
+
+Each package should:
+
+Work on monthly/yearly subscription
+Include different credit allocations
+Have feature limitations based on plan
+Allow add-on credit purchases
+
+Credit Usage Logic:
+Credits should deduct based on:
+
+Listing audits
+AI content generation
+Image generation
+Image editing
+Keyword research
+Competitor analysis
+Export downloads
+Advanced AI operations
+
+Add:
+
+Credit usage tracking
+Low balance alerts
+Auto-renew options
+Upgrade prompts
+Invoice generation
+Usage analytics
+
+Integrate payment systems:
+
+Stripe
+Razorpay
+PayPal (optional)
+
+Features:
+
+Subscription billing
+Auto renewals
+Failed payment retries
+Coupon system
+Promo codes
+Tax/GST support
+Invoice download
+Transaction history
+
+Create a powerful Super Admin Dashboard.
+
+Super Admin should be able to:
+
+User Management:
+
+View all customers
+Search/filter customers
+View account status
+Suspend/activate users
+Delete accounts
+
+Package Management:
+
+Create/edit/delete packages
+Assign credits
+Change pricing
+Enable/disable features
+Offer trial plans
+
+Analytics:
+
+Total revenue
+Monthly recurring revenue
+Active users
+Credit usage
+AI usage analytics
+Image generation analytics
+Conversion reports
+
+Billing:
+
+View all payments
+Refund management
+Failed payments
+Subscription tracking
+
+Content Monitoring:
+
+View generated content
+View generated images
+View audits performed
+Track exports/downloads
+
+Notifications:
+
+Payment reminders
+Subscription expiry alerts
+Usage alerts
+Email automation
+
+Role-Based Access:
+Super admin can create roles like:
+
+Manager
+Sales
+Support
+Operations
+Content Reviewer
+Finance
+Marketing
+
+Each role should have customizable permissions.
+
+Customer dashboard should include:
+
+Overview:
+
+Current package
+Credits remaining
+Usage statistics
+Recent activity
+
+Content Area:
+
+Generated listings
+SEO content
+Product titles
+Bullet points
+Descriptions
+A+ content
+
+Image Area:
+
+Generated images
+Image editing
+Download center
+Image history
+
+Billing:
+
+Payments made
+Active subscription
+Upgrade package
+Invoice downloads
+
+Team Management:
+Customer can:
+
+Add team members
+Assign roles
+Restrict permissions
+Manage internal users
+
+Roles Examples:
+
+Content Writer
+Designer
+Amazon Manager
+Analyst
+Viewer
+
+Additional Features:
+
+Notifications
+AI recommendations
+Saved templates
+Export options
+Brand profiles
+Product history
+Workflow tracking
+
+Improve and expand existing functionality:
