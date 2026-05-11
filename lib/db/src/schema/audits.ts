@@ -30,9 +30,38 @@ export const generatedImagesSchema = z.object({
   lifestyle: z.array(z.string()),
 });
 
+export const IMAGE_STYLES = ["premium", "minimal", "luxury", "modern", "infographic", "lifestyle"] as const;
+export const ASPECT_RATIOS = ["1:1", "3:2", "2:3"] as const;
+export type ImageStyle = (typeof IMAGE_STYLES)[number];
+export type AspectRatio = (typeof ASPECT_RATIOS)[number];
+
+export const imageVersionSchema = z.object({
+  url: z.string(),
+  style: z.string(),
+  aspectRatio: z.string(),
+  prompt: z.string().optional(),
+  isEdit: z.boolean(),
+  generatedAt: z.string(),
+});
+
+export const imageRecordSchema = z.object({
+  id: z.string(),
+  type: z.enum(["main", "infographic", "lifestyle"]),
+  index: z.number(),
+  style: z.string(),
+  aspectRatio: z.string(),
+  currentUrl: z.string(),
+  versions: z.array(imageVersionSchema),
+});
+
+export const imageRecordsSchema = z.array(imageRecordSchema);
+
 export type AuditResult = z.infer<typeof auditResultSchema>;
 export type GeneratedContent = z.infer<typeof generatedContentSchema>;
 export type GeneratedImages = z.infer<typeof generatedImagesSchema>;
+export type ImageVersion = z.infer<typeof imageVersionSchema>;
+export type ImageRecord = z.infer<typeof imageRecordSchema>;
+export type ImageRecords = z.infer<typeof imageRecordsSchema>;
 
 export const auditsTable = pgTable("audits", {
   id: serial("id").primaryKey(),
@@ -48,6 +77,7 @@ export const auditsTable = pgTable("audits", {
   result: jsonb("result").$type<AuditResult>(),
   generatedContent: jsonb("generated_content").$type<GeneratedContent>(),
   generatedImages: jsonb("generated_images").$type<GeneratedImages>(),
+  imageRecords: jsonb("image_records").$type<ImageRecords>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

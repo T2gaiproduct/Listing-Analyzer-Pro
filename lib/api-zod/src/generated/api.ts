@@ -67,7 +67,7 @@ export const CreateAuditBody = zod.object({
 });
 
 /**
- * @summary Get aggregate stats across all audits
+ * @summary Get audit statistics
  */
 export const GetAuditStatsResponse = zod.object({
   totalAudits: zod.number(),
@@ -89,7 +89,7 @@ export const GetAuditStatsResponse = zod.object({
 });
 
 /**
- * @summary Get a specific audit with full results
+ * @summary Get a single audit with results
  */
 export const GetAuditParams = zod.object({
   id: zod.coerce.number(),
@@ -161,6 +161,28 @@ export const GetAuditResponse = zod.object({
       lifestyle: zod.array(zod.string()),
     })
     .optional(),
+  imageRecords: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        type: zod.enum(["main", "infographic", "lifestyle"]),
+        index: zod.number(),
+        style: zod.string(),
+        aspectRatio: zod.string(),
+        currentUrl: zod.string(),
+        versions: zod.array(
+          zod.object({
+            url: zod.string(),
+            style: zod.string(),
+            aspectRatio: zod.string(),
+            prompt: zod.string().optional(),
+            isEdit: zod.boolean(),
+            generatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -187,16 +209,129 @@ export const GenerateContentResponse = zod.object({
 });
 
 /**
- * @summary Generate product images using AI
+ * @summary Generate all product images using AI
  */
 export const GenerateImagesParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GenerateImagesResponse = zod.object({
-  main: zod.array(zod.string()),
-  infographic: zod.array(zod.string()),
-  lifestyle: zod.array(zod.string()),
+export const GenerateImagesBody = zod.object({
+  style: zod
+    .enum([
+      "premium",
+      "minimal",
+      "luxury",
+      "modern",
+      "infographic",
+      "lifestyle",
+    ])
+    .optional(),
+  aspectRatio: zod.enum(["1:1", "3:2", "2:3"]).optional(),
+});
+
+export const GenerateImagesResponseItem = zod.object({
+  id: zod.string(),
+  type: zod.enum(["main", "infographic", "lifestyle"]),
+  index: zod.number(),
+  style: zod.string(),
+  aspectRatio: zod.string(),
+  currentUrl: zod.string(),
+  versions: zod.array(
+    zod.object({
+      url: zod.string(),
+      style: zod.string(),
+      aspectRatio: zod.string(),
+      prompt: zod.string().optional(),
+      isEdit: zod.boolean(),
+      generatedAt: zod.string(),
+    }),
+  ),
+});
+export const GenerateImagesResponse = zod.array(GenerateImagesResponseItem);
+
+/**
+ * @summary Regenerate a single product image with optional style and aspect ratio
+ */
+export const RegenerateImageParams = zod.object({
+  id: zod.coerce.number(),
+  type: zod.enum(["main", "infographic", "lifestyle"]),
+  index: zod.coerce.number(),
+});
+
+export const RegenerateImageBody = zod.object({
+  style: zod
+    .enum([
+      "premium",
+      "minimal",
+      "luxury",
+      "modern",
+      "infographic",
+      "lifestyle",
+    ])
+    .optional(),
+  aspectRatio: zod.enum(["1:1", "3:2", "2:3"]).optional(),
+});
+
+export const RegenerateImageResponse = zod.object({
+  id: zod.string(),
+  type: zod.enum(["main", "infographic", "lifestyle"]),
+  index: zod.number(),
+  style: zod.string(),
+  aspectRatio: zod.string(),
+  currentUrl: zod.string(),
+  versions: zod.array(
+    zod.object({
+      url: zod.string(),
+      style: zod.string(),
+      aspectRatio: zod.string(),
+      prompt: zod.string().optional(),
+      isEdit: zod.boolean(),
+      generatedAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Edit a generated image with a custom prompt
+ */
+export const EditImageParams = zod.object({
+  id: zod.coerce.number(),
+  type: zod.enum(["main", "infographic", "lifestyle"]),
+  index: zod.coerce.number(),
+});
+
+export const EditImageBody = zod.object({
+  prompt: zod.string(),
+  style: zod
+    .enum([
+      "premium",
+      "minimal",
+      "luxury",
+      "modern",
+      "infographic",
+      "lifestyle",
+    ])
+    .optional(),
+  aspectRatio: zod.enum(["1:1", "3:2", "2:3"]).optional(),
+});
+
+export const EditImageResponse = zod.object({
+  id: zod.string(),
+  type: zod.enum(["main", "infographic", "lifestyle"]),
+  index: zod.number(),
+  style: zod.string(),
+  aspectRatio: zod.string(),
+  currentUrl: zod.string(),
+  versions: zod.array(
+    zod.object({
+      url: zod.string(),
+      style: zod.string(),
+      aspectRatio: zod.string(),
+      prompt: zod.string().optional(),
+      isEdit: zod.boolean(),
+      generatedAt: zod.string(),
+    }),
+  ),
 });
 
 /**

@@ -6,9 +6,14 @@ import {
   GetAuditParams,
   DeleteAuditParams,
 } from "@workspace/api-zod";
+import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
 import { generateListingContent } from "../lib/content-generator";
-import { generateProductImages } from "../lib/image-generator";
+import {
+  generateProductImages,
+  regenerateSingleImage,
+  editSingleImage,
+} from "../lib/image-generator";
 
 const router: IRouter = Router();
 
@@ -231,22 +236,129 @@ router.post("/audits/:id/generate-images", async (req, res): Promise<void> => {
   const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
+  const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
+
   try {
-    const generatedImages = await generateProductImages({
+    const imageRecords = await generateProductImages({
       auditId: id,
       productName: audit.productName,
       category: audit.category,
       title: audit.title,
       bulletPoints: audit.bulletPoints as string[],
+      style: body?.style,
+      aspectRatio: body?.aspectRatio,
     });
 
+    const legacyImages = {
+      main: imageRecords.filter(r => r.type === "main").map(r => r.currentUrl),
+      infographic: imageRecords.filter(r => r.type === "infographic").map(r => r.currentUrl),
+      lifestyle: imageRecords.filter(r => r.type === "lifestyle").map(r => r.currentUrl),
+    };
+
     await db.update(auditsTable)
-      .set({ generatedImages, updatedAt: new Date() })
+      .set({ generatedImages: legacyImages, imageRecords, updatedAt: new Date() })
       .where(eq(auditsTable.id, id));
 
-    res.json(generatedImages);
+    res.json(imageRecords);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Image generation failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/audits/:id/images/:type/:index/regenerate", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  const index = parseInt(req.params.index ?? "");
+  const type = req.params.type as "main" | "infographic" | "lifestyle";
+
+  if (isNaN(id) || isNaN(index) || !["main", "infographic", "lifestyle"].includes(type)) {
+    res.status(400).json({ error: "Invalid parameters" });
+    return;
+  }
+
+  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const records = (audit.imageRecords as ImageRecord[] | null) ?? [];
+  const recordId = `${type}_${index}`;
+  let existingRecord = records.find(r => r.id === recordId);
+
+  if (!existingRecord) {
+    res.status(404).json({ error: `Image ${recordId} not found. Generate all images first.` });
+    return;
+  }
+
+  const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
+
+  try {
+    const updatedRecord = await regenerateSingleImage({
+      auditId: id,
+      productName: audit.productName,
+      category: audit.category,
+      existingRecord,
+      style: body?.style,
+      aspectRatio: body?.aspectRatio,
+    });
+
+    const newRecords = records.map(r => r.id === recordId ? updatedRecord : r);
+    await db.update(auditsTable)
+      .set({ imageRecords: newRecords, updatedAt: new Date() })
+      .where(eq(auditsTable.id, id));
+
+    res.json(updatedRecord);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Image regeneration failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/audits/:id/images/:type/:index/edit", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  const index = parseInt(req.params.index ?? "");
+  const type = req.params.type as "main" | "infographic" | "lifestyle";
+
+  if (isNaN(id) || isNaN(index) || !["main", "infographic", "lifestyle"].includes(type)) {
+    res.status(400).json({ error: "Invalid parameters" });
+    return;
+  }
+
+  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const records = (audit.imageRecords as ImageRecord[] | null) ?? [];
+  const recordId = `${type}_${index}`;
+  const existingRecord = records.find(r => r.id === recordId);
+
+  if (!existingRecord) {
+    res.status(404).json({ error: `Image ${recordId} not found. Generate all images first.` });
+    return;
+  }
+
+  const body = req.body as { prompt: string; style?: ImageStyle; aspectRatio?: AspectRatio };
+  if (!body?.prompt?.trim()) {
+    res.status(400).json({ error: "prompt is required" });
+    return;
+  }
+
+  try {
+    const updatedRecord = await editSingleImage({
+      auditId: id,
+      productName: audit.productName,
+      category: audit.category,
+      existingRecord,
+      editPrompt: body.prompt,
+      style: body.style,
+      aspectRatio: body.aspectRatio,
+    });
+
+    const newRecords = records.map(r => r.id === recordId ? updatedRecord : r);
+    await db.update(auditsTable)
+      .set({ imageRecords: newRecords, updatedAt: new Date() })
+      .where(eq(auditsTable.id, id));
+
+    res.json(updatedRecord);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Image edit failed";
     res.status(500).json({ error: message });
   }
 });

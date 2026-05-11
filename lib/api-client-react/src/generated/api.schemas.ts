@@ -53,6 +53,113 @@ export interface GeneratedImages {
   lifestyle: string[];
 }
 
+export interface ImageVersion {
+  url: string;
+  style: string;
+  aspectRatio: string;
+  prompt?: string;
+  isEdit: boolean;
+  generatedAt: string;
+}
+
+export type ImageRecordType =
+  (typeof ImageRecordType)[keyof typeof ImageRecordType];
+
+export const ImageRecordType = {
+  main: "main",
+  infographic: "infographic",
+  lifestyle: "lifestyle",
+} as const;
+
+export interface ImageRecord {
+  id: string;
+  type: ImageRecordType;
+  index: number;
+  style: string;
+  aspectRatio: string;
+  currentUrl: string;
+  versions: ImageVersion[];
+}
+
+export type GenerateImagesBodyStyle =
+  (typeof GenerateImagesBodyStyle)[keyof typeof GenerateImagesBodyStyle];
+
+export const GenerateImagesBodyStyle = {
+  premium: "premium",
+  minimal: "minimal",
+  luxury: "luxury",
+  modern: "modern",
+  infographic: "infographic",
+  lifestyle: "lifestyle",
+} as const;
+
+export type GenerateImagesBodyAspectRatio =
+  (typeof GenerateImagesBodyAspectRatio)[keyof typeof GenerateImagesBodyAspectRatio];
+
+export const GenerateImagesBodyAspectRatio = {
+  "1:1": "1:1",
+  "3:2": "3:2",
+  "2:3": "2:3",
+} as const;
+
+export interface GenerateImagesBody {
+  style?: GenerateImagesBodyStyle;
+  aspectRatio?: GenerateImagesBodyAspectRatio;
+}
+
+export type RegenerateImageBodyStyle =
+  (typeof RegenerateImageBodyStyle)[keyof typeof RegenerateImageBodyStyle];
+
+export const RegenerateImageBodyStyle = {
+  premium: "premium",
+  minimal: "minimal",
+  luxury: "luxury",
+  modern: "modern",
+  infographic: "infographic",
+  lifestyle: "lifestyle",
+} as const;
+
+export type RegenerateImageBodyAspectRatio =
+  (typeof RegenerateImageBodyAspectRatio)[keyof typeof RegenerateImageBodyAspectRatio];
+
+export const RegenerateImageBodyAspectRatio = {
+  "1:1": "1:1",
+  "3:2": "3:2",
+  "2:3": "2:3",
+} as const;
+
+export interface RegenerateImageBody {
+  style?: RegenerateImageBodyStyle;
+  aspectRatio?: RegenerateImageBodyAspectRatio;
+}
+
+export type EditImageBodyStyle =
+  (typeof EditImageBodyStyle)[keyof typeof EditImageBodyStyle];
+
+export const EditImageBodyStyle = {
+  premium: "premium",
+  minimal: "minimal",
+  luxury: "luxury",
+  modern: "modern",
+  infographic: "infographic",
+  lifestyle: "lifestyle",
+} as const;
+
+export type EditImageBodyAspectRatio =
+  (typeof EditImageBodyAspectRatio)[keyof typeof EditImageBodyAspectRatio];
+
+export const EditImageBodyAspectRatio = {
+  "1:1": "1:1",
+  "3:2": "3:2",
+  "2:3": "2:3",
+} as const;
+
+export interface EditImageBody {
+  prompt: string;
+  style?: EditImageBodyStyle;
+  aspectRatio?: EditImageBodyAspectRatio;
+}
+
 export interface ScoreDetail {
   /** Score from 0 to 100 */
   score: number;
@@ -132,6 +239,7 @@ export interface AuditWithResults {
   competitors: Competitor[];
   generatedContent?: GeneratedContent;
   generatedImages?: GeneratedImages;
+  imageRecords?: ImageRecord[];
   createdAt: string;
   updatedAt: string;
 }

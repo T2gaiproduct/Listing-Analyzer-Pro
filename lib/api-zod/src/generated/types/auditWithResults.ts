@@ -10,6 +10,7 @@ import type { AuditWithResultsStatus } from "./auditWithResultsStatus";
 import type { Competitor } from "./competitor";
 import type { GeneratedContent } from "./generatedContent";
 import type { GeneratedImages } from "./generatedImages";
+import type { ImageRecord } from "./imageRecord";
 
 export interface AuditWithResults {
   id: number;
@@ -28,6 +29,7 @@ export interface AuditWithResults {
   competitors: Competitor[];
   generatedContent?: GeneratedContent;
   generatedImages?: GeneratedImages;
+  imageRecords?: ImageRecord[];
   createdAt: Date;
   updatedAt: Date;
 }

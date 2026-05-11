@@ -81,7 +81,7 @@ paths:
               $ref: "#/components/schemas/CreateAuditBody"
       responses:
         "201":
-          description: Audit created and analyzed
+          description: Audit with results and competitors
           content:
             application/json:
               schema:
@@ -97,10 +97,10 @@ paths:
     get:
       operationId: getAuditStats
       tags: [audits]
-      summary: Get aggregate stats across all audits
+      summary: Get audit statistics
       responses:
         "200":
-          description: Aggregate audit stats
+          description: Audit statistics
           content:
             application/json:
               schema:
@@ -110,7 +110,7 @@ paths:
     get:
       operationId: getAudit
       tags: [audits]
-      summary: Get a specific audit with full results
+      summary: Get a single audit with results
       parameters:
         - name: id
           in: path
@@ -179,22 +179,114 @@ paths:
     post:
       operationId: generateImages
       tags: [listings]
-      summary: Generate product images using AI
+      summary: Generate all product images using AI
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateImagesBody"
       responses:
         "200":
-          description: Generated images
+          description: Generated image records
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GeneratedImages"
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageRecord"
         "404":
           description: Audit not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /audits/{id}/images/{type}/{index}/regenerate:
+    post:
+      operationId: regenerateImage
+      tags: [listings]
+      summary: Regenerate a single product image with optional style and aspect ratio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [main, infographic, lifestyle]
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegenerateImageBody"
+      responses:
+        "200":
+          description: Updated image record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageRecord"
+        "404":
+          description: Audit or image not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /audits/{id}/images/{type}/{index}/edit:
+    post:
+      operationId: editImage
+      tags: [listings]
+      summary: Edit a generated image with a custom prompt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [main, infographic, lifestyle]
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditImageBody"
+      responses:
+        "200":
+          description: Updated image record with edit applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageRecord"
+        "404":
+          description: Audit or image not found
           content:
             application/json:
               schema:
@@ -378,6 +470,91 @@ components:
         - infographic
         - lifestyle
 
+    ImageVersion:
+      type: object
+      properties:
+        url:
+          type: string
+        style:
+          type: string
+        aspectRatio:
+          type: string
+        prompt:
+          type: string
+        isEdit:
+          type: boolean
+        generatedAt:
+          type: string
+      required:
+        - url
+        - style
+        - aspectRatio
+        - isEdit
+        - generatedAt
+
+    ImageRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [main, infographic, lifestyle]
+        index:
+          type: integer
+        style:
+          type: string
+        aspectRatio:
+          type: string
+        currentUrl:
+          type: string
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageVersion"
+      required:
+        - id
+        - type
+        - index
+        - style
+        - aspectRatio
+        - currentUrl
+        - versions
+
+    GenerateImagesBody:
+      type: object
+      properties:
+        style:
+          type: string
+          enum: [premium, minimal, luxury, modern, infographic, lifestyle]
+        aspectRatio:
+          type: string
+          enum: ["1:1", "3:2", "2:3"]
+
+    RegenerateImageBody:
+      type: object
+      properties:
+        style:
+          type: string
+          enum: [premium, minimal, luxury, modern, infographic, lifestyle]
+        aspectRatio:
+          type: string
+          enum: ["1:1", "3:2", "2:3"]
+
+    EditImageBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+        style:
+          type: string
+          enum: [premium, minimal, luxury, modern, infographic, lifestyle]
+        aspectRatio:
+          type: string
+          enum: ["1:1", "3:2", "2:3"]
+      required:
+        - prompt
+
     ScoreDetail:
       type: object
       properties:
@@ -490,6 +667,10 @@ components:
           $ref: "#/components/schemas/GeneratedContent"
         generatedImages:
           $ref: "#/components/schemas/GeneratedImages"
+        imageRecords:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageRecord"
         createdAt:
           type: string
           format: date-time

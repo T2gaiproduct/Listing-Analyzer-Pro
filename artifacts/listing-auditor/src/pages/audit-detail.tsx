@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   useGetAudit, useDeleteAudit, useDeleteCompetitor,
-  useGenerateContent, useGenerateImages,
+  useGenerateContent,
   getListAuditsQueryKey, getGetAuditStatsQueryKey, getGetAuditQueryKey,
 } from "@workspace/api-client-react";
+import { ImageGallery } from "@/components/image-gallery";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,7 +119,6 @@ export default function AuditDetail({ id }: { id: number }) {
   const deleteAudit = useDeleteAudit();
   const deleteCompetitor = useDeleteCompetitor();
   const generateContent = useGenerateContent();
-  const generateImages = useGenerateImages();
 
   if (isLoading) {
     return (
@@ -177,21 +177,6 @@ export default function AuditDetail({ id }: { id: number }) {
     });
   };
 
-  const handleGenerateImages = () => {
-    generateImages.mutate({ id }, {
-      onSuccess: (data) => {
-        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
-        const count = (data.main?.length ?? 0) + (data.infographic?.length ?? 0) + (data.lifestyle?.length ?? 0);
-        if (count > 0) {
-          toast({ title: "Images generated", description: `${count} product images are ready to download.` });
-        } else {
-          toast({ title: "Image generation failed", description: "No images were returned. Please try again.", variant: "destructive" });
-        }
-      },
-      onError: (err) => toast({ title: "Image generation failed", description: formatAiError(err), variant: "destructive" }),
-    });
-  };
-
   const result = audit.result;
   const scoreCategories = [
     { icon: Type, title: "Title Analysis", ...result.titleScore },
@@ -201,9 +186,6 @@ export default function AuditDetail({ id }: { id: number }) {
   ];
 
   const gc = audit.generatedContent;
-  const gi = audit.generatedImages;
-  const allGenImages = gi ? [...(gi.main ?? []), ...(gi.infographic ?? []), ...(gi.lifestyle ?? [])] : [];
-  const hasGeneratedImages = allGenImages.length > 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -263,7 +245,7 @@ export default function AuditDetail({ id }: { id: number }) {
           </TabsTrigger>
           <TabsTrigger value="images">
             Generated Images
-            {gi && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
+            {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
           </TabsTrigger>
           <TabsTrigger value="competitors">
             Competitors
@@ -463,95 +445,12 @@ export default function AuditDetail({ id }: { id: number }) {
 
         {/* ── IMAGES TAB ── */}
         <TabsContent value="images" className="space-y-6">
-          {!hasGeneratedImages ? (
-            <Card className="border-dashed">
-              <CardContent className="py-16 flex flex-col items-center gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <ImageIcon className="w-7 h-7 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">Generate AI Product Images</h3>
-                  <p className="text-muted-foreground text-sm max-w-md">
-                    Creates 6 DALL-E images ready for Amazon upload: 2 clean main product shots, 2 feature infographics, and 2 lifestyle photos showing the product in use.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">Takes 60–90 seconds to generate all 6 images.</p>
-                </div>
-                <Button onClick={handleGenerateImages} disabled={generateImages.isPending} size="lg" className="mt-2">
-                  {generateImages.isPending ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating images...</>
-                  ) : (
-                    <><ImageIcon className="w-4 h-4 mr-2" />Generate 6 Images</>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                  Generated Images
-                </h2>
-                <Button variant="outline" size="sm" onClick={handleGenerateImages} disabled={generateImages.isPending}>
-                  {generateImages.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <>Regenerate All</>}
-                </Button>
-              </div>
-
-              {(["main", "infographic", "lifestyle"] as const).map(type => {
-                const images = gi[type] ?? [];
-                const labels: Record<string, string> = {
-                  main: "Main Product Images",
-                  infographic: "Infographic Images",
-                  lifestyle: "Lifestyle Images",
-                };
-                const descriptions: Record<string, string> = {
-                  main: "Clean white background — ready for Amazon's main product image requirement",
-                  infographic: "Feature callout layout for secondary image slots",
-                  lifestyle: "In-context usage shots for conversion optimization",
-                };
-                if (images.length === 0) return null;
-                return (
-                  <div key={type}>
-                    <div className="mb-3">
-                      <h3 className="font-semibold text-base">{labels[type]}</h3>
-                      <p className="text-xs text-muted-foreground">{descriptions[type]}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      {images.map((imgPath, i) => (
-                        <Card key={i} className="overflow-hidden border-border/50 group">
-                          <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
-                            <img
-                              src={imgPath}
-                              alt={`${type} ${i + 1}`}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <CardContent className="p-3 flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground font-mono">{type}_{i + 1}.png</span>
-                            <a
-                              href={imgPath}
-                              download={`${audit.asin || audit.productName}_${type}_${i + 1}.png`}
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
-                            >
-                              <Download className="w-3.5 h-3.5" /> Download
-                            </a>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {allGenImages.length > 0 && (
-                <div className="pt-2 flex justify-end">
-                  <p className="text-xs text-muted-foreground">
-                    {allGenImages.length} images generated — right-click to save or use the Download links above
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          <ImageGallery
+            auditId={audit.id}
+            productName={audit.productName}
+            imageRecords={audit.imageRecords}
+            generatedImages={audit.generatedImages}
+          />
         </TabsContent>
 
         {/* ── COMPETITORS TAB ── */}

@@ -24,11 +24,14 @@ import type {
   AuditWithResults,
   Competitor,
   CreateAuditBody,
+  EditImageBody,
   FetchListingBody,
   FetchedListing,
+  GenerateImagesBody,
   GeneratedContent,
-  GeneratedImages,
   HealthStatus,
+  ImageRecord,
+  RegenerateImageBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -362,7 +365,7 @@ export const useCreateAudit = <
 };
 
 /**
- * @summary Get aggregate stats across all audits
+ * @summary Get audit statistics
  */
 export const getGetAuditStatsUrl = () => {
   return `/api/audits/stats`;
@@ -413,7 +416,7 @@ export type GetAuditStatsQueryResult = NonNullable<
 export type GetAuditStatsQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get aggregate stats across all audits
+ * @summary Get audit statistics
  */
 
 export function useGetAuditStats<
@@ -437,7 +440,7 @@ export function useGetAuditStats<
 }
 
 /**
- * @summary Get a specific audit with full results
+ * @summary Get a single audit with results
  */
 export const getGetAuditUrl = (id: number) => {
   return `/api/audits/${id}`;
@@ -495,7 +498,7 @@ export type GetAuditQueryResult = NonNullable<
 export type GetAuditQueryError = ErrorType<ApiError>;
 
 /**
- * @summary Get a specific audit with full results
+ * @summary Get a single audit with results
  */
 
 export function useGetAudit<
@@ -690,7 +693,7 @@ export const useGenerateContent = <
 };
 
 /**
- * @summary Generate product images using AI
+ * @summary Generate all product images using AI
  */
 export const getGenerateImagesUrl = (id: number) => {
   return `/api/audits/${id}/generate-images`;
@@ -698,11 +701,14 @@ export const getGenerateImagesUrl = (id: number) => {
 
 export const generateImages = async (
   id: number,
+  generateImagesBody?: GenerateImagesBody,
   options?: RequestInit,
-): Promise<GeneratedImages> => {
-  return customFetch<GeneratedImages>(getGenerateImagesUrl(id), {
+): Promise<ImageRecord[]> => {
+  return customFetch<ImageRecord[]>(getGenerateImagesUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateImagesBody),
   });
 };
 
@@ -713,14 +719,14 @@ export const getGenerateImagesMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateImages>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<GenerateImagesBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof generateImages>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<GenerateImagesBody> },
   TContext
 > => {
   const mutationKey = ["generateImages"];
@@ -734,11 +740,11 @@ export const getGenerateImagesMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof generateImages>>,
-    { id: number }
+    { id: number; data: BodyType<GenerateImagesBody> }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return generateImages(id, requestOptions);
+    return generateImages(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -747,11 +753,11 @@ export const getGenerateImagesMutationOptions = <
 export type GenerateImagesMutationResult = NonNullable<
   Awaited<ReturnType<typeof generateImages>>
 >;
-
+export type GenerateImagesMutationBody = BodyType<GenerateImagesBody>;
 export type GenerateImagesMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Generate product images using AI
+ * @summary Generate all product images using AI
  */
 export const useGenerateImages = <
   TError = ErrorType<ApiError>,
@@ -760,17 +766,253 @@ export const useGenerateImages = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateImages>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<GenerateImagesBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof generateImages>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<GenerateImagesBody> },
   TContext
 > => {
   return useMutation(getGenerateImagesMutationOptions(options));
+};
+
+/**
+ * @summary Regenerate a single product image with optional style and aspect ratio
+ */
+export const getRegenerateImageUrl = (
+  id: number,
+  type: "main" | "infographic" | "lifestyle",
+  index: number,
+) => {
+  return `/api/audits/${id}/images/${type}/${index}/regenerate`;
+};
+
+export const regenerateImage = async (
+  id: number,
+  type: "main" | "infographic" | "lifestyle",
+  index: number,
+  regenerateImageBody?: RegenerateImageBody,
+  options?: RequestInit,
+): Promise<ImageRecord> => {
+  return customFetch<ImageRecord>(getRegenerateImageUrl(id, type, index), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(regenerateImageBody),
+  });
+};
+
+export const getRegenerateImageMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateImage>>,
+    TError,
+    {
+      id: number;
+      type: "main" | "infographic" | "lifestyle";
+      index: number;
+      data: BodyType<RegenerateImageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof regenerateImage>>,
+  TError,
+  {
+    id: number;
+    type: "main" | "infographic" | "lifestyle";
+    index: number;
+    data: BodyType<RegenerateImageBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["regenerateImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof regenerateImage>>,
+    {
+      id: number;
+      type: "main" | "infographic" | "lifestyle";
+      index: number;
+      data: BodyType<RegenerateImageBody>;
+    }
+  > = (props) => {
+    const { id, type, index, data } = props ?? {};
+
+    return regenerateImage(id, type, index, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegenerateImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof regenerateImage>>
+>;
+export type RegenerateImageMutationBody = BodyType<RegenerateImageBody>;
+export type RegenerateImageMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Regenerate a single product image with optional style and aspect ratio
+ */
+export const useRegenerateImage = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateImage>>,
+    TError,
+    {
+      id: number;
+      type: "main" | "infographic" | "lifestyle";
+      index: number;
+      data: BodyType<RegenerateImageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof regenerateImage>>,
+  TError,
+  {
+    id: number;
+    type: "main" | "infographic" | "lifestyle";
+    index: number;
+    data: BodyType<RegenerateImageBody>;
+  },
+  TContext
+> => {
+  return useMutation(getRegenerateImageMutationOptions(options));
+};
+
+/**
+ * @summary Edit a generated image with a custom prompt
+ */
+export const getEditImageUrl = (
+  id: number,
+  type: "main" | "infographic" | "lifestyle",
+  index: number,
+) => {
+  return `/api/audits/${id}/images/${type}/${index}/edit`;
+};
+
+export const editImage = async (
+  id: number,
+  type: "main" | "infographic" | "lifestyle",
+  index: number,
+  editImageBody: EditImageBody,
+  options?: RequestInit,
+): Promise<ImageRecord> => {
+  return customFetch<ImageRecord>(getEditImageUrl(id, type, index), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(editImageBody),
+  });
+};
+
+export const getEditImageMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof editImage>>,
+    TError,
+    {
+      id: number;
+      type: "main" | "infographic" | "lifestyle";
+      index: number;
+      data: BodyType<EditImageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof editImage>>,
+  TError,
+  {
+    id: number;
+    type: "main" | "infographic" | "lifestyle";
+    index: number;
+    data: BodyType<EditImageBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["editImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof editImage>>,
+    {
+      id: number;
+      type: "main" | "infographic" | "lifestyle";
+      index: number;
+      data: BodyType<EditImageBody>;
+    }
+  > = (props) => {
+    const { id, type, index, data } = props ?? {};
+
+    return editImage(id, type, index, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EditImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof editImage>>
+>;
+export type EditImageMutationBody = BodyType<EditImageBody>;
+export type EditImageMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Edit a generated image with a custom prompt
+ */
+export const useEditImage = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof editImage>>,
+    TError,
+    {
+      id: number;
+      type: "main" | "infographic" | "lifestyle";
+      index: number;
+      data: BodyType<EditImageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof editImage>>,
+  TError,
+  {
+    id: number;
+    type: "main" | "infographic" | "lifestyle";
+    index: number;
+    data: BodyType<EditImageBody>;
+  },
+  TContext
+> => {
+  return useMutation(getEditImageMutationOptions(options));
 };
 
 /**
