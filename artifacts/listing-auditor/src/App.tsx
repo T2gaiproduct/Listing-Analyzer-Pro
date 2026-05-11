@@ -20,6 +20,13 @@ import AdminAudits from "@/pages/admin/audits";
 import AdminPlans from "@/pages/admin/plans";
 import AdminCredits from "@/pages/admin/credits";
 import AdminAnalytics from "@/pages/admin/analytics";
+import Pricing from "@/pages/pricing";
+import Features from "@/pages/features";
+import Contact from "@/pages/contact";
+import Help from "@/pages/help";
+import Enterprise from "@/pages/enterprise";
+import Billing from "@/pages/billing";
+import Team from "@/pages/team";
 
 const queryClient = new QueryClient();
 
@@ -191,7 +198,20 @@ function Router() {
         <AdminRoute><AdminAnalytics /></AdminRoute>
       </Route>
 
-      {/* Customer routes */}
+      {/* Public pages */}
+      <Route path="/features" component={Features} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/contact" component={Contact} />
+      <Route path="/help" component={Help} />
+      <Route path="/enterprise" component={Enterprise} />
+
+      {/* Protected customer pages */}
+      <Route path="/billing">
+        <ProtectedRoute><Billing /></ProtectedRoute>
+      </Route>
+      <Route path="/team">
+        <ProtectedRoute><Team /></ProtectedRoute>
+      </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
       </Route>

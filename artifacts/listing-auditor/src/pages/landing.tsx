@@ -1,28 +1,20 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { Search, TrendingUp, Zap, ShieldCheck, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import {
+  Search, TrendingUp, Zap, ShieldCheck, BarChart3, ArrowRight,
+  CheckCircle2, Star, ChevronDown, ChevronUp, Image, Users
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PublicNav, PublicFooter } from "@/components/public-layout";
 
 const features = [
-  {
-    icon: BarChart3,
-    title: "AI-Powered Scoring",
-    description: "Get instant scores for your title, bullet points, images, and keywords — all benchmarked against best practices.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Competitor Comparison",
-    description: "Analyze rival listings side-by-side and uncover gaps to outrank them in search results.",
-  },
-  {
-    icon: Zap,
-    title: "Content Generator",
-    description: "Let AI rewrite your titles, bullets, and keywords with data-driven optimizations built in.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Image Studio",
-    description: "Generate professional product images with style presets, aspect ratios, and AI-guided editing.",
-  },
+  { icon: BarChart3, title: "AI-Powered Scoring", description: "Get instant scores for your title, bullet points, images, and keywords — benchmarked against best practices." },
+  { icon: TrendingUp, title: "Competitor Comparison", description: "Analyze rival listings side-by-side and uncover gaps to outrank them in search results." },
+  { icon: Zap, title: "Content Generator", description: "Let AI rewrite your titles, bullets, and keywords with data-driven optimizations built in." },
+  { icon: ShieldCheck, title: "Image Studio", description: "Generate professional product images with style presets, aspect ratios, and AI-guided editing." },
+  { icon: Image, title: "AI Image Generation", description: "Create main images, lifestyle shots, and infographics — all Amazon-compliant and conversion-ready." },
+  { icon: Users, title: "Team Collaboration", description: "Invite your team, assign roles, and manage shared audits across your entire catalog." },
 ];
 
 const benefits = [
@@ -34,103 +26,292 @@ const benefits = [
   "Version history for images",
 ];
 
+const testimonials = [
+  {
+    name: "Sarah M.",
+    role: "Amazon FBA Seller",
+    quote: "My overall listing score jumped from 48 to 87 in one afternoon. Sales increased 34% within the first month.",
+    rating: 5,
+    asin: "Electronics",
+  },
+  {
+    name: "Daniel K.",
+    role: "Brand Manager, SportsCo",
+    quote: "The competitor analysis alone is worth the subscription. I found 3 keyword gaps my competitors were exploiting and fixed them in minutes.",
+    rating: 5,
+    asin: "Sporting Goods",
+  },
+  {
+    name: "Priya R.",
+    role: "eCommerce Agency Owner",
+    quote: "We manage 200+ listings for clients. ListingAuditor cut our optimization workflow from days to hours. The white-label reports are a huge client win.",
+    rating: 5,
+    asin: "Agency",
+  },
+  {
+    name: "James T.",
+    role: "Private Label Seller",
+    quote: "The AI image studio is incredible. We replaced our $800 product shoot with AI-generated images that look just as professional.",
+    rating: 5,
+    asin: "Home & Kitchen",
+  },
+];
+
+const trustedBrands = ["TechNova", "SunriseGoods", "Clarity Agency", "ProSeller", "BrandLoft", "NexCart"];
+
+const pricingPreview = [
+  { name: "Starter", price: 29, highlight: false, features: ["10 audits/mo", "100 AI credits", "20 image credits"] },
+  { name: "Growth", price: 79, highlight: true, features: ["50 audits/mo", "500 AI credits", "100 image credits", "3 team seats"] },
+  { name: "Pro", price: 149, highlight: false, features: ["Unlimited audits", "2,000 AI credits", "400 image credits", "10 team seats"] },
+];
+
+const faqs = [
+  { q: "Is there a free trial?", a: "Yes — all paid plans include a 7-day free trial. No credit card required to start." },
+  { q: "How does scoring work?", a: "Our AI analyzes your listing across 4 dimensions (title, bullets, images, keywords) and scores each 0–100 based on Amazon best practices and competitive benchmarks." },
+  { q: "Can I audit competitor listings?", a: "Absolutely. Enter any ASIN to see a full audit and compare it side-by-side with your own listings." },
+  { q: "What are AI credits?", a: "AI credits power content generation — rewriting titles, bullet points, and keywords. Each AI credit covers one generation operation." },
+  { q: "Do I need an Amazon account to use this?", a: "No. You can paste your listing data manually or enter an ASIN. We don't require API access to your Amazon Seller Central account." },
+];
+
 export default function Landing() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
-      {/* Nav */}
-      <header className="flex items-center justify-between px-8 py-5 border-b border-slate-200/60 bg-white/70 backdrop-blur-sm sticky top-0 z-10">
-        <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <Search className="w-5 h-5 text-primary" />
-          <span>Listing<span className="text-primary">Auditor</span></span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" asChild>
-            <Link href="/sign-in">Sign In</Link>
-          </Button>
-          <Button asChild className="shadow-sm">
-            <Link href="/sign-up">Get Started Free</Link>
-          </Button>
-        </div>
-      </header>
+    <div className="min-h-[100dvh] bg-white flex flex-col">
+      <PublicNav />
 
       {/* Hero */}
-      <section className="flex-1 flex flex-col items-center justify-center text-center px-6 py-20">
-        <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-sm font-medium px-4 py-1.5 rounded-full mb-8">
-          <Zap className="w-3.5 h-3.5" />
-          AI-powered Amazon listing optimization
+      <section className="relative bg-gradient-to-br from-slate-50 via-white to-orange-50 px-6 py-24 text-center overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_0%,rgba(255,128,0,0.06),transparent_70%)]" />
+        <div className="relative max-w-4xl mx-auto">
+          <Badge variant="outline" className="mb-8 border-orange-200 text-orange-600 bg-orange-50 px-4 py-1.5">
+            <Zap className="w-3.5 h-3.5 mr-1.5" />
+            AI-powered Amazon listing optimization
+          </Badge>
+          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1] mb-6">
+            Turn average listings into{" "}
+            <span className="text-primary">top performers</span>
+          </h1>
+          <p className="text-xl text-slate-500 max-w-xl mx-auto mb-10 leading-relaxed">
+            Audit your Amazon listings in seconds. Get AI scores, fix issues, outrank competitors, and generate winning content — all in one place.
+          </p>
+          <div className="flex items-center gap-4 flex-wrap justify-center mb-12">
+            <Button size="lg" className="text-base px-8 shadow-md" asChild>
+              <Link href="/sign-up">
+                Start your free audit
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="text-base px-8" asChild>
+              <Link href="/features">See all features</Link>
+            </Button>
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {benefits.map((b) => (
+              <span key={b} className="flex items-center gap-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded-full px-4 py-1.5 shadow-sm">
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                {b}
+              </span>
+            ))}
+          </div>
         </div>
+      </section>
 
-        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 max-w-3xl leading-[1.1] mb-6">
-          Turn average listings into{" "}
-          <span className="text-primary">top performers</span>
-        </h1>
-
-        <p className="text-xl text-slate-500 max-w-xl mb-10 leading-relaxed">
-          Audit your Amazon listings in seconds. Get AI scores, fix issues, outrank competitors, and generate winning content — all in one place.
-        </p>
-
-        <div className="flex items-center gap-4 flex-wrap justify-center">
-          <Button size="lg" className="text-base px-8 shadow-md" asChild>
-            <Link href="/sign-up">
-              Start your free audit
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Link>
-          </Button>
-          <Button size="lg" variant="outline" className="text-base px-8" asChild>
-            <Link href="/sign-in">Sign in</Link>
-          </Button>
-        </div>
-
-        {/* Benefit pills */}
-        <div className="flex flex-wrap justify-center gap-3 mt-12">
-          {benefits.map((b) => (
-            <span key={b} className="flex items-center gap-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded-full px-4 py-1.5 shadow-sm">
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-              {b}
-            </span>
-          ))}
+      {/* Trusted by */}
+      <section className="border-y border-slate-100 bg-slate-50 px-6 py-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-6">Trusted by sellers worldwide</p>
+          <div className="flex flex-wrap justify-center gap-8">
+            {trustedBrands.map((b) => (
+              <span key={b} className="text-slate-400 font-bold text-sm tracking-wide">{b}</span>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="px-6 pb-20">
+      <section className="px-6 py-24">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center text-slate-900 mb-12">
-            Everything you need to dominate search
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="text-center mb-14">
+            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Features</Badge>
+            <h2 className="text-4xl font-bold text-slate-900 mb-3">Everything you need to dominate search</h2>
+            <p className="text-slate-500 max-w-lg mx-auto">One platform for auditing, optimizing, comparing, and generating — no more switching between tools.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((f) => (
-              <div
-                key={f.title}
-                className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center mb-4">
+              <div key={f.title} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow group">
+                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center mb-4 group-hover:bg-orange-100 transition-colors">
                   <f.icon className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">{f.title}</h3>
+                <h3 className="text-base font-semibold text-slate-900 mb-2">{f.title}</h3>
                 <p className="text-slate-500 text-sm leading-relaxed">{f.description}</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <Button variant="outline" asChild>
+              <Link href="/features">See full feature breakdown <ArrowRight className="w-4 h-4 ml-2" /></Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Before / After demo */}
+      <section className="bg-slate-50 px-6 py-20">
+        <div className="max-w-4xl mx-auto text-center">
+          <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Results</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 mb-3">See the AI difference</h2>
+          <p className="text-slate-500 mb-10">Real listing data — optimized in seconds.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left">
+            <div className="bg-white border border-red-200 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-red-500 uppercase tracking-wide">Before</span>
+                <span className="bg-red-100 text-red-600 text-sm font-bold px-2.5 py-0.5 rounded-full">Score: 34</span>
+              </div>
+              <p className="text-slate-700 font-semibold text-sm mb-2">Title</p>
+              <p className="text-slate-500 text-sm">Blue Dog Bowl Stainless Steel Non Slip</p>
+            </div>
+            <div className="bg-white border border-green-200 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-green-600 uppercase tracking-wide">After AI Optimization</span>
+                <span className="bg-green-100 text-green-700 text-sm font-bold px-2.5 py-0.5 rounded-full">Score: 89</span>
+              </div>
+              <p className="text-slate-700 font-semibold text-sm mb-2">Title</p>
+              <p className="text-slate-700 text-sm font-medium">Stainless Steel Dog Bowl — Non-Slip Base, Dishwasher Safe, 32oz for Medium & Large Dogs</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="px-6 py-24">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Reviews</Badge>
+            <h2 className="text-3xl font-bold text-slate-900">Loved by Amazon sellers</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {testimonials.map((t) => (
+              <div key={t.name} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div className="flex gap-1 mb-3">
+                  {[...Array(t.rating)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-orange-400 text-orange-400" />
+                  ))}
+                </div>
+                <p className="text-slate-700 text-sm leading-relaxed mb-4">"{t.quote}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-orange-600 font-bold text-xs">{t.name[0]}</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 text-sm">{t.name}</p>
+                    <p className="text-slate-400 text-xs">{t.role}</p>
+                  </div>
+                  <Badge variant="outline" className="ml-auto text-xs">{t.asin}</Badge>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-primary/5 border-t border-orange-100 px-6 py-16 text-center">
-        <h2 className="text-3xl font-bold text-slate-900 mb-4">Ready to optimize your listings?</h2>
-        <p className="text-slate-500 mb-8 max-w-md mx-auto">Join sellers using AI to score, fix, and grow their Amazon presence.</p>
-        <Button size="lg" className="px-10 shadow-md text-base" asChild>
-          <Link href="/sign-up">
-            Create your free account
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Link>
-        </Button>
+      {/* Pricing preview */}
+      <section className="bg-slate-50 px-6 py-20">
+        <div className="max-w-4xl mx-auto text-center">
+          <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Pricing</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 mb-3">Simple, transparent pricing</h2>
+          <p className="text-slate-500 mb-10">Start free. Scale as you grow. No hidden fees.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+            {pricingPreview.map((p) => (
+              <div
+                key={p.name}
+                className={`rounded-2xl p-6 border text-left ${
+                  p.highlight
+                    ? "border-orange-400 bg-white shadow-xl shadow-orange-100 relative"
+                    : "border-slate-200 bg-white shadow-sm"
+                }`}
+              >
+                {p.highlight && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">Most Popular</span>
+                  </div>
+                )}
+                <p className="font-bold text-slate-900 mb-1">{p.name}</p>
+                <p className="text-3xl font-extrabold text-slate-900 mb-4">
+                  ${p.price}<span className="text-sm font-normal text-slate-400">/mo</span>
+                </p>
+                <ul className="space-y-2">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
+                      <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/pricing">Compare all plans <ArrowRight className="w-4 h-4 ml-2" /></Link>
+          </Button>
+        </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 px-8 py-6 text-center text-sm text-slate-400">
-        © {new Date().getFullYear()} ListingAuditor. All rights reserved.
-      </footer>
+      {/* FAQ */}
+      <section className="px-6 py-20">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-10">
+            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">FAQ</Badge>
+            <h2 className="text-3xl font-bold text-slate-900">Common questions</h2>
+          </div>
+          <div className="space-y-3">
+            {faqs.map((faq, i) => (
+              <div key={i} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <button
+                  className="w-full flex items-center justify-between px-5 py-4 text-left"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                >
+                  <span className="font-semibold text-slate-900 text-sm pr-4">{faq.q}</span>
+                  {openFaq === i
+                    ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  }
+                </button>
+                {openFaq === i && (
+                  <div className="px-5 pb-4 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-3">
+                    {faq.a}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="bg-slate-900 px-6 py-20 text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,128,0,0.1),transparent_70%)]" />
+        <div className="relative">
+          <h2 className="text-4xl font-extrabold text-white mb-4">Ready to optimize your listings?</h2>
+          <p className="text-slate-400 mb-8 max-w-md mx-auto text-lg">
+            Join sellers using AI to score, fix, and grow their Amazon presence. Free 7-day trial included.
+          </p>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-10 shadow-lg text-base" asChild>
+              <Link href="/sign-up">
+                Create your free account
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-slate-800 px-8" asChild>
+              <Link href="/contact">Book a demo</Link>
+            </Button>
+          </div>
+          <p className="text-slate-500 text-sm mt-6">No credit card required · Cancel anytime</p>
+        </div>
+      </section>
+
+      <PublicFooter />
     </div>
   );
 }
