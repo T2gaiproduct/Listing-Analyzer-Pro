@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
-import { eq, avg, count, sql } from "drizzle-orm";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { eq, avg, count, sql, and } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, auditsTable, competitorsTable } from "@workspace/db";
 import {
   CreateAuditBody,
@@ -17,7 +18,23 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/audits", async (_req, res): Promise<void> => {
+interface AuthedRequest extends Request {
+  userId: string;
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  (req as AuthedRequest).userId = userId;
+  next();
+}
+
+router.get("/audits", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const audits = await db
     .select({
       id: auditsTable.id,
@@ -30,11 +47,13 @@ router.get("/audits", async (_req, res): Promise<void> => {
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
+    .where(eq(auditsTable.userId, userId))
     .orderBy(sql`${auditsTable.createdAt} DESC`);
   res.json(audits);
 });
 
-router.post("/audits", async (req, res): Promise<void> => {
+router.post("/audits", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const parsed = CreateAuditBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -46,6 +65,7 @@ router.post("/audits", async (req, res): Promise<void> => {
   const [audit] = await db
     .insert(auditsTable)
     .values({
+      userId,
       productName,
       asin: asin ?? null,
       category: category ?? null,
@@ -102,23 +122,25 @@ router.post("/audits", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/audits/stats", async (_req, res): Promise<void> => {
+router.get("/audits/stats", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const [stats] = await db
     .select({
       totalAudits: count(),
       averageScore: avg(auditsTable.overallScore),
     })
-    .from(auditsTable);
+    .from(auditsTable)
+    .where(eq(auditsTable.userId, userId));
 
   const highScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(sql`${auditsTable.overallScore} >= 70`);
+    .where(and(eq(auditsTable.userId, userId), sql`${auditsTable.overallScore} >= 70`));
 
   const lowScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(sql`${auditsTable.overallScore} < 50`);
+    .where(and(eq(auditsTable.userId, userId), sql`${auditsTable.overallScore} < 50`));
 
   const recentAudits = await db
     .select({
@@ -132,6 +154,7 @@ router.get("/audits/stats", async (_req, res): Promise<void> => {
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
+    .where(eq(auditsTable.userId, userId))
     .orderBy(sql`${auditsTable.createdAt} DESC`)
     .limit(5);
 
@@ -144,7 +167,8 @@ router.get("/audits/stats", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/audits/:id", async (req, res): Promise<void> => {
+router.get("/audits/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = GetAuditParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -154,7 +178,7 @@ router.get("/audits/:id", async (req, res): Promise<void> => {
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(eq(auditsTable.id, params.data.id));
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)));
 
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
@@ -180,7 +204,8 @@ router.get("/audits/:id", async (req, res): Promise<void> => {
   });
 });
 
-router.delete("/audits/:id", async (req, res): Promise<void> => {
+router.delete("/audits/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = DeleteAuditParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -189,7 +214,7 @@ router.delete("/audits/:id", async (req, res): Promise<void> => {
 
   const [audit] = await db
     .delete(auditsTable)
-    .where(eq(auditsTable.id, params.data.id))
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)))
     .returning();
 
   if (!audit) {
@@ -200,11 +225,12 @@ router.delete("/audits/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.post("/audits/:id/generate-content", async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-content", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const id = parseInt(req.params.id ?? "");
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   try {
@@ -229,11 +255,12 @@ router.post("/audits/:id/generate-content", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/audits/:id/generate-images", async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-images", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const id = parseInt(req.params.id ?? "");
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
@@ -289,7 +316,8 @@ function buildAllRecordsFromAudit(audit: typeof auditsTable.$inferSelect): Image
   return records;
 }
 
-router.post("/audits/:id/images/:type/:index/regenerate", async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const id = parseInt(req.params.id ?? "");
   const index = parseInt(req.params.index ?? "");
   const type = req.params.type as "main" | "infographic" | "lifestyle";
@@ -299,7 +327,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", async (req, res): Prom
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -335,7 +363,8 @@ router.post("/audits/:id/images/:type/:index/regenerate", async (req, res): Prom
   }
 });
 
-router.post("/audits/:id/images/:type/:index/edit", async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/edit", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const id = parseInt(req.params.id ?? "");
   const index = parseInt(req.params.index ?? "");
   const type = req.params.type as "main" | "infographic" | "lifestyle";
@@ -345,7 +374,7 @@ router.post("/audits/:id/images/:type/:index/edit", async (req, res): Promise<vo
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);

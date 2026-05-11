@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" fill="none">
+  <circle cx="18" cy="20" r="10" fill="#ff8000"/>
+  <circle cx="18" cy="20" r="6" fill="white"/>
+  <circle cx="18" cy="20" r="3" fill="#ff8000"/>
+  <text x="34" y="26" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-size="18" font-weight="700" fill="#0e1929">Listing<tspan fill="#ff8000">Auditor</tspan></text>
+</svg>
