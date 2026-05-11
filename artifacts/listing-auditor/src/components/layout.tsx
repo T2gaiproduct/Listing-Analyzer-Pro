@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User } from "lucide-react";
+import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -11,12 +11,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { user } = useUser();
   const { signOut } = useClerk();
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const isAdmin = user ? adminUserIds.includes(user.id) : false;
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -55,6 +59,19 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+
+          {isAdmin && (
+            <div className="pt-4 mt-4 border-t border-sidebar-border/30">
+              <div className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider mb-2 px-2">Admin</div>
+              <Link
+                href="/admin/dashboard"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              >
+                <Shield className="w-4 h-4 text-sidebar-foreground/50 group-hover:text-primary/70 transition-colors" />
+                Admin Panel
+              </Link>
+            </div>
+          )}
         </nav>
 
         {/* User profile */}
@@ -90,6 +107,17 @@ export function Layout({ children }: { children: ReactNode }) {
                 <p className="text-xs text-muted-foreground truncate">{user?.primaryEmailAddress?.emailAddress}</p>
               </div>
               <DropdownMenuSeparator />
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/dashboard" className="flex items-center cursor-pointer">
+                      <Shield className="w-4 h-4 mr-2 text-orange-500" />
+                      Admin Panel
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive cursor-pointer"
                 onClick={() => signOut({ redirectUrl: `${basePath}/` })}

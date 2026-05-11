@@ -227,7 +227,7 @@ router.delete("/audits/:id", requireAuth, async (req, res): Promise<void> => {
 
 router.post("/audits/:id/generate-content", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const id = parseInt(req.params.id ?? "");
+  const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
@@ -257,7 +257,7 @@ router.post("/audits/:id/generate-content", requireAuth, async (req, res): Promi
 
 router.post("/audits/:id/generate-images", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const id = parseInt(req.params.id ?? "");
+  const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
@@ -318,9 +318,9 @@ function buildAllRecordsFromAudit(audit: typeof auditsTable.$inferSelect): Image
 
 router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const id = parseInt(req.params.id ?? "");
-  const index = parseInt(req.params.index ?? "");
-  const type = req.params.type as "main" | "infographic" | "lifestyle";
+  const id = parseInt(String(req.params.id ?? ""));
+  const index = parseInt(String(req.params.index ?? ""));
+  const type = String(req.params.type) as "main" | "infographic" | "lifestyle";
 
   if (isNaN(id) || isNaN(index) || !["main", "infographic", "lifestyle"].includes(type)) {
     res.status(400).json({ error: "Invalid parameters" });
@@ -365,9 +365,9 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (re
 
 router.post("/audits/:id/images/:type/:index/edit", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const id = parseInt(req.params.id ?? "");
-  const index = parseInt(req.params.index ?? "");
-  const type = req.params.type as "main" | "infographic" | "lifestyle";
+  const id = parseInt(String(req.params.id ?? ""));
+  const index = parseInt(String(req.params.index ?? ""));
+  const type = String(req.params.type) as "main" | "infographic" | "lifestyle";
 
   if (isNaN(id) || isNaN(index) || !["main", "infographic", "lifestyle"].includes(type)) {
     res.status(400).json({ error: "Invalid parameters" });

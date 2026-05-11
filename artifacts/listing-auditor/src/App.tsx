@@ -1,17 +1,25 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { AdminLayout } from "@/components/admin-layout";
 import Dashboard from "@/pages/dashboard";
 import AuditNew from "@/pages/audit-new";
 import AuditDetail from "@/pages/audit-detail";
 import CompetitorNew from "@/pages/competitor-new";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
+import AdminDashboard from "@/pages/admin/dashboard";
+import AdminCustomers from "@/pages/admin/customers";
+import AdminCustomerDetail from "@/pages/admin/customer-detail";
+import AdminAudits from "@/pages/admin/audits";
+import AdminPlans from "@/pages/admin/plans";
+import AdminCredits from "@/pages/admin/credits";
+import AdminAnalytics from "@/pages/admin/analytics";
 
 const queryClient = new QueryClient();
 
@@ -139,12 +147,51 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoaded } = useUser();
+  if (!isLoaded) return null;
+  if (!user) return <Redirect to="/" />;
+  if (!adminUserIds.includes(user.id)) return <Redirect to="/dashboard" />;
+  return <AdminLayout>{children}</AdminLayout>;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
+
+      {/* Admin routes */}
+      <Route path="/admin">
+        <Redirect to="/admin/dashboard" />
+      </Route>
+      <Route path="/admin/dashboard">
+        <AdminRoute><AdminDashboard /></AdminRoute>
+      </Route>
+      <Route path="/admin/customers">
+        <AdminRoute><AdminCustomers /></AdminRoute>
+      </Route>
+      <Route path="/admin/customers/:userId">
+        {params => <AdminRoute><AdminCustomerDetail userId={params.userId} /></AdminRoute>}
+      </Route>
+      <Route path="/admin/audits">
+        <AdminRoute><AdminAudits /></AdminRoute>
+      </Route>
+      <Route path="/admin/plans">
+        <AdminRoute><AdminPlans /></AdminRoute>
+      </Route>
+      <Route path="/admin/credits">
+        <AdminRoute><AdminCredits /></AdminRoute>
+      </Route>
+      <Route path="/admin/analytics">
+        <AdminRoute><AdminAnalytics /></AdminRoute>
+      </Route>
+
+      {/* Customer routes */}
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
       </Route>
