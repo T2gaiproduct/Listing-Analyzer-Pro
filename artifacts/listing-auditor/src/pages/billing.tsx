@@ -2,8 +2,6 @@ import { useState } from "react";
 import { CreditCard, Download, RefreshCw, Plus, CheckCircle2, Zap, Image, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Layout } from "@/components/layout";
-
 const currentPlan = {
   name: "Growth",
   price: 79,
@@ -70,8 +68,7 @@ export default function Billing() {
   }
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Subscription & Billing</h1>
           <p className="text-slate-500 mt-1">Manage your plan, credits, and invoices.</p>
@@ -268,7 +265,6 @@ export default function Billing() {
             </table>
           </div>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }

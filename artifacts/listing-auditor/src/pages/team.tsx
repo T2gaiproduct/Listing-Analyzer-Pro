@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Layout } from "@/components/layout";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,8 +82,7 @@ export default function Team() {
   const activeCount = members.filter(m => m.status === "active").length;
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Team</h1>
@@ -231,6 +229,5 @@ export default function Team() {
           </div>
         </div>
       </div>
-    </Layout>
   );
 }
