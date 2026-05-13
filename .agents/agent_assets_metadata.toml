@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Cs2YbT2Tq_zeiFEIxVtRZ"
+uri = "file://DEPLOY.md"
+type = "text"
+title = "Private Server Deployment Guide"

@@ -36,30 +36,46 @@ async function clerkFetch(path: string, options?: RequestInit) {
 }
 
 router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
-  const [auditStats] = await db
-    .select({
-      totalAudits: count(),
-      averageScore: avg(auditsTable.overallScore),
-    })
-    .from(auditsTable);
+  const nowMs = Date.now();
+  const sevenDaysAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
+  const thirtyDaysAgoMs = nowMs - 30 * 24 * 60 * 60 * 1000;
+  const todayStartMs = new Date(new Date().toDateString()).getTime();
 
-  const statusCounts = await db
-    .select({ status: auditsTable.status, c: count() })
-    .from(auditsTable)
-    .groupBy(auditsTable.status);
+  const [auditStats, statusCounts, highScore, lowScore] = await Promise.all([
+    db.select({ totalAudits: count(), averageScore: avg(auditsTable.overallScore) }).from(auditsTable),
+    db.select({ status: auditsTable.status, c: count() }).from(auditsTable).groupBy(auditsTable.status),
+    db.select({ c: count() }).from(auditsTable).where(sql`${auditsTable.overallScore} >= 70`),
+    db.select({ c: count() }).from(auditsTable).where(sql`${auditsTable.overallScore} < 50`),
+  ]);
 
-  const [highScore] = await db
-    .select({ c: count() })
-    .from(auditsTable)
-    .where(sql`${auditsTable.overallScore} >= 70`);
+  const [clerkUsers, recentSignupsRaw, recentLoginsRaw, newTodayRaw, newWeekRaw, newMonthRaw] = await Promise.all([
+    clerkFetch("/users?limit=1") as Promise<Record<string, any>>,
+    clerkFetch(`/users?limit=10&order_by=-created_at`) as Promise<Record<string, any>>,
+    clerkFetch(`/users?limit=10&order_by=-last_sign_in_at`) as Promise<Record<string, any>>,
+    clerkFetch(`/users?limit=1&created_after=${todayStartMs}`) as Promise<Record<string, any>>,
+    clerkFetch(`/users?limit=1&created_after=${sevenDaysAgoMs}`) as Promise<Record<string, any>>,
+    clerkFetch(`/users?limit=1&created_after=${thirtyDaysAgoMs}`) as Promise<Record<string, any>>,
+  ]);
 
-  const [lowScore] = await db
-    .select({ c: count() })
-    .from(auditsTable)
-    .where(sql`${auditsTable.overallScore} < 50`);
+  const totalUsers = (clerkUsers as Record<string, any>)?.total_count ?? 0;
 
-  const clerkUsers = await clerkFetch("/users?limit=1") as Record<string, any>;
-  const totalUsers = clerkUsers?.total_count ?? 0;
+  function mapClerkUser(u: Record<string, any>) {
+    return {
+      id: u.id,
+      firstName: u.first_name ?? "",
+      lastName: u.last_name ?? "",
+      email: (u.email_addresses as Array<{email_address: string}> | undefined)?.[0]?.email_address ?? "",
+      imageUrl: u.image_url ?? null,
+      createdAt: u.created_at,
+      lastSignInAt: u.last_sign_in_at ?? null,
+      banned: u.banned ?? false,
+    };
+  }
+
+  const recentSignups = ((recentSignupsRaw as Record<string, any>)?.data ?? []).map(mapClerkUser);
+  const recentLogins = ((recentLoginsRaw as Record<string, any>)?.data ?? [])
+    .filter((u: Record<string, any>) => u.last_sign_in_at)
+    .map(mapClerkUser);
 
   const recentAudits = await db
     .select({
@@ -81,12 +97,17 @@ router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
 
   res.json({
     totalUsers,
-    totalAudits: Number(auditStats?.totalAudits ?? 0),
-    averageScore: Math.round(Number(auditStats?.averageScore ?? 0)),
-    highScoreCount: Number(highScore?.c ?? 0),
-    lowScoreCount: Number(lowScore?.c ?? 0),
+    newUsersToday: (newTodayRaw as Record<string, any>)?.total_count ?? 0,
+    newUsersThisWeek: (newWeekRaw as Record<string, any>)?.total_count ?? 0,
+    newUsersThisMonth: (newMonthRaw as Record<string, any>)?.total_count ?? 0,
+    totalAudits: Number(auditStats[0]?.totalAudits ?? 0),
+    averageScore: Math.round(Number(auditStats[0]?.averageScore ?? 0)),
+    highScoreCount: Number(highScore[0]?.c ?? 0),
+    lowScoreCount: Number(lowScore[0]?.c ?? 0),
     auditsByStatus: statusMap,
     recentAudits,
+    recentSignups,
+    recentLogins,
   });
 });
 
