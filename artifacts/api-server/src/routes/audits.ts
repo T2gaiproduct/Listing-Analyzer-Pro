@@ -19,6 +19,8 @@ import {
 
 const router: IRouter = Router();
 
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+
 interface AuthedRequest extends Request {
   userId: string;
 }
@@ -32,6 +34,10 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   }
   (req as AuthedRequest).userId = userId;
   next();
+}
+
+function isAdmin(userId: string): boolean {
+  return ADMIN_USER_IDS.includes(userId);
 }
 
 router.get("/audits", requireAuth, async (req, res): Promise<void> => {
@@ -176,10 +182,14 @@ router.get("/audits/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const whereClause = isAdmin(userId)
+    ? eq(auditsTable.id, params.data.id)
+    : and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId));
+
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)));
+    .where(whereClause);
 
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
