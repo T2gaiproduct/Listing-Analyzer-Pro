@@ -24,9 +24,11 @@ import type {
   AuditWithResults,
   Competitor,
   CreateAuditBody,
+  EbcContent,
   EditImageBody,
   FetchListingBody,
   FetchedListing,
+  GenerateEbcBody,
   GenerateImagesBody,
   GeneratedContent,
   HealthStatus,
@@ -690,6 +692,93 @@ export const useGenerateContent = <
   TContext
 > => {
   return useMutation(getGenerateContentMutationOptions(options));
+};
+
+/**
+ * @summary Generate A+ EBC content from a custom prompt
+ */
+export const getGenerateEbcUrl = (id: number) => {
+  return `/api/audits/${id}/generate-ebc`;
+};
+
+export const generateEbc = async (
+  id: number,
+  generateEbcBody: GenerateEbcBody,
+  options?: RequestInit,
+): Promise<EbcContent> => {
+  return customFetch<EbcContent>(getGenerateEbcUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateEbcBody),
+  });
+};
+
+export const getGenerateEbcMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateEbc>>,
+    TError,
+    { id: number; data: BodyType<GenerateEbcBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateEbc>>,
+  TError,
+  { id: number; data: BodyType<GenerateEbcBody> },
+  TContext
+> => {
+  const mutationKey = ["generateEbc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateEbc>>,
+    { id: number; data: BodyType<GenerateEbcBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return generateEbc(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateEbcMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateEbc>>
+>;
+export type GenerateEbcMutationBody = BodyType<GenerateEbcBody>;
+export type GenerateEbcMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Generate A+ EBC content from a custom prompt
+ */
+export const useGenerateEbc = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateEbc>>,
+    TError,
+    { id: number; data: BodyType<GenerateEbcBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateEbc>>,
+  TError,
+  { id: number; data: BodyType<GenerateEbcBody> },
+  TContext
+> => {
+  return useMutation(getGenerateEbcMutationOptions(options));
 };
 
 /**

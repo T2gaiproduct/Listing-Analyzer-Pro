@@ -175,6 +175,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /audits/{id}/generate-ebc:
+    post:
+      operationId: generateEbc
+      tags: [listings]
+      summary: Generate A+ EBC content from a custom prompt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateEbcBody"
+      responses:
+        "200":
+          description: Generated EBC module content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EbcContent"
+        "404":
+          description: Audit not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /audits/{id}/generate-images:
     post:
       operationId: generateImages
@@ -795,6 +826,97 @@ components:
         - bulletPoints
         - imageCount
         - targetKeywords
+
+    GenerateEbcBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+      required:
+        - prompt
+
+    EbcContent:
+      type: object
+      properties:
+        heroHeadline:
+          type: string
+        heroSubheadline:
+          type: string
+        heroTagline:
+          type: string
+        feature1Icon:
+          type: string
+        feature1Title:
+          type: string
+        feature1Body:
+          type: string
+        feature2Icon:
+          type: string
+        feature2Title:
+          type: string
+        feature2Body:
+          type: string
+        feature3Icon:
+          type: string
+        feature3Title:
+          type: string
+        feature3Body:
+          type: string
+        storyHeadline:
+          type: string
+        storyBody:
+          type: string
+        gridTitle:
+          type: string
+        grid1Title:
+          type: string
+        grid1Desc:
+          type: string
+        grid2Title:
+          type: string
+        grid2Desc:
+          type: string
+        grid3Title:
+          type: string
+        grid3Desc:
+          type: string
+        grid4Title:
+          type: string
+        grid4Desc:
+          type: string
+        closingHeadline:
+          type: string
+        closingBody:
+          type: string
+        closingCta:
+          type: string
+      required:
+        - heroHeadline
+        - heroSubheadline
+        - heroTagline
+        - feature1Icon
+        - feature1Title
+        - feature1Body
+        - feature2Icon
+        - feature2Title
+        - feature2Body
+        - feature3Icon
+        - feature3Title
+        - feature3Body
+        - storyHeadline
+        - storyBody
+        - gridTitle
+        - grid1Title
+        - grid1Desc
+        - grid2Title
+        - grid2Desc
+        - grid3Title
+        - grid3Desc
+        - grid4Title
+        - grid4Desc
+        - closingHeadline
+        - closingBody
+        - closingCta
 
     AuditStats:
       type: object

@@ -10,6 +10,7 @@ import {
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
 import { generateListingContent } from "../lib/content-generator";
+import { generateEbcContent } from "../lib/ebc-generator";
 import {
   generateProductImages,
   regenerateSingleImage,
@@ -223,6 +224,32 @@ router.delete("/audits/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
+});
+
+router.post("/audits/:id/generate-ebc", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { prompt } = req.body as { prompt?: string };
+  if (!prompt?.trim()) { res.status(400).json({ error: "prompt is required" }); return; }
+
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  try {
+    const content = await generateEbcContent({
+      prompt: prompt.trim(),
+      productName: audit.productName,
+      bulletPoints: audit.bulletPoints as string[],
+      targetKeywords: audit.targetKeywords as string[],
+      summary: (audit.result as { summary?: string } | null)?.summary ?? "",
+    });
+    res.json(content);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "EBC generation failed";
+    res.status(500).json({ error: message });
+  }
 });
 
 router.post("/audits/:id/generate-content", requireAuth, async (req, res): Promise<void> => {

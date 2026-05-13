@@ -263,6 +263,39 @@ export interface AddCompetitorBody {
   targetKeywords: string[];
 }
 
+export interface GenerateEbcBody {
+  prompt: string;
+}
+
+export interface EbcContent {
+  heroHeadline: string;
+  heroSubheadline: string;
+  heroTagline: string;
+  feature1Icon: string;
+  feature1Title: string;
+  feature1Body: string;
+  feature2Icon: string;
+  feature2Title: string;
+  feature2Body: string;
+  feature3Icon: string;
+  feature3Title: string;
+  feature3Body: string;
+  storyHeadline: string;
+  storyBody: string;
+  gridTitle: string;
+  grid1Title: string;
+  grid1Desc: string;
+  grid2Title: string;
+  grid2Desc: string;
+  grid3Title: string;
+  grid3Desc: string;
+  grid4Title: string;
+  grid4Desc: string;
+  closingHeadline: string;
+  closingBody: string;
+  closingCta: string;
+}
+
 export interface AuditStats {
   totalAudits: number;
   averageScore: number;

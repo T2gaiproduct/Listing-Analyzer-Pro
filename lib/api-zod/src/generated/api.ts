@@ -209,6 +209,46 @@ export const GenerateContentResponse = zod.object({
 });
 
 /**
+ * @summary Generate A+ EBC content from a custom prompt
+ */
+export const GenerateEbcParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GenerateEbcBody = zod.object({
+  prompt: zod.string(),
+});
+
+export const GenerateEbcResponse = zod.object({
+  heroHeadline: zod.string(),
+  heroSubheadline: zod.string(),
+  heroTagline: zod.string(),
+  feature1Icon: zod.string(),
+  feature1Title: zod.string(),
+  feature1Body: zod.string(),
+  feature2Icon: zod.string(),
+  feature2Title: zod.string(),
+  feature2Body: zod.string(),
+  feature3Icon: zod.string(),
+  feature3Title: zod.string(),
+  feature3Body: zod.string(),
+  storyHeadline: zod.string(),
+  storyBody: zod.string(),
+  gridTitle: zod.string(),
+  grid1Title: zod.string(),
+  grid1Desc: zod.string(),
+  grid2Title: zod.string(),
+  grid2Desc: zod.string(),
+  grid3Title: zod.string(),
+  grid3Desc: zod.string(),
+  grid4Title: zod.string(),
+  grid4Desc: zod.string(),
+  closingHeadline: zod.string(),
+  closingBody: zod.string(),
+  closingCta: zod.string(),
+});
+
+/**
  * @summary Generate all product images using AI
  */
 export const GenerateImagesParams = zod.object({

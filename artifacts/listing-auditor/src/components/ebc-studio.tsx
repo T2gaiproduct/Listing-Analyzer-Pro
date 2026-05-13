@@ -2,13 +2,15 @@ import { useRef, useState, useCallback } from "react";
 import { toJpeg } from "html-to-image";
 import {
   Download, Palette, Loader2, ChevronDown, ChevronUp,
-  Eye, EyeOff, RefreshCw,
+  Eye, EyeOff, RefreshCw, Wand2, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useGenerateEbc } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -25,6 +27,7 @@ interface AuditData {
 
 interface EbcStudioProps {
   audit: AuditData;
+  auditId: number;
 }
 
 interface ModuleState {
@@ -329,12 +332,17 @@ function ClosingModule({ data, colors }: { data: ClosingData; colors: typeof BRA
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function EbcStudio({ audit }: EbcStudioProps) {
+export function EbcStudio({ audit, auditId }: EbcStudioProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
   const [colorIdx, setColorIdx] = useState(0);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colors = BRAND_PRESETS[colorIdx];
+
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [showAiPrompt, setShowAiPrompt] = useState(false);
+  const generateEbc = useGenerateEbc();
 
   const defaults = buildDefault(audit);
   const [hero, setHero] = useState<HeroData>(defaults.hero);
@@ -353,6 +361,52 @@ export function EbcStudio({ audit }: EbcStudioProps) {
 
   const toggle = (key: string, field: "visible" | "expanded") => {
     setModules(prev => ({ ...prev, [key]: { ...prev[key], [field]: !prev[key][field] } }));
+  };
+
+  const handleAiGenerate = () => {
+    if (!aiPrompt.trim()) return;
+    generateEbc.mutate(
+      { id: auditId, data: { prompt: aiPrompt.trim() } },
+      {
+        onSuccess: (data) => {
+          setHero({
+            headline: data.heroHeadline,
+            subheadline: data.heroSubheadline,
+            tagline: data.heroTagline,
+          });
+          setFeatures({
+            sectionTitle: features.sectionTitle,
+            features: [
+              { icon: data.feature1Icon, title: data.feature1Title, body: data.feature1Body },
+              { icon: data.feature2Icon, title: data.feature2Title, body: data.feature2Body },
+              { icon: data.feature3Icon, title: data.feature3Title, body: data.feature3Body },
+            ],
+          });
+          setStory({ headline: data.storyHeadline, body: data.storyBody });
+          setGrid({
+            sectionTitle: data.gridTitle,
+            items: [
+              { emoji: "✦", title: data.grid1Title, desc: data.grid1Desc },
+              { emoji: "★", title: data.grid2Title, desc: data.grid2Desc },
+              { emoji: "◆", title: data.grid3Title, desc: data.grid3Desc },
+              { emoji: "●", title: data.grid4Title, desc: data.grid4Desc },
+            ],
+          });
+          setClosing({ headline: data.closingHeadline, body: data.closingBody, cta: data.closingCta });
+          setShowAiPrompt(false);
+          setAiPrompt("");
+          toast({ title: "A+ content generated", description: "All modules updated with AI-crafted copy." });
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Generation failed";
+          toast({
+            title: "Generation failed",
+            description: msg.includes("spend limit") ? "AI spend limit reached. Please try again later." : msg,
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const handleExport = useCallback(async () => {
@@ -401,8 +455,16 @@ export function EbcStudio({ audit }: EbcStudioProps) {
           </Button>
           <Button
             variant="outline" size="sm"
+            onClick={() => { setShowAiPrompt(!showAiPrompt); setShowColorPicker(false); }}
+            className={cn(showAiPrompt && "border-primary text-primary bg-primary/5")}
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+            Generate with AI
+          </Button>
+          <Button
+            variant="outline" size="sm"
             className="relative"
-            onClick={() => setShowColorPicker(!showColorPicker)}
+            onClick={() => { setShowColorPicker(!showColorPicker); setShowAiPrompt(false); }}
           >
             <Palette className="w-3.5 h-3.5 mr-1.5" />
             Brand Color
@@ -416,6 +478,46 @@ export function EbcStudio({ audit }: EbcStudioProps) {
           </Button>
         </div>
       </div>
+
+      {/* AI Prompt Panel */}
+      {showAiPrompt && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-4 h-4 text-primary mt-1 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-semibold">Generate A+ Content with AI</p>
+                <p className="text-xs text-muted-foreground">
+                  Describe your brand, audience, key benefits, or tone — the AI will craft all 5 modules to match.
+                </p>
+                <Textarea
+                  rows={3}
+                  value={aiPrompt}
+                  onChange={e => setAiPrompt(e.target.value)}
+                  placeholder='e.g. "Target eco-conscious parents aged 25-40. Emphasize BPA-free materials, easy cleaning, and fun colors. Tone: warm and friendly."'
+                  className="resize-none text-sm"
+                  disabled={generateEbc.isPending}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleAiGenerate}
+                    disabled={!aiPrompt.trim() || generateEbc.isPending}
+                  >
+                    {generateEbc.isPending
+                      ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Generating…</>
+                      : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Generate All Modules</>
+                    }
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowAiPrompt(false)} disabled={generateEbc.isPending}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Color picker dropdown */}
       {showColorPicker && (

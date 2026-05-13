@@ -27,6 +27,7 @@ import {
   Type, AlignLeft, Image, Tag, Users, ChevronDown, ChevronUp,
   Wand2, Loader2, Copy, Download, ImageIcon, FileText,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
 import { cn } from "@/lib/utils";
 
 function copyToClipboard(text: string, label: string, toast: ReturnType<typeof useToast>["toast"]) {
@@ -168,6 +169,154 @@ export default function AuditDetail({ id }: { id: number }) {
     return raw || "Something went wrong. Please try again.";
   };
 
+  const handleDownloadPdf = () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 48;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    const addText = (text: string, opts: { size?: number; bold?: boolean; color?: [number,number,number]; wrap?: boolean; lineH?: number }) => {
+      const { size = 10, bold = false, color = [30,30,30], wrap = true, lineH = 14 } = opts;
+      doc.setFontSize(size);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setTextColor(...color);
+      if (wrap) {
+        const lines = doc.splitTextToSize(text, contentW);
+        lines.forEach((line: string) => {
+          if (y > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+          doc.text(line, margin, y);
+          y += lineH;
+        });
+      } else {
+        if (y > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+        doc.text(text, margin, y);
+        y += lineH;
+      }
+    };
+
+    const addRule = (c: [number,number,number] = [220,220,220]) => {
+      doc.setDrawColor(...c);
+      doc.line(margin, y, pageW - margin, y);
+      y += 8;
+    };
+
+    const addScore = (label: string, score: number) => {
+      const color: [number,number,number] = score >= 70 ? [22,163,74] : score >= 50 ? [202,138,4] : [220,38,38];
+      doc.setFontSize(10); doc.setFont("helvetica","normal"); doc.setTextColor(80,80,80);
+      doc.text(label, margin, y);
+      doc.setFont("helvetica","bold"); doc.setTextColor(...color);
+      doc.text(String(score), margin + 140, y);
+      y += 14;
+    };
+
+    // ── Header ──
+    doc.setFillColor(255, 107, 0);
+    doc.rect(0, 0, pageW, 6, "F");
+    y = margin + 10;
+
+    addText("AMAZON LISTING AUDIT REPORT", { size: 8, bold: true, color: [255,107,0] });
+    y += 2;
+    addText(audit.productName, { size: 20, bold: true, color: [15,23,42] });
+    if (audit.asin) addText(`ASIN: ${audit.asin}`, { size: 9, color: [100,116,139] });
+    addText(`Audited: ${format(new Date(audit.createdAt), "MMMM d, yyyy")}`, { size: 9, color: [100,116,139] });
+    y += 8;
+    addRule([255,107,0]);
+
+    // ── Overall Score ──
+    addText("OVERALL SCORE", { size: 9, bold: true, color: [100,116,139] });
+    addText(String(audit.overallScore), { size: 36, bold: true, color: audit.overallScore >= 70 ? [22,163,74] : audit.overallScore >= 50 ? [202,138,4] : [220,38,38] });
+    addText(result.summary, { size: 10, color: [71,85,105] });
+    y += 8;
+    addRule();
+
+    // ── Category Scores ──
+    addText("CATEGORY BREAKDOWN", { size: 9, bold: true, color: [100,116,139] });
+    y += 4;
+    addScore("Title", result.titleScore.score);
+    addScore("Bullet Points", result.bulletScore.score);
+    addScore("Images", result.imageScore.score);
+    addScore("Keywords", result.keywordScore.score);
+    y += 8;
+    addRule();
+
+    // ── Title ──
+    addText("LISTING TITLE", { size: 9, bold: true, color: [100,116,139] });
+    y += 2;
+    addText(audit.title, { size: 10, color: [30,30,30] });
+    addText(`${audit.title.length} characters`, { size: 8, color: [148,163,184] });
+    y += 8;
+    addRule();
+
+    // ── Issues & Suggestions ──
+    const sections = [
+      { label: "TITLE ANALYSIS", data: result.titleScore },
+      { label: "BULLET POINTS", data: result.bulletScore },
+      { label: "IMAGES", data: result.imageScore },
+      { label: "KEYWORDS", data: result.keywordScore },
+    ];
+    sections.forEach(sec => {
+      addText(sec.label, { size: 9, bold: true, color: [100,116,139] });
+      y += 2;
+      if (sec.data.issues.length) {
+        addText("Issues:", { size: 9, bold: true, color: [220,38,38] });
+        sec.data.issues.forEach(issue => addText(`• ${issue}`, { size: 9, color: [71,85,105] }));
+      }
+      if (sec.data.suggestions.length) {
+        addText("Suggestions:", { size: 9, bold: true, color: [22,163,74] });
+        sec.data.suggestions.forEach(s => addText(`✓ ${s}`, { size: 9, color: [71,85,105] }));
+      }
+      y += 6;
+      addRule();
+    });
+
+    // ── Keywords ──
+    addText("TARGET KEYWORDS", { size: 9, bold: true, color: [100,116,139] });
+    y += 2;
+    addText(audit.targetKeywords.join(", "), { size: 9, color: [71,85,105] });
+    y += 8;
+    addRule();
+
+    // ── Competitors ──
+    if (audit.competitors.length > 0) {
+      addText("COMPETITOR COMPARISON", { size: 9, bold: true, color: [100,116,139] });
+      y += 4;
+      audit.competitors.forEach(c => {
+        addText(c.productName, { size: 10, bold: true, color: [15,23,42] });
+        addText(`Score: ${c.overallScore}`, { size: 9, color: [71,85,105] });
+        if (c.strengths.length) addText(`Strengths: ${c.strengths.slice(0,2).join("; ")}`, { size: 9, color: [22,163,74] });
+        if (c.weaknesses.length) addText(`Weaknesses: ${c.weaknesses.slice(0,2).join("; ")}`, { size: 9, color: [220,38,38] });
+        y += 4;
+      });
+      addRule();
+    }
+
+    // ── Generated Content ──
+    if (audit.generatedContent) {
+      const gc = audit.generatedContent;
+      addText("AI-GENERATED CONTENT", { size: 9, bold: true, color: [100,116,139] });
+      y += 4;
+      addText("Optimized Title:", { size: 9, bold: true, color: [30,30,30] });
+      addText(gc.title, { size: 9, color: [71,85,105] });
+      y += 4;
+      addText("Bullet Points:", { size: 9, bold: true, color: [30,30,30] });
+      gc.bulletPoints.forEach((bp, i) => addText(`${i+1}. ${bp}`, { size: 9, color: [71,85,105] }));
+      y += 4;
+      addText("Backend Keywords:", { size: 9, bold: true, color: [30,30,30] });
+      addText(gc.keywords.join(", "), { size: 9, color: [71,85,105] });
+    }
+
+    // ── Footer ──
+    const pages = doc.getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setTextColor(180,180,180); doc.setFont("helvetica","normal");
+      doc.text(`ListingAuditor.com · ${format(new Date(audit.createdAt), "MMMM d, yyyy")} · Page ${i} of ${pages}`, margin, doc.internal.pageSize.getHeight() - 24);
+    }
+
+    doc.save(`${audit.productName.replace(/[^a-z0-9]/gi,"_").toLowerCase()}_audit_report.pdf`);
+  };
+
   const handleGenerateContent = () => {
     generateContent.mutate({ id }, {
       onSuccess: () => {
@@ -217,7 +366,11 @@ export default function AuditDetail({ id }: { id: number }) {
             <p className="text-muted-foreground text-sm">Audited {format(new Date(audit.createdAt), 'MMMM d, yyyy')}</p>
           </div>
         </div>
-        <AlertDialog>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+            <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
+          </Button>
+          <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
               <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
@@ -233,7 +386,8 @@ export default function AuditDetail({ id }: { id: number }) {
               <AlertDialogAction onClick={handleDeleteAudit} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
-        </AlertDialog>
+          </AlertDialog>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -326,7 +480,9 @@ export default function AuditDetail({ id }: { id: number }) {
                 ) : (
                   <div className="flex gap-2 flex-wrap">
                     {audit.imageUrls.slice(0, 6).map((url, i) => (
-                      <img key={i} src={url} alt="" className="w-12 h-12 object-contain rounded border bg-white" />
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" title="Open full-size image" className="block shrink-0 hover:ring-2 hover:ring-primary rounded transition-all">
+                        <img src={url} alt={`Product image ${i + 1}`} className="w-12 h-12 object-contain rounded border bg-white" />
+                      </a>
                     ))}
                     {audit.imageUrls.length > 6 && <span className="text-xs text-muted-foreground self-center">+{audit.imageUrls.length - 6} more</span>}
                   </div>
@@ -460,6 +616,7 @@ export default function AuditDetail({ id }: { id: number }) {
         {/* ── EBC / A+ CONTENT TAB ── */}
         <TabsContent value="ebc" className="space-y-6">
           <EbcStudio
+            auditId={id}
             audit={{
               productName: audit.productName,
               summary: result.summary,
