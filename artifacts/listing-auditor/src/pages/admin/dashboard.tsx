@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   Users, FileText, TrendingUp, AlertTriangle,
   UserPlus, Activity, Clock, CheckCircle, ArrowRight,
-  CalendarDays, LogIn,
+  CalendarDays, LogIn, Eye,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -240,12 +240,19 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody>
                     {data?.recentAudits.map((audit) => (
-                      <tr key={audit.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                        <td className="px-6 py-3 font-medium text-slate-800 truncate max-w-[180px]">{audit.productName}</td>
+                      <tr
+                        key={audit.id}
+                        className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group"
+                        onClick={() => nav(`/audits/${audit.id}`)}
+                      >
+                        <td className="px-6 py-3 font-medium text-slate-800 truncate max-w-[180px] group-hover:text-orange-700 transition-colors">{audit.productName}</td>
                         <td className="px-4 py-3"><ScoreBadge score={audit.overallScore} /></td>
                         <td className="px-4 py-3"><StatusBadge status={audit.status} /></td>
                         <td className="px-6 py-3 text-right text-slate-400 text-xs">
                           {formatDistanceToNow(new Date(audit.createdAt), { addSuffix: true })}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Eye className="w-3.5 h-3.5 text-slate-300 group-hover:text-orange-500 transition-colors inline-block" />
                         </td>
                       </tr>
                     ))}

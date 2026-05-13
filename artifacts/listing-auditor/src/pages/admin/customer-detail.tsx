@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -131,24 +131,41 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                     <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Product</th>
                     <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Score</th>
                     <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Status</th>
-                    <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Date</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Date</th>
+                    <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">View</th>
                   </tr>
                 </thead>
                 <tbody>
                   {audits?.map((a: { id: number; productName: string; overallScore: number; status: string; createdAt: string }) => (
-                    <tr key={a.id} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="px-5 py-3 font-medium text-slate-800 truncate max-w-[200px]">{a.productName}</td>
+                    <tr
+                      key={a.id}
+                      className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group"
+                      onClick={() => setLocation(`/audits/${a.id}`)}
+                    >
+                      <td className="px-5 py-3 font-medium text-slate-800 truncate max-w-[200px] group-hover:text-orange-700 transition-colors">{a.productName}</td>
                       <td className="px-3 py-3">
                         <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${a.overallScore >= 70 ? "bg-green-100 text-green-700" : a.overallScore >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
                           {a.overallScore}
                         </span>
                       </td>
                       <td className="px-3 py-3 capitalize text-xs text-slate-500">{a.status}</td>
-                      <td className="px-5 py-3 text-right text-xs text-slate-400">{format(new Date(a.createdAt), "MMM d, yyyy")}</td>
+                      <td className="px-3 py-3 text-xs text-slate-400">{format(new Date(a.createdAt), "MMM d, yyyy")}</td>
+                      <td className="px-5 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-slate-400 hover:text-orange-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => { e.stopPropagation(); setLocation(`/audits/${a.id}`); }}
+                          title="View full audit"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1" />
+                          View
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                   {!audits?.length && (
-                    <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-400 text-sm">No audits</td></tr>
+                    <tr><td colSpan={5} className="px-5 py-8 text-center text-slate-400 text-sm">No audits</td></tr>
                   )}
                 </tbody>
               </table>
