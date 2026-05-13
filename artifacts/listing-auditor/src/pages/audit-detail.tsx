@@ -6,6 +6,7 @@ import {
   getListAuditsQueryKey, getGetAuditStatsQueryKey, getGetAuditQueryKey,
 } from "@workspace/api-client-react";
 import { ImageGallery } from "@/components/image-gallery";
+import { EbcStudio } from "@/components/ebc-studio";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -247,6 +248,9 @@ export default function AuditDetail({ id }: { id: number }) {
             Generated Images
             {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
           </TabsTrigger>
+          <TabsTrigger value="ebc">
+            A+ / EBC Content
+          </TabsTrigger>
           <TabsTrigger value="competitors">
             Competitors
             {audit.competitors.length > 0 && (
@@ -450,6 +454,21 @@ export default function AuditDetail({ id }: { id: number }) {
             productName={audit.productName}
             imageRecords={audit.imageRecords}
             generatedImages={audit.generatedImages}
+          />
+        </TabsContent>
+
+        {/* ── EBC / A+ CONTENT TAB ── */}
+        <TabsContent value="ebc" className="space-y-6">
+          <EbcStudio
+            audit={{
+              productName: audit.productName,
+              summary: result.summary,
+              bulletPoints: audit.bulletPoints,
+              keywords: audit.targetKeywords,
+              generatedBullets: audit.generatedContent?.bulletPoints,
+              generatedTitle: audit.generatedContent?.title,
+              imageUrls: audit.imageUrls,
+            }}
           />
         </TabsContent>
 
