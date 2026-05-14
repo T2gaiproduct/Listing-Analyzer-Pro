@@ -29,6 +29,7 @@ const navSections = [
   {
     label: "Billing",
     items: [
+      { href: "/admin/plans", label: "Plans & Packages", icon: Layers },
       { href: "/admin/billing/payments", label: "Payments", icon: CreditCard },
       { href: "/admin/billing/invoices", label: "Invoices", icon: FileText },
       { href: "/admin/billing/refunds", label: "Refunds", icon: Layers },
