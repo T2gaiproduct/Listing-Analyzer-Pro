@@ -2,11 +2,16 @@ import { useState } from "react";
 import { Link } from "wouter";
 import {
   Search, TrendingUp, Zap, ShieldCheck, BarChart3, ArrowRight,
-  CheckCircle2, Star, ChevronDown, ChevronUp, Image, Users
+  CheckCircle2, Star, ChevronDown, ChevronUp, Image, Users,
+  LayoutDashboard, MousePointerClick, Sparkles, Wand2, ClipboardCheck, Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
+import { NewsletterSection } from "@/components/newsletter";
+import { ExitPopup } from "@/components/exit-popup";
+import { PromoBanner } from "@/components/promo-banner";
+import { SeoHead } from "@/components/seo-head";
 
 const features = [
   { icon: BarChart3, title: "AI-Powered Scoring", description: "Get instant scores for your title, bullet points, images, and keywords — benchmarked against best practices." },
@@ -78,7 +83,14 @@ export default function Landing() {
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
+      <PromoBanner />
       <PublicNav />
+
+      {/* SEO */}
+      <SeoHead
+        title="AI-Powered Amazon Listing Optimization"
+        description="Audit your Amazon listings in seconds with AI. Get scores, fix issues, outrank competitors, and generate winning content."
+      />
 
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-slate-50 via-white to-orange-50 px-6 py-24 text-center overflow-hidden">
@@ -156,8 +168,85 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Product Screenshot / Dashboard Mockup */}
+      <section className="px-6 pb-6 -mt-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+            <div className="bg-slate-800 px-4 py-2 flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-400" />
+              <div className="w-3 h-3 rounded-full bg-yellow-400" />
+              <div className="w-3 h-3 rounded-full bg-green-400" />
+              <span className="text-xs text-slate-500 ml-2">listingauditor.com/dashboard</span>
+            </div>
+            <div className="p-6 md:p-10">
+              <div className="grid md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                  <p className="text-xs text-slate-400 mb-1">Overall Score</p>
+                  <p className="text-3xl font-bold text-green-400">87<span className="text-lg text-slate-500">/100</span></p>
+                </div>
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                  <p className="text-xs text-slate-400 mb-1">Title Score</p>
+                  <p className="text-3xl font-bold text-orange-400">92<span className="text-lg text-slate-500">/100</span></p>
+                </div>
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                  <p className="text-xs text-slate-400 mb-1">Keyword Score</p>
+                  <p className="text-3xl font-bold text-blue-400">78<span className="text-lg text-slate-500">/100</span></p>
+                </div>
+              </div>
+              <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-orange-400" />
+                  <span className="text-sm font-medium text-slate-200">AI Suggestions</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 text-sm text-slate-400">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                    Add "dishwasher safe" to title — high-search keyword with low competition
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-slate-400">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                    Expand bullet point #2 with a benefit-focused opening
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-slate-400">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                    Add lifestyle image showing the product in use
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works / Workflow */}
+      <section className="px-6 py-20 bg-slate-50">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">How It Works</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">Optimize in 3 simple steps</h2>
+            <p className="text-slate-500 max-w-lg mx-auto">No complex setup. Paste a URL and let AI do the heavy lifting.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { step: "01", icon: MousePointerClick, title: "Paste Your Listing", desc: "Enter any Amazon product URL or ASIN. Our system instantly fetches the listing data." },
+              { step: "02", icon: Wand2, title: "AI Analyzes Everything", desc: "Our AI scores your title, bullets, images, and keywords against proven best practices." },
+              { step: "03", icon: ClipboardCheck, title: "Get Actionable Fixes", desc: "Receive specific suggestions, rewritten content, and a competitor gap analysis." },
+            ].map((s) => (
+              <div key={s.step} className="relative text-center">
+                <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center mx-auto mb-5">
+                  <s.icon className="w-7 h-7 text-orange-600" />
+                </div>
+                <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">Step {s.step}</span>
+                <h3 className="text-lg font-bold text-slate-900 mt-2 mb-2">{s.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Before / After demo */}
-      <section className="bg-slate-50 px-6 py-20">
+      <section className="px-6 py-20">
         <div className="max-w-4xl mx-auto text-center">
           <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Results</Badge>
           <h2 className="text-3xl font-bold text-slate-900 mb-3">See the AI difference</h2>
@@ -288,6 +377,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Newsletter */}
+      <NewsletterSection />
+
       {/* Final CTA */}
       <section className="bg-slate-900 px-6 py-20 text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,128,0,0.1),transparent_70%)]" />
@@ -312,6 +404,7 @@ export default function Landing() {
       </section>
 
       <PublicFooter />
+      <ExitPopup />
     </div>
   );
 }

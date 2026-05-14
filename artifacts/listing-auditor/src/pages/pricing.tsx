@@ -62,7 +62,7 @@ const plans = [
     description: "For agencies and power sellers with high-volume needs.",
     aiCredits: 2000,
     imageCredits: 400,
-    auditCredits: 200,
+    auditCredits: null,
     teamMembers: 10,
     features: [
       { text: "Unlimited listing audits", included: true },
@@ -218,7 +218,7 @@ export default function Pricing() {
                 <div className="flex flex-wrap gap-1.5 mb-5">
                   <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-md font-medium">{plan.aiCredits} AI credits</span>
                   <span className="bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded-md font-medium">{plan.imageCredits} images</span>
-                  <span className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md font-medium">{plan.auditCredits} audits</span>
+                  <span className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md font-medium">{plan.auditCredits !== null ? `${plan.auditCredits} audits` : "Unlimited audits"}</span>
                 </div>
               )}
 
@@ -264,6 +264,51 @@ export default function Pricing() {
                 <p className="text-xs text-slate-400 mt-1">{a.per}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison Table */}
+      <section className="px-6 py-16 bg-slate-50">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">Feature Comparison</h2>
+          <p className="text-slate-500 text-center mb-10">See exactly what you get with each plan.</p>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left px-6 py-4 font-semibold text-slate-700">Feature</th>
+                  <th className="text-center px-4 py-4 font-semibold text-slate-700">Starter</th>
+                  <th className="text-center px-4 py-4 font-semibold text-orange-600">Growth</th>
+                  <th className="text-center px-4 py-4 font-semibold text-slate-700">Pro</th>
+                  <th className="text-center px-4 py-4 font-semibold text-slate-700">Enterprise</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Listing Audits / Month", "10", "50", "Unlimited", "Unlimited"],
+                  ["AI Content Credits", "100", "500", "2,000", "Custom"],
+                  ["Image Generation Credits", "20", "100", "400", "Unlimited"],
+                  ["Competitor Analysis", "Yes", "Yes", "Yes", "Yes"],
+                  ["AI Score Breakdown", "Yes", "Yes", "Yes", "Yes"],
+                  ["Content Generator", "Yes", "Yes", "Yes", "Yes"],
+                  ["Image Studio", "Yes", "Yes", "Yes", "Yes"],
+                  ["PDF Reports", "Yes", "Yes", "Yes", "Yes"],
+                  ["Team Members", "1", "3", "10", "Unlimited"],
+                  ["API Access", "—", "—", "Yes", "Yes"],
+                  ["White-Label Reports", "—", "—", "—", "Yes"],
+                  ["Priority Support", "Email", "Email", "Dedicated", "Account Manager"],
+                ].map(([feature, starter, growth, pro, enterprise], i) => (
+                  <tr key={feature} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                    <td className="px-6 py-3.5 text-slate-700">{feature}</td>
+                    <td className="px-4 py-3.5 text-center text-slate-600">{starter}</td>
+                    <td className="px-4 py-3.5 text-center text-slate-900 font-medium bg-orange-50/30">{growth}</td>
+                    <td className="px-4 py-3.5 text-center text-slate-600">{pro}</td>
+                    <td className="px-4 py-3.5 text-center text-slate-600">{enterprise}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>

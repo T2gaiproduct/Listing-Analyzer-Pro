@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 const navLinks = [
   { href: "/features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/help", label: "Help" },
+  { href: "/about", label: "About" },
+  { href: "/blog", label: "Blog" },
+  { href: "/tutorials", label: "Tutorials" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -34,7 +36,7 @@ export function PublicNav() {
           ))}
         </nav>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/sign-in">Sign In</Link>
         </Button>
@@ -63,7 +65,7 @@ export function PublicFooter() {
           <div>
             <p className="font-semibold text-slate-900 text-sm mb-3">Product</p>
             <ul className="space-y-2">
-              {[["Features", "/features"], ["Pricing", "/pricing"], ["Enterprise", "/enterprise"]].map(([l, h]) => (
+              {[["Features", "/features"], ["Pricing", "/pricing"], ["Enterprise", "/enterprise"], ["Blog", "/blog"], ["Tutorials", "/tutorials"]].map(([l, h]) => (
                 <li key={l}><Link href={h} className="text-sm text-slate-500 hover:text-slate-900 transition-colors">{l}</Link></li>
               ))}
             </ul>
@@ -71,7 +73,7 @@ export function PublicFooter() {
           <div>
             <p className="font-semibold text-slate-900 text-sm mb-3">Support</p>
             <ul className="space-y-2">
-              {[["Help Center", "/help"], ["Contact", "/contact"], ["Sign In", "/sign-in"]].map(([l, h]) => (
+              {[["Help Center", "/help"], ["Contact", "/contact"], ["Sign In", "/sign-in"], ["Sign Up", "/sign-up"]].map(([l, h]) => (
                 <li key={l}><Link href={h} className="text-sm text-slate-500 hover:text-slate-900 transition-colors">{l}</Link></li>
               ))}
             </ul>
@@ -79,7 +81,7 @@ export function PublicFooter() {
           <div>
             <p className="font-semibold text-slate-900 text-sm mb-3">Company</p>
             <ul className="space-y-2">
-              {[["About", "/"], ["Blog", "/"], ["Privacy", "/"], ["Terms", "/"]].map(([l, h]) => (
+              {[["About", "/about"], ["Blog", "/blog"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
                 <li key={l}><Link href={h} className="text-sm text-slate-500 hover:text-slate-900 transition-colors">{l}</Link></li>
               ))}
             </ul>

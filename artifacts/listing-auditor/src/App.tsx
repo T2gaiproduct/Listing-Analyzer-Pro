@@ -5,6 +5,8 @@ import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wo
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { LiveChatWidget } from "@/components/live-chat";
 import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
 import Dashboard from "@/pages/dashboard";
@@ -25,6 +27,11 @@ import Features from "@/pages/features";
 import Contact from "@/pages/contact";
 import Help from "@/pages/help";
 import Enterprise from "@/pages/enterprise";
+import About from "@/pages/about";
+import Blog from "@/pages/blog";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
+import Tutorials from "@/pages/tutorials";
 import Billing from "@/pages/billing";
 import Team from "@/pages/team";
 
@@ -214,6 +221,11 @@ function Router() {
       <Route path="/contact" component={Contact} />
       <Route path="/help" component={Help} />
       <Route path="/enterprise" component={Enterprise} />
+      <Route path="/about" component={About} />
+      <Route path="/blog" component={Blog} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/tutorials" component={Tutorials} />
 
       {/* Protected customer pages */}
       <Route path="/billing">
@@ -275,6 +287,7 @@ function ClerkProviderWithRoutes() {
         <TooltipProvider>
           <Router />
           <Toaster />
+          <LiveChatWidget />
         </TooltipProvider>
       </QueryClientProvider>
     </ClerkProvider>
@@ -284,7 +297,9 @@ function ClerkProviderWithRoutes() {
 function App() {
   return (
     <WouterRouter base={basePath}>
-      <ClerkProviderWithRoutes />
+      <ThemeProvider>
+        <ClerkProviderWithRoutes />
+      </ThemeProvider>
     </WouterRouter>
   );
 }

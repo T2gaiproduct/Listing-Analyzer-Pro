@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SeoHead } from "@/components/seo-head";
 import { Mail, Phone, MapPin, Clock, Calendar, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,10 @@ export default function Contact() {
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
+      <SeoHead
+        title="Contact Us"
+        description="Get in touch with the ListingAuditor team for sales, support, or partnership inquiries."
+      />
       <PublicNav />
 
       {/* Hero */}
