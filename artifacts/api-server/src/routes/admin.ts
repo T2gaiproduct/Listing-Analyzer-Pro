@@ -225,6 +225,35 @@ router.patch("/admin/customers/:userId/unban", requireAdmin, async (req, res): P
   res.json(result);
 });
 
+router.patch("/admin/customers/:userId/lock", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  const result = await clerkFetch(`/users/${userId}/lock`, { method: "POST" });
+  res.json(result);
+});
+
+router.patch("/admin/customers/:userId/unlock", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  const result = await clerkFetch(`/users/${userId}/unlock`, { method: "POST" });
+  res.json(result);
+});
+
+router.get("/admin/customers/:userId/payments", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  const userPayments = await db
+    .select()
+    .from(paymentsTable)
+    .where(eq(paymentsTable.userId, userId))
+    .orderBy(desc(paymentsTable.createdAt))
+    .limit(50);
+  const userInvoices = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.userId, userId))
+    .orderBy(desc(invoicesTable.createdAt))
+    .limit(20);
+  res.json({ payments: userPayments, invoices: userInvoices });
+});
+
 router.delete("/admin/customers/:userId", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
   await db.delete(auditsTable).where(eq(auditsTable.userId, userId));

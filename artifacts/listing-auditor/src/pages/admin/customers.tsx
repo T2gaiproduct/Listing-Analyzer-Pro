@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Ban, CheckCircle, Trash2, Eye, Users } from "lucide-react";
+import { Search, Ban, CheckCircle, Trash2, Eye, Users, PauseCircle, PlayCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,18 @@ export default function AdminCustomers() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-customers"] });
       toast({ title: "Customer status updated" });
+    },
+  });
+
+  const lockMutation = useMutation({
+    mutationFn: ({ userId, lock }: { userId: string; lock: boolean }) =>
+      fetch(`${basePath}/api/admin/customers/${userId}/${lock ? "lock" : "unlock"}`, {
+        method: "PATCH",
+        credentials: "include",
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      toast({ title: "Suspension status updated" });
     },
   });
 
@@ -155,6 +167,7 @@ export default function AdminCustomers() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-slate-500 hover:text-slate-900"
+                      title="View detail"
                       onClick={() => setLocation(`/admin/customers/${c.id}`)}
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -162,7 +175,18 @@ export default function AdminCustomers() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-7 px-2 text-slate-500 hover:text-yellow-600"
+                      title={c.locked ? "Activate (unsuspend)" : "Suspend account"}
+                      onClick={() => lockMutation.mutate({ userId: c.id, lock: !c.locked })}
+                      disabled={lockMutation.isPending || c.banned}
+                    >
+                      {c.locked ? <PlayCircle className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="h-7 px-2 text-slate-500 hover:text-amber-600"
+                      title={c.banned ? "Unban" : "Ban"}
                       onClick={() => banMutation.mutate({ userId: c.id, ban: !c.banned })}
                       disabled={banMutation.isPending}
                     >
@@ -172,6 +196,7 @@ export default function AdminCustomers() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-slate-500 hover:text-red-600"
+                      title="Delete customer"
                       onClick={() => {
                         if (confirm(`Delete ${c.email}? This removes all their audits.`)) {
                           deleteMutation.mutate(c.id);
