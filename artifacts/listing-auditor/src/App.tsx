@@ -22,6 +22,21 @@ import AdminAudits from "@/pages/admin/audits";
 import AdminPlans from "@/pages/admin/plans";
 import AdminCredits from "@/pages/admin/credits";
 import AdminAnalytics from "@/pages/admin/analytics";
+import AdminBillingPayments from "@/pages/admin/billing/payments";
+import AdminBillingInvoices from "@/pages/admin/billing/invoices";
+import AdminBillingRefunds from "@/pages/admin/billing/refunds";
+import AdminBillingCoupons from "@/pages/admin/billing/coupons";
+import AdminContentGenerated from "@/pages/admin/content/generated";
+import AdminContentImages from "@/pages/admin/content/images";
+import AdminContentLogs from "@/pages/admin/content/logs";
+import AdminContentDownloads from "@/pages/admin/content/downloads";
+import AdminRoles from "@/pages/admin/roles";
+import AdminNotifications from "@/pages/admin/notifications";
+import AdminSettingsPlatform from "@/pages/admin/settings/platform";
+import AdminSettingsAI from "@/pages/admin/settings/ai";
+import AdminSettingsAPI from "@/pages/admin/settings/api";
+import AdminSettingsSecurity from "@/pages/admin/settings/security";
+import AdminSettingsPaymentGateway from "@/pages/admin/settings/payment-gateway";
 import Pricing from "@/pages/pricing";
 import Features from "@/pages/features";
 import Contact from "@/pages/contact";
@@ -213,6 +228,51 @@ function Router() {
       </Route>
       <Route path="/admin/analytics">
         <AdminRoute><AdminAnalytics /></AdminRoute>
+      </Route>
+      <Route path="/admin/billing/payments">
+        <AdminRoute><AdminBillingPayments /></AdminRoute>
+      </Route>
+      <Route path="/admin/billing/invoices">
+        <AdminRoute><AdminBillingInvoices /></AdminRoute>
+      </Route>
+      <Route path="/admin/billing/refunds">
+        <AdminRoute><AdminBillingRefunds /></AdminRoute>
+      </Route>
+      <Route path="/admin/billing/coupons">
+        <AdminRoute><AdminBillingCoupons /></AdminRoute>
+      </Route>
+      <Route path="/admin/content/generated">
+        <AdminRoute><AdminContentGenerated /></AdminRoute>
+      </Route>
+      <Route path="/admin/content/images">
+        <AdminRoute><AdminContentImages /></AdminRoute>
+      </Route>
+      <Route path="/admin/content/logs">
+        <AdminRoute><AdminContentLogs /></AdminRoute>
+      </Route>
+      <Route path="/admin/content/downloads">
+        <AdminRoute><AdminContentDownloads /></AdminRoute>
+      </Route>
+      <Route path="/admin/roles">
+        <AdminRoute><AdminRoles /></AdminRoute>
+      </Route>
+      <Route path="/admin/notifications">
+        <AdminRoute><AdminNotifications /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/platform">
+        <AdminRoute><AdminSettingsPlatform /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/ai">
+        <AdminRoute><AdminSettingsAI /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/api">
+        <AdminRoute><AdminSettingsAPI /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/security">
+        <AdminRoute><AdminSettingsSecurity /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/payment-gateway">
+        <AdminRoute><AdminSettingsPaymentGateway /></AdminRoute>
       </Route>
 
       {/* Public pages */}

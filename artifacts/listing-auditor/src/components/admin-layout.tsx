@@ -3,6 +3,8 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Search, Settings,
+  BadgePercent, PenLine, Image, ClipboardList, Download,
+  Bell, BrainCircuit, KeyRound, Lock, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -23,10 +25,43 @@ const navSections = [
     ],
   },
   {
-    label: "Platform",
+    label: "Billing",
     items: [
-      { href: "/admin/plans", label: "Plans & Packages", icon: Layers },
-      { href: "/admin/credits", label: "Credits", icon: CreditCard },
+      { href: "/admin/billing/payments", label: "Payments", icon: CreditCard },
+      { href: "/admin/billing/invoices", label: "Invoices", icon: FileText },
+      { href: "/admin/billing/refunds", label: "Refunds", icon: Layers },
+      { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { href: "/admin/content/generated", label: "Generated Content", icon: PenLine },
+      { href: "/admin/content/images", label: "Generated Images", icon: Image },
+      { href: "/admin/content/logs", label: "Audit Logs", icon: ClipboardList },
+      { href: "/admin/content/downloads", label: "Downloads", icon: Download },
+    ],
+  },
+  {
+    label: "Roles",
+    items: [
+      { href: "/admin/roles", label: "Admin Roles", icon: Shield },
+    ],
+  },
+  {
+    label: "Notifications",
+    items: [
+      { href: "/admin/notifications", label: "Alerts", icon: Bell },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { href: "/admin/settings/platform", label: "Platform", icon: Settings },
+      { href: "/admin/settings/ai", label: "AI Settings", icon: BrainCircuit },
+      { href: "/admin/settings/api", label: "API Management", icon: KeyRound },
+      { href: "/admin/settings/security", label: "Security", icon: Lock },
+      { href: "/admin/settings/payment-gateway", label: "Payment Gateway", icon: Wallet },
     ],
   },
 ];

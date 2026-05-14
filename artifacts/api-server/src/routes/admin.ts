@@ -1,7 +1,12 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, count, avg, sql, desc, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable } from "@workspace/db";
+import {
+  db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable,
+  paymentsTable, invoicesTable, refundsTable, couponsTable,
+  adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
+  settingsTable, notificationsTable,
+} from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -392,6 +397,319 @@ router.get("/admin/analytics", requireAdmin, async (req, res): Promise<void> => 
     .limit(10);
 
   res.json({ auditsByDay, scoreDistribution, topUsers, categoryBreakdown });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BILLING — Payments
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/payments", requireAdmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const offset = Number(req.query.offset ?? 0);
+  const status = (req.query.status as string | undefined) ?? "";
+  const gateway = (req.query.gateway as string | undefined) ?? "";
+
+  let q = db.select().from(paymentsTable).orderBy(desc(paymentsTable.createdAt)).limit(limit).offset(offset);
+  const all = await q;
+  const filtered = all.filter((p) => {
+    if (status && p.status !== status) return false;
+    if (gateway && p.gateway !== gateway) return false;
+    return true;
+  });
+  const [total] = await db.select({ c: count() }).from(paymentsTable);
+  res.json({ payments: filtered, total: Number(total?.c ?? 0) });
+});
+
+router.post("/admin/payments", requireAdmin, async (req, res): Promise<void> => {
+  const { userId, amount, currency, status, gateway, planId, metadata } = req.body;
+  const [p] = await db.insert(paymentsTable).values({ userId, amount, currency, status, gateway, planId, metadata }).returning();
+  res.status(201).json(p);
+});
+
+router.patch("/admin/payments/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { status } = req.body;
+  const [p] = await db.update(paymentsTable).set({ status, updatedAt: new Date() }).where(eq(paymentsTable.id, id)).returning();
+  res.json(p);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BILLING — Invoices
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/invoices", requireAdmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const offset = Number(req.query.offset ?? 0);
+  const invoices = await db.select().from(invoicesTable).orderBy(desc(invoicesTable.createdAt)).limit(limit).offset(offset);
+  const [total] = await db.select({ c: count() }).from(invoicesTable);
+  res.json({ invoices, total: Number(total?.c ?? 0) });
+});
+
+router.post("/admin/invoices", requireAdmin, async (req, res): Promise<void> => {
+  const { userId, amount, currency, status, items, dueDate } = req.body;
+  const [inv] = await db.insert(invoicesTable).values({ userId, amount, currency, status, items, dueDate: dueDate ? new Date(dueDate) : null }).returning();
+  res.status(201).json(inv);
+});
+
+router.patch("/admin/invoices/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { status, paidAt } = req.body;
+  const [inv] = await db.update(invoicesTable).set({ status, paidAt: paidAt ? new Date(paidAt) : null }).where(eq(invoicesTable.id, id)).returning();
+  res.json(inv);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BILLING — Refunds
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/refunds", requireAdmin, async (req, res): Promise<void> => {
+  const refunds = await db.select().from(refundsTable).orderBy(desc(refundsTable.createdAt)).limit(100);
+  res.json({ refunds });
+});
+
+router.post("/admin/refunds", requireAdmin, async (req, res): Promise<void> => {
+  const { paymentId, userId, amount, reason } = req.body;
+  const [r] = await db.insert(refundsTable).values({ paymentId, userId, amount, reason }).returning();
+  res.status(201).json(r);
+});
+
+router.patch("/admin/refunds/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { status } = req.body;
+  const [r] = await db.update(refundsTable).set({ status, processedAt: status === "completed" ? new Date() : null }).where(eq(refundsTable.id, id)).returning();
+  res.json(r);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BILLING — Coupons
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
+  const coupons = await db.select().from(couponsTable).orderBy(desc(couponsTable.createdAt));
+  res.json({ coupons });
+});
+
+router.post("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
+  const { code, description, discountPercent, discountAmount, maxUses, expiryDate, appliesTo } = req.body;
+  const [c] = await db.insert(couponsTable).values({
+    code, description, discountPercent, discountAmount, maxUses, expiryDate: expiryDate ? new Date(expiryDate) : null, appliesTo,
+  }).returning();
+  res.status(201).json(c);
+});
+
+router.patch("/admin/coupons/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { isActive, usedCount } = req.body;
+  const [c] = await db.update(couponsTable).set({ isActive, usedCount }).where(eq(couponsTable.id, id)).returning();
+  res.json(c);
+});
+
+router.delete("/admin/coupons/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(couponsTable).where(eq(couponsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONTENT MONITORING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/content", requireAdmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const content = await db
+    .select({
+      id: auditsTable.id,
+      userId: auditsTable.userId,
+      productName: auditsTable.productName,
+      generatedContent: auditsTable.generatedContent,
+      generatedImages: auditsTable.generatedImages,
+      createdAt: auditsTable.createdAt,
+    })
+    .from(auditsTable)
+    .where(sql`${auditsTable.generatedContent} IS NOT NULL OR ${auditsTable.generatedImages} IS NOT NULL`)
+    .orderBy(desc(auditsTable.createdAt))
+    .limit(limit);
+  res.json({ content });
+});
+
+router.get("/admin/images", requireAdmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const images = await db
+    .select({
+      id: auditsTable.id,
+      userId: auditsTable.userId,
+      productName: auditsTable.productName,
+      generatedImages: auditsTable.generatedImages,
+      imageRecords: auditsTable.imageRecords,
+      createdAt: auditsTable.createdAt,
+    })
+    .from(auditsTable)
+    .where(sql`${auditsTable.generatedImages} IS NOT NULL OR ${auditsTable.imageRecords} IS NOT NULL`)
+    .orderBy(desc(auditsTable.createdAt))
+    .limit(limit);
+  res.json({ images });
+});
+
+router.get("/admin/audit-logs", requireAdmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Number(req.query.limit ?? 100), 500);
+  const logs = await db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(limit);
+  res.json({ logs });
+});
+
+router.get("/admin/downloads", requireAdmin, async (req, res): Promise<void> => {
+  const downloads = await db.select().from(downloadsTable).orderBy(desc(downloadsTable.createdAt)).limit(100);
+  res.json({ downloads });
+});
+
+router.post("/admin/audit-logs", requireAdmin, async (req, res): Promise<void> => {
+  const { action, entity, entityId, metadata, ipAddress } = req.body;
+  const auth = getAuth(req);
+  const adminUserId = auth?.userId ?? "unknown";
+  const [log] = await db.insert(auditLogsTable).values({ adminUserId, action, entity, entityId, metadata, ipAddress }).returning();
+  res.status(201).json(log);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ROLE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/roles", requireAdmin, async (req, res): Promise<void> => {
+  const roles = await db.select().from(adminRolesTable);
+  res.json({ roles });
+});
+
+router.post("/admin/roles", requireAdmin, async (req, res): Promise<void> => {
+  const { name, description, permissions } = req.body;
+  const [role] = await db.insert(adminRolesTable).values({ name, description, permissions: permissions ?? [] }).returning();
+  res.status(201).json(role);
+});
+
+router.patch("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { name, description, permissions } = req.body;
+  const [role] = await db.update(adminRolesTable).set({ name, description, permissions }).where(eq(adminRolesTable.id, id)).returning();
+  res.json(role);
+});
+
+router.delete("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(adminRolesTable).where(eq(adminRolesTable.id, id));
+  res.sendStatus(204);
+});
+
+router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
+  const users = await db.select().from(adminUsersTable);
+  res.json({ users });
+});
+
+router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
+  const { userId, roleId } = req.body;
+  const [u] = await db.insert(adminUsersTable).values({ userId, roleId }).onConflictDoNothing().returning();
+  res.status(201).json(u);
+});
+
+router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { roleId } = req.body;
+  const [u] = await db.update(adminUsersTable).set({ roleId }).where(eq(adminUsersTable.id, id)).returning();
+  res.json(u);
+});
+
+router.delete("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(adminUsersTable).where(eq(adminUsersTable.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/notifications", requireAdmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const type = (req.query.type as string | undefined) ?? "";
+  let q = db.select().from(notificationsTable).orderBy(desc(notificationsTable.sentAt)).limit(limit);
+  const all = await q;
+  const filtered = type ? all.filter((n) => n.type === type) : all;
+  res.json({ notifications: filtered });
+});
+
+router.post("/admin/notifications", requireAdmin, async (req, res): Promise<void> => {
+  const { userId, type, title, message } = req.body;
+  const [n] = await db.insert(notificationsTable).values({ userId: userId ?? null, type, title, message }).returning();
+  res.status(201).json(n);
+});
+
+router.patch("/admin/notifications/:id/read", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [n] = await db.update(notificationsTable).set({ read: true, readAt: new Date() }).where(eq(notificationsTable.id, id)).returning();
+  res.json(n);
+});
+
+router.delete("/admin/notifications/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(notificationsTable).where(eq(notificationsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
+  const category = (req.query.category as string | undefined) ?? "";
+  const all = await db.select().from(settingsTable);
+  const filtered = category ? all.filter((s) => s.category === category) : all;
+  const map: Record<string, string> = {};
+  for (const s of filtered) map[s.key] = s.isSecret ? "***" : s.value;
+  res.json(map);
+});
+
+router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
+  const { category, settings } = req.body;
+  for (const [key, value] of Object.entries(settings as Record<string, string>)) {
+    const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+    if (existing) {
+      await db.update(settingsTable).set({ value, category, updatedAt: new Date() }).where(eq(settingsTable.key, key));
+    } else {
+      await db.insert(settingsTable).values({ key, value, category });
+    }
+  }
+  res.json({ success: true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENHANCED DASHBOARD STATS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/billing-stats", requireAdmin, async (req, res): Promise<void> => {
+  const [revenue] = await db.select({ total: sql<number>`COALESCE(SUM(amount),0)` }).from(paymentsTable).where(eq(paymentsTable.status, "completed"));
+  const [pending] = await db.select({ total: sql<number>`COALESCE(SUM(amount),0)` }).from(paymentsTable).where(eq(paymentsTable.status, "pending"));
+  const [failed] = await db.select({ total: sql<number>`COALESCE(SUM(amount),0)` }).from(paymentsTable).where(eq(paymentsTable.status, "failed"));
+  const [refunded] = await db.select({ total: sql<number>`COALESCE(SUM(amount),0)` }).from(refundsTable).where(eq(refundsTable.status, "completed"));
+  const [invoiceCount] = await db.select({ c: count() }).from(invoicesTable);
+  const [unpaidInvoices] = await db.select({ c: count() }).from(invoicesTable).where(eq(invoicesTable.status, "unpaid"));
+  const [couponCount] = await db.select({ c: count() }).from(couponsTable);
+  res.json({
+    revenue: Number(revenue?.total ?? 0),
+    pendingRevenue: Number(pending?.total ?? 0),
+    failedRevenue: Number(failed?.total ?? 0),
+    refunded: Number(refunded?.total ?? 0),
+    invoiceCount: Number(invoiceCount?.c ?? 0),
+    unpaidInvoices: Number(unpaidInvoices?.c ?? 0),
+    couponCount: Number(couponCount?.c ?? 0),
+  });
 });
 
 export default router;

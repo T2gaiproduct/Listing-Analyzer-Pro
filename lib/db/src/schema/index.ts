@@ -2,3 +2,6 @@ export * from "./audits";
 export * from "./competitors";
 export * from "./plans";
 export * from "./credits";
+export * from "./billing";
+export * from "./admin";
+export * from "./settings";
