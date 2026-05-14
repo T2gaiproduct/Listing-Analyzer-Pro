@@ -37,6 +37,15 @@ import AdminSettingsAI from "@/pages/admin/settings/ai";
 import AdminSettingsAPI from "@/pages/admin/settings/api";
 import AdminSettingsSecurity from "@/pages/admin/settings/security";
 import AdminSettingsPaymentGateway from "@/pages/admin/settings/payment-gateway";
+import AdminMarketingHomepage from "@/pages/admin/marketing/homepage";
+import AdminMarketingPages from "@/pages/admin/marketing/pages";
+import AdminMarketingBlog from "@/pages/admin/marketing/blog";
+import AdminBlogEdit from "@/pages/admin/marketing/blog-edit";
+import AdminMarketingSeo from "@/pages/admin/marketing/seo";
+import AdminMarketingTestimonials from "@/pages/admin/marketing/testimonials";
+import AdminMarketingMedia from "@/pages/admin/marketing/media";
+import AdminMarketingForms from "@/pages/admin/marketing/forms";
+import AdminMarketingNavigation from "@/pages/admin/marketing/navigation";
 import Pricing from "@/pages/pricing";
 import Features from "@/pages/features";
 import Contact from "@/pages/contact";
@@ -268,6 +277,38 @@ function Router() {
       </Route>
       <Route path="/admin/settings/payment-gateway">
         <AdminRoute><AdminSettingsPaymentGateway /></AdminRoute>
+      </Route>
+
+      {/* Marketing */}
+      <Route path="/admin/marketing/homepage">
+        <AdminRoute><AdminMarketingHomepage /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/pages">
+        <AdminRoute><AdminMarketingPages /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/blog/new">
+        <AdminRoute><AdminBlogEdit postId="new" /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/blog/:id">
+        {params => <AdminRoute><AdminBlogEdit postId={params.id} /></AdminRoute>}
+      </Route>
+      <Route path="/admin/marketing/blog">
+        <AdminRoute><AdminMarketingBlog /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/seo">
+        <AdminRoute><AdminMarketingSeo /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/testimonials">
+        <AdminRoute><AdminMarketingTestimonials /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/media">
+        <AdminRoute><AdminMarketingMedia /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/forms">
+        <AdminRoute><AdminMarketingForms /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/navigation">
+        <AdminRoute><AdminMarketingNavigation /></AdminRoute>
       </Route>
 
       {/* Public pages */}

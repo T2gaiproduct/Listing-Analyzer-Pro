@@ -5,6 +5,7 @@ import {
   Layers, Shield, LogOut, ChevronRight, Settings,
   BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
+  Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -34,6 +35,19 @@ const navSections = [
       { href: "/admin/billing/invoices", label: "Invoices", icon: FileText },
       { href: "/admin/billing/refunds", label: "Refunds", icon: Layers },
       { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent },
+    ],
+  },
+  {
+    label: "Marketing",
+    items: [
+      { href: "/admin/marketing/homepage", label: "Homepage CMS", icon: Home },
+      { href: "/admin/marketing/pages", label: "Pages", icon: Globe },
+      { href: "/admin/marketing/blog", label: "Blog", icon: BookOpen },
+      { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp },
+      { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare },
+      { href: "/admin/marketing/media", label: "Media Library", icon: Image },
+      { href: "/admin/marketing/forms", label: "Form Submissions", icon: Inbox },
+      { href: "/admin/marketing/navigation", label: "Navigation", icon: Navigation },
     ],
   },
   {

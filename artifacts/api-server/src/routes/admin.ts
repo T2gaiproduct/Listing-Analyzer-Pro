@@ -6,7 +6,9 @@ import {
   paymentsTable, invoicesTable, refundsTable, couponsTable,
   adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
+  cmsContent, blogPosts, testimonials, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
 } from "@workspace/db";
+import { like, or, ilike } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -739,6 +741,253 @@ router.get("/admin/billing-stats", requireAdmin, async (req, res): Promise<void>
     unpaidInvoices: Number(unpaidInvoices?.c ?? 0),
     couponCount: Number(couponCount?.c ?? 0),
   });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — CMS CONTENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/cms/:pageSlug", requireAdmin, async (req, res): Promise<void> => {
+  const pageSlug = String(req.params.pageSlug ?? "");
+  const rows = await db.select().from(cmsContent).where(eq(cmsContent.pageSlug, pageSlug));
+  const map: Record<string, string> = {};
+  for (const r of rows) { map[`${r.sectionKey}.${r.fieldKey}`] = r.value ?? ""; }
+  res.json(map);
+});
+
+router.put("/admin/cms/:pageSlug", requireAdmin, async (req, res): Promise<void> => {
+  const pageSlug = String(req.params.pageSlug ?? "");
+  const data: Record<string, string> = req.body;
+  for (const [dotKey, value] of Object.entries(data)) {
+    const dotIdx = dotKey.indexOf(".");
+    if (dotIdx === -1) continue;
+    const sectionKey = dotKey.slice(0, dotIdx);
+    const fieldKey = dotKey.slice(dotIdx + 1);
+    const existing = await db.select().from(cmsContent).where(and(eq(cmsContent.pageSlug, pageSlug), eq(cmsContent.sectionKey, sectionKey), eq(cmsContent.fieldKey, fieldKey)));
+    if (existing.length) {
+      await db.update(cmsContent).set({ value, updatedAt: new Date() }).where(eq(cmsContent.id, existing[0].id));
+    } else {
+      await db.insert(cmsContent).values({ pageSlug, sectionKey, fieldKey, value });
+    }
+  }
+  res.json({ ok: true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — CMS PAGES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/cms-pages", requireAdmin, async (req, res): Promise<void> => {
+  const pages = await db.select().from(cmsPages).orderBy(cmsPages.createdAt);
+  res.json(pages);
+});
+
+router.post("/admin/cms-pages", requireAdmin, async (req, res): Promise<void> => {
+  const { title, slug, description, status, scheduledAt, seoTitle, seoDescription } = req.body;
+  const [page] = await db.insert(cmsPages).values({ title, slug, description, status: status ?? "draft", scheduledAt: scheduledAt ? new Date(scheduledAt) : null, seoTitle, seoDescription, publishedAt: status === "published" ? new Date() : null }).returning();
+  res.status(201).json(page);
+});
+
+router.patch("/admin/cms-pages/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { title, slug, description, status, scheduledAt, seoTitle, seoDescription, publishedAt } = req.body;
+  const [page] = await db.update(cmsPages).set({ title, slug, description, status, scheduledAt: scheduledAt ? new Date(scheduledAt) : null, seoTitle, seoDescription, publishedAt: publishedAt ? new Date(publishedAt) : null, updatedAt: new Date() }).where(eq(cmsPages.id, id)).returning();
+  if (!page) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(page);
+});
+
+router.delete("/admin/cms-pages/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(cmsPages).where(eq(cmsPages.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — BLOG
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/blog", requireAdmin, async (req, res): Promise<void> => {
+  const q = String(req.query.q ?? "");
+  const status = String(req.query.status ?? "");
+  let query = db.select().from(blogPosts).$dynamic();
+  const conditions = [];
+  if (q) conditions.push(ilike(blogPosts.title, `%${q}%`));
+  if (status) conditions.push(eq(blogPosts.status, status));
+  if (conditions.length) query = query.where(and(...conditions));
+  const posts = await query.orderBy(desc(blogPosts.createdAt));
+  res.json(posts);
+});
+
+router.get("/admin/blog/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+  if (!post) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(post);
+});
+
+router.post("/admin/blog", requireAdmin, async (req, res): Promise<void> => {
+  const { title, slug, excerpt, content, featuredImage, status, publishedAt, scheduledAt, seoTitle, seoDescription, tags, category, author, readMinutes } = req.body;
+  const [post] = await db.insert(blogPosts).values({ title, slug, excerpt, content, featuredImage, status: status ?? "draft", publishedAt: publishedAt ? new Date(publishedAt) : null, scheduledAt: scheduledAt ? new Date(scheduledAt) : null, seoTitle, seoDescription, tags: tags ?? [], category, author, readMinutes: readMinutes ?? 5 }).returning();
+  res.status(201).json(post);
+});
+
+router.patch("/admin/blog/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { title, slug, excerpt, content, featuredImage, status, publishedAt, scheduledAt, seoTitle, seoDescription, tags, category, author, readMinutes } = req.body;
+  const [post] = await db.update(blogPosts).set({ title, slug, excerpt, content, featuredImage, status, publishedAt: publishedAt ? new Date(publishedAt) : null, scheduledAt: scheduledAt ? new Date(scheduledAt) : null, seoTitle, seoDescription, tags, category, author, readMinutes, updatedAt: new Date() }).where(eq(blogPosts.id, id)).returning();
+  if (!post) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(post);
+});
+
+router.delete("/admin/blog/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(blogPosts).where(eq(blogPosts.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — TESTIMONIALS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/testimonials", requireAdmin, async (req, res): Promise<void> => {
+  const items = await db.select().from(testimonials).orderBy(testimonials.sortOrder);
+  res.json(items);
+});
+
+router.post("/admin/testimonials", requireAdmin, async (req, res): Promise<void> => {
+  const { name, role, company, avatar, content, rating, isPublished, isVideo, videoUrl, sortOrder } = req.body;
+  const [item] = await db.insert(testimonials).values({ name, role, company, avatar, content, rating: rating ?? 5, isPublished: isPublished ?? true, isVideo: isVideo ?? false, videoUrl, sortOrder: sortOrder ?? 0 }).returning();
+  res.status(201).json(item);
+});
+
+router.patch("/admin/testimonials/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { name, role, company, avatar, content, rating, isPublished, isVideo, videoUrl, sortOrder } = req.body;
+  const [item] = await db.update(testimonials).set({ name, role, company, avatar, content, rating, isPublished, isVideo, videoUrl, sortOrder, updatedAt: new Date() }).where(eq(testimonials.id, id)).returning();
+  if (!item) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(item);
+});
+
+router.delete("/admin/testimonials/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(testimonials).where(eq(testimonials.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — SEO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/seo/:pageSlug", requireAdmin, async (req, res): Promise<void> => {
+  const pageSlug = String(req.params.pageSlug ?? "");
+  const [setting] = await db.select().from(seoSettings).where(eq(seoSettings.pageSlug, pageSlug));
+  res.json(setting ?? { pageSlug, metaTitle: null, metaDescription: null, keywords: null, ogTitle: null, ogDescription: null, ogImage: null, schemaMarkup: null });
+});
+
+router.put("/admin/seo/:pageSlug", requireAdmin, async (req, res): Promise<void> => {
+  const pageSlug = String(req.params.pageSlug ?? "");
+  const { metaTitle, metaDescription, keywords, ogTitle, ogDescription, ogImage, schemaMarkup } = req.body;
+  const existing = await db.select().from(seoSettings).where(eq(seoSettings.pageSlug, pageSlug));
+  let result;
+  if (existing.length) {
+    [result] = await db.update(seoSettings).set({ metaTitle, metaDescription, keywords, ogTitle, ogDescription, ogImage, schemaMarkup, updatedAt: new Date() }).where(eq(seoSettings.pageSlug, pageSlug)).returning();
+  } else {
+    [result] = await db.insert(seoSettings).values({ pageSlug, metaTitle, metaDescription, keywords, ogTitle, ogDescription, ogImage, schemaMarkup }).returning();
+  }
+  res.json(result);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/nav", requireAdmin, async (req, res): Promise<void> => {
+  const items = await db.select().from(navItems).orderBy(navItems.sortOrder);
+  res.json(items);
+});
+
+router.post("/admin/nav", requireAdmin, async (req, res): Promise<void> => {
+  const { label, href, location, sortOrder, isActive, isCta, opensNewTab } = req.body;
+  const [item] = await db.insert(navItems).values({ label, href, location: location ?? "header", sortOrder: sortOrder ?? 0, isActive: isActive ?? true, isCta: isCta ?? false, opensNewTab: opensNewTab ?? false }).returning();
+  res.status(201).json(item);
+});
+
+router.patch("/admin/nav/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { label, href, location, sortOrder, isActive, isCta, opensNewTab } = req.body;
+  const [item] = await db.update(navItems).set({ label, href, location, sortOrder, isActive, isCta, opensNewTab }).where(eq(navItems.id, id)).returning();
+  if (!item) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(item);
+});
+
+router.delete("/admin/nav/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(navItems).where(eq(navItems.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — FORM SUBMISSIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/forms", requireAdmin, async (req, res): Promise<void> => {
+  const type = String(req.query.type ?? "");
+  let query = db.select().from(formSubmissions).$dynamic();
+  if (type) query = query.where(eq(formSubmissions.formType, type));
+  const items = await query.orderBy(desc(formSubmissions.createdAt));
+  res.json(items);
+});
+
+router.patch("/admin/forms/:id/read", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [item] = await db.update(formSubmissions).set({ isRead: true }).where(eq(formSubmissions.id, id)).returning();
+  res.json(item);
+});
+
+router.delete("/admin/forms/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(formSubmissions).where(eq(formSubmissions.id, id));
+  res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MARKETING — MEDIA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/media", requireAdmin, async (req, res): Promise<void> => {
+  const folder = String(req.query.folder ?? "");
+  const q = String(req.query.q ?? "");
+  let query = db.select().from(mediaFiles).$dynamic();
+  const conds = [];
+  if (folder) conds.push(eq(mediaFiles.folder, folder));
+  if (q) conds.push(ilike(mediaFiles.filename, `%${q}%`));
+  if (conds.length) query = query.where(and(...conds));
+  const files = await query.orderBy(desc(mediaFiles.createdAt));
+  res.json(files);
+});
+
+router.post("/admin/media", requireAdmin, async (req, res): Promise<void> => {
+  const { filename, url, mimeType, size, folder, alt } = req.body;
+  const [file] = await db.insert(mediaFiles).values({ filename, url, mimeType, size, folder: folder ?? "general", alt }).returning();
+  res.status(201).json(file);
+});
+
+router.delete("/admin/media/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
+  res.sendStatus(204);
 });
 
 export default router;

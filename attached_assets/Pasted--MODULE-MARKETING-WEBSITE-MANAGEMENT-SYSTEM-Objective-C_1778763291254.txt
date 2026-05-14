@@ -1,0 +1,274 @@
+# MODULE — MARKETING & WEBSITE MANAGEMENT SYSTEM
+
+Objective:
+Create a complete “Marketing” section inside the Admin Panel from where the entire frontend website can be managed dynamically without changing code.
+
+==================================================
+MARKETING SECTION IN ADMIN PANEL
+================================
+
+Create a dedicated menu in Admin Panel called:
+
+* Marketing
+* Website Management
+* Frontend CMS
+
+This section should control all frontend website pages and content dynamically.
+
+==================================================
+
+1. FRONTEND PAGE MANAGEMENT
+   ==================================================
+
+Admin should be able to:
+
+* Create pages
+* Edit pages
+* Delete pages
+* Publish/unpublish pages
+* Schedule page publishing
+* Preview changes before publishing
+
+Pages Managed From Backend:
+
+* Home Page
+* Features Page
+* Pricing Page
+* About Us
+* Contact Us
+* Blog
+* FAQ
+* Help Center
+* Terms & Conditions
+* Privacy Policy
+* Enterprise Page
+* Custom Landing Pages
+
+Frontend Requirement:
+
+* Any changes made in backend should instantly reflect on frontend website automatically.
+
+==================================================
+2. HOMEPAGE MANAGEMENT
+======================
+
+Admin should be able to edit:
+
+* Hero heading
+* Hero subheading
+* CTA buttons
+* Banner images
+* Product screenshots
+* Demo videos
+* Testimonials
+* Trusted brands section
+* FAQ section
+* Feature highlights
+* Pricing preview
+* Footer content
+
+Frontend Reflection:
+
+* Changes should update live on frontend automatically.
+
+==================================================
+3. BLOG MANAGEMENT SYSTEM
+=========================
+
+Admin should be able to:
+
+* Create blog posts
+* Edit blogs
+* Delete blogs
+* Add featured images
+* Add SEO metadata
+* Add categories/tags
+* Schedule blogs
+* Draft/publish blogs
+
+Frontend Features:
+
+* Blog listing page
+* Blog detail page
+* Search blogs
+* Category filters
+
+==================================================
+4. SEO MANAGEMENT
+=================
+
+Admin should be able to manage:
+
+* Meta titles
+* Meta descriptions
+* Keywords
+* Schema markup
+* Open graph settings
+* URL slugs
+
+Frontend Requirement:
+
+* SEO changes should reflect instantly.
+
+==================================================
+5. COUPON & PROMOTION MANAGEMENT
+================================
+
+Admin should be able to:
+
+* Create coupons
+* Edit coupons
+* Delete coupons
+* Set expiry dates
+* Set usage limits
+* Percentage discounts
+* Flat discounts
+* Free trial offers
+* Referral discounts
+* Promotional banners
+
+Frontend Requirement:
+
+* Active promotions should automatically appear on:
+
+  * Pricing page
+  * Checkout page
+  * Homepage banners
+
+==================================================
+6. PACKAGE MANAGEMENT SYSTEM
+============================
+
+Admin should be able to:
+
+* Create packages
+* Edit packages
+* Delete packages
+* Change pricing
+* Change credits
+* Enable/disable features
+* Add package descriptions
+* Add package comparison points
+* Set monthly/yearly pricing
+* Set enterprise plans
+
+Frontend Requirement:
+
+* Any package updates from admin panel should automatically reflect on:
+
+  * Pricing page
+  * Signup page
+  * Checkout flow
+  * Upgrade page
+
+==================================================
+7. TESTIMONIAL & CASE STUDY MANAGEMENT
+======================================
+
+Admin should be able to:
+
+* Add testimonials
+* Edit testimonials
+* Add customer logos
+* Add video testimonials
+* Add case studies
+* Publish/unpublish testimonials
+
+Frontend Reflection:
+
+* Changes should reflect live on website.
+
+==================================================
+8. MEDIA MANAGEMENT SYSTEM
+==========================
+
+Admin should be able to:
+
+* Upload images
+* Upload videos
+* Manage banners
+* Replace frontend assets
+* Organize media folders
+
+Frontend Requirement:
+
+* Updated media should instantly reflect on frontend pages.
+
+==================================================
+9. LANDING PAGE BUILDER
+=======================
+
+Admin should be able to:
+
+* Create custom landing pages
+* Duplicate landing pages
+* Add CTA sections
+* Add forms
+* Add custom sections
+* Publish campaigns
+
+Use Cases:
+
+* Ads landing pages
+* Product launch pages
+* Offer pages
+* Webinar pages
+
+==================================================
+10. FORM MANAGEMENT
+===================
+
+Admin should be able to manage:
+
+* Contact forms
+* Demo booking forms
+* Newsletter forms
+* Enterprise inquiry forms
+
+Features:
+
+* View submissions
+* Export leads
+* CRM integrations
+* Email notifications
+
+==================================================
+11. FRONTEND NAVIGATION MANAGEMENT
+==================================
+
+Admin should be able to:
+
+* Edit menus
+* Reorder menu items
+* Add/remove links
+* Manage footer links
+* Manage header CTA buttons
+
+==================================================
+12. LIVE PREVIEW SYSTEM
+=======================
+
+Features:
+
+* Preview frontend before publishing
+* Draft mode
+* Version history
+* Rollback changes
+
+==================================================
+FINAL EXPECTATION
+=================
+
+The complete frontend website should work dynamically from the Admin Panel CMS.
+
+Any changes made in backend should automatically reflect on frontend without developer involvement.
+
+Goal:
+
+* Easy website management
+* Faster marketing updates
+* No-code frontend editing
+* Dynamic pricing management
+* Dynamic promotions management
+* Dynamic content management
+* Better scalability for SaaS growth
