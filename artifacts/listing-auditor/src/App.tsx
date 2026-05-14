@@ -122,7 +122,7 @@ function SignInPage() {
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
-        forceRedirectUrl={`${basePath}/dashboard`}
+        forceRedirectUrl={`${basePath}/`}
       />
     </div>
   );
@@ -135,7 +135,7 @@ function SignUpPage() {
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
-        forceRedirectUrl={`${basePath}/dashboard`}
+        forceRedirectUrl={`${basePath}/`}
       />
     </div>
   );
@@ -161,16 +161,11 @@ function ClerkQueryClientCacheInvalidator() {
 }
 
 function HomeRedirect() {
-  return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        <Landing />
-      </Show>
-    </>
-  );
+  const { user, isLoaded } = useUser();
+  if (!isLoaded) return null;
+  if (!user) return <Landing />;
+  if (adminUserIds.includes(user.id)) return <Redirect to="/admin/dashboard" />;
+  return <Redirect to="/dashboard" />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
