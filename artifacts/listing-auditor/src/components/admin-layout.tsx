@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Search, Settings,
-  BadgePercent, PenLine, Image, ClipboardList, Download,
+  BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,8 @@ const navSections = [
     items: [
       { href: "/admin/customers", label: "Customers", icon: Users },
       { href: "/admin/audits", label: "All Audits", icon: FileText },
+      { href: "/admin/content/logs", label: "Audit Logs", icon: ClipboardList },
+      { href: "/admin/content/downloads", label: "Downloads", icon: Download },
     ],
   },
   {
@@ -31,15 +33,6 @@ const navSections = [
       { href: "/admin/billing/invoices", label: "Invoices", icon: FileText },
       { href: "/admin/billing/refunds", label: "Refunds", icon: Layers },
       { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent },
-    ],
-  },
-  {
-    label: "Content",
-    items: [
-      { href: "/admin/content/generated", label: "Generated Content", icon: PenLine },
-      { href: "/admin/content/images", label: "Generated Images", icon: Image },
-      { href: "/admin/content/logs", label: "Audit Logs", icon: ClipboardList },
-      { href: "/admin/content/downloads", label: "Downloads", icon: Download },
     ],
   },
   {
