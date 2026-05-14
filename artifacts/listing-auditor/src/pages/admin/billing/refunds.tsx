@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,7 +19,7 @@ export default function AdminBillingRefunds() {
   const refunds = data?.refunds ?? [];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Refunds</h1>
@@ -63,6 +62,6 @@ export default function AdminBillingRefunds() {
           </div>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

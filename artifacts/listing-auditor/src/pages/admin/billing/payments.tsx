@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +30,7 @@ export default function AdminBillingPayments() {
   const payments = data?.payments ?? [];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Payments</h1>
@@ -84,6 +83,6 @@ export default function AdminBillingPayments() {
           </div>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

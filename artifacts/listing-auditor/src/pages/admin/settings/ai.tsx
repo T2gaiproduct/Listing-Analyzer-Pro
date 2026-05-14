@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +34,7 @@ export default function AdminSettingsAI() {
   });
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 max-w-2xl">
         <div className="flex items-center gap-2">
           <BrainCircuit className="h-6 w-6 text-orange-500" />
@@ -103,6 +102,6 @@ export default function AdminSettingsAI() {
         </Card>
         <Button onClick={() => save.mutate()} disabled={save.isPending}><Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save AI Settings"}</Button>
       </div>
-    </AdminLayout>
+    </>
   );
 }

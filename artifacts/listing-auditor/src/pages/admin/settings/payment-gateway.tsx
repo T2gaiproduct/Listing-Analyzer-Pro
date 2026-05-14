@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +53,7 @@ export default function AdminSettingsPaymentGateway() {
     enabled ? <Badge className="ml-2"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge> : <Badge variant="secondary" className="ml-2">Disabled</Badge>;
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 max-w-2xl">
         <div className="flex items-center gap-2">
           <Wallet className="h-6 w-6 text-orange-500" />
@@ -164,6 +163,6 @@ export default function AdminSettingsPaymentGateway() {
 
         <Button onClick={() => save.mutate()} disabled={save.isPending}><Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save Gateway Settings"}</Button>
       </div>
-    </AdminLayout>
+    </>
   );
 }

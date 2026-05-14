@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,7 @@ export default function AdminContentGenerated() {
   const items = data?.content ?? [];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Generated Content</h1>
@@ -54,6 +53,6 @@ export default function AdminContentGenerated() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }
