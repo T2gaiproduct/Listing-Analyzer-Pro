@@ -300,10 +300,10 @@ router.get("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
-  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features } = req.body;
+  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isTrial, trialDays } = req.body;
   const [plan] = await db
     .insert(plansTable)
-    .values({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers: teamMembers ?? 1, features: features ?? [] })
+    .values({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers: teamMembers ?? 1, features: features ?? [], isTrial: isTrial ?? false, trialDays: trialDays ?? 0 })
     .returning();
   res.status(201).json(plan);
 });
@@ -311,10 +311,10 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isActive } = req.body;
+  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isActive, isTrial, trialDays } = req.body;
   const [plan] = await db
     .update(plansTable)
-    .set({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isActive, updatedAt: new Date() })
+    .set({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isActive, isTrial, trialDays, updatedAt: new Date() })
     .where(eq(plansTable.id, id))
     .returning();
   if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
