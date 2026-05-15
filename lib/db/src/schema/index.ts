@@ -8,3 +8,4 @@ export * from "./settings";
 export * from "./marketing";
 export * from "./user-profiles";
 export * from "./subscriptions";
+export * from "./team-members";

@@ -7,7 +7,7 @@ import {
   adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
   cmsContent, blogPosts, testimonials, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
-  userProfilesTable, subscriptionsTable,
+  userProfilesTable, subscriptionsTable, teamMembersTable,
 } from "@workspace/db";
 import { like, or, ilike } from "drizzle-orm";
 
@@ -1074,6 +1074,25 @@ router.delete("/admin/media/:id", requireAdmin, async (req, res): Promise<void> 
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
   res.sendStatus(204);
+});
+
+// ─── Team members for a customer workspace ─────────────────────────────────
+router.get("/admin/customers/:userId/team", requireAdmin, async (req, res): Promise<void> => {
+  const ownerId = String(req.params.userId ?? "");
+  if (!ownerId) { res.status(400).json({ error: "Missing userId" }); return; }
+
+  const members = await db.select().from(teamMembersTable)
+    .where(eq(teamMembersTable.ownerUserId, ownerId))
+    .orderBy(desc(teamMembersTable.invitedAt));
+
+  // Augment active members with audit stats
+  const memberStats = await Promise.all(members.filter((m) => m.memberUserId).map(async (m) => {
+    const [stats] = await db.select({ total: count() }).from(auditsTable).where(eq(auditsTable.userId, m.memberUserId!));
+    const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, m.memberUserId!));
+    return { memberId: m.id, auditCount: Number(stats?.total ?? 0), credits: credits ?? null };
+  }));
+
+  res.json({ members, memberStats });
 });
 
 export default router;

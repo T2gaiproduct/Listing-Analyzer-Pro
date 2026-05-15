@@ -13,6 +13,105 @@ import { useState, useEffect } from "react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+// ─── Admin Team Panel ──────────────────────────────────────────────────────
+interface AdminTeamMember {
+  id: number;
+  ownerUserId: string;
+  memberUserId: string | null;
+  invitedEmail: string;
+  invitedName: string;
+  role: string;
+  status: string;
+  inviteToken: string;
+  invitedAt: string;
+  acceptedAt: string | null;
+}
+
+interface AdminTeamStat {
+  memberId: number;
+  auditCount: number;
+  credits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
+}
+
+const roleColors: Record<string, string> = {
+  admin: "bg-orange-100 text-orange-700",
+  editor: "bg-blue-100 text-blue-700",
+  viewer: "bg-slate-100 text-slate-600",
+};
+
+function AdminCustomerTeam({ userId }: { userId: string }) {
+  const { data, isLoading } = useQuery<{ members: AdminTeamMember[]; memberStats: AdminTeamStat[] }>({
+    queryKey: ["admin-customer-team", userId],
+    queryFn: () => fetch(`${basePath}/api/admin/customers/${userId}/team`, { credentials: "include" }).then((r) => r.json()),
+  });
+
+  const members = data?.members ?? [];
+  const stats = data?.memberStats ?? [];
+
+  if (isLoading) return <div className="py-12 flex justify-center"><div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>;
+
+  if (members.length === 0) return (
+    <Card className="border-0 shadow-sm">
+      <CardContent className="py-12 text-center">
+        <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+        <p className="text-slate-500 text-sm font-medium">No team members</p>
+        <p className="text-xs text-slate-400 mt-1">This customer has not invited any team members yet.</p>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Users className="w-4 h-4 text-orange-500" /> Team Members
+          <Badge variant="outline" className="ml-auto">{members.length} member{members.length !== 1 ? "s" : ""}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Member</th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Role</th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Status</th>
+              <th className="text-right px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Audits</th>
+              <th className="text-right px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">AI Credits</th>
+              <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => {
+              const s = stats.find((st) => st.memberId === m.id);
+              return (
+                <tr key={m.id} className="border-b border-slate-50">
+                  <td className="px-5 py-3">
+                    <p className="font-medium text-slate-800">{m.invitedName}</p>
+                    <p className="text-xs text-slate-400">{m.invitedEmail}</p>
+                  </td>
+                  <td className="px-3 py-3">
+                    <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit text-xs`}>{m.role}</Badge>
+                  </td>
+                  <td className="px-3 py-3">
+                    <Badge variant="outline" className={m.status === "active" ? "border-green-200 text-green-600 text-xs" : m.status === "pending" ? "border-amber-200 text-amber-600 text-xs" : "border-slate-200 text-slate-500 text-xs"}>
+                      {m.status}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-3 text-right font-semibold text-slate-700">{s?.auditCount ?? "—"}</td>
+                  <td className="px-3 py-3 text-right text-purple-700 font-semibold">{s?.credits?.aiCredits ?? "—"}</td>
+                  <td className="px-5 py-3 text-right text-xs text-slate-400">
+                    {m.acceptedAt ? format(new Date(m.acceptedAt), "MMM d, yyyy") : m.status === "pending" ? `Invited ${formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}` : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
+
 interface Plan {
   id: number;
   name: string;
@@ -240,7 +339,8 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
           <TabsTrigger value="credits"><CreditCard className="w-4 h-4 mr-1.5" />Credits</TabsTrigger>
           <TabsTrigger value="subscriptions"><Package className="w-4 h-4 mr-1.5" />Subscription</TabsTrigger>
           <TabsTrigger value="payments"><DollarSign className="w-4 h-4 mr-1.5" />Payments</TabsTrigger>
-          <TabsTrigger value="activity"><Activity className="w-4 h-4 mr-1.5" />Activity</TabsTrigger>
+            <TabsTrigger value="activity"><Activity className="w-4 h-4 mr-1.5" />Activity</TabsTrigger>
+          <TabsTrigger value="team"><Users className="w-4 h-4 mr-1.5" />Team</TabsTrigger>
         </TabsList>
 
         {/* ── Audit History ── */}
@@ -657,6 +757,11 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── Team ── */}
+        <TabsContent value="team">
+          <AdminCustomerTeam userId={userId} />
         </TabsContent>
 
         {/* ── Activity ── */}

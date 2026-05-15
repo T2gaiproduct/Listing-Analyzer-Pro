@@ -58,6 +58,7 @@ import Privacy from "@/pages/privacy";
 import Tutorials from "@/pages/tutorials";
 import Billing from "@/pages/billing";
 import Team from "@/pages/team";
+import AcceptInvite from "@/pages/accept-invite";
 import Onboarding from "@/pages/onboarding";
 import Profile from "@/pages/profile";
 
@@ -324,6 +325,11 @@ function Router() {
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/tutorials" component={Tutorials} />
+
+      {/* Accept invite — full-page, works signed in or out */}
+      <Route path="/accept-invite">
+        <AcceptInvite />
+      </Route>
 
       {/* Onboarding — full-page, no Layout wrapper */}
       <Route path="/onboarding">
