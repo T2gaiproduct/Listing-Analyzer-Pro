@@ -13,6 +13,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface Customer {
   id: string;
+  profileId: number | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -22,6 +23,11 @@ interface Customer {
   createdAt: number;
   lastSignInAt: number | null;
   auditCount: number;
+}
+
+function customerId(profileId: number | null): string {
+  if (!profileId) return "—";
+  return `CUST-${String(profileId).padStart(5, "0")}`;
 }
 
 function fetchCustomers(q: string): Promise<{ customers: Customer[]; total: number }> {
@@ -107,6 +113,7 @@ export default function AdminCustomers() {
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Customer ID</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Audits</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Joined</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Last Active</th>
@@ -119,6 +126,7 @@ export default function AdminCustomers() {
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b border-slate-50">
                   <td className="px-6 py-4"><div className="h-10 w-48 bg-slate-100 rounded animate-pulse" /></td>
+                  <td className="px-4 py-4"><div className="h-4 w-24 bg-slate-100 rounded animate-pulse" /></td>
                   <td className="px-4 py-4"><div className="h-4 w-8 bg-slate-100 rounded animate-pulse" /></td>
                   <td className="px-4 py-4"><div className="h-4 w-20 bg-slate-100 rounded animate-pulse" /></td>
                   <td className="px-4 py-4"><div className="h-4 w-20 bg-slate-100 rounded animate-pulse" /></td>
@@ -144,6 +152,11 @@ export default function AdminCustomers() {
                       <p className="text-xs text-slate-400">{c.email}</p>
                     </div>
                   </div>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                    {customerId(c.profileId)}
+                  </span>
                 </td>
                 <td className="px-4 py-4 font-semibold text-slate-700">{c.auditCount}</td>
                 <td className="px-4 py-4 text-slate-400 text-xs">
@@ -212,7 +225,7 @@ export default function AdminCustomers() {
             ))}
             {!isLoading && !data?.customers.length && (
               <tr>
-                <td colSpan={6} className="px-6 py-16 text-center">
+                <td colSpan={7} className="px-6 py-16 text-center">
                   <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-slate-400">No customers found</p>
                 </td>

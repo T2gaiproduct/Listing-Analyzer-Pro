@@ -15,6 +15,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface ProfileData {
   profile: {
+    id: number;
     userId: string;
     fullName: string | null;
     companyName: string | null;
@@ -249,9 +250,16 @@ export default function Profile() {
             <div>
               <CardTitle className="text-lg">{form.fullName || user?.fullName || "Your Name"}</CardTitle>
               <p className="text-sm text-slate-400">{user?.primaryEmailAddress?.emailAddress}</p>
-              {data?.profile?.createdAt && (
-                <p className="text-xs text-slate-400">Member since {format(new Date(data.profile.createdAt), "MMMM yyyy")}</p>
-              )}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {data?.profile?.id && (
+                  <span className="font-mono text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
+                    {`CUST-${String(data.profile.id).padStart(5, "0")}`}
+                  </span>
+                )}
+                {data?.profile?.createdAt && (
+                  <p className="text-xs text-slate-400">Member since {format(new Date(data.profile.createdAt), "MMMM yyyy")}</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-2">

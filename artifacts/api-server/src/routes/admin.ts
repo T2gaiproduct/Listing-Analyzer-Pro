@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, count, avg, sql, desc, and } from "drizzle-orm";
+import { eq, count, avg, sql, desc, and, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable,
@@ -138,8 +138,21 @@ router.get("/admin/customers", requireAdmin, async (req, res): Promise<void> => 
     countMap[row.userId] = Number(row.c);
   }
 
+  const userIds = users.map((u: Record<string, unknown>) => u.id as string).filter(Boolean);
+  const profiles = userIds.length
+    ? await db
+        .select({ userId: userProfilesTable.userId, id: userProfilesTable.id })
+        .from(userProfilesTable)
+        .where(inArray(userProfilesTable.userId, userIds))
+    : [];
+  const profileMap: Record<string, number> = {};
+  for (const p of profiles) {
+    profileMap[p.userId] = p.id;
+  }
+
   const customers = users.map((u: Record<string, unknown>) => ({
     id: u.id,
+    profileId: profileMap[u.id as string] ?? null,
     firstName: u.first_name,
     lastName: u.last_name,
     email: (u.email_addresses as Array<{email_address: string}> | undefined)?.[0]?.email_address ?? "",
