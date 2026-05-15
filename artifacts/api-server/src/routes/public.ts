@@ -62,27 +62,32 @@ router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const transactions = await db.select().from(creditTransactionsTable)
     .where(eq(creditTransactionsTable.userId, userId))
     .orderBy(desc(creditTransactionsTable.createdAt))
+    .limit(50);
+  const billingHistory = await db.select().from(paymentsTable)
+    .where(eq(paymentsTable.userId, userId))
+    .orderBy(desc(paymentsTable.createdAt))
     .limit(20);
   res.json({
     profile: profile ?? null,
     subscription: subRows[0] ?? null,
     credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
     transactions,
+    billingHistory,
   });
 });
 
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const { fullName, companyName, phone, country } = req.body as Record<string, string>;
+  const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
   const existing = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   let profile;
   if (existing.length) {
     [profile] = await db.update(userProfilesTable)
-      .set({ fullName, companyName, phone, country, updatedAt: new Date() })
+      .set({ fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined, updatedAt: new Date() })
       .where(eq(userProfilesTable.userId, userId)).returning();
   } else {
     [profile] = await db.insert(userProfilesTable)
-      .values({ userId, fullName, companyName, phone, country }).returning();
+      .values({ userId, fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined }).returning();
   }
   res.json(profile);
 });
@@ -125,6 +130,51 @@ router.get("/subscription", requireAuth, async (req, res): Promise<void> => {
   res.json(rows[0] ?? null);
 });
 
+router.post("/subscription/cancel", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
+  if (!sub) { res.status(404).json({ error: "No active subscription" }); return; }
+  await db.update(subscriptionsTable)
+    .set({ status: "cancelled", autoRenew: false, updatedAt: new Date() })
+    .where(eq(subscriptionsTable.userId, userId));
+  res.json({ ok: true });
+});
+
+router.post("/subscription/upgrade", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { planId, billingCycle } = req.body as { planId: number; billingCycle: "monthly" | "yearly" };
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
+  if (!plan) { res.status(400).json({ error: "Invalid plan" }); return; }
+  const now = new Date();
+  const periodEnd = new Date(now);
+  if (billingCycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+  else periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
+  if (sub) {
+    await db.update(subscriptionsTable)
+      .set({ planId: plan.id, billingCycle, status: "active", trialEndsAt: null, currentPeriodStart: now, currentPeriodEnd: periodEnd, updatedAt: new Date() })
+      .where(eq(subscriptionsTable.userId, userId));
+  } else {
+    await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
+  }
+  await db.update(creditsTable)
+    .set({ aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits, updatedAt: now })
+    .where(eq(creditsTable.userId, userId));
+  await db.insert(creditTransactionsTable).values([
+    { userId, creditType: "ai", amount: plan.aiCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "image", amount: plan.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "audit", amount: plan.auditCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+  ]);
+  res.json({ ok: true });
+});
+
+router.patch("/subscription/auto-renew", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { autoRenew } = req.body as { autoRenew: boolean };
+  await db.update(subscriptionsTable).set({ autoRenew, updatedAt: new Date() }).where(eq(subscriptionsTable.userId, userId));
+  res.json({ ok: true });
+});
+
 router.get("/billing-history", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const payments = await db.select().from(paymentsTable)
@@ -156,8 +206,9 @@ router.post("/coupon/validate", requireAuth, async (req, res): Promise<void> => 
 
 router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const { fullName, companyName, phone, country, planId, billingCycle, useTrial, cardNumber, autoRenew, couponCode } = req.body as {
+  const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize, planId, billingCycle, useTrial, cardNumber, autoRenew, couponCode } = req.body as {
     fullName: string; companyName: string; phone: string; country: string;
+    gstNumber?: string; websiteUrl?: string; teamSize?: number;
     planId: number; billingCycle: "monthly" | "yearly"; useTrial: boolean;
     cardNumber?: string; autoRenew?: boolean; couponCode?: string;
   };
@@ -168,10 +219,10 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   const existingProfile = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   if (existingProfile.length) {
     await db.update(userProfilesTable)
-      .set({ fullName, companyName, phone, country, onboardingCompleted: true, updatedAt: new Date() })
+      .set({ fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null, onboardingCompleted: true, updatedAt: new Date() })
       .where(eq(userProfilesTable.userId, userId));
   } else {
-    await db.insert(userProfilesTable).values({ userId, fullName, companyName, phone, country, onboardingCompleted: true });
+    await db.insert(userProfilesTable).values({ userId, fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null, onboardingCompleted: true });
   }
 
   let discountAmount = 0;
@@ -228,9 +279,9 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   }
 
   await db.insert(creditTransactionsTable).values([
-    { userId, creditType: "ai", amount: plan.aiCredits, reason: `${plan.name} plan — onboarding` },
-    { userId, creditType: "image", amount: plan.imageCredits, reason: `${plan.name} plan — onboarding` },
-    { userId, creditType: "audit", amount: plan.auditCredits, reason: `${plan.name} plan — onboarding` },
+    { userId, creditType: "ai", amount: plan.aiCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
+    { userId, creditType: "image", amount: plan.imageCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
+    { userId, creditType: "audit", amount: plan.auditCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
   ]);
 
   if (!useTrial) {

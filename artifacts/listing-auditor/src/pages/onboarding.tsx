@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search } from "lucide-react";
+import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +71,10 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [yearly, setYearly] = useState(false);
 
-  const [profile, setProfile] = useState({ fullName: "", companyName: "", phone: "", country: "" });
+  const [profile, setProfile] = useState({
+    fullName: "", companyName: "", phone: "", country: "",
+    gstNumber: "", websiteUrl: "", teamSize: "",
+  });
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [couponResult, setCouponResult] = useState<{ discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
@@ -96,7 +99,7 @@ export default function Onboarding() {
   useEffect(() => {
     if (displayPlans.length > 0 && selectedPlanId === null) {
       const highlighted = displayPlans.find((p) => p.isHighlighted) ?? displayPlans[0];
-      setSelectedPlanId(highlighted.id);
+      setSelectedPlanId(highlighted?.id ?? null);
     }
   }, [displayPlans, selectedPlanId]);
 
@@ -137,6 +140,9 @@ export default function Onboarding() {
       companyName: profile.companyName,
       phone: profile.phone,
       country: profile.country,
+      gstNumber: profile.gstNumber || undefined,
+      websiteUrl: profile.websiteUrl || undefined,
+      teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
       planId: selectedPlan.id,
       billingCycle: yearly ? "yearly" : "monthly",
       useTrial,
@@ -169,6 +175,7 @@ export default function Onboarding() {
           {step === 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 space-y-5">
               <h2 className="text-xl font-bold text-slate-900">Tell us about yourself</h2>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Full Name *</Label>
@@ -198,6 +205,38 @@ export default function Onboarding() {
                   </select>
                 </div>
               </div>
+
+              {/* Optional fields */}
+              <div className="border-t pt-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Optional Information</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs flex items-center gap-1.5"><FileText className="w-3 h-3 text-slate-400" />GST / Tax Number</Label>
+                    <Input className="mt-1 text-sm" value={profile.gstNumber} onChange={(e) => setProfile((p) => ({ ...p, gstNumber: e.target.value }))} placeholder="GST1234567890" />
+                  </div>
+                  <div>
+                    <Label className="text-xs flex items-center gap-1.5"><Globe className="w-3 h-3 text-slate-400" />Website URL</Label>
+                    <Input className="mt-1 text-sm" value={profile.websiteUrl} onChange={(e) => setProfile((p) => ({ ...p, websiteUrl: e.target.value }))} placeholder="https://yourstore.com" type="url" />
+                  </div>
+                  <div>
+                    <Label className="text-xs flex items-center gap-1.5"><Users className="w-3 h-3 text-slate-400" />Team Size</Label>
+                    <select
+                      className="mt-1 w-full h-9 border border-input rounded-md bg-background px-3 text-sm"
+                      value={profile.teamSize}
+                      onChange={(e) => setProfile((p) => ({ ...p, teamSize: e.target.value }))}
+                    >
+                      <option value="">Select team size</option>
+                      <option value="1">Just me</option>
+                      <option value="2">2–5 people</option>
+                      <option value="6">6–10 people</option>
+                      <option value="11">11–25 people</option>
+                      <option value="26">26–50 people</option>
+                      <option value="51">50+ people</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end pt-2">
                 <Button
                   className="bg-orange-500 hover:bg-orange-600 px-8"

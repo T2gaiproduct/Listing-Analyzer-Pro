@@ -15,6 +15,7 @@ export const creditTransactionsTable = pgTable("credit_transactions", {
   creditType: text("credit_type").notNull(),
   amount: integer("amount").notNull(),
   reason: text("reason"),
+  featureType: text("feature_type"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

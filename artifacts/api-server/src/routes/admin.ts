@@ -7,6 +7,7 @@ import {
   adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
   cmsContent, blogPosts, testimonials, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
+  userProfilesTable, subscriptionsTable,
 } from "@workspace/db";
 import { like, or, ilike } from "drizzle-orm";
 
@@ -162,35 +163,21 @@ router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<v
     return;
   }
 
-  const userAudits = await db
-    .select({
-      id: auditsTable.id,
-      productName: auditsTable.productName,
-      overallScore: auditsTable.overallScore,
-      status: auditsTable.status,
-      createdAt: auditsTable.createdAt,
-    })
-    .from(auditsTable)
-    .where(eq(auditsTable.userId, userId))
-    .orderBy(desc(auditsTable.createdAt))
-    .limit(20);
+  const [userAudits, auditStatsRes, creditsRes, transactions, profileRes, subscriptionRes] = await Promise.all([
+    db.select({ id: auditsTable.id, productName: auditsTable.productName, overallScore: auditsTable.overallScore, status: auditsTable.status, createdAt: auditsTable.createdAt })
+      .from(auditsTable).where(eq(auditsTable.userId, userId)).orderBy(desc(auditsTable.createdAt)).limit(20),
+    db.select({ total: count(), avg: avg(auditsTable.overallScore) }).from(auditsTable).where(eq(auditsTable.userId, userId)),
+    db.select().from(creditsTable).where(eq(creditsTable.userId, userId)),
+    db.select().from(creditTransactionsTable).where(eq(creditTransactionsTable.userId, userId)).orderBy(desc(creditTransactionsTable.createdAt)).limit(20),
+    db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId)),
+    db.select({ id: subscriptionsTable.id, planId: subscriptionsTable.planId, billingCycle: subscriptionsTable.billingCycle, status: subscriptionsTable.status, trialEndsAt: subscriptionsTable.trialEndsAt, currentPeriodEnd: subscriptionsTable.currentPeriodEnd, autoRenew: subscriptionsTable.autoRenew, planName: plansTable.name, priceMonthly: plansTable.priceMonthly, priceYearly: plansTable.priceYearly })
+      .from(subscriptionsTable).leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id)).where(eq(subscriptionsTable.userId, userId)),
+  ]);
 
-  const [auditStats] = await db
-    .select({ total: count(), avg: avg(auditsTable.overallScore) })
-    .from(auditsTable)
-    .where(eq(auditsTable.userId, userId));
-
-  const [credits] = await db
-    .select()
-    .from(creditsTable)
-    .where(eq(creditsTable.userId, userId));
-
-  const transactions = await db
-    .select()
-    .from(creditTransactionsTable)
-    .where(eq(creditTransactionsTable.userId, userId))
-    .orderBy(desc(creditTransactionsTable.createdAt))
-    .limit(20);
+  const [auditStats] = auditStatsRes;
+  const [credits] = creditsRes;
+  const [profile] = profileRes;
+  const [subscription] = subscriptionRes;
 
   res.json({
     user: {
@@ -205,6 +192,7 @@ router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<v
       lastSignInAt: clerkUser.last_sign_in_at,
       publicMetadata: clerkUser.public_metadata,
     },
+    profile: profile ?? null,
     audits: userAudits,
     auditStats: {
       total: Number(auditStats?.total ?? 0),
@@ -212,6 +200,7 @@ router.get("/admin/customers/:userId", requireAdmin, async (req, res): Promise<v
     },
     credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
     transactions,
+    subscription: subscription ?? null,
   });
 });
 
@@ -261,6 +250,57 @@ router.delete("/admin/customers/:userId", requireAdmin, async (req, res): Promis
   await db.delete(auditsTable).where(eq(auditsTable.userId, userId));
   await clerkFetch(`/users/${userId}`, { method: "DELETE" });
   res.sendStatus(204);
+});
+
+router.patch("/admin/customers/:userId/profile", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
+  const existing = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+  let profile;
+  if (existing.length) {
+    [profile] = await db.update(userProfilesTable)
+      .set({ fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined, updatedAt: new Date() })
+      .where(eq(userProfilesTable.userId, userId)).returning();
+  } else {
+    [profile] = await db.insert(userProfilesTable)
+      .values({ userId, fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined })
+      .returning();
+  }
+  res.json(profile);
+});
+
+router.patch("/admin/customers/:userId/package", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  const { planId, billingCycle, addCredits } = req.body as { planId: number; billingCycle?: "monthly" | "yearly"; addCredits?: boolean };
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
+  if (!plan) { res.status(400).json({ error: "Invalid plan" }); return; }
+  const now = new Date();
+  const periodEnd = new Date(now);
+  const cycle = billingCycle ?? "monthly";
+  if (cycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+  else periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
+  if (sub) {
+    await db.update(subscriptionsTable)
+      .set({ planId: plan.id, billingCycle: cycle, status: "active", trialEndsAt: null, currentPeriodStart: now, currentPeriodEnd: periodEnd, updatedAt: now })
+      .where(eq(subscriptionsTable.userId, userId));
+  } else {
+    await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle: cycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
+  }
+  if (addCredits !== false) {
+    const [existing] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+    if (existing) {
+      await db.update(creditsTable).set({ aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits, updatedAt: now }).where(eq(creditsTable.userId, userId));
+    } else {
+      await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
+    }
+    await db.insert(creditTransactionsTable).values([
+      { userId, creditType: "ai", amount: plan.aiCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "image", amount: plan.imageCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "audit", amount: plan.auditCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+    ]);
+  }
+  res.json({ ok: true, plan });
 });
 
 router.get("/admin/audits", requireAdmin, async (req, res): Promise<void> => {
@@ -350,6 +390,41 @@ router.get("/admin/credits", requireAdmin, async (req, res): Promise<void> => {
   res.json(allCredits);
 });
 
+router.get("/admin/credits/analytics", requireAdmin, async (req, res): Promise<void> => {
+  const transactions = await db
+    .select()
+    .from(creditTransactionsTable)
+    .orderBy(desc(creditTransactionsTable.createdAt))
+    .limit(500);
+
+  const featureUsage: Record<string, { ai: number; image: number; audit: number; count: number }> = {};
+  const userUsage: Record<string, { ai: number; image: number; audit: number; count: number }> = {};
+
+  for (const tx of transactions) {
+    if (tx.amount >= 0) continue;
+    const abs = Math.abs(tx.amount);
+    const ft = tx.featureType ?? "other";
+    if (!featureUsage[ft]) featureUsage[ft] = { ai: 0, image: 0, audit: 0, count: 0 };
+    if (!userUsage[tx.userId]) userUsage[tx.userId] = { ai: 0, image: 0, audit: 0, count: 0 };
+    featureUsage[ft].count++;
+    userUsage[tx.userId].count++;
+    if (tx.creditType === "ai") { featureUsage[ft].ai += abs; userUsage[tx.userId].ai += abs; }
+    else if (tx.creditType === "image") { featureUsage[ft].image += abs; userUsage[tx.userId].image += abs; }
+    else if (tx.creditType === "audit") { featureUsage[ft].audit += abs; userUsage[tx.userId].audit += abs; }
+  }
+
+  const topUsers = Object.entries(userUsage)
+    .map(([userId, u]) => ({ userId, ...u, total: u.ai + u.image + u.audit }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
+
+  const featureBreakdown = Object.entries(featureUsage)
+    .map(([feature, u]) => ({ feature, ...u, total: u.ai + u.image + u.audit }))
+    .sort((a, b) => b.total - a.total);
+
+  res.json({ transactions: transactions.slice(0, 100), topUsers, featureBreakdown });
+});
+
 router.post("/admin/credits/:userId", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
   const { aiCredits = 0, imageCredits = 0, auditCredits = 0, reason = "Admin adjustment" } = req.body;
@@ -376,7 +451,7 @@ router.post("/admin/credits/:userId", requireAdmin, async (req, res): Promise<vo
 
   for (const [type, amount] of [["ai", aiCredits], ["image", imageCredits], ["audit", auditCredits]] as [string, number][]) {
     if (amount !== 0) {
-      await db.insert(creditTransactionsTable).values({ userId, creditType: type, amount, reason });
+      await db.insert(creditTransactionsTable).values({ userId, creditType: type, amount, reason, featureType: "admin_adjustment" });
     }
   }
 

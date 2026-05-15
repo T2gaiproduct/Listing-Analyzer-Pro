@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package } from "lucide-react";
+import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link, FileText as FileTextIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface Plan {
+  id: number;
+  name: string;
+  priceMonthly: number;
+  priceYearly: number;
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
+  tag: string | null;
+  isHighlighted: boolean;
+}
 
 function fetchCustomerDetail(userId: string) {
   return fetch(`${basePath}/api/admin/customers/${userId}`, { credentials: "include" }).then((r) => r.json());
@@ -25,6 +37,13 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [creditForm, setCreditForm] = useState({ ai: "", image: "", audit: "", reason: "" });
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [showChangePlan, setShowChangePlan] = useState(false);
+  const [changePlanYearly, setChangePlanYearly] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    fullName: "", companyName: "", phone: "", country: "",
+    gstNumber: "", websiteUrl: "", teamSize: "",
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-customer", userId],
@@ -35,6 +54,26 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
     queryKey: ["admin-customer-payments", userId],
     queryFn: () => fetchCustomerPayments(userId),
   });
+
+  const { data: plans = [] } = useQuery<Plan[]>({
+    queryKey: ["public-plans"],
+    queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
+    enabled: showChangePlan,
+  });
+
+  useEffect(() => {
+    if (data?.profile) {
+      setProfileForm({
+        fullName: data.profile.fullName ?? "",
+        companyName: data.profile.companyName ?? "",
+        phone: data.profile.phone ?? "",
+        country: data.profile.country ?? "",
+        gstNumber: data.profile.gstNumber ?? "",
+        websiteUrl: data.profile.websiteUrl ?? "",
+        teamSize: data.profile.teamSize?.toString() ?? "",
+      });
+    }
+  }, [data?.profile]);
 
   const banMutation = useMutation({
     mutationFn: (ban: boolean) =>
@@ -58,6 +97,28 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
     },
   });
 
+  const profileMutation = useMutation({
+    mutationFn: (body: object) =>
+      fetch(`${basePath}/api/admin/customers/${userId}/profile`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-customer", userId] });
+      setEditingProfile(false);
+      toast({ title: "Profile updated" });
+    },
+    onError: () => toast({ title: "Failed to update profile", variant: "destructive" }),
+  });
+
+  const packageMutation = useMutation({
+    mutationFn: (body: { planId: number; billingCycle: "monthly" | "yearly" }) =>
+      fetch(`${basePath}/api/admin/customers/${userId}/package`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-customer", userId] });
+      setShowChangePlan(false);
+      toast({ title: "Package updated successfully" });
+    },
+    onError: () => toast({ title: "Failed to change package", variant: "destructive" }),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => fetch(`${basePath}/api/admin/customers/${userId}`, { method: "DELETE", credentials: "include" }),
     onSuccess: () => { toast({ title: "Customer deleted" }); setLocation("/admin/customers"); },
@@ -67,7 +128,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
     return <div className="flex items-center justify-center h-64"><div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>;
   }
 
-  const { user, audits, auditStats, credits, transactions } = data ?? {};
+  const { user, profile, audits, auditStats, credits, transactions, subscription } = data ?? {};
   const payments: Array<{ id: number; amount: number; currency: string; status: string; gateway: string; createdAt: string }> = billingData?.payments ?? [];
   const invoices: Array<{ id: number; amount: number; currency: string; status: string; dueDate: string | null; createdAt: string }> = billingData?.invoices ?? [];
 
@@ -102,6 +163,11 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                   ? <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">Suspended</Badge>
                   : <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Active</Badge>
               }
+              {subscription?.status && (
+                <Badge className={`${subscription.status === "active" ? "bg-green-100 text-green-700" : subscription.status === "trial" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"} hover:bg-inherit`}>
+                  {subscription.planName} · {subscription.status}
+                </Badge>
+              )}
               <span className="text-xs text-slate-400 self-center">
                 Joined {user?.createdAt ? formatDistanceToNow(new Date(user.createdAt), { addSuffix: true }) : "—"}
               </span>
@@ -121,7 +187,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
             size="sm"
             onClick={() => lockMutation.mutate(!user?.locked)}
             disabled={lockMutation.isPending || user?.banned}
-            title={user?.locked ? "Unsuspend account" : "Suspend account (keeps data, blocks login)"}
+            title={user?.locked ? "Unsuspend account" : "Suspend account"}
           >
             {user?.locked ? <PlayCircle className="w-4 h-4 mr-1.5 text-green-600" /> : <PauseCircle className="w-4 h-4 mr-1.5 text-yellow-600" />}
             {user?.locked ? "Activate" : "Suspend"}
@@ -170,9 +236,10 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview"><FileText className="w-4 h-4 mr-1.5" />Audit History</TabsTrigger>
+          <TabsTrigger value="profile"><User className="w-4 h-4 mr-1.5" />Profile</TabsTrigger>
           <TabsTrigger value="credits"><CreditCard className="w-4 h-4 mr-1.5" />Credits</TabsTrigger>
-          <TabsTrigger value="subscriptions"><Package className="w-4 h-4 mr-1.5" />Subscriptions</TabsTrigger>
-          <TabsTrigger value="payments"><DollarSign className="w-4 h-4 mr-1.5" />Payment History</TabsTrigger>
+          <TabsTrigger value="subscriptions"><Package className="w-4 h-4 mr-1.5" />Subscription</TabsTrigger>
+          <TabsTrigger value="payments"><DollarSign className="w-4 h-4 mr-1.5" />Payments</TabsTrigger>
           <TabsTrigger value="activity"><Activity className="w-4 h-4 mr-1.5" />Activity</TabsTrigger>
         </TabsList>
 
@@ -222,6 +289,111 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
           </Card>
         </TabsContent>
 
+        {/* ── Profile ── */}
+        <TabsContent value="profile">
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3 flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <User className="w-4 h-4 text-orange-500" /> Customer Profile
+              </CardTitle>
+              <div className="flex gap-2">
+                {editingProfile ? (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingProfile(false)}><X className="w-4 h-4 mr-1" />Cancel</Button>
+                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600"
+                      onClick={() => profileMutation.mutate({ ...profileForm, teamSize: profileForm.teamSize ? Number(profileForm.teamSize) : undefined })}
+                      disabled={profileMutation.isPending}>
+                      {profileMutation.isPending ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                      Save Changes
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setEditingProfile(true)}>
+                    <Edit2 className="w-3.5 h-3.5 mr-1" />Edit Profile
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!profile && !editingProfile ? (
+                <div className="text-center py-8">
+                  <User className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-400 text-sm">No profile data yet.</p>
+                  <Button size="sm" variant="outline" className="mt-3" onClick={() => setEditingProfile(true)}>
+                    <Edit2 className="w-3.5 h-3.5 mr-1" />Add Profile
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { key: "fullName", label: "Full Name", icon: User, placeholder: "Jane Smith" },
+                      { key: "companyName", label: "Company / Brand", icon: Building2, placeholder: "Acme LLC" },
+                      { key: "phone", label: "Phone", icon: Phone, placeholder: "+1 (555) 000-0000" },
+                      { key: "country", label: "Country", icon: Globe, placeholder: "United States" },
+                    ].map(({ key, label, icon: Icon, placeholder }) => (
+                      <div key={key}>
+                        <Label className="text-xs flex items-center gap-1.5 text-slate-500"><Icon className="w-3 h-3" />{label}</Label>
+                        {editingProfile ? (
+                          <Input className="mt-1 h-8 text-sm" value={profileForm[key as keyof typeof profileForm]} placeholder={placeholder}
+                            onChange={(e) => setProfileForm((p) => ({ ...p, [key]: e.target.value }))} />
+                        ) : (
+                          <p className="text-sm font-medium text-slate-800 mt-1">{(profile as Record<string, string | null>)?.[key] || <span className="text-slate-400 italic">Not set</span>}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Additional Details</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs flex items-center gap-1.5 text-slate-500"><FileTextIcon className="w-3 h-3" />GST / Tax Number</Label>
+                        {editingProfile ? (
+                          <Input className="mt-1 h-8 text-sm" value={profileForm.gstNumber} placeholder="GST1234567890"
+                            onChange={(e) => setProfileForm((p) => ({ ...p, gstNumber: e.target.value }))} />
+                        ) : (
+                          <p className="text-sm font-medium text-slate-800 mt-1">{profile?.gstNumber || <span className="text-slate-400 italic">Not set</span>}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs flex items-center gap-1.5 text-slate-500"><Link className="w-3 h-3" />Website URL</Label>
+                        {editingProfile ? (
+                          <Input className="mt-1 h-8 text-sm" value={profileForm.websiteUrl} placeholder="https://example.com"
+                            onChange={(e) => setProfileForm((p) => ({ ...p, websiteUrl: e.target.value }))} />
+                        ) : (
+                          <p className="text-sm font-medium text-slate-800 mt-1">
+                            {profile?.websiteUrl
+                              ? <a href={profile.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate block max-w-[200px]">{profile.websiteUrl}</a>
+                              : <span className="text-slate-400 italic">Not set</span>}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs flex items-center gap-1.5 text-slate-500"><Users className="w-3 h-3" />Team Size</Label>
+                        {editingProfile ? (
+                          <Input className="mt-1 h-8 text-sm" type="number" value={profileForm.teamSize} placeholder="e.g. 5"
+                            onChange={(e) => setProfileForm((p) => ({ ...p, teamSize: e.target.value }))} />
+                        ) : (
+                          <p className="text-sm font-medium text-slate-800 mt-1">{profile?.teamSize ?? <span className="text-slate-400 italic">Not set</span>}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-500">Onboarding</Label>
+                        <p className="text-sm font-medium mt-1">
+                          {profile?.onboardingCompleted
+                            ? <span className="text-green-600 font-semibold">✓ Completed</span>
+                            : <span className="text-yellow-600">Pending</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ── Credits ── */}
         <TabsContent value="credits">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -233,13 +405,13 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
               </CardHeader>
               <CardContent className="space-y-4">
                 {[
-                  { label: "AI Credits", value: credits?.aiCredits ?? 0, key: "ai" },
-                  { label: "Image Credits", value: credits?.imageCredits ?? 0, key: "image" },
-                  { label: "Audit Credits", value: credits?.auditCredits ?? 0, key: "audit" },
+                  { label: "AI Credits", value: credits?.aiCredits ?? 0, key: "ai", color: "text-purple-600" },
+                  { label: "Image Credits", value: credits?.imageCredits ?? 0, key: "image", color: "text-blue-600" },
+                  { label: "Audit Credits", value: credits?.auditCredits ?? 0, key: "audit", color: "text-orange-600" },
                 ].map((c) => (
                   <div key={c.key} className="flex items-center justify-between border-b border-slate-100 pb-2 last:border-0 last:pb-0">
                     <span className="text-sm text-slate-600">{c.label}</span>
-                    <span className="font-bold text-slate-900 text-lg">{c.value}</span>
+                    <span className={`font-bold text-lg ${c.color}`}>{c.value}</span>
                   </div>
                 ))}
                 <div className="pt-3 border-t border-slate-100 space-y-2">
@@ -248,7 +420,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                     {[{ label: "AI", key: "ai" as const }, { label: "Image", key: "image" as const }, { label: "Audit", key: "audit" as const }].map((f) => (
                       <div key={f.key}>
                         <Label className="text-xs text-slate-500">{f.label}</Label>
-                        <Input type="number" className="h-8 text-xs mt-0.5" placeholder="0"
+                        <Input type="number" className="h-8 text-xs mt-0.5" placeholder="±0"
                           value={creditForm[f.key]}
                           onChange={(e) => setCreditForm((p) => ({ ...p, [f.key]: e.target.value }))} />
                       </div>
@@ -258,7 +430,9 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                     onChange={(e) => setCreditForm((p) => ({ ...p, reason: e.target.value }))} />
                   <Button size="sm" className="w-full h-8 text-xs bg-orange-500 hover:bg-orange-600"
                     onClick={() => creditMutation.mutate({ aiCredits: Number(creditForm.ai) || 0, imageCredits: Number(creditForm.image) || 0, auditCredits: Number(creditForm.audit) || 0, reason: creditForm.reason || "Admin adjustment" })}
-                    disabled={creditMutation.isPending}>Apply</Button>
+                    disabled={creditMutation.isPending}>
+                    {creditMutation.isPending ? "Applying…" : "Apply Adjustment"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -274,17 +448,17 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                       <thead className="sticky top-0 bg-slate-50">
                         <tr className="border-b border-slate-100">
                           <th className="text-left px-4 py-2 font-medium text-slate-500">Type</th>
-                          <th className="text-left px-4 py-2 font-medium text-slate-500">Reason</th>
-                          <th className="text-right px-4 py-2 font-medium text-slate-500">Amount</th>
+                          <th className="text-left px-2 py-2 font-medium text-slate-500">Feature</th>
+                          <th className="text-right px-3 py-2 font-medium text-slate-500">Amount</th>
                           <th className="text-right px-4 py-2 font-medium text-slate-500">Date</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {transactions.map((t: { id: number; creditType: string; amount: number; reason: string; createdAt: string }) => (
+                        {transactions.map((t: { id: number; creditType: string; featureType: string | null; amount: number; reason: string; createdAt: string }) => (
                           <tr key={t.id} className="border-b border-slate-50">
                             <td className="px-4 py-2.5 capitalize text-slate-700">{t.creditType}</td>
-                            <td className="px-4 py-2.5 text-slate-400 truncate max-w-[120px]">{t.reason || "-"}</td>
-                            <td className={`px-4 py-2.5 text-right font-semibold ${t.amount > 0 ? "text-green-600" : "text-red-600"}`}>{t.amount > 0 ? "+" : ""}{t.amount}</td>
+                            <td className="px-2 py-2.5 text-slate-400 truncate max-w-[80px]">{t.featureType ?? "—"}</td>
+                            <td className={`px-3 py-2.5 text-right font-semibold ${t.amount > 0 ? "text-green-600" : "text-red-600"}`}>{t.amount > 0 ? "+" : ""}{t.amount}</td>
                             <td className="px-4 py-2.5 text-right text-slate-400">{format(new Date(t.createdAt), "MMM d")}</td>
                           </tr>
                         ))}
@@ -301,77 +475,146 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
 
         {/* ── Subscriptions ── */}
         <TabsContent value="subscriptions">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Package className="w-4 h-4 text-orange-500" /> Subscription & Plan Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 mb-1">Plan Status</p>
-                  <p className="font-semibold text-slate-800">
-                    {payments.some((p) => p.status === "completed") ? "Paid Subscriber" : "Free / No Active Plan"}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 mb-1">Total Payments</p>
-                  <p className="font-semibold text-slate-800">{payments.length}</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 mb-1">Lifetime Spend</p>
-                  <p className="font-semibold text-green-600">${totalSpend.toFixed(2)}</p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-semibold text-slate-700 mb-2">Current Credits (plan allocation)</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "AI Credits", value: credits?.aiCredits ?? 0 },
-                    { label: "Image Credits", value: credits?.imageCredits ?? 0 },
-                    { label: "Audit Credits", value: credits?.auditCredits ?? 0 },
-                  ].map((c) => (
-                    <div key={c.label} className="rounded-lg bg-orange-50 border border-orange-100 p-3 text-center">
-                      <p className="text-xl font-bold text-orange-600">{c.value}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{c.label}</p>
+          <div className="space-y-5">
+            {/* Current Subscription */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="flex-row items-center justify-between pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Package className="w-4 h-4 text-orange-500" /> Current Subscription
+                </CardTitle>
+                <Button size="sm" variant="outline" onClick={() => setShowChangePlan(true)}>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Change Package
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {subscription ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-xs text-slate-500 mb-1">Plan</p>
+                      <p className="font-bold text-slate-900">{subscription.planName ?? "—"}</p>
+                      <Badge className={`mt-1 ${subscription.status === "active" ? "bg-green-100 text-green-700" : subscription.status === "trial" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"} hover:bg-inherit`}>{subscription.status}</Badge>
                     </div>
-                  ))}
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-xs text-slate-500 mb-1">Billing Cycle</p>
+                      <p className="font-bold text-slate-900 capitalize">{subscription.billingCycle}</p>
+                      <p className="text-xs text-slate-500">${subscription.billingCycle === "yearly" ? subscription.priceYearly : subscription.priceMonthly}/mo</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-xs text-slate-500 mb-1">
+                        {subscription.status === "trial" ? "Trial Ends" : "Period Ends"}
+                      </p>
+                      <p className="font-bold text-slate-900 text-sm">
+                        {subscription.status === "trial" && subscription.trialEndsAt
+                          ? format(new Date(subscription.trialEndsAt), "MMM d, yyyy")
+                          : subscription.currentPeriodEnd
+                            ? format(new Date(subscription.currentPeriodEnd), "MMM d, yyyy")
+                            : "—"}
+                      </p>
+                      <p className="text-xs text-slate-500">Auto-renew: {subscription.autoRenew ? "On" : "Off"}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-xl p-4">
+                      <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Zap className="w-3 h-3 text-purple-500" />AI Credits Left</p>
+                      <p className="font-bold text-purple-700 text-xl">{credits?.aiCredits ?? 0}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-xl p-4">
+                      <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Image className="w-3 h-3 text-blue-500" />Image Credits Left</p>
+                      <p className="font-bold text-blue-700 text-xl">{credits?.imageCredits ?? 0}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-xl p-4">
+                      <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><BarChart3 className="w-3 h-3 text-orange-500" />Audit Credits Left</p>
+                      <p className="font-bold text-orange-700 text-xl">{credits?.auditCredits ?? 0}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-slate-400 text-sm mb-3">No active subscription</p>
+                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600" onClick={() => setShowChangePlan(true)}>Assign Package</Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Change Plan modal */}
+            {showChangePlan && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowChangePlan(false)}>
+                <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-slate-900">Change Package</h2>
+                    <Button variant="ghost" size="sm" onClick={() => setShowChangePlan(false)}><X className="w-4 h-4" /></Button>
+                  </div>
+                  <p className="text-sm text-slate-500 mb-4">Select a new plan for this customer. Credits will be updated to match the new plan.</p>
+
+                  <div className="flex items-center gap-2 bg-slate-100 rounded-full p-1 mb-5 w-fit">
+                    <button onClick={() => setChangePlanYearly(false)} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${!changePlanYearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>Monthly</button>
+                    <button onClick={() => setChangePlanYearly(true)} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5 ${changePlanYearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>
+                      Yearly <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full">-20%</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                    {plans.map((plan) => (
+                      <div key={plan.id} className={`rounded-xl border-2 p-4 ${plan.id === subscription?.planId ? "border-orange-300 bg-orange-50" : "border-slate-200 hover:border-slate-300"}`}>
+                        {plan.tag && <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-bold">{plan.tag}</span>}
+                        <p className="font-bold text-slate-900 mt-1">{plan.name}</p>
+                        <p className="text-xl font-extrabold text-slate-900 mt-0.5">
+                          ${changePlanYearly ? plan.priceYearly : plan.priceMonthly}
+                          <span className="text-xs font-normal text-slate-400">/mo</span>
+                        </p>
+                        <div className="text-xs text-slate-500 space-y-0.5 mt-2 mb-3">
+                          <p>{plan.aiCredits} AI credits</p>
+                          <p>{plan.imageCredits} image credits</p>
+                          <p>{plan.auditCredits === 999 ? "Unlimited" : plan.auditCredits} audits</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="w-full bg-orange-500 hover:bg-orange-600"
+                          disabled={packageMutation.isPending}
+                          onClick={() => packageMutation.mutate({ planId: plan.id, billingCycle: changePlanYearly ? "yearly" : "monthly" })}
+                        >
+                          {plan.id === subscription?.planId ? "Current Plan" : packageMutation.isPending ? "Updating…" : "Switch to This"}
+                        </Button>
+                      </div>
+                    ))}
+                    {plans.length === 0 && (
+                      <div className="col-span-3 text-center py-8 text-slate-400 text-sm">Loading plans…</div>
+                    )}
+                  </div>
                 </div>
               </div>
+            )}
 
-              {invoices.length > 0 && (
-                <div>
-                  <p className="text-sm font-semibold text-slate-700 mb-2">Invoices</p>
-                  <table className="w-full text-sm border rounded-lg overflow-hidden">
-                    <thead className="bg-slate-50">
+            {/* Invoices */}
+            {invoices.length > 0 && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Invoices</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-100">
                       <tr>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-slate-500 uppercase">Invoice #</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-slate-500 uppercase">Amount</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-slate-500 uppercase">Status</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-slate-500 uppercase">Due</th>
+                        <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Invoice #</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Amount</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Status</th>
+                        <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Due</th>
                       </tr>
                     </thead>
                     <tbody>
                       {invoices.map((inv) => (
-                        <tr key={inv.id} className="border-t border-slate-100">
-                          <td className="px-4 py-2.5 font-medium">#{inv.id}</td>
-                          <td className="px-4 py-2.5">${inv.amount.toFixed(2)} {inv.currency}</td>
-                          <td className="px-4 py-2.5"><Badge variant={inv.status === "paid" ? "default" : "secondary"}>{inv.status}</Badge></td>
-                          <td className="px-4 py-2.5 text-slate-400 text-xs">{inv.dueDate ? format(new Date(inv.dueDate), "MMM d, yyyy") : "-"}</td>
+                        <tr key={inv.id} className="border-b border-slate-50">
+                          <td className="px-5 py-3 font-medium text-slate-600">#{inv.id}</td>
+                          <td className="px-4 py-3 font-semibold">${inv.amount.toFixed(2)} <span className="text-xs text-slate-400">{inv.currency}</span></td>
+                          <td className="px-4 py-3"><Badge variant={inv.status === "paid" ? "default" : "secondary"}>{inv.status}</Badge></td>
+                          <td className="px-5 py-3 text-xs text-slate-400">{inv.dueDate ? format(new Date(inv.dueDate), "MMM d, yyyy") : "—"}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
-              )}
-
-              {invoices.length === 0 && payments.length === 0 && (
-                <p className="text-sm text-slate-400 text-center py-6">No subscription data yet. This user is on the free tier.</p>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         {/* ── Payment History ── */}
@@ -426,7 +669,6 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {/* Account events from what we know */}
                 <div className="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-2">Timeline</div>
                 {[
                   user?.createdAt && { date: new Date(user.createdAt), event: "Account created", icon: "🎉", color: "bg-green-100 text-green-700" },
@@ -443,9 +685,9 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                     icon: "💳",
                     color: p.status === "completed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700",
                   })),
-                  ...(transactions ?? []).slice(0, 3).map((t: { id: number; creditType: string; amount: number; reason: string; createdAt: string }) => ({
+                  ...(transactions ?? []).slice(0, 3).map((t: { id: number; creditType: string; amount: number; reason: string; featureType: string | null; createdAt: string }) => ({
                     date: new Date(t.createdAt),
-                    event: `Credits ${t.amount > 0 ? "added" : "deducted"}: ${Math.abs(t.amount)} ${t.creditType}${t.reason ? ` (${t.reason})` : ""}`,
+                    event: `Credits ${t.amount > 0 ? "added" : "deducted"}: ${Math.abs(t.amount)} ${t.creditType}${t.featureType ? ` (${t.featureType})` : ""}`,
                     icon: "💰",
                     color: t.amount > 0 ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-600",
                   })),
@@ -467,7 +709,6 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                      </div>
                    );
                  })}
-                {!user && <p className="text-sm text-slate-400 text-center py-6">No activity data available.</p>}
               </div>
             </CardContent>
           </Card>
