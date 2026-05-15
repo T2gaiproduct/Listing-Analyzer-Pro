@@ -150,6 +150,19 @@ router.get("/admin/customers", requireAdmin, async (req, res): Promise<void> => 
     profileMap[p.userId] = p.id;
   }
 
+  // Auto-create minimal profile rows for any user that doesn't have one yet
+  const missingIds = userIds.filter((uid) => profileMap[uid] === undefined);
+  if (missingIds.length) {
+    const inserted = await db
+      .insert(userProfilesTable)
+      .values(missingIds.map((uid) => ({ userId: uid })))
+      .onConflictDoNothing()
+      .returning({ userId: userProfilesTable.userId, id: userProfilesTable.id });
+    for (const p of inserted) {
+      profileMap[p.userId] = p.id;
+    }
+  }
+
   const customers = users.map((u: Record<string, unknown>) => ({
     id: u.id,
     profileId: profileMap[u.id as string] ?? null,
