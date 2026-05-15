@@ -19,6 +19,7 @@ interface DbPlan {
   auditCredits: number;
   teamMembers: number;
   features: string[];
+  excludedFeatures: string[];
   tag: string | null;
   isHighlighted: boolean;
   ctaText: string | null;
@@ -95,8 +96,18 @@ const FALLBACK_PLANS: DisplayPlan[] = [
   },
 ];
 
-function dbPlanToDisplay(p: DbPlan, idx: number): DisplayPlan {
+function dbPlanToDisplay(p: DbPlan): DisplayPlan {
   const isHighlighted = p.isHighlighted || p.tag === "Most Popular";
+  const includedFeatures: { text: string; included: boolean }[] = p.features.length > 0
+    ? p.features.map((f) => ({ text: f, included: true }))
+    : [
+        { text: `${p.auditCredits === 999 ? "Unlimited" : p.auditCredits} listing audits/mo`, included: true },
+        { text: `${p.aiCredits} AI content credits`, included: true },
+        { text: `${p.imageCredits} image generation credits`, included: true },
+        { text: "Competitor comparison", included: true },
+        { text: "Score breakdown & suggestions", included: true },
+      ];
+  const excludedFeatures: { text: string; included: boolean }[] = (p.excludedFeatures ?? []).map((f) => ({ text: f, included: false }));
   return {
     name: p.name,
     tag: p.tag,
@@ -107,15 +118,7 @@ function dbPlanToDisplay(p: DbPlan, idx: number): DisplayPlan {
     imageCredits: p.imageCredits,
     auditCredits: p.auditCredits === 999 ? null : p.auditCredits,
     teamMembers: p.teamMembers,
-    features: p.features.length > 0
-      ? p.features.map((f) => ({ text: f, included: true }))
-      : [
-          { text: `${p.auditCredits === 999 ? "Unlimited" : p.auditCredits} listing audits/mo`, included: true },
-          { text: `${p.aiCredits} AI content credits`, included: true },
-          { text: `${p.imageCredits} image generation credits`, included: true },
-          { text: "Competitor comparison", included: true },
-          { text: "Score breakdown & suggestions", included: true },
-        ],
+    features: [...includedFeatures, ...excludedFeatures],
     cta: p.ctaText ?? (p.isTrial && p.trialDays > 0 ? `Start ${p.trialDays}-Day Trial` : "Get Started"),
     ctaVariant: isHighlighted ? "default" : "outline",
     isHighlighted,
@@ -147,7 +150,7 @@ export default function Pricing() {
   });
 
   const plans: DisplayPlan[] = dbPlans.length > 0
-    ? dbPlans.map((p, i) => dbPlanToDisplay(p, i))
+    ? dbPlans.map((p) => dbPlanToDisplay(p))
     : FALLBACK_PLANS;
 
   const gridCols = plans.length <= 3 ? `lg:grid-cols-${plans.length}` : "lg:grid-cols-4";

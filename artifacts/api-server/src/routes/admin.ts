@@ -302,10 +302,21 @@ router.get("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
-  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isTrial, trialDays } = req.body;
+  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, excludedFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
   const [plan] = await db
     .insert(plansTable)
-    .values({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers: teamMembers ?? 1, features: features ?? [], isTrial: isTrial ?? false, trialDays: trialDays ?? 0 })
+    .values({
+      name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits,
+      teamMembers: teamMembers ?? 1,
+      features: features ?? [],
+      excludedFeatures: excludedFeatures ?? [],
+      isTrial: isTrial ?? false,
+      trialDays: trialDays ?? 0,
+      tag: tag ?? null,
+      sortOrder: sortOrder ?? 0,
+      isHighlighted: isHighlighted ?? false,
+      ctaText: ctaText ?? null,
+    })
     .returning();
   res.status(201).json(plan);
 });
@@ -313,10 +324,10 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isActive, isTrial, trialDays } = req.body;
+  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
   const [plan] = await db
     .update(plansTable)
-    .set({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, isActive, isTrial, trialDays, updatedAt: new Date() })
+    .set({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() })
     .where(eq(plansTable.id, id))
     .returning();
   if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }

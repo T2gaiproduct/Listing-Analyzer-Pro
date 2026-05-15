@@ -11,6 +11,7 @@ export const plansTable = pgTable("plans", {
   auditCredits: integer("audit_credits").notNull().default(0),
   teamMembers: integer("team_members").notNull().default(1),
   features: jsonb("features").$type<string[]>().notNull().default([]),
+  excludedFeatures: jsonb("excluded_features").$type<string[]>().notNull().default([]),
   isActive: boolean("is_active").notNull().default(true),
   isTrial: boolean("is_trial").notNull().default(false),
   trialDays: integer("trial_days").notNull().default(0),

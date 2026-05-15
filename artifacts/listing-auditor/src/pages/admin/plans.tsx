@@ -22,6 +22,7 @@ interface Plan {
   auditCredits: number;
   teamMembers: number;
   features: string[];
+  excludedFeatures: string[];
   isActive: boolean;
   isTrial: boolean;
   trialDays: number;
@@ -41,6 +42,7 @@ const emptyPlan = {
   auditCredits: 0,
   teamMembers: 1,
   featuresText: "",
+  excludedFeaturesText: "",
   isTrial: false,
   trialDays: 14,
   tag: "",
@@ -110,8 +112,13 @@ function PlanForm({
 
       {/* Features */}
       <div className="col-span-2">
-        <Label className="text-xs">Features (comma-separated)</Label>
-        <Input className="mt-1 h-8 text-sm" value={form.featuresText} onChange={f("featuresText")} placeholder="Unlimited audits, Priority support, API access" />
+        <Label className="text-xs flex items-center gap-1.5"><Check className="w-3 h-3 text-green-500" />Included Features (comma-separated)</Label>
+        <Input className="mt-1 h-8 text-sm" value={form.featuresText} onChange={f("featuresText")} placeholder="Competitor comparison, Score breakdown, Priority support" />
+      </div>
+      <div className="col-span-2">
+        <Label className="text-xs flex items-center gap-1.5"><X className="w-3 h-3 text-slate-400" />Excluded / Not Included (comma-separated)</Label>
+        <Input className="mt-1 h-8 text-sm" value={form.excludedFeaturesText} onChange={f("excludedFeaturesText")} placeholder="API access, White-label reports, Custom integrations" />
+        <p className="text-xs text-slate-400 mt-1">These display with a grey ✗ on the pricing page to show what's not included</p>
       </div>
 
       {/* Display settings */}
@@ -234,6 +241,7 @@ export default function AdminPlans() {
       auditCredits: Number(form.auditCredits),
       teamMembers: Number(form.teamMembers),
       features: form.featuresText ? form.featuresText.split(",").map((s) => s.trim()).filter(Boolean) : [],
+      excludedFeatures: form.excludedFeaturesText ? form.excludedFeaturesText.split(",").map((s) => s.trim()).filter(Boolean) : [],
       isTrial: form.isTrial,
       trialDays: form.isTrial ? Number(form.trialDays) : 0,
       tag: form.tag || null,
@@ -295,6 +303,7 @@ export default function AdminPlans() {
                   auditCredits: plan.auditCredits,
                   teamMembers: plan.teamMembers,
                   featuresText: plan.features.join(", "),
+                  excludedFeaturesText: (plan.excludedFeatures ?? []).join(", "),
                   isTrial: plan.isTrial,
                   trialDays: plan.trialDays || 14,
                   tag: plan.tag ?? "",
