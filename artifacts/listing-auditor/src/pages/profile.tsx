@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { User, Building2, Phone, Globe, CreditCard, Zap, Image, BarChart3, Edit2, Save, X, Calendar, CheckCircle, Clock, AlertTriangle, ArrowUpRight, FileText, RefreshCw, Link, Users, Receipt, KeyRound, Copy, Check } from "lucide-react";
+import { User, Building2, Phone, Globe, CreditCard, Zap, Image, BarChart3, Edit2, Save, X, Calendar, CheckCircle, Clock, AlertTriangle, ArrowUpRight, FileText, RefreshCw, Link, Users, Receipt, KeyRound, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format, differenceInDays } from "date-fns";
 
@@ -125,9 +126,13 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeYearly, setUpgradeYearly] = useState(false);
-  const [showResetDialog, setShowResetDialog] = useState(false);
-  const [newPassword, setNewPassword] = useState<string | null>(null);
-  const [pwCopied, setPwCopied] = useState(false);
+  const [showPwDialog, setShowPwDialog] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", newPw: "", confirm: "", logoutAll: false });
+  const [pwError, setPwError] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [form, setForm] = useState({
     fullName: "", companyName: "", phone: "", country: "",
     gstNumber: "", websiteUrl: "", teamSize: "",
@@ -183,29 +188,37 @@ export default function Profile() {
     onError: () => toast({ title: "Upgrade failed", variant: "destructive" }),
   });
 
-  const resetPasswordMutation = useMutation({
-    mutationFn: () =>
-      fetch(`${basePath}/api/auth/reset-password`, { method: "POST", credentials: "include" }).then((r) => r.json()),
-    onSuccess: (result) => {
-      if (result?.error) { toast({ title: result.error, variant: "destructive" }); return; }
-      setNewPassword(result.newPassword);
-    },
-    onError: () => toast({ title: "Failed to reset password", variant: "destructive" }),
-  });
-
-  function handleOpenReset() {
-    setNewPassword(null);
-    setPwCopied(false);
-    setShowResetDialog(true);
-    resetPasswordMutation.mutate();
+  function openPwDialog() {
+    setPwForm({ current: "", newPw: "", confirm: "", logoutAll: false });
+    setPwError("");
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
+    setShowPwDialog(true);
   }
 
-  function handleCopyPassword() {
-    if (!newPassword) return;
-    navigator.clipboard.writeText(newPassword).then(() => {
-      setPwCopied(true);
-      setTimeout(() => setPwCopied(false), 2000);
-    });
+  async function handleChangePassword() {
+    if (!user) return;
+    if (!pwForm.current) { setPwError("Current password is required"); return; }
+    if (!pwForm.newPw) { setPwError("New password is required"); return; }
+    if (pwForm.newPw.length < 8) { setPwError("New password must be at least 8 characters"); return; }
+    if (pwForm.newPw !== pwForm.confirm) { setPwError("Passwords do not match"); return; }
+    setPwSaving(true);
+    setPwError("");
+    try {
+      await user.updatePassword({
+        currentPassword: pwForm.current,
+        newPassword: pwForm.newPw,
+        signOutOfOtherSessions: pwForm.logoutAll,
+      });
+      setShowPwDialog(false);
+      toast({ title: "Password changed successfully" });
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ message: string }>; message?: string };
+      setPwError(clerkErr?.errors?.[0]?.message ?? clerkErr?.message ?? "Failed to change password. Check your current password.");
+    } finally {
+      setPwSaving(false);
+    }
   }
 
   const sub = data?.subscription;
@@ -293,8 +306,8 @@ export default function Profile() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleOpenReset} disabled={resetPasswordMutation.isPending}>
-              <KeyRound className="w-4 h-4 mr-1" />Reset Password
+            <Button variant="outline" size="sm" onClick={openPwDialog}>
+              <KeyRound className="w-4 h-4 mr-1" />Change Password
             </Button>
             {editing ? (
               <>
@@ -625,39 +638,76 @@ export default function Profile() {
       )}
     </div>
 
-    {/* Reset Password Dialog */}
-    <Dialog open={showResetDialog} onOpenChange={(open) => { if (!open) { setShowResetDialog(false); setNewPassword(null); setPwCopied(false); } }}>
+    {/* Change Password Dialog */}
+    <Dialog open={showPwDialog} onOpenChange={(open) => { if (!open) setShowPwDialog(false); }}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader className="items-center text-center">
-          <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-2">
-            <KeyRound className="w-7 h-7 text-blue-500" />
-          </div>
-          <DialogTitle>New Password Generated</DialogTitle>
-          <DialogDescription className="text-center pt-1">
-            {resetPasswordMutation.isPending
-              ? "Generating a new secure password for your account..."
-              : "Your account password has been updated. Copy and save this password now — it will not be shown again."}
-          </DialogDescription>
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
         </DialogHeader>
-        {resetPasswordMutation.isPending ? (
-          <div className="flex justify-center py-4">
-            <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="prof-curr-pw">Your current password <span className="text-red-500">*</span></Label>
+            <div className="relative">
+              <Input
+                id="prof-curr-pw"
+                type={showCurrent ? "text" : "password"}
+                value={pwForm.current}
+                onChange={(e) => setPwForm((f) => ({ ...f, current: e.target.value }))}
+                className="pr-10"
+                autoComplete="current-password"
+              />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setShowCurrent((v) => !v)}>
+                {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
-        ) : newPassword ? (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3 my-2">
-            <span className="font-mono text-sm font-semibold text-slate-800 tracking-wider break-all">{newPassword}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`flex-shrink-0 h-8 px-2 ${pwCopied ? "text-green-600" : "text-slate-500 hover:text-slate-900"}`}
-              onClick={handleCopyPassword}
-            >
-              {pwCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </Button>
+          <div className="space-y-1.5">
+            <Label htmlFor="prof-new-pw">New password <span className="text-red-500">*</span></Label>
+            <div className="relative">
+              <Input
+                id="prof-new-pw"
+                type={showNew ? "text" : "password"}
+                value={pwForm.newPw}
+                onChange={(e) => setPwForm((f) => ({ ...f, newPw: e.target.value }))}
+                className="pr-10"
+                autoComplete="new-password"
+              />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setShowNew((v) => !v)}>
+                {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
-        ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="prof-conf-pw">Confirm new password <span className="text-red-500">*</span></Label>
+            <div className="relative">
+              <Input
+                id="prof-conf-pw"
+                type={showConfirm ? "text" : "password"}
+                value={pwForm.confirm}
+                onChange={(e) => setPwForm((f) => ({ ...f, confirm: e.target.value }))}
+                className="pr-10"
+                autoComplete="new-password"
+              />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setShowConfirm((v) => !v)}>
+                {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Checkbox
+              id="prof-logout-all"
+              checked={pwForm.logoutAll}
+              onCheckedChange={(checked) => setPwForm((f) => ({ ...f, logoutAll: !!checked }))}
+            />
+            <Label htmlFor="prof-logout-all" className="text-sm font-normal cursor-pointer">Log me out of all devices</Label>
+          </div>
+          {pwError && <p className="text-sm text-red-600">{pwError}</p>}
+        </div>
         <DialogFooter>
-          <Button className="w-full bg-orange-500 hover:bg-orange-600" onClick={() => { setShowResetDialog(false); setNewPassword(null); setPwCopied(false); }}>Done</Button>
+          <Button variant="outline" onClick={() => setShowPwDialog(false)} disabled={pwSaving}>Cancel</Button>
+          <Button className="bg-orange-500 hover:bg-orange-600" onClick={handleChangePassword} disabled={pwSaving}>
+            {pwSaving ? "Saving..." : "Save"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
