@@ -723,12 +723,44 @@ router.delete("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> 
 
 router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
   const users = await db.select().from(adminUsersTable);
-  res.json({ users });
+
+  // Enrich with role name
+  const roles = await db.select().from(adminRolesTable);
+  const roleMap = Object.fromEntries(roles.map((r) => [r.id, r]));
+
+  // Enrich with Clerk user data
+  const enriched = await Promise.all(users.map(async (u) => {
+    let clerkUser: { email: string; name: string } | null = null;
+    try {
+      const cu = await clerkFetch(`/users/${u.userId}`) as Record<string, unknown>;
+      const emails = cu.email_addresses as Array<{ email_address: string }> | undefined;
+      const email = emails?.[0]?.email_address ?? "—";
+      const fullName = [cu.first_name as string, cu.last_name as string].filter(Boolean).join(" ") || email;
+      clerkUser = { email, name: fullName };
+    } catch {}
+    return { ...u, role: roleMap[u.roleId] ?? null, clerkUser };
+  }));
+
+  res.json({ users: enriched });
 });
 
 router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
-  const { userId, roleId } = req.body;
-  const [u] = await db.insert(adminUsersTable).values({ userId, roleId }).onConflictDoNothing().returning();
+  const { email, roleId } = req.body as { email?: string; roleId: number; userId?: string };
+  let targetUserId = req.body.userId as string | undefined;
+
+  // If email provided, look up in Clerk
+  if (!targetUserId && email) {
+    const result = await clerkFetch(`/users?email_address=${encodeURIComponent(email)}&limit=1`) as Record<string, unknown> | unknown[];
+    const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
+    if (!usersList.length) { res.status(404).json({ error: "No user found with that email address" }); return; }
+    targetUserId = (usersList[0] as Record<string, unknown>).id as string;
+  }
+
+  if (!targetUserId) { res.status(400).json({ error: "Provide email or userId" }); return; }
+
+  const [u] = await db.insert(adminUsersTable).values({ userId: targetUserId, roleId })
+    .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId } })
+    .returning();
   res.status(201).json(u);
 });
 
