@@ -58,6 +58,8 @@ import Privacy from "@/pages/privacy";
 import Tutorials from "@/pages/tutorials";
 import Billing from "@/pages/billing";
 import Team from "@/pages/team";
+import Onboarding from "@/pages/onboarding";
+import Profile from "@/pages/profile";
 
 const queryClient = new QueryClient();
 
@@ -144,7 +146,7 @@ function SignUpPage() {
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
-        forceRedirectUrl={`${basePath}/`}
+        forceRedirectUrl={`${basePath}/onboarding`}
       />
     </div>
   );
@@ -323,12 +325,25 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/tutorials" component={Tutorials} />
 
+      {/* Onboarding — full-page, no Layout wrapper */}
+      <Route path="/onboarding">
+        <Show when="signed-in">
+          <Onboarding />
+        </Show>
+        <Show when="signed-out">
+          <Redirect to="/sign-up" />
+        </Show>
+      </Route>
+
       {/* Protected customer pages */}
       <Route path="/billing">
         <ProtectedRoute><Billing /></ProtectedRoute>
       </Route>
       <Route path="/team">
         <ProtectedRoute><Team /></ProtectedRoute>
+      </Route>
+      <Route path="/profile">
+        <ProtectedRoute><Profile /></ProtectedRoute>
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>

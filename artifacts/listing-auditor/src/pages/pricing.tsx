@@ -1,108 +1,126 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Check, X, Zap, ArrowRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 
-const plans = [
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface DbPlan {
+  id: number;
+  name: string;
+  description: string | null;
+  priceMonthly: number;
+  priceYearly: number;
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
+  teamMembers: number;
+  features: string[];
+  tag: string | null;
+  isHighlighted: boolean;
+  ctaText: string | null;
+  isTrial: boolean;
+  trialDays: number;
+}
+
+interface DisplayPlan {
+  name: string;
+  tag: string | null;
+  monthlyPrice: number | null;
+  yearlyPrice: number | null;
+  description: string;
+  aiCredits: number | null;
+  imageCredits: number | null;
+  auditCredits: number | null;
+  teamMembers: number | null;
+  features: { text: string; included: boolean }[];
+  cta: string;
+  ctaVariant: "default" | "outline";
+  isHighlighted: boolean;
+  isEnterprise?: boolean;
+}
+
+const FALLBACK_PLANS: DisplayPlan[] = [
   {
-    name: "Starter",
-    tag: null,
-    monthlyPrice: 29,
-    yearlyPrice: 23,
+    name: "Starter", tag: null, monthlyPrice: 29, yearlyPrice: 23,
     description: "Perfect for solo sellers getting started with AI optimization.",
-    aiCredits: 100,
-    imageCredits: 20,
-    auditCredits: 10,
-    teamMembers: 1,
+    aiCredits: 100, imageCredits: 20, auditCredits: 10, teamMembers: 1,
     features: [
-      { text: "10 listing audits/mo", included: true },
-      { text: "100 AI content credits", included: true },
-      { text: "20 image generation credits", included: true },
-      { text: "Competitor comparison", included: true },
-      { text: "Score breakdown & suggestions", included: true },
-      { text: "Email support", included: true },
-      { text: "Team members", included: false },
-      { text: "API access", included: false },
-      { text: "White-label reports", included: false },
+      { text: "10 listing audits/mo", included: true }, { text: "100 AI content credits", included: true },
+      { text: "20 image generation credits", included: true }, { text: "Competitor comparison", included: true },
+      { text: "Score breakdown & suggestions", included: true }, { text: "Email support", included: true },
+      { text: "Team members", included: false }, { text: "API access", included: false },
     ],
-    cta: "Start Free Trial",
-    ctaVariant: "outline" as const,
+    cta: "Start Free Trial", ctaVariant: "outline", isHighlighted: false,
   },
   {
-    name: "Growth",
-    tag: "Most Popular",
-    monthlyPrice: 79,
-    yearlyPrice: 63,
+    name: "Growth", tag: "Most Popular", monthlyPrice: 79, yearlyPrice: 63,
     description: "For growing brands that need more power and faster results.",
-    aiCredits: 500,
-    imageCredits: 100,
-    auditCredits: 50,
-    teamMembers: 3,
+    aiCredits: 500, imageCredits: 100, auditCredits: 50, teamMembers: 3,
     features: [
-      { text: "50 listing audits/mo", included: true },
-      { text: "500 AI content credits", included: true },
-      { text: "100 image generation credits", included: true },
-      { text: "Competitor comparison", included: true },
-      { text: "Score breakdown & suggestions", included: true },
-      { text: "Priority email support", included: true },
-      { text: "3 team members", included: true },
-      { text: "API access", included: false },
-      { text: "White-label reports", included: false },
+      { text: "50 listing audits/mo", included: true }, { text: "500 AI content credits", included: true },
+      { text: "100 image generation credits", included: true }, { text: "Competitor comparison", included: true },
+      { text: "Score breakdown & suggestions", included: true }, { text: "Priority email support", included: true },
+      { text: "3 team members", included: true }, { text: "API access", included: false },
     ],
-    cta: "Start Free Trial",
-    ctaVariant: "default" as const,
+    cta: "Start Free Trial", ctaVariant: "default", isHighlighted: true,
   },
   {
-    name: "Pro",
-    tag: "Best Value",
-    monthlyPrice: 149,
-    yearlyPrice: 119,
+    name: "Pro", tag: "Best Value", monthlyPrice: 149, yearlyPrice: 119,
     description: "For agencies and power sellers with high-volume needs.",
-    aiCredits: 2000,
-    imageCredits: 400,
-    auditCredits: null,
-    teamMembers: 10,
+    aiCredits: 2000, imageCredits: 400, auditCredits: null, teamMembers: 10,
     features: [
-      { text: "Unlimited listing audits", included: true },
-      { text: "2,000 AI content credits", included: true },
-      { text: "400 image generation credits", included: true },
-      { text: "Competitor comparison", included: true },
-      { text: "Score breakdown & suggestions", included: true },
-      { text: "Dedicated support", included: true },
-      { text: "10 team members", included: true },
-      { text: "API access", included: true },
-      { text: "White-label reports", included: false },
+      { text: "Unlimited listing audits", included: true }, { text: "2,000 AI content credits", included: true },
+      { text: "400 image generation credits", included: true }, { text: "Competitor comparison", included: true },
+      { text: "Score breakdown & suggestions", included: true }, { text: "Dedicated support", included: true },
+      { text: "10 team members", included: true }, { text: "API access", included: true },
     ],
-    cta: "Start Free Trial",
-    ctaVariant: "outline" as const,
+    cta: "Start Free Trial", ctaVariant: "outline", isHighlighted: false,
   },
   {
-    name: "Enterprise",
-    tag: null,
-    monthlyPrice: null,
-    yearlyPrice: null,
+    name: "Enterprise", tag: null, monthlyPrice: null, yearlyPrice: null,
     description: "Custom solution for large agencies and enterprise brands.",
-    aiCredits: null,
-    imageCredits: null,
-    auditCredits: null,
-    teamMembers: null,
+    aiCredits: null, imageCredits: null, auditCredits: null, teamMembers: null,
     features: [
-      { text: "Unlimited everything", included: true },
-      { text: "Custom AI credit allocation", included: true },
-      { text: "Unlimited image generation", included: true },
-      { text: "Competitor comparison", included: true },
-      { text: "Score breakdown & suggestions", included: true },
-      { text: "Dedicated account manager", included: true },
-      { text: "Unlimited team members", included: true },
-      { text: "Full API access", included: true },
+      { text: "Unlimited everything", included: true }, { text: "Custom AI credit allocation", included: true },
+      { text: "Unlimited image generation", included: true }, { text: "Competitor comparison", included: true },
+      { text: "Score breakdown & suggestions", included: true }, { text: "Dedicated account manager", included: true },
+      { text: "Unlimited team members", included: true }, { text: "Full API access", included: true },
       { text: "White-label reports", included: true },
     ],
-    cta: "Contact Sales",
-    ctaVariant: "outline" as const,
+    cta: "Contact Sales", ctaVariant: "outline", isHighlighted: false, isEnterprise: true,
   },
 ];
+
+function dbPlanToDisplay(p: DbPlan, idx: number): DisplayPlan {
+  const isHighlighted = p.isHighlighted || p.tag === "Most Popular";
+  return {
+    name: p.name,
+    tag: p.tag,
+    monthlyPrice: p.priceMonthly,
+    yearlyPrice: p.priceYearly,
+    description: p.description ?? "",
+    aiCredits: p.aiCredits,
+    imageCredits: p.imageCredits,
+    auditCredits: p.auditCredits === 999 ? null : p.auditCredits,
+    teamMembers: p.teamMembers,
+    features: p.features.length > 0
+      ? p.features.map((f) => ({ text: f, included: true }))
+      : [
+          { text: `${p.auditCredits === 999 ? "Unlimited" : p.auditCredits} listing audits/mo`, included: true },
+          { text: `${p.aiCredits} AI content credits`, included: true },
+          { text: `${p.imageCredits} image generation credits`, included: true },
+          { text: "Competitor comparison", included: true },
+          { text: "Score breakdown & suggestions", included: true },
+        ],
+    cta: p.ctaText ?? (p.isTrial && p.trialDays > 0 ? `Start ${p.trialDays}-Day Trial` : "Get Started"),
+    ctaVariant: isHighlighted ? "default" : "outline",
+    isHighlighted,
+  };
+}
 
 const addOns = [
   { name: "AI Content Credits", price: "$9", per: "100 credits" },
@@ -112,34 +130,27 @@ const addOns = [
 ];
 
 const faqs = [
-  {
-    q: "What are credits?",
-    a: "Credits are the currency for AI operations. AI content credits power title/bullet rewrites and keyword suggestions. Image credits generate professional product photos. Audit credits run full listing analyses.",
-  },
-  {
-    q: "Can I change plans anytime?",
-    a: "Yes — upgrade or downgrade anytime from your billing settings. Upgrades take effect immediately; downgrades apply at the next billing cycle.",
-  },
-  {
-    q: "Is there a free trial?",
-    a: "All paid plans include a 7-day free trial. No credit card required to start.",
-  },
-  {
-    q: "Do unused credits roll over?",
-    a: "Credits reset monthly. Any unused credits from the previous cycle do not roll over, but you can purchase add-on credits at any time.",
-  },
-  {
-    q: "What payment methods do you accept?",
-    a: "We accept all major credit cards (Visa, Mastercard, Amex), PayPal, and bank transfers for Enterprise plans.",
-  },
-  {
-    q: "Can I get a refund?",
-    a: "We offer a 7-day money-back guarantee on all plans. Enterprise plans are handled case-by-case — contact our sales team.",
-  },
+  { q: "What are credits?", a: "Credits are the currency for AI operations. AI content credits power title/bullet rewrites and keyword suggestions. Image credits generate professional product photos. Audit credits run full listing analyses." },
+  { q: "Can I change plans anytime?", a: "Yes — upgrade or downgrade anytime from your billing settings. Upgrades take effect immediately; downgrades apply at the next billing cycle." },
+  { q: "Is there a free trial?", a: "All paid plans include a free trial. No credit card required to start." },
+  { q: "Do unused credits roll over?", a: "Credits reset monthly. Any unused credits from the previous cycle do not roll over, but you can purchase add-on credits at any time." },
+  { q: "What payment methods do you accept?", a: "We accept all major credit cards (Visa, Mastercard, Amex), PayPal, and bank transfers for Enterprise plans." },
+  { q: "Can I get a refund?", a: "We offer a money-back guarantee on all plans. Enterprise plans are handled case-by-case — contact our sales team." },
 ];
 
 export default function Pricing() {
   const [yearly, setYearly] = useState(false);
+
+  const { data: dbPlans = [] } = useQuery<DbPlan[]>({
+    queryKey: ["public-plans"],
+    queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
+  });
+
+  const plans: DisplayPlan[] = dbPlans.length > 0
+    ? dbPlans.map((p, i) => dbPlanToDisplay(p, i))
+    : FALLBACK_PLANS;
+
+  const gridCols = plans.length <= 3 ? `lg:grid-cols-${plans.length}` : "lg:grid-cols-4";
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
@@ -150,48 +161,31 @@ export default function Pricing() {
         <Badge variant="outline" className="mb-6 border-orange-200 text-orange-600 bg-orange-50">
           Simple, transparent pricing
         </Badge>
-        <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
-          Choose your plan
-        </h1>
-        <p className="text-xl text-slate-500 max-w-xl mx-auto mb-10">
-          Start free. Scale as you grow. No hidden fees.
-        </p>
-
-        {/* Toggle */}
+        <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight mb-4">Choose your plan</h1>
+        <p className="text-xl text-slate-500 max-w-xl mx-auto mb-10">Start free. Scale as you grow. No hidden fees.</p>
         <div className="inline-flex items-center gap-3 bg-slate-100 rounded-full p-1">
-          <button
-            onClick={() => setYearly(false)}
-            className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${!yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setYearly(true)}
-            className={`px-5 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}
-          >
-            Yearly
-            <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">Save 20%</span>
+          <button onClick={() => setYearly(false)} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${!yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>Monthly</button>
+          <button onClick={() => setYearly(true)} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>
+            Yearly <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">Save 20%</span>
           </button>
         </div>
       </section>
 
       {/* Plans Grid */}
       <section className="px-6 pb-20 -mt-6">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className={`max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-6`}>
           {plans.map((plan) => (
             <div
               key={plan.name}
               className={`relative rounded-2xl border p-6 flex flex-col ${
-                plan.tag === "Most Popular"
+                plan.isHighlighted
                   ? "border-orange-400 shadow-xl shadow-orange-100 bg-gradient-to-b from-orange-50 to-white"
                   : "border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
               }`}
             >
               {plan.tag && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
-                    {plan.tag}
-                  </span>
+                  <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.tag}</span>
                 </div>
               )}
 
@@ -200,20 +194,17 @@ export default function Pricing() {
                 <p className="text-sm text-slate-500 mb-4">{plan.description}</p>
                 {plan.monthlyPrice !== null ? (
                   <div className="flex items-end gap-1">
-                    <span className="text-4xl font-extrabold text-slate-900">
-                      ${yearly ? plan.yearlyPrice : plan.monthlyPrice}
-                    </span>
+                    <span className="text-4xl font-extrabold text-slate-900">${yearly ? plan.yearlyPrice : plan.monthlyPrice}</span>
                     <span className="text-slate-400 mb-1">/mo</span>
                   </div>
                 ) : (
                   <div className="text-3xl font-extrabold text-slate-900">Custom</div>
                 )}
                 {yearly && plan.yearlyPrice && (
-                  <p className="text-xs text-green-600 mt-1">Billed ${plan.yearlyPrice! * 12}/year</p>
+                  <p className="text-xs text-green-600 mt-1">Billed ${plan.yearlyPrice * 12}/year</p>
                 )}
               </div>
 
-              {/* Credit badges */}
               {plan.aiCredits !== null && (
                 <div className="flex flex-wrap gap-1.5 mb-5">
                   <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-md font-medium">{plan.aiCredits} AI credits</span>
@@ -222,15 +213,10 @@ export default function Pricing() {
                 </div>
               )}
 
-              {/* Features */}
               <ul className="space-y-2.5 flex-1 mb-6">
                 {plan.features.map((f) => (
                   <li key={f.text} className="flex items-center gap-2 text-sm">
-                    {f.included ? (
-                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    ) : (
-                      <X className="w-4 h-4 text-slate-300 flex-shrink-0" />
-                    )}
+                    {f.included ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" /> : <X className="w-4 h-4 text-slate-300 flex-shrink-0" />}
                     <span className={f.included ? "text-slate-700" : "text-slate-400"}>{f.text}</span>
                   </li>
                 ))}
@@ -238,10 +224,10 @@ export default function Pricing() {
 
               <Button
                 variant={plan.ctaVariant}
-                className={`w-full ${plan.tag === "Most Popular" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
+                className={`w-full ${plan.isHighlighted ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
                 asChild
               >
-                <Link href={plan.name === "Enterprise" ? "/contact" : "/sign-up"}>
+                <Link href={plan.isEnterprise ? "/contact" : "/sign-up"}>
                   {plan.cta}
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Link>

@@ -6,3 +6,5 @@ export * from "./billing";
 export * from "./admin";
 export * from "./settings";
 export * from "./marketing";
+export * from "./user-profiles";
+export * from "./subscriptions";

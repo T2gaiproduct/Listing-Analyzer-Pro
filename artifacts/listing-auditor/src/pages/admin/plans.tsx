@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Check, X, Layers, FlaskConical } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Layers, FlaskConical, Star, ArrowUpDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,10 @@ interface Plan {
   isActive: boolean;
   isTrial: boolean;
   trialDays: number;
+  tag: string | null;
+  sortOrder: number;
+  isHighlighted: boolean;
+  ctaText: string | null;
 }
 
 const emptyPlan = {
@@ -39,7 +43,13 @@ const emptyPlan = {
   featuresText: "",
   isTrial: false,
   trialDays: 14,
+  tag: "",
+  sortOrder: 0,
+  isHighlighted: false,
+  ctaText: "",
 };
+
+const TAG_OPTIONS = ["", "Most Popular", "Best Value", "New", "Recommended", "Limited Offer"];
 
 function PlanForm({
   initial,
@@ -76,7 +86,7 @@ function PlanForm({
         <Input className="mt-1 h-8 text-sm" type="number" value={form.priceMonthly} onChange={f("priceMonthly")} />
       </div>
       <div>
-        <Label className="text-xs">Yearly Price ($)</Label>
+        <Label className="text-xs">Yearly Price ($/mo)</Label>
         <Input className="mt-1 h-8 text-sm" type="number" value={form.priceYearly} onChange={f("priceYearly")} />
       </div>
 
@@ -90,7 +100,7 @@ function PlanForm({
         <Input className="mt-1 h-8 text-sm" type="number" value={form.imageCredits} onChange={f("imageCredits")} />
       </div>
       <div>
-        <Label className="text-xs">Audit Credits / mo</Label>
+        <Label className="text-xs">Audit Credits / mo (999 = unlimited)</Label>
         <Input className="mt-1 h-8 text-sm" type="number" value={form.auditCredits} onChange={f("auditCredits")} />
       </div>
       <div>
@@ -104,13 +114,50 @@ function PlanForm({
         <Input className="mt-1 h-8 text-sm" value={form.featuresText} onChange={f("featuresText")} placeholder="Unlimited audits, Priority support, API access" />
       </div>
 
-      {/* Trial plan */}
+      {/* Display settings */}
+      <div className="col-span-2 grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs">Badge Tag</Label>
+          <select
+            className="mt-1 w-full h-8 border border-input rounded-md bg-background px-2 text-sm"
+            value={form.tag}
+            onChange={(e) => setForm((p) => ({ ...p, tag: e.target.value }))}
+          >
+            {TAG_OPTIONS.map((t) => <option key={t} value={t}>{t || "(no tag)"}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs">CTA Button Text</Label>
+          <Input className="mt-1 h-8 text-sm" value={form.ctaText} onChange={f("ctaText")} placeholder="Start Free Trial" />
+        </div>
+        <div>
+          <Label className="text-xs">Sort Order</Label>
+          <Input className="mt-1 h-8 text-sm" type="number" value={form.sortOrder} onChange={f("sortOrder")} />
+        </div>
+      </div>
+
+      {/* Highlight toggle */}
       <div className="col-span-2">
         <div className="flex items-center gap-4 rounded-lg border border-dashed border-orange-300 bg-orange-50 p-3">
-          <FlaskConical className="w-5 h-5 text-orange-500 flex-shrink-0" />
+          <Star className="w-5 h-5 text-orange-500 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-slate-800">Trial Plan</p>
-            <p className="text-xs text-slate-500">Free trial period before billing begins</p>
+            <p className="text-sm font-medium text-slate-800">Highlighted Plan</p>
+            <p className="text-xs text-slate-500">Show with orange border and shadow on the pricing page</p>
+          </div>
+          <Switch
+            checked={form.isHighlighted}
+            onCheckedChange={(v) => setForm((p) => ({ ...p, isHighlighted: v }))}
+          />
+        </div>
+      </div>
+
+      {/* Trial plan */}
+      <div className="col-span-2">
+        <div className="flex items-center gap-4 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-3">
+          <FlaskConical className="w-5 h-5 text-blue-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-800">Free Trial</p>
+            <p className="text-xs text-slate-500">Offer a free trial period before billing begins</p>
           </div>
           <Switch
             checked={form.isTrial}
@@ -148,7 +195,10 @@ export default function AdminPlans() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: plans = [], isLoading } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => fetch(`${basePath}/api/admin/plans`, { credentials: "include" }).then((r) => r.json()) });
+  const { data: plans = [], isLoading } = useQuery<Plan[]>({
+    queryKey: ["admin-plans"],
+    queryFn: () => fetch(`${basePath}/api/admin/plans`, { credentials: "include" }).then((r) => r.json()),
+  });
 
   const createMutation = useMutation({
     mutationFn: (body: object) =>
@@ -186,8 +236,14 @@ export default function AdminPlans() {
       features: form.featuresText ? form.featuresText.split(",").map((s) => s.trim()).filter(Boolean) : [],
       isTrial: form.isTrial,
       trialDays: form.isTrial ? Number(form.trialDays) : 0,
+      tag: form.tag || null,
+      sortOrder: Number(form.sortOrder),
+      isHighlighted: form.isHighlighted,
+      ctaText: form.ctaText || null,
     };
   }
+
+  const sorted = [...plans].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <div className="space-y-6">
@@ -225,7 +281,7 @@ export default function AdminPlans() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {plans.map((plan) =>
+        {sorted.map((plan) =>
           editingId === plan.id ? (
             <div key={plan.id} className="col-span-full">
               <PlanForm
@@ -241,6 +297,10 @@ export default function AdminPlans() {
                   featuresText: plan.features.join(", "),
                   isTrial: plan.isTrial,
                   trialDays: plan.trialDays || 14,
+                  tag: plan.tag ?? "",
+                  sortOrder: plan.sortOrder ?? 0,
+                  isHighlighted: plan.isHighlighted ?? false,
+                  ctaText: plan.ctaText ?? "",
                 }}
                 onSave={(form) => updateMutation.mutate({ id: plan.id, ...buildPayload(form) })}
                 onCancel={() => setEditingId(null)}
@@ -248,21 +308,26 @@ export default function AdminPlans() {
               />
             </div>
           ) : (
-            <Card key={plan.id} className={`border-0 shadow-sm transition-opacity ${plan.isActive ? "" : "opacity-60"}`}>
+            <Card key={plan.id} className={`border-0 shadow-sm transition-opacity ${plan.isActive ? "" : "opacity-60"} ${plan.isHighlighted ? "ring-2 ring-orange-300" : ""}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <CardTitle className="text-lg font-bold text-slate-900 truncate">{plan.name}</CardTitle>
+                    <CardTitle className="text-lg font-bold text-slate-900 truncate flex items-center gap-1.5">
+                      {plan.isHighlighted && <Star className="w-4 h-4 text-orange-400 flex-shrink-0" />}
+                      {plan.name}
+                    </CardTitle>
                     {plan.description && <p className="text-xs text-slate-500 mt-0.5">{plan.description}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     <Badge className={plan.isActive ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-slate-100 text-slate-500 hover:bg-slate-100"}>
                       {plan.isActive ? "Active" : "Inactive"}
                     </Badge>
+                    {plan.tag && (
+                      <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-xs">{plan.tag}</Badge>
+                    )}
                     {plan.isTrial && (
-                      <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 flex items-center gap-1">
-                        <FlaskConical className="w-3 h-3" />
-                        {plan.trialDays}d trial
+                      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-xs">
+                        <FlaskConical className="w-3 h-3" />{plan.trialDays}d trial
                       </Badge>
                     )}
                   </div>
@@ -272,20 +337,19 @@ export default function AdminPlans() {
                     <span className="text-2xl font-bold text-slate-900">${plan.priceMonthly}</span>
                     <span className="text-slate-400 text-xs">/mo</span>
                   </div>
-                  <div className="text-slate-400 text-xs self-end pb-0.5">· ${plan.priceYearly}/yr</div>
+                  <div className="text-slate-400 text-xs self-end pb-0.5">· ${plan.priceYearly}/mo yearly</div>
                 </div>
-                {plan.isTrial && (
-                  <p className="text-xs text-orange-600 font-medium mt-1">
-                    {plan.trialDays}-day free trial, then billed normally
-                  </p>
-                )}
+                <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
+                  <ArrowUpDown className="w-3 h-3" /> Order: {plan.sortOrder}
+                  {plan.ctaText && <span className="ml-2 text-slate-500">CTA: "{plan.ctaText}"</span>}
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {[
                     { label: "AI Credits", value: plan.aiCredits },
                     { label: "Image Credits", value: plan.imageCredits },
-                    { label: "Audit Credits", value: plan.auditCredits },
+                    { label: "Audit Credits", value: plan.auditCredits === 999 ? "∞" : plan.auditCredits },
                     { label: "Team Members", value: plan.teamMembers },
                   ].map((c) => (
                     <div key={c.label} className="bg-slate-50 rounded-lg p-2">
@@ -296,12 +360,12 @@ export default function AdminPlans() {
                 </div>
                 {plan.features.length > 0 && (
                   <ul className="space-y-1">
-                    {plan.features.map((feat) => (
+                    {plan.features.slice(0, 4).map((feat) => (
                       <li key={feat} className="flex items-center gap-1.5 text-xs text-slate-600">
-                        <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
-                        {feat}
+                        <Check className="w-3 h-3 text-green-500 flex-shrink-0" />{feat}
                       </li>
                     ))}
+                    {plan.features.length > 4 && <li className="text-xs text-slate-400">+{plan.features.length - 4} more</li>}
                   </ul>
                 )}
                 <div className="flex gap-2 pt-2 border-t border-slate-100">
@@ -309,18 +373,14 @@ export default function AdminPlans() {
                     <Pencil className="w-3 h-3 mr-1" /> Edit
                   </Button>
                   <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
+                    variant="outline" size="sm" className="h-7 text-xs"
                     onClick={() => toggleMutation.mutate({ id: plan.id, isActive: !plan.isActive })}
                     disabled={toggleMutation.isPending}
                   >
                     {plan.isActive ? "Disable" : "Enable"}
                   </Button>
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-slate-400 hover:text-red-600"
+                    variant="ghost" size="sm" className="h-7 px-2 text-slate-400 hover:text-red-600"
                     onClick={() => confirm(`Delete plan "${plan.name}"?`) && deleteMutation.mutate(plan.id)}
                     disabled={deleteMutation.isPending}
                   >

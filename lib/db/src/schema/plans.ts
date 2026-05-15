@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const plansTable = pgTable("plans", {
   id: serial("id").primaryKey(),
@@ -14,6 +14,10 @@ export const plansTable = pgTable("plans", {
   isActive: boolean("is_active").notNull().default(true),
   isTrial: boolean("is_trial").notNull().default(false),
   trialDays: integer("trial_days").notNull().default(0),
+  tag: varchar("tag", { length: 50 }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isHighlighted: boolean("is_highlighted").notNull().default(false),
+  ctaText: varchar("cta_text", { length: 100 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
