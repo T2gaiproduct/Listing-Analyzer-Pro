@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { useGetAuditStats } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import { getAuditStats, getGetAuditStatsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScoreRing, ScoreBadge } from "@/components/score-ring";
@@ -8,7 +9,12 @@ import { Plus, ArrowUpRight, TrendingUp, AlertTriangle, ShieldCheck, Target, Loa
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useGetAuditStats();
+  const { data: stats, isLoading } = useQuery({
+    queryKey: getGetAuditStatsQueryKey(),
+    queryFn: getAuditStats,
+    staleTime: 0,
+    refetchInterval: 30_000,
+  });
 
   if (isLoading) {
     return (

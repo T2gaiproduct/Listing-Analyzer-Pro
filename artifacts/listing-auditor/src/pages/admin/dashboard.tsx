@@ -112,7 +112,7 @@ function KpiSkeleton() {
 }
 
 export default function AdminDashboard() {
-  const { data, isLoading } = useQuery({ queryKey: ["admin-stats"], queryFn: fetchAdminStats });
+  const { data, isLoading } = useQuery({ queryKey: ["admin-stats"], queryFn: fetchAdminStats, staleTime: 0, refetchInterval: 30_000 });
   const [, nav] = useLocation();
 
   const kpis = [

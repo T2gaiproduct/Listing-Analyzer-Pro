@@ -107,6 +107,7 @@ export default function AuditNew() {
         onSuccess: (audit) => {
           queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
           setLocation(`/audits/${audit.id}`);
         },
         onError: () => {
