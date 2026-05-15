@@ -287,7 +287,8 @@ router.delete("/admin/customers/:userId", requireAdmin, async (req, res): Promis
 
 router.post("/admin/customers/:userId/reset-password", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
-  const newPassword = generatePassword();
+  const { newPassword: provided } = req.body as { newPassword?: string };
+  const newPassword = provided && provided.length >= 8 ? provided : generatePassword();
   const result = await clerkFetch(`/users/${userId}`, {
     method: "PATCH",
     body: JSON.stringify({ password: newPassword, skip_password_checks: true }),
@@ -296,7 +297,7 @@ router.post("/admin/customers/:userId/reset-password", requireAdmin, async (req,
     res.status(400).json({ error: result.errors?.[0]?.message ?? "Failed to reset password" });
     return;
   }
-  res.json({ newPassword });
+  res.json({ success: true });
 });
 
 router.patch("/admin/customers/:userId/profile", requireAdmin, async (req, res): Promise<void> => {
