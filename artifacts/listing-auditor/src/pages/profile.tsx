@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { User, Building2, Phone, Globe, CreditCard, Zap, Image, BarChart3, Edit2, Save, X, Calendar, CheckCircle, Clock, AlertTriangle, ArrowUpRight, FileText, RefreshCw, Link, Users, Receipt } from "lucide-react";
+import { User, Building2, Phone, Globe, CreditCard, Zap, Image, BarChart3, Edit2, Save, X, Calendar, CheckCircle, Clock, AlertTriangle, ArrowUpRight, FileText, RefreshCw, Link, Users, Receipt, KeyRound, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, differenceInDays } from "date-fns";
 
@@ -124,6 +125,9 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeYearly, setUpgradeYearly] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [newPassword, setNewPassword] = useState<string | null>(null);
+  const [pwCopied, setPwCopied] = useState(false);
   const [form, setForm] = useState({
     fullName: "", companyName: "", phone: "", country: "",
     gstNumber: "", websiteUrl: "", teamSize: "",
@@ -179,6 +183,31 @@ export default function Profile() {
     onError: () => toast({ title: "Upgrade failed", variant: "destructive" }),
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${basePath}/api/auth/reset-password`, { method: "POST", credentials: "include" }).then((r) => r.json()),
+    onSuccess: (result) => {
+      if (result?.error) { toast({ title: result.error, variant: "destructive" }); return; }
+      setNewPassword(result.newPassword);
+    },
+    onError: () => toast({ title: "Failed to reset password", variant: "destructive" }),
+  });
+
+  function handleOpenReset() {
+    setNewPassword(null);
+    setPwCopied(false);
+    setShowResetDialog(true);
+    resetPasswordMutation.mutate();
+  }
+
+  function handleCopyPassword() {
+    if (!newPassword) return;
+    navigator.clipboard.writeText(newPassword).then(() => {
+      setPwCopied(true);
+      setTimeout(() => setPwCopied(false), 2000);
+    });
+  }
+
   const sub = data?.subscription;
   const credits = data?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const usedAi = Math.max(0, (sub?.planAiCredits ?? 0) - credits.aiCredits);
@@ -200,6 +229,7 @@ export default function Profile() {
   }
 
   return (
+    <>
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
@@ -263,6 +293,9 @@ export default function Profile() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleOpenReset} disabled={resetPasswordMutation.isPending}>
+              <KeyRound className="w-4 h-4 mr-1" />Reset Password
+            </Button>
             {editing ? (
               <>
                 <Button variant="ghost" size="sm" onClick={() => setEditing(false)}><X className="w-4 h-4 mr-1" />Cancel</Button>
@@ -591,5 +624,43 @@ export default function Profile() {
         </Card>
       )}
     </div>
+
+    {/* Reset Password Dialog */}
+    <Dialog open={showResetDialog} onOpenChange={(open) => { if (!open) { setShowResetDialog(false); setNewPassword(null); setPwCopied(false); } }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="items-center text-center">
+          <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-2">
+            <KeyRound className="w-7 h-7 text-blue-500" />
+          </div>
+          <DialogTitle>New Password Generated</DialogTitle>
+          <DialogDescription className="text-center pt-1">
+            {resetPasswordMutation.isPending
+              ? "Generating a new secure password for your account..."
+              : "Your account password has been updated. Copy and save this password now — it will not be shown again."}
+          </DialogDescription>
+        </DialogHeader>
+        {resetPasswordMutation.isPending ? (
+          <div className="flex justify-center py-4">
+            <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
+          </div>
+        ) : newPassword ? (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3 my-2">
+            <span className="font-mono text-sm font-semibold text-slate-800 tracking-wider break-all">{newPassword}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`flex-shrink-0 h-8 px-2 ${pwCopied ? "text-green-600" : "text-slate-500 hover:text-slate-900"}`}
+              onClick={handleCopyPassword}
+            >
+              {pwCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </Button>
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button className="w-full bg-orange-500 hover:bg-orange-600" onClick={() => { setShowResetDialog(false); setNewPassword(null); setPwCopied(false); }}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
@@ -18,6 +19,12 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   (req as AuthedRequest).userId = userId;
   next();
+}
+
+function generatePassword(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+  const bytes = crypto.randomBytes(16);
+  return Array.from(bytes).map((b) => chars[b % chars.length]).join("");
 }
 
 // ─── Public ──────────────────────────────────────────────────────────────────
@@ -74,6 +81,24 @@ router.get("/profile", requireAuth, async (req, res): Promise<void> => {
     transactions,
     billingHistory,
   });
+});
+
+router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const newPassword = generatePassword();
+  const result = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${process.env.CLERK_SECRET_KEY ?? ""}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password: newPassword, skip_password_checks: true }),
+  }).then((r) => r.json()) as Record<string, any>;
+  if (result?.errors) {
+    res.status(400).json({ error: result.errors?.[0]?.message ?? "Failed to reset password" });
+    return;
+  }
+  res.json({ newPassword });
 });
 
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {

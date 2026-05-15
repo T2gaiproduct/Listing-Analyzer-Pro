@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, count, avg, sql, desc, and, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
@@ -15,6 +16,12 @@ const router: IRouter = Router();
 
 const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY ?? "";
+
+function generatePassword(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+  const bytes = crypto.randomBytes(16);
+  return Array.from(bytes).map((b) => chars[b % chars.length]).join("");
+}
 
 interface AdminRequest extends Request {
   adminUserId: string;
@@ -276,6 +283,20 @@ router.delete("/admin/customers/:userId", requireAdmin, async (req, res): Promis
   await db.delete(auditsTable).where(eq(auditsTable.userId, userId));
   await clerkFetch(`/users/${userId}`, { method: "DELETE" });
   res.sendStatus(204);
+});
+
+router.post("/admin/customers/:userId/reset-password", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  const newPassword = generatePassword();
+  const result = await clerkFetch(`/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ password: newPassword, skip_password_checks: true }),
+  }) as Record<string, any>;
+  if (result?.errors) {
+    res.status(400).json({ error: result.errors?.[0]?.message ?? "Failed to reset password" });
+    return;
+  }
+  res.json({ newPassword });
 });
 
 router.patch("/admin/customers/:userId/profile", requireAdmin, async (req, res): Promise<void> => {
