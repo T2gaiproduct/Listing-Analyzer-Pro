@@ -181,10 +181,13 @@ function HomeRedirect() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoaded } = useUser();
+  if (!isLoaded) return null;
+  const isAdmin = user ? adminUserIds.includes(user.id) : false;
   return (
     <>
       <Show when="signed-in">
-        <Layout>{children}</Layout>
+        {isAdmin ? <AdminLayout>{children}</AdminLayout> : <Layout>{children}</Layout>}
       </Show>
       <Show when="signed-out">
         <Redirect to="/" />

@@ -42,42 +42,26 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          {isAdmin ? (
-            <>
-              <div className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider mb-4 px-2">Admin</div>
+          <div className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider mb-4 px-2">Navigation</div>
+          {navItems.map((item) => {
+            const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
+            return (
               <Link
-                href="/admin/dashboard"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                )}
               >
-                <Shield className="w-4 h-4 text-sidebar-foreground/50 group-hover:text-primary/70 transition-colors" />
-                Admin Panel
-                <ChevronRight className="w-4 h-4 ml-auto opacity-50" />
+                <item.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-sidebar-foreground/50 group-hover:text-primary/70 transition-colors")} />
+                {item.label}
+                {isActive && <ChevronRight className="w-4 h-4 ml-auto opacity-50" />}
               </Link>
-            </>
-          ) : (
-            <>
-              <div className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider mb-4 px-2">Navigation</div>
-              {navItems.map((item) => {
-                const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group",
-                      isActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                    )}
-                  >
-                    <item.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-sidebar-foreground/50 group-hover:text-primary/70 transition-colors")} />
-                    {item.label}
-                    {isActive && <ChevronRight className="w-4 h-4 ml-auto opacity-50" />}
-                  </Link>
-                );
-              })}
-            </>
-          )}
+            );
+          })}
         </nav>
 
         {/* User profile */}
