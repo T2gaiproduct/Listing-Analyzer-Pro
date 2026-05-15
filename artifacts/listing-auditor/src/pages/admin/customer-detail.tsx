@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link, FileText as FileTextIcon } from "lucide-react";
+import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link, FileText as FileTextIcon, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
 import { useState, useEffect } from "react";
@@ -139,6 +140,8 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
   const [editingProfile, setEditingProfile] = useState(false);
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [changePlanYearly, setChangePlanYearly] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: "suspend" | "unsuspend" | "ban" | "unban" | "delete" } | null>(null);
+  const [confirmStep, setConfirmStep] = useState(1);
   const [profileForm, setProfileForm] = useState({
     fullName: "", companyName: "", phone: "", country: "",
     gstNumber: "", websiteUrl: "", teamSize: "",
@@ -284,7 +287,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => lockMutation.mutate(!user?.locked)}
+            onClick={() => { setPendingAction({ type: user?.locked ? "unsuspend" : "suspend" }); setConfirmStep(1); }}
             disabled={lockMutation.isPending || user?.banned}
             title={user?.locked ? "Unsuspend account" : "Suspend account"}
           >
@@ -294,7 +297,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => banMutation.mutate(!user?.banned)}
+            onClick={() => { setPendingAction({ type: user?.banned ? "unban" : "ban" }); setConfirmStep(1); }}
             disabled={banMutation.isPending}
           >
             {user?.banned ? <CheckCircle className="w-4 h-4 mr-1.5" /> : <Ban className="w-4 h-4 mr-1.5" />}
@@ -303,7 +306,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => confirm("Delete this customer and all their data?") && deleteMutation.mutate()}
+            onClick={() => { setPendingAction({ type: "delete" }); setConfirmStep(1); }}
             disabled={deleteMutation.isPending}
           >
             <Trash2 className="w-4 h-4 mr-1.5" /> Delete
@@ -819,6 +822,73 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation Dialog */}
+      {pendingAction && (() => {
+        const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "this customer";
+        const configs = {
+          suspend:   { title: "Suspend Account",      desc1: "will be temporarily suspended and unable to log in.", desc2: "Confirm you want to suspend this account.", btn1: "Continue", btn2: "Suspend",   destructive: true  },
+          unsuspend: { title: "Activate Account",     desc1: "will be unsuspended and regain access.",             desc2: "Confirm you want to reactivate this account.", btn1: "Continue", btn2: "Activate",  destructive: false },
+          ban:       { title: "Ban Customer",         desc1: "will be permanently banned from the platform.",      desc2: "This will block the account completely.",      btn1: "Continue", btn2: "Ban",       destructive: true  },
+          unban:     { title: "Unban Customer",       desc1: "will be unbanned and regain full access.",           desc2: "Confirm you want to lift the ban.",            btn1: "Continue", btn2: "Unban",     destructive: false },
+          delete:    { title: "Delete Customer",      desc1: "and all their data will be permanently deleted.",    desc2: "This cannot be undone. All data will be lost.", btn1: "Continue", btn2: "Delete",   destructive: true  },
+        };
+        const cfg = configs[pendingAction.type];
+
+        function executeAction() {
+          const t = pendingAction!.type;
+          setPendingAction(null);
+          setConfirmStep(1);
+          if (t === "suspend") lockMutation.mutate(true);
+          else if (t === "unsuspend") lockMutation.mutate(false);
+          else if (t === "ban") banMutation.mutate(true);
+          else if (t === "unban") banMutation.mutate(false);
+          else if (t === "delete") deleteMutation.mutate();
+        }
+
+        return (
+          <Dialog open onOpenChange={() => { setPendingAction(null); setConfirmStep(1); }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader className="items-center text-center">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-2 ${confirmStep === 2 && cfg.destructive ? "bg-red-50" : "bg-amber-50"}`}>
+                  <AlertTriangle className={`w-7 h-7 ${confirmStep === 2 && cfg.destructive ? "text-red-500" : "text-amber-500"}`} />
+                </div>
+                <DialogTitle>{confirmStep === 1 ? cfg.title : "Final Confirmation"}</DialogTitle>
+                <DialogDescription className="text-center pt-1">
+                  {confirmStep === 1 ? (
+                    <><span className="font-semibold text-slate-700">{name}</span> {cfg.desc1}</>
+                  ) : (
+                    <><span className={`font-semibold ${cfg.destructive ? "text-red-600" : "text-slate-700"}`}>{name}</span><br />{cfg.desc2}</>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+                {confirmStep === 1 ? (
+                  <>
+                    <Button variant="outline" className="flex-1" onClick={() => { setPendingAction(null); setConfirmStep(1); }}>Cancel</Button>
+                    <Button
+                      className={`flex-1 ${cfg.destructive ? "bg-amber-500 hover:bg-amber-600" : "bg-orange-500 hover:bg-orange-600"}`}
+                      onClick={() => setConfirmStep(2)}
+                    >
+                      {cfg.btn1}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" className="flex-1" onClick={() => setConfirmStep(1)}>Go Back</Button>
+                    <Button
+                      className={`flex-1 ${cfg.destructive ? "bg-red-600 hover:bg-red-700" : "bg-orange-500 hover:bg-orange-600"}`}
+                      onClick={executeAction}
+                    >
+                      {cfg.btn2}
+                    </Button>
+                  </>
+                )}
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
     </div>
   );
 }
