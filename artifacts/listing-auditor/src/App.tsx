@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
+import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -61,6 +61,7 @@ import Team from "@/pages/team";
 import AcceptInvite from "@/pages/accept-invite";
 import Onboarding from "@/pages/onboarding";
 import Profile from "@/pages/profile";
+import SignUpPage from "@/pages/sign-up";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -148,18 +149,6 @@ function SignInPage() {
   );
 }
 
-function SignUpPage() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
-      <SignUp
-        routing="path"
-        path={`${basePath}/sign-up`}
-        signInUrl={`${basePath}/sign-in`}
-        forceRedirectUrl={`${basePath}/onboarding`}
-      />
-    </div>
-  );
-}
 
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
@@ -220,7 +209,12 @@ function Router() {
     <Switch>
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
-      <Route path="/sign-up/*?" component={SignUpPage} />
+      <Route path="/sign-up" component={SignUpPage} />
+      <Route path="/sso-callback">
+        <div className="flex min-h-[100dvh] items-center justify-center">
+          <AuthenticateWithRedirectCallback />
+        </div>
+      </Route>
 
       {/* Admin routes */}
       <Route path="/admin">
