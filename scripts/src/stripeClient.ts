@@ -11,25 +11,31 @@ export async function getUncachableStripeClient(): Promise<Stripe> {
   if (!hostname || !xReplitToken) {
     throw new Error(
       "Missing Replit environment variables. " +
-      "Ensure REPLIT_CONNECTORS_HOSTNAME and REPL_IDENTITY are set.\n" +
-      "Run this script via `pnpm --filter @workspace/scripts run seed-stripe` from the project root.",
+      "Run this script from the Replit shell so REPLIT_CONNECTORS_HOSTNAME and REPL_IDENTITY are set.",
     );
   }
 
-  const resp = await fetch(
-    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=stripe`,
-    {
-      headers: { Accept: "application/json", X_REPLIT_TOKEN: xReplitToken },
-      signal: AbortSignal.timeout(10_000),
-    },
-  );
+  const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
+  const targetEnvironment = isProduction ? "production" : "development";
+
+  const url = new URL(`https://${hostname}/api/v2/connection`);
+  url.searchParams.set("include_secrets", "true");
+  url.searchParams.set("connector_names", "stripe");
+  url.searchParams.set("environment", targetEnvironment);
+
+  const resp = await fetch(url.toString(), {
+    headers: { Accept: "application/json", "X-Replit-Token": xReplitToken },
+    signal: AbortSignal.timeout(10_000),
+  });
 
   if (!resp.ok) {
     throw new Error(`Failed to fetch Stripe credentials: ${resp.status} ${resp.statusText}`);
   }
 
-  const data = await resp.json() as { items?: Array<{ settings?: { secret_key?: string } }> };
-  const secretKey = data.items?.[0]?.settings?.secret_key;
+  const data = await resp.json() as {
+    items?: Array<{ settings?: { secret?: string } }>
+  };
+  const secretKey = data.items?.[0]?.settings?.secret;
 
   if (!secretKey) {
     throw new Error(

@@ -8,6 +8,10 @@
     "seed-stripe": "tsx ./src/seed-stripe-products.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "pg": "^8.20.0",
+    "@types/pg": "^8.11.0"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"

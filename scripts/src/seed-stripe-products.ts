@@ -7,83 +7,119 @@
  * Usage:
  *   pnpm --filter @workspace/scripts run seed-stripe
  *
- * Safe to re-run: uses `idempotencyKey` + looks up existing products by metadata.
+ * Safe to re-run: checks existing products by metadata before creating.
  */
+import pg from "pg";
 import { getUncachableStripeClient } from "./stripeClient.js";
-import { db, plansTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+
+const { Client } = pg;
 
 async function main() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+
   const stripe = await getUncachableStripeClient();
 
-  const plans = await db.select().from(plansTable).where(eq(plansTable.isActive, true));
-  console.log(`Found ${plans.length} active plans to seed.\n`);
+  const { rows: plans } = await client.query<{
+    id: number; name: string; description: string | null;
+    price_monthly: number; price_yearly: number;
+    stripe_price_id_monthly: string | null; stripe_price_id_yearly: string | null;
+  }>(`SELECT id, name, description, price_monthly, price_yearly,
+             stripe_price_id_monthly, stripe_price_id_yearly
+      FROM plans WHERE is_active = true ORDER BY id`);
+
+  console.log(`Found ${plans.length} active plans.\n`);
+
+  // Stripe unit_amount max is 99999999 cents ($999,999.99)
+  const STRIPE_MAX_CENTS = 99_999_999;
 
   for (const plan of plans) {
     console.log(`Processing plan: ${plan.name} (id=${plan.id})`);
 
-    // Find or create a Stripe product for this plan
-    const existingProducts = await stripe.products.search({
+    const monthlyAmountCents = Math.round(plan.price_monthly * 100);
+    const yearlyAmountCents = Math.round(plan.price_yearly * 12 * 100);
+
+    const hasValidMonthly = plan.price_monthly > 0 && monthlyAmountCents <= STRIPE_MAX_CENTS;
+    const hasValidYearly = plan.price_yearly > 0 && yearlyAmountCents <= STRIPE_MAX_CENTS;
+
+    if (!hasValidMonthly && !hasValidYearly) {
+      console.log(`  ⚠ Skipped — no valid pricing (Enterprise/contact-sales plan)\n`);
+      continue;
+    }
+
+    // Find or create product
+    const existing = await stripe.products.search({
       query: `metadata['planId']:'${plan.id}'`,
       limit: 1,
     });
 
-    let product = existingProducts.data[0];
-    if (product) {
-      console.log(`  ✓ Existing product: ${product.id}`);
+    let productId: string;
+    if (existing.data[0]) {
+      productId = existing.data[0].id;
+      console.log(`  ✓ Existing product: ${productId}`);
     } else {
-      product = await stripe.products.create({
+      const product = await stripe.products.create({
         name: `${plan.name} Plan`,
         description: plan.description ?? undefined,
         metadata: { planId: String(plan.id) },
       });
-      console.log(`  + Created product: ${product.id}`);
+      productId = product.id;
+      console.log(`  + Created product: ${productId}`);
     }
 
     // Monthly price
-    let monthlyPriceId = plan.stripePriceIdMonthly;
-    if (!monthlyPriceId) {
-      const monthlyPrice = await stripe.prices.create({
-        product: product.id,
-        unit_amount: Math.round(plan.priceMonthly * 100),
+    let monthlyPriceId = plan.stripe_price_id_monthly;
+    if (!monthlyPriceId && hasValidMonthly) {
+      const price = await stripe.prices.create({
+        product: productId,
+        unit_amount: monthlyAmountCents,
         currency: "usd",
         recurring: { interval: "month" },
         metadata: { planId: String(plan.id), billingCycle: "monthly" },
       });
-      monthlyPriceId = monthlyPrice.id;
-      console.log(`  + Created monthly price: ${monthlyPriceId} ($${plan.priceMonthly}/mo)`);
+      monthlyPriceId = price.id;
+      console.log(`  + Monthly price: ${monthlyPriceId} ($${plan.price_monthly}/mo)`);
+    } else if (monthlyPriceId) {
+      console.log(`  ✓ Monthly price already set: ${monthlyPriceId}`);
     } else {
-      console.log(`  ✓ Existing monthly price: ${monthlyPriceId}`);
+      console.log(`  ⚠ Monthly price skipped (invalid amount)`);
     }
 
     // Yearly price
-    let yearlyPriceId = plan.stripePriceIdYearly;
-    if (!yearlyPriceId) {
-      const yearlyPrice = await stripe.prices.create({
-        product: product.id,
-        unit_amount: Math.round(plan.priceYearly * 12 * 100),
+    let yearlyPriceId = plan.stripe_price_id_yearly;
+    if (!yearlyPriceId && hasValidYearly) {
+      const price = await stripe.prices.create({
+        product: productId,
+        unit_amount: yearlyAmountCents,
         currency: "usd",
         recurring: { interval: "year" },
         metadata: { planId: String(plan.id), billingCycle: "yearly" },
       });
-      yearlyPriceId = yearlyPrice.id;
-      console.log(`  + Created yearly price: ${yearlyPriceId} ($${plan.priceYearly * 12}/yr)`);
+      yearlyPriceId = price.id;
+      console.log(`  + Yearly price: ${yearlyPriceId} ($${plan.price_yearly * 12}/yr)`);
+    } else if (yearlyPriceId) {
+      console.log(`  ✓ Yearly price already set: ${yearlyPriceId}`);
     } else {
-      console.log(`  ✓ Existing yearly price: ${yearlyPriceId}`);
+      console.log(`  ⚠ Yearly price skipped (invalid amount)`);
     }
 
-    // Write price IDs back to DB
-    await db.update(plansTable)
-      .set({ stripePriceIdMonthly: monthlyPriceId, stripePriceIdYearly: yearlyPriceId, updatedAt: new Date() })
-      .where(eq(plansTable.id, plan.id));
-    console.log(`  ✓ Updated plan DB record with Stripe price IDs\n`);
+    // Write back to DB only if we have at least one price
+    if (monthlyPriceId || yearlyPriceId) {
+      await client.query(
+        `UPDATE plans SET stripe_price_id_monthly = $1, stripe_price_id_yearly = $2,
+         updated_at = NOW() WHERE id = $3`,
+        [monthlyPriceId ?? null, yearlyPriceId ?? null, plan.id],
+      );
+      console.log(`  ✓ DB updated\n`);
+    }
   }
 
-  console.log("✅ Stripe product seeding complete!");
+  await client.end();
+  console.log("✅ Stripe seeding complete!");
   process.exit(0);
 }
 
 main().catch((err) => {
-  console.error("❌ Seed script failed:", err);
+  console.error("❌ Seed failed:", err);
   process.exit(1);
 });
