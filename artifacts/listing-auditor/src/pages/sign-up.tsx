@@ -55,8 +55,9 @@ export default function SignUpPage() {
         redirectUrlComplete: `${window.location.origin}${basePath}/onboarding`,
       });
     } catch (err: unknown) {
-      const e = err as { errors?: Array<{ message: string }> };
-      setError(e?.errors?.[0]?.message ?? "Google sign-up failed.");
+      const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      const first = e?.errors?.[0];
+      setError(first?.longMessage ?? first?.message ?? "Google sign-up failed.");
       setSocialLoading(false);
     }
   }
@@ -71,8 +72,9 @@ export default function SignUpPage() {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setStep("verify");
     } catch (err: unknown) {
-      const e = err as { errors?: Array<{ message: string }> };
-      setError(e?.errors?.[0]?.message ?? "Sign up failed. Please try again.");
+      const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      const first = e?.errors?.[0];
+      setError(first?.longMessage ?? first?.message ?? "Sign up failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -90,8 +92,9 @@ export default function SignUpPage() {
         window.location.href = `${basePath}/onboarding`;
       }
     } catch (err: unknown) {
-      const e = err as { errors?: Array<{ message: string }> };
-      setError(e?.errors?.[0]?.message ?? "Invalid code. Please try again.");
+      const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      const first = e?.errors?.[0];
+      setError(first?.longMessage ?? first?.message ?? "Invalid code. Please try again.");
     } finally {
       setLoading(false);
     }
