@@ -875,12 +875,23 @@ router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
 
 router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   const { category, settings } = req.body;
+
+  const SECRET_KEYS = new Set([
+    "stripe_secret_key", "stripe_webhook_secret",
+    "razorpay_key_secret", "razorpay_webhook_secret",
+    "paypal_client_secret",
+  ]);
+
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
+    if (value === "***") continue;
+    const isSecret = SECRET_KEYS.has(key);
     const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
     if (existing) {
-      await db.update(settingsTable).set({ value, category, updatedAt: new Date() }).where(eq(settingsTable.key, key));
+      await db.update(settingsTable)
+        .set({ value, category, isSecret, updatedAt: new Date() })
+        .where(eq(settingsTable.key, key));
     } else {
-      await db.insert(settingsTable).values({ key, value, category });
+      await db.insert(settingsTable).values({ key, value, category, isSecret });
     }
   }
   res.json({ success: true });

@@ -8,24 +8,54 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Wallet, Save, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const SECRET_FIELD_NAMES = new Set([
+  "stripe_secret_key", "stripe_webhook_secret",
+  "razorpay_key_secret", "razorpay_webhook_secret",
+  "paypal_client_secret",
+]);
+
 function fetchSettings(category: string): Promise<Record<string, string>> {
-  return fetch(`/api/admin/settings?category=${category}`).then((r) => r.json());
-}
-function saveSettings(category: string, settings: Record<string, string>): Promise<unknown> {
-  return fetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category, settings }) }).then((r) => r.json());
+  return fetch(`${basePath}/api/admin/settings?category=${category}`, { credentials: "include" }).then((r) => r.json());
 }
 
-function SecretInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function saveSettings(category: string, settings: Record<string, string>): Promise<unknown> {
+  return fetch(`${basePath}/api/admin/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ category, settings }),
+  }).then((r) => r.json());
+}
+
+function SecretInput({
+  label, value, onChange, hasSavedValue, placeholder,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  hasSavedValue?: boolean; placeholder?: string;
+}) {
   const [show, setShow] = useState(false);
   return (
     <div>
       <label className="text-sm font-medium mb-1 block">{label}</label>
       <div className="relative">
-        <Input type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} className="pr-10" placeholder="sk_..." />
+        <Input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="pr-10"
+          placeholder={hasSavedValue ? "Value saved — re-enter to update" : (placeholder ?? "sk_...")}
+        />
         <button type="button" className="absolute right-3 top-2.5 text-muted-foreground" onClick={() => setShow((s) => !s)}>
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
+      {hasSavedValue && value === "" && (
+        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3" /> A value is saved. Leave blank to keep it, or type a new one to replace it.
+        </p>
+      )}
     </div>
   );
 }
@@ -38,19 +68,49 @@ export default function AdminSettingsPaymentGateway() {
     paypal_enabled: "false", paypal_client_id: "", paypal_client_secret: "", paypal_mode: "sandbox",
     default_currency: "USD", default_gateway: "stripe",
   });
+  const [maskedFields, setMaskedFields] = useState<Set<string>>(new Set());
 
-  const { data } = useQuery({ queryKey: ["admin-settings-gateway"], queryFn: () => fetchSettings("payment_gateway") });
-  useEffect(() => { if (data) setForm((f) => ({ ...f, ...data })); }, [data]);
+  const { data } = useQuery({
+    queryKey: ["admin-settings-gateway"],
+    queryFn: () => fetchSettings("payment_gateway"),
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    const masked = new Set<string>();
+    const merged = { ...form };
+    for (const [k, v] of Object.entries(data)) {
+      if (v === "***") {
+        masked.add(k);
+        merged[k as keyof typeof merged] = "";
+      } else {
+        merged[k as keyof typeof merged] = v;
+      }
+    }
+    setMaskedFields(masked);
+    setForm(merged);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const save = useMutation({
-    mutationFn: () => saveSettings("payment_gateway", form),
+    mutationFn: () => {
+      const settingsToSave: Record<string, string> = {};
+      for (const [k, v] of Object.entries(form)) {
+        if (v === "" && maskedFields.has(k)) continue;
+        settingsToSave[k] = v;
+      }
+      return saveSettings("payment_gateway", settingsToSave);
+    },
     onSuccess: () => toast({ title: "Payment gateway settings saved" }),
+    onError: () => toast({ title: "Failed to save settings", variant: "destructive" }),
   });
 
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
 
   const GatewayBadge = ({ enabled }: { enabled: boolean }) =>
-    enabled ? <Badge className="ml-2"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge> : <Badge variant="secondary" className="ml-2">Disabled</Badge>;
+    enabled
+      ? <Badge className="ml-2 bg-orange-100 text-orange-700"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge>
+      : <Badge variant="secondary" className="ml-2">Disabled</Badge>;
 
   return (
     <>
@@ -106,10 +166,26 @@ export default function AdminSettingsPaymentGateway() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">Publishable Key</label>
-                  <Input value={form.stripe_publishable_key} onChange={(e) => setForm({ ...form, stripe_publishable_key: e.target.value })} placeholder="pk_test_..." />
+                  <Input
+                    value={form.stripe_publishable_key}
+                    onChange={(e) => setForm({ ...form, stripe_publishable_key: e.target.value })}
+                    placeholder="pk_test_..."
+                  />
                 </div>
-                <SecretInput label="Secret Key" value={form.stripe_secret_key} onChange={set("stripe_secret_key")} />
-                <SecretInput label="Webhook Secret" value={form.stripe_webhook_secret} onChange={set("stripe_webhook_secret")} />
+                <SecretInput
+                  label="Secret Key"
+                  value={form.stripe_secret_key}
+                  onChange={set("stripe_secret_key")}
+                  hasSavedValue={maskedFields.has("stripe_secret_key")}
+                  placeholder="sk_test_..."
+                />
+                <SecretInput
+                  label="Webhook Secret"
+                  value={form.stripe_webhook_secret}
+                  onChange={set("stripe_webhook_secret")}
+                  hasSavedValue={maskedFields.has("stripe_webhook_secret")}
+                  placeholder="whsec_..."
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -128,8 +204,18 @@ export default function AdminSettingsPaymentGateway() {
                   <label className="text-sm font-medium mb-1 block">Key ID</label>
                   <Input value={form.razorpay_key_id} onChange={(e) => setForm({ ...form, razorpay_key_id: e.target.value })} placeholder="rzp_test_..." />
                 </div>
-                <SecretInput label="Key Secret" value={form.razorpay_key_secret} onChange={set("razorpay_key_secret")} />
-                <SecretInput label="Webhook Secret" value={form.razorpay_webhook_secret} onChange={set("razorpay_webhook_secret")} />
+                <SecretInput
+                  label="Key Secret"
+                  value={form.razorpay_key_secret}
+                  onChange={set("razorpay_key_secret")}
+                  hasSavedValue={maskedFields.has("razorpay_key_secret")}
+                />
+                <SecretInput
+                  label="Webhook Secret"
+                  value={form.razorpay_webhook_secret}
+                  onChange={set("razorpay_webhook_secret")}
+                  hasSavedValue={maskedFields.has("razorpay_webhook_secret")}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -155,13 +241,20 @@ export default function AdminSettingsPaymentGateway() {
                   <label className="text-sm font-medium mb-1 block">Client ID</label>
                   <Input value={form.paypal_client_id} onChange={(e) => setForm({ ...form, paypal_client_id: e.target.value })} />
                 </div>
-                <SecretInput label="Client Secret" value={form.paypal_client_secret} onChange={set("paypal_client_secret")} />
+                <SecretInput
+                  label="Client Secret"
+                  value={form.paypal_client_secret}
+                  onChange={set("paypal_client_secret")}
+                  hasSavedValue={maskedFields.has("paypal_client_secret")}
+                />
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
 
-        <Button onClick={() => save.mutate()} disabled={save.isPending}><Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save Gateway Settings"}</Button>
+        <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save Gateway Settings"}
+        </Button>
       </div>
     </>
   );

@@ -61,6 +61,7 @@ import Team from "@/pages/team";
 import AcceptInvite from "@/pages/accept-invite";
 import Onboarding from "@/pages/onboarding";
 import CheckoutSuccess from "@/pages/checkout-success";
+import CheckoutCardSuccess from "@/pages/checkout-card-success";
 import Profile from "@/pages/profile";
 import SignUpPage from "@/pages/sign-up";
 
@@ -358,6 +359,14 @@ function Router() {
       </Route>
       <Route path="/checkout/cancel">
         <Redirect to="/onboarding" />
+      </Route>
+      <Route path="/checkout/card-success">
+        <Show when="signed-in">
+          <CheckoutCardSuccess />
+        </Show>
+        <Show when="signed-out">
+          <Redirect to="/sign-in" />
+        </Show>
       </Route>
 
       {/* Protected customer pages */}

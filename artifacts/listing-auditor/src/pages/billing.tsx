@@ -52,7 +52,30 @@ function CreditBar({ label, icon: Icon, used, total, color, bg }: { label: strin
 export default function Billing() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<"overview" | "plans" | "credits" | "history">("overview");
+  const [isAddingCard, setIsAddingCard] = useState(false);
   const { toast } = useToast();
+
+  async function handleAddCard() {
+    setIsAddingCard(true);
+    try {
+      const res = await fetch(`${basePath}/api/stripe/setup-card`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        toast({ title: "Could not start card setup", description: data.error ?? "Please try again.", variant: "destructive" });
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      toast({ title: "Network error", description: "Please check your connection and try again.", variant: "destructive" });
+    } finally {
+      setIsAddingCard(false);
+    }
+  }
 
   const { data: sub, isLoading: subLoading } = useQuery<Subscription | null>({
     queryKey: ["user-subscription"],
@@ -170,12 +193,17 @@ export default function Billing() {
                     <p className="text-xs text-slate-400">Auto-renewal {sub.autoRenew ? "enabled" : "disabled"}</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">Update</Button>
+                <Button variant="outline" size="sm" onClick={handleAddCard} disabled={isAddingCard}>
+                  {isAddingCard ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Update"}
+                </Button>
               </div>
             ) : (
               <div className="flex items-center justify-between">
                 <p className="text-sm text-slate-500">No payment method on file</p>
-                <Button size="sm" className="bg-orange-500 hover:bg-orange-600"><Plus className="w-4 h-4 mr-1" />Add Card</Button>
+                <Button size="sm" className="bg-orange-500 hover:bg-orange-600" onClick={handleAddCard} disabled={isAddingCard}>
+                  {isAddingCard ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+                  {isAddingCard ? "Redirecting…" : "Add Card"}
+                </Button>
               </div>
             )}
           </div>

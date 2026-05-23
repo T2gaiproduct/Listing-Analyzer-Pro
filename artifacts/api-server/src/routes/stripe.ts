@@ -279,4 +279,126 @@ router.post("/stripe/portal", requireAuth, async (req, res): Promise<void> => {
   res.json({ url: portalSession.url });
 });
 
+// ─── POST /stripe/setup-card ──────────────────────────────────────────────────
+// Creates a Stripe Checkout Session (payment mode, $1 authorization hold) so the
+// user can save a card without being charged. The hold is cancelled server-side
+// in /stripe/setup-card-confirm after Stripe redirects back.
+router.post("/stripe/setup-card", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { returnUrl } = req.body as { returnUrl?: string };
+
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+  const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
+
+  const [profile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+  const stripe = await getUncachableStripeClient();
+
+  let stripeCustomerId = profile?.stripeCustomerId ?? null;
+  if (!stripeCustomerId) {
+    const customer = await stripe.customers.create({ metadata: { userId } });
+    stripeCustomerId = customer.id;
+    if (profile) {
+      await db.update(userProfilesTable)
+        .set({ stripeCustomerId, updatedAt: new Date() })
+        .where(eq(userProfilesTable.userId, userId));
+    } else {
+      await db.insert(userProfilesTable).values({ userId, stripeCustomerId });
+    }
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    customer: stripeCustomerId,
+    payment_method_types: ["card"],
+    mode: "payment",
+    line_items: [{
+      price_data: {
+        currency: "usd",
+        unit_amount: 100,
+        product_data: { name: "Card Verification Hold", description: "A $1 authorization hold to verify your card — reversed immediately." },
+      },
+      quantity: 1,
+    }],
+    payment_intent_data: {
+      capture_method: "manual",
+      setup_future_usage: "off_session",
+      description: "Card verification — authorization hold, will be reversed",
+    },
+    success_url: `${baseUrl}/checkout/card-success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: returnUrl ?? `${baseUrl}/billing`,
+    metadata: { userId, type: "card_setup" },
+  });
+
+  res.json({ url: session.url });
+});
+
+// ─── POST /stripe/setup-card-confirm ─────────────────────────────────────────
+// Called from /checkout/card-success after Stripe redirects back.
+// 1. Cancels the $1 PaymentIntent (releases the hold immediately).
+// 2. Saves the card as the customer's default payment method.
+// 3. Updates the user's subscription record with card details.
+router.post("/stripe/setup-card-confirm", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { sessionId } = req.body as { sessionId: string };
+
+  if (!sessionId) { res.status(400).json({ error: "sessionId is required" }); return; }
+
+  const stripe = await getUncachableStripeClient();
+
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["payment_intent"] });
+  } catch {
+    res.status(400).json({ error: "Invalid or expired session" });
+    return;
+  }
+
+  if (session.metadata?.userId && session.metadata.userId !== userId) {
+    res.status(403).json({ error: "Session does not belong to this user" });
+    return;
+  }
+
+  if (session.metadata?.type !== "card_setup") {
+    res.status(400).json({ error: "This session is not a card setup session" });
+    return;
+  }
+
+  const pi = session.payment_intent as Stripe.PaymentIntent | null;
+
+  let cardLast4: string | null = null;
+  let cardBrand: string | null = null;
+  let paymentMethodId: string | null = null;
+
+  if (pi) {
+    paymentMethodId = typeof pi.payment_method === "string" ? pi.payment_method : (pi.payment_method as Stripe.PaymentMethod | null)?.id ?? null;
+
+    if (paymentMethodId) {
+      try {
+        const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+        cardLast4 = pm.card?.last4 ?? null;
+        cardBrand = pm.card?.brand ? pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1) : null;
+
+        const customerId = typeof session.customer === "string" ? session.customer : null;
+        if (customerId) {
+          await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: paymentMethodId } });
+        }
+      } catch { /* best effort */ }
+    }
+
+    if (pi.status === "requires_capture") {
+      try { await stripe.paymentIntents.cancel(pi.id); } catch { /* best effort */ }
+    }
+  }
+
+  if (cardLast4 || cardBrand) {
+    const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
+    if (existingSub) {
+      await db.update(subscriptionsTable)
+        .set({ cardLast4, cardBrand, updatedAt: new Date() })
+        .where(eq(subscriptionsTable.userId, userId));
+    }
+  }
+
+  res.json({ success: true, cardLast4, cardBrand });
+});
+
 export default router;
