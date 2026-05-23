@@ -7,6 +7,7 @@ import adminRouter from "./admin";
 import publicRouter from "./public";
 import teamRouter from "./team";
 import stripeRouter from "./stripe";
+import paymentRouter from "./payment";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(teamRouter);
 router.use(auditsRouter);
 router.use(competitorsRouter);
 router.use(stripeRouter);
+router.use(paymentRouter);
 
 export default router;

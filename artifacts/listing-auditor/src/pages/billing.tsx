@@ -1,13 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { CreditCard, Download, RefreshCw, Plus, CheckCircle2, Zap, Image, BarChart3, Clock, CheckCircle, ArrowRight } from "lucide-react";
+import {
+  CreditCard, Download, RefreshCw, Plus, CheckCircle2,
+  Zap, Image, BarChart3, Clock, CheckCircle, ArrowRight,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Subscription {
   status: string;
@@ -30,17 +36,33 @@ interface Credits { aiCredits: number; imageCredits: number; auditCredits: numbe
 interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; isHighlighted: boolean; tag: string | null; }
 interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; }
 
-function CreditBar({ label, icon: Icon, used, total, color, bg }: { label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string }) {
+interface PaymentConfig {
+  defaultGateway: "stripe" | "razorpay" | "paypal";
+  currency: string;
+  stripe: { enabled: boolean; publishableKey: string; mode: string };
+  razorpay: { enabled: boolean; keyId: string };
+  paypal: { enabled: boolean; clientId: string; mode: string };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function CreditBar({ label, icon: Icon, used, total, color, bg }: {
+  label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string;
+}) {
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const isLow = pct >= 80;
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center`}><Icon className={`w-3.5 h-3.5 ${color}`} /></div>
+          <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center`}>
+            <Icon className={`w-3.5 h-3.5 ${color}`} />
+          </div>
           <span className="text-sm font-medium text-slate-700">{label}</span>
         </div>
-        <span className={`text-xs font-bold ${isLow ? "text-red-500" : "text-slate-600"}`}>{used.toLocaleString()} / {total.toLocaleString()}</span>
+        <span className={`text-xs font-bold ${isLow ? "text-red-500" : "text-slate-600"}`}>
+          {used.toLocaleString()} / {total.toLocaleString()}
+        </span>
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${isLow ? "bg-red-400" : "bg-orange-400"}`} style={{ width: `${pct}%` }} />
@@ -49,33 +71,206 @@ function CreditBar({ label, icon: Icon, used, total, color, bg }: { label: strin
   );
 }
 
+/** Dynamically load the Razorpay checkout script */
+function loadRazorpayScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as Window & { Razorpay?: unknown }).Razorpay) { resolve(); return; }
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load Razorpay"));
+    document.head.appendChild(s);
+  });
+}
+
+// ─── Gateway-aware payment section ───────────────────────────────────────────
+
+interface PaymentSectionProps {
+  sub: Subscription;
+  config: PaymentConfig;
+  onSuccess: () => void;
+}
+
+function GatewayBadge({ gateway }: { gateway: string }) {
+  const label: Record<string, string> = { stripe: "Stripe", razorpay: "Razorpay", paypal: "PayPal" };
+  const colors: Record<string, string> = {
+    stripe: "bg-indigo-50 text-indigo-700",
+    razorpay: "bg-sky-50 text-sky-700",
+    paypal: "bg-yellow-50 text-yellow-700",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${colors[gateway] ?? "bg-slate-100 text-slate-600"}`}>
+      <Wallet className="w-3 h-3" />{label[gateway] ?? gateway}
+    </span>
+  );
+}
+
+function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const gateway = config.defaultGateway;
+
+  // ── Stripe ───────────────────────────────────────────────────────────────
+  async function handleStripe() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${basePath}/api/stripe/setup-card`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({}),
+      });
+      const d = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !d.url) {
+        toast({ title: "Could not start card setup", description: d.error ?? "Please try again.", variant: "destructive" });
+        return;
+      }
+      window.location.href = d.url;
+    } catch {
+      toast({ title: "Network error", description: "Please check your connection.", variant: "destructive" });
+    } finally { setLoading(false); }
+  }
+
+  // ── Razorpay ─────────────────────────────────────────────────────────────
+  async function handleRazorpay() {
+    setLoading(true);
+    try {
+      await loadRazorpayScript();
+      const currency = config.currency === "INR" ? "INR" : "USD";
+      const amount = currency === "INR" ? 1 : 1; // ₹1 / $1 auth hold
+      const res = await fetch(`${basePath}/api/razorpay/create-order`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ amount, currency }),
+      });
+      const order = await res.json() as { orderId?: string; amount?: number; currency?: string; keyId?: string; error?: string };
+      if (!res.ok || !order.orderId) {
+        toast({ title: "Razorpay setup failed", description: order.error ?? "Please try again.", variant: "destructive" });
+        setLoading(false); return;
+      }
+
+      const W = window as unknown as { Razorpay: new (o: Record<string, unknown>) => { open(): void } };
+      const rz = new W.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: "ListingAuditor",
+        description: "Add payment method",
+        order_id: order.orderId,
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          const verify = await fetch(`${basePath}/api/razorpay/verify-payment`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const vd = await verify.json() as { success?: boolean; error?: string };
+          if (vd.success) {
+            toast({ title: "Payment method added via Razorpay" });
+            onSuccess();
+          } else {
+            toast({ title: "Verification failed", description: vd.error, variant: "destructive" });
+          }
+        },
+        modal: { ondismiss: () => setLoading(false) },
+        theme: { color: "#f97316" },
+      });
+      rz.open();
+    } catch (err) {
+      toast({ title: "Razorpay error", description: (err as Error).message, variant: "destructive" });
+      setLoading(false);
+    }
+  }
+
+  // ── PayPal ────────────────────────────────────────────────────────────────
+  async function handlePayPal() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${basePath}/api/paypal/create-order`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ amount: 1, currency: config.currency }),
+      });
+      const d = await res.json() as { orderId?: string; approvalUrl?: string; error?: string };
+      if (!res.ok || !d.approvalUrl) {
+        toast({ title: "PayPal setup failed", description: d.error ?? "Please try again.", variant: "destructive" });
+        setLoading(false); return;
+      }
+      sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
+      window.location.href = d.approvalUrl;
+    } catch {
+      toast({ title: "Network error", description: "Please check your connection.", variant: "destructive" });
+      setLoading(false);
+    }
+  }
+
+  const handlers: Record<string, () => void> = { stripe: handleStripe, razorpay: handleRazorpay, paypal: handlePayPal };
+  const labels: Record<string, string> = { stripe: "Add Card", razorpay: "Add via Razorpay", paypal: "Pay with PayPal" };
+  const loadingLabels: Record<string, string> = { stripe: "Redirecting…", razorpay: "Opening…", paypal: "Redirecting to PayPal…" };
+
+  const isGatewayReady = config[gateway]?.enabled;
+
+  if (sub.cardLast4) {
+    return (
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-7 bg-slate-900 rounded flex items-center justify-center">
+            <CreditCard className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-slate-900">{sub.cardBrand} •••• {sub.cardLast4}</p>
+              <GatewayBadge gateway={gateway} />
+            </div>
+            <p className="text-xs text-slate-400">Auto-renewal {sub.autoRenew ? "enabled" : "disabled"}</p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={handlers[gateway]} disabled={loading || !isGatewayReady}>
+          {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Update"}
+        </Button>
+      </div>
+    );
+  }
+
+  if (!isGatewayReady) {
+    return (
+      <div className="flex items-center gap-3 text-sm text-slate-500">
+        <Wallet className="w-4 h-4 text-slate-400" />
+        No payment gateway is enabled. Please contact support.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-slate-500">No payment method on file</p>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Powered by <GatewayBadge gateway={gateway} />
+        </p>
+      </div>
+      <Button
+        size="sm"
+        className="bg-orange-500 hover:bg-orange-600"
+        onClick={handlers[gateway]}
+        disabled={loading}
+      >
+        {loading
+          ? <><RefreshCw className="w-4 h-4 animate-spin mr-1" />{loadingLabels[gateway]}</>
+          : <><Plus className="w-4 h-4 mr-1" />{labels[gateway]}</>
+        }
+      </Button>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function Billing() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<"overview" | "plans" | "credits" | "history">("overview");
-  const [isAddingCard, setIsAddingCard] = useState(false);
   const { toast } = useToast();
-
-  async function handleAddCard() {
-    setIsAddingCard(true);
-    try {
-      const res = await fetch(`${basePath}/api/stripe/setup-card`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({}),
-      });
-      const data = await res.json() as { url?: string; error?: string };
-      if (!res.ok || !data.url) {
-        toast({ title: "Could not start card setup", description: data.error ?? "Please try again.", variant: "destructive" });
-        return;
-      }
-      window.location.href = data.url;
-    } catch {
-      toast({ title: "Network error", description: "Please check your connection and try again.", variant: "destructive" });
-    } finally {
-      setIsAddingCard(false);
-    }
-  }
+  const queryClient = useQueryClient();
+  const paypalCaptureAttempted = useRef(false);
 
   const { data: sub, isLoading: subLoading } = useQuery<Subscription | null>({
     queryKey: ["user-subscription"],
@@ -98,6 +293,47 @@ export default function Billing() {
     enabled: tab === "history",
   });
 
+  const { data: paymentConfig } = useQuery<PaymentConfig>({
+    queryKey: ["payment-config"],
+    queryFn: () => fetch(`${basePath}/api/payment-config`).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  // Handle PayPal return redirect (?paypal_captured=1 or ?paypal_cancelled=1)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paypal_cancelled")) {
+      toast({ title: "PayPal payment cancelled" });
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+    if (params.get("paypal_captured") && !paypalCaptureAttempted.current) {
+      paypalCaptureAttempted.current = true;
+      const orderId = sessionStorage.getItem("paypal_order_id");
+      sessionStorage.removeItem("paypal_order_id");
+      window.history.replaceState({}, "", window.location.pathname);
+
+      if (!orderId) {
+        toast({ title: "PayPal order not found", variant: "destructive" }); return;
+      }
+
+      fetch(`${basePath}/api/paypal/capture-order`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ orderId }),
+      })
+        .then((r) => r.json())
+        .then((d: { success?: boolean; payer?: string; error?: string }) => {
+          if (d.success) {
+            toast({ title: "PayPal payment method added", description: d.payer ? `Linked to ${d.payer}` : undefined });
+            void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          } else {
+            toast({ title: "PayPal capture failed", description: d.error, variant: "destructive" });
+          }
+        })
+        .catch(() => toast({ title: "PayPal capture error", variant: "destructive" }));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const credits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const totalAi = sub?.planAiCredits ?? 0;
   const totalImage = sub?.planImageCredits ?? 0;
@@ -111,6 +347,10 @@ export default function Billing() {
     { icon: Image, name: "Image Generation Credits", amount: "25 images", price: 12, color: "text-purple-500", bg: "bg-purple-50" },
     { icon: BarChart3, name: "Audit Credits", amount: "20 audits", price: 15, color: "text-orange-500", bg: "bg-orange-50" },
   ];
+
+  function invalidateSub() {
+    void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+  }
 
   if (subLoading) {
     return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
@@ -129,6 +369,14 @@ export default function Billing() {
     );
   }
 
+  const defaultConfig: PaymentConfig = {
+    defaultGateway: "stripe", currency: "USD",
+    stripe: { enabled: true, publishableKey: "", mode: "test" },
+    razorpay: { enabled: false, keyId: "" },
+    paypal: { enabled: false, clientId: "", mode: "sandbox" },
+  };
+  const config = paymentConfig ?? defaultConfig;
+
   return (
     <div className="space-y-6">
       <div>
@@ -138,7 +386,11 @@ export default function Billing() {
 
       <div className="flex gap-2 border-b border-slate-200">
         {(["overview", "plans", "credits", "history"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all capitalize ${tab === t ? "border-orange-500 text-orange-500" : "border-transparent text-slate-500 hover:text-slate-900"}`}>
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all capitalize ${tab === t ? "border-orange-500 text-orange-500" : "border-transparent text-slate-500 hover:text-slate-900"}`}
+          >
             {t === "history" ? "Billing History" : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
@@ -182,30 +434,7 @@ export default function Billing() {
 
           <div className="bg-white border border-slate-200 rounded-2xl p-6">
             <h2 className="font-semibold text-slate-900 mb-4">Payment Method</h2>
-            {sub.cardLast4 ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-7 bg-slate-900 rounded flex items-center justify-center">
-                    <CreditCard className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{sub.cardBrand} ending in {sub.cardLast4}</p>
-                    <p className="text-xs text-slate-400">Auto-renewal {sub.autoRenew ? "enabled" : "disabled"}</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" onClick={handleAddCard} disabled={isAddingCard}>
-                  {isAddingCard ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Update"}
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-500">No payment method on file</p>
-                <Button size="sm" className="bg-orange-500 hover:bg-orange-600" onClick={handleAddCard} disabled={isAddingCard}>
-                  {isAddingCard ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-                  {isAddingCard ? "Redirecting…" : "Add Card"}
-                </Button>
-              </div>
-            )}
+            <PaymentMethodSection sub={sub} config={config} onSuccess={invalidateSub} />
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-6">
@@ -249,7 +478,8 @@ export default function Billing() {
                     <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.imageCredits} image credits</div>
                     <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.auditCredits === 999 ? "Unlimited" : p.auditCredits} audit credits</div>
                   </div>
-                  <Button className="w-full" variant={isCurrent ? "outline" : "default"} disabled={isCurrent} onClick={() => !isCurrent && toast({ title: "Plan change", description: "To change your plan, please use the onboarding flow." })}>
+                  <Button className="w-full" variant={isCurrent ? "outline" : "default"} disabled={isCurrent}
+                    onClick={() => !isCurrent && toast({ title: "Plan change", description: "To change your plan, please use the onboarding flow." })}>
                     {isCurrent ? "Current plan" : p.priceMonthly > (sub?.priceMonthly ?? 0) ? "Upgrade" : "Downgrade"}
                   </Button>
                 </div>
@@ -271,7 +501,8 @@ export default function Billing() {
                   <p className="text-slate-400 text-sm">{a.amount} for ${a.price}</p>
                 </div>
               </div>
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => toast({ title: "Coming soon", description: "Add-on credit purchases will be available shortly." })}>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => toast({ title: "Coming soon", description: "Add-on credit purchases will be available shortly." })}>
                 <Plus className="w-4 h-4 mr-2" />Buy — ${a.price}
               </Button>
             </div>
@@ -302,7 +533,7 @@ export default function Billing() {
                 {history.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-5 py-4 font-mono text-slate-700 text-xs">TXN-{String(p.id).padStart(6, "0")}</td>
-                    <td className="px-5 py-4 text-slate-600 capitalize">{p.gateway}</td>
+                    <td className="px-5 py-4"><GatewayBadge gateway={p.gateway} /></td>
                     <td className="px-5 py-4 font-semibold text-slate-900">${p.amount.toFixed(2)}</td>
                     <td className="px-5 py-4">
                       <Badge className={p.status === "completed" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>{p.status}</Badge>
