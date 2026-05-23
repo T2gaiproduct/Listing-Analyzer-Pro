@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -173,16 +173,17 @@ function ClerkQueryClientCacheInvalidator() {
 
 function HomeRedirect() {
   const { user, isLoaded } = useUser();
-  if (!isLoaded) return null;
+  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  if (!isLoaded || !adminLoaded) return null;
   if (!user) return <Landing />;
-  if (adminUserIds.includes(user.id)) return <Redirect to="/admin/dashboard" />;
+  if (isAdmin) return <Redirect to="/admin/dashboard" />;
   return <Redirect to="/dashboard" />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
+  const { isAdmin } = useIsAdmin();
   if (!isLoaded) return null;
-  const isAdmin = user ? adminUserIds.includes(user.id) : false;
   return (
     <>
       <Show when="signed-in">
@@ -195,14 +196,29 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
-const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
+const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
+
+function useIsAdmin() {
+  const { user, isLoaded } = useUser();
+  const { data, isLoading } = useQuery({
+    queryKey: ["is-admin", user?.id],
+    queryFn: () =>
+      fetch(`${basePath}/api/admin/is-admin`, { credentials: "include" })
+        .then((r) => r.json() as Promise<{ isAdmin: boolean }>),
+    enabled: isLoaded && !!user,
+    staleTime: 30_000,
+  });
+  const isAdmin = adminUserIdsEnv.includes(user?.id ?? "") || (data?.isAdmin ?? false);
+  return { isAdmin, isLoaded: isLoaded && (!user || !isLoading) };
+}
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
-  if (!isLoaded) return null;
+  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  if (!isLoaded || !adminLoaded) return null;
   if (!user) return <Redirect to="/" />;
-  if (!adminUserIds.includes(user.id)) return <Redirect to="/dashboard" />;
+  if (!isAdmin) return <Redirect to="/dashboard" />;
   return <AdminLayout>{children}</AdminLayout>;
 }
 

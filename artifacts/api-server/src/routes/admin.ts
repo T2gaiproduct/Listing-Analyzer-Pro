@@ -27,16 +27,32 @@ interface AdminRequest extends Request {
   adminUserId: string;
 }
 
+async function isAdminUser(userId: string): Promise<boolean> {
+  if (ADMIN_USER_IDS.includes(userId)) return true;
+  const [row] = await db.select({ id: adminUsersTable.id })
+    .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));
+  return !!row;
+}
+
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const auth = getAuth(req);
   const userId = auth?.userId;
-  if (!userId || !ADMIN_USER_IDS.includes(userId)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-  (req as AdminRequest).adminUserId = userId;
-  next();
+  if (!userId) { res.status(403).json({ error: "Forbidden" }); return; }
+  isAdminUser(userId).then((ok) => {
+    if (!ok) { res.status(403).json({ error: "Forbidden" }); return; }
+    (req as AdminRequest).adminUserId = userId;
+    next();
+  }).catch(() => { res.status(500).json({ error: "Internal server error" }); });
 }
+
+// Public (auth-only) endpoint to check admin status — used by frontend AdminRoute
+router.get("/admin/is-admin", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) { res.json({ isAdmin: false }); return; }
+  const ok = await isAdminUser(userId);
+  res.json({ isAdmin: ok });
+});
 
 async function clerkFetch(path: string, options?: RequestInit) {
   const resp = await fetch(`https://api.clerk.com/v1${path}`, {
