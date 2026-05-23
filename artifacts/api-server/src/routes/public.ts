@@ -241,6 +241,12 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
   if (!plan) { res.status(400).json({ error: "Invalid plan" }); return; }
 
+  // Only trial starts are handled here. Paid plans go through /api/stripe/create-checkout.
+  if (!useTrial) {
+    res.status(400).json({ error: "Paid plans require Stripe checkout. Use /api/stripe/create-checkout." });
+    return;
+  }
+
   const existingProfile = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   if (existingProfile.length) {
     await db.update(userProfilesTable)
@@ -270,19 +276,16 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   const trialEnd = new Date(now);
   trialEnd.setDate(trialEnd.getDate() + (plan.trialDays || 7));
 
-  const cardLast4 = (!useTrial && cardNumber) ? cardNumber.replace(/\s/g, "").slice(-4) : null;
-  const cardBrand = (!useTrial && cardNumber) ? detectBrand(cardNumber.replace(/\s/g, "")) : null;
-
   const existingSub = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
   const subData = {
     planId: plan.id,
     billingCycle,
-    status: useTrial ? "trial" : "active",
-    trialEndsAt: useTrial ? trialEnd : null,
+    status: "trial" as const,
+    trialEndsAt: trialEnd,
     currentPeriodStart: now,
     currentPeriodEnd: periodEnd,
-    cardLast4,
-    cardBrand,
+    cardLast4: null,
+    cardBrand: null,
     autoRenew: autoRenew ?? true,
     couponCode: couponCode ?? null,
     discountAmount,
@@ -309,27 +312,7 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
     { userId, creditType: "audit", amount: plan.auditCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
   ]);
 
-  if (!useTrial) {
-    const basePrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
-    await db.insert(paymentsTable).values({
-      userId,
-      planId: plan.id,
-      amount: Math.max(0, basePrice - discountAmount),
-      status: "completed",
-      gateway: "card",
-      gatewayPaymentId: `sim_${Date.now()}`,
-    });
-  }
-
   res.json({ ok: true });
 });
-
-function detectBrand(num: string): string {
-  if (/^4/.test(num)) return "Visa";
-  if (/^5[1-5]/.test(num)) return "Mastercard";
-  if (/^3[47]/.test(num)) return "Amex";
-  if (/^6(?:011|5)/.test(num)) return "Discover";
-  return "Card";
-}
 
 export default router;

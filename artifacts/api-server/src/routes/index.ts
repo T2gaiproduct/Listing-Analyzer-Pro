@@ -6,6 +6,7 @@ import fetchListingRouter from "./fetch-listing";
 import adminRouter from "./admin";
 import publicRouter from "./public";
 import teamRouter from "./team";
+import stripeRouter from "./stripe";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(publicRouter);
 router.use(teamRouter);
 router.use(auditsRouter);
 router.use(competitorsRouter);
+router.use(stripeRouter);
 
 export default router;

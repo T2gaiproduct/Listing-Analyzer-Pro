@@ -11,6 +11,7 @@ export const userProfilesTable = pgTable("user_profiles", {
   websiteUrl: varchar("website_url", { length: 500 }),
   teamSize: integer("team_size"),
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
+  stripeCustomerId: text("stripe_customer_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

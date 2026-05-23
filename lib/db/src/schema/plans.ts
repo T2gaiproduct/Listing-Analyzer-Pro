@@ -19,6 +19,8 @@ export const plansTable = pgTable("plans", {
   sortOrder: integer("sort_order").notNull().default(0),
   isHighlighted: boolean("is_highlighted").notNull().default(false),
   ctaText: varchar("cta_text", { length: 100 }),
+  stripePriceIdMonthly: text("stripe_price_id_monthly"),
+  stripePriceIdYearly: text("stripe_price_id_yearly"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

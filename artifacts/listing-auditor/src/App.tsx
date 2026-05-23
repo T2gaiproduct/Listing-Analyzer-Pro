@@ -60,6 +60,7 @@ import Billing from "@/pages/billing";
 import Team from "@/pages/team";
 import AcceptInvite from "@/pages/accept-invite";
 import Onboarding from "@/pages/onboarding";
+import CheckoutSuccess from "@/pages/checkout-success";
 import Profile from "@/pages/profile";
 import SignUpPage from "@/pages/sign-up";
 
@@ -344,6 +345,19 @@ function Router() {
         <Show when="signed-out">
           <Redirect to="/sign-up" />
         </Show>
+      </Route>
+
+      {/* Stripe checkout result pages — full-page, no Layout wrapper */}
+      <Route path="/checkout/success">
+        <Show when="signed-in">
+          <CheckoutSuccess />
+        </Show>
+        <Show when="signed-out">
+          <Redirect to="/sign-in" />
+        </Show>
+      </Route>
+      <Route path="/checkout/cancel">
+        <Redirect to="/onboarding" />
       </Route>
 
       {/* Protected customer pages */}

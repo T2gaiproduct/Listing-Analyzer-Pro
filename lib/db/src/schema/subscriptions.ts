@@ -14,6 +14,8 @@ export const subscriptionsTable = pgTable("subscriptions", {
   autoRenew: boolean("auto_renew").notNull().default(true),
   couponCode: varchar("coupon_code", { length: 50 }),
   discountAmount: integer("discount_amount").notNull().default(0),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

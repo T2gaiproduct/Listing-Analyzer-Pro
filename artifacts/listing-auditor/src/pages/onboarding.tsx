@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText } from "lucide-react";
+import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,7 +80,6 @@ export default function Onboarding() {
   const [couponResult, setCouponResult] = useState<{ discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
   const [couponError, setCouponError] = useState("");
   const [useTrial, setUseTrial] = useState(true);
-  const [card, setCard] = useState({ number: "", expiry: "", cvc: "", name: "" });
   const [autoRenew, setAutoRenew] = useState(true);
 
   useEffect(() => {
@@ -115,8 +114,15 @@ export default function Onboarding() {
   const onboardMutation = useMutation({
     mutationFn: (body: object) =>
       fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => { toast({ title: "Welcome aboard!", description: "Your account is set up and ready." }); setLocation("/dashboard"); },
+    onSuccess: () => { toast({ title: "Welcome aboard!", description: "Your free trial is active." }); setLocation("/dashboard"); },
     onError: (e: Error) => { toast({ title: "Setup failed", description: e.message, variant: "destructive" }); },
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: (body: object) =>
+      fetch(`${basePath}/api/stripe/create-checkout`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
+    onSuccess: (data: { url: string }) => { window.location.href = data.url; },
+    onError: (e: Error) => { toast({ title: "Checkout failed", description: e.message, variant: "destructive" }); },
   });
 
   if (!isLoaded) return null;
@@ -126,16 +132,9 @@ export default function Onboarding() {
   const discount = couponResult ? (couponResult.discountPercent ? Math.round((price ?? 0) * couponResult.discountPercent / 100) : (couponResult.discountAmount ?? 0)) : 0;
   const finalPrice = Math.max(0, (price ?? 0) - discount);
 
-  function formatCard(val: string) {
-    return val.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
-  }
-  function formatExpiry(val: string) {
-    return val.replace(/\D/g, "").slice(0, 4).replace(/^(.{2})(.+)/, "$1/$2");
-  }
-
   function handleSubmit() {
     if (!selectedPlan) return;
-    onboardMutation.mutate({
+    const common = {
       fullName: profile.fullName,
       companyName: profile.companyName,
       phone: profile.phone,
@@ -145,11 +144,18 @@ export default function Onboarding() {
       teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
       planId: selectedPlan.id,
       billingCycle: yearly ? "yearly" : "monthly",
-      useTrial,
-      cardNumber: useTrial ? undefined : card.number,
       autoRenew,
       couponCode: couponCode || undefined,
-    });
+    };
+    if (useTrial) {
+      onboardMutation.mutate({ ...common, useTrial: true });
+    } else {
+      checkoutMutation.mutate({
+        ...common,
+        successUrl: `${window.location.origin}${basePath}/checkout/success`,
+        cancelUrl: `${window.location.origin}${basePath}/onboarding`,
+      });
+    }
   }
 
   return (
@@ -328,7 +334,7 @@ export default function Onboarding() {
             <div className="grid grid-cols-3 gap-6">
               <div className="col-span-2 space-y-5">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-5">Payment method</h2>
+                  <h2 className="text-xl font-bold text-slate-900 mb-5">Complete your setup</h2>
 
                   {/* Trial or Pay toggle */}
                   {selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
@@ -350,40 +356,60 @@ export default function Onboarding() {
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <CreditCard className="w-4 h-4 text-blue-500" />
-                          <span className="font-semibold text-sm text-slate-900">Add Payment Card</span>
+                          <span className="font-semibold text-sm text-slate-900">Pay Now</span>
                           {!useTrial && <span className="ml-auto w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></span>}
                         </div>
-                        <p className="text-xs text-slate-500">Start immediately · Secure checkout</p>
+                        <p className="text-xs text-slate-500">Start immediately · Secure Stripe checkout</p>
                       </button>
                     </div>
                   )}
 
+                  {/* Trial info card */}
+                  {useTrial && selectedPlan?.isTrial && (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+                      <Gift className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                      <p className="font-semibold text-green-800">You're starting with a free trial</p>
+                      <p className="text-sm text-green-600 mt-1">{selectedPlan.trialDays} days free on the {selectedPlan.name} plan — cancel anytime</p>
+                      <p className="text-xs text-green-500 mt-2">No credit card required to start your trial</p>
+                    </div>
+                  )}
+
+                  {/* Paid — Stripe redirect */}
                   {(!selectedPlan?.isTrial || !useTrial) && (
                     <div className="space-y-4">
-                      <div>
-                        <Label className="text-xs">Card Number *</Label>
-                        <Input
-                          className="mt-1 font-mono tracking-widest"
-                          placeholder="4242 4242 4242 4242"
-                          value={card.number}
-                          onChange={(e) => setCard((c) => ({ ...c, number: formatCard(e.target.value) }))}
-                          maxLength={19}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Cardholder Name *</Label>
-                        <Input className="mt-1" placeholder="Jane Smith" value={card.name} onChange={(e) => setCard((c) => ({ ...c, name: e.target.value }))} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs">Expiry Date *</Label>
-                          <Input className="mt-1 font-mono" placeholder="MM/YY" value={card.expiry} onChange={(e) => setCard((c) => ({ ...c, expiry: formatExpiry(e.target.value) }))} maxLength={5} />
+                      {/* Price breakdown */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600">{selectedPlan?.name} Plan</span>
+                          <span className="font-semibold text-slate-900">${price}/mo</span>
                         </div>
-                        <div>
-                          <Label className="text-xs">CVC *</Label>
-                          <Input className="mt-1 font-mono" placeholder="123" value={card.cvc} onChange={(e) => setCard((c) => ({ ...c, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) }))} maxLength={4} type="password" />
+                        {yearly && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-500">Billed annually</span>
+                            <span className="text-green-600 font-medium">–20%</span>
+                          </div>
+                        )}
+                        {couponResult && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-500">Coupon ({couponCode})</span>
+                            <span className="text-green-600 font-medium">–${discount}</span>
+                          </div>
+                        )}
+                        <div className="border-t border-slate-200 pt-2.5 flex items-center justify-between">
+                          <span className="font-semibold text-slate-900 text-sm">Total today</span>
+                          <span className="font-bold text-orange-600">${finalPrice}/mo</span>
                         </div>
                       </div>
+
+                      {/* Security notice */}
+                      <div className="flex items-start gap-2.5 bg-slate-50 rounded-xl border border-slate-100 px-3.5 py-3">
+                        <Shield className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          You'll be securely redirected to <strong className="text-slate-600">Stripe</strong> to enter your payment details. Your card information is never stored on our servers.
+                        </p>
+                      </div>
+
+                      {/* Auto-renewal */}
                       <div className="flex items-center justify-between border-t pt-4">
                         <div>
                           <p className="text-sm font-medium text-slate-800">Auto-renewal</p>
@@ -391,19 +417,11 @@ export default function Onboarding() {
                         </div>
                         <Switch checked={autoRenew} onCheckedChange={setAutoRenew} />
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 rounded-lg p-2.5">
-                        <Shield className="w-3.5 h-3.5 flex-shrink-0" />
-                        Your payment information is encrypted and never stored on our servers.
-                      </div>
-                    </div>
-                  )}
 
-                  {useTrial && selectedPlan?.isTrial && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-                      <Gift className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                      <p className="font-semibold text-green-800">You're starting with a free trial</p>
-                      <p className="text-sm text-green-600 mt-1">{selectedPlan.trialDays} days free on the {selectedPlan.name} plan — cancel anytime</p>
-                      <p className="text-xs text-green-500 mt-2">No credit card required to start your trial</p>
+                      <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                        <Lock className="w-3 h-3" />
+                        <span>256-bit SSL · PCI-DSS compliant · Powered by Stripe</span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -413,9 +431,11 @@ export default function Onboarding() {
                   <Button
                     className="bg-orange-500 hover:bg-orange-600 px-8"
                     onClick={handleSubmit}
-                    disabled={onboardMutation.isPending || (!useTrial && (!card.number || !card.name || !card.expiry || !card.cvc))}
+                    disabled={onboardMutation.isPending || checkoutMutation.isPending}
                   >
-                    {onboardMutation.isPending ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Setting up...</> : useTrial ? "Start Free Trial →" : "Complete Setup →"}
+                    {(onboardMutation.isPending || checkoutMutation.isPending)
+                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{useTrial ? "Setting up..." : "Redirecting to Stripe..."}</>
+                      : useTrial ? "Start Free Trial →" : "Pay Securely with Stripe →"}
                   </Button>
                 </div>
               </div>
