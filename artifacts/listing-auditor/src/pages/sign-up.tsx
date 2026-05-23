@@ -27,8 +27,6 @@ export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp();
 
   const [step, setStep] = useState<"form" | "verify">("form");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -68,7 +66,7 @@ export default function SignUpPage() {
     setLoading(true);
     setError("");
     try {
-      await signUp.create({ firstName, lastName, emailAddress: email, password });
+      await signUp.create({ emailAddress: email, password });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setStep("verify");
     } catch (err: unknown) {
@@ -161,34 +159,6 @@ export default function SignUpPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Name row */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700">First name</label>
-                      <input
-                        type="text"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full px-3 py-2.5 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-colors"
-                        placeholder="Jane"
-                        required
-                        autoComplete="given-name"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700">Last name</label>
-                      <input
-                        type="text"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        className="w-full px-3 py-2.5 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-colors"
-                        placeholder="Smith"
-                        required
-                        autoComplete="family-name"
-                      />
-                    </div>
-                  </div>
-
                   {/* Email */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-slate-700">Email address</label>
