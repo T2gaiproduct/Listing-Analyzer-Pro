@@ -71,7 +71,7 @@ const pricingPreview = [
 ];
 
 const faqs = [
-  { q: "Is there a free trial?", a: "Yes — all paid plans include a 7-day free trial. No credit card required to start." },
+  { q: "Is there a free trial?", a: "Starter, Growth, and Pro plans include a 14-day free trial. No credit card required to start. Enterprise plans are custom — contact us for a demo." },
   { q: "How does scoring work?", a: "Our AI analyzes your listing across 4 dimensions (title, bullets, images, keywords) and scores each 0–100 based on Amazon best practices and competitive benchmarks." },
   { q: "Can I audit competitor listings?", a: "Absolutely. Enter any ASIN to see a full audit and compare it side-by-side with your own listings." },
   { q: "What are AI credits?", a: "AI credits power content generation — rewriting titles, bullet points, and keywords. Each AI credit covers one generation operation." },
@@ -386,7 +386,7 @@ export default function Landing() {
         <div className="relative">
           <h2 className="text-4xl font-extrabold text-white mb-4">Ready to optimize your listings?</h2>
           <p className="text-slate-400 mb-8 max-w-md mx-auto text-lg">
-            Join sellers using AI to score, fix, and grow their Amazon presence. Free 7-day trial included.
+            Join sellers using AI to score, fix, and grow their Amazon presence. Start with a 14-day free trial on any paid plan.
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-10 shadow-lg text-base" asChild>

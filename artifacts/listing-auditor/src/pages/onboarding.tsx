@@ -40,9 +40,10 @@ const COUNTRIES = [
 ];
 
 const FALLBACK_PLANS: Plan[] = [
-  { id: 0, name: "Starter", description: "Perfect for solo sellers", priceMonthly: 29, priceYearly: 23, aiCredits: 100, imageCredits: 20, auditCredits: 10, teamMembers: 1, features: ["10 listing audits/mo", "100 AI credits", "20 image credits", "Competitor comparison"], isTrial: true, trialDays: 7, tag: null, isHighlighted: false, ctaText: null },
-  { id: 0, name: "Growth", description: "For growing brands", priceMonthly: 79, priceYearly: 63, aiCredits: 500, imageCredits: 100, auditCredits: 50, teamMembers: 3, features: ["50 listing audits/mo", "500 AI credits", "100 image credits", "3 team members"], isTrial: true, trialDays: 7, tag: "Most Popular", isHighlighted: true, ctaText: null },
-  { id: 0, name: "Pro", description: "For agencies & power sellers", priceMonthly: 149, priceYearly: 119, aiCredits: 2000, imageCredits: 400, auditCredits: 999, teamMembers: 10, features: ["Unlimited audits", "2,000 AI credits", "400 image credits", "API access"], isTrial: true, trialDays: 7, tag: "Best Value", isHighlighted: false, ctaText: null },
+  { id: 0, name: "Starter", description: "Perfect for solo sellers", priceMonthly: 29, priceYearly: 23, aiCredits: 100, imageCredits: 20, auditCredits: 10, teamMembers: 1, features: ["10 listing audits/mo", "100 AI credits", "20 image credits", "Competitor comparison"], isTrial: true, trialDays: 14, tag: null, isHighlighted: false, ctaText: null },
+  { id: 0, name: "Growth", description: "For growing brands", priceMonthly: 79, priceYearly: 63, aiCredits: 500, imageCredits: 100, auditCredits: 50, teamMembers: 3, features: ["50 listing audits/mo", "500 AI credits", "100 image credits", "3 team members"], isTrial: true, trialDays: 14, tag: "Most Popular", isHighlighted: true, ctaText: null },
+  { id: 0, name: "Pro", description: "For agencies & power sellers", priceMonthly: 149, priceYearly: 119, aiCredits: 2000, imageCredits: 400, auditCredits: 999, teamMembers: 10, features: ["Unlimited audits", "2,000 AI credits", "400 image credits", "API access"], isTrial: true, trialDays: 14, tag: "Best Value", isHighlighted: false, ctaText: null },
+  { id: 0, name: "Enterprise", description: "Custom solution for large agencies", priceMonthly: 0, priceYearly: 0, aiCredits: 999999, imageCredits: 999999, auditCredits: 999, teamMembers: 999, features: ["Unlimited everything", "Custom credits", "Dedicated account manager", "Full API access"], isTrial: false, trialDays: 0, tag: null, isHighlighted: false, ctaText: null },
 ];
 
 function StepIndicator({ step, total }: { step: number; total: number }) {
@@ -79,7 +80,7 @@ export default function Onboarding() {
   const [couponCode, setCouponCode] = useState("");
   const [couponResult, setCouponResult] = useState<{ discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
   const [couponError, setCouponError] = useState("");
-  const [useTrial, setUseTrial] = useState(true);
+  const [useTrial, setUseTrial] = useState(false);
   const [autoRenew, setAutoRenew] = useState(true);
 
   useEffect(() => {
@@ -95,12 +96,24 @@ export default function Onboarding() {
 
   const displayPlans = plans.length > 0 ? plans : FALLBACK_PLANS;
 
+  // Auto-select first plan and sync useTrial to plan's trial eligibility
   useEffect(() => {
     if (displayPlans.length > 0 && selectedPlanId === null) {
       const highlighted = displayPlans.find((p) => p.isHighlighted) ?? displayPlans[0];
-      setSelectedPlanId(highlighted?.id ?? null);
+      if (highlighted) {
+        setSelectedPlanId(highlighted.id);
+        setUseTrial(!!(highlighted.isTrial && (highlighted.trialDays ?? 0) > 0));
+      }
     }
   }, [displayPlans, selectedPlanId]);
+
+  // Keep useTrial in sync when user changes plans
+  useEffect(() => {
+    const plan = displayPlans.find((p) => p.id === selectedPlanId);
+    if (plan) {
+      setUseTrial(!!(plan.isTrial && (plan.trialDays ?? 0) > 0));
+    }
+  }, [selectedPlanId, displayPlans]);
 
   const selectedPlan = displayPlans.find((p) => p.id === selectedPlanId) ?? displayPlans[0];
 
@@ -364,8 +377,8 @@ export default function Onboarding() {
                     </div>
                   )}
 
-                  {/* Trial info card */}
-                  {useTrial && selectedPlan?.isTrial && (
+                  {/* Trial info card — only when plan actually supports trial */}
+                  {useTrial && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
                     <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
                       <Gift className="w-8 h-8 text-green-500 mx-auto mb-2" />
                       <p className="font-semibold text-green-800">You're starting with a free trial</p>
@@ -435,7 +448,7 @@ export default function Onboarding() {
                   >
                     {(onboardMutation.isPending || checkoutMutation.isPending)
                       ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{useTrial ? "Setting up..." : "Redirecting to Stripe..."}</>
-                      : useTrial ? "Start Free Trial →" : "Pay Securely with Stripe →"}
+                      : useTrial && selectedPlan?.isTrial ? "Start Free Trial →" : "Pay Securely with Stripe →"}
                   </Button>
                 </div>
               </div>
@@ -463,9 +476,11 @@ export default function Onboarding() {
                     )}
                     <div className="border-t pt-3 flex justify-between font-bold">
                       <span>Total</span>
-                      <span className="text-orange-600">{useTrial ? "FREE" : `$${finalPrice}/mo`}</span>
+                      <span className="text-orange-600">{useTrial && selectedPlan?.isTrial ? "FREE" : `$${finalPrice}/mo`}</span>
                     </div>
-                    {useTrial && <p className="text-xs text-slate-400 text-center">Then ${price}/mo after trial</p>}
+                    {useTrial && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
+                      <p className="text-xs text-slate-400 text-center">Then ${price}/mo after trial</p>
+                    )}
                   </div>
                   <div className="mt-5 pt-4 border-t space-y-2 text-xs text-slate-500">
                     <p className="font-semibold text-slate-700">Includes:</p>

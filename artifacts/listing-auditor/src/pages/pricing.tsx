@@ -55,7 +55,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
       { text: "Score breakdown & suggestions", included: true }, { text: "Email support", included: true },
       { text: "Team members", included: false }, { text: "API access", included: false },
     ],
-    cta: "Start Free Trial", ctaVariant: "outline", isHighlighted: false,
+    cta: "Start 14-Day Trial", ctaVariant: "outline", isHighlighted: false,
   },
   {
     name: "Growth", tag: "Most Popular", monthlyPrice: 79, yearlyPrice: 63,
@@ -67,7 +67,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
       { text: "Score breakdown & suggestions", included: true }, { text: "Priority email support", included: true },
       { text: "3 team members", included: true }, { text: "API access", included: false },
     ],
-    cta: "Start Free Trial", ctaVariant: "default", isHighlighted: true,
+    cta: "Start 14-Day Trial", ctaVariant: "default", isHighlighted: true,
   },
   {
     name: "Pro", tag: "Best Value", monthlyPrice: 149, yearlyPrice: 119,
@@ -79,7 +79,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
       { text: "Score breakdown & suggestions", included: true }, { text: "Dedicated support", included: true },
       { text: "10 team members", included: true }, { text: "API access", included: true },
     ],
-    cta: "Start Free Trial", ctaVariant: "outline", isHighlighted: false,
+    cta: "Start 14-Day Trial", ctaVariant: "outline", isHighlighted: false,
   },
   {
     name: "Enterprise", tag: null, monthlyPrice: null, yearlyPrice: null,
@@ -119,7 +119,9 @@ function dbPlanToDisplay(p: DbPlan): DisplayPlan {
     auditCredits: p.auditCredits === 999 ? null : p.auditCredits,
     teamMembers: p.teamMembers,
     features: [...includedFeatures, ...excludedFeatures],
-    cta: p.ctaText ?? (p.isTrial && p.trialDays > 0 ? `Start ${p.trialDays}-Day Trial` : "Get Started"),
+    cta: p.ctaText ?? (p.isTrial && p.trialDays > 0
+      ? `Start ${p.trialDays}-Day Trial`
+      : (p.priceMonthly === null ? "Contact Sales" : "Get Started")),
     ctaVariant: isHighlighted ? "default" : "outline",
     isHighlighted,
   };
@@ -135,7 +137,7 @@ const addOns = [
 const faqs = [
   { q: "What are credits?", a: "Credits are the currency for AI operations. AI content credits power title/bullet rewrites and keyword suggestions. Image credits generate professional product photos. Audit credits run full listing analyses." },
   { q: "Can I change plans anytime?", a: "Yes — upgrade or downgrade anytime from your billing settings. Upgrades take effect immediately; downgrades apply at the next billing cycle." },
-  { q: "Is there a free trial?", a: "All paid plans include a free trial. No credit card required to start." },
+  { q: "Is there a free trial?", a: "Starter, Growth, and Pro plans include a 14-day free trial. No credit card required to start. Enterprise plans are custom and do not include a trial." },
   { q: "Do unused credits roll over?", a: "Credits reset monthly. Any unused credits from the previous cycle do not roll over, but you can purchase add-on credits at any time." },
   { q: "What payment methods do you accept?", a: "We accept all major credit cards (Visa, Mastercard, Amex), PayPal, and bank transfers for Enterprise plans." },
   { q: "Can I get a refund?", a: "We offer a money-back guarantee on all plans. Enterprise plans are handled case-by-case — contact our sales team." },
@@ -329,7 +331,7 @@ export default function Pricing() {
         <p className="text-slate-400 mb-8 max-w-md mx-auto">Book a 15-minute demo and we'll show you exactly how ListingAuditor works for your catalog.</p>
         <div className="flex items-center gap-4 justify-center flex-wrap">
           <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-8" asChild>
-            <Link href="/sign-up">Start Free Trial</Link>
+            <Link href="/sign-up">Get Started</Link>
           </Button>
           <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-slate-800 px-8" asChild>
             <Link href="/contact">Book a Demo</Link>

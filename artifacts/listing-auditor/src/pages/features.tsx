@@ -247,7 +247,7 @@ export default function Features() {
         <p className="text-slate-400 mb-8 max-w-md mx-auto">Start your first audit in under 2 minutes. No credit card required.</p>
         <div className="flex justify-center gap-4 flex-wrap">
           <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-8" asChild>
-            <Link href="/sign-up">Start Free Trial</Link>
+            <Link href="/sign-up">Get Started</Link>
           </Button>
           <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-slate-800 px-8" asChild>
             <Link href="/pricing">View Pricing</Link>

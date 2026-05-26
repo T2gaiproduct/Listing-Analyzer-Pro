@@ -241,6 +241,19 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
   if (!plan) { res.status(400).json({ error: "Invalid plan" }); return; }
 
+  // ─── Trial eligibility validation ───────────────────────────────────────────────────────────────
+  if (useTrial) {
+    if (!plan.isTrial || plan.trialDays <= 0) {
+      res.status(400).json({ error: "This plan does not include a free trial" }); return;
+    }
+    // Prevent reusing trial after one has already been used
+    const existingSub = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
+    const hadTrialBefore = existingSub.some((s) => s.status === "trial" || (s.status === "active" && s.trialEndsAt !== null));
+    if (hadTrialBefore) {
+      res.status(400).json({ error: "You have already used a free trial. Please subscribe to continue." }); return;
+    }
+  }
+
   // Only trial starts are handled here. Paid plans go through /api/stripe/create-checkout.
   if (!useTrial) {
     res.status(400).json({ error: "Paid plans require Stripe checkout. Use /api/stripe/create-checkout." });
