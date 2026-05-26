@@ -181,7 +181,7 @@ function LandingPricingSection() {
           })}
         </div>
         <Button asChild variant="outline">
-          <Link href="/pricing">Compare all plans <ArrowRight className="w-4 h-4 ml-2" /></Link>
+          <Link href="/pricing#comparison">Compare all plans <ArrowRight className="w-4 h-4 ml-2" /></Link>
         </Button>
       </div>
     </section>

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Check, X, Zap, ArrowRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -163,6 +163,17 @@ const faqs = [
 export default function Pricing() {
   const [yearly, setYearly] = useState(false);
 
+  // Scroll to hash on load
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash) {
+      const el = document.querySelector(hash);
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 200);
+      }
+    }
+  }, []);
+
   const { data: dbPlans = [] } = useQuery<DbPlan[]>({
     queryKey: ["public-plans"],
     queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
@@ -297,7 +308,7 @@ export default function Pricing() {
       </section>
 
       {/* Comparison Table */}
-      <section className="px-6 py-16 bg-slate-50">
+      <section id="comparison" className="px-6 py-16 bg-slate-50">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">Feature Comparison</h2>
           <p className="text-slate-500 text-center mb-10">See exactly what you get with each plan.</p>
