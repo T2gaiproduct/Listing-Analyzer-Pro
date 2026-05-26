@@ -35,7 +35,8 @@ interface Subscription {
 
 interface Credits { aiCredits: number; imageCredits: number; auditCredits: number; }
 interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; isHighlighted: boolean; tag: string | null; }
-interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; }
+interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; invoiceId?: number | null; }
+interface Invoice { id: number; amount: number; status: string; currency: string; items: Array<{ description: string; amount: number; quantity: number }>; paidAt: string | null; createdAt: string; }
 
 interface PaymentConfig {
   defaultGateway: "stripe" | "razorpay" | "paypal";
@@ -99,19 +100,19 @@ function loadRazorpayScript(): Promise<void> {
   });
 }
 
-function CustomCreditsSection() {
+function CustomCreditsSection({ balance }: { balance: { ai: number; image: number; audit: number } }) {
   const { toast } = useToast();
-  const [amount, setAmount] = useState(50);
-  const [creditType, setCreditType] = useState("audit");
+  const [quantity, setQuantity] = useState(50);
   const [buying, setBuying] = useState(false);
-  const price = amount * 0.10;
+  const unitPrice = 0.10;
+  const totalCost = quantity * unitPrice;
 
   async function handleBuy() {
     setBuying(true);
     try {
       const res = await fetch(`${basePath}/api/buy-custom-credits`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ amount, creditType }),
+        credentials: "include", body: JSON.stringify({ amount: quantity, creditType: "audit" }),
       });
       const d = await res.json() as { url?: string; error?: string };
       if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
@@ -122,27 +123,26 @@ function CustomCreditsSection() {
 
   return (
     <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-1">
         <Coins className="w-5 h-5 text-orange-500" />
-        <h3 className="font-semibold text-slate-900">Buy Custom Credits</h3>
+        <h3 className="font-semibold text-slate-900">Buy Additional Credits</h3>
       </div>
+      <p className="text-xs text-slate-500 mb-4">Current balance: AI {balance.ai.toLocaleString()} · Images {balance.image.toLocaleString()} · Audits {balance.audit.toLocaleString()}</p>
       <div className="flex flex-col md:flex-row gap-4 items-end">
         <div className="flex-1">
-          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Credit Type</label>
-          <select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm w-full" value={creditType} onChange={(e) => setCreditType(e.target.value)}>
-            <option value="audit">Audit Credits</option>
-            <option value="ai">AI Content Credits</option>
-            <option value="image">Image Credits</option>
-          </select>
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Credits Quantity</label>
+          <Input type="number" min={10} max={10000} value={quantity} onChange={(e) => setQuantity(Math.max(10, Number(e.target.value)))} className="h-10" />
         </div>
         <div className="flex-1">
-          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Amount</label>
-          <Input type="number" min={10} max={10000} value={amount} onChange={(e) => setAmount(Math.max(10, Number(e.target.value)))} className="h-10" />
-        </div>
-        <div className="flex-1">
-          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Price (1 credit = $0.10)</label>
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Price per credit</label>
           <div className="h-10 flex items-center px-3 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900">
-            <Calculator className="w-4 h-4 text-slate-400 mr-2" />${price.toFixed(2)}
+            <Calculator className="w-4 h-4 text-slate-400 mr-2" />${unitPrice.toFixed(2)}
+          </div>
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Total Cost</label>
+          <div className="h-10 flex items-center px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-orange-600">
+            ${totalCost.toFixed(2)}
           </div>
         </div>
         <Button className="bg-orange-500 hover:bg-orange-600 text-white h-10 px-6" disabled={buying} onClick={handleBuy}>
@@ -388,11 +388,13 @@ export default function Billing() {
     queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
   });
 
-  const { data: history = [] } = useQuery<Payment[]>({
+  const { data: billingData } = useQuery<{ payments: Payment[]; invoices: Invoice[] }>({
     queryKey: ["billing-history"],
     queryFn: () => fetch(`${basePath}/api/billing-history`, { credentials: "include" }).then((r) => r.json()),
     enabled: tab === "history",
   });
+  const payments = billingData?.payments ?? [];
+  const invoices = billingData?.invoices ?? [];
 
   const { data: paymentConfig } = useQuery<PaymentConfig>({
     queryKey: ["payment-config"],
@@ -675,7 +677,7 @@ export default function Billing() {
             </div>
           )}
           <p className="text-slate-500 text-sm">Top up your credits at any time. Add-on credits never expire after purchase. 1 credit = $0.10</p>
-          <CustomCreditsSection />
+          <CustomCreditsSection balance={{ ai: credits.aiCredits ?? 0, image: credits.imageCredits ?? 0, audit: credits.auditCredits ?? 0 }} />
           <CreditRulesCard />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {creditPacks.map((pack) => {
@@ -755,45 +757,91 @@ export default function Billing() {
       )}
 
       {tab === "history" && (
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          {history.length === 0 ? (
-            <div className="text-center py-12">
-              <Download className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-400">No billing history yet</p>
+        <div className="space-y-6">
+          {/* Payments */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-700 text-sm">Payments</h3>
             </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="text-left px-5 py-3 font-semibold text-slate-600">Transaction</th>
-                  <th className="text-left px-5 py-3 font-semibold text-slate-600">Method</th>
-                  <th className="text-left px-5 py-3 font-semibold text-slate-600">Amount</th>
-                  <th className="text-left px-5 py-3 font-semibold text-slate-600">Status</th>
-                  <th className="text-left px-5 py-3 font-semibold text-slate-600">Date</th>
-                  <th className="text-right px-5 py-3 font-semibold text-slate-600">Receipt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {history.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-4 font-mono text-slate-700 text-xs">TXN-{String(p.id).padStart(6, "0")}</td>
-                    <td className="px-5 py-4"><GatewayBadge gateway={p.gateway} /></td>
-                    <td className="px-5 py-4 font-semibold text-slate-900">${p.amount.toFixed(2)}</td>
-                    <td className="px-5 py-4">
-                      <Badge className={p.status === "completed" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>{p.status}</Badge>
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">{format(new Date(p.createdAt), "MMM d, yyyy")}</td>
-                    <td className="px-5 py-4 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        window.open(`${basePath}/api/receipts/${p.id}`, "_blank");
-                      }}>
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </td>
+            {payments.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-slate-400 text-sm">No payments yet</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Transaction</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Method</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Amount</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Status</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Date</th>
+                    <th className="text-right px-5 py-3 font-semibold text-slate-600">Receipt</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {payments.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-4 font-mono text-slate-700 text-xs">TXN-{String(p.id).padStart(6, "0")}</td>
+                      <td className="px-5 py-4"><GatewayBadge gateway={p.gateway} /></td>
+                      <td className="px-5 py-4 font-semibold text-slate-900">${p.amount.toFixed(2)}</td>
+                      <td className="px-5 py-4">
+                        <Badge className={p.status === "completed" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>{p.status}</Badge>
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">{format(new Date(p.createdAt), "MMM d, yyyy")}</td>
+                      <td className="px-5 py-4 text-right">
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          window.open(`${basePath}/api/receipts/${p.id}`, "_blank");
+                        }}>
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Invoices */}
+          {invoices.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+                <h3 className="font-semibold text-slate-700 text-sm">Invoices</h3>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Invoice #</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Items</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Amount</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Status</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Date</th>
+                    <th className="text-right px-5 py-3 font-semibold text-slate-600">Receipt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {invoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-4 font-mono text-slate-700 text-xs">INV-{String(inv.id).padStart(6, "0")}</td>
+                      <td className="px-5 py-4 text-slate-600 text-xs">{inv.items.map((i) => i.description).join(", ")}</td>
+                      <td className="px-5 py-4 font-semibold text-slate-900">${inv.amount.toFixed(2)}</td>
+                      <td className="px-5 py-4">
+                        <Badge className={inv.status === "paid" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>{inv.status}</Badge>
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">{format(new Date(inv.createdAt), "MMM d, yyyy")}</td>
+                      <td className="px-5 py-4 text-right">
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          window.open(`${basePath}/api/receipts/${inv.id}`, "_blank");
+                        }}>
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

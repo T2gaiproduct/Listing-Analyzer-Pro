@@ -644,9 +644,17 @@ router.patch("/admin/invoices/:id", requireAdmin, async (req, res): Promise<void
 });
 
 router.get("/admin/receipts/:paymentId", requireAdmin, async (req, res): Promise<void> => {
-  const paymentId = parseInt(String(req.params.paymentId ?? ""), 10);
+  let paymentId = parseInt(String(req.params.paymentId ?? ""), 10);
   if (isNaN(paymentId)) { res.status(400).json({ error: "Invalid payment ID" }); return; }
-  const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
+  // If no direct payment found, try resolving via invoiceId on paymentsTable
+  let [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
+  if (!payment) {
+    const linked = await db.select().from(paymentsTable).where(eq(paymentsTable.invoiceId, paymentId)).limit(1);
+    if (linked.length > 0) {
+      payment = linked[0];
+      paymentId = payment.id;
+    }
+  }
   if (!payment) { res.status(404).json({ error: "Receipt not found" }); return; }
   try {
     const { buildReceipt } = await import("../lib/receipt.js");

@@ -3,7 +3,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
-  db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, couponsTable,
+  db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable,
 } from "@workspace/db";
 import { addCredits } from "../lib/credits";
@@ -212,7 +212,11 @@ router.get("/billing-history", requireAuth, async (req, res): Promise<void> => {
     .where(eq(paymentsTable.userId, userId))
     .orderBy(desc(paymentsTable.createdAt))
     .limit(20);
-  res.json(payments);
+  const invoices = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.userId, userId))
+    .orderBy(desc(invoicesTable.createdAt))
+    .limit(20);
+  res.json({ payments, invoices });
 });
 
 router.get("/receipts/:paymentId", requireAuth, async (req, res): Promise<void> => {
@@ -497,17 +501,26 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
       return;
     }
     const priceCents = amount * 10;
+    const priceDollars = priceCents / 100;
     const newBalance = await addCredits(
       userId, creditType, amount,
       `Purchased ${amount} ${creditType} credits`,
       "custom_credit_purchase",
       { sessionId: session.id, priceCents },
     );
-    await db.insert(paymentsTable).values({
-      userId, amount: priceCents / 100, currency: "USD", status: "completed",
+    const [payment] = await db.insert(paymentsTable).values({
+      userId, amount: priceDollars, currency: "USD", status: "completed",
       gateway: "stripe", gatewayPaymentId: session.payment_intent as string ?? session.id,
       metadata: { type: "custom_credit", credits: amount, creditType },
-    });
+    }).returning();
+    const [invoice] = await db.insert(invoicesTable).values({
+      userId, amount: priceDollars, currency: "USD", status: "paid",
+      items: [{ description: `${amount} ${creditType} credits`, quantity: amount, amount: priceDollars }],
+      paidAt: new Date(),
+    }).returning();
+    if (payment && invoice) {
+      await db.update(paymentsTable).set({ invoiceId: invoice.id }).where(eq(paymentsTable.id, payment.id));
+    }
     res.json({ success: true, addedCredits: amount, newBalance, creditType });
     return;
   }
@@ -531,11 +544,19 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
   );
 
   const amount = pack.priceCents / 100;
-  await db.insert(paymentsTable).values({
+  const [payment] = await db.insert(paymentsTable).values({
     userId, amount, currency: "USD", status: "completed",
     gateway: "stripe", gatewayPaymentId: session.payment_intent as string ?? session.id,
     metadata: { type: "credit_pack", packId: pack.id, credits: pack.quantity, creditType: pack.creditType },
-  });
+  }).returning();
+  const [invoice] = await db.insert(invoicesTable).values({
+    userId, amount, currency: "USD", status: "paid",
+    items: [{ description: `${pack.quantity} ${pack.creditType} credits (${pack.label ?? `Pack #${pack.id}`})`, quantity: pack.quantity, amount }],
+    paidAt: new Date(),
+  }).returning();
+  if (payment && invoice) {
+    await db.update(paymentsTable).set({ invoiceId: invoice.id }).where(eq(paymentsTable.id, payment.id));
+  }
 
   res.json({ success: true, addedCredits: pack.quantity, newBalance, creditType });
 });
