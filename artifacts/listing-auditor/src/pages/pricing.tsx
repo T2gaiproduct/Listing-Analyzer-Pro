@@ -240,14 +240,13 @@ export default function Pricing() {
                   <p className="text-sm text-slate-500 mb-3">{plan.description}</p>
                   {plan.monthlyPrice !== null ? (
                     <div className="flex items-end gap-1">
-                      <span className="text-4xl font-extrabold text-slate-900">${yearly ? plan.yearlyPrice : plan.monthlyPrice}</span>
-                      <span className="text-slate-400 mb-1">/mo</span>
+                      <span className="text-4xl font-extrabold text-slate-900">
+                        ${yearly && plan.yearlyPrice ? plan.yearlyPrice * 12 : plan.monthlyPrice}
+                      </span>
+                      <span className="text-slate-400 mb-1">{yearly && plan.yearlyPrice ? "/year" : "/mo"}</span>
                     </div>
                   ) : (
                     <div className="text-3xl font-extrabold text-slate-900">Custom</div>
-                  )}
-                  {yearly && plan.yearlyPrice && (
-                    <p className="text-xs text-green-600 mt-1">Billed ${plan.yearlyPrice * 12}/year</p>
                   )}
                 </div>
 
