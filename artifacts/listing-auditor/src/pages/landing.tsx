@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Search, TrendingUp, Zap, ShieldCheck, BarChart3, ArrowRight,
   CheckCircle2, Star, ChevronDown, ChevronUp, Image, Users,
@@ -12,6 +13,8 @@ import { NewsletterSection } from "@/components/newsletter";
 import { ExitPopup } from "@/components/exit-popup";
 import { PromoBanner } from "@/components/promo-banner";
 import { SeoHead } from "@/components/seo-head";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const features = [
   { icon: BarChart3, title: "AI-Powered Scoring", description: "Get instant scores for your title, bullet points, images, and keywords — benchmarked against best practices." },
@@ -64,11 +67,27 @@ const testimonials = [
 
 const trustedBrands = ["TechNova", "SunriseGoods", "Clarity Agency", "ProSeller", "BrandLoft", "NexCart"];
 
-const pricingPreview = [
-  { name: "Starter", price: 29, highlight: false, features: ["10 audits/mo", "100 AI credits", "20 image credits"] },
-  { name: "Growth", price: 79, highlight: true, features: ["50 audits/mo", "500 AI credits", "100 image credits", "3 team seats"] },
-  { name: "Pro", price: 149, highlight: false, features: ["Unlimited audits", "2,000 AI credits", "400 image credits", "10 team seats"] },
-];
+interface LandingPlan {
+  id: number;
+  name: string;
+  description: string | null;
+  priceMonthly: number;
+  priceYearly: number;
+  creditAllocations: Record<string, number> | null;
+  teamMembers: number;
+  tag: string | null;
+  isHighlighted: boolean;
+  features: string[];
+  excludedFeatures: string[];
+}
+
+const badgeColorClass: Record<string, string> = {
+  orange: "bg-orange-50 text-orange-700",
+  blue: "bg-blue-50 text-blue-700",
+  purple: "bg-purple-50 text-purple-700",
+  emerald: "bg-emerald-50 text-emerald-700",
+  slate: "bg-slate-50 text-slate-700",
+};
 
 const faqs = [
   { q: "Is there a free trial?", a: "Starter, Growth, and Pro plans include a 14-day free trial. No credit card required to start. Enterprise plans are custom — contact us for a demo." },
@@ -77,6 +96,97 @@ const faqs = [
   { q: "What are AI credits?", a: "AI credits power content generation — rewriting titles, bullet points, and keywords. Each AI credit covers one generation operation." },
   { q: "Do I need an Amazon account to use this?", a: "No. You can paste your listing data manually or enter an ASIN. We don't require API access to your Amazon Seller Central account." },
 ];
+
+function LandingPricingSection() {
+  const { data: dbPlans = [] } = useQuery<LandingPlan[]>({
+    queryKey: ["public-plans"],
+    queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
+  });
+
+  const plans = dbPlans
+    .filter((p) => p.priceMonthly > 0)
+    .sort((a, b) => a.priceMonthly - b.priceMonthly)
+    .slice(0, 3);
+
+  return (
+    <section className="bg-slate-50 px-6 py-20">
+      <div className="max-w-4xl mx-auto text-center">
+        <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Pricing</Badge>
+        <h2 className="text-3xl font-bold text-slate-900 mb-3">Simple, transparent pricing</h2>
+        <p className="text-slate-500 mb-10">Start free. Scale as you grow. No hidden fees.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+          {plans.map((p) => {
+            const a = p.creditAllocations ?? {};
+            const badges = [
+              { label: "Audit", value: a.audit, color: badgeColorClass["orange"] },
+              { label: "Content", value: a.content, color: badgeColorClass["blue"] },
+              { label: "Images", value: a.images, color: badgeColorClass["purple"] },
+              { label: "A+/EBC", value: a.ebc, color: badgeColorClass["emerald"] },
+              { label: "Competitors", value: a.competitors, color: badgeColorClass["slate"] },
+            ].filter((b) => typeof b.value === "number");
+
+            const includedFeatures = p.features.length > 0
+              ? p.features
+              : [
+                  `${a.audit ?? 0} listing audits/mo`,
+                  `${a.content ?? 0} AI content credits`,
+                  `${a.images ?? 0} image generation credits`,
+                  `${a.ebc ?? 0} A+ / EBC content pieces`,
+                  `${a.competitors ?? 0} competitor analyses`,
+                  `${p.teamMembers} team members`,
+                ];
+            const excludedFeatures = p.excludedFeatures ?? [];
+            const allFeatures = [
+              ...includedFeatures.map((f) => ({ text: f, included: true })),
+              ...excludedFeatures.map((f) => ({ text: f, included: false })),
+            ];
+
+            return (
+              <div
+                key={p.id}
+                className={`rounded-2xl p-6 border text-left ${
+                  p.isHighlighted
+                    ? "border-orange-400 bg-white shadow-xl shadow-orange-100 relative"
+                    : "border-slate-200 bg-white shadow-sm"
+                }`}
+              >
+                {p.isHighlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">{p.tag || "Most Popular"}</span>
+                  </div>
+                )}
+                <p className="font-bold text-slate-900 mb-1">{p.name}</p>
+                <p className="text-3xl font-extrabold text-slate-900 mb-3">
+                  ${p.priceMonthly}<span className="text-sm font-normal text-slate-400">/mo</span>
+                </p>
+                {badges.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {badges.map((b) => (
+                      <span key={b.label} className={`${b.color} text-xs px-2 py-0.5 rounded-md font-medium`}>
+                        {b.value} {b.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <ul className="space-y-2">
+                  {allFeatures.map((f) => (
+                    <li key={f.text} className={`flex items-center gap-2 text-sm ${f.included ? "text-slate-600" : "text-slate-400"}`}>
+                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${f.included ? "text-green-500" : "text-slate-300"}`} />
+                      {f.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/pricing">Compare all plans <ArrowRight className="w-4 h-4 ml-2" /></Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
 
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -305,46 +415,8 @@ export default function Landing() {
       </section>
 
       {/* Pricing preview */}
-      <section className="bg-slate-50 px-6 py-20">
-        <div className="max-w-4xl mx-auto text-center">
-          <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Pricing</Badge>
-          <h2 className="text-3xl font-bold text-slate-900 mb-3">Simple, transparent pricing</h2>
-          <p className="text-slate-500 mb-10">Start free. Scale as you grow. No hidden fees.</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-            {pricingPreview.map((p) => (
-              <div
-                key={p.name}
-                className={`rounded-2xl p-6 border text-left ${
-                  p.highlight
-                    ? "border-orange-400 bg-white shadow-xl shadow-orange-100 relative"
-                    : "border-slate-200 bg-white shadow-sm"
-                }`}
-              >
-                {p.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">Most Popular</span>
-                  </div>
-                )}
-                <p className="font-bold text-slate-900 mb-1">{p.name}</p>
-                <p className="text-3xl font-extrabold text-slate-900 mb-4">
-                  ${p.price}<span className="text-sm font-normal text-slate-400">/mo</span>
-                </p>
-                <ul className="space-y-2">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/pricing">Compare all plans <ArrowRight className="w-4 h-4 ml-2" /></Link>
-          </Button>
-        </div>
-      </section>
+      <LandingPricingSection />
+
 
       {/* FAQ */}
       <section className="px-6 py-20">
