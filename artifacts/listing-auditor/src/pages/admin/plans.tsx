@@ -21,6 +21,7 @@ interface Plan {
   imageCredits: number;
   auditCredits: number;
   teamMembers: number;
+  creditAllocations: Record<string, number> | null;
   features: string[];
   excludedFeatures: string[];
   isActive: boolean;
@@ -37,9 +38,11 @@ const emptyPlan = {
   description: "",
   priceMonthly: 0,
   priceYearly: 0,
-  aiCredits: 0,
-  imageCredits: 0,
   auditCredits: 0,
+  textContentCredits: 0,
+  imageCredits: 0,
+  ebcCredits: 0,
+  competitorCredits: 0,
   teamMembers: 1,
   featuresText: "",
   excludedFeaturesText: "",
@@ -92,18 +95,26 @@ function PlanForm({
         <Input className="mt-1 h-8 text-sm" type="number" value={form.priceYearly} onChange={f("priceYearly")} />
       </div>
 
-      {/* Credits */}
+      {/* Credits per activity */}
       <div>
-        <Label className="text-xs">AI Credits / mo</Label>
-        <Input className="mt-1 h-8 text-sm" type="number" value={form.aiCredits} onChange={f("aiCredits")} />
+        <Label className="text-xs">Audit Credits / mo</Label>
+        <Input className="mt-1 h-8 text-sm" type="number" value={form.auditCredits} onChange={f("auditCredits")} />
+      </div>
+      <div>
+        <Label className="text-xs">Text Content Credits / mo</Label>
+        <Input className="mt-1 h-8 text-sm" type="number" value={form.textContentCredits} onChange={f("textContentCredits")} />
       </div>
       <div>
         <Label className="text-xs">Image Credits / mo</Label>
         <Input className="mt-1 h-8 text-sm" type="number" value={form.imageCredits} onChange={f("imageCredits")} />
       </div>
       <div>
-        <Label className="text-xs">Audit Credits / mo (999 = unlimited)</Label>
-        <Input className="mt-1 h-8 text-sm" type="number" value={form.auditCredits} onChange={f("auditCredits")} />
+        <Label className="text-xs">A+ / EBC Content Credits / mo</Label>
+        <Input className="mt-1 h-8 text-sm" type="number" value={form.ebcCredits} onChange={f("ebcCredits")} />
+      </div>
+      <div>
+        <Label className="text-xs">Competitors Analysis Credits / mo</Label>
+        <Input className="mt-1 h-8 text-sm" type="number" value={form.competitorCredits} onChange={f("competitorCredits")} />
       </div>
       <div>
         <Label className="text-xs">Team Members</Label>
@@ -236,9 +247,14 @@ export default function AdminPlans() {
       description: form.description || null,
       priceMonthly: Number(form.priceMonthly),
       priceYearly: Number(form.priceYearly),
-      aiCredits: Number(form.aiCredits),
-      imageCredits: Number(form.imageCredits),
-      auditCredits: Number(form.auditCredits),
+      creditAllocations: {
+        audit: Number(form.auditCredits),
+        content: Number(form.textContentCredits),
+        images: Number(form.imageCredits),
+        ebc: Number(form.ebcCredits),
+        competitors: Number(form.competitorCredits),
+        teamMembers: Number(form.teamMembers),
+      },
       teamMembers: Number(form.teamMembers),
       features: form.featuresText ? form.featuresText.split(",").map((s) => s.trim()).filter(Boolean) : [],
       excludedFeatures: form.excludedFeaturesText ? form.excludedFeaturesText.split(",").map((s) => s.trim()).filter(Boolean) : [],
@@ -298,9 +314,11 @@ export default function AdminPlans() {
                   description: plan.description ?? "",
                   priceMonthly: plan.priceMonthly,
                   priceYearly: plan.priceYearly,
-                  aiCredits: plan.aiCredits,
-                  imageCredits: plan.imageCredits,
-                  auditCredits: plan.auditCredits,
+                  auditCredits: (plan.creditAllocations as Record<string, number> | null)?.audit ?? plan.auditCredits ?? 0,
+                  textContentCredits: (plan.creditAllocations as Record<string, number> | null)?.content ?? 0,
+                  imageCredits: (plan.creditAllocations as Record<string, number> | null)?.images ?? plan.imageCredits ?? 0,
+                  ebcCredits: (plan.creditAllocations as Record<string, number> | null)?.ebc ?? 0,
+                  competitorCredits: (plan.creditAllocations as Record<string, number> | null)?.competitors ?? 0,
                   teamMembers: plan.teamMembers,
                   featuresText: plan.features.join(", "),
                   excludedFeaturesText: (plan.excludedFeatures ?? []).join(", "),
@@ -355,17 +373,23 @@ export default function AdminPlans() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  {[
-                    { label: "AI Credits", value: plan.aiCredits },
-                    { label: "Image Credits", value: plan.imageCredits },
-                    { label: "Audit Credits", value: plan.auditCredits === 999 ? "∞" : plan.auditCredits },
-                    { label: "Team Members", value: plan.teamMembers },
-                  ].map((c) => (
-                    <div key={c.label} className="bg-slate-50 rounded-lg p-2">
-                      <p className="text-slate-400">{c.label}</p>
-                      <p className="font-bold text-slate-800">{c.value}</p>
-                    </div>
-                  ))}
+                  {(() => {
+                    const a = plan.creditAllocations ?? {};
+                    const items = [
+                      { label: "Audit Credits", value: a.audit ?? plan.auditCredits ?? 0 },
+                      { label: "Text Content", value: a.content ?? 0 },
+                      { label: "Image Credits", value: a.images ?? plan.imageCredits ?? 0 },
+                      { label: "A+ / EBC", value: a.ebc ?? 0 },
+                      { label: "Competitors", value: a.competitors ?? 0 },
+                      { label: "Team Members", value: plan.teamMembers },
+                    ];
+                    return items.map((c) => (
+                      <div key={c.label} className="bg-slate-50 rounded-lg p-2">
+                        <p className="text-slate-400">{c.label}</p>
+                        <p className="font-bold text-slate-800">{c.value === 999 ? "∞" : c.value}</p>
+                      </div>
+                    ));
+                  })()}
                 </div>
                 {plan.features.length > 0 && (
                   <ul className="space-y-1">

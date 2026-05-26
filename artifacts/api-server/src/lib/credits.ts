@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { db, creditsTable, creditTransactionsTable, creditRulesTable } from "@workspace/db";
+import { db, creditsTable, creditTransactionsTable, creditRulesTable, notificationsTable } from "@workspace/db";
 
 type CreditType = "ai" | "image" | "audit";
 
@@ -130,7 +130,28 @@ export async function deductCredits(
     createdAt: now,
   });
 
-  return { success: true, remaining: check.currentBalance - amount };
+  const remaining = check.currentBalance - amount;
+
+  // Notify user when credits are depleted or running low
+  if (remaining === 0) {
+    await db.insert(notificationsTable).values({
+      userId,
+      type: "credit_depleted",
+      title: `${type.charAt(0).toUpperCase() + type.slice(1)} Credits Depleted`,
+      message: `You have used all your ${type} credits. Purchase more to continue using this feature.`,
+      read: false,
+    });
+  } else if (remaining <= 5) {
+    await db.insert(notificationsTable).values({
+      userId,
+      type: "credit_low",
+      title: `Low ${type.charAt(0).toUpperCase() + type.slice(1)} Credits`,
+      message: `Only ${remaining} ${type} credits remaining. Consider purchasing more to avoid interruptions.`,
+      read: false,
+    });
+  }
+
+  return { success: true, remaining };
 }
 
 export async function addCredits(

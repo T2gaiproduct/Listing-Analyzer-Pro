@@ -1,6 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User, Shield, CreditCard, Users, UserCircle } from "lucide-react";
+import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User, Shield, CreditCard, Users, UserCircle, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -10,6 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -63,6 +65,11 @@ export function Layout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        {/* Notification bell */}
+        <div className="px-4 py-2 border-t border-sidebar-border/50">
+          <NotificationBell />
+        </div>
 
         {/* User profile */}
         <div className="p-4 border-t border-sidebar-border/50">
@@ -131,6 +138,111 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+interface NotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  sentAt: string;
+}
+
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: async (): Promise<{ notifications: NotificationItem[] }> => {
+      const r = await fetch("/api/notifications");
+      if (!r.ok) throw new Error("Failed to load notifications");
+      return r.json();
+    },
+    refetchInterval: 30000,
+  });
+  const notifications = data?.notifications ?? [];
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markRead = useMutation({
+    mutationFn: (id: number) => fetch(`/api/notifications/${id}/read`, { method: "PATCH" }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  const markAllRead = useMutation({
+    mutationFn: () => fetch("/api/notifications/read-all", { method: "POST" }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors",
+          open ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+        )}
+      >
+        <div className="relative">
+          <Bell className="w-4 h-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </div>
+        <span>Notifications</span>
+        {unreadCount > 0 && (
+          <span className="ml-auto text-[10px] font-semibold bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute left-full top-0 ml-2 w-80 bg-popover border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+            <h3 className="text-sm font-semibold">Notifications</h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={() => markAllRead.mutate()}
+                className="text-xs text-primary hover:underline"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {isLoading ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">Loading...</div>
+            ) : notifications.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications</div>
+            ) : (
+              notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors",
+                    n.read ? "bg-background/50" : "bg-primary/5 hover:bg-primary/10"
+                  )}
+                  onClick={() => { if (!n.read) markRead.mutate(n.id); }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium leading-snug">{n.title}</p>
+                    {!n.read && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-1.5">
+                    {formatDistanceToNow(new Date(n.sentAt), { addSuffix: true })}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

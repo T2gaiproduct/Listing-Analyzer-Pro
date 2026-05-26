@@ -10,6 +10,7 @@ export const plansTable = pgTable("plans", {
   imageCredits: integer("image_credits").notNull().default(0),
   auditCredits: integer("audit_credits").notNull().default(0),
   teamMembers: integer("team_members").notNull().default(1),
+  creditAllocations: jsonb("credit_allocations").$type<Record<string, number>>().notNull().default({}),
   features: jsonb("features").$type<string[]>().notNull().default([]),
   excludedFeatures: jsonb("excluded_features").$type<string[]>().notNull().default([]),
   isActive: boolean("is_active").notNull().default(true),

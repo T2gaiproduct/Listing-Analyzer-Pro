@@ -30,10 +30,13 @@ export default function Dashboard() {
   const totalAi = sub?.plan?.planAiCredits ?? 0;
   const totalImage = sub?.plan?.planImageCredits ?? 0;
   const totalAudit = sub?.plan?.planAuditCredits ?? 0;
-  const lowAi = totalAi > 0 && credits.aiCredits <= Math.max(1, totalAi * 0.15);
-  const lowImage = totalImage > 0 && credits.imageCredits <= Math.max(1, totalImage * 0.15);
+  const alloc = sub?.plan?.creditAllocations as Record<string, number> | undefined;
   const lowAudit = totalAudit > 0 && credits.auditCredits <= Math.max(1, totalAudit * 0.15);
-  const anyLow = lowAi || lowImage || lowAudit;
+  const lowContent = (alloc?.content ?? totalAi) > 0 && credits.aiCredits <= Math.max(1, (alloc?.content ?? totalAi) * 0.15);
+  const lowImage = totalImage > 0 && credits.imageCredits <= Math.max(1, totalImage * 0.15);
+  const lowEbc = (alloc?.ebc ?? 0) > 0 && credits.aiCredits <= Math.max(1, (alloc?.ebc ?? 0) * 0.15);
+  const lowComp = (alloc?.competitors ?? 0) > 0 && credits.auditCredits <= Math.max(1, (alloc?.competitors ?? 0) * 0.15);
+  const anyLow = lowAudit || lowContent || lowImage || lowEbc || lowComp;
 
   if (isLoading) {
     return (
@@ -68,9 +71,11 @@ export default function Dashboard() {
           <div className="flex-1">
             <p className="font-semibold text-red-700 text-sm">Low Credits Warning</p>
             <p className="text-red-600/80 text-xs mt-0.5">
-              {lowAi && "AI credits running low. "}
-              {lowImage && "Image credits running low. "}
               {lowAudit && "Audit credits running low. "}
+              {lowContent && "Text content credits running low. "}
+              {lowImage && "Image credits running low. "}
+              {lowEbc && "A+ / EBC credits running low. "}
+              {lowComp && "Competitor analysis credits running low. "}
               Purchase more to avoid interruptions.
             </p>
           </div>
@@ -128,26 +133,37 @@ export default function Dashboard() {
             <Coins className="w-5 h-5 text-orange-500" />
             Credit Balance
           </CardTitle>
-          <CardDescription>Your current credit pool across all types</CardDescription>
+          <CardDescription>Your current credit pool across all activity types</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4">
-              <p className="text-xs font-medium text-blue-600 uppercase">AI Content</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{credits.aiCredits.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {totalAi > 0 ? totalAi.toLocaleString() : "∞"}</span></p>
-              {totalAi > 0 && <div className="mt-2 h-1.5 bg-blue-100 rounded-full overflow-hidden"><div className="h-full bg-blue-400 rounded-full" style={{ width: `${Math.min(100, (credits.aiCredits / totalAi) * 100)}%` }} /></div>}
-            </div>
-            <div className="bg-purple-50/60 border border-purple-100 rounded-xl p-4">
-              <p className="text-xs font-medium text-purple-600 uppercase">Images</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{credits.imageCredits.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {totalImage > 0 ? totalImage.toLocaleString() : "∞"}</span></p>
-              {totalImage > 0 && <div className="mt-2 h-1.5 bg-purple-100 rounded-full overflow-hidden"><div className="h-full bg-purple-400 rounded-full" style={{ width: `${Math.min(100, (credits.imageCredits / totalImage) * 100)}%` }} /></div>}
-            </div>
-            <div className="bg-orange-50/60 border border-orange-100 rounded-xl p-4">
-              <p className="text-xs font-medium text-orange-600 uppercase">Audits</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{credits.auditCredits.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {totalAudit > 0 ? totalAudit.toLocaleString() : "∞"}</span></p>
-              {totalAudit > 0 && <div className="mt-2 h-1.5 bg-orange-100 rounded-full overflow-hidden"><div className="h-full bg-orange-400 rounded-full" style={{ width: `${Math.min(100, (credits.auditCredits / totalAudit) * 100)}%` }} /></div>}
-            </div>
-          </div>
+          {(() => {
+            const a = sub?.plan?.creditAllocations as Record<string, number> | undefined;
+            const items = [
+              { label: "Audit Credits", color: "orange", used: credits.auditCredits ?? 0, total: a?.audit ?? totalAudit ?? 0, key: "audit" },
+              { label: "Text Content", color: "blue", used: credits.aiCredits ?? 0, total: a?.content ?? totalAi ?? 0, key: "content" },
+              { label: "Image Credits", color: "purple", used: credits.imageCredits ?? 0, total: a?.images ?? totalImage ?? 0, key: "images" },
+              { label: "A+ / EBC", color: "emerald", used: credits.aiCredits ?? 0, total: a?.ebc ?? 0, key: "ebc" },
+              { label: "Competitors", color: "slate", used: credits.auditCredits ?? 0, total: a?.competitors ?? 0, key: "competitors" },
+            ];
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                {items.map((it) => {
+                  const pct = it.total > 0 ? Math.min(100, (it.used / it.total) * 100) : 0;
+                  const low = it.total > 0 && it.used <= Math.max(1, it.total * 0.15);
+                  return (
+                    <div key={it.key} className={`bg-${it.color}-50/60 border border-${it.color}-100 rounded-xl p-4 ${low ? "ring-2 ring-red-200" : ""}`}>
+                      <p className={`text-xs font-medium text-${it.color}-600 uppercase flex items-center gap-1`}>
+                        {it.label}
+                        {low && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                      </p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">{it.used.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {it.total > 0 ? it.total.toLocaleString() : "∞"}</span></p>
+                      {it.total > 0 && <div className="mt-2 h-1.5 bg-${it.color}-100 rounded-full overflow-hidden"><div className={`h-full bg-${it.color}-400 rounded-full`} style={{ width: `${pct}%` }} /></div>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

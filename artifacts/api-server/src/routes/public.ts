@@ -4,7 +4,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
-  userProfilesTable, subscriptionsTable,
+  userProfilesTable, subscriptionsTable, notificationsTable,
 } from "@workspace/db";
 import { addCredits } from "../lib/credits";
 
@@ -63,6 +63,7 @@ router.get("/profile", requireAuth, async (req, res): Promise<void> => {
     planAiCredits: plansTable.aiCredits,
     planImageCredits: plansTable.imageCredits,
     planAuditCredits: plansTable.auditCredits,
+    creditAllocations: plansTable.creditAllocations,
   }).from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
@@ -150,6 +151,7 @@ router.get("/subscription", requireAuth, async (req, res): Promise<void> => {
     planAiCredits: plansTable.aiCredits,
     planImageCredits: plansTable.imageCredits,
     planAuditCredits: plansTable.auditCredits,
+    creditAllocations: plansTable.creditAllocations,
   }).from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
@@ -591,6 +593,34 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.json({ transactions: transactions.slice(0, 100), breakdown });
+});
+
+// ─── Customer Notifications ────────────────────────────────────────────────
+
+router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const limit = Math.min(Number(req.query.limit ?? 20), 100);
+  const notifications = await db
+    .select()
+    .from(notificationsTable)
+    .where(eq(notificationsTable.userId, userId))
+    .orderBy(desc(notificationsTable.sentAt))
+    .limit(limit);
+  res.json({ notifications });
+});
+
+router.patch("/notifications/:id/read", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.update(notificationsTable).set({ read: true, readAt: new Date() }).where(and(eq(notificationsTable.id, id), eq(notificationsTable.userId, userId)));
+  res.json({ ok: true });
+});
+
+router.post("/notifications/read-all", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  await db.update(notificationsTable).set({ read: true, readAt: new Date() }).where(and(eq(notificationsTable.userId, userId), eq(notificationsTable.read, false)));
+  res.json({ ok: true });
 });
 
 export default router;

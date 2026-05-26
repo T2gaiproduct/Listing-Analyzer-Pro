@@ -18,6 +18,7 @@ interface DbPlan {
   imageCredits: number;
   auditCredits: number;
   teamMembers: number;
+  creditAllocations: Record<string, number> | null;
   features: string[];
   excludedFeatures: string[];
   tag: string | null;
@@ -98,13 +99,16 @@ const FALLBACK_PLANS: DisplayPlan[] = [
 
 function dbPlanToDisplay(p: DbPlan): DisplayPlan {
   const isHighlighted = p.isHighlighted || p.tag === "Most Popular";
+  const a = p.creditAllocations ?? {};
   const includedFeatures: { text: string; included: boolean }[] = p.features.length > 0
     ? p.features.map((f) => ({ text: f, included: true }))
     : [
-        { text: `${p.auditCredits === 999 ? "Unlimited" : p.auditCredits} listing audits/mo`, included: true },
-        { text: `${p.aiCredits} AI content credits`, included: true },
-        { text: `${p.imageCredits} image generation credits`, included: true },
-        { text: "Competitor comparison", included: true },
+        { text: `${a.audit ?? p.auditCredits ?? 0} listing audits/mo`, included: true },
+        { text: `${a.content ?? 0} AI content credits`, included: true },
+        { text: `${a.images ?? p.imageCredits ?? 0} image generation credits`, included: true },
+        { text: `${a.ebc ?? 0} A+ / EBC content credits`, included: true },
+        { text: `${a.competitors ?? 0} competitor analysis credits`, included: true },
+        { text: `${p.teamMembers} team members`, included: true },
         { text: "Score breakdown & suggestions", included: true },
       ];
   const excludedFeatures: { text: string; included: boolean }[] = (p.excludedFeatures ?? []).map((f) => ({ text: f, included: false }));
@@ -130,7 +134,8 @@ function dbPlanToDisplay(p: DbPlan): DisplayPlan {
 const addOns = [
   { name: "AI Content Credits", price: "$9", per: "100 credits" },
   { name: "Image Generation Credits", price: "$12", per: "25 images" },
-  { name: "Additional Audit Credits", price: "$15", per: "20 audits" },
+  { name: "A+ / EBC Content Credits", price: "$5", per: "5 pieces" },
+  { name: "Competitor Analysis Credits", price: "$5", per: "5 analyses" },
   { name: "Extra Team Seat", price: "$8", per: "per seat/month" },
 ];
 

@@ -408,12 +408,17 @@ router.get("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
-  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, excludedFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
+  const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
+  const allocations = creditAllocations ?? {};
   const [plan] = await db
     .insert(plansTable)
     .values({
-      name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits,
+      name, description, priceMonthly, priceYearly,
+      aiCredits: allocations.content ?? allocations.ai ?? 0,
+      imageCredits: allocations.images ?? allocations.image ?? 0,
+      auditCredits: allocations.audit ?? 0,
       teamMembers: teamMembers ?? 1,
+      creditAllocations: allocations,
       features: features ?? [],
       excludedFeatures: excludedFeatures ?? [],
       isTrial: isTrial ?? false,
@@ -430,10 +435,17 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
+  const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
+  const setObj: Record<string, unknown> = { name, description, priceMonthly, priceYearly, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() };
+  if (creditAllocations !== undefined) {
+    setObj.creditAllocations = creditAllocations;
+    setObj.aiCredits = creditAllocations.content ?? creditAllocations.ai ?? 0;
+    setObj.imageCredits = creditAllocations.images ?? creditAllocations.image ?? 0;
+    setObj.auditCredits = creditAllocations.audit ?? 0;
+  }
   const [plan] = await db
     .update(plansTable)
-    .set({ name, description, priceMonthly, priceYearly, aiCredits, imageCredits, auditCredits, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() })
+    .set(setObj)
     .where(eq(plansTable.id, id))
     .returning();
   if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
