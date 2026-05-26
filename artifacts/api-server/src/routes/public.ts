@@ -455,7 +455,7 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
   const stripe = await getUncachableStripeClient();
   const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
   const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
-  const successUrl = `${baseUrl}/billing?custom_credit_success=${amount}_${creditType}`;
+  const successUrl = `${baseUrl}/billing?custom_credit_success={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
 
   const session = await stripe.checkout.sessions.create({
@@ -481,6 +481,16 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
   const userId = (req as AuthedRequest).userId;
   const { sessionId } = req.body as { sessionId: string };
   if (!sessionId) { res.status(400).json({ error: "sessionId required" }); return; }
+
+  // ─── Idempotency guard: already processed this session? ─────────────────────
+  const existingPayment = await db.select().from(paymentsTable)
+    .where(and(eq(paymentsTable.userId, userId), eq(paymentsTable.gatewayPaymentId, sessionId)))
+    .limit(1);
+  if (existingPayment.length > 0) {
+    const meta = existingPayment[0].metadata as Record<string, unknown> | null;
+    res.json({ success: true, alreadyProcessed: true, addedCredits: meta?.credits ?? 0, creditType: meta?.creditType ?? "audit" });
+    return;
+  }
 
   const { getUncachableStripeClient } = await import("../stripeClient");
   const stripe = await getUncachableStripeClient();
@@ -510,7 +520,7 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
     );
     const [payment] = await db.insert(paymentsTable).values({
       userId, amount: priceDollars, currency: "USD", status: "completed",
-      gateway: "stripe", gatewayPaymentId: session.payment_intent as string ?? session.id,
+      gateway: "stripe", gatewayPaymentId: sessionId,
       metadata: { type: "custom_credit", credits: amount, creditType },
     }).returning();
     const [invoice] = await db.insert(invoicesTable).values({
@@ -546,7 +556,7 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
   const amount = pack.priceCents / 100;
   const [payment] = await db.insert(paymentsTable).values({
     userId, amount, currency: "USD", status: "completed",
-    gateway: "stripe", gatewayPaymentId: session.payment_intent as string ?? session.id,
+    gateway: "stripe", gatewayPaymentId: sessionId,
     metadata: { type: "credit_pack", packId: pack.id, credits: pack.quantity, creditType: pack.creditType },
   }).returning();
   const [invoice] = await db.insert(invoicesTable).values({

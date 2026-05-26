@@ -428,10 +428,21 @@ export default function Billing() {
       window.history.replaceState({}, "", window.location.pathname);
     }
     if (customSuccess) {
-      const [amount, creditType] = customSuccess.split("_");
-      toast({ title: "Custom credit purchase successful", description: `Added ${amount} ${creditType} credits.` });
-      void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-      void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+      fetch(`${basePath}/api/buy-credits/confirm`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ sessionId: customSuccess }),
+      })
+        .then((r) => r.json())
+        .then((d: { success?: boolean; addedCredits?: number; creditType?: string; error?: string }) => {
+          if (d.success) {
+            toast({ title: "Credit purchase successful", description: `Added ${d.addedCredits} ${d.creditType} credits.` });
+          } else {
+            toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
+          }
+          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+        })
+        .catch(() => toast({ title: "Confirmation error", variant: "destructive" }));
       window.history.replaceState({}, "", window.location.pathname);
     }
     if (cancelled) {
@@ -720,6 +731,58 @@ export default function Billing() {
               </div>
             )}
           </div>
+
+          {/* Transaction history */}
+          {creditUsage && (
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="font-semibold text-slate-900">Credit Transaction History</h2>
+                <span className="text-xs text-slate-400">{creditUsage.transactions.length} entries</span>
+              </div>
+              {creditUsage.transactions.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-sm">No transactions yet</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="border-b border-slate-100">
+                      <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase">Date</th>
+                      <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase">Type</th>
+                      <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase">Reason</th>
+                      <th className="text-right px-5 py-3 text-xs font-medium text-slate-500 uppercase">Credits</th>
+                      <th className="text-right px-5 py-3 text-xs font-medium text-slate-500 uppercase">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {creditUsage.transactions.map((tx) => {
+                      const isSpend = tx.amount < 0;
+                      const amountAbs = Math.abs(tx.amount);
+                      const typeLabel = isSpend ? "Spent" : "Earned";
+                      const typeColor = isSpend ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700";
+                      const typeIcon = isSpend ? "-" : "+";
+                      return (
+                        <tr key={`${tx.createdAt}-${tx.reason}-${tx.amount}`} className="border-b border-slate-50 hover:bg-slate-50/50">
+                          <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">{format(new Date(tx.createdAt), "MMM d, yyyy h:mm a")}</td>
+                          <td className="px-5 py-3">
+                            <span className="inline-flex items-center gap-1.5 text-xs">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium uppercase">{tx.creditType}</span>
+                              <Badge className={typeColor + " text-xs"}>{typeLabel}</Badge>
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-slate-700 max-w-[240px] truncate" title={tx.reason ?? ""}>
+                            {tx.reason ?? "—"}
+                          </td>
+                          <td className="px-5 py-3 text-right font-semibold">
+                            <span className={isSpend ? "text-red-500" : "text-green-600"}>{typeIcon}{amountAbs}</span>
+                          </td>
+                          <td className="px-5 py-3 text-right text-slate-500 text-xs">{isSpend ? `-${amountAbs}` : `+${amountAbs}`}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
 
           {/* Usage breakdown */}
           {creditUsage && (
