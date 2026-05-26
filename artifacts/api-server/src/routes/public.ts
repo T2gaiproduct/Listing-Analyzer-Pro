@@ -218,12 +218,17 @@ router.get("/receipts/:paymentId", requireAuth, async (req, res): Promise<void> 
   if (!payment) { res.status(404).json({ error: "Receipt not found" }); return; }
   if (payment.userId !== userId) { res.status(403).json({ error: "Access denied" }); return; }
 
-  const { buildReceipt } = await import("../lib/receipt.js");
-  const pdf = await buildReceipt(paymentId);
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `attachment; filename="receipt-${String(paymentId).padStart(6, "0")}.pdf"`);
-  res.setHeader("Content-Length", pdf.length);
-  res.send(pdf);
+  try {
+    const { buildReceipt } = await import("../lib/receipt.js");
+    const pdf = await buildReceipt(paymentId);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="receipt-${String(paymentId).padStart(6, "0")}.pdf"`);
+    res.setHeader("Content-Length", pdf.length);
+    res.send(pdf);
+  } catch (err) {
+    req.log?.error?.({ err, paymentId }, "Receipt generation failed");
+    res.status(500).json({ error: "Unable to generate receipt. Please try again later or contact support." });
+  }
 });
 
 router.post("/coupon/validate", requireAuth, async (req, res): Promise<void> => {
