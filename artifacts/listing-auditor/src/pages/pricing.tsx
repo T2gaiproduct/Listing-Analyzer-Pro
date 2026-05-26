@@ -207,86 +207,92 @@ export default function Pricing() {
       {/* Plans Grid */}
       <section className="px-6 pb-20 -mt-6">
         <div className={`max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-6`}>
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className={`relative rounded-2xl border p-6 flex flex-col ${
-                plan.isHighlighted
-                  ? "border-orange-400 shadow-xl shadow-orange-100 bg-gradient-to-b from-orange-50 to-white"
-                  : "border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
-              }`}
-            >
-              {plan.tag && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.tag}</span>
-                </div>
-              )}
+          {plans.map((plan) => {
+            const a = plan.creditAllocations ?? {};
+            const totalCredits = (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
+            const yearlyCost = Math.round((plan.monthlyPrice ?? 0) * 9.6);
 
-              <div className="mb-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-1">{plan.name}</h3>
-                <p className="text-sm text-slate-500 mb-4">{plan.description}</p>
-                {plan.monthlyPrice !== null ? (
-                  <div className="flex items-end gap-1">
-                    <span className="text-4xl font-extrabold text-slate-900">${yearly ? plan.yearlyPrice : plan.monthlyPrice}</span>
-                    <span className="text-slate-400 mb-1">/mo</span>
-                  </div>
-                ) : (
-                  <div className="text-3xl font-extrabold text-slate-900">Custom</div>
-                )}
-                {yearly && plan.yearlyPrice && (
-                  <p className="text-xs text-green-600 mt-1">Billed ${plan.yearlyPrice * 12}/year</p>
-                )}
-              </div>
+            const activityRows = [
+              { label: "Audit", value: a.audit, color: "text-orange-700" },
+              { label: "Text Content", value: a.content, color: "text-blue-700" },
+              { label: "Images", value: a.images, color: "text-purple-700" },
+              { label: "A+ / EBC Content", value: a.ebc, color: "text-emerald-700" },
+              { label: "Competitors Analysis", value: a.competitors, color: "text-slate-700" },
+              { label: "Team Members", value: a.teamMembers, color: "text-slate-700" },
+            ];
 
-              {(() => {
-                const a = plan.creditAllocations;
-                if (!a) return null;
-                const badgeColorClass: Record<string, string> = {
-                  orange: "bg-orange-50 text-orange-700",
-                  blue: "bg-blue-50 text-blue-700",
-                  purple: "bg-purple-50 text-purple-700",
-                  emerald: "bg-emerald-50 text-emerald-700",
-                  slate: "bg-slate-50 text-slate-700",
-                };
-                const badges = [
-                  { label: "Audit", value: a.audit, color: badgeColorClass["orange"] },
-                  { label: "Content", value: a.content, color: badgeColorClass["blue"] },
-                  { label: "Images", value: a.images, color: badgeColorClass["purple"] },
-                  { label: "A+/EBC", value: a.ebc, color: badgeColorClass["emerald"] },
-                  { label: "Competitors", value: a.competitors, color: badgeColorClass["slate"] },
-                ].filter((b) => typeof b.value === "number");
-                return (
-                  <div className="flex flex-wrap gap-1.5 mb-5">
-                    {badges.map((b) => (
-                      <span key={b.label} className={`${b.color} text-xs px-2 py-1 rounded-md font-medium`}>
-                        {b.value} {b.label}
-                      </span>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              <ul className="space-y-2.5 flex-1 mb-6">
-                {plan.features.map((f) => (
-                  <li key={f.text} className="flex items-center gap-2 text-sm">
-                    {f.included ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" /> : <X className="w-4 h-4 text-slate-300 flex-shrink-0" />}
-                    <span className={f.included ? "text-slate-700" : "text-slate-400"}>{f.text}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                variant={plan.ctaVariant}
-                className={`w-full ${plan.isHighlighted ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
-                asChild
+            return (
+              <div
+                key={plan.name}
+                className={`relative rounded-2xl border p-6 flex flex-col ${
+                  plan.isHighlighted
+                    ? "border-orange-400 shadow-xl shadow-orange-100 bg-gradient-to-b from-orange-50 to-white"
+                    : "border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
+                }`}
               >
-                <Link href={plan.isEnterprise ? "/contact" : "/sign-up"}>
-                  {plan.cta}
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Link>
-              </Button>
-            </div>
-          ))}
+                {plan.tag && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.tag}</span>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">{plan.name}</h3>
+                  <p className="text-sm text-slate-500 mb-3">{plan.description}</p>
+                  {plan.monthlyPrice !== null ? (
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-extrabold text-slate-900">${yearly ? plan.yearlyPrice : plan.monthlyPrice}</span>
+                      <span className="text-slate-400 mb-1">/mo</span>
+                    </div>
+                  ) : (
+                    <div className="text-3xl font-extrabold text-slate-900">Custom</div>
+                  )}
+                  {yearly && plan.yearlyPrice && (
+                    <p className="text-xs text-green-600 mt-1">Billed ${plan.yearlyPrice * 12}/year</p>
+                  )}
+                </div>
+
+                <div className="space-y-2.5 flex-1 mb-5">
+                  {activityRows.map((row) => (
+                    <div key={row.label} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">{row.label}</span>
+                      <span className={`font-semibold ${row.color}`}>
+                        {typeof row.value === "number" ? row.value.toLocaleString() : "—"}
+                      </span>
+                    </div>
+                  ))}
+
+                  <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 font-medium">Total Monthly Credits</span>
+                      <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 font-medium">Total Monthly Cost</span>
+                      <span className="font-bold text-slate-900">US${plan.monthlyPrice ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 font-medium">Total Yearly Cost</span>
+                      <span className="font-bold text-slate-900">
+                        US${yearlyCost.toLocaleString()} <span className="text-xs font-normal text-green-600">(20% off)</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  variant={plan.ctaVariant}
+                  className={`w-full ${plan.isHighlighted ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
+                  asChild
+                >
+                  <Link href={plan.isEnterprise ? "/contact" : "/sign-up"}>
+                    {plan.cta}
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -307,76 +313,83 @@ export default function Pricing() {
         </div>
       </section>
 
-      {/* Comparison Cards */}
+      {/* Feature Comparison */}
       <section id="comparison" className="px-6 py-16 bg-slate-50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">Feature Comparison</h2>
-          <p className="text-slate-500 text-center mb-10">See exactly what you get with each plan.</p>
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-6`}>
-            {plans.map((plan) => {
-              const a = plan.creditAllocations ?? {};
-              const totalCredits = (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
-              const yearlyCost = Math.round((plan.monthlyPrice ?? 0) * 9.6);
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">Compare all plans</h2>
+          <p className="text-slate-500 text-center mb-10">Side-by-side breakdown of every activity type.</p>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left px-6 py-4 font-semibold text-slate-700 w-48">Activity</th>
+                  {plans.map((p) => (
+                    <th
+                      key={p.name}
+                      className={`text-center px-4 py-4 font-semibold whitespace-nowrap ${
+                        p.isHighlighted ? "text-orange-600" : "text-slate-700"
+                      }`}
+                    >
+                      {p.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const allocations = plans.map((p) => p.creditAllocations ?? {});
+                  const cell = (key: string, idx: number) => {
+                    const v = allocations[idx]?.[key];
+                    return v === 999 ? "Unlimited" : (typeof v === "number" ? v : "—");
+                  };
+                  const totalCredits = plans.map((_, i) => {
+                    const a = allocations[i];
+                    return (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
+                  });
+                  const yearlyCost = plans.map((p) => Math.round((p.monthlyPrice ?? 0) * 9.6));
 
-              const activityRows = [
-                { label: "Audit", value: a.audit, color: "text-orange-700" },
-                { label: "Text Content", value: a.content, color: "text-blue-700" },
-                { label: "Images", value: a.images, color: "text-purple-700" },
-                { label: "A+ / EBC Content", value: a.ebc, color: "text-emerald-700" },
-                { label: "Competitors Analysis", value: a.competitors, color: "text-slate-700" },
-                { label: "Team Members", value: a.teamMembers, color: "text-slate-700" },
-              ];
+                  const rows: [string, (string | number)[], boolean][] = [
+                    ["Audit", plans.map((_, i) => cell("audit", i)), false],
+                    ["Text Content", plans.map((_, i) => cell("content", i)), false],
+                    ["Images", plans.map((_, i) => cell("images", i)), false],
+                    ["A+ / EBC Content", plans.map((_, i) => cell("ebc", i)), false],
+                    ["Competitors Analysis", plans.map((_, i) => cell("competitors", i)), false],
+                    ["Team Members", plans.map((_, i) => {
+                      const v = cell("teamMembers", i);
+                      return typeof v === "number" ? v : v;
+                    }), false],
+                    ["Total Monthly Credits", totalCredits, true],
+                    ["Total Monthly Cost", plans.map((p) => `US$${p.monthlyPrice ?? 0}`), true],
+                    ["Total Yearly Cost\nAfter 20% Discount", yearlyCost.map((c) => `US$${c.toLocaleString()}`), true],
+                  ];
 
-              return (
-                <div
-                  key={plan.name}
-                  className={`relative rounded-2xl border p-6 flex flex-col ${
-                    plan.isHighlighted
-                      ? "border-orange-400 shadow-xl shadow-orange-100 bg-gradient-to-b from-orange-50 to-white"
-                      : "border-slate-200 bg-white shadow-sm"
-                  }`}
-                >
-                  {plan.tag && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.tag}</span>
-                    </div>
-                  )}
-
-                  <div className="mb-4">
-                    <h3 className="text-lg font-bold text-slate-900 mb-1">{plan.name}</h3>
-                    <p className="text-sm text-slate-500">{plan.description}</p>
-                  </div>
-
-                  <div className="space-y-3 flex-1">
-                    {activityRows.map((row) => (
-                      <div key={row.label} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600">{row.label}</span>
-                        <span className={`font-semibold ${row.color}`}>
-                          {typeof row.value === "number" ? row.value.toLocaleString() : "—"}
-                        </span>
-                      </div>
-                    ))}
-
-                    <div className="border-t border-slate-200 pt-3 mt-3 space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600 font-medium">Total Monthly Credits</span>
-                        <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600 font-medium">Total Monthly Cost</span>
-                        <span className="font-bold text-slate-900">US${plan.monthlyPrice ?? 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600 font-medium">Total Yearly Cost</span>
-                        <span className="font-bold text-slate-900">
-                          US${yearlyCost.toLocaleString()} <span className="text-xs font-normal text-green-600">(20% off)</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  return rows.map(([feature, values, isSummary], i) => (
+                    <tr
+                      key={feature}
+                      className={`border-b border-slate-100 ${
+                        isSummary ? "bg-slate-50 font-semibold" : i % 2 === 0 ? "bg-white" : "bg-slate-50/30"
+                      }`}
+                    >
+                      <td className="px-6 py-3.5 text-slate-700 whitespace-pre-line">{feature}</td>
+                      {values.map((val, j) => (
+                        <td
+                          key={j}
+                          className={`px-4 py-3.5 text-center whitespace-nowrap ${
+                            plans[j].isHighlighted && !isSummary
+                              ? "text-slate-900 font-medium bg-orange-50/20"
+                              : isSummary
+                                ? "text-slate-900"
+                                : "text-slate-600"
+                          }`}
+                        >
+                          {val}
+                        </td>
+                      ))}
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
