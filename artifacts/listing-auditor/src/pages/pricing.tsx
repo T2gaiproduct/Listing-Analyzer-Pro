@@ -251,6 +251,10 @@ export default function Pricing() {
                 </div>
 
                 <div className="space-y-2.5 flex-1 mb-5">
+                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium uppercase tracking-wide border-b border-slate-100 pb-1.5">
+                    <span>Item</span>
+                    <span>Credits / Mo</span>
+                  </div>
                   {activityRows.map((row) => (
                     <div key={row.label} className="flex items-center justify-between text-sm">
                       <span className="text-slate-600">{row.label}</span>
