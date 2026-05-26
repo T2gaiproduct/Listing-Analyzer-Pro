@@ -31,6 +31,7 @@ interface Subscription {
   planAiCredits: number;
   planImageCredits: number;
   planAuditCredits: number;
+  stripeSubscriptionId: string | null;
 }
 
 interface Credits { aiCredits: number; imageCredits: number; auditCredits: number; }
@@ -509,6 +510,7 @@ export default function Billing() {
   });
 
   const [buyingPackId, setBuyingPackId] = useState<number | null>(null);
+  const [changingPlan, setChangingPlan] = useState(false);
 
   function invalidateSub() {
     void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
@@ -660,9 +662,29 @@ export default function Billing() {
                     <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.imageCredits} image credits</div>
                     <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.auditCredits === 999 ? "Unlimited" : p.auditCredits} audit credits</div>
                   </div>
-                  <Button className="w-full" variant={isCurrent ? "outline" : "default"} disabled={isCurrent}
-                    onClick={() => !isCurrent && toast({ title: "Plan change", description: "To change your plan, please use the onboarding flow." })}>
-                    {isCurrent ? "Current plan" : p.priceMonthly > (sub?.priceMonthly ?? 0) ? "Upgrade" : "Downgrade"}
+                  <Button className="w-full" variant={isCurrent ? "outline" : "default"} disabled={isCurrent || changingPlan}
+                    onClick={() => {
+                      if (isCurrent) return;
+                      if (sub?.stripeSubscriptionId) {
+                        // Paid user — open Stripe Customer Portal for plan changes
+                        setChangingPlan(true);
+                        fetch(`${basePath}/api/stripe/portal`, {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          credentials: "include", body: JSON.stringify({ returnUrl: `${window.location.origin}${basePath}/billing` }),
+                        })
+                          .then((r) => r.json() as Promise<{ url?: string; error?: string }>)
+                          .then((d) => {
+                            if (d.url) window.location.href = d.url;
+                            else toast({ title: "Could not open billing portal", description: d.error ?? "Please try again.", variant: "destructive" });
+                          })
+                          .catch(() => toast({ title: "Network error", variant: "destructive" }))
+                          .finally(() => setChangingPlan(false));
+                      } else {
+                        // Free/trial user — go to onboarding to select a paid plan
+                        setLocation("/onboarding");
+                      }
+                    }}>
+                    {isCurrent ? "Current plan" : changingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : p.priceMonthly > (sub?.priceMonthly ?? 0) ? "Upgrade" : "Downgrade"}
                   </Button>
                 </div>
               );

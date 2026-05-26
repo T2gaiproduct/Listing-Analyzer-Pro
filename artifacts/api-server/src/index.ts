@@ -2,6 +2,8 @@ import { runMigrations } from "stripe-replit-sync";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { getStripeSync } from "./stripeClient";
+import { handleStripeEvent } from "./lib/stripeWebhook";
+import type Stripe from "stripe";
 
 const rawPort = process.env["PORT"];
 
@@ -26,6 +28,24 @@ async function initStripe(): Promise<void> {
     logger.info("Stripe schema ready");
 
     const stripeSync = await getStripeSync();
+
+    // Wrap stripe-replit-sync event handlers to run app logic after sync
+    const wrapHandler = (eventType: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const syncHandler = (stripeSync as any).eventHandlers?.[eventType];
+      if (!syncHandler) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (stripeSync as any).eventHandlers[eventType] = async (event: Stripe.Event, accountId: string) => {
+        await syncHandler.call(stripeSync, event, accountId);
+        await handleStripeEvent(event).catch((err) => {
+          logger.error({ err, eventType }, "App webhook handler error");
+        });
+      };
+    };
+
+    wrapHandler("invoice.paid");
+    wrapHandler("customer.subscription.deleted");
+    wrapHandler("customer.subscription.updated");
 
     const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
     if (domain) {

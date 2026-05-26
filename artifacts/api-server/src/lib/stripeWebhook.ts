@@ -1,0 +1,205 @@
+import Stripe from "stripe";
+import { eq } from "drizzle-orm";
+import {
+  db, plansTable, creditsTable, creditTransactionsTable,
+  paymentsTable, subscriptionsTable, userProfilesTable,
+} from "@workspace/db";
+import { logger } from "./logger";
+
+/**
+ * App-specific Stripe webhook handling.
+ * Called *after* stripe-replit-sync has processed and synced the event
+ * to the stripe schema. We use the synced data to update our app tables.
+ */
+
+export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+  const type = event.type;
+  logger.info({ type, id: event.id }, "Stripe webhook event");
+
+  switch (type) {
+    case "invoice.paid": {
+      await handleInvoicePaid(event.data.object as unknown as Parameters<typeof handleInvoicePaid>[0]);
+      break;
+    }
+    case "customer.subscription.deleted": {
+      await handleSubscriptionDeleted(event.data.object as unknown as Parameters<typeof handleSubscriptionDeleted>[0]);
+      break;
+    }
+    case "customer.subscription.updated": {
+      await handleSubscriptionUpdated(event.data.object as unknown as Parameters<typeof handleSubscriptionUpdated>[0]);
+      break;
+    }
+    default:
+      // Other events are handled by stripe-replit-sync syncing to stripe schema
+      break;
+  }
+}
+
+async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string; customer: string | unknown; subscription?: string | unknown; amount_paid?: number; period_start?: number; period_end?: number }): Promise<void> {
+  // Skip if not a subscription invoice or already recorded
+  if (!invoice.subscription) return;
+
+  const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
+  if (!customerId) return;
+
+  // Find user by Stripe customer ID
+  const [profile] = await db
+    .select()
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.stripeCustomerId, customerId));
+  if (!profile) {
+    logger.warn({ customerId }, "No user found for Stripe customer");
+    return;
+  }
+
+  const userId = profile.userId;
+
+  // Check if already recorded (idempotency)
+  const existing = await db
+    .select()
+    .from(paymentsTable)
+    .where(eq(paymentsTable.gatewayPaymentId, invoice.id));
+  if (existing.length > 0) {
+    logger.info({ invoiceId: invoice.id }, "Invoice already recorded");
+    return;
+  }
+
+  // Find the subscription to get the plan
+  const [appSub] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userId, userId));
+  if (!appSub || !appSub.planId) {
+    logger.warn({ userId }, "No subscription found for invoice payment");
+    return;
+  }
+
+  const [plan] = await db
+    .select()
+    .from(plansTable)
+    .where(eq(plansTable.id, appSub.planId));
+  if (!plan) {
+    logger.warn({ planId: appSub.planId }, "Plan not found for invoice payment");
+    return;
+  }
+
+  const amount = (invoice.amount_paid ?? 0) / 100;
+
+  // Record payment
+  await db.insert(paymentsTable).values({
+    userId,
+    planId: plan.id,
+    amount,
+    status: "completed",
+    gateway: "stripe",
+    gatewayPaymentId: invoice.id,
+  });
+
+  // Top up credits for the new period
+  const [existingCredits] = await db
+    .select()
+    .from(creditsTable)
+    .where(eq(creditsTable.userId, userId));
+
+  const now = new Date();
+  if (existingCredits) {
+    await db.update(creditsTable)
+      .set({
+        aiCredits: existingCredits.aiCredits + plan.aiCredits,
+        imageCredits: existingCredits.imageCredits + plan.imageCredits,
+        auditCredits: existingCredits.auditCredits + plan.auditCredits,
+        updatedAt: now,
+      })
+      .where(eq(creditsTable.userId, userId));
+  } else {
+    await db.insert(creditsTable).values({
+      userId,
+      aiCredits: plan.aiCredits,
+      imageCredits: plan.imageCredits,
+      auditCredits: plan.auditCredits,
+    });
+  }
+
+  await db.insert(creditTransactionsTable).values([
+    { userId, creditType: "ai", amount: plan.aiCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "image", amount: plan.imageCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "audit", amount: plan.auditCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+  ]);
+
+  // Update subscription period dates from the invoice
+  const periodStart = invoice.period_start ? new Date(invoice.period_start * 1000) : now;
+  const periodEnd = invoice.period_end ? new Date(invoice.period_end * 1000) : new Date(now);
+  if (appSub.billingCycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+  else periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+  await db.update(subscriptionsTable)
+    .set({
+      status: "active",
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+      updatedAt: now,
+    })
+    .where(eq(subscriptionsTable.userId, userId));
+
+  logger.info({ userId, planId: plan.id, amount }, "Invoice paid — credits renewed");
+}
+
+async function handleSubscriptionDeleted(sub: Record<string, unknown> & { id: string; customer: string | unknown; status: string }): Promise<void> {
+  const customerId = typeof sub.customer === "string" ? sub.customer : null;
+  if (!customerId) return;
+
+  const [profile] = await db
+    .select()
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.stripeCustomerId, customerId));
+  if (!profile) return;
+
+  await db.update(subscriptionsTable)
+    .set({ status: "cancelled", autoRenew: false, updatedAt: new Date() })
+    .where(eq(subscriptionsTable.userId, profile.userId));
+
+  logger.info({ userId: profile.userId }, "Subscription cancelled via Stripe");
+}
+
+async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: string; customer: string | unknown; status: string; current_period_start?: number; current_period_end?: number }): Promise<void> {
+  const customerId = typeof sub.customer === "string" ? sub.customer : null;
+  if (!customerId) return;
+
+  const [profile] = await db
+    .select()
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.stripeCustomerId, customerId));
+  if (!profile) return;
+
+  const userId = profile.userId;
+  const statusMap: Record<string, string> = {
+    active: "active",
+    canceled: "cancelled",
+    incomplete: "pending_payment",
+    incomplete_expired: "cancelled",
+    past_due: "past_due",
+    paused: "paused",
+    trialing: "trial",
+    unpaid: "unpaid",
+  };
+
+  const newStatus = statusMap[sub.status] ?? sub.status;
+  const currentPeriodStart = sub.current_period_start
+    ? new Date(sub.current_period_start * 1000)
+    : undefined;
+  const currentPeriodEnd = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000)
+    : undefined;
+
+  await db.update(subscriptionsTable)
+    .set({
+      status: newStatus,
+      ...(currentPeriodStart && { currentPeriodStart }),
+      ...(currentPeriodEnd && { currentPeriodEnd }),
+      stripeSubscriptionId: sub.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptionsTable.userId, userId));
+
+  logger.info({ userId, status: newStatus }, "Subscription updated from Stripe");
+}

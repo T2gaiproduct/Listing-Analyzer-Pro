@@ -145,6 +145,7 @@ router.get("/subscription", requireAuth, async (req, res): Promise<void> => {
     autoRenew: subscriptionsTable.autoRenew,
     couponCode: subscriptionsTable.couponCode,
     discountAmount: subscriptionsTable.discountAmount,
+    stripeSubscriptionId: subscriptionsTable.stripeSubscriptionId,
     planName: plansTable.name,
     priceMonthly: plansTable.priceMonthly,
     priceYearly: plansTable.priceYearly,

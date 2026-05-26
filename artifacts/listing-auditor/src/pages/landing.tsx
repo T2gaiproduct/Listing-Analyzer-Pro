@@ -107,43 +107,32 @@ function LandingPricingSection() {
     .sort((a, b) => a.priceMonthly - b.priceMonthly)
     .slice(0, 4);
 
+  const gridCols = plans.length <= 3 ? `lg:grid-cols-${plans.length}` : "lg:grid-cols-4";
+
   return (
     <section className="bg-slate-50 px-6 py-20">
-      <div className="max-w-5xl mx-auto text-center">
+      <div className="max-w-6xl mx-auto text-center">
         <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Pricing</Badge>
         <h2 className="text-3xl font-bold text-slate-900 mb-3">Simple, transparent pricing</h2>
         <p className="text-slate-500 mb-10">Start free. Scale as you grow. No hidden fees.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridCols} gap-6 mb-10`}>
           {plans.map((p) => {
             const a = p.creditAllocations ?? {};
-            const badges = [
-              { label: "Audit", value: a.audit, color: badgeColorClass["orange"] },
-              { label: "Content", value: a.content, color: badgeColorClass["blue"] },
-              { label: "Images", value: a.images, color: badgeColorClass["purple"] },
-              { label: "A+/EBC", value: a.ebc, color: badgeColorClass["emerald"] },
-              { label: "Competitors", value: a.competitors, color: badgeColorClass["slate"] },
-            ].filter((b) => typeof b.value === "number");
+            const totalCredits = (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
 
-            const includedFeatures = p.features.length > 0
-              ? p.features
-              : [
-                  `${a.audit ?? 0} listing audits/mo`,
-                  `${a.content ?? 0} AI content credits`,
-                  `${a.images ?? 0} image generation credits`,
-                  `${a.ebc ?? 0} A+ / EBC content pieces`,
-                  `${a.competitors ?? 0} competitor analyses`,
-                  `${p.teamMembers} team members`,
-                ];
-            const excludedFeatures = p.excludedFeatures ?? [];
-            const allFeatures = [
-              ...includedFeatures.map((f) => ({ text: f, included: true })),
-              ...excludedFeatures.map((f) => ({ text: f, included: false })),
+            const activityRows = [
+              { label: "Audit", value: a.audit, color: "text-orange-700" },
+              { label: "Text Content", value: a.content, color: "text-blue-700" },
+              { label: "Images", value: a.images, color: "text-purple-700" },
+              { label: "A+ / EBC Content", value: a.ebc, color: "text-emerald-700" },
+              { label: "Competitors Analysis", value: a.competitors, color: "text-slate-700" },
+              { label: "Team Members", value: a.teamMembers, color: "text-slate-700" },
             ];
 
             return (
               <div
                 key={p.id}
-                className={`rounded-2xl p-6 border text-left ${
+                className={`rounded-2xl p-6 border text-left flex flex-col ${
                   p.isHighlighted
                     ? "border-orange-400 bg-white shadow-xl shadow-orange-100 relative"
                     : "border-slate-200 bg-white shadow-sm"
@@ -155,33 +144,46 @@ function LandingPricingSection() {
                   </div>
                 )}
                 <p className="font-bold text-slate-900 mb-1">{p.name}</p>
-                <p className="text-3xl font-extrabold text-slate-900 mb-3">
+                <p className="text-sm text-slate-500 mb-3">{p.description}</p>
+                <p className="text-4xl font-extrabold text-slate-900 mb-4">
                   ${p.priceMonthly}<span className="text-sm font-normal text-slate-400">/mo</span>
                 </p>
-                {badges.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {badges.map((b) => (
-                      <span key={b.label} className={`${b.color} text-xs px-2 py-0.5 rounded-md font-medium`}>
-                        {b.value} {b.label}
-                      </span>
-                    ))}
+
+                <div className="space-y-2.5 flex-1 mb-5">
+                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium uppercase tracking-wide border-b border-slate-100 pb-1.5">
+                    <span>Item</span>
+                    <span>Credits / Mo</span>
                   </div>
-                )}
-                <ul className="space-y-2">
-                  {allFeatures.map((f) => (
-                    <li key={f.text} className={`flex items-center gap-2 text-sm ${f.included ? "text-slate-600" : "text-slate-400"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${f.included ? "text-green-500" : "text-slate-300"}`} />
-                      {f.text}
-                    </li>
+                  {activityRows.map((row) => (
+                    <div key={row.label} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">{row.label}</span>
+                      <span className={`font-semibold ${row.color}`}>
+                        {typeof row.value === "number" ? row.value.toLocaleString() : "\u2014"}
+                      </span>
+                    </div>
                   ))}
-                </ul>
+                  <div className="border-t border-slate-200 pt-2 mt-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 font-medium">Total Monthly Credits</span>
+                      <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  variant={p.isHighlighted ? "default" : "outline"}
+                  className={`w-full ${p.isHighlighted ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
+                  asChild
+                >
+                  <Link href="/pricing">
+                    Choose Plan
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </Button>
               </div>
             );
           })}
         </div>
-        <Button asChild variant="outline">
-          <Link href="/pricing#comparison">Compare all plans <ArrowRight className="w-4 h-4 ml-2" /></Link>
-        </Button>
       </div>
     </section>
   );
