@@ -3,7 +3,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, count, avg, sql, desc, and, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
-  db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable,
+  db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable,
   paymentsTable, invoicesTable, refundsTable, couponsTable,
   adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
@@ -1218,6 +1218,71 @@ router.get("/admin/customers/:userId/team", requireAdmin, async (req, res): Prom
   }));
 
   res.json({ members, memberStats });
+});
+
+// ─── Admin Credit Rules Management ────────────────────────────────────────────
+
+router.get("/admin/credit-rules", requireAdmin, async (req, res): Promise<void> => {
+  const rules = await db
+    .select()
+    .from(creditRulesTable)
+    .orderBy(creditRulesTable.sortOrder);
+  res.json(rules);
+});
+
+router.post("/admin/credit-rules", requireAdmin, async (req, res): Promise<void> => {
+  const { activityName, featureType, creditType, creditsRequired, sortOrder, isActive } = req.body as {
+    activityName: string;
+    featureType: string;
+    creditType?: string;
+    creditsRequired?: number;
+    sortOrder?: number;
+    isActive?: boolean;
+  };
+  if (!activityName || !featureType) {
+    res.status(400).json({ error: "activityName and featureType are required" });
+    return;
+  }
+  const [rule] = await db
+    .insert(creditRulesTable)
+    .values({
+      activityName,
+      featureType,
+      creditType: creditType ?? "audit",
+      creditsRequired: creditsRequired ?? 1,
+      sortOrder: sortOrder ?? 0,
+      isActive: isActive ?? true,
+    })
+    .returning();
+  res.status(201).json(rule);
+});
+
+router.patch("/admin/credit-rules/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const body = req.body as Partial<{
+    activityName: string;
+    featureType: string;
+    creditType: string;
+    creditsRequired: number;
+    sortOrder: number;
+    isActive: boolean;
+  }>;
+  const now = new Date();
+  const [updated] = await db
+    .update(creditRulesTable)
+    .set({ ...body, updatedAt: now })
+    .where(eq(creditRulesTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Rule not found" }); return; }
+  res.json(updated);
+});
+
+router.delete("/admin/credit-rules/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(creditRulesTable).where(eq(creditRulesTable.id, id));
+  res.sendStatus(204);
 });
 
 // ─── Admin Credit Pack Management ─────────────────────────────────────────────

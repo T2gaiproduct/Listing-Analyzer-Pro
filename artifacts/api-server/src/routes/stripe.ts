@@ -216,7 +216,12 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
   const [existingCredits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
   if (existingCredits) {
     await db.update(creditsTable)
-      .set({ aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits, updatedAt: now })
+      .set({
+        aiCredits: existingCredits.aiCredits + plan.aiCredits,
+        imageCredits: existingCredits.imageCredits + plan.imageCredits,
+        auditCredits: existingCredits.auditCredits + plan.auditCredits,
+        updatedAt: now,
+      })
       .where(eq(creditsTable.userId, userId));
   } else {
     await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });

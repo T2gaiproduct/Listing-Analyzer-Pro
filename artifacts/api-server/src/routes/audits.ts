@@ -16,7 +16,7 @@ import {
   regenerateSingleImage,
   editSingleImage,
 } from "../lib/image-generator";
-import { deductCredits, hasCredits } from "../lib/credits";
+import { deductCredits, hasCredits, getCreditCost } from "../lib/credits";
 
 const router: IRouter = Router();
 
@@ -70,9 +70,10 @@ router.post("/audits", requireAuth, async (req, res): Promise<void> => {
 
   const { productName, asin, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
 
-  const creditCheck = await hasCredits(userId, "audit", 1);
+  const cost = await getCreditCost("audit");
+  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: "Insufficient audit credits. Please purchase more credits." });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
@@ -92,7 +93,7 @@ router.post("/audits", requireAuth, async (req, res): Promise<void> => {
     })
     .returning();
 
-  await deductCredits(userId, "audit", 1, "Listing audit", "audit", { auditId: audit.id });
+  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "audit", { auditId: audit.id });
 
   try {
     const result = await analyzeListingWithAI({
@@ -253,16 +254,17 @@ router.post("/audits/:id/generate-ebc", requireAuth, async (req, res): Promise<v
   const { prompt } = req.body as { prompt?: string };
   if (!prompt?.trim()) { res.status(400).json({ error: "prompt is required" }); return; }
 
-  const creditCheck = await hasCredits(userId, "ai", 1);
+  const cost = await getCreditCost("ebc");
+  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: "Insufficient AI credits. Please purchase more credits." });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
   const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  await deductCredits(userId, "ai", 1, "A+ / EBC content generation", "ebc", { auditId: id });
+  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
 
   try {
     const content = await generateEbcContent({
@@ -284,16 +286,17 @@ router.post("/audits/:id/generate-content", requireAuth, async (req, res): Promi
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const creditCheck = await hasCredits(userId, "ai", 1);
+  const cost = await getCreditCost("content");
+  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: "Insufficient AI credits. Please purchase more credits." });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
   const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  await deductCredits(userId, "ai", 1, "Listing content generation", "content", { auditId: id });
+  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
 
   try {
     const generatedContent = await generateListingContent({
@@ -322,9 +325,10 @@ router.post("/audits/:id/generate-images", requireAuth, async (req, res): Promis
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const creditCheck = await hasCredits(userId, "image", 6);
+  const cost = await getCreditCost("images");
+  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: "Insufficient image credits (6 needed). Please purchase more credits." });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
@@ -333,7 +337,7 @@ router.post("/audits/:id/generate-images", requireAuth, async (req, res): Promis
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
 
-  await deductCredits(userId, "image", 6, "Generate product images (6 images)", "images", { auditId: id });
+  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "images", { auditId: id });
 
   try {
     const imageRecords = await generateProductImages({
@@ -397,9 +401,10 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (re
     return;
   }
 
-  const creditCheck = await hasCredits(userId, "image", 1);
+  const cost = await getCreditCost("image_regenerate");
+  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: "Insufficient image credits. Please purchase more credits." });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
@@ -417,7 +422,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (re
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
 
-  await deductCredits(userId, "image", 1, `Regenerate ${type} image`, "images", { auditId: id, imageType: type, index });
+  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "image_regenerate", { auditId: id, imageType: type, index });
 
   try {
     const updatedRecord = await regenerateSingleImage({
@@ -452,9 +457,10 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, async (req, res
     return;
   }
 
-  const creditCheck = await hasCredits(userId, "image", 1);
+  const cost = await getCreditCost("image_edit");
+  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: "Insufficient image credits. Please purchase more credits." });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
@@ -476,7 +482,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, async (req, res
     return;
   }
 
-  await deductCredits(userId, "image", 1, `Edit ${type} image`, "images", { auditId: id, imageType: type, index });
+  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "image_edit", { auditId: id, imageType: type, index });
 
   try {
     const updatedRecord = await editSingleImage({

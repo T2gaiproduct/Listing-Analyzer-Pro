@@ -22,6 +22,7 @@ import AdminAudits from "@/pages/admin/audits";
 import AdminPlans from "@/pages/admin/plans";
 import AdminCredits from "@/pages/admin/credits";
 import AdminCreditPricing from "@/pages/admin/credit-pricing";
+import AdminCreditRules from "@/pages/admin/credit-rules";
 import AdminAnalytics from "@/pages/admin/analytics";
 import AdminBillingPayments from "@/pages/admin/billing/payments";
 import AdminBillingInvoices from "@/pages/admin/billing/invoices";
@@ -256,6 +257,9 @@ function Router() {
       </Route>
       <Route path="/admin/credits">
         <AdminRoute><AdminCredits /></AdminRoute>
+      </Route>
+      <Route path="/admin/credit-rules">
+        <AdminRoute><AdminCreditRules /></AdminRoute>
       </Route>
       <Route path="/admin/credit-pricing">
         <AdminRoute><AdminCreditPricing /></AdminRoute>

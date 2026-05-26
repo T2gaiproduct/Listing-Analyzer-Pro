@@ -3,7 +3,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
-  db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, paymentsTable, couponsTable,
+  db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, couponsTable,
   userProfilesTable, subscriptionsTable,
 } from "@workspace/db";
 import { addCredits } from "../lib/credits";
@@ -351,6 +351,17 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
+// ─── Credit Rules (public list of active rules) ──────────────────────────────
+
+router.get("/credit-rules", async (_req, res): Promise<void> => {
+  const rules = await db
+    .select()
+    .from(creditRulesTable)
+    .where(eq(creditRulesTable.isActive, true))
+    .orderBy(creditRulesTable.sortOrder);
+  res.json(rules);
+});
+
 // ─── Credit Packs (public list of active packs) ───────────────────────────────
 
 router.get("/credit-packs", async (_req, res): Promise<void> => {
@@ -391,7 +402,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     const stripe = await getUncachableStripeClient();
     const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
     const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
-    const successUrl = `${baseUrl}/billing?credit_success=${pack.id}`;
+    const successUrl = `${baseUrl}/billing?credit_success={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
 
     const session = await stripe.checkout.sessions.create({
@@ -419,6 +430,41 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
+// ─── Buy Custom Credits (Stripe checkout for arbitrary amounts) ─────────────────
+
+router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { amount, creditType } = req.body as { amount: number; creditType: string };
+  if (!amount || amount < 10 || amount > 10000 || !creditType || !["ai", "image", "audit"].includes(creditType)) {
+    res.status(400).json({ error: "Invalid amount (10-10000) or creditType (ai/image/audit)" });
+    return;
+  }
+  const priceCents = amount * 10; // $0.10 per credit
+
+  const { getUncachableStripeClient } = await import("../stripeClient");
+  const stripe = await getUncachableStripeClient();
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+  const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
+  const successUrl = `${baseUrl}/billing?custom_credit_success=${amount}_${creditType}`;
+  const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    line_items: [{
+      price_data: {
+        currency: "usd",
+        product_data: { name: `${amount} ${creditType} credits` },
+        unit_amount: priceCents,
+      },
+      quantity: 1,
+    }],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: { userId, customCredits: String(amount), creditType, type: "custom_credit" },
+  });
+  res.json({ url: session.url, sessionId: session.id });
+});
+
 // ─── Confirm Credit Purchase (Stripe webhook or direct confirm) ───────────────
 
 router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void> => {
@@ -434,7 +480,34 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
     return;
   }
 
-  const packId = Number(session.metadata?.creditPackId);
+  const meta = session.metadata ?? {};
+  const type = meta.type;
+
+  if (type === "custom_credit") {
+    const amount = Number(meta.customCredits);
+    const creditType = meta.creditType as "ai" | "image" | "audit";
+    if (!amount || !creditType || !["ai", "image", "audit"].includes(creditType)) {
+      res.status(400).json({ error: "Invalid custom credit metadata" });
+      return;
+    }
+    const priceCents = amount * 10;
+    const newBalance = await addCredits(
+      userId, creditType, amount,
+      `Purchased ${amount} ${creditType} credits`,
+      "custom_credit_purchase",
+      { sessionId: session.id, priceCents },
+    );
+    await db.insert(paymentsTable).values({
+      userId, amount: priceCents / 100, currency: "USD", status: "completed",
+      gateway: "stripe", gatewayPaymentId: session.payment_intent as string ?? session.id,
+      metadata: { type: "custom_credit", credits: amount, creditType },
+    });
+    res.json({ success: true, addedCredits: amount, newBalance, creditType });
+    return;
+  }
+
+  // Pack purchase
+  const packId = Number(meta.creditPackId);
   if (!packId || isNaN(packId)) {
     res.status(400).json({ error: "Invalid session metadata" });
     return;
@@ -445,23 +518,16 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
 
   const creditType = pack.creditType as "ai" | "image" | "audit";
   const newBalance = await addCredits(
-    userId,
-    creditType,
-    pack.quantity,
+    userId, creditType, pack.quantity,
     `Purchased ${pack.quantity} ${pack.creditType} credits`,
     "credit_pack_purchase",
     { packId: pack.id, priceCents: pack.priceCents },
   );
 
-  // Record payment
   const amount = pack.priceCents / 100;
   await db.insert(paymentsTable).values({
-    userId,
-    amount,
-    currency: "USD",
-    status: "completed",
-    gateway: "stripe",
-    gatewayPaymentId: session.payment_intent as string ?? session.id,
+    userId, amount, currency: "USD", status: "completed",
+    gateway: "stripe", gatewayPaymentId: session.payment_intent as string ?? session.id,
     metadata: { type: "credit_pack", packId: pack.id, credits: pack.quantity, creditType: pack.creditType },
   });
 

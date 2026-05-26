@@ -5,8 +5,18 @@ import { getAuditStats, getGetAuditStatsQueryKey } from "@workspace/api-client-r
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScoreRing, ScoreBadge } from "@/components/score-ring";
-import { Plus, ArrowUpRight, TrendingUp, AlertTriangle, ShieldCheck, Target, Loader2, Search } from "lucide-react";
+import { Plus, ArrowUpRight, TrendingUp, AlertTriangle, ShieldCheck, Target, Loader2, Search, Coins } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function useCredits() {
+  return useQuery({
+    queryKey: ["user-subscription"],
+    queryFn: () => fetch(`${basePath}/api/user-subscription`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 30_000,
+  });
+}
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useQuery({
@@ -15,6 +25,15 @@ export default function Dashboard() {
     staleTime: 0,
     refetchInterval: 30_000,
   });
+  const { data: sub } = useCredits();
+  const credits = sub?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const totalAi = sub?.plan?.planAiCredits ?? 0;
+  const totalImage = sub?.plan?.planImageCredits ?? 0;
+  const totalAudit = sub?.plan?.planAuditCredits ?? 0;
+  const lowAi = totalAi > 0 && credits.aiCredits <= Math.max(1, totalAi * 0.15);
+  const lowImage = totalImage > 0 && credits.imageCredits <= Math.max(1, totalImage * 0.15);
+  const lowAudit = totalAudit > 0 && credits.auditCredits <= Math.max(1, totalAudit * 0.15);
+  const anyLow = lowAi || lowImage || lowAudit;
 
   if (isLoading) {
     return (
@@ -42,6 +61,25 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Low credit banner */}
+      {anyLow && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-red-700 text-sm">Low Credits Warning</p>
+            <p className="text-red-600/80 text-xs mt-0.5">
+              {lowAi && "AI credits running low. "}
+              {lowImage && "Image credits running low. "}
+              {lowAudit && "Audit credits running low. "}
+              Purchase more to avoid interruptions.
+            </p>
+          </div>
+          <Button asChild size="sm" className="bg-red-500 hover:bg-red-600 text-white flex-shrink-0">
+            <Link href="/billing">Buy Credits</Link>
+          </Button>
+        </div>
+      )}
+
       <div className="flex items-end justify-between border-b pb-6">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Dashboard</h1>
@@ -83,9 +121,39 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Credit summary strip */}
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Coins className="w-5 h-5 text-orange-500" />
+            Credit Balance
+          </CardTitle>
+          <CardDescription>Your current credit pool across all types</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4">
+              <p className="text-xs font-medium text-blue-600 uppercase">AI Content</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{credits.aiCredits.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {totalAi > 0 ? totalAi.toLocaleString() : "∞"}</span></p>
+              {totalAi > 0 && <div className="mt-2 h-1.5 bg-blue-100 rounded-full overflow-hidden"><div className="h-full bg-blue-400 rounded-full" style={{ width: `${Math.min(100, (credits.aiCredits / totalAi) * 100)}%` }} /></div>}
+            </div>
+            <div className="bg-purple-50/60 border border-purple-100 rounded-xl p-4">
+              <p className="text-xs font-medium text-purple-600 uppercase">Images</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{credits.imageCredits.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {totalImage > 0 ? totalImage.toLocaleString() : "∞"}</span></p>
+              {totalImage > 0 && <div className="mt-2 h-1.5 bg-purple-100 rounded-full overflow-hidden"><div className="h-full bg-purple-400 rounded-full" style={{ width: `${Math.min(100, (credits.imageCredits / totalImage) * 100)}%` }} /></div>}
+            </div>
+            <div className="bg-orange-50/60 border border-orange-100 rounded-xl p-4">
+              <p className="text-xs font-medium text-orange-600 uppercase">Audits</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{credits.auditCredits.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {totalAudit > 0 ? totalAudit.toLocaleString() : "∞"}</span></p>
+              {totalAudit > 0 && <div className="mt-2 h-1.5 bg-orange-100 rounded-full overflow-hidden"><div className="h-full bg-orange-400 rounded-full" style={{ width: `${Math.min(100, (credits.auditCredits / totalAudit) * 100)}%` }} /></div>}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">Recent Audits</h2>
-        
+
         {(!stats?.recentAudits || stats.recentAudits.length === 0) ? (
           <Card className="border-dashed bg-muted/30">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -106,7 +174,7 @@ export default function Dashboard() {
                 <Card className="group hover:border-primary/50 transition-colors cursor-pointer border-border/50">
                   <CardContent className="p-6 flex items-center gap-6">
                     <ScoreRing score={audit.overallScore} size="sm" showLabel={false} />
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="font-bold text-lg truncate group-hover:text-primary transition-colors">

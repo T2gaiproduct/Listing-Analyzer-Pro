@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import { db, creditsTable, creditTransactionsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { db, creditsTable, creditTransactionsTable, creditRulesTable } from "@workspace/db";
 
 type CreditType = "ai" | "image" | "audit";
 
@@ -16,6 +16,38 @@ function getColumn(type: CreditType) {
     case "audit": return creditsTable.auditCredits;
     default: throw new Error(`Unknown credit type: ${type}`);
   }
+}
+
+/**
+ * Read the current credit cost for a feature type from the database rules.
+ * Falls back to defaults if no rule or inactive rule exists.
+ */
+export async function getCreditCost(featureType: string): Promise<{ creditType: CreditType; creditsRequired: number; activityName: string }> {
+  const [rule] = await db
+    .select()
+    .from(creditRulesTable)
+    .where(eq(creditRulesTable.featureType, featureType));
+
+  if (rule && rule.isActive) {
+    return {
+      creditType: (rule.creditType as CreditType) ?? "audit",
+      creditsRequired: rule.creditsRequired,
+      activityName: rule.activityName,
+    };
+  }
+
+  // Fallback defaults
+  const defaults: Record<string, { creditType: CreditType; creditsRequired: number; activityName: string }> = {
+    audit: { creditType: "audit", creditsRequired: 1, activityName: "Audit" },
+    content: { creditType: "ai", creditsRequired: 1, activityName: "Text Content" },
+    ebc: { creditType: "ai", creditsRequired: 1, activityName: "A+ / EBC Content" },
+    images: { creditType: "image", creditsRequired: 6, activityName: "Images" },
+    image_regenerate: { creditType: "image", creditsRequired: 1, activityName: "Image Regenerate" },
+    image_edit: { creditType: "image", creditsRequired: 1, activityName: "Image Edit" },
+    competitors: { creditType: "audit", creditsRequired: 1, activityName: "Competitors Analysis" },
+  };
+
+  return defaults[featureType] ?? { creditType: "audit", creditsRequired: 1, activityName: featureType };
 }
 
 export async function checkCredits(
@@ -45,6 +77,10 @@ export interface DeductResult {
   remaining: number;
 }
 
+/**
+ * Deduct credits with idempotency guard. If a transaction with the same
+ * idempotencyKey already exists (within 24h), no deduction is made again.
+ */
 export async function deductCredits(
   userId: string,
   type: CreditType,
@@ -58,7 +94,25 @@ export async function deductCredits(
     return { success: false, remaining: check.currentBalance };
   }
 
-  const col = getColumn(type);
+  // Idempotency guard: check for duplicate transaction within last 24 hours
+  const idempotencyKey = metadata?.idempotencyKey as string | undefined;
+  if (idempotencyKey) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [existing] = await db
+      .select()
+      .from(creditTransactionsTable)
+      .where(
+        and(
+          eq(creditTransactionsTable.userId, userId),
+          eq(creditTransactionsTable.featureType, featureType),
+          eq(creditTransactionsTable.amount, -amount),
+        ),
+      );
+    if (existing && existing.metadata && (existing.metadata as Record<string, unknown>)?.idempotencyKey === idempotencyKey) {
+      return { success: true, remaining: check.currentBalance - amount };
+    }
+  }
+
   const now = new Date();
 
   await db

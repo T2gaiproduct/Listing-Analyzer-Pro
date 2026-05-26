@@ -4,10 +4,11 @@ import { useLocation } from "wouter";
 import {
   CreditCard, Download, RefreshCw, Plus, CheckCircle2,
   Zap, Image, BarChart3, Clock, CheckCircle, ArrowRight,
-  Wallet, Loader2,
+  Wallet, Loader2, Calculator, AlertTriangle, Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -314,6 +315,44 @@ export default function Billing() {
     staleTime: 60_000,
   });
 
+  // Handle Stripe credit-pack return and custom-credit return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get("credit_success");
+    const customSuccess = params.get("custom_credit_success");
+    const cancelled = params.get("credit_cancel");
+    if (success) {
+      // pack redirect: credit_success=<packId> — confirm via API and show generic success toast
+      fetch(`${basePath}/api/buy-credits/confirm`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ sessionId: success }),
+      })
+        .then((r) => r.json())
+        .then((d: { success?: boolean; addedCredits?: number; creditType?: string; error?: string }) => {
+          if (d.success) {
+            toast({ title: "Credit purchase successful", description: `Added ${d.addedCredits} ${d.creditType} credits.` });
+          } else {
+            toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
+          }
+          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+        })
+        .catch(() => toast({ title: "Confirmation error", variant: "destructive" }));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (customSuccess) {
+      const [amount, creditType] = customSuccess.split("_");
+      toast({ title: "Custom credit purchase successful", description: `Added ${amount} ${creditType} credits.` });
+      void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+      void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (cancelled) {
+      toast({ title: "Credit purchase cancelled" });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle PayPal return redirect (?paypal_captured=1 or ?paypal_cancelled=1)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -356,6 +395,9 @@ export default function Billing() {
   const usedAi = Math.max(0, totalAi - credits.aiCredits);
   const usedImage = Math.max(0, totalImage - credits.imageCredits);
   const usedAudit = Math.max(0, totalAudit - credits.auditCredits);
+  const lowAi = totalAi > 0 && credits.aiCredits <= Math.max(1, totalAi * 0.15);
+  const lowImage = totalImage > 0 && credits.imageCredits <= Math.max(1, totalImage * 0.15);
+  const lowAudit = totalAudit > 0 && credits.auditCredits <= Math.max(1, totalAudit * 0.15);
 
   const { data: creditPacks = [] } = useQuery<CreditPack[]>({
     queryKey: ["credit-packs"],
@@ -533,7 +575,23 @@ export default function Billing() {
 
       {tab === "credits" && (
         <div className="space-y-6">
-          <p className="text-slate-500 text-sm">Top up your credits at any time. Add-on credits never expire after purchase.</p>
+          {(lowAi || lowImage || lowAudit) && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-red-700 text-sm">Low Credits Warning</p>
+                <p className="text-red-600/80 text-xs mt-0.5">
+                  {lowAi && "AI credits are running low. "}
+                  {lowImage && "Image credits are running low. "}
+                  {lowAudit && "Audit credits are running low. "}
+                  Purchase more to avoid interruptions.
+                </p>
+              </div>
+            </div>
+          )}
+          <p className="text-slate-500 text-sm">Top up your credits at any time. Add-on credits never expire after purchase. 1 credit = $0.10</p>
+          <CustomCreditsSection />
+          <CreditRulesCard />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {creditPacks.map((pack) => {
               const iconMap: Record<string, React.ElementType> = { ai: Zap, image: Image, audit: BarChart3 };

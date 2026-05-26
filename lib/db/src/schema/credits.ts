@@ -32,7 +32,21 @@ export const creditPacksTable = pgTable("credit_packs", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const creditRulesTable = pgTable("credit_rules", {
+  id: serial("id").primaryKey(),
+  activityName: text("activity_name").notNull(),
+  featureType: text("feature_type").notNull().unique(),
+  creditType: text("credit_type").notNull().default("audit"),
+  creditsRequired: integer("credits_required").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export type Credits = typeof creditsTable.$inferSelect;
 export type CreditTransaction = typeof creditTransactionsTable.$inferSelect;
 export type CreditPack = typeof creditPacksTable.$inferSelect;
 export type InsertCreditPack = typeof creditPacksTable.$inferInsert;
+export type CreditRule = typeof creditRulesTable.$inferSelect;
+export type InsertCreditRule = typeof creditRulesTable.$inferInsert;

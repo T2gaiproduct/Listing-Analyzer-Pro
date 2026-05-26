@@ -9,7 +9,7 @@ import {
   DeleteCompetitorParams,
 } from "@workspace/api-zod";
 import { analyzeCompetitorWithAI } from "../lib/analyzer";
-import { deductCredits, hasCredits } from "../lib/credits";
+import { deductCredits, hasCredits, getCreditCost } from "../lib/credits";
 
 const router: IRouter = Router();
 
@@ -64,9 +64,10 @@ router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<vo
     return;
   }
 
-  const creditCheck = await hasCredits(userId, "audit", 1);
+  const cost = await getCreditCost("competitors");
+  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
-    res.status(402).json({ error: "Insufficient audit credits. Please purchase more credits." });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
@@ -82,7 +83,7 @@ router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<vo
 
   const { productName, asin, title, bulletPoints, imageCount, targetKeywords } = parsed.data;
 
-  await deductCredits(userId, "audit", 1, "Competitor analysis", "competitors", { auditId: params.data.id });
+  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "competitors", { auditId: params.data.id });
 
   const analysis = await analyzeCompetitorWithAI({
     productName,
