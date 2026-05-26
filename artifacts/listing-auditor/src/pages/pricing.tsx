@@ -210,7 +210,6 @@ export default function Pricing() {
           {plans.map((plan) => {
             const a = plan.creditAllocations ?? {};
             const totalCredits = (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
-            const yearlyCost = Math.round((plan.monthlyPrice ?? 0) * 9.6);
 
             const activityRows = [
               { label: "Audit", value: a.audit, color: "text-orange-700" },
@@ -262,20 +261,10 @@ export default function Pricing() {
                     </div>
                   ))}
 
-                  <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
+                  <div className="border-t border-slate-200 pt-3 mt-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-600 font-medium">Total Monthly Credits</span>
                       <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600 font-medium">Total Monthly Cost</span>
-                      <span className="font-bold text-slate-900">US${plan.monthlyPrice ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600 font-medium">Total Yearly Cost</span>
-                      <span className="font-bold text-slate-900">
-                        US${yearlyCost.toLocaleString()} <span className="text-xs font-normal text-green-600">(20% off)</span>
-                      </span>
                     </div>
                   </div>
                 </div>
