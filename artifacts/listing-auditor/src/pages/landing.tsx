@@ -104,17 +104,16 @@ function LandingPricingSection() {
   });
 
   const plans = dbPlans
-    .filter((p) => p.priceMonthly > 0)
     .sort((a, b) => a.priceMonthly - b.priceMonthly)
-    .slice(0, 3);
+    .slice(0, 4);
 
   return (
     <section className="bg-slate-50 px-6 py-20">
-      <div className="max-w-4xl mx-auto text-center">
+      <div className="max-w-5xl mx-auto text-center">
         <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Pricing</Badge>
         <h2 className="text-3xl font-bold text-slate-900 mb-3">Simple, transparent pricing</h2>
         <p className="text-slate-500 mb-10">Start free. Scale as you grow. No hidden fees.</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           {plans.map((p) => {
             const a = p.creditAllocations ?? {};
             const badges = [
