@@ -309,18 +309,24 @@ export default function Pricing() {
 
       {/* Comparison Table */}
       <section id="comparison" className="px-6 py-16 bg-slate-50">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">Feature Comparison</h2>
           <p className="text-slate-500 text-center mb-10">See exactly what you get with each plan.</p>
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[720px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="text-left px-6 py-4 font-semibold text-slate-700">Feature</th>
-                  <th className="text-center px-4 py-4 font-semibold text-slate-700">Starter</th>
-                  <th className="text-center px-4 py-4 font-semibold text-orange-600">Growth</th>
-                  <th className="text-center px-4 py-4 font-semibold text-slate-700">Pro</th>
-                  <th className="text-center px-4 py-4 font-semibold text-slate-700">Enterprise</th>
+                  <th className="text-left px-6 py-4 font-semibold text-slate-700 w-48">Activity</th>
+                  {plans.map((p, i) => (
+                    <th
+                      key={p.name}
+                      className={`text-center px-4 py-4 font-semibold whitespace-nowrap ${
+                        p.isHighlighted ? "text-orange-600" : "text-slate-700"
+                      }`}
+                    >
+                      {p.name}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -328,30 +334,51 @@ export default function Pricing() {
                   const allocations = plans.map((p) => p.creditAllocations ?? {});
                   const cell = (key: string, idx: number) => {
                     const v = allocations[idx]?.[key];
-                    return v === 999 ? "Unlimited" : (v ? String(v) : "—");
+                    return v === 999 ? "Unlimited" : (typeof v === "number" ? v : "—");
                   };
-                  const rows = [
-                    ["Listing Audits / Month", cell("audit",0), cell("audit",1), cell("audit",2), cell("audit",3)],
-                    ["Text Content Credits", cell("content",0), cell("content",1), cell("content",2), cell("content",3)],
-                    ["Image Generation Credits", cell("images",0), cell("images",1), cell("images",2), cell("images",3)],
-                    ["A+ / EBC Content", cell("ebc",0), cell("ebc",1), cell("ebc",2), cell("ebc",3)],
-                    ["Competitor Analysis", cell("competitors",0), cell("competitors",1), cell("competitors",2), cell("competitors",3)],
-                    ["Team Members", cell("teamMembers",0), cell("teamMembers",1), cell("teamMembers",2), cell("teamMembers",3)],
-                    ["AI Score Breakdown", "Yes", "Yes", "Yes", "Yes"],
-                    ["Content Generator", "Yes", "Yes", "Yes", "Yes"],
-                    ["Image Studio", "Yes", "Yes", "Yes", "Yes"],
-                    ["PDF Reports", "Yes", "Yes", "Yes", "Yes"],
-                    ["API Access", "—", "—", "Yes", "Yes"],
-                    ["White-Label Reports", "—", "—", "—", "Yes"],
-                    ["Priority Support", "Email", "Email", "Dedicated", "Account Manager"],
+                  const totalCredits = plans.map((p, i) => {
+                    const a = allocations[i];
+                    return (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
+                  });
+                  const yearlyCost = plans.map((p) => Math.round((p.monthlyPrice ?? 0) * 9.6));
+
+                  const rows: [string, (string | number)[], boolean][] = [
+                    ["Audit", plans.map((_, i) => cell("audit", i)), false],
+                    ["Text Content", plans.map((_, i) => cell("content", i)), false],
+                    ["Images", plans.map((_, i) => cell("images", i)), false],
+                    ["A+ / EBC Content", plans.map((_, i) => cell("ebc", i)), false],
+                    ["Competitors Analysis", plans.map((_, i) => cell("competitors", i)), false],
+                    ["Team Members", plans.map((_, i) => {
+                      const v = cell("teamMembers", i);
+                      return typeof v === "number" ? v.toFixed(2) : v;
+                    }), false],
+                    ["Total Monthly Credits", totalCredits, true],
+                    ["Total Monthly Cost", plans.map((p) => `US$${p.monthlyPrice ?? 0}`), true],
+                    ["Total Yearly Cost\nAfter 20% Discount", yearlyCost.map((c) => `US$${c.toLocaleString()}`), true],
                   ];
-                  return rows.map(([feature, starter, growth, pro, enterprise], i) => (
-                    <tr key={feature} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                      <td className="px-6 py-3.5 text-slate-700">{feature}</td>
-                      <td className="px-4 py-3.5 text-center text-slate-600">{starter}</td>
-                      <td className="px-4 py-3.5 text-center text-slate-900 font-medium bg-orange-50/30">{growth}</td>
-                      <td className="px-4 py-3.5 text-center text-slate-600">{pro}</td>
-                      <td className="px-4 py-3.5 text-center text-slate-600">{enterprise}</td>
+
+                  return rows.map(([feature, values, isSummary], i) => (
+                    <tr
+                      key={feature}
+                      className={`border-b border-slate-100 ${
+                        isSummary ? "bg-slate-50 font-semibold" : i % 2 === 0 ? "bg-white" : "bg-slate-50/30"
+                      }`}
+                    >
+                      <td className="px-6 py-3.5 text-slate-700 whitespace-pre-line">{feature}</td>
+                      {values.map((val, j) => (
+                        <td
+                          key={j}
+                          className={`px-4 py-3.5 text-center whitespace-nowrap ${
+                            plans[j].isHighlighted && !isSummary
+                              ? "text-slate-900 font-medium bg-orange-50/20"
+                              : isSummary
+                                ? "text-slate-900"
+                                : "text-slate-600"
+                          }`}
+                        >
+                          {val}
+                        </td>
+                      ))}
                     </tr>
                   ));
                 })()}
