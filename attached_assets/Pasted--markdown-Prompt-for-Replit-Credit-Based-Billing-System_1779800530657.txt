@@ -1,0 +1,321 @@
+```markdown
+# Prompt for Replit – Credit Based Billing System + Package Management
+
+You are working on an existing SaaS web application project.  
+Implement a complete **Credit-Based Billing & Usage System** inspired by the Upwork “Buy Connects” model.
+
+The system should allow customers to:
+1. Subscribe to monthly packages
+2. Receive monthly credits based on package
+3. Buy additional credits anytime
+4. Track credit usage in real time
+5. View transparent deduction rules
+6. Allow admin to fully manage packages and credits dynamically
+
+---
+
+# CORE REQUIREMENTS
+
+## 1. CREDIT SYSTEM
+
+Create a universal credit system.
+
+### Credit Value
+- 1 Credit = USD $0.10
+
+### Additional Credit Purchase
+Customers should be able to purchase credits anytime.
+
+Example:
+- 50 Credits = $5
+- 100 Credits = $10
+- 200 Credits = $20
+- 500 Credits = $50
+
+Also allow:
+- Custom credit amount input
+- Auto price calculation
+- Stripe/PayPal integration ready structure
+
+---
+
+# 2. MONTHLY PACKAGE SYSTEM
+
+Recreate package structure exactly like below.
+
+## Packages
+
+| Package | Products | Monthly Credits | Monthly Price |
+|---|---|---|---|
+| Free | 1 Product | 45 Credits | $0 |
+| Growth | 5 Products | 225 Credits | $49 |
+| Pro | 10 Products | 450 Credits | $99 |
+| Enterprise | 25 Products | 1125 Credits | $249 |
+
+### Annual Pricing
+Show yearly billing with 20% discount.
+
+Examples:
+- Growth → $470/year
+- Pro → $950/year
+- Enterprise → $2390/year
+
+---
+
+# 3. CREDIT DEDUCTION RULES
+
+Display this deduction table everywhere:
+- Frontend Pricing Page
+- Customer Dashboard
+- Usage Panel
+- Buy Credits Modal/Page
+
+## Credit Usage Table
+
+| Activity | Credits Deducted |
+|---|---|
+| Audit | 10 Credits |
+| Text Content | 15 Credits |
+| Images | 10 Credits |
+| A+ / EBC Content | 5 Credits |
+| Competitors Analysis | 5 Credits |
+
+Also show equivalent USD values based on:
+1 Credit = $0.10
+
+Example:
+- Audit → 10 Credits → $1.00
+- Text Content → 15 Credits → $1.50
+
+---
+
+# 4. BUY CREDITS FUNCTIONALITY (UPWORK STYLE)
+
+Create a popup/modal/page similar to Upwork “Buy Connects”.
+
+### Features
+- Dropdown with predefined credit bundles
+- Custom amount option
+- Live calculation
+- Current available credits display
+- Purchase summary
+- Apply/Buy button
+
+Example dropdown:
+- 50 Credits → $5
+- 100 Credits → $10
+- 200 Credits → $20
+- 500 Credits → $50
+- Custom Amount
+
+UI should look modern and minimal.
+
+---
+
+# 5. CREDIT USAGE PANEL
+
+Create a usage analytics section for customers.
+
+## Must Show
+- Total Monthly Credits
+- Used Credits
+- Remaining Credits
+- Purchased Additional Credits
+- Expiry Date (if applicable)
+- Usage History
+
+### Usage History Table
+| Date | Action | Credits Used |
+|---|---|---|
+| 12 May | Audit | 10 |
+| 13 May | Images | 10 |
+
+Also include:
+- Progress bar
+- Percentage used
+- Warning when credits are low
+
+---
+
+# 6. ADMIN PANEL REQUIREMENTS
+
+Create fully editable admin controls.
+
+## Admin Must Be Able To:
+### Package Management
+- Create package
+- Edit package
+- Delete package
+- Change pricing
+- Change credits
+- Change product limits
+- Enable/disable yearly plans
+
+### Credit Rules Management
+- Edit activity names
+- Edit deduction credits
+- Add new activity types
+- Delete activity types
+
+### Additional Credit Management
+- Edit credit price per unit
+- Create bundle presets
+- Edit bundle presets
+- Delete bundle presets
+
+---
+
+# 7. DYNAMIC DATABASE STRUCTURE
+
+All package and credit settings should come from database/admin panel.
+
+No hardcoded frontend values.
+
+When admin updates:
+- Packages
+- Credit costs
+- Credit bundles
+- Usage rules
+
+Changes should instantly reflect in:
+- Frontend website
+- Customer dashboard
+- Usage panel
+- Billing pages
+
+---
+
+# 8. DATABASE TABLES
+
+Create proper scalable schema.
+
+## Suggested Tables
+
+### packages
+- id
+- name
+- product_limit
+- monthly_credits
+- monthly_price
+- yearly_price
+- active
+
+### credit_rules
+- id
+- activity_name
+- credits_required
+- usd_value
+
+### credit_purchases
+- id
+- user_id
+- credits
+- amount_paid
+- payment_status
+- transaction_id
+
+### credit_usage
+- id
+- user_id
+- activity_name
+- credits_used
+- created_at
+
+### user_credits
+- id
+- user_id
+- total_credits
+- used_credits
+- remaining_credits
+
+### credit_bundles
+- id
+- credits
+- price
+- active
+
+---
+
+# 9. AUTOMATIC CREDIT DEDUCTION
+
+Whenever customer performs an action:
+- Audit
+- Content generation
+- Image generation
+- A+ content
+- Competitor analysis
+
+System should:
+1. Check available credits
+2. Deduct credits automatically
+3. Store transaction log
+4. Update usage dashboard instantly
+
+If insufficient credits:
+- Show upgrade popup
+- Show buy credits popup
+
+---
+
+# 10. FRONTEND UI REQUIREMENTS
+
+Use modern SaaS UI.
+
+### Include
+- Clean cards
+- Pricing tables
+- Usage charts
+- Progress indicators
+- Responsive design
+- Mobile optimized
+- Dark/light mode support
+
+---
+
+# 11. NOTIFICATIONS
+
+Send alerts:
+- Low credits warning
+- Credits exhausted
+- Successful credit purchase
+- Monthly credit renewal
+
+---
+
+# 12. API REQUIREMENTS
+
+Create APIs for:
+- Get packages
+- Buy credits
+- Get usage
+- Deduct credits
+- Admin update packages
+- Admin update credit rules
+- Admin update bundles
+
+---
+
+# 13. SECURITY & VALIDATION
+
+- Prevent negative balances
+- Prevent duplicate deductions
+- Secure payment flow
+- Role-based admin access
+
+---
+
+# 14. FINAL EXPECTATION
+
+The final system should work exactly like:
+- Upwork Buy Connects model
+BUT adapted for:
+- SaaS Credits System
+
+It should be:
+- Fully dynamic
+- Admin editable
+- Scalable
+- Modern UI
+- Real-time synced across frontend and customer dashboard
+- Production ready
+```
