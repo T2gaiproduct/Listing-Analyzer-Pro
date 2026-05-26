@@ -3,7 +3,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, count, avg, sql, desc, and, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
-  db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable,
+  db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable,
   paymentsTable, invoicesTable, refundsTable, couponsTable,
   adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
@@ -1218,6 +1218,71 @@ router.get("/admin/customers/:userId/team", requireAdmin, async (req, res): Prom
   }));
 
   res.json({ members, memberStats });
+});
+
+// ─── Admin Credit Pack Management ─────────────────────────────────────────────
+
+router.get("/admin/credit-packs", requireAdmin, async (req, res): Promise<void> => {
+  const packs = await db
+    .select()
+    .from(creditPacksTable)
+    .orderBy(creditPacksTable.sortOrder);
+  res.json(packs);
+});
+
+router.post("/admin/credit-packs", requireAdmin, async (req, res): Promise<void> => {
+  const { creditType, quantity, priceCents, label, sortOrder, isActive } = req.body as {
+    creditType: string;
+    quantity: number;
+    priceCents: number;
+    label?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  };
+  if (!creditType || !quantity || !priceCents) {
+    res.status(400).json({ error: "creditType, quantity, and priceCents are required" });
+    return;
+  }
+  const [pack] = await db
+    .insert(creditPacksTable)
+    .values({
+      creditType,
+      quantity,
+      priceCents,
+      label: label ?? null,
+      sortOrder: sortOrder ?? 0,
+      isActive: isActive ?? true,
+    })
+    .returning();
+  res.status(201).json(pack);
+});
+
+router.patch("/admin/credit-packs/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const body = req.body as Partial<{
+    creditType: string;
+    quantity: number;
+    priceCents: number;
+    label: string;
+    sortOrder: number;
+    isActive: boolean;
+  }>;
+  const now = new Date();
+  const [updated] = await db
+    .update(creditPacksTable)
+    .set({ ...body, updatedAt: now })
+    .where(eq(creditPacksTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Pack not found" }); return; }
+  res.json(updated);
+});
+
+router.delete("/admin/credit-packs/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(creditPacksTable).where(eq(creditPacksTable.id, id));
+  res.sendStatus(204);
 });
 
 export default router;

@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { eq, and } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, auditsTable, competitorsTable } from "@workspace/db";
 import {
   AddCompetitorBody,
@@ -8,13 +9,36 @@ import {
   DeleteCompetitorParams,
 } from "@workspace/api-zod";
 import { analyzeCompetitorWithAI } from "../lib/analyzer";
+import { deductCredits, hasCredits } from "../lib/credits";
 
 const router: IRouter = Router();
 
-router.get("/audits/:id/competitors", async (req, res): Promise<void> => {
+interface AuthedRequest extends Request {
+  userId: string;
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  (req as AuthedRequest).userId = userId;
+  next();
+}
+
+router.get("/audits/:id/competitors", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = ListCompetitorsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [audit] = await db
+    .select()
+    .from(auditsTable)
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)));
+  if (!audit) {
+    res.status(404).json({ error: "Audit not found" });
     return;
   }
 
@@ -26,7 +50,8 @@ router.get("/audits/:id/competitors", async (req, res): Promise<void> => {
   res.json(competitors.map(c => ({ ...c, weaknesses: c.weaknesses ?? [] })));
 });
 
-router.post("/audits/:id/competitors", async (req, res): Promise<void> => {
+router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = AddCompetitorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -39,10 +64,16 @@ router.post("/audits/:id/competitors", async (req, res): Promise<void> => {
     return;
   }
 
+  const creditCheck = await hasCredits(userId, "audit", 1);
+  if (!creditCheck) {
+    res.status(402).json({ error: "Insufficient audit credits. Please purchase more credits." });
+    return;
+  }
+
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(eq(auditsTable.id, params.data.id));
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)));
 
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
@@ -50,6 +81,8 @@ router.post("/audits/:id/competitors", async (req, res): Promise<void> => {
   }
 
   const { productName, asin, title, bulletPoints, imageCount, targetKeywords } = parsed.data;
+
+  await deductCredits(userId, "audit", 1, "Competitor analysis", "competitors", { auditId: params.data.id });
 
   const analysis = await analyzeCompetitorWithAI({
     productName,
@@ -80,7 +113,7 @@ router.post("/audits/:id/competitors", async (req, res): Promise<void> => {
   res.status(201).json({ ...competitor, weaknesses: competitor.weaknesses ?? [] });
 });
 
-router.delete("/competitors/:id", async (req, res): Promise<void> => {
+router.delete("/competitors/:id", requireAuth, async (req, res): Promise<void> => {
   const params = DeleteCompetitorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

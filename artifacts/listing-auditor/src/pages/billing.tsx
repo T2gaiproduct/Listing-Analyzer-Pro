@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import {
   CreditCard, Download, RefreshCw, Plus, CheckCircle2,
   Zap, Image, BarChart3, Clock, CheckCircle, ArrowRight,
-  Wallet,
+  Wallet, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,21 @@ interface PaymentConfig {
   stripe: { enabled: boolean; publishableKey: string; mode: string };
   razorpay: { enabled: boolean; keyId: string };
   paypal: { enabled: boolean; clientId: string; mode: string };
+}
+
+interface CreditPack {
+  id: number;
+  creditType: string;
+  quantity: number;
+  priceCents: number;
+  label: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+interface CreditUsage {
+  transactions: { creditType: string; amount: number; reason: string | null; featureType: string | null; createdAt: string }[];
+  breakdown: Record<string, { spent: number; earned: number; count: number }>;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -342,11 +357,18 @@ export default function Billing() {
   const usedImage = Math.max(0, totalImage - credits.imageCredits);
   const usedAudit = Math.max(0, totalAudit - credits.auditCredits);
 
-  const addOns = [
-    { icon: Zap, name: "AI Content Credits", amount: "100 credits", price: 9, color: "text-blue-500", bg: "bg-blue-50" },
-    { icon: Image, name: "Image Generation Credits", amount: "25 images", price: 12, color: "text-purple-500", bg: "bg-purple-50" },
-    { icon: BarChart3, name: "Audit Credits", amount: "20 audits", price: 15, color: "text-orange-500", bg: "bg-orange-50" },
-  ];
+  const { data: creditPacks = [] } = useQuery<CreditPack[]>({
+    queryKey: ["credit-packs"],
+    queryFn: () => fetch(`${basePath}/api/credit-packs`).then((r) => r.json()),
+  });
+
+  const { data: creditUsage } = useQuery<CreditUsage>({
+    queryKey: ["credit-usage"],
+    queryFn: () => fetch(`${basePath}/api/credit-usage`, { credentials: "include" }).then((r) => r.json()),
+    enabled: tab === "credits",
+  });
+
+  const [buyingPackId, setBuyingPackId] = useState<number | null>(null);
 
   function invalidateSub() {
     void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
@@ -440,16 +462,36 @@ export default function Billing() {
           <div className="bg-white border border-slate-200 rounded-2xl p-6">
             <h2 className="font-semibold text-slate-900 mb-4">Buy More Credits</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {addOns.map((a) => (
-                <div key={a.name} className="border border-slate-200 rounded-xl p-4">
-                  <div className={`w-8 h-8 rounded-lg ${a.bg} flex items-center justify-center mb-3`}><a.icon className={`w-4 h-4 ${a.color}`} /></div>
-                  <p className="font-semibold text-slate-900 text-sm mb-0.5">{a.name}</p>
-                  <p className="text-xs text-slate-400 mb-3">{a.amount}</p>
-                  <Button size="sm" variant="outline" className="w-full" onClick={() => toast({ title: "Coming soon", description: "Add-on credits will be available shortly." })}>
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />${a.price}
-                  </Button>
-                </div>
-              ))}
+              {creditPacks.slice(0, 6).map((pack) => {
+                const iconMap: Record<string, React.ElementType> = { ai: Zap, image: Image, audit: BarChart3 };
+                const colorMap: Record<string, { color: string; bg: string }> = { ai: { color: "text-blue-500", bg: "bg-blue-50" }, image: { color: "text-purple-500", bg: "bg-purple-50" }, audit: { color: "text-orange-500", bg: "bg-orange-50" } };
+                const Icon = iconMap[pack.creditType] ?? Zap;
+                const cls = colorMap[pack.creditType] ?? colorMap.ai;
+                return (
+                  <div key={pack.id} className="border border-slate-200 rounded-xl p-4">
+                    <div className={`w-8 h-8 rounded-lg ${cls.bg} flex items-center justify-center mb-3`}><Icon className={`w-4 h-4 ${cls.color}`} /></div>
+                    <p className="font-semibold text-slate-900 text-sm mb-0.5">{pack.label ?? `${pack.quantity} ${pack.creditType} credits`}</p>
+                    <p className="text-xs text-slate-400 mb-3">{pack.quantity} {pack.creditType} credits</p>
+                    <Button size="sm" variant="outline" className="w-full" disabled={buyingPackId === pack.id}
+                      onClick={async () => {
+                        setBuyingPackId(pack.id);
+                        try {
+                          const res = await fetch(`${basePath}/api/buy-credits`, {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            credentials: "include", body: JSON.stringify({ packId: pack.id }),
+                          });
+                          const d = await res.json() as { url?: string; error?: string };
+                          if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
+                          else { window.location.href = d.url; }
+                        } catch { toast({ title: "Network error", variant: "destructive" }); }
+                        finally { setBuyingPackId(null); }
+                      }}>
+                      {buyingPackId === pack.id ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1.5" />}
+                      ${(pack.priceCents / 100).toFixed(2)}
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -490,23 +532,82 @@ export default function Billing() {
       )}
 
       {tab === "credits" && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           <p className="text-slate-500 text-sm">Top up your credits at any time. Add-on credits never expire after purchase.</p>
-          {addOns.map((a) => (
-            <div key={a.name} className="bg-white border border-slate-200 rounded-2xl p-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl ${a.bg} flex items-center justify-center`}><a.icon className={`w-6 h-6 ${a.color}`} /></div>
-                <div>
-                  <p className="font-semibold text-slate-900">{a.name}</p>
-                  <p className="text-slate-400 text-sm">{a.amount} for ${a.price}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {creditPacks.map((pack) => {
+              const iconMap: Record<string, React.ElementType> = { ai: Zap, image: Image, audit: BarChart3 };
+              const colorMap: Record<string, { color: string; bg: string }> = { ai: { color: "text-blue-500", bg: "bg-blue-50" }, image: { color: "text-purple-500", bg: "bg-purple-50" }, audit: { color: "text-orange-500", bg: "bg-orange-50" } };
+              const Icon = iconMap[pack.creditType] ?? Zap;
+              const cls = colorMap[pack.creditType] ?? colorMap.ai;
+              return (
+                <div key={pack.id} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 rounded-xl ${cls.bg} flex items-center justify-center flex-shrink-0`}><Icon className={`w-6 h-6 ${cls.color}`} /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-900">{pack.label ?? `${pack.quantity} ${pack.creditType} credits`}</p>
+                      <p className="text-slate-400 text-sm">{pack.quantity} {pack.creditType} credits · ${(pack.priceCents / 100).toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white" disabled={buyingPackId === pack.id}
+                    onClick={async () => {
+                      setBuyingPackId(pack.id);
+                      try {
+                        const res = await fetch(`${basePath}/api/buy-credits`, {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          credentials: "include", body: JSON.stringify({ packId: pack.id }),
+                        });
+                        const d = await res.json() as { url?: string; error?: string };
+                        if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
+                        else { window.location.href = d.url; }
+                      } catch { toast({ title: "Network error", variant: "destructive" }); }
+                      finally { setBuyingPackId(null); }
+                    }}>
+                    {buyingPackId === pack.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                    Buy — ${(pack.priceCents / 100).toFixed(2)}
+                  </Button>
                 </div>
+              );
+            })}
+            {creditPacks.length === 0 && (
+              <div className="col-span-full text-center py-12 bg-white border border-slate-200 rounded-2xl">
+                <p className="text-slate-400">No credit packs available yet.</p>
               </div>
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={() => toast({ title: "Coming soon", description: "Add-on credit purchases will be available shortly." })}>
-                <Plus className="w-4 h-4 mr-2" />Buy — ${a.price}
-              </Button>
+            )}
+          </div>
+
+          {/* Usage breakdown */}
+          {creditUsage && (
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h2 className="font-semibold text-slate-900">Credit Usage Breakdown</h2>
+              </div>
+              {Object.keys(creditUsage.breakdown).length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-sm">No usage yet</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="border-b border-slate-100">
+                      <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">Feature</th>
+                      <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">Spent</th>
+                      <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">Earned</th>
+                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase">Transactions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(creditUsage.breakdown).map(([feature, data]) => (
+                      <tr key={feature} className="border-b border-slate-50">
+                        <td className="px-6 py-3 font-medium text-slate-800 capitalize">{feature.replace(/_/g, " ")}</td>
+                        <td className="px-4 py-3 text-right text-red-500 font-semibold">{data.spent}</td>
+                        <td className="px-4 py-3 text-right text-green-600 font-semibold">{data.earned}</td>
+                        <td className="px-6 py-3 text-right text-slate-500">{data.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
-          ))}
+          )}
         </div>
       )}
 

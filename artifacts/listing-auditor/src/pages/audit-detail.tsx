@@ -7,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { ImageGallery } from "@/components/image-gallery";
 import { EbcStudio } from "@/components/ebc-studio";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { cn } from "@/lib/utils";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function copyToClipboard(text: string, label: string, toast: ReturnType<typeof useToast>["toast"]) {
   navigator.clipboard.writeText(text).then(() => {
@@ -122,6 +124,12 @@ export default function AuditDetail({ id }: { id: number }) {
   const deleteCompetitor = useDeleteCompetitor();
   const generateContent = useGenerateContent();
 
+  const { data: creditsData } = useQuery({
+    queryKey: ["user-credits"],
+    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
+  });
+  const credits = (creditsData as { credits?: { aiCredits: number; imageCredits: number; auditCredits: number } } | undefined)?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+
   if (isLoading) {
     return (
       <div className="space-y-8 animate-in fade-in">
@@ -166,8 +174,14 @@ export default function AuditDetail({ id }: { id: number }) {
     if (raw.toLowerCase().includes("spend limit") || raw.includes("403")) {
       return "The AI service monthly spend limit has been reached. Please upgrade your Replit plan to continue.";
     }
+    if (raw.includes("402") || raw.toLowerCase().includes("insufficient credits")) {
+      return "You don't have enough credits for this action. Go to Billing to purchase more.";
+    }
     return raw || "Something went wrong. Please try again.";
   };
+
+  const aiLow = credits.aiCredits < 1;
+  const auditLow = credits.auditCredits < 1;
 
   const handleDownloadPdf = () => {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -506,13 +520,20 @@ export default function AuditDetail({ id }: { id: number }) {
                     Our AI will create an Amazon-ready title (200 chars), 5 keyword-rich bullet points, 10 backend search terms, and a full HTML product description — all following Amazon guidelines.
                   </p>
                 </div>
-                <Button onClick={handleGenerateContent} disabled={generateContent.isPending} size="lg" className="mt-2">
-                  {generateContent.isPending ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
+                <div className="flex items-center gap-3 mt-2">
+                  <Button onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow} size="lg">
+                    {generateContent.isPending ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
+                    ) : (
+                      <><Wand2 className="w-4 h-4 mr-2" />Generate Content</>
+                    )}
+                  </Button>
+                  {aiLow ? (
+                    <Link href="/billing" className="text-sm text-destructive hover:underline">1 AI credit required — buy credits</Link>
                   ) : (
-                    <><Wand2 className="w-4 h-4 mr-2" />Generate Content</>
+                    <Badge variant="secondary" className="text-xs font-normal">1 AI credit</Badge>
                   )}
-                </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -522,9 +543,16 @@ export default function AuditDetail({ id }: { id: number }) {
                   <FileText className="w-5 h-5 text-muted-foreground" />
                   Amazon-Ready Content
                 </h2>
-                <Button variant="outline" size="sm" onClick={handleGenerateContent} disabled={generateContent.isPending}>
-                  {generateContent.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Regenerate</>}
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow}>
+                    {generateContent.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Regenerate</>}
+                  </Button>
+                  {aiLow ? (
+                    <Link href="/billing" className="text-xs text-destructive hover:underline">1 AI credit required — buy credits</Link>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs font-normal">1 AI credit</Badge>
+                  )}
+                </div>
               </div>
 
               {/* Title */}
@@ -635,11 +663,18 @@ export default function AuditDetail({ id }: { id: number }) {
             <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
               <Users className="w-5 h-5 text-muted-foreground" />Competitor Analysis
             </h2>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/audits/${id}/competitors/new`}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
-              </Link>
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button asChild size="sm" variant="outline" disabled={auditLow}>
+                <Link href={auditLow ? "/billing" : `/audits/${id}/competitors/new`}>
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
+                </Link>
+              </Button>
+              {auditLow ? (
+                <span className="text-xs text-destructive">1 audit credit required — <Link href="/billing" className="hover:underline">buy credits</Link></span>
+              ) : (
+                <Badge variant="secondary" className="text-xs font-normal">1 audit credit</Badge>
+              )}
+            </div>
           </div>
 
           {audit.competitors.length === 0 ? (

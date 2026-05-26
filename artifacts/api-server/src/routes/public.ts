@@ -3,9 +3,10 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
-  db, plansTable, creditsTable, creditTransactionsTable, paymentsTable, couponsTable,
+  db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, paymentsTable, couponsTable,
   userProfilesTable, subscriptionsTable,
 } from "@workspace/db";
+import { addCredits } from "../lib/credits";
 
 const router: IRouter = Router();
 
@@ -348,6 +349,145 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   ]);
 
   res.json({ ok: true });
+});
+
+// ─── Credit Packs (public list of active packs) ───────────────────────────────
+
+router.get("/credit-packs", async (_req, res): Promise<void> => {
+  const packs = await db
+    .select()
+    .from(creditPacksTable)
+    .where(eq(creditPacksTable.isActive, true))
+    .orderBy(creditPacksTable.sortOrder);
+  res.json(packs);
+});
+
+// ─── Buy Credits (Stripe checkout for credit packs) ───────────────────────────
+
+router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { packId, paymentMethod } = req.body as {
+    packId: number;
+    paymentMethod?: "stripe" | "razorpay" | "paypal";
+  };
+  if (!packId || isNaN(Number(packId))) {
+    res.status(400).json({ error: "packId is required" });
+    return;
+  }
+
+  const [pack] = await db
+    .select()
+    .from(creditPacksTable)
+    .where(eq(creditPacksTable.id, Number(packId)));
+  if (!pack || !pack.isActive) {
+    res.status(404).json({ error: "Credit pack not found or inactive" });
+    return;
+  }
+
+  const method = paymentMethod ?? "stripe";
+
+  if (method === "stripe") {
+    const { getUncachableStripeClient } = await import("../stripeClient");
+    const stripe = await getUncachableStripeClient();
+    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+    const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
+    const successUrl = `${baseUrl}/billing?credit_success=${pack.id}`;
+    const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: { name: pack.label ?? `${pack.quantity} ${pack.creditType} credits` },
+          unit_amount: pack.priceCents,
+        },
+        quantity: 1,
+      }],
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: { userId, creditPackId: String(pack.id), type: "credit_pack" },
+    });
+    res.json({ url: session.url, sessionId: session.id });
+    return;
+  }
+
+  // For razorpay/paypal: return pack details; frontend creates order
+  res.json({
+    pack: { id: pack.id, creditType: pack.creditType, quantity: pack.quantity, priceCents: pack.priceCents, label: pack.label },
+    paymentMethod: method,
+  });
+});
+
+// ─── Confirm Credit Purchase (Stripe webhook or direct confirm) ───────────────
+
+router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { sessionId } = req.body as { sessionId: string };
+  if (!sessionId) { res.status(400).json({ error: "sessionId required" }); return; }
+
+  const { getUncachableStripeClient } = await import("../stripeClient");
+  const stripe = await getUncachableStripeClient();
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  if (session.payment_status !== "paid") {
+    res.status(400).json({ error: "Payment not completed" });
+    return;
+  }
+
+  const packId = Number(session.metadata?.creditPackId);
+  if (!packId || isNaN(packId)) {
+    res.status(400).json({ error: "Invalid session metadata" });
+    return;
+  }
+
+  const [pack] = await db.select().from(creditPacksTable).where(eq(creditPacksTable.id, packId));
+  if (!pack) { res.status(404).json({ error: "Pack not found" }); return; }
+
+  const creditType = pack.creditType as "ai" | "image" | "audit";
+  const newBalance = await addCredits(
+    userId,
+    creditType,
+    pack.quantity,
+    `Purchased ${pack.quantity} ${pack.creditType} credits`,
+    "credit_pack_purchase",
+    { packId: pack.id, priceCents: pack.priceCents },
+  );
+
+  // Record payment
+  const amount = pack.priceCents / 100;
+  await db.insert(paymentsTable).values({
+    userId,
+    amount,
+    currency: "USD",
+    status: "completed",
+    gateway: "stripe",
+    gatewayPaymentId: session.payment_intent as string ?? session.id,
+    metadata: { type: "credit_pack", packId: pack.id, credits: pack.quantity, creditType: pack.creditType },
+  });
+
+  res.json({ success: true, addedCredits: pack.quantity, newBalance, creditType });
+});
+
+// ─── Credit Usage Breakdown ───────────────────────────────────────────────────
+
+router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const transactions = await db
+    .select()
+    .from(creditTransactionsTable)
+    .where(eq(creditTransactionsTable.userId, userId))
+    .orderBy(desc(creditTransactionsTable.createdAt));
+
+  const breakdown: Record<string, { spent: number; earned: number; count: number }> = {};
+  for (const tx of transactions) {
+    const ft = tx.featureType ?? "other";
+    if (!breakdown[ft]) breakdown[ft] = { spent: 0, earned: 0, count: 0 };
+    breakdown[ft].count++;
+    if (tx.amount < 0) breakdown[ft].spent += Math.abs(tx.amount);
+    else breakdown[ft].earned += tx.amount;
+  }
+
+  res.json({ transactions: transactions.slice(0, 100), breakdown });
 });
 
 export default router;

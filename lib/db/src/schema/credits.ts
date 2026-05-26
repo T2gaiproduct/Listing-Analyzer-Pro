@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 
 export const creditsTable = pgTable("credits", {
   id: serial("id").primaryKey(),
@@ -16,8 +16,23 @@ export const creditTransactionsTable = pgTable("credit_transactions", {
   amount: integer("amount").notNull(),
   reason: text("reason"),
   featureType: text("feature_type"),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const creditPacksTable = pgTable("credit_packs", {
+  id: serial("id").primaryKey(),
+  creditType: text("credit_type").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  priceCents: integer("price_cents").notNull().default(0),
+  label: text("label"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export type Credits = typeof creditsTable.$inferSelect;
 export type CreditTransaction = typeof creditTransactionsTable.$inferSelect;
+export type CreditPack = typeof creditPacksTable.$inferSelect;
+export type InsertCreditPack = typeof creditPacksTable.$inferInsert;
