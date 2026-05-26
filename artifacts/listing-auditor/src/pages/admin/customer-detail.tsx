@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link, FileText as FileTextIcon, AlertTriangle } from "lucide-react";
+import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link, FileText as FileTextIcon, AlertTriangle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -741,6 +741,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Gateway</th>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Status</th>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Date</th>
+                      <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Receipt</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -753,6 +754,13 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                           <Badge variant={p.status === "completed" ? "default" : p.status === "failed" ? "destructive" : "secondary"}>{p.status}</Badge>
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-400">{format(new Date(p.createdAt), "MMM d, yyyy")}</td>
+                        <td className="px-5 py-3 text-right">
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            window.open(`${basePath}/api/admin/receipts/${p.id}`, "_blank");
+                          }}>
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

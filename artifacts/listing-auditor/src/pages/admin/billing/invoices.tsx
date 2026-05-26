@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download } from "lucide-react";
 
 interface Invoice {
   id: number; userId: string; amount: number; currency: string; status: string;
@@ -40,13 +40,14 @@ export default function AdminBillingInvoices() {
                   <TableHead>Status</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Receipt</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8">Loading...</TableCell></TableRow>
                 ) : invoices.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No invoices found.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No invoices found.</TableCell></TableRow>
                 ) : (
                   invoices.map((inv) => (
                     <TableRow key={inv.id}>
@@ -56,6 +57,14 @@ export default function AdminBillingInvoices() {
                       <TableCell><Badge variant={inv.status === "paid" ? "default" : inv.status === "unpaid" ? "secondary" : "destructive"}>{inv.status}</Badge></TableCell>
                       <TableCell className="text-muted-foreground">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "-"}</TableCell>
                       <TableCell className="text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          // Admin receipt endpoint with invoiceId as paymentId fallback
+                          window.open(`/api/admin/receipts/${inv.id}`, "_blank");
+                        }}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

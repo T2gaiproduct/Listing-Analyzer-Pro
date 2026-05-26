@@ -209,6 +209,23 @@ router.get("/billing-history", requireAuth, async (req, res): Promise<void> => {
   res.json(payments);
 });
 
+router.get("/receipts/:paymentId", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const paymentId = parseInt(String(req.params.paymentId ?? ""), 10);
+  if (isNaN(paymentId)) { res.status(400).json({ error: "Invalid payment ID" }); return; }
+
+  const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
+  if (!payment) { res.status(404).json({ error: "Receipt not found" }); return; }
+  if (payment.userId !== userId) { res.status(403).json({ error: "Access denied" }); return; }
+
+  const { buildReceipt } = await import("../lib/receipt.js");
+  const pdf = await buildReceipt(paymentId);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="receipt-${String(paymentId).padStart(6, "0")}.pdf"`);
+  res.setHeader("Content-Length", pdf.length);
+  res.send(pdf);
+});
+
 router.post("/coupon/validate", requireAuth, async (req, res): Promise<void> => {
   const { code } = req.body as { code: string };
   if (!code) { res.status(400).json({ error: "No coupon code provided" }); return; }

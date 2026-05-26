@@ -539,7 +539,13 @@ export default function Billing() {
                       <Badge className={p.status === "completed" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>{p.status}</Badge>
                     </td>
                     <td className="px-5 py-4 text-slate-600">{format(new Date(p.createdAt), "MMM d, yyyy")}</td>
-                    <td className="px-5 py-4 text-right"><Button variant="ghost" size="sm"><Download className="w-4 h-4" /></Button></td>
+                    <td className="px-5 py-4 text-right">
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        window.open(`${basePath}/api/receipts/${p.id}`, "_blank");
+                      }}>
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

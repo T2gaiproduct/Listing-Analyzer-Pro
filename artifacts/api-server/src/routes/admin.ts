@@ -641,6 +641,19 @@ router.patch("/admin/invoices/:id", requireAdmin, async (req, res): Promise<void
   res.json(inv);
 });
 
+router.get("/admin/receipts/:paymentId", requireAdmin, async (req, res): Promise<void> => {
+  const paymentId = parseInt(String(req.params.paymentId ?? ""), 10);
+  if (isNaN(paymentId)) { res.status(400).json({ error: "Invalid payment ID" }); return; }
+  const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
+  if (!payment) { res.status(404).json({ error: "Receipt not found" }); return; }
+  const { buildReceipt } = await import("../lib/receipt.js");
+  const pdf = await buildReceipt(paymentId);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="receipt-${String(paymentId).padStart(6, "0")}.pdf"`);
+  res.setHeader("Content-Length", pdf.length);
+  res.send(pdf);
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // BILLING — Refunds
 // ═══════════════════════════════════════════════════════════════════════════════
