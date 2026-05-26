@@ -183,9 +183,14 @@ router.post("/subscription/upgrade", requireAuth, async (req, res): Promise<void
   } else {
     await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
   }
-  await db.update(creditsTable)
-    .set({ aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits, updatedAt: now })
-    .where(eq(creditsTable.userId, userId));
+  const [existingCredits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  if (existingCredits) {
+    await db.update(creditsTable)
+      .set({ aiCredits: existingCredits.aiCredits + plan.aiCredits, imageCredits: existingCredits.imageCredits + plan.imageCredits, auditCredits: existingCredits.auditCredits + plan.auditCredits, updatedAt: now })
+      .where(eq(creditsTable.userId, userId));
+  } else {
+    await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
+  }
   await db.insert(creditTransactionsTable).values([
     { userId, creditType: "ai", amount: plan.aiCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
     { userId, creditType: "image", amount: plan.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
@@ -335,8 +340,9 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
 
   const existingCredits = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
   if (existingCredits.length) {
+    const ec = existingCredits[0];
     await db.update(creditsTable)
-      .set({ aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits, updatedAt: new Date() })
+      .set({ aiCredits: ec.aiCredits + plan.aiCredits, imageCredits: ec.imageCredits + plan.imageCredits, auditCredits: ec.auditCredits + plan.auditCredits, updatedAt: new Date() })
       .where(eq(creditsTable.userId, userId));
   } else {
     await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });

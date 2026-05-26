@@ -354,7 +354,9 @@ router.patch("/admin/customers/:userId/package", requireAdmin, async (req, res):
   if (addCredits !== false) {
     const [existing] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
     if (existing) {
-      await db.update(creditsTable).set({ aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits, updatedAt: now }).where(eq(creditsTable.userId, userId));
+      await db.update(creditsTable)
+        .set({ aiCredits: existing.aiCredits + plan.aiCredits, imageCredits: existing.imageCredits + plan.imageCredits, auditCredits: existing.auditCredits + plan.auditCredits, updatedAt: now })
+        .where(eq(creditsTable.userId, userId));
     } else {
       await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
     }

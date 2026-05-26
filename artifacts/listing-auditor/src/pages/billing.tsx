@@ -99,6 +99,91 @@ function loadRazorpayScript(): Promise<void> {
   });
 }
 
+function CustomCreditsSection() {
+  const { toast } = useToast();
+  const [amount, setAmount] = useState(50);
+  const [creditType, setCreditType] = useState("audit");
+  const [buying, setBuying] = useState(false);
+  const price = amount * 0.10;
+
+  async function handleBuy() {
+    setBuying(true);
+    try {
+      const res = await fetch(`${basePath}/api/buy-custom-credits`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ amount, creditType }),
+      });
+      const d = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
+      else { window.location.href = d.url; }
+    } catch { toast({ title: "Network error", variant: "destructive" }); }
+    finally { setBuying(false); }
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Coins className="w-5 h-5 text-orange-500" />
+        <h3 className="font-semibold text-slate-900">Buy Custom Credits</h3>
+      </div>
+      <div className="flex flex-col md:flex-row gap-4 items-end">
+        <div className="flex-1">
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Credit Type</label>
+          <select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm w-full" value={creditType} onChange={(e) => setCreditType(e.target.value)}>
+            <option value="audit">Audit Credits</option>
+            <option value="ai">AI Content Credits</option>
+            <option value="image">Image Credits</option>
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Amount</label>
+          <Input type="number" min={10} max={10000} value={amount} onChange={(e) => setAmount(Math.max(10, Number(e.target.value)))} className="h-10" />
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Price (1 credit = $0.10)</label>
+          <div className="h-10 flex items-center px-3 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900">
+            <Calculator className="w-4 h-4 text-slate-400 mr-2" />${price.toFixed(2)}
+          </div>
+        </div>
+        <Button className="bg-orange-500 hover:bg-orange-600 text-white h-10 px-6" disabled={buying} onClick={handleBuy}>
+          {buying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+          Buy Now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function CreditRulesCard() {
+  const { data: rules = [] } = useQuery<{ activityName: string; creditsRequired: number; creditType: string; featureType: string }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
+  });
+
+  const typeColors: Record<string, string> = { ai: "text-blue-600 bg-blue-50", image: "text-purple-600 bg-purple-50", audit: "text-orange-600 bg-orange-50" };
+  const typeLabels: Record<string, string> = { ai: "AI", image: "Image", audit: "Audit" };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6">
+      <h3 className="font-semibold text-slate-900 mb-4">Credit Deduction Rules</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {rules.map((r) => (
+          <div key={r.featureType} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+            <div>
+              <p className="text-sm font-medium text-slate-800">{r.activityName}</p>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeColors[r.creditType] ?? "text-slate-600 bg-slate-100"}`}>{typeLabels[r.creditType] ?? r.creditType}</span>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-bold text-slate-900">{r.creditsRequired} credits</p>
+              <p className="text-xs text-slate-400">${(r.creditsRequired * 0.10).toFixed(2)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Gateway-aware payment section ───────────────────────────────────────────
 
 interface PaymentSectionProps {
