@@ -138,12 +138,19 @@ export default function Dashboard() {
         <CardContent>
           {(() => {
             const a = sub?.plan?.creditAllocations as Record<string, number> | undefined;
+            const colorMap: Record<string, { bg: string; border: string; text: string; barBg: string; barFill: string }> = {
+              orange: { bg: "bg-orange-50/60", border: "border-orange-100", text: "text-orange-600", barBg: "bg-orange-100", barFill: "bg-orange-400" },
+              blue: { bg: "bg-blue-50/60", border: "border-blue-100", text: "text-blue-600", barBg: "bg-blue-100", barFill: "bg-blue-400" },
+              purple: { bg: "bg-purple-50/60", border: "border-purple-100", text: "text-purple-600", barBg: "bg-purple-100", barFill: "bg-purple-400" },
+              emerald: { bg: "bg-emerald-50/60", border: "border-emerald-100", text: "text-emerald-600", barBg: "bg-emerald-100", barFill: "bg-emerald-400" },
+              slate: { bg: "bg-slate-50/60", border: "border-slate-100", text: "text-slate-600", barBg: "bg-slate-100", barFill: "bg-slate-400" },
+            };
             const items = [
-              { label: "Audit Credits", color: "orange", used: credits.auditCredits ?? 0, total: a?.audit ?? totalAudit ?? 0, key: "audit" },
-              { label: "Text Content", color: "blue", used: credits.aiCredits ?? 0, total: a?.content ?? totalAi ?? 0, key: "content" },
-              { label: "Image Credits", color: "purple", used: credits.imageCredits ?? 0, total: a?.images ?? totalImage ?? 0, key: "images" },
-              { label: "A+ / EBC", color: "emerald", used: credits.aiCredits ?? 0, total: a?.ebc ?? 0, key: "ebc" },
-              { label: "Competitors", color: "slate", used: credits.auditCredits ?? 0, total: a?.competitors ?? 0, key: "competitors" },
+              { label: "Audit Credits", ...colorMap["orange"], used: credits.auditCredits ?? 0, total: a?.audit ?? totalAudit ?? 0, key: "audit" },
+              { label: "Text Content", ...colorMap["blue"], used: credits.aiCredits ?? 0, total: a?.content ?? totalAi ?? 0, key: "content" },
+              { label: "Image Credits", ...colorMap["purple"], used: credits.imageCredits ?? 0, total: a?.images ?? totalImage ?? 0, key: "images" },
+              { label: "A+ / EBC", ...colorMap["emerald"], used: credits.aiCredits ?? 0, total: a?.ebc ?? 0, key: "ebc" },
+              { label: "Competitors", ...colorMap["slate"], used: credits.auditCredits ?? 0, total: a?.competitors ?? 0, key: "competitors" },
             ];
             return (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -151,13 +158,13 @@ export default function Dashboard() {
                   const pct = it.total > 0 ? Math.min(100, (it.used / it.total) * 100) : 0;
                   const low = it.total > 0 && it.used <= Math.max(1, it.total * 0.15);
                   return (
-                    <div key={it.key} className={`bg-${it.color}-50/60 border border-${it.color}-100 rounded-xl p-4 ${low ? "ring-2 ring-red-200" : ""}`}>
-                      <p className={`text-xs font-medium text-${it.color}-600 uppercase flex items-center gap-1`}>
+                    <div key={it.key} className={`${it.bg} border ${it.border} rounded-xl p-4 ${low ? "ring-2 ring-red-200" : ""}`}>
+                      <p className={`text-xs font-medium ${it.text} uppercase flex items-center gap-1`}>
                         {it.label}
                         {low && <AlertTriangle className="w-3 h-3 text-red-500" />}
                       </p>
                       <p className="text-2xl font-bold text-slate-900 mt-1">{it.used.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {it.total > 0 ? it.total.toLocaleString() : "∞"}</span></p>
-                      {it.total > 0 && <div className="mt-2 h-1.5 bg-${it.color}-100 rounded-full overflow-hidden"><div className={`h-full bg-${it.color}-400 rounded-full`} style={{ width: `${pct}%` }} /></div>}
+                      {it.total > 0 && <div className={`mt-2 h-1.5 ${it.barBg} rounded-full overflow-hidden`}><div className={`h-full ${it.barFill} rounded-full`} style={{ width: `${pct}%` }} /></div>}
                     </div>
                   );
                 })}

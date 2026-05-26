@@ -28,6 +28,12 @@ interface DbPlan {
   trialDays: number;
 }
 
+interface ActivityBadge {
+  label: string;
+  value: string;
+  color: string;
+}
+
 interface DisplayPlan {
   name: string;
   tag: string | null;
@@ -38,6 +44,7 @@ interface DisplayPlan {
   imageCredits: number | null;
   auditCredits: number | null;
   teamMembers: number | null;
+  creditAllocations: Record<string, number> | null;
   features: { text: string; included: boolean }[];
   cta: string;
   ctaVariant: "default" | "outline";
@@ -47,53 +54,57 @@ interface DisplayPlan {
 
 const FALLBACK_PLANS: DisplayPlan[] = [
   {
-    name: "Starter", tag: null, monthlyPrice: 29, yearlyPrice: 23,
+    name: "Free Plan (1 Product)", tag: null, monthlyPrice: 0, yearlyPrice: 0,
     description: "Perfect for solo sellers getting started with AI optimization.",
-    aiCredits: 100, imageCredits: 20, auditCredits: 10, teamMembers: 1,
+    aiCredits: 15, imageCredits: 10, auditCredits: 10, teamMembers: 1,
+    creditAllocations: { audit: 10, content: 15, images: 10, ebc: 5, competitors: 5, teamMembers: 1 },
     features: [
-      { text: "10 listing audits/mo", included: true }, { text: "100 AI content credits", included: true },
-      { text: "20 image generation credits", included: true }, { text: "Competitor comparison", included: true },
+      { text: "1 listing audit/mo", included: true }, { text: "10 AI content credits", included: true },
+      { text: "10 image generation credits", included: true }, { text: "Competitor comparison", included: true },
       { text: "Score breakdown & suggestions", included: true }, { text: "Email support", included: true },
       { text: "Team members", included: false }, { text: "API access", included: false },
     ],
-    cta: "Start 14-Day Trial", ctaVariant: "outline", isHighlighted: false,
+    cta: "Get Started", ctaVariant: "outline", isHighlighted: false,
   },
   {
-    name: "Growth", tag: "Most Popular", monthlyPrice: 79, yearlyPrice: 63,
+    name: "Growth (5 Products)", tag: "Most Popular", monthlyPrice: 49, yearlyPrice: 40,
     description: "For growing brands that need more power and faster results.",
-    aiCredits: 500, imageCredits: 100, auditCredits: 50, teamMembers: 3,
+    aiCredits: 75, imageCredits: 50, auditCredits: 50, teamMembers: 3,
+    creditAllocations: { audit: 50, content: 75, images: 50, ebc: 25, competitors: 25, teamMembers: 3 },
     features: [
-      { text: "50 listing audits/mo", included: true }, { text: "500 AI content credits", included: true },
-      { text: "100 image generation credits", included: true }, { text: "Competitor comparison", included: true },
-      { text: "Score breakdown & suggestions", included: true }, { text: "Priority email support", included: true },
-      { text: "3 team members", included: true }, { text: "API access", included: false },
+      { text: "50 listing audits/mo", included: true }, { text: "75 AI content credits", included: true },
+      { text: "50 image generation credits", included: true }, { text: "25 A+ / EBC content pieces", included: true },
+      { text: "25 competitor analyses", included: true }, { text: "3 team members", included: true },
+      { text: "Priority email support", included: true }, { text: "API access", included: false },
     ],
     cta: "Start 14-Day Trial", ctaVariant: "default", isHighlighted: true,
   },
   {
-    name: "Pro", tag: "Best Value", monthlyPrice: 149, yearlyPrice: 119,
+    name: "Pro (10 Products)", tag: "Best Value", monthlyPrice: 99, yearlyPrice: 80,
     description: "For agencies and power sellers with high-volume needs.",
-    aiCredits: 2000, imageCredits: 400, auditCredits: null, teamMembers: 10,
+    aiCredits: 150, imageCredits: 100, auditCredits: 100, teamMembers: 5,
+    creditAllocations: { audit: 100, content: 150, images: 100, ebc: 50, competitors: 50, teamMembers: 5 },
     features: [
-      { text: "Unlimited listing audits", included: true }, { text: "2,000 AI content credits", included: true },
-      { text: "400 image generation credits", included: true }, { text: "Competitor comparison", included: true },
-      { text: "Score breakdown & suggestions", included: true }, { text: "Dedicated support", included: true },
-      { text: "10 team members", included: true }, { text: "API access", included: true },
+      { text: "100 listing audits/mo", included: true }, { text: "150 AI content credits", included: true },
+      { text: "100 image generation credits", included: true }, { text: "50 A+ / EBC content pieces", included: true },
+      { text: "50 competitor analyses", included: true }, { text: "5 team members", included: true },
+      { text: "Dedicated support", included: true }, { text: "API access", included: true },
     ],
-    cta: "Start 14-Day Trial", ctaVariant: "outline", isHighlighted: false,
+    cta: "Start 14-Day Trial", ctaVariant: "outline", isHighlighted: true,
   },
   {
-    name: "Enterprise", tag: null, monthlyPrice: null, yearlyPrice: null,
+    name: "Enterprise (25 Products)", tag: null, monthlyPrice: 249, yearlyPrice: 200,
     description: "Custom solution for large agencies and enterprise brands.",
-    aiCredits: null, imageCredits: null, auditCredits: null, teamMembers: null,
+    aiCredits: 375, imageCredits: 250, auditCredits: 250, teamMembers: 10,
+    creditAllocations: { audit: 250, content: 375, images: 250, ebc: 125, competitors: 125, teamMembers: 10 },
     features: [
-      { text: "Unlimited everything", included: true }, { text: "Custom AI credit allocation", included: true },
-      { text: "Unlimited image generation", included: true }, { text: "Competitor comparison", included: true },
-      { text: "Score breakdown & suggestions", included: true }, { text: "Dedicated account manager", included: true },
-      { text: "Unlimited team members", included: true }, { text: "Full API access", included: true },
+      { text: "250 listing audits/mo", included: true }, { text: "375 AI content credits", included: true },
+      { text: "250 image generation credits", included: true }, { text: "125 A+ / EBC content pieces", included: true },
+      { text: "125 competitor analyses", included: true }, { text: "10 team members", included: true },
+      { text: "Dedicated account manager", included: true }, { text: "Full API access", included: true },
       { text: "White-label reports", included: true },
     ],
-    cta: "Contact Sales", ctaVariant: "outline", isHighlighted: false, isEnterprise: true,
+    cta: "Get Started", ctaVariant: "outline", isHighlighted: false,
   },
 ];
 
@@ -122,6 +133,7 @@ function dbPlanToDisplay(p: DbPlan): DisplayPlan {
     imageCredits: p.imageCredits,
     auditCredits: p.auditCredits === 999 ? null : p.auditCredits,
     teamMembers: p.teamMembers,
+    creditAllocations: p.creditAllocations,
     features: [...includedFeatures, ...excludedFeatures],
     cta: p.ctaText ?? (p.isTrial && p.trialDays > 0
       ? `Start ${p.trialDays}-Day Trial`
@@ -132,11 +144,11 @@ function dbPlanToDisplay(p: DbPlan): DisplayPlan {
 }
 
 const addOns = [
-  { name: "AI Content Credits", price: "$9", per: "100 credits" },
-  { name: "Image Generation Credits", price: "$12", per: "25 images" },
-  { name: "A+ / EBC Content Credits", price: "$5", per: "5 pieces" },
-  { name: "Competitor Analysis Credits", price: "$5", per: "5 analyses" },
-  { name: "Extra Team Seat", price: "$8", per: "per seat/month" },
+  { name: "Audit Credits", price: "$1.00", per: "10 credits" },
+  { name: "Text Content Credits", price: "$1.50", per: "15 credits" },
+  { name: "Image Credits", price: "$1.00", per: "10 credits" },
+  { name: "A+ / EBC Content", price: "$0.50", per: "5 pieces" },
+  { name: "Competitor Analysis", price: "$0.50", per: "5 analyses" },
 ];
 
 const faqs = [
@@ -215,13 +227,33 @@ export default function Pricing() {
                 )}
               </div>
 
-              {plan.aiCredits !== null && (
-                <div className="flex flex-wrap gap-1.5 mb-5">
-                  <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-md font-medium">{plan.aiCredits} AI credits</span>
-                  <span className="bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded-md font-medium">{plan.imageCredits} images</span>
-                  <span className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md font-medium">{plan.auditCredits !== null ? `${plan.auditCredits} audits` : "Unlimited audits"}</span>
-                </div>
-              )}
+              {(() => {
+                const a = plan.creditAllocations;
+                if (!a) return null;
+                const badgeColorClass: Record<string, string> = {
+                  orange: "bg-orange-50 text-orange-700",
+                  blue: "bg-blue-50 text-blue-700",
+                  purple: "bg-purple-50 text-purple-700",
+                  emerald: "bg-emerald-50 text-emerald-700",
+                  slate: "bg-slate-50 text-slate-700",
+                };
+                const badges = [
+                  { label: "Audit", value: a.audit, color: badgeColorClass["orange"] },
+                  { label: "Content", value: a.content, color: badgeColorClass["blue"] },
+                  { label: "Images", value: a.images, color: badgeColorClass["purple"] },
+                  { label: "A+/EBC", value: a.ebc, color: badgeColorClass["emerald"] },
+                  { label: "Competitors", value: a.competitors, color: badgeColorClass["slate"] },
+                ].filter((b) => typeof b.value === "number");
+                return (
+                  <div className="flex flex-wrap gap-1.5 mb-5">
+                    {badges.map((b) => (
+                      <span key={b.label} className={`${b.color} text-xs px-2 py-1 rounded-md font-medium`}>
+                        {b.value} {b.label}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
 
               <ul className="space-y-2.5 flex-1 mb-6">
                 {plan.features.map((f) => (
@@ -281,28 +313,37 @@ export default function Pricing() {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  ["Listing Audits / Month", "10", "50", "Unlimited", "Unlimited"],
-                  ["AI Content Credits", "100", "500", "2,000", "Custom"],
-                  ["Image Generation Credits", "20", "100", "400", "Unlimited"],
-                  ["Competitor Analysis", "Yes", "Yes", "Yes", "Yes"],
-                  ["AI Score Breakdown", "Yes", "Yes", "Yes", "Yes"],
-                  ["Content Generator", "Yes", "Yes", "Yes", "Yes"],
-                  ["Image Studio", "Yes", "Yes", "Yes", "Yes"],
-                  ["PDF Reports", "Yes", "Yes", "Yes", "Yes"],
-                  ["Team Members", "1", "3", "10", "Unlimited"],
-                  ["API Access", "—", "—", "Yes", "Yes"],
-                  ["White-Label Reports", "—", "—", "—", "Yes"],
-                  ["Priority Support", "Email", "Email", "Dedicated", "Account Manager"],
-                ].map(([feature, starter, growth, pro, enterprise], i) => (
-                  <tr key={feature} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                    <td className="px-6 py-3.5 text-slate-700">{feature}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-600">{starter}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-900 font-medium bg-orange-50/30">{growth}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-600">{pro}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-600">{enterprise}</td>
-                  </tr>
-                ))}
+                {(() => {
+                  const allocations = plans.map((p) => p.creditAllocations ?? {});
+                  const cell = (key: string, idx: number) => {
+                    const v = allocations[idx]?.[key];
+                    return v === 999 ? "Unlimited" : (v ? String(v) : "—");
+                  };
+                  const rows = [
+                    ["Listing Audits / Month", cell("audit",0), cell("audit",1), cell("audit",2), cell("audit",3)],
+                    ["Text Content Credits", cell("content",0), cell("content",1), cell("content",2), cell("content",3)],
+                    ["Image Generation Credits", cell("images",0), cell("images",1), cell("images",2), cell("images",3)],
+                    ["A+ / EBC Content", cell("ebc",0), cell("ebc",1), cell("ebc",2), cell("ebc",3)],
+                    ["Competitor Analysis", cell("competitors",0), cell("competitors",1), cell("competitors",2), cell("competitors",3)],
+                    ["Team Members", cell("teamMembers",0), cell("teamMembers",1), cell("teamMembers",2), cell("teamMembers",3)],
+                    ["AI Score Breakdown", "Yes", "Yes", "Yes", "Yes"],
+                    ["Content Generator", "Yes", "Yes", "Yes", "Yes"],
+                    ["Image Studio", "Yes", "Yes", "Yes", "Yes"],
+                    ["PDF Reports", "Yes", "Yes", "Yes", "Yes"],
+                    ["API Access", "—", "—", "Yes", "Yes"],
+                    ["White-Label Reports", "—", "—", "—", "Yes"],
+                    ["Priority Support", "Email", "Email", "Dedicated", "Account Manager"],
+                  ];
+                  return rows.map(([feature, starter, growth, pro, enterprise], i) => (
+                    <tr key={feature} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                      <td className="px-6 py-3.5 text-slate-700">{feature}</td>
+                      <td className="px-4 py-3.5 text-center text-slate-600">{starter}</td>
+                      <td className="px-4 py-3.5 text-center text-slate-900 font-medium bg-orange-50/30">{growth}</td>
+                      <td className="px-4 py-3.5 text-center text-slate-600">{pro}</td>
+                      <td className="px-4 py-3.5 text-center text-slate-600">{enterprise}</td>
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
