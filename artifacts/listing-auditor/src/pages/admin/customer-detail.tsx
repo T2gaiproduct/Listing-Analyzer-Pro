@@ -600,7 +600,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                     <div className="bg-slate-50 rounded-xl p-4">
                       <p className="text-xs text-slate-500 mb-1">Billing Cycle</p>
                       <p className="font-bold text-slate-900 capitalize">{subscription.billingCycle}</p>
-                      <p className="text-xs text-slate-500">${subscription.billingCycle === "yearly" ? subscription.priceYearly : subscription.priceMonthly}/mo</p>
+                      <p className="text-xs text-slate-500">${subscription.billingCycle === "yearly" ? subscription.priceYearly : subscription.priceMonthly}{subscription.billingCycle === "yearly" ? "/year" : "/mo"}</p>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4">
                       <p className="text-xs text-slate-500 mb-1">
@@ -662,7 +662,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                         <p className="font-bold text-slate-900 mt-1">{plan.name}</p>
                         <p className="text-xl font-extrabold text-slate-900 mt-0.5">
                           ${changePlanYearly ? plan.priceYearly : plan.priceMonthly}
-                          <span className="text-xs font-normal text-slate-400">/mo</span>
+                          <span className="text-xs font-normal text-slate-400">{changePlanYearly ? "/year" : "/mo"}</span>
                         </p>
                         <div className="text-xs text-slate-500 space-y-0.5 mt-2 mb-3">
                           <p>{plan.aiCredits} AI credits</p>

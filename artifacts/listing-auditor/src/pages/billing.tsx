@@ -571,7 +571,7 @@ export default function Billing() {
                   {sub.status === "trial" && <Badge className="bg-blue-100 text-blue-700"><Clock className="w-3 h-3 mr-1" />Free Trial</Badge>}
                 </div>
                 <p className="text-slate-500 text-sm">
-                  ${sub.billingCycle === "yearly" ? sub.priceYearly : sub.priceMonthly}/month
+                  ${sub.billingCycle === "yearly" ? sub.priceYearly : sub.priceMonthly}{sub.billingCycle === "yearly" ? "/year" : "/month"}
                   {sub.billingCycle === "yearly" && <span className="text-slate-400"> (billed yearly)</span>}
                   {" · "}
                   {sub.status === "trial" && sub.trialEndsAt
@@ -656,7 +656,7 @@ export default function Billing() {
                     <h3 className="font-bold text-slate-900">{p.name}</h3>
                     {isCurrent && <Badge className="bg-orange-100 text-orange-700 text-xs">Current</Badge>}
                   </div>
-                  <p className="text-3xl font-extrabold text-slate-900 mb-4">${p.priceMonthly}<span className="text-sm font-normal text-slate-400">/mo</span></p>
+                  <p className="text-3xl font-extrabold text-slate-900 mb-4">${sub?.billingCycle === "yearly" ? p.priceYearly : p.priceMonthly}<span className="text-sm font-normal text-slate-400">{sub?.billingCycle === "yearly" ? "/year" : "/mo"}</span></p>
                   <div className="space-y-2 mb-5 text-sm text-slate-600">
                     <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.aiCredits} AI credits</div>
                     <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.imageCredits} image credits</div>

@@ -314,7 +314,7 @@ export default function Onboarding() {
                       <p className="text-xs text-slate-500 mb-3">{plan.description}</p>
                       <div className="flex items-end gap-1 mb-3">
                         <span className="text-3xl font-extrabold text-slate-900">${yearly ? plan.priceYearly : plan.priceMonthly}</span>
-                        <span className="text-slate-400 text-sm mb-0.5">/mo</span>
+                        <span className="text-slate-400 text-sm mb-0.5">{yearly ? "/year" : "/mo"}</span>
                       </div>
                       <div className="space-y-1 text-xs">
                         <div className="flex items-center gap-1.5 text-blue-700"><Zap className="w-3 h-3" />{plan.aiCredits} AI credits</div>
@@ -415,7 +415,7 @@ export default function Onboarding() {
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-600">{selectedPlan?.name} Plan</span>
-                          <span className="font-semibold text-slate-900">${price}/mo</span>
+                          <span className="font-semibold text-slate-900">${price}{yearly ? "/year" : "/mo"}</span>
                         </div>
                         {yearly && (
                           <div className="flex items-center justify-between text-sm">
@@ -431,7 +431,7 @@ export default function Onboarding() {
                         )}
                         <div className="border-t border-slate-200 pt-2.5 flex items-center justify-between">
                           <span className="font-semibold text-slate-900 text-sm">Total today</span>
-                          <span className="font-bold text-orange-600">${finalPrice}/mo</span>
+                          <span className="font-bold text-orange-600">${finalPrice}{yearly ? "/year" : "/mo"}</span>
                         </div>
                       </div>
 
@@ -485,7 +485,7 @@ export default function Onboarding() {
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">{selectedPlan?.name} Plan</span>
-                      <span className="font-medium">${price}/mo</span>
+                      <span className="font-medium">${price}{yearly ? "/year" : "/mo"}</span>
                     </div>
                     {yearly && (
                       <div className="flex justify-between text-sm">
@@ -501,10 +501,10 @@ export default function Onboarding() {
                     )}
                     <div className="border-t pt-3 flex justify-between font-bold">
                       <span>Total</span>
-                      <span className="text-orange-600">{(yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0 ? "FREE" : useTrial && selectedPlan?.isTrial ? "FREE" : `$${finalPrice}/mo`}</span>
+                      <span className="text-orange-600">{(yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0 ? "FREE" : useTrial && selectedPlan?.isTrial ? "FREE" : `$${finalPrice}${yearly ? "/year" : "/mo"}`}</span>
                     </div>
                     {useTrial && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
-                      <p className="text-xs text-slate-400 text-center">Then ${price}/mo after trial</p>
+                      <p className="text-xs text-slate-400 text-center">Then ${price}{yearly ? "/year" : "/mo"} after trial</p>
                     )}
                   </div>
                   <div className="mt-5 pt-4 border-t space-y-2 text-xs text-slate-500">

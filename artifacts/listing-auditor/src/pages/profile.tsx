@@ -416,7 +416,7 @@ export default function Profile() {
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-400 mb-0.5">Current Plan</p>
                   <p className="font-bold text-slate-900">{sub.planName}</p>
-                  <p className="text-xs text-slate-500">${sub.billingCycle === "yearly" ? sub.priceYearly : sub.priceMonthly}/mo</p>
+                  <p className="text-xs text-slate-500">${sub.billingCycle === "yearly" ? sub.priceYearly : sub.priceMonthly}{sub.billingCycle === "yearly" ? "/year" : "/mo"}</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-400 mb-0.5">Billing Cycle</p>
@@ -520,7 +520,7 @@ export default function Profile() {
                   <p className="font-bold text-slate-900 mt-1">{plan.name}</p>
                   <p className="text-2xl font-extrabold text-slate-900 mt-1">
                     ${upgradeYearly ? plan.priceYearly : plan.priceMonthly}
-                    <span className="text-sm font-normal text-slate-400">/mo</span>
+                    <span className="text-sm font-normal text-slate-400">{upgradeYearly ? "/year" : "/mo"}</span>
                   </p>
                   <div className="text-xs text-slate-500 space-y-0.5 mt-2 mb-3">
                     <p>{plan.aiCredits} AI credits</p>
