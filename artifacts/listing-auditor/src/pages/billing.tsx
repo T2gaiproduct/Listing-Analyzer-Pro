@@ -28,6 +28,8 @@ interface Subscription {
   cardLast4: string | null;
   cardBrand: string | null;
   autoRenew: boolean;
+  couponCode: string | null;
+  discountAmount: number | null;
   planAiCredits: number;
   planImageCredits: number;
   planAuditCredits: number;
@@ -36,7 +38,7 @@ interface Subscription {
 
 interface Credits { aiCredits: number; imageCredits: number; auditCredits: number; }
 interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; isHighlighted: boolean; tag: string | null; }
-interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; invoiceId?: number | null; }
+interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; invoiceId?: number | null; couponCode?: string | null; discountAmount?: number | null; }
 interface Invoice { id: number; amount: number; status: string; currency: string; items: Array<{ description: string; amount: number; quantity: number }>; paidAt: string | null; createdAt: string; }
 
 interface PaymentConfig {
@@ -582,6 +584,12 @@ export default function Billing() {
                       ? `Renews ${format(new Date(sub.currentPeriodEnd), "MMM d, yyyy")}`
                       : ""}
                 </p>
+                {sub.couponCode && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Coupon applied: <span className="font-semibold">{sub.couponCode}</span>
+                    {sub.discountAmount ? ` — $${sub.discountAmount} off` : ""}
+                  </p>
+                )}
               </div>
               <Button variant="outline" size="sm" onClick={() => setTab("plans")}><RefreshCw className="w-4 h-4 mr-2" />Update Your Plan</Button>
             </div>
@@ -889,6 +897,7 @@ export default function Billing() {
                     <th className="text-left px-5 py-3 font-semibold text-slate-600">Amount</th>
                     <th className="text-left px-5 py-3 font-semibold text-slate-600">Status</th>
                     <th className="text-left px-5 py-3 font-semibold text-slate-600">Date</th>
+                    <th className="text-left px-5 py-3 font-semibold text-slate-600">Coupon</th>
                     <th className="text-right px-5 py-3 font-semibold text-slate-600">Receipt</th>
                   </tr>
                 </thead>
@@ -902,6 +911,11 @@ export default function Billing() {
                         <Badge className={p.status === "completed" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>{p.status}</Badge>
                       </td>
                       <td className="px-5 py-4 text-slate-600">{format(new Date(p.createdAt), "MMM d, yyyy")}</td>
+                      <td className="px-5 py-4 text-slate-600 text-xs">
+                        {p.couponCode ? (
+                          <span className="text-green-600 font-medium">{p.couponCode}{p.discountAmount ? ` –$${p.discountAmount}` : ""}</span>
+                        ) : "—"}
+                      </td>
                       <td className="px-5 py-4 text-right">
                         <Button variant="ghost" size="sm" onClick={() => {
                           window.open(`${basePath}/api/receipts/${p.id}`, "_blank");

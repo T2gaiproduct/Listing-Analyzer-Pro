@@ -85,6 +85,10 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
 
   const amount = (invoice.amount_paid ?? 0) / 100;
 
+  // Persist coupon info from subscription record
+  const couponCode = appSub.couponCode ?? null;
+  const discountAmount = appSub.discountAmount ? Number(appSub.discountAmount) : null;
+
   // Record payment
   await db.insert(paymentsTable).values({
     userId,
@@ -93,6 +97,8 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
     status: "completed",
     gateway: "stripe",
     gatewayPaymentId: invoice.id,
+    couponCode,
+    discountAmount,
   });
 
   // Top up credits for the new period
@@ -161,7 +167,7 @@ async function handleSubscriptionDeleted(sub: Record<string, unknown> & { id: st
   logger.info({ userId: profile.userId }, "Subscription cancelled via Stripe");
 }
 
-async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: string; customer: string | unknown; status: string; current_period_start?: number; current_period_end?: number }): Promise<void> {
+async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: string; customer: string | unknown; status: string; current_period_start?: number; current_period_end?: number; items?: Array<{ price?: { id: string } }> }): Promise<void> {
   const customerId = typeof sub.customer === "string" ? sub.customer : null;
   if (!customerId) return;
 
@@ -191,15 +197,32 @@ async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: st
     ? new Date(sub.current_period_end * 1000)
     : undefined;
 
+  // Sync planId + billingCycle from Stripe price IDs
+  const stripePriceId = sub.items?.[0]?.price?.id;
+  let planId: number | undefined;
+  let billingCycle: "monthly" | "yearly" | undefined;
+  if (stripePriceId) {
+    const plans = await db.select().from(plansTable);
+    const matchedPlan = plans.find((p) => p.stripePriceIdMonthly === stripePriceId || p.stripePriceIdYearly === stripePriceId);
+    if (matchedPlan) {
+      planId = matchedPlan.id;
+      billingCycle = matchedPlan.stripePriceIdYearly === stripePriceId ? "yearly" : "monthly";
+    }
+  }
+
+  const updateData: Record<string, unknown> = {
+    status: newStatus,
+    stripeSubscriptionId: sub.id,
+    updatedAt: new Date(),
+  };
+  if (currentPeriodStart) updateData.currentPeriodStart = currentPeriodStart;
+  if (currentPeriodEnd) updateData.currentPeriodEnd = currentPeriodEnd;
+  if (planId) updateData.planId = planId;
+  if (billingCycle) updateData.billingCycle = billingCycle;
+
   await db.update(subscriptionsTable)
-    .set({
-      status: newStatus,
-      ...(currentPeriodStart && { currentPeriodStart }),
-      ...(currentPeriodEnd && { currentPeriodEnd }),
-      stripeSubscriptionId: sub.id,
-      updatedAt: new Date(),
-    })
+    .set(updateData)
     .where(eq(subscriptionsTable.userId, userId));
 
-  logger.info({ userId, status: newStatus }, "Subscription updated from Stripe");
+  logger.info({ userId, status: newStatus, planId, billingCycle }, "Subscription updated from Stripe");
 }

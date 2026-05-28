@@ -231,7 +231,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
   }
 
   const { user, profile, audits, auditStats, credits, transactions, subscription } = data ?? {};
-  const payments: Array<{ id: number; amount: number; currency: string; status: string; gateway: string; createdAt: string }> = billingData?.payments ?? [];
+  const payments: Array<{ id: number; amount: number; currency: string; status: string; gateway: string; createdAt: string; couponCode?: string | null; discountAmount?: number | null }> = billingData?.payments ?? [];
   const invoices: Array<{ id: number; amount: number; currency: string; status: string; dueDate: string | null; createdAt: string }> = billingData?.invoices ?? [];
 
   const totalSpend = payments.filter((p) => p.status === "completed").reduce((s, p) => s + p.amount, 0);
@@ -596,6 +596,9 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                       <p className="text-xs text-slate-500 mb-1">Plan</p>
                       <p className="font-bold text-slate-900">{subscription.planName ?? "—"}</p>
                       <Badge className={`mt-1 ${subscription.status === "active" ? "bg-green-100 text-green-700" : subscription.status === "trial" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"} hover:bg-inherit`}>{subscription.status}</Badge>
+                      {subscription.couponCode && (
+                        <p className="text-xs text-green-600 mt-1">Coupon: {subscription.couponCode}{subscription.discountAmount ? ` — $${subscription.discountAmount} off` : ""}</p>
+                      )}
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4">
                       <p className="text-xs text-slate-500 mb-1">Billing Cycle</p>
@@ -741,6 +744,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Gateway</th>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Status</th>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Date</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Coupon</th>
                       <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Receipt</th>
                     </tr>
                   </thead>
@@ -754,6 +758,11 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                           <Badge variant={p.status === "completed" ? "default" : p.status === "failed" ? "destructive" : "secondary"}>{p.status}</Badge>
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-400">{format(new Date(p.createdAt), "MMM d, yyyy")}</td>
+                        <td className="px-4 py-3 text-slate-600 text-xs">
+                          {p.couponCode ? (
+                            <span className="text-green-600 font-medium">{p.couponCode}{p.discountAmount ? ` –$${p.discountAmount}` : ""}</span>
+                          ) : "—"}
+                        </td>
                         <td className="px-5 py-3 text-right">
                           <Button variant="ghost" size="sm" onClick={() => {
                             window.open(`${basePath}/api/admin/receipts/${p.id}`, "_blank");

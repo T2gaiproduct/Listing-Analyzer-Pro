@@ -41,6 +41,8 @@ interface ProfileData {
     cardLast4: string | null;
     cardBrand: string | null;
     autoRenew: boolean;
+    couponCode: string | null;
+    discountAmount: number | null;
     planAiCredits: number;
     planImageCredits: number;
     planAuditCredits: number;
@@ -417,6 +419,9 @@ export default function Profile() {
                   <p className="text-xs text-slate-400 mb-0.5">Current Plan</p>
                   <p className="font-bold text-slate-900">{sub.planName}</p>
                   <p className="text-xs text-slate-500">${sub.billingCycle === "yearly" ? sub.priceYearly : sub.priceMonthly}{sub.billingCycle === "yearly" ? "/year" : "/mo"}</p>
+                  {sub.couponCode && (
+                    <p className="text-xs text-green-600 mt-1">Coupon: {sub.couponCode}{sub.discountAmount ? ` — $${sub.discountAmount} off` : ""}</p>
+                  )}
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-400 mb-0.5">Billing Cycle</p>
