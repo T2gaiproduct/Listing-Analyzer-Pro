@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { User, Building2, Phone, Globe, CreditCard, Zap, Image, BarChart3, Edit2, Save, X, Calendar, CheckCircle, Clock, AlertTriangle, ArrowUpRight, FileText, RefreshCw, Link, Users, Receipt, KeyRound, Eye, EyeOff } from "lucide-react";
+import { User, Building2, Phone, Globe, CreditCard, Edit2, Save, X, Calendar, CheckCircle, Clock, AlertTriangle, ArrowUpRight, FileText, RefreshCw, Link, Users, KeyRound, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { format, differenceInDays } from "date-fns";
+import { format } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -80,45 +80,6 @@ interface Plan {
   auditCredits: number;
   tag: string | null;
   isHighlighted: boolean;
-}
-
-function CreditBar({ label, icon: Icon, used, total, color, bg, available }: { label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string; available?: number }) {
-  const avail = available ?? Math.max(0, total - used);
-  const pct = avail > 0 ? Math.min(100, Math.round((used / avail) * 100)) : 0;
-  const isLow = avail > 0 && used >= avail * 0.8;
-  const isCritical = avail > 0 && used >= avail * 0.95;
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center`}>
-            <Icon className={`w-3.5 h-3.5 ${color}`} />
-          </div>
-          <span className="text-sm font-medium text-slate-700">{label}</span>
-          {isLow && <AlertTriangle className={`w-3.5 h-3.5 ${isCritical ? "text-red-500" : "text-yellow-500"}`} />}
-        </div>
-        <div className="text-right">
-          <span className={`text-xs font-bold ${isCritical ? "text-red-500" : isLow ? "text-yellow-600" : "text-slate-700"}`}>{used.toLocaleString()} used</span>
-          <span className="text-xs text-slate-400"> / {avail.toLocaleString()}</span>
-        </div>
-      </div>
-      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${isCritical ? "bg-red-500" : isLow ? "bg-yellow-400" : "bg-orange-400"}`} style={{ width: `${pct}%` }} />
-      </div>
-      <p className={`text-xs mt-1 ${isCritical ? "text-red-500 font-semibold" : isLow ? "text-yellow-600 font-medium" : "text-slate-400"}`}>
-        {avail.toLocaleString()} remaining{isCritical ? " — critical! Upgrade now" : isLow ? " — running low" : ""}
-      </p>
-    </div>
-  );
-}
-
-function featureLabel(ft: string | null): string {
-  const map: Record<string, string> = {
-    subscription: "Plan Credit", ai_content: "AI Content", ai_audit: "Listing Audit",
-    image_gen: "Image Generation", image_edit: "Image Editing", export: "Export",
-    admin_adjustment: "Admin Adjustment", other: "Other",
-  };
-  return map[ft ?? "other"] ?? ft ?? "—";
 }
 
 export default function Profile() {
@@ -225,12 +186,8 @@ export default function Profile() {
 
   const sub = data?.subscription;
   const credits = data?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const usedAi = Math.max(0, (sub?.planAiCredits ?? 0) - credits.aiCredits);
-  const usedImage = Math.max(0, (sub?.planImageCredits ?? 0) - credits.imageCredits);
-  const usedAudit = Math.max(0, (sub?.planAuditCredits ?? 0) - credits.auditCredits);
 
   const isLowCredits = credits.aiCredits < 20 || credits.imageCredits < 5 || credits.auditCredits < 2;
-  const trialDaysLeft = sub?.trialEndsAt ? differenceInDays(new Date(sub.trialEndsAt), new Date()) : null;
 
   function statusBadge(status: string) {
     if (status === "active") return <Badge className="bg-green-100 text-green-700 hover:bg-green-100"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>;
@@ -266,12 +223,12 @@ export default function Profile() {
       )}
 
       {/* Trial upgrade prompt */}
-      {sub?.status === "trial" && trialDaysLeft !== null && trialDaysLeft <= 3 && (
+      {sub?.status === "trial" && sub?.trialEndsAt && (
         <div className="bg-blue-50 border border-blue-300 rounded-xl p-4 flex items-start gap-3">
           <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-blue-800">
-              {trialDaysLeft <= 0 ? "Your trial has ended" : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left in your trial`}
+              {new Date(sub.trialEndsAt) <= new Date() ? "Your trial has ended" : "Trial ending soon"}
             </p>
             <p className="text-xs text-blue-600 mt-0.5">Upgrade now to keep full access and all your credits.</p>
           </div>
@@ -547,100 +504,6 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Credits */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Credit Usage</CardTitle>
-          <p className="text-xs text-slate-400 mt-0.5">Credits reset at the start of each billing period</p>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <CreditBar label="AI Content Credits" icon={Zap} used={usedAi} total={sub?.planAiCredits ?? credits.aiCredits} color="text-blue-500" bg="bg-blue-50" available={credits.aiCredits} />
-          <CreditBar label="Image Generation Credits" icon={Image} used={usedImage} total={sub?.planImageCredits ?? credits.imageCredits} color="text-purple-500" bg="bg-purple-50" available={credits.imageCredits} />
-          <CreditBar label="Audit Credits" icon={BarChart3} used={usedAudit} total={sub?.planAuditCredits ?? credits.auditCredits} color="text-orange-500" bg="bg-orange-50" available={credits.auditCredits} />
-          <div className="grid grid-cols-3 gap-3 pt-2 border-t">
-            {[
-              { label: "AI Credits Left", value: credits.aiCredits, color: "text-blue-600" },
-              { label: "Image Credits Left", value: credits.imageCredits, color: "text-purple-600" },
-              { label: "Audit Credits Left", value: credits.auditCredits, color: "text-orange-600" },
-            ].map((c) => (
-              <div key={c.label} className="text-center bg-slate-50 rounded-lg py-3">
-                <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{c.label}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Credit transaction log */}
-      {data?.transactions && data.transactions.length > 0 && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Credit History</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Type</th>
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500">Feature</th>
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500">Reason</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Amount</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.transactions.map((tx) => (
-                  <tr key={tx.id} className="border-b border-slate-50">
-                    <td className="px-5 py-2.5">
-                      <span className={`text-xs font-medium capitalize px-2 py-0.5 rounded ${tx.creditType === "ai" ? "bg-blue-50 text-blue-700" : tx.creditType === "image" ? "bg-purple-50 text-purple-700" : "bg-orange-50 text-orange-700"}`}>{tx.creditType}</span>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-slate-500">{featureLabel(tx.featureType)}</td>
-                    <td className="px-3 py-2.5 text-slate-500 text-xs">{tx.reason ?? "—"}</td>
-                    <td className="px-5 py-2.5 text-right font-semibold">
-                      <span className={tx.amount > 0 ? "text-green-600" : "text-red-500"}>{tx.amount > 0 ? "+" : ""}{tx.amount}</span>
-                    </td>
-                    <td className="px-5 py-2.5 text-right text-xs text-slate-400">{format(new Date(tx.createdAt), "MMM d, yyyy HH:mm")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Billing history */}
-      {data?.billingHistory && data.billingHistory.length > 0 && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-orange-500" />Billing History</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Invoice</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Amount</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Status</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.billingHistory.map((p) => (
-                  <tr key={p.id} className="border-b border-slate-50">
-                    <td className="px-5 py-3 text-slate-500 text-xs font-mono">#{p.id}</td>
-                    <td className="px-4 py-3 font-semibold">${p.amount.toFixed(2)} <span className="text-xs text-slate-400">{p.currency}</span></td>
-                    <td className="px-4 py-3">
-                      <Badge variant={p.status === "completed" ? "default" : "secondary"} className="text-xs">{p.status}</Badge>
-                    </td>
-                    <td className="px-5 py-3 text-right text-xs text-slate-400">{format(new Date(p.createdAt), "MMM d, yyyy")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
     </div>
 
     {/* Change Password Dialog */}
