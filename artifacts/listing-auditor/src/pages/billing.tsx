@@ -559,46 +559,45 @@ export default function Billing() {
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all capitalize ${tab === t ? "border-orange-500 text-orange-500" : "border-transparent text-slate-500 hover:text-slate-900"}`}
           >
-            {t === "history" ? "Billing History" : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === "history" ? "Billing History" : t === "credits" ? "Buy Credits" : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
       {tab === "overview" && (
         <div className="space-y-6">
+          {/* Credit Balance Summary */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <div className="flex items-start justify-between mb-5">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-lg font-bold text-slate-900">{sub.planName ?? "Unknown"} Plan</h2>
-                  {sub.status === "active" && <Badge className="bg-green-100 text-green-700"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>}
-                  {sub.status === "trial" && <Badge className="bg-blue-100 text-blue-700"><Clock className="w-3 h-3 mr-1" />Free Trial</Badge>}
-                </div>
-                <p className="text-slate-500 text-sm">
-                  ${sub.billingCycle === "yearly" ? sub.priceYearly : sub.priceMonthly}{sub.billingCycle === "yearly" ? "/year" : "/month"}
-                  {sub.billingCycle === "yearly" && <span className="text-slate-400"> (billed yearly)</span>}
-                  {" · "}
-                  {sub.status === "trial" && sub.trialEndsAt
-                    ? `Trial ends ${format(new Date(sub.trialEndsAt), "MMM d, yyyy")}`
-                    : sub.currentPeriodEnd
-                      ? `Renews ${format(new Date(sub.currentPeriodEnd), "MMM d, yyyy")}`
-                      : ""}
-                </p>
-                {sub.couponCode && (
-                  <p className="text-xs text-green-600 mt-1">
-                    Coupon applied: <span className="font-semibold">{sub.couponCode}</span>
-                    {sub.discountAmount ? ` — $${sub.discountAmount} off` : ""}
-                  </p>
-                )}
-              </div>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-slate-900">Credit Balance Summary</h2>
               <Button variant="outline" size="sm" onClick={() => setTab("plans")}><RefreshCw className="w-4 h-4 mr-2" />Update Your Plan</Button>
             </div>
-            {sub.status === "trial" && (
-              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700 flex items-center gap-2">
-                <Clock className="w-4 h-4 flex-shrink-0" />
-                Your free trial {sub.trialEndsAt ? `ends ${format(new Date(sub.trialEndsAt), "MMM d")}` : "is active"}. Add a payment method to continue after the trial.
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-blue-500" />
+                  <p className="text-xs text-blue-600 font-semibold uppercase">AI Credits</p>
+                </div>
+                <p className="text-3xl font-bold text-blue-700">{credits.aiCredits.toLocaleString()}</p>
+                <p className="text-xs text-blue-400 mt-0.5">Available</p>
               </div>
-            )}
+              <div className="bg-purple-50 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Image className="w-4 h-4 text-purple-500" />
+                  <p className="text-xs text-purple-600 font-semibold uppercase">Image Credits</p>
+                </div>
+                <p className="text-3xl font-bold text-purple-700">{credits.imageCredits.toLocaleString()}</p>
+                <p className="text-xs text-purple-400 mt-0.5">Available</p>
+              </div>
+              <div className="bg-orange-50 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <BarChart3 className="w-4 h-4 text-orange-500" />
+                  <p className="text-xs text-orange-600 font-semibold uppercase">Audit Credits</p>
+                </div>
+                <p className="text-3xl font-bold text-orange-700">{credits.auditCredits.toLocaleString()}</p>
+                <p className="text-xs text-orange-400 mt-0.5">Available</p>
+              </div>
+            </div>
             <div className="space-y-4">
               <CreditBar label="AI Content Credits" icon={Zap} used={usedAi} total={totalAi} color="text-blue-500" bg="bg-blue-50" />
               <CreditBar label="Image Generation Credits" icon={Image} used={usedImage} total={totalImage} color="text-purple-500" bg="bg-purple-50" />
@@ -606,45 +605,10 @@ export default function Billing() {
             </div>
           </div>
 
+          {/* Payment Method */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6">
             <h2 className="font-semibold text-slate-900 mb-4">Payment Method</h2>
             <PaymentMethodSection sub={sub} config={config} onSuccess={invalidateSub} />
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <h2 className="font-semibold text-slate-900 mb-4">Buy More Credits</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {creditPacks.slice(0, 6).map((pack) => {
-                const iconMap: Record<string, React.ElementType> = { ai: Zap, image: Image, audit: BarChart3 };
-                const colorMap: Record<string, { color: string; bg: string }> = { ai: { color: "text-blue-500", bg: "bg-blue-50" }, image: { color: "text-purple-500", bg: "bg-purple-50" }, audit: { color: "text-orange-500", bg: "bg-orange-50" } };
-                const Icon = iconMap[pack.creditType] ?? Zap;
-                const cls = colorMap[pack.creditType] ?? colorMap.ai;
-                return (
-                  <div key={pack.id} className="border border-slate-200 rounded-xl p-4">
-                    <div className={`w-8 h-8 rounded-lg ${cls.bg} flex items-center justify-center mb-3`}><Icon className={`w-4 h-4 ${cls.color}`} /></div>
-                    <p className="font-semibold text-slate-900 text-sm mb-0.5">{pack.label ?? `${pack.quantity} ${pack.creditType} credits`}</p>
-                    <p className="text-xs text-slate-400 mb-3">{pack.quantity} {pack.creditType} credits</p>
-                    <Button size="sm" variant="outline" className="w-full" disabled={buyingPackId === pack.id}
-                      onClick={async () => {
-                        setBuyingPackId(pack.id);
-                        try {
-                          const res = await fetch(`${basePath}/api/buy-credits`, {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            credentials: "include", body: JSON.stringify({ packId: pack.id }),
-                          });
-                          const d = await res.json() as { url?: string; error?: string };
-                          if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
-                          else { window.location.href = d.url; }
-                        } catch { toast({ title: "Network error", variant: "destructive" }); }
-                        finally { setBuyingPackId(null); }
-                      }}>
-                      {buyingPackId === pack.id ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1.5" />}
-                      ${(pack.priceCents / 100).toFixed(2)}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       )}
