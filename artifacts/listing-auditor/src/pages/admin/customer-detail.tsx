@@ -586,7 +586,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                   <Package className="w-4 h-4 text-orange-500" /> Current Subscription
                 </CardTitle>
                 <Button size="sm" variant="outline" onClick={() => setShowChangePlan(true)}>
-                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Change Package
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Update Plan
                 </Button>
               </CardHeader>
               <CardContent>
@@ -632,7 +632,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                   <div className="text-center py-8">
                     <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                     <p className="text-slate-400 text-sm mb-3">No active subscription</p>
-                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600" onClick={() => setShowChangePlan(true)}>Assign Package</Button>
+                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600" onClick={() => setShowChangePlan(true)}>Assign Plan</Button>
                   </div>
                 )}
               </CardContent>
@@ -643,7 +643,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowChangePlan(false)}>
                 <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold text-slate-900">Change Package</h2>
+                    <h2 className="text-lg font-bold text-slate-900">Update Plan</h2>
                     <Button variant="ghost" size="sm" onClick={() => setShowChangePlan(false)}><X className="w-4 h-4" /></Button>
                   </div>
                   <p className="text-sm text-slate-500 mb-4">Select a new plan for this customer. Credits will be updated to match the new plan.</p>

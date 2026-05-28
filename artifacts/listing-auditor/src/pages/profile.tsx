@@ -258,7 +258,7 @@ export default function Profile() {
             <p className="text-xs text-yellow-600 mt-0.5">You're low on credits. Upgrade your plan or add more credits to keep using the platform.</p>
           </div>
           <Button size="sm" className="bg-orange-500 hover:bg-orange-600 flex-shrink-0" onClick={() => setShowUpgrade(true)}>
-            <ArrowUpRight className="w-3.5 h-3.5 mr-1" />Upgrade
+            <ArrowUpRight className="w-3.5 h-3.5 mr-1" />Update Your Plan
           </Button>
         </div>
       )}
@@ -274,7 +274,7 @@ export default function Profile() {
             <p className="text-xs text-blue-600 mt-0.5">Upgrade now to keep full access and all your credits.</p>
           </div>
           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex-shrink-0" onClick={() => setShowUpgrade(true)}>
-            Upgrade Now
+            Update Your Plan
           </Button>
         </div>
       )}
@@ -405,7 +405,7 @@ export default function Profile() {
           <div className="flex items-center gap-2">
             {sub && statusBadge(sub.status)}
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowUpgrade(true)}>
-              <ArrowUpRight className="w-3 h-3 mr-1" />Upgrade Plan
+              <ArrowUpRight className="w-3 h-3 mr-1" />Update Your Plan
             </Button>
           </div>
         </CardHeader>
@@ -504,7 +504,7 @@ export default function Profile() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowUpgrade(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-slate-900">Upgrade Plan</h2>
+              <h2 className="text-xl font-bold text-slate-900">Update Your Plan</h2>
               <Button variant="ghost" size="sm" onClick={() => setShowUpgrade(false)}><X className="w-4 h-4" /></Button>
             </div>
             <div className="flex items-center gap-2 bg-slate-100 rounded-full p-1 mb-5 w-fit">

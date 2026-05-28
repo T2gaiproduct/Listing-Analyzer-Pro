@@ -511,6 +511,8 @@ export default function Billing() {
 
   const [buyingPackId, setBuyingPackId] = useState<number | null>(null);
   const [changingPlan, setChangingPlan] = useState(false);
+  const [changePlanId, setChangePlanId] = useState<number | null>(null);
+  const [changePlanCycle, setChangePlanCycle] = useState<"monthly" | "yearly">("monthly");
 
   function invalidateSub() {
     void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
@@ -581,7 +583,7 @@ export default function Billing() {
                       : ""}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setTab("plans")}><RefreshCw className="w-4 h-4 mr-2" />Change Plan</Button>
+              <Button variant="outline" size="sm" onClick={() => setTab("plans")}><RefreshCw className="w-4 h-4 mr-2" />Update Your Plan</Button>
             </div>
             {sub.status === "trial" && (
               <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700 flex items-center gap-2">
@@ -642,9 +644,11 @@ export default function Billing() {
       {tab === "plans" && (
         <div className="space-y-4">
           <p className="text-slate-500 text-sm">Plan changes take effect immediately. Prorated charges apply.</p>
-          <div className={`grid grid-cols-1 md:grid-cols-${Math.min(plans.length, 3)} gap-5`}>
+          <div className="space-y-4">
             {plans.map((p) => {
               const isCurrent = p.id === sub?.planId;
+              const monthlySelected = p.id === changePlanId && changePlanCycle === "monthly";
+              const yearlySelected = p.id === changePlanId && changePlanCycle === "yearly";
               return (
                 <div key={p.id} className={`border rounded-2xl p-6 relative ${isCurrent ? "border-orange-400 shadow-md bg-orange-50/30" : "border-slate-200"}`}>
                   {p.tag && !isCurrent && (
@@ -652,40 +656,64 @@ export default function Billing() {
                       <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">{p.tag}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-slate-900">{p.name}</h3>
-                    {isCurrent && <Badge className="bg-orange-100 text-orange-700 text-xs">Current</Badge>}
-                  </div>
-                  <p className="text-3xl font-extrabold text-slate-900 mb-4">${sub?.billingCycle === "yearly" ? p.priceYearly : p.priceMonthly}<span className="text-sm font-normal text-slate-400">{sub?.billingCycle === "yearly" ? "/year" : "/mo"}</span></p>
-                  <div className="space-y-2 mb-5 text-sm text-slate-600">
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.aiCredits} AI credits</div>
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.imageCredits} image credits</div>
-                    <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.auditCredits === 999 ? "Unlimited" : p.auditCredits} audit credits</div>
-                  </div>
-                  <Button className="w-full" variant={isCurrent ? "outline" : "default"} disabled={isCurrent || changingPlan}
-                    onClick={() => {
-                      if (isCurrent) return;
-                      if (sub?.stripeSubscriptionId) {
-                        // Paid user — open Stripe Customer Portal for plan changes
-                        setChangingPlan(true);
-                        fetch(`${basePath}/api/stripe/portal`, {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          credentials: "include", body: JSON.stringify({ returnUrl: `${window.location.origin}${basePath}/billing` }),
-                        })
-                          .then((r) => r.json() as Promise<{ url?: string; error?: string }>)
-                          .then((d) => {
-                            if (d.url) window.location.href = d.url;
-                            else toast({ title: "Could not open billing portal", description: d.error ?? "Please try again.", variant: "destructive" });
+                  <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-slate-900">{p.name}</h3>
+                        {isCurrent && <Badge className="bg-orange-100 text-orange-700 text-xs">Current</Badge>}
+                      </div>
+                      <div className="space-y-1 text-sm text-slate-600">
+                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.aiCredits} AI credits</div>
+                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.imageCredits} image credits</div>
+                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.auditCredits === 999 ? "Unlimited" : p.auditCredits} audit credits</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => { setChangePlanId(p.id); setChangePlanCycle("monthly"); }}
+                        className={`flex flex-col items-center gap-0.5 rounded-xl border-2 px-4 py-2 transition-all ${monthlySelected ? "border-orange-400 bg-orange-50" : "border-slate-200 hover:border-slate-300"}`}
+                      >
+                        <span className="text-sm font-bold text-slate-900">${p.priceMonthly}</span>
+                        <span className="text-xs text-slate-400">/mo</span>
+                        {monthlySelected && <span className="w-2 h-2 rounded-full bg-orange-500 mt-0.5" />}
+                      </button>
+                      <button
+                        onClick={() => { setChangePlanId(p.id); setChangePlanCycle("yearly"); }}
+                        className={`flex flex-col items-center gap-0.5 rounded-xl border-2 px-4 py-2 transition-all ${yearlySelected ? "border-orange-400 bg-orange-50" : "border-slate-200 hover:border-slate-300"}`}
+                      >
+                        <span className="text-sm font-bold text-slate-900">${p.priceYearly}</span>
+                        <span className="text-xs text-slate-400">/year</span>
+                        <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">Save 20%</span>
+                        {yearlySelected && <span className="w-2 h-2 rounded-full bg-orange-500 mt-0.5" />}
+                      </button>
+                    </div>
+                    <Button
+                      className="w-32"
+                      variant={isCurrent ? "outline" : "default"}
+                      disabled={isCurrent || changingPlan || (!monthlySelected && !yearlySelected)}
+                      onClick={() => {
+                        if (isCurrent) return;
+                        if (sub?.stripeSubscriptionId) {
+                          setChangingPlan(true);
+                          fetch(`${basePath}/api/stripe/portal`, {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            credentials: "include", body: JSON.stringify({ returnUrl: `${window.location.origin}${basePath}/billing` }),
                           })
-                          .catch(() => toast({ title: "Network error", variant: "destructive" }))
-                          .finally(() => setChangingPlan(false));
-                      } else {
-                        // Free/trial user — go to onboarding to select a paid plan
-                        setLocation("/onboarding");
-                      }
-                    }}>
-                    {isCurrent ? "Current plan" : changingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : p.priceMonthly > (sub?.priceMonthly ?? 0) ? "Upgrade" : "Downgrade"}
-                  </Button>
+                            .then((r) => r.json() as Promise<{ url?: string; error?: string }>)
+                            .then((d) => {
+                              if (d.url) window.location.href = d.url;
+                              else toast({ title: "Could not open billing portal", description: d.error ?? "Please try again.", variant: "destructive" });
+                            })
+                            .catch(() => toast({ title: "Network error", variant: "destructive" }))
+                            .finally(() => setChangingPlan(false));
+                        } else {
+                          setLocation("/onboarding");
+                        }
+                      }}
+                    >
+                      {isCurrent ? "Current" : changingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : "Select"}
+                    </Button>
+                  </div>
                 </div>
               );
             })}
