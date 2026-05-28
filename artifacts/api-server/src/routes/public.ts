@@ -289,8 +289,9 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // Only trial starts are handled here. Paid plans go through /api/stripe/create-checkout.
-  if (!useTrial) {
+  // Free plans ($0) and trial starts are handled here. Paid plans go through /api/stripe/create-checkout.
+  const planPrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
+  if (!useTrial && planPrice > 0) {
     res.status(400).json({ error: "Paid plans require Stripe checkout. Use /api/stripe/create-checkout." });
     return;
   }
@@ -321,15 +322,18 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   if (billingCycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
   else periodEnd.setMonth(periodEnd.getMonth() + 1);
 
-  const trialEnd = new Date(now);
-  trialEnd.setDate(trialEnd.getDate() + (plan.trialDays || 7));
+  const isFreePlan = planPrice === 0;
+  const trialEnd = isFreePlan ? null : new Date(now);
+  if (!isFreePlan && useTrial) {
+    trialEnd!.setDate(trialEnd!.getDate() + (plan.trialDays || 7));
+  }
 
   const existingSub = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
   const subData = {
     planId: plan.id,
     billingCycle,
-    status: "trial" as const,
-    trialEndsAt: trialEnd,
+    status: (isFreePlan ? "active" : useTrial ? "trial" : "active"),
+    trialEndsAt: isFreePlan ? null : (useTrial ? trialEnd : null),
     currentPeriodStart: now,
     currentPeriodEnd: periodEnd,
     cardLast4: null,

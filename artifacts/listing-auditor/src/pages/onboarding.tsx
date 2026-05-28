@@ -138,6 +138,13 @@ export default function Onboarding() {
     onError: (e: Error) => { toast({ title: "Checkout failed", description: e.message, variant: "destructive" }); },
   });
 
+  const freePlanMutation = useMutation({
+    mutationFn: (body: object) =>
+      fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
+    onSuccess: () => { toast({ title: "Welcome aboard!", description: "Your free plan is active." }); setLocation("/dashboard"); },
+    onError: (e: Error) => { toast({ title: "Setup failed", description: e.message, variant: "destructive" }); },
+  });
+
   if (!isLoaded) return null;
   if (!user) { setLocation("/sign-in"); return null; }
 
@@ -160,7 +167,11 @@ export default function Onboarding() {
       autoRenew,
       couponCode: couponCode || undefined,
     };
-    if (useTrial) {
+    const planPrice = yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly;
+    if (planPrice === 0) {
+      // Free plan — activate instantly without payment
+      freePlanMutation.mutate({ ...common, useTrial: false });
+    } else if (useTrial) {
       onboardMutation.mutate({ ...common, useTrial: true });
     } else {
       checkoutMutation.mutate({
@@ -349,8 +360,8 @@ export default function Onboarding() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-5">Complete your setup</h2>
 
-                  {/* Trial or Pay toggle */}
-                  {selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
+                  {/* Trial or Pay toggle — only when plan is not free */}
+                  {selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) > 0 && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
                     <div className="grid grid-cols-2 gap-3 mb-5">
                       <button
                         onClick={() => setUseTrial(true)}
@@ -377,8 +388,18 @@ export default function Onboarding() {
                     </div>
                   )}
 
-                  {/* Trial info card — only when plan actually supports trial */}
-                  {useTrial && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
+                  {/* Free plan info card — when price is $0 */}
+                  {selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) === 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+                      <Gift className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                      <p className="font-semibold text-green-800">Free plan selected</p>
+                      <p className="text-sm text-green-600 mt-1">{selectedPlan.name} — no payment required, instant activation</p>
+                      <p className="text-xs text-green-500 mt-2">You can upgrade to a paid plan anytime from your billing page</p>
+                    </div>
+                  )}
+
+                  {/* Trial info card — only when plan actually supports trial and is paid */}
+                  {useTrial && selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) > 0 && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
                     <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
                       <Gift className="w-8 h-8 text-green-500 mx-auto mb-2" />
                       <p className="font-semibold text-green-800">You're starting with a free trial</p>
@@ -388,7 +409,7 @@ export default function Onboarding() {
                   )}
 
                   {/* Paid — Stripe redirect */}
-                  {(!selectedPlan?.isTrial || !useTrial) && (
+                  {selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) > 0 && (!selectedPlan?.isTrial || !useTrial) && (
                     <div className="space-y-4">
                       {/* Price breakdown */}
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
@@ -444,11 +465,15 @@ export default function Onboarding() {
                   <Button
                     className="bg-orange-500 hover:bg-orange-600 px-8"
                     onClick={handleSubmit}
-                    disabled={onboardMutation.isPending || checkoutMutation.isPending}
+                    disabled={onboardMutation.isPending || checkoutMutation.isPending || freePlanMutation.isPending}
                   >
-                    {(onboardMutation.isPending || checkoutMutation.isPending)
-                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{useTrial ? "Setting up..." : "Redirecting to Stripe..."}</>
-                      : useTrial && selectedPlan?.isTrial ? "Start Free Trial →" : "Pay Securely with Stripe →"}
+                    {(onboardMutation.isPending || checkoutMutation.isPending || freePlanMutation.isPending)
+                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{(yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0 ? "Activating..." : useTrial ? "Setting up..." : "Redirecting to Stripe..."}</>
+                      : (yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0
+                        ? "Continue with Free Plan →"
+                        : useTrial && selectedPlan?.isTrial
+                          ? "Start Free Trial →"
+                          : "Pay Securely with Stripe →"}
                   </Button>
                 </div>
               </div>
@@ -476,7 +501,7 @@ export default function Onboarding() {
                     )}
                     <div className="border-t pt-3 flex justify-between font-bold">
                       <span>Total</span>
-                      <span className="text-orange-600">{useTrial && selectedPlan?.isTrial ? "FREE" : `$${finalPrice}/mo`}</span>
+                      <span className="text-orange-600">{(yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0 ? "FREE" : useTrial && selectedPlan?.isTrial ? "FREE" : `$${finalPrice}/mo`}</span>
                     </div>
                     {useTrial && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
                       <p className="text-xs text-slate-400 text-center">Then ${price}/mo after trial</p>
