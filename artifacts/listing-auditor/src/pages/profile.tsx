@@ -82,11 +82,12 @@ interface Plan {
   isHighlighted: boolean;
 }
 
-function CreditBar({ label, icon: Icon, used, total, color, bg }: { label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string }) {
-  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
-  const remaining = Math.max(0, total - used);
-  const isLow = pct >= 80;
-  const isCritical = pct >= 95;
+function CreditBar({ label, icon: Icon, used, total, color, bg, showAvailable, available }: { label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string; showAvailable?: boolean; available?: number }) {
+  const avail = available ?? Math.max(0, total - used);
+  const value = showAvailable ? avail : used;
+  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  const isLow = showAvailable ? pct <= 20 : pct >= 80;
+  const isCritical = showAvailable ? pct <= 5 : pct >= 95;
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -98,7 +99,7 @@ function CreditBar({ label, icon: Icon, used, total, color, bg }: { label: strin
           {isLow && <AlertTriangle className={`w-3.5 h-3.5 ${isCritical ? "text-red-500" : "text-yellow-500"}`} />}
         </div>
         <div className="text-right">
-          <span className={`text-xs font-bold ${isCritical ? "text-red-500" : isLow ? "text-yellow-600" : "text-slate-700"}`}>{used.toLocaleString()} used</span>
+          <span className={`text-xs font-bold ${isCritical ? "text-red-500" : isLow ? "text-yellow-600" : "text-slate-700"}`}>{value.toLocaleString()} {showAvailable ? "available" : "used"}</span>
           <span className="text-xs text-slate-400"> / {total.toLocaleString()}</span>
         </div>
       </div>
@@ -106,7 +107,7 @@ function CreditBar({ label, icon: Icon, used, total, color, bg }: { label: strin
         <div className={`h-full rounded-full transition-all ${isCritical ? "bg-red-500" : isLow ? "bg-yellow-400" : "bg-orange-400"}`} style={{ width: `${pct}%` }} />
       </div>
       <p className={`text-xs mt-1 ${isCritical ? "text-red-500 font-semibold" : isLow ? "text-yellow-600 font-medium" : "text-slate-400"}`}>
-        {remaining.toLocaleString()} remaining{isCritical ? " — critical! Upgrade now" : isLow ? " — running low" : ""}
+        {avail.toLocaleString()} {showAvailable ? "available" : "remaining"}{isCritical ? " — critical! Upgrade now" : isLow ? " — running low" : ""}
       </p>
     </div>
   );
@@ -554,9 +555,9 @@ export default function Profile() {
           <p className="text-xs text-slate-400 mt-0.5">Credits reset at the start of each billing period</p>
         </CardHeader>
         <CardContent className="space-y-5">
-          <CreditBar label="AI Content Credits" icon={Zap} used={usedAi} total={sub?.planAiCredits ?? credits.aiCredits} color="text-blue-500" bg="bg-blue-50" />
-          <CreditBar label="Image Generation Credits" icon={Image} used={usedImage} total={sub?.planImageCredits ?? credits.imageCredits} color="text-purple-500" bg="bg-purple-50" />
-          <CreditBar label="Audit Credits" icon={BarChart3} used={usedAudit} total={sub?.planAuditCredits ?? credits.auditCredits} color="text-orange-500" bg="bg-orange-50" />
+          <CreditBar label="AI Content Credits" icon={Zap} used={usedAi} total={sub?.planAiCredits ?? credits.aiCredits} color="text-blue-500" bg="bg-blue-50" showAvailable available={credits.aiCredits} />
+          <CreditBar label="Image Generation Credits" icon={Image} used={usedImage} total={sub?.planImageCredits ?? credits.imageCredits} color="text-purple-500" bg="bg-purple-50" showAvailable available={credits.imageCredits} />
+          <CreditBar label="Audit Credits" icon={BarChart3} used={usedAudit} total={sub?.planAuditCredits ?? credits.auditCredits} color="text-orange-500" bg="bg-orange-50" showAvailable available={credits.auditCredits} />
           <div className="grid grid-cols-3 gap-3 pt-2 border-t">
             {[
               { label: "AI Credits Left", value: credits.aiCredits, color: "text-blue-600" },
