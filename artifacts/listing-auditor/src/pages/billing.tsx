@@ -107,6 +107,7 @@ function loadRazorpayScript(): Promise<void> {
 function CustomCreditsSection({ balance }: { balance: { ai: number; image: number; audit: number } }) {
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(50);
+  const [creditType, setCreditType] = useState("ai");
   const [buying, setBuying] = useState(false);
   const unitPrice = 0.10;
   const totalCost = quantity * unitPrice;
@@ -116,7 +117,7 @@ function CustomCreditsSection({ balance }: { balance: { ai: number; image: numbe
     try {
       const res = await fetch(`${basePath}/api/buy-custom-credits`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ amount: quantity, creditType: "audit" }),
+        credentials: "include", body: JSON.stringify({ amount: quantity, creditType }),
       });
       const d = await res.json() as { url?: string; error?: string };
       if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
@@ -133,6 +134,18 @@ function CustomCreditsSection({ balance }: { balance: { ai: number; image: numbe
       </div>
       <p className="text-xs text-slate-500 mb-4">Current balance: AI {balance.ai.toLocaleString()} · Images {balance.image.toLocaleString()} · Audits {balance.audit.toLocaleString()}</p>
       <div className="flex flex-col md:flex-row gap-4 items-end">
+        <div className="flex-1">
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">Credit Type</label>
+          <select
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
+            value={creditType}
+            onChange={(e) => setCreditType(e.target.value)}
+          >
+            <option value="ai">AI Credits</option>
+            <option value="image">Image Credits</option>
+            <option value="audit">Audit Credits</option>
+          </select>
+        </div>
         <div className="flex-1">
           <label className="text-xs font-medium text-slate-500 mb-1.5 block">Credits Quantity</label>
           <Input type="number" min={10} max={10000} value={quantity} onChange={(e) => setQuantity(Math.max(10, Number(e.target.value)))} className="h-10" />
