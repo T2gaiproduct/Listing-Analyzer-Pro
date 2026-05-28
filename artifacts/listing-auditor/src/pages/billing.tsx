@@ -66,13 +66,12 @@ interface CreditUsage {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function CreditBar({ label, icon: Icon, used, total, color, bg, showAvailable, available }: {
-  label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string; showAvailable?: boolean; available?: number;
+function CreditBar({ label, icon: Icon, used, total, color, bg, available }: {
+  label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string; available?: number;
 }) {
   const avail = available ?? Math.max(0, total - used);
-  const value = showAvailable ? avail : used;
-  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
-  const isLow = showAvailable ? pct <= 20 : pct >= 80;
+  const pct = avail > 0 ? Math.min(100, Math.round((used / avail) * 100)) : 0;
+  const isLow = avail > 0 && used >= avail * 0.8;
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -83,7 +82,7 @@ function CreditBar({ label, icon: Icon, used, total, color, bg, showAvailable, a
           <span className="text-sm font-medium text-slate-700">{label}</span>
         </div>
         <span className={`text-xs font-bold ${isLow ? "text-red-500" : "text-slate-600"}`}>
-          {value.toLocaleString()} / {total.toLocaleString()}
+          {used.toLocaleString()} used / {avail.toLocaleString()}
         </span>
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -601,9 +600,9 @@ export default function Billing() {
               </div>
             </div>
             <div className="space-y-4">
-              <CreditBar label="AI Content Credits" icon={Zap} used={usedAi} total={totalAi} color="text-blue-500" bg="bg-blue-50" showAvailable available={credits.aiCredits} />
-              <CreditBar label="Image Generation Credits" icon={Image} used={usedImage} total={totalImage} color="text-purple-500" bg="bg-purple-50" showAvailable available={credits.imageCredits} />
-              <CreditBar label="Audit Credits" icon={BarChart3} used={usedAudit} total={totalAudit} color="text-orange-500" bg="bg-orange-50" showAvailable available={credits.auditCredits} />
+              <CreditBar label="AI Content Credits" icon={Zap} used={usedAi} total={totalAi} color="text-blue-500" bg="bg-blue-50" available={credits.aiCredits} />
+              <CreditBar label="Image Generation Credits" icon={Image} used={usedImage} total={totalImage} color="text-purple-500" bg="bg-purple-50" available={credits.imageCredits} />
+              <CreditBar label="Audit Credits" icon={BarChart3} used={usedAudit} total={totalAudit} color="text-orange-500" bg="bg-orange-50" available={credits.auditCredits} />
             </div>
           </div>
 
