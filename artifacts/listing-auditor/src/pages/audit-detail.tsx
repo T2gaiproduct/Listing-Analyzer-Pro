@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { cn } from "@/lib/utils";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -115,6 +116,7 @@ export default function AuditDetail({ id }: { id: number }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { canEdit, isTeamMember, role } = useTeam();
 
   const { data: audit, isLoading } = useGetAudit(id, {
     query: { enabled: !!id, queryKey: getGetAuditQueryKey(id) },
@@ -384,23 +386,25 @@ export default function AuditDetail({ id }: { id: number }) {
           <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
             <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
           </Button>
-          <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete audit?</AlertDialogTitle>
-              <AlertDialogDescription>This will permanently delete this audit and all competitor data.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteAudit} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-          </AlertDialog>
+          {canEdit && (
+            <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete audit?</AlertDialogTitle>
+                <AlertDialogDescription>This will permanently delete this audit and all competitor data.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAudit} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
@@ -521,17 +525,22 @@ export default function AuditDetail({ id }: { id: number }) {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 mt-2">
-                  <Button onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow} size="lg">
-                    {generateContent.isPending ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
-                    ) : (
-                      <><Wand2 className="w-4 h-4 mr-2" />Generate Content</>
-                    )}
-                  </Button>
+                  {canEdit && (
+                    <Button onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow} size="lg">
+                      {generateContent.isPending ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
+                      ) : (
+                        <><Wand2 className="w-4 h-4 mr-2" />Generate Content</>
+                      )}
+                    </Button>
+                  )}
                   {aiLow ? (
                     <Link href="/billing" className="text-sm text-destructive hover:underline">1 AI credit required — buy credits</Link>
                   ) : (
                     <Badge variant="secondary" className="text-xs font-normal">1 AI credit</Badge>
+                  )}
+                  {!canEdit && (
+                    <Badge variant="outline" className="text-xs font-normal">Read-only — contact your team admin</Badge>
                   )}
                 </div>
               </CardContent>
@@ -544,9 +553,11 @@ export default function AuditDetail({ id }: { id: number }) {
                   Amazon-Ready Content
                 </h2>
                 <div className="flex items-center gap-3">
-                  <Button variant="outline" size="sm" onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow}>
-                    {generateContent.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Regenerate</>}
-                  </Button>
+                  {canEdit && (
+                    <Button variant="outline" size="sm" onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow}>
+                      {generateContent.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Regenerate</>}
+                    </Button>
+                  )}
                   {aiLow ? (
                     <Link href="/billing" className="text-xs text-destructive hover:underline">1 AI credit required — buy credits</Link>
                   ) : (
@@ -664,11 +675,13 @@ export default function AuditDetail({ id }: { id: number }) {
               <Users className="w-5 h-5 text-muted-foreground" />Competitor Analysis
             </h2>
             <div className="flex items-center gap-3">
-              <Button asChild size="sm" variant="outline" disabled={auditLow}>
-                <Link href={auditLow ? "/billing" : `/audits/${id}/competitors/new`}>
-                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
-                </Link>
-              </Button>
+              {canEdit && (
+                <Button asChild size="sm" variant="outline" disabled={auditLow}>
+                  <Link href={auditLow ? "/billing" : `/audits/${id}/competitors/new`}>
+                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
+                  </Link>
+                </Button>
+              )}
               {auditLow ? (
                 <span className="text-xs text-destructive">1 audit credit required — <Link href="/billing" className="hover:underline">buy credits</Link></span>
               ) : (
@@ -683,9 +696,11 @@ export default function AuditDetail({ id }: { id: number }) {
                 <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                 <p className="font-semibold text-foreground/70 mb-1">No competitors added</p>
                 <p className="text-sm text-muted-foreground mb-4">Compare your listing against top competitors to find gaps.</p>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/audits/${id}/competitors/new`}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Competitor</Link>
-                </Button>
+                {canEdit && (
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/audits/${id}/competitors/new`}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Competitor</Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -724,12 +739,14 @@ export default function AuditDetail({ id }: { id: number }) {
                         ))}
                       </div>
                     </div>
-                    <div className="flex justify-end mt-3 border-t pt-3">
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 text-xs"
-                        onClick={() => handleDeleteCompetitor(competitor.id)} disabled={deleteCompetitor.isPending}>
-                        <Trash2 className="w-3 h-3 mr-1" /> Remove
-                      </Button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex justify-end mt-3 border-t pt-3">
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 text-xs"
+                          onClick={() => handleDeleteCompetitor(competitor.id)} disabled={deleteCompetitor.isPending}>
+                          <Trash2 className="w-3 h-3 mr-1" /> Remove
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

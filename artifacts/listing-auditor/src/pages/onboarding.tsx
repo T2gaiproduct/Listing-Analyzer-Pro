@@ -127,7 +127,16 @@ export default function Onboarding() {
   const onboardMutation = useMutation({
     mutationFn: (body: object) =>
       fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => { toast({ title: "Welcome aboard!", description: "Your free trial is active." }); setLocation("/dashboard"); },
+    onSuccess: () => {
+      toast({ title: "Welcome aboard!", description: "Your free trial is active." });
+      const pendingToken = localStorage.getItem("pendingInviteToken");
+      if (pendingToken) {
+        localStorage.removeItem("pendingInviteToken");
+        setLocation(`/accept-invite?token=${pendingToken}`);
+      } else {
+        setLocation("/dashboard");
+      }
+    },
     onError: (e: Error) => { toast({ title: "Setup failed", description: e.message, variant: "destructive" }); },
   });
 

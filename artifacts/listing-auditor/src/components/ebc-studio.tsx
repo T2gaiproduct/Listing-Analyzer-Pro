@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGenerateEbc } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useTeam } from "@/hooks/use-team";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -441,6 +442,8 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
 
   const productImage = audit.imageUrls[0];
 
+  const { canEdit } = useTeam();
+
   return (
     <div className="space-y-6">
       {/* Toolbar */}
@@ -450,17 +453,21 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
           <p className="text-sm text-muted-foreground mt-0.5">Design Amazon-style Enhanced Brand Content and export as JPG</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleReset} title="Reset all content to AI defaults">
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
-          </Button>
-          <Button
-            variant="outline" size="sm"
-            onClick={() => { setShowAiPrompt(!showAiPrompt); setShowColorPicker(false); }}
-            className={cn(showAiPrompt && "border-primary text-primary bg-primary/5")}
-          >
-            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-            Generate with AI
-          </Button>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={handleReset} title="Reset all content to AI defaults">
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              variant="outline" size="sm"
+              onClick={() => { setShowAiPrompt(!showAiPrompt); setShowColorPicker(false); }}
+              className={cn(showAiPrompt && "border-primary text-primary bg-primary/5")}
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+              Generate with AI
+            </Button>
+          )}
           <Button
             variant="outline" size="sm"
             className="relative"

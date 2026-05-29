@@ -9,7 +9,8 @@ import {
   DeleteCompetitorParams,
 } from "@workspace/api-zod";
 import { analyzeCompetitorWithAI } from "../lib/analyzer";
-import { deductCredits, hasCredits, getCreditCost } from "../lib/credits";
+import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
+import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 
 const router: IRouter = Router();
 
@@ -25,8 +26,38 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-router.get("/audits/:id/competitors", requireAuth, async (req, res): Promise<void> => {
+async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = (req as AuthedRequest).userId;
+  const team = await resolveTeamContext(userId);
+  (req as TeamAuthedRequest).team = team;
+  next();
+}
+
+function requireWriteAccess(req: Request, res: Response, next: NextFunction): void {
+  const team = (req as TeamAuthedRequest).team;
+  if (!team) { res.status(401).json({ error: "Team context not resolved" }); return; }
+  if (team.role === "viewer") { res.status(403).json({ error: "Forbidden: viewers cannot modify data" }); return; }
+  next();
+}
+
+function getEffectiveUserId(req: Request): string {
+  const team = (req as TeamAuthedRequest).team;
+  return team?.ownerUserId ?? (req as AuthedRequest).userId;
+}
+
+function getCreditCtx(req: Request): TeamAwareContext {
+  const team = (req as TeamAuthedRequest).team;
+  const userId = (req as AuthedRequest).userId;
+  return {
+    userId,
+    memberId: team?.memberId,
+    ownerUserId: team?.ownerUserId,
+    isTeamMember: team?.isTeamMember ?? false,
+  };
+}
+
+router.get("/audits/:id/competitors", requireAuth, resolveTeam, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
   const params = ListCompetitorsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -36,7 +67,7 @@ router.get("/audits/:id/competitors", requireAuth, async (req, res): Promise<voi
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)));
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId)));
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
     return;
@@ -50,8 +81,9 @@ router.get("/audits/:id/competitors", requireAuth, async (req, res): Promise<voi
   res.json(competitors.map(c => ({ ...c, weaknesses: c.weaknesses ?? [] })));
 });
 
-router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<void> => {
+router.post("/audits/:id/competitors", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const params = AddCompetitorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -65,7 +97,8 @@ router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<vo
   }
 
   const cost = await getCreditCost("competitors");
-  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
+  const creditCtx = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
@@ -74,7 +107,7 @@ router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<vo
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)));
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId)));
 
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
@@ -83,7 +116,7 @@ router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<vo
 
   const { productName, asin, title, bulletPoints, imageCount, targetKeywords } = parsed.data;
 
-  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "competitors", { auditId: params.data.id });
+  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "competitors", { auditId: params.data.id });
 
   const analysis = await analyzeCompetitorWithAI({
     productName,
@@ -114,7 +147,7 @@ router.post("/audits/:id/competitors", requireAuth, async (req, res): Promise<vo
   res.status(201).json({ ...competitor, weaknesses: competitor.weaknesses ?? [] });
 });
 
-router.delete("/competitors/:id", requireAuth, async (req, res): Promise<void> => {
+router.delete("/competitors/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const params = DeleteCompetitorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

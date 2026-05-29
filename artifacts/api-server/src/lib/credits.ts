@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { db, creditsTable, creditTransactionsTable, creditRulesTable, notificationsTable } from "@workspace/db";
+import { db, creditsTable, creditTransactionsTable, creditRulesTable, notificationsTable, memberCreditsTable, teamMembersTable } from "@workspace/db";
 
 type CreditType = "ai" | "image" | "audit";
 
@@ -14,6 +14,15 @@ function getColumn(type: CreditType) {
     case "ai": return creditsTable.aiCredits;
     case "image": return creditsTable.imageCredits;
     case "audit": return creditsTable.auditCredits;
+    default: throw new Error(`Unknown credit type: ${type}`);
+  }
+}
+
+function getMemberColumn(type: CreditType) {
+  switch (type) {
+    case "ai": return memberCreditsTable.aiCredits;
+    case "image": return memberCreditsTable.imageCredits;
+    case "audit": return memberCreditsTable.auditCredits;
     default: throw new Error(`Unknown credit type: ${type}`);
   }
 }
@@ -198,4 +207,222 @@ export async function addCredits(
   });
 
   return newBalance;
+}
+
+// ─── Team-aware credit wrappers (auto-deduct from member credits if available) ───
+
+export interface TeamAwareContext {
+  userId: string;
+  memberId?: number;
+  ownerUserId?: string;
+  isTeamMember: boolean;
+}
+
+export async function checkCreditsTeamAware(
+  ctx: TeamAwareContext,
+  type: CreditType,
+  amount: number,
+): Promise<CreditCheckResult> {
+  if (ctx.isTeamMember && ctx.memberId != null) {
+    const memberCheck = await checkMemberCredits(ctx.memberId, type, amount);
+    if (memberCheck.hasCredits) return memberCheck;
+    // Fall back to owner credits if member pool empty
+    if (ctx.ownerUserId) {
+      const ownerCheck = await checkCredits(ctx.ownerUserId, type, amount);
+      return ownerCheck;
+    }
+    return memberCheck;
+  }
+  return checkCredits(ctx.userId, type, amount);
+}
+
+export async function hasCreditsTeamAware(
+  ctx: TeamAwareContext,
+  type: CreditType,
+  amount: number,
+): Promise<boolean> {
+  const result = await checkCreditsTeamAware(ctx, type, amount);
+  return result.hasCredits;
+}
+
+export async function deductCreditsTeamAware(
+  ctx: TeamAwareContext,
+  type: CreditType,
+  amount: number,
+  reason: string,
+  featureType: string,
+  metadata?: Record<string, unknown>,
+): Promise<DeductResult> {
+  if (ctx.isTeamMember && ctx.memberId != null) {
+    const memberResult = await deductMemberCredits(ctx.memberId, type, amount, reason, featureType, metadata);
+    if (memberResult.success) return memberResult;
+    // Fall back to owner credits if member pool insufficient
+    if (ctx.ownerUserId) {
+      return deductCredits(ctx.ownerUserId, type, amount, reason, featureType, metadata);
+    }
+    return memberResult;
+  }
+  return deductCredits(ctx.userId, type, amount, reason, featureType, metadata);
+}
+
+// ─── Member credit functions (team members use allocated credits) ─────────────
+
+export async function getMemberId(userId: string): Promise<number | null> {
+  const [membership] = await db
+    .select({ id: teamMembersTable.id })
+    .from(teamMembersTable)
+    .where(
+      and(
+        eq(teamMembersTable.memberUserId, userId),
+        eq(teamMembersTable.status, "active")
+      )
+    );
+  return membership?.id ?? null;
+}
+
+export async function checkMemberCredits(
+  memberId: number,
+  type: CreditType,
+  amount: number,
+): Promise<CreditCheckResult> {
+  const [row] = await db
+    .select({ balance: getMemberColumn(type) })
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.memberId, memberId));
+  const currentBalance = row?.balance ?? 0;
+  return {
+    hasCredits: currentBalance >= amount,
+    currentBalance,
+    needed: amount,
+  };
+}
+
+export async function hasMemberCredits(memberId: number, type: CreditType, amount: number): Promise<boolean> {
+  const result = await checkMemberCredits(memberId, type, amount);
+  return result.hasCredits;
+}
+
+export async function deductMemberCredits(
+  memberId: number,
+  type: CreditType,
+  amount: number,
+  reason: string,
+  featureType: string,
+  metadata?: Record<string, unknown>,
+): Promise<DeductResult> {
+  const check = await checkMemberCredits(memberId, type, amount);
+  if (!check.hasCredits) {
+    return { success: false, remaining: check.currentBalance };
+  }
+
+  const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+  const now = new Date();
+
+  const [existing] = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.memberId, memberId));
+
+  if (existing) {
+    await db
+      .update(memberCreditsTable)
+      .set({ [key]: check.currentBalance - amount, updatedAt: now })
+      .where(eq(memberCreditsTable.memberId, memberId));
+  } else {
+    await db.insert(memberCreditsTable).values({
+      memberId,
+      aiCredits: type === "ai" ? check.currentBalance - amount : 0,
+      imageCredits: type === "image" ? check.currentBalance - amount : 0,
+      auditCredits: type === "audit" ? check.currentBalance - amount : 0,
+    });
+  }
+
+  // Get userId for transaction record
+  const [member] = await db
+    .select({ memberUserId: teamMembersTable.memberUserId, ownerUserId: teamMembersTable.ownerUserId })
+    .from(teamMembersTable)
+    .where(eq(teamMembersTable.id, memberId));
+  const userId = member?.memberUserId ?? member?.ownerUserId ?? "";
+
+  await db.insert(creditTransactionsTable).values({
+    userId,
+    creditType: type,
+    amount: -amount,
+    reason,
+    featureType,
+    metadata: metadata ?? null,
+    createdAt: now,
+  });
+
+  const remaining = check.currentBalance - amount;
+  return { success: true, remaining };
+}
+
+export async function addMemberCredits(
+  memberId: number,
+  type: CreditType,
+  amount: number,
+): Promise<number> {
+  const [existing] = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.memberId, memberId));
+
+  const now = new Date();
+  let newBalance: number;
+  const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+
+  if (existing) {
+    newBalance = (existing[key as keyof typeof existing] as number) + amount;
+    await db
+      .update(memberCreditsTable)
+      .set({ [key]: newBalance, updatedAt: now })
+      .where(eq(memberCreditsTable.memberId, memberId));
+  } else {
+    newBalance = Math.max(0, amount);
+    await db.insert(memberCreditsTable).values({
+      memberId,
+      aiCredits: type === "ai" ? newBalance : 0,
+      imageCredits: type === "image" ? newBalance : 0,
+      auditCredits: type === "audit" ? newBalance : 0,
+    });
+  }
+
+  return newBalance;
+}
+
+export async function setMemberCredits(
+  memberId: number,
+  aiCredits: number,
+  imageCredits: number,
+  auditCredits: number,
+): Promise<void> {
+  const [existing] = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.memberId, memberId));
+
+  const now = new Date();
+  if (existing) {
+    await db
+      .update(memberCreditsTable)
+      .set({ aiCredits, imageCredits, auditCredits, updatedAt: now })
+      .where(eq(memberCreditsTable.memberId, memberId));
+  } else {
+    await db.insert(memberCreditsTable).values({
+      memberId,
+      aiCredits,
+      imageCredits,
+      auditCredits,
+    });
+  }
+}
+
+export async function getMemberCredits(memberId: number): Promise<{ aiCredits: number; imageCredits: number; auditCredits: number } | null> {
+  const [row] = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.memberId, memberId));
+  if (!row) return null;
+  return { aiCredits: row.aiCredits, imageCredits: row.imageCredits, auditCredits: row.auditCredits };
 }

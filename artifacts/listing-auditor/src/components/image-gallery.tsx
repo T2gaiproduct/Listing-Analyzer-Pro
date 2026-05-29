@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useTeam } from "@/hooks/use-team";
 import {
   RefreshCw,
   Sparkles,
@@ -83,7 +84,7 @@ interface ImageCardProps {
   onDownload: () => void;
 }
 
-function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload }: ImageCardProps) {
+function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, canEdit }: ImageCardProps & { canEdit: boolean }) {
   return (
     <div className="group relative rounded-lg border overflow-hidden bg-muted/20">
       <div className="aspect-square relative overflow-hidden">
@@ -100,8 +101,12 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
         )}
         {!isLoading && (
           <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
-            <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
+            {canEdit && (
+              <>
+                <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
+                <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
+              </>
+            )}
             <ActionBtn icon={<Clock className="h-4 w-4" />} title="Version history" onClick={onHistory} />
             <ActionBtn icon={<Download className="h-4 w-4" />} title="Download" onClick={onDownload} />
           </div>
@@ -227,6 +232,7 @@ export function ImageGallery({
   generatedImages,
 }: ImageGalleryProps) {
   const queryClient = useQueryClient();
+  const { canEdit } = useTeam();
 
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("premium");
   const [selectedRatio, setSelectedRatio] = useState<AspectRatio>("1:1");
@@ -364,25 +370,28 @@ export function ImageGallery({
               : "Generate studio-quality product images with AI"}
           </p>
         </div>
-        <Button
-          onClick={handleGenerateAll}
-          disabled={isGeneratingAll || loadingIds.size > 0}
-          className="gap-2"
-        >
-          {isGeneratingAll ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="h-4 w-4" />
-          )}
-          {isGeneratingAll
-            ? "Generating…"
-            : hasRecords
-              ? "Regenerate All"
-              : "Generate All"}
-        </Button>
+        {canEdit && (
+          <Button
+            onClick={handleGenerateAll}
+            disabled={isGeneratingAll || loadingIds.size > 0}
+            className="gap-2"
+          >
+            {isGeneratingAll ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {isGeneratingAll
+              ? "Generating…"
+              : hasRecords
+                ? "Regenerate All"
+                : "Generate All"}
+          </Button>
+        )}
       </div>
 
       {/* Controls */}
+      {canEdit && (
       <div className="rounded-lg border bg-card p-4 space-y-4">
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -400,6 +409,7 @@ export function ImageGallery({
           <RatioToggle selected={selectedRatio} onChange={setSelectedRatio} />
         </div>
       </div>
+      )}
 
       {/* Empty state */}
       {!hasRecords && !isGeneratingAll && (
@@ -428,6 +438,7 @@ export function ImageGallery({
                     key={record.id}
                     record={record}
                     isLoading={loadingIds.has(record.id) || isGeneratingAll}
+                    canEdit={canEdit}
                     onRegenerate={() => handleRegenerateOne(record)}
                     onEdit={() => handleOpenEdit(record)}
                     onHistory={() => setHistoryRecord(record)}

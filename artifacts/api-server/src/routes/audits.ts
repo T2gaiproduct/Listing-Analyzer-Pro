@@ -16,7 +16,8 @@ import {
   regenerateSingleImage,
   editSingleImage,
 } from "../lib/image-generator";
-import { deductCredits, hasCredits, getCreditCost } from "../lib/credits";
+import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
+import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 
 const router: IRouter = Router();
 
@@ -41,8 +42,44 @@ function isAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
-router.get("/audits", requireAuth, async (req, res): Promise<void> => {
+async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = (req as AuthedRequest).userId;
+  const team = await resolveTeamContext(userId);
+  (req as TeamAuthedRequest).team = team;
+  next();
+}
+
+function requireWriteAccess(req: Request, res: Response, next: NextFunction): void {
+  const team = (req as TeamAuthedRequest).team;
+  if (!team) {
+    res.status(401).json({ error: "Team context not resolved" });
+    return;
+  }
+  if (team.role === "viewer") {
+    res.status(403).json({ error: "Forbidden: viewers cannot modify data" });
+    return;
+  }
+  next();
+}
+
+function getEffectiveUserId(req: Request): string {
+  const team = (req as TeamAuthedRequest).team;
+  return team?.ownerUserId ?? (req as AuthedRequest).userId;
+}
+
+function getCreditCtx(req: Request): TeamAwareContext {
+  const team = (req as TeamAuthedRequest).team;
+  const userId = (req as AuthedRequest).userId;
+  return {
+    userId,
+    memberId: team?.memberId,
+    ownerUserId: team?.ownerUserId,
+    isTeamMember: team?.isTeamMember ?? false,
+  };
+}
+
+router.get("/audits", requireAuth, resolveTeam, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
   const audits = await db
     .select({
       id: auditsTable.id,
@@ -55,13 +92,14 @@ router.get("/audits", requireAuth, async (req, res): Promise<void> => {
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
-    .where(eq(auditsTable.userId, userId))
+    .where(eq(auditsTable.userId, ownerId))
     .orderBy(sql`${auditsTable.createdAt} DESC`);
   res.json(audits);
 });
 
-router.post("/audits", requireAuth, async (req, res): Promise<void> => {
+router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const parsed = CreateAuditBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -71,7 +109,8 @@ router.post("/audits", requireAuth, async (req, res): Promise<void> => {
   const { productName, asin, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
 
   const cost = await getCreditCost("audit");
-  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
+  const creditCtx = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
@@ -80,7 +119,7 @@ router.post("/audits", requireAuth, async (req, res): Promise<void> => {
   const [audit] = await db
     .insert(auditsTable)
     .values({
-      userId,
+      userId: ownerId,
       productName,
       asin: asin ?? null,
       category: category ?? null,
@@ -93,7 +132,7 @@ router.post("/audits", requireAuth, async (req, res): Promise<void> => {
     })
     .returning();
 
-  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "audit", { auditId: audit.id });
+  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "audit", { auditId: audit.id });
 
   try {
     const result = await analyzeListingWithAI({
@@ -139,25 +178,25 @@ router.post("/audits", requireAuth, async (req, res): Promise<void> => {
   }
 });
 
-router.get("/audits/stats", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
+router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
   const [stats] = await db
     .select({
       totalAudits: count(),
       averageScore: avg(auditsTable.overallScore),
     })
     .from(auditsTable)
-    .where(eq(auditsTable.userId, userId));
+    .where(eq(auditsTable.userId, ownerId));
 
   const highScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, userId), sql`${auditsTable.overallScore} >= 70`));
+    .where(and(eq(auditsTable.userId, ownerId), sql`${auditsTable.overallScore} >= 70`));
 
   const lowScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, userId), sql`${auditsTable.overallScore} < 50`));
+    .where(and(eq(auditsTable.userId, ownerId), sql`${auditsTable.overallScore} < 50`));
 
   const recentAudits = await db
     .select({
@@ -171,7 +210,7 @@ router.get("/audits/stats", requireAuth, async (req, res): Promise<void> => {
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
-    .where(eq(auditsTable.userId, userId))
+    .where(eq(auditsTable.userId, ownerId))
     .orderBy(sql`${auditsTable.createdAt} DESC`)
     .limit(5);
 
@@ -184,8 +223,9 @@ router.get("/audits/stats", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
-router.get("/audits/:id", requireAuth, async (req, res): Promise<void> => {
+router.get("/audits/:id", requireAuth, resolveTeam, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const params = GetAuditParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -194,7 +234,7 @@ router.get("/audits/:id", requireAuth, async (req, res): Promise<void> => {
 
   const whereClause = isAdmin(userId)
     ? eq(auditsTable.id, params.data.id)
-    : and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId));
+    : and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId));
 
   const [audit] = await db
     .select()
@@ -225,8 +265,8 @@ router.get("/audits/:id", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
-router.delete("/audits/:id", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
+router.delete("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
   const params = DeleteAuditParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -235,7 +275,7 @@ router.delete("/audits/:id", requireAuth, async (req, res): Promise<void> => {
 
   const [audit] = await db
     .delete(auditsTable)
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, userId)))
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId)))
     .returning();
 
   if (!audit) {
@@ -246,8 +286,9 @@ router.delete("/audits/:id", requireAuth, async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.post("/audits/:id/generate-ebc", requireAuth, async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -255,16 +296,17 @@ router.post("/audits/:id/generate-ebc", requireAuth, async (req, res): Promise<v
   if (!prompt?.trim()) { res.status(400).json({ error: "prompt is required" }); return; }
 
   const cost = await getCreditCost("ebc");
-  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
+  const creditCtx = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
+  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
 
   try {
     const content = await generateEbcContent({
@@ -281,22 +323,24 @@ router.post("/audits/:id/generate-ebc", requireAuth, async (req, res): Promise<v
   }
 });
 
-router.post("/audits/:id/generate-content", requireAuth, async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const cost = await getCreditCost("content");
-  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
+  const creditCtx2 = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
+  await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
 
   try {
     const generatedContent = await generateListingContent({
@@ -320,24 +364,26 @@ router.post("/audits/:id/generate-content", requireAuth, async (req, res): Promi
   }
 });
 
-router.post("/audits/:id/generate-images", requireAuth, async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-images", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const cost = await getCreditCost("images");
-  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
+  const creditCtx3 = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx3, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
 
-  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "images", { auditId: id });
+  await deductCreditsTeamAware(creditCtx3, cost.creditType, cost.creditsRequired, cost.activityName, "images", { auditId: id });
 
   try {
     const imageRecords = await generateProductImages({
@@ -390,8 +436,9 @@ function buildAllRecordsFromAudit(audit: typeof auditsTable.$inferSelect): Image
   return records;
 }
 
-router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const index = parseInt(String(req.params.index ?? ""));
   const type = String(req.params.type) as "main" | "infographic" | "lifestyle";
@@ -402,13 +449,14 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (re
   }
 
   const cost = await getCreditCost("image_regenerate");
-  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
+  const creditCtx4 = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx4, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -422,7 +470,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (re
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
 
-  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "image_regenerate", { auditId: id, imageType: type, index });
+  await deductCreditsTeamAware(creditCtx4, cost.creditType, cost.creditsRequired, cost.activityName, "image_regenerate", { auditId: id, imageType: type, index });
 
   try {
     const updatedRecord = await regenerateSingleImage({
@@ -446,8 +494,9 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, async (re
   }
 });
 
-router.post("/audits/:id/images/:type/:index/edit", requireAuth, async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const index = parseInt(String(req.params.index ?? ""));
   const type = String(req.params.type) as "main" | "infographic" | "lifestyle";
@@ -458,13 +507,14 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, async (req, res
   }
 
   const cost = await getCreditCost("image_edit");
-  const creditCheck = await hasCredits(userId, cost.creditType, cost.creditsRequired);
+  const creditCtx5 = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx5, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
     res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, userId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -482,7 +532,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, async (req, res
     return;
   }
 
-  await deductCredits(userId, cost.creditType, cost.creditsRequired, cost.activityName, "image_edit", { auditId: id, imageType: type, index });
+  await deductCreditsTeamAware(creditCtx5, cost.creditType, cost.creditsRequired, cost.activityName, "image_edit", { auditId: id, imageType: type, index });
 
   try {
     const updatedRecord = await editSingleImage({

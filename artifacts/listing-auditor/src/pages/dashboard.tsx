@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ScoreRing, ScoreBadge } from "@/components/score-ring";
 import { Plus, ArrowUpRight, TrendingUp, AlertTriangle, ShieldCheck, Target, Loader2, Search, Coins } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,6 +27,7 @@ export default function Dashboard() {
     refetchInterval: 30_000,
   });
   const { data: sub } = useCredits();
+  const { canEdit, isTeamMember, role } = useTeam();
   const credits = sub?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const totalAi = sub?.plan?.planAiCredits ?? 0;
   const totalImage = sub?.plan?.planImageCredits ?? 0;
@@ -89,13 +91,18 @@ export default function Dashboard() {
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-2 text-lg">Your portfolio performance at a glance.</p>
+          {isTeamMember && (
+            <p className="text-xs text-muted-foreground mt-1">Team role: <span className="font-medium capitalize">{role}</span></p>
+          )}
         </div>
-        <Button asChild size="lg" className="shadow-md">
-          <Link href="/audits/new">
-            <Plus className="w-5 h-5 mr-2" />
-            New Audit
-          </Link>
-        </Button>
+        {canEdit && (
+          <Button asChild size="lg" className="shadow-md">
+            <Link href="/audits/new">
+              <Plus className="w-5 h-5 mr-2" />
+              New Audit
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -185,9 +192,11 @@ export default function Dashboard() {
               </div>
               <h3 className="text-xl font-bold mb-2">No audits yet</h3>
               <p className="text-muted-foreground max-w-sm mb-6">Start by analyzing your first Amazon listing to uncover SEO opportunities and content improvements.</p>
-              <Button asChild>
-                <Link href="/audits/new">Create First Audit</Link>
-              </Button>
+              {canEdit && (
+                <Button asChild>
+                  <Link href="/audits/new">Create First Audit</Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

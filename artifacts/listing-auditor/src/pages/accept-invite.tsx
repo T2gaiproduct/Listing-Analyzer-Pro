@@ -199,14 +199,20 @@ export default function AcceptInvite() {
               </p>
               <Button
                 className="w-full bg-orange-500 hover:bg-orange-600"
-                onClick={() => setLocation(`/sign-up?redirect_url=${encodeURIComponent(`${basePath}/accept-invite?token=${token}`)}`)}
+                onClick={() => {
+                  localStorage.setItem("pendingInviteToken", token);
+                  setLocation(`/sign-up?redirect_url=${encodeURIComponent(`${basePath}/accept-invite?token=${token}`)}`);
+                }}
               >
                 Create Account & Join
               </Button>
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setLocation(`/sign-in?redirect_url=${encodeURIComponent(`${basePath}/accept-invite?token=${token}`)}`)}
+                onClick={() => {
+                  localStorage.setItem("pendingInviteToken", token);
+                  setLocation(`/sign-in?redirect_url=${encodeURIComponent(`${basePath}/accept-invite?token=${token}`)}`);
+                }}
               >
                 Sign In to Accept
               </Button>

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { useTeam } from "@/hooks/use-team";
 import { format, formatDistanceToNow } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -73,6 +74,7 @@ function copyToClipboard(text: string, label: string, toast: (t: object) => void
 
 export default function Team() {
   const { user } = useUser();
+  const { canManage, isTeamMember, role } = useTeam();
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -134,15 +136,20 @@ export default function Team() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Team</h1>
           <p className="text-slate-500 mt-1 text-sm">Manage who has access to your workspace.</p>
+          {isTeamMember && (
+            <p className="text-xs text-slate-400 mt-1">Your role: <span className="font-medium capitalize">{role}</span></p>
+          )}
         </div>
-        <Button
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-          onClick={() => { setShowInvite(true); setCreatedInvite(null); }}
-          disabled={isAtLimit}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Invite Member
-        </Button>
+        {canManage && (
+          <Button
+            className="bg-orange-500 hover:bg-orange-600 text-white"
+            onClick={() => { setShowInvite(true); setCreatedInvite(null); }}
+            disabled={isAtLimit}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Invite Member
+          </Button>
+        )}
       </div>
 
       {/* Seat usage */}
@@ -187,7 +194,7 @@ export default function Team() {
       </div>
 
       {/* Invite form */}
-      {showInvite && (
+      {showInvite && canManage && (
         <div className="bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-semibold text-slate-900 flex items-center gap-2">
