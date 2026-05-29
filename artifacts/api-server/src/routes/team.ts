@@ -90,7 +90,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
     .where(and(eq(teamMembersTable.ownerUserId, userId)));
   const activeOrPending = existing.filter((m) => m.status !== "revoked");
 
-  if (activeOrPending.length >= maxSeats) {
+  if (activeOrPending.length >= maxSeats - 1) {
     res.status(403).json({ error: `Seat limit reached (${maxSeats} seats). Upgrade your plan to invite more members.` });
     return;
   }

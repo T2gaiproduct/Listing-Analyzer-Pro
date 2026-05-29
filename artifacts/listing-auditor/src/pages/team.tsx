@@ -114,7 +114,7 @@ export default function Team() {
   const memberStats = data?.memberStats ?? [];
   const maxSeats = data?.maxSeats ?? 1;
   const activePendingCount = members.filter((m) => m.status !== "revoked").length + 1; // +1 for owner
-  const isAtLimit = activePendingCount > maxSeats;
+  const isAtLimit = activePendingCount >= maxSeats;
   const pct = Math.min(100, Math.round((activePendingCount / maxSeats) * 100));
 
   const activeMembers = members.filter((m) => m.status === "active");
