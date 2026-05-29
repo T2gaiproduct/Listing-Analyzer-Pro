@@ -407,7 +407,7 @@ export default function Team() {
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500 text-sm font-medium">No team members yet</p>
               <p className="text-slate-400 text-xs mt-1">Invite your team to collaborate on audits</p>
-              <Button className="mt-4 bg-orange-500 hover:bg-orange-600" size="sm" onClick={() => setShowInvite(true)}>
+              <Button className="mt-4 bg-orange-500 hover:bg-orange-600" size="sm" onClick={() => setShowInvite(true)} disabled={isAtLimit}>
                 <Plus className="w-4 h-4 mr-2" />Invite First Member
               </Button>
             </div>
