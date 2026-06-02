@@ -8,6 +8,7 @@ import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAw
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import * as fs from "fs";
 import * as path from "path";
+import pLimit from "p-limit";
 
 const router: IRouter = Router();
 
@@ -120,6 +121,9 @@ function buildGraphicsSpecs(
   return specs;
 }
 
+const MAX_CONCURRENT_IMAGES = 3;
+const IMAGE_GENERATION_MS = 30000;
+
 async function generateGraphicsImages(projectId: number, productName: string, category: string | null, designStyle: string, lifestyleCount: number, featureCount: number, sourceImagePaths?: string[] | null): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
@@ -129,8 +133,12 @@ async function generateGraphicsImages(projectId: number, productName: string, ca
   const errors: Array<{ id: string; error: string }> = [];
 
   const sourcePath = sourceImagePaths?.[0] ?? null;
+  const limit = pLimit(MAX_CONCURRENT_IMAGES);
 
-  for (const spec of specs) {
+  let generatedCount = 0;
+  const totalCount = specs.length;
+
+  async function generateOne(spec: GraphicsSpec): Promise<void> {
     const filename = versionedFilename(spec.type, spec.index);
     const filePath = path.join(dir, filename);
     const imgUrl = urlPath(projectId, filename);
@@ -163,10 +171,17 @@ async function generateGraphicsImages(projectId: number, productName: string, ca
         currentUrl: imgUrl,
         versions: [version],
       });
+
+      generatedCount++;
+      await db.update(graphicsProjectsTable)
+        .set({ generatedCount, updatedAt: new Date() })
+        .where(eq(graphicsProjectsTable.id, projectId));
     } catch (err) {
       errors.push({ id: spec.id, error: err instanceof Error ? err.message : String(err) });
     }
   }
+
+  await Promise.all(specs.map((spec) => limit(() => generateOne(spec))));
 
   if (records.length === 0) {
     const summary = errors.map((e) => `${e.id}: ${e.error}`).join("; ");

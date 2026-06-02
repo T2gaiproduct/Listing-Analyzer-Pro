@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,12 +7,16 @@ import { CheckCircle2, Loader2, Clock, Sparkles, AlertTriangle, ArrowRight } fro
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+const IMAGE_GENERATION_SEC = 30;
+const MAX_CONCURRENT = 3;
+
 interface GraphicsProject {
   id: number;
   name: string;
   status: string;
   lifestyleCount: number;
   featureCount: number;
+  generatedCount: number;
   imageRecords?: Array<unknown>;
   errorMessage?: string | null;
   updatedAt: string;
@@ -32,10 +36,20 @@ const STEPS = [
   { id: "finalize", label: "Finalizing assets" },
 ];
 
+function formatEta(seconds: number): string {
+  if (seconds <= 0) return "Almost done";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 export default function GeneratingPage({ params }: { params?: { id?: string } }) {
   const id = params?.id ?? "";
   const [, nav] = useLocation();
   const [progress, setProgress] = useState(0);
+  const [etaSeconds, setEtaSeconds] = useState(0);
+  const startTimeRef = useRef<number>(0);
 
   const { data: project } = useQuery({
     queryKey: ["graphics-project", id],
@@ -43,6 +57,8 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
     refetchInterval: 2000,
     enabled: !!id,
   });
+
+  const totalImages = (project?.lifestyleCount ?? 0) + (project?.featureCount ?? 0);
 
   useEffect(() => {
     if (!project) return;
@@ -52,23 +68,52 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
     }
     if (project.status === "failed") return;
 
-    // Simulate progress
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 95) return 95;
-        return p + Math.random() * 3;
-      });
-    }, 800);
-    return () => clearInterval(interval);
-  }, [project, id, nav]);
+    // Record start time when we first see "generating"
+    if (project.status === "generating" && startTimeRef.current === 0) {
+      startTimeRef.current = Date.now();
+    }
 
-  const currentStep = project?.status === "completed" ? 4 : project?.status === "failed" ? -1 : Math.min(Math.floor(progress / 25), 3);
+    // Real progress from server count
+    const realProgress = totalImages > 0 ? (project.generatedCount / totalImages) * 100 : 0;
+    setProgress(realProgress);
+
+    // ETA: remaining images / concurrency * per-image time
+    const remaining = totalImages - project.generatedCount;
+    if (remaining > 0) {
+      const batches = Math.ceil(remaining / MAX_CONCURRENT);
+      const estimatedSeconds = batches * IMAGE_GENERATION_SEC;
+      setEtaSeconds(estimatedSeconds);
+    } else {
+      setEtaSeconds(0);
+    }
+  }, [project, id, nav, totalImages]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (project?.status !== "generating") return;
+    const interval = setInterval(() => {
+      setEtaSeconds((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [project?.status]);
+
+  const currentStep = project?.status === "completed"
+    ? 4
+    : project?.status === "failed"
+      ? -1
+      : Math.min(Math.floor(progress / 25), 3);
 
   return (
     <div className="max-w-lg mx-auto py-12">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">Creating Your Graphics</h1>
-        <p className="text-sm text-slate-500">Please wait while we generate your graphics</p>
+        <p className="text-sm text-slate-500">
+          {project?.status === "generating"
+            ? `Generating ${project?.generatedCount ?? 0} of ${totalImages} images • About ${formatEta(etaSeconds)} left`
+            : project?.status === "completed"
+              ? "All done! Redirecting…"
+              : "Please wait while we generate your graphics"}
+        </p>
       </div>
 
       <Card className="border-0 shadow-sm bg-white">

@@ -206,6 +206,9 @@ importers:
       http-proxy-middleware:
         specifier: ^4.0.0
         version: 4.0.0
+      p-limit:
+        specifier: ^7.3.0
+        version: 7.3.0
       pdfkit:
         specifier: ^0.18.0
         version: 0.18.0

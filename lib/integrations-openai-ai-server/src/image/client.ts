@@ -40,12 +40,12 @@ export async function generateImageWithReference(
   const image = await toFile(fs.createReadStream(imageFilePath), imageFilePath, {
     type: "image/png",
   });
-  const response = await openai.images.generate({
+  const response = await openai.images.edit({
     model: "gpt-image-1",
-    prompt,
     image: [image],
+    prompt,
     size: size as "1024x1024",
-  } as any);
+  });
   const base64 = response.data?.[0]?.b64_json ?? "";
   return Buffer.from(base64, "base64");
 }

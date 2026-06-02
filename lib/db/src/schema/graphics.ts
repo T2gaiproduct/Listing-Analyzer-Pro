@@ -40,6 +40,7 @@ export const graphicsProjectsTable = pgTable("graphics_projects", {
   lifestyleCount: integer("lifestyle_count").notNull().default(0),
   featureCount: integer("feature_count").notNull().default(0),
   imageRecords: jsonb("image_records").$type<GraphicsImageRecords>(),
+  generatedCount: integer("generated_count").notNull().default(0),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
