@@ -29,7 +29,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     {
-      label: "Generate Content",
+      label: "My Projects",
       icon: Plus,
       children: [
         { href: "/audits/new", label: "Listing Optimization" },
