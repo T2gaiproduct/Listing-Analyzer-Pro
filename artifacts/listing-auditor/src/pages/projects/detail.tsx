@@ -47,23 +47,6 @@ interface GraphicsProject {
   updatedAt: string;
 }
 
-const DESIGN_STYLES = [
-  { value: "modern", label: "Modern", desc: "Bold, contemporary, clean lines" },
-  { value: "luxury", label: "Luxury", desc: "Moody, dramatic, opulent feel" },
-  { value: "outdoor", label: "Outdoor", desc: "Natural, adventurous, earthy" },
-  { value: "minimalist", label: "Minimalist", desc: "Scandinavian, generous white space" },
-] as const;
-
-type DesignStyle = (typeof DESIGN_STYLES)[number]["value"];
-
-const ASPECT_RATIOS = [
-  { value: "1:1", label: "Square", symbol: "⬜" },
-  { value: "3:2", label: "Wide", symbol: "▬" },
-  { value: "2:3", label: "Tall", symbol: "▮" },
-] as const;
-
-type AspectRatio = (typeof ASPECT_RATIOS)[number]["value"];
-
 const TYPE_LABELS: Record<ImageRecord["type"], string> = {
   lifestyle: "Lifestyle",
   feature: "Feature",
@@ -85,14 +68,10 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
 
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/projects";
 
-  const [selectedStyle, setSelectedStyle] = useState<DesignStyle>("modern");
-  const [selectedRatio, setSelectedRatio] = useState<AspectRatio>("1:1");
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
   const [editRecord, setEditRecord] = useState<ImageRecord | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
-  const [editStyle, setEditStyle] = useState<DesignStyle>("modern");
-  const [editRatio, setEditRatio] = useState<AspectRatio>("1:1");
 
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
   const [showDelete, setShowDelete] = useState(false);
@@ -122,7 +101,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ style: selectedStyle, aspectRatio: selectedRatio }),
+        body: JSON.stringify({}),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -144,12 +123,12 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   });
 
   const regenerateMutation = useMutation({
-    mutationFn: async ({ imageId, style, aspectRatio }: { imageId: string; style: string; aspectRatio: string }) => {
+    mutationFn: async ({ imageId }: { imageId: string }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${id}/images/${imageId}/regenerate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ style, aspectRatio }),
+        body: JSON.stringify({}),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -233,7 +212,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const handleRegenerate = (record: ImageRecord) => {
     setLoading(record.id, true);
     regenerateMutation.mutate(
-      { imageId: record.id, style: selectedStyle, aspectRatio: selectedRatio },
+      { imageId: record.id },
       { onSettled: () => setLoading(record.id, false) },
     );
   };
@@ -241,8 +220,6 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const handleOpenEdit = (record: ImageRecord) => {
     setEditRecord(record);
     setEditPrompt("");
-    setEditStyle((record.style as DesignStyle) || "modern");
-    setEditRatio((record.aspectRatio as AspectRatio) || "1:1");
   };
 
   const handleEditSubmit = () => {
@@ -302,52 +279,6 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
           </Button>
         </div>
       </div>
-
-      {/* Style + Aspect Ratio Controls */}
-      {canEdit && !isGenerating && (
-        <div className="rounded-lg border bg-white p-4 space-y-4">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Style Preset</p>
-            <div className="flex flex-wrap gap-2">
-              {DESIGN_STYLES.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => setSelectedStyle(s.value)}
-                  className={`px-3 py-1.5 text-sm rounded-full font-medium border transition-all cursor-pointer ${
-                    selectedStyle === s.value
-                      ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                      : "bg-white border-slate-200 hover:border-purple-300 hover:bg-purple-50"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-slate-400 mt-1.5 italic">
-              {DESIGN_STYLES.find((s) => s.value === selectedStyle)?.desc}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Aspect Ratio</p>
-            <div className="flex gap-2">
-              {ASPECT_RATIOS.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => setSelectedRatio(r.value)}
-                  className={`px-3 py-1.5 text-sm flex items-center gap-1.5 rounded-lg font-medium border transition-all cursor-pointer ${
-                    selectedRatio === r.value
-                      ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                      : "bg-white border-slate-200 hover:border-purple-300 hover:bg-purple-50"
-                  }`}
-                >
-                  <span>{r.symbol}</span>
-                  {r.value}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Loading state */}
       {isLoading && (
@@ -486,47 +417,6 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   rows={3}
                   className="resize-none"
                 />
-              </div>
-
-              {/* Style + Ratio */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Style</p>
-                  <div className="flex flex-wrap gap-2">
-                    {DESIGN_STYLES.map((s) => (
-                      <button
-                        key={s.value}
-                        onClick={() => setEditStyle(s.value)}
-                        className={`px-2.5 py-1 text-xs rounded-full font-medium border transition-all cursor-pointer ${
-                          editStyle === s.value
-                            ? "bg-purple-600 text-white border-purple-600"
-                            : "bg-white border-slate-200 hover:border-purple-300"
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Aspect Ratio</p>
-                  <div className="flex gap-2">
-                    {ASPECT_RATIOS.map((r) => (
-                      <button
-                        key={r.value}
-                        onClick={() => setEditRatio(r.value)}
-                        className={`px-2.5 py-1 text-xs flex items-center gap-1 rounded-lg font-medium border transition-all cursor-pointer ${
-                          editRatio === r.value
-                            ? "bg-purple-600 text-white border-purple-600"
-                            : "bg-white border-slate-200 hover:border-purple-300"
-                        }`}
-                      >
-                        <span>{r.symbol}</span>
-                        {r.value}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t">

@@ -237,14 +237,10 @@ export function ImageGallery({
   const queryClient = useQueryClient();
   const { canEdit } = useTeam();
 
-  const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("premium");
-  const [selectedRatio, setSelectedRatio] = useState<AspectRatio>("1:1");
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
   const [editRecord, setEditRecord] = useState<ImageRecord | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
-  const [editStyle, setEditStyle] = useState<ImageStyle>("premium");
-  const [editRatio, setEditRatio] = useState<AspectRatio>("1:1");
 
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
 
@@ -275,7 +271,7 @@ export function ImageGallery({
     try {
       await generateImages.mutateAsync({
         id: auditId,
-        data: { style: selectedStyle, aspectRatio: selectedRatio },
+        data: {},
       });
       invalidate();
       toast.success("All 6 images generated successfully!");
@@ -298,7 +294,7 @@ export function ImageGallery({
         id: auditId,
         type: record.type as "main" | "infographic" | "lifestyle",
         index: record.index,
-        data: { style: selectedStyle, aspectRatio: selectedRatio },
+        data: {},
       });
       invalidate();
       toast.success(
@@ -319,8 +315,6 @@ export function ImageGallery({
   const handleOpenEdit = (record: ImageRecord) => {
     setEditRecord(record);
     setEditPrompt("");
-    setEditStyle((record.style as ImageStyle) || "premium");
-    setEditRatio((record.aspectRatio as AspectRatio) || "1:1");
   };
 
   const handleEditSubmit = async () => {
@@ -332,7 +326,7 @@ export function ImageGallery({
         id: auditId,
         type: editRecord.type as "main" | "infographic" | "lifestyle",
         index: editRecord.index,
-        data: { prompt: editPrompt, style: editStyle, aspectRatio: editRatio },
+        data: { prompt: editPrompt },
       });
       invalidate();
       setEditRecord(null);
@@ -393,33 +387,12 @@ export function ImageGallery({
         )}
       </div>
 
-      {/* Controls */}
-      {canEdit && (
-      <div className="rounded-lg border bg-card p-4 space-y-4">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Style Preset
-          </p>
-          <StyleChips selected={selectedStyle} onChange={setSelectedStyle} />
-          <p className="text-xs text-muted-foreground mt-1.5 italic">
-            {STYLES.find((s) => s.value === selectedStyle)?.desc}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Aspect Ratio
-          </p>
-          <RatioToggle selected={selectedRatio} onChange={setSelectedRatio} />
-        </div>
-      </div>
-      )}
-
       {/* Empty state */}
       {!hasRecords && !isGeneratingAll && (
         <div className="rounded-lg border border-dashed bg-muted/20 py-16 flex flex-col items-center gap-3">
           <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
           <p className="text-muted-foreground text-sm">
-            Choose a style and click <strong>Generate All</strong> to create 6 product images.
+            Click <strong>Generate All</strong> to create 6 product images.
           </p>
         </div>
       )}
@@ -531,22 +504,6 @@ export function ImageGallery({
                   rows={3}
                   className="resize-none"
                 />
-              </div>
-
-              {/* Style + Ratio overrides */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                    Style
-                  </p>
-                  <StyleChips selected={editStyle} onChange={setEditStyle} size="sm" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                    Aspect Ratio
-                  </p>
-                  <RatioToggle selected={editRatio} onChange={setEditRatio} size="sm" />
-                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t">
