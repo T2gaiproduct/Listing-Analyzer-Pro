@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,7 @@ export default function CreateProject() {
   const [, nav] = useLocation();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLDivElement>(null);
 
   const [step, setStep] = useState<Step>(1);
   const [productName, setProductName] = useState("");
@@ -100,6 +101,16 @@ export default function CreateProject() {
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [featureCount, setFeatureCount] = useState(3);
   const [designStyle, setDesignStyle] = useState("modern");
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setShowCategoryDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const filteredCategories = AMAZON_CATEGORIES.filter((c) =>
     c.toLowerCase().includes(categorySearch.toLowerCase())
@@ -292,10 +303,10 @@ export default function CreateProject() {
                     className="border-slate-200 h-11 rounded-lg"
                   />
                 </div>
-                <div className="relative">
+                <div className="relative" ref={categoryRef}>
                   <label className="text-sm font-medium text-slate-700 mb-1.5 block">Product Category</label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     <Input
                       value={categorySearch}
                       onChange={(e) => {
@@ -307,7 +318,7 @@ export default function CreateProject() {
                       className="border-slate-200 h-11 rounded-lg pl-9"
                     />
                     {showCategoryDropdown && (
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-y-auto overscroll-contain">
                         {filteredCategories.length === 0 && (
                           <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
                         )}
@@ -327,10 +338,6 @@ export default function CreateProject() {
                       </div>
                     )}
                   </div>
-                  {/* Click outside to close dropdown */}
-                  {showCategoryDropdown && (
-                    <div className="fixed inset-0 z-10" onClick={() => setShowCategoryDropdown(false)} />
-                  )}
                 </div>
               </div>
             </div>
