@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import OpenAI, { toFile } from "openai";
 import { Buffer } from "node:buffer";
 
@@ -37,9 +38,10 @@ export async function generateImageWithReference(
   imageFilePath: string,
   size: "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256" = "1024x1024"
 ): Promise<Buffer> {
-  const image = await toFile(fs.createReadStream(imageFilePath), imageFilePath, {
-    type: "image/png",
-  });
+  const buffer = fs.readFileSync(imageFilePath);
+  const ext = imageFilePath.toLowerCase().split(".").pop() ?? "png";
+  const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+  const image = await toFile(buffer, path.basename(imageFilePath), { type: mimeType });
   const response = await openai.images.edit({
     model: "gpt-image-1",
     image: [image],
@@ -56,11 +58,12 @@ export async function editImages(
   outputPath?: string
 ): Promise<Buffer> {
   const images = await Promise.all(
-    imageFiles.map((file) =>
-      toFile(fs.createReadStream(file), file, {
-        type: "image/png",
-      })
-    )
+    imageFiles.map((file) => {
+      const buffer = fs.readFileSync(file);
+      const ext = file.toLowerCase().split(".").pop() ?? "png";
+      const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+      return toFile(buffer, path.basename(file), { type: mimeType });
+    })
   );
 
   const response = await openai.images.edit({
