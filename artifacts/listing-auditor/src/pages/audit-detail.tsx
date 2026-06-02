@@ -5,7 +5,7 @@ import {
   useGenerateContent,
   getListAuditsQueryKey, getGetAuditStatsQueryKey, getGetAuditQueryKey,
 } from "@workspace/api-client-react";
-import { ImageGallery } from "@/components/image-gallery";
+import { GraphicsWizard } from "@/components/graphics-wizard";
 import { EbcStudio } from "@/components/ebc-studio";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -645,11 +645,12 @@ export default function AuditDetail({ id }: { id: number }) {
 
         {/* ── IMAGES TAB ── */}
         <TabsContent value="images" className="space-y-6">
-          <ImageGallery
+          <GraphicsWizard
             auditId={audit.id}
             productName={audit.productName}
-            imageRecords={audit.imageRecords}
-            generatedImages={audit.generatedImages}
+            imageUrls={audit.imageUrls}
+            category={audit.category ?? null}
+            targetKeywords={audit.targetKeywords}
           />
         </TabsContent>
 

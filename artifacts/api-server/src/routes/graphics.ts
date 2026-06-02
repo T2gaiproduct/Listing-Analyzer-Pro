@@ -247,10 +247,11 @@ function saveBase64Image(base64Data: string, dir: string, filename: string): str
 // ─── Create project ───────────────────────────────────────────────────────────
 router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
-  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number };
+  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number; auditId?: number };
 
   const [project] = await db.insert(graphicsProjectsTable).values({
     userId,
+    auditId: body.auditId ?? null,
     name: body.name ?? "Untitled Project",
     productName: body.productName,
     category: body.category ?? null,
@@ -283,12 +284,24 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
 // ─── List projects ────────────────────────────────────────────────────────────
 router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
-  const projects = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(eq(graphicsProjectsTable.userId, userId))
-    .orderBy(desc(graphicsProjectsTable.updatedAt))
-    .limit(100);
+  const auditIdQuery = req.query.auditId ? parseInt(String(req.query.auditId)) : null;
+
+  let projects;
+  if (auditIdQuery && !isNaN(auditIdQuery)) {
+    projects = await db
+      .select()
+      .from(graphicsProjectsTable)
+      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.auditId, auditIdQuery)))
+      .orderBy(desc(graphicsProjectsTable.updatedAt))
+      .limit(100);
+  } else {
+    projects = await db
+      .select()
+      .from(graphicsProjectsTable)
+      .where(eq(graphicsProjectsTable.userId, userId))
+      .orderBy(desc(graphicsProjectsTable.updatedAt))
+      .limit(100);
+  }
   res.json({ projects });
 });
 

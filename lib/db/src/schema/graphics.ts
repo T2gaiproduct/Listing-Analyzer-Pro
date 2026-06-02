@@ -31,6 +31,7 @@ export const graphicsProjectsTable = pgTable("graphics_projects", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
   teamId: text("team_id"),
+  auditId: integer("audit_id"),
   name: text("name").notNull().default("Untitled Project"),
   productName: text("product_name").notNull(),
   category: text("category"),
