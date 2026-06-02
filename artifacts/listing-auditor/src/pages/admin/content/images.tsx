@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
 import { RefreshCw, ImageIcon } from "lucide-react";
 
 interface ImageItem {
@@ -55,7 +56,7 @@ export default function AdminContentImages() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <ImageIcon className="h-4 w-4 text-orange-500" />
-                      <span className="font-semibold">{item.productName}</span>
+                      <Link href={`/audits/${item.id}`} className="font-semibold hover:text-orange-600 transition-colors">{item.productName}</Link>
                       <Badge variant="outline">#{item.id}</Badge>
                     </div>
                     <span className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleDateString()}</span>

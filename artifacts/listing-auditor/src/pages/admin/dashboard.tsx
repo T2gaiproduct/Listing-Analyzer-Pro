@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   Users, FileText, TrendingUp, AlertTriangle,
   UserPlus, Activity, Clock, CheckCircle, ArrowRight,
@@ -245,7 +245,9 @@ export default function AdminDashboard() {
                         className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group"
                         onClick={() => nav(`/audits/${audit.id}`)}
                       >
-                        <td className="px-6 py-3 font-medium text-slate-800 truncate max-w-[180px] group-hover:text-orange-700 transition-colors">{audit.productName}</td>
+                        <td className="px-6 py-3 font-medium text-slate-800 truncate max-w-[180px] group-hover:text-orange-700 transition-colors">
+                          <Link href={`${basePath}/audits/${audit.id}`} className="hover:text-orange-600 transition-colors">{audit.productName}</Link>
+                        </td>
                         <td className="px-4 py-3"><ScoreBadge score={audit.overallScore} /></td>
                         <td className="px-4 py-3"><StatusBadge status={audit.status} /></td>
                         <td className="px-6 py-3 text-right text-slate-400 text-xs">

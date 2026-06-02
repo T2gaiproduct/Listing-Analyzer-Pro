@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Trash2, Eye, FileText, ChevronLeft, ChevronRight, Image, Palette, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -13,6 +13,7 @@ const PAGE_SIZE = 50;
 interface GraphicsProject {
   id: number;
   userId: string;
+  auditId: number | null;
   name: string;
   productName: string;
   category: string | null;
@@ -89,7 +90,9 @@ export default function AdminGraphicsLogs() {
               <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                 <td className="px-6 py-3 text-slate-400 text-xs">{p.id}</td>
                 <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">{p.name}</td>
-                <td className="px-4 py-3 text-slate-500 text-xs">{p.productName}</td>
+                <td className="px-4 py-3 text-slate-500 text-xs max-w-[200px] truncate">
+                  <Link href={`${basePath}/audits/${p.auditId ?? p.id}`} className="hover:text-orange-600 transition-colors">{p.productName}</Link>
+                </td>
                 <td className="px-4 py-3">
                   <span className="text-xs font-medium capitalize px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                     {p.designStyle}

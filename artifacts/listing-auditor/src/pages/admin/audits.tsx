@@ -4,7 +4,7 @@ import { Trash2, FileText, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -77,7 +77,9 @@ export default function AdminAudits() {
             {!isLoading && data?.audits.map((a) => (
               <tr key={a.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                 <td className="px-6 py-3 text-slate-400 text-xs">{a.id}</td>
-                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">{a.productName}</td>
+                <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">
+                  <Link href={`${basePath}/audits/${a.id}`} className="hover:text-orange-600 transition-colors">{a.productName}</Link>
+                </td>
                 <td className="px-4 py-3 text-slate-500 font-mono text-xs">{a.asin ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{a.category ?? "—"}</td>
                 <td className="px-4 py-3">

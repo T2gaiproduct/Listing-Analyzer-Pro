@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link, FileText as FileTextIcon, AlertTriangle, Download } from "lucide-react";
+import { useLocation, Link } from "wouter";
+import { ArrowLeft, FileText, CreditCard, Ban, CheckCircle, Trash2, Eye, PauseCircle, PlayCircle, Activity, DollarSign, Package, User, Building2, Phone, Globe, Edit2, Save, X, Zap, Image, BarChart3, RefreshCw, Users, Link as LinkIcon, FileText as FileTextIcon, AlertTriangle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -369,7 +369,9 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                 <tbody>
                   {audits?.map((a: { id: number; productName: string; overallScore: number; status: string; createdAt: string }) => (
                     <tr key={a.id} className="border-b border-slate-50 hover:bg-orange-50/40 cursor-pointer group" onClick={() => setLocation(`/audits/${a.id}`)}>
-                      <td className="px-5 py-3 font-medium text-slate-800 truncate max-w-[200px] group-hover:text-orange-700 transition-colors">{a.productName}</td>
+                      <td className="px-5 py-3 font-medium text-slate-800 truncate max-w-[200px] group-hover:text-orange-700 transition-colors">
+                        <Link href={`${basePath}/audits/${a.id}`} className="hover:text-orange-600 transition-colors">{a.productName}</Link>
+                      </td>
                       <td className="px-3 py-3">
                         <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${a.overallScore >= 70 ? "bg-green-100 text-green-700" : a.overallScore >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
                           {a.overallScore}
@@ -460,7 +462,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                         )}
                       </div>
                       <div>
-                        <Label className="text-xs flex items-center gap-1.5 text-slate-500"><Link className="w-3 h-3" />Website URL</Label>
+                        <Label className="text-xs flex items-center gap-1.5 text-slate-500"><LinkIcon className="w-3 h-3" />Website URL</Label>
                         {editingProfile ? (
                           <Input className="mt-1 h-8 text-sm" value={profileForm.websiteUrl} placeholder="https://example.com"
                             onChange={(e) => setProfileForm((p) => ({ ...p, websiteUrl: e.target.value }))} />
