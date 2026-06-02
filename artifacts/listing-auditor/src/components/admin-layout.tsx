@@ -23,8 +23,6 @@ const navSections = [
     items: [
       { href: "/admin/customers", label: "Customers", icon: Users },
       { href: "/admin/audits", label: "Generate Content", icon: FileText },
-      { href: "/admin/audits/listing-optimization", label: "Listing Optimization", icon: FileText },
-      { href: "/admin/audits/graphics-creation", label: "Graphics Creation", icon: FileText },
       { href: "/admin/content/logs", label: "Audit Logs", icon: ClipboardList },
       { href: "/admin/content/downloads", label: "Downloads", icon: Download },
     ],
