@@ -9,3 +9,4 @@ export * from "./marketing";
 export * from "./user-profiles";
 export * from "./subscriptions";
 export * from "./team-members";
+export * from "./graphics";

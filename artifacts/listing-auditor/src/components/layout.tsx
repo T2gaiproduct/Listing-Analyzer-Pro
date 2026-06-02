@@ -33,7 +33,7 @@ export function Layout({ children }: { children: ReactNode }) {
       icon: Plus,
       children: [
         { href: "/audits/new", label: "Listing Optimization" },
-        { href: "/audits/new", label: "Graphics Creation" },
+        { href: "/projects", label: "Graphics Creation" },
       ],
     },
     { href: "/billing", label: "Billing", icon: CreditCard },

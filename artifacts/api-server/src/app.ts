@@ -63,6 +63,7 @@ app.use(
 );
 
 app.use("/api/images", express.static(path.join(process.cwd(), "public", "images")));
+app.use("/api/images/graphics", express.static(path.join(process.cwd(), "public", "images", "graphics")));
 app.use("/api", router);
 
 export default app;

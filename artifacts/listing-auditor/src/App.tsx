@@ -67,6 +67,10 @@ import CheckoutCancel from "@/pages/checkout-cancel";
 import CheckoutCardSuccess from "@/pages/checkout-card-success";
 import Profile from "@/pages/profile";
 import SignUpPage from "@/pages/sign-up";
+import ProjectsPage from "@/pages/projects";
+import CreateProject from "@/pages/projects/create";
+import ProjectDetail from "@/pages/projects/detail";
+import GeneratingPage from "@/pages/projects/generating";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -423,6 +427,22 @@ function Router() {
       <Route path="/audits/:id/competitors/new">
         {params => (
           <ProtectedRoute><CompetitorNew id={parseInt(params.id)} /></ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/projects">
+        <ProtectedRoute><ProjectsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/projects/create">
+        <ProtectedRoute><CreateProject /></ProtectedRoute>
+      </Route>
+      <Route path="/projects/:id/generating">
+        {params => (
+          <ProtectedRoute><GeneratingPage params={{ id: params.id }} /></ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/projects/:id">
+        {params => (
+          <ProtectedRoute><ProjectDetail params={{ id: params.id }} /></ProtectedRoute>
         )}
       </Route>
       <Route component={NotFound} />
