@@ -116,6 +116,7 @@ export default function AuditDetail({ id }: { id: number }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/";
   const { canEdit, isTeamMember, role } = useTeam();
 
   const { data: audit, isLoading } = useGetAudit(id, {
@@ -146,7 +147,7 @@ export default function AuditDetail({ id }: { id: number }) {
     return (
       <div className="text-center py-16">
         <p className="text-muted-foreground">Audit not found.</p>
-        <Button asChild className="mt-4"><Link href="/">Go Back</Link></Button>
+        <Button asChild className="mt-4"><Link href={returnTo}>Go Back</Link></Button>
       </div>
     );
   }
@@ -156,7 +157,7 @@ export default function AuditDetail({ id }: { id: number }) {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
-        setLocation("/");
+        setLocation(returnTo);
         toast({ title: "Audit deleted" });
       },
     });
@@ -371,7 +372,7 @@ export default function AuditDetail({ id }: { id: number }) {
       <div className="flex items-start justify-between border-b pb-6">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="sm" asChild className="-ml-2 mt-1 text-slate-500">
-            <Link href="/"><ArrowLeft className="w-4 h-4 mr-1" /> Back</Link>
+            <Link href={returnTo}><ArrowLeft className="w-4 h-4 mr-1" /> Back</Link>
           </Button>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">

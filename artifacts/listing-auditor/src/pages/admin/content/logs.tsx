@@ -106,7 +106,7 @@ export default function AdminContentLogs() {
                       size="sm"
                       className="h-7 px-2 text-slate-400 hover:text-orange-600"
                       title="View audit detail"
-                      onClick={() => nav(`/audits/${a.id}`)}
+                      onClick={() => nav(`/audits/${a.id}?returnTo=/admin/content/logs`)}
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
