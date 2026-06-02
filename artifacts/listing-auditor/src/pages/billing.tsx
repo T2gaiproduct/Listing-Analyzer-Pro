@@ -679,8 +679,9 @@ export default function Billing() {
                       disabled={isCurrent || changingPlan || (!monthlySelected && !yearlySelected)}
                       onClick={() => {
                         if (isCurrent) return;
+                        setChangingPlan(true);
                         if (sub?.stripeSubscriptionId) {
-                          setChangingPlan(true);
+                          // Existing Stripe subscription — redirect to customer portal
                           fetch(`${basePath}/api/stripe/portal`, {
                             method: "POST", headers: { "Content-Type": "application/json" },
                             credentials: "include", body: JSON.stringify({ returnUrl: `${window.location.origin}${basePath}/billing` }),
@@ -693,7 +694,22 @@ export default function Billing() {
                             .catch(() => toast({ title: "Network error", variant: "destructive" }))
                             .finally(() => setChangingPlan(false));
                         } else {
-                          setLocation("/onboarding");
+                          // No active Stripe subscription — use server-side upgrade
+                          fetch(`${basePath}/api/subscription/upgrade`, {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            credentials: "include", body: JSON.stringify({ planId: changePlanId, billingCycle: changePlanCycle }),
+                          })
+                            .then((r) => r.json() as Promise<{ success?: boolean; error?: string }>)
+                            .then((d) => {
+                              if (d.success) {
+                                toast({ title: "Plan updated successfully!" });
+                                invalidateSub();
+                              } else {
+                                toast({ title: "Could not update plan", description: d.error ?? "Please try again.", variant: "destructive" });
+                              }
+                            })
+                            .catch(() => toast({ title: "Network error", variant: "destructive" }))
+                            .finally(() => setChangingPlan(false));
                         }
                       }}
                     >

@@ -40,10 +40,10 @@ const COUNTRIES = [
 ];
 
 const FALLBACK_PLANS: Plan[] = [
-  { id: 0, name: "Starter", description: "Perfect for solo sellers", priceMonthly: 29, priceYearly: 23, aiCredits: 100, imageCredits: 20, auditCredits: 10, teamMembers: 1, features: ["10 listing audits/mo", "100 AI credits", "20 image credits", "Competitor comparison"], isTrial: true, trialDays: 14, tag: null, isHighlighted: false, ctaText: null },
-  { id: 0, name: "Growth", description: "For growing brands", priceMonthly: 79, priceYearly: 63, aiCredits: 500, imageCredits: 100, auditCredits: 50, teamMembers: 3, features: ["50 listing audits/mo", "500 AI credits", "100 image credits", "3 team members"], isTrial: true, trialDays: 14, tag: "Most Popular", isHighlighted: true, ctaText: null },
-  { id: 0, name: "Pro", description: "For agencies & power sellers", priceMonthly: 149, priceYearly: 119, aiCredits: 2000, imageCredits: 400, auditCredits: 999, teamMembers: 10, features: ["Unlimited audits", "2,000 AI credits", "400 image credits", "API access"], isTrial: true, trialDays: 14, tag: "Best Value", isHighlighted: false, ctaText: null },
-  { id: 0, name: "Enterprise", description: "Custom solution for large agencies", priceMonthly: 0, priceYearly: 0, aiCredits: 999999, imageCredits: 999999, auditCredits: 999, teamMembers: 999, features: ["Unlimited everything", "Custom credits", "Dedicated account manager", "Full API access"], isTrial: false, trialDays: 0, tag: null, isHighlighted: false, ctaText: null },
+  { id: 1, name: "Starter", description: "Perfect for solo sellers", priceMonthly: 29, priceYearly: 23, aiCredits: 100, imageCredits: 20, auditCredits: 10, teamMembers: 1, features: ["10 listing audits/mo", "100 AI credits", "20 image credits", "Competitor comparison"], isTrial: true, trialDays: 14, tag: null, isHighlighted: false, ctaText: null },
+  { id: 2, name: "Growth", description: "For growing brands", priceMonthly: 79, priceYearly: 63, aiCredits: 500, imageCredits: 100, auditCredits: 50, teamMembers: 3, features: ["50 listing audits/mo", "500 AI credits", "100 image credits", "3 team members"], isTrial: true, trialDays: 14, tag: "Most Popular", isHighlighted: true, ctaText: null },
+  { id: 3, name: "Pro", description: "For agencies & power sellers", priceMonthly: 149, priceYearly: 119, aiCredits: 2000, imageCredits: 400, auditCredits: 999, teamMembers: 10, features: ["Unlimited audits", "2,000 AI credits", "400 image credits", "API access"], isTrial: true, trialDays: 14, tag: "Best Value", isHighlighted: false, ctaText: null },
+  { id: 4, name: "Enterprise", description: "Custom solution for large agencies", priceMonthly: 0, priceYearly: 0, aiCredits: 999999, imageCredits: 999999, auditCredits: 999, teamMembers: 999, features: ["Unlimited everything", "Custom credits", "Dedicated account manager", "Full API access"], isTrial: false, trialDays: 0, tag: null, isHighlighted: false, ctaText: null },
 ];
 
 function StepIndicator({ step, total }: { step: number; total: number }) {
@@ -94,7 +94,33 @@ export default function Onboarding() {
     queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
   });
 
+  const { data: existingProfile } = useQuery<{ profile?: { fullName?: string | null; companyName?: string | null; phone?: string | null; country?: string | null; gstNumber?: string | null; websiteUrl?: string | null; teamSize?: number | null; onboardingCompleted?: boolean } | null }>({
+    queryKey: ["user-profile"],
+    queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isLoaded && !!user,
+  });
+
   const displayPlans = plans.length > 0 ? plans : FALLBACK_PLANS;
+
+  // Pre-fill profile from existing data for returning customers
+  useEffect(() => {
+    if (existingProfile?.profile) {
+      const p = existingProfile.profile;
+      setProfile((prev) => ({
+        fullName: prev.fullName || p.fullName || "",
+        companyName: prev.companyName || p.companyName || "",
+        phone: prev.phone || p.phone || "",
+        country: prev.country || p.country || "",
+        gstNumber: prev.gstNumber || p.gstNumber || "",
+        websiteUrl: prev.websiteUrl || p.websiteUrl || "",
+        teamSize: prev.teamSize || (p.teamSize ? String(p.teamSize) : ""),
+      }));
+      // If already completed onboarding, skip to plan selection
+      if (p.onboardingCompleted) {
+        setStep(1);
+      }
+    }
+  }, [existingProfile]);
 
   // Auto-select first plan and sync useTrial to plan's trial eligibility
   useEffect(() => {

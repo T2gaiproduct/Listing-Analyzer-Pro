@@ -475,31 +475,38 @@ export default function Profile() {
                 Yearly <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full">-20%</span>
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-              {plans.map((plan) => (
-                <div key={plan.id} className={`rounded-xl border-2 p-4 ${plan.isHighlighted ? "border-orange-300 bg-orange-50" : "border-slate-200"}`}>
-                  {plan.tag && <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-bold">{plan.tag}</span>}
-                  <p className="font-bold text-slate-900 mt-1">{plan.name}</p>
-                  <p className="text-2xl font-extrabold text-slate-900 mt-1">
-                    ${upgradeYearly ? plan.priceYearly : plan.priceMonthly}
-                    <span className="text-sm font-normal text-slate-400">{upgradeYearly ? "/year" : "/mo"}</span>
-                  </p>
-                  <div className="text-xs text-slate-500 space-y-0.5 mt-2 mb-3">
-                    <p>{plan.aiCredits} AI credits</p>
-                    <p>{plan.imageCredits} image credits</p>
-                    <p>{plan.auditCredits === 999 ? "Unlimited" : plan.auditCredits} audits</p>
+            {plans.length === 0 ? (
+              <div className="text-center py-10">
+                <RefreshCw className="w-6 h-6 text-slate-400 animate-spin mx-auto mb-3" />
+                <p className="text-slate-500">Loading plans…</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                {plans.map((plan) => (
+                  <div key={plan.id} className={`rounded-xl border-2 p-4 cursor-pointer transition-all ${plan.id === sub?.planId ? "border-orange-400 bg-orange-50" : plan.isHighlighted ? "border-orange-300 bg-orange-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                    {plan.tag && <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-bold">{plan.tag}</span>}
+                    <p className="font-bold text-slate-900 mt-1">{plan.name}</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                      ${upgradeYearly ? plan.priceYearly : plan.priceMonthly}
+                      <span className="text-sm font-normal text-slate-400">{upgradeYearly ? "/year" : "/mo"}</span>
+                    </p>
+                    <div className="text-xs text-slate-500 space-y-0.5 mt-2 mb-3">
+                      <p>{plan.aiCredits} AI credits</p>
+                      <p>{plan.imageCredits} image credits</p>
+                      <p>{plan.auditCredits === 999 ? "Unlimited" : plan.auditCredits} audits</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full bg-orange-500 hover:bg-orange-600"
+                      disabled={upgradeMutation.isPending || plan.id === sub?.planId}
+                      onClick={() => upgradeMutation.mutate({ planId: plan.id, billingCycle: upgradeYearly ? "yearly" : "monthly" })}
+                    >
+                      {plan.id === sub?.planId ? "Current" : upgradeMutation.isPending ? "Upgrading…" : "Select"}
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    className="w-full bg-orange-500 hover:bg-orange-600"
-                    disabled={upgradeMutation.isPending || plan.id === sub?.planId}
-                    onClick={() => upgradeMutation.mutate({ planId: plan.id, billingCycle: upgradeYearly ? "yearly" : "monthly" })}
-                  >
-                    {plan.id === sub?.planId ? "Current" : upgradeMutation.isPending ? "Upgrading…" : "Select"}
-                  </Button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
