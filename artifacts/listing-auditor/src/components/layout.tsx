@@ -24,9 +24,18 @@ export function Layout({ children }: { children: ReactNode }) {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   const isAdmin = user ? adminUserIds.includes(user.id) : false;
 
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/audits/new", label: "New Audit", icon: Plus },
+    {
+      label: "Generate Content",
+      icon: Plus,
+      children: [
+        { href: "/audits/new", label: "Listing Optimization" },
+        { href: "/audits/new", label: "Graphics Creation" },
+      ],
+    },
     { href: "/billing", label: "Billing", icon: CreditCard },
     { href: "/team", label: "Team", icon: Users },
     { href: "/profile", label: "My Profile", icon: UserCircle },
@@ -46,11 +55,55 @@ export function Layout({ children }: { children: ReactNode }) {
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           <div className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider mb-4 px-2">Navigation</div>
           {navItems.map((item) => {
-            const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
+            if ("children" in item && Array.isArray(item.children)) {
+              const isExpanded = expandedMenu === item.label;
+              const isActive = item.children.some((c) => location === c.href);
+              return (
+                <div key={item.label}>
+                  <button
+                    onClick={() => setExpandedMenu((prev) => (prev === item.label ? null : item.label))}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group w-full text-left",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-sidebar-foreground/50 group-hover:text-primary/70 transition-colors")} />
+                    {item.label}
+                    {isExpanded ? (
+                      <ChevronRight className="w-4 h-4 ml-auto opacity-50 rotate-90 transition-transform" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 ml-auto opacity-50 transition-transform" />
+                    )}
+                  </button>
+                  {isExpanded && (
+                    <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border/50 pl-2">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.label}
+                          href={child.href}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all",
+                            location === child.href
+                              ? "bg-sidebar-accent/60 text-sidebar-accent-foreground"
+                              : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            const href = item.href!;
+            const isActive = location === href || (href === "/dashboard" && location === "/");
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={href}
+                href={href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group",
                   isActive
