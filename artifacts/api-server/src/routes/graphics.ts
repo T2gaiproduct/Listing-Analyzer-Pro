@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, graphicsProjectsTable } from "@workspace/db";
+import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReference } from "@workspace/integrations-openai-ai-server/image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
@@ -46,6 +46,14 @@ function getCreditCtx(req: Request): TeamAwareContext {
 
 function getEffectiveUserId(req: Request): string {
   return (req as TeamAuthedRequest).team?.ownerUserId ?? (req as AuthedRequest).userId;
+}
+
+async function isAdminUser(userId: string): Promise<boolean> {
+  const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (ADMIN_USER_IDS.includes(userId)) return true;
+  const [row] = await db.select({ id: adminUsersTable.id })
+    .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));
+  return !!row;
 }
 
 function requireWriteAccess(req: Request, res: Response, next: NextFunction): void {
@@ -289,10 +297,11 @@ router.get("/graphics/projects/:id", requireAuth, resolveTeam, async (req, res):
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [project] = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+  const admin = await isAdminUser(userId);
+
+  const [project] = admin
+    ? await db.select().from(graphicsProjectsTable).where(eq(graphicsProjectsTable.id, id))
+    : await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   res.json(project);

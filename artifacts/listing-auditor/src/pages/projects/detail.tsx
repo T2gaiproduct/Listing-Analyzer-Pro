@@ -51,6 +51,9 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const qc = useQueryClient();
   const { canEdit } = useTeam();
 
+  // Read returnTo from query param so admin can go back to admin logs
+  const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/projects";
+
   const [editImageId, setEditImageId] = useState<string | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
   const [showDelete, setShowDelete] = useState(false);
@@ -96,7 +99,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     },
     onSuccess: () => {
       toast({ title: "Project deleted" });
-      nav("/projects");
+      nav(returnTo);
     },
   });
 
@@ -134,7 +137,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="text-slate-500" onClick={() => nav("/projects")}>
+          <Button variant="ghost" size="sm" className="text-slate-500" onClick={() => nav(returnTo)}>
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </Button>

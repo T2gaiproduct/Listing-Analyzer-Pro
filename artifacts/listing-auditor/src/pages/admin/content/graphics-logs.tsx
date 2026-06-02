@@ -118,7 +118,7 @@ export default function AdminGraphicsLogs() {
                       size="sm"
                       className="h-7 px-2 text-slate-400 hover:text-orange-600"
                       title="View project"
-                      onClick={() => nav(`/projects/${p.id}`)}
+                      onClick={() => nav(`/projects/${p.id}?returnTo=/admin/content/graphics-logs`)}
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
