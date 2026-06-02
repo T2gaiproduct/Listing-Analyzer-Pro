@@ -132,7 +132,7 @@ function buildGraphicsSpecs(
 const MAX_CONCURRENT_IMAGES = 3;
 const IMAGE_GENERATION_MS = 30000;
 
-async function generateGraphicsImages(projectId: number, productName: string, category: string | null, designStyle: string, lifestyleCount: number, featureCount: number, sourceImagePaths?: string[] | null): Promise<GraphicsImageRecord[]> {
+async function generateGraphicsImages(projectId: number, productName: string, category: string | null, designStyle: string, lifestyleCount: number, featureCount: number, sourceImagePaths?: string[] | null, aspectRatio?: string): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
 
@@ -152,7 +152,8 @@ async function generateGraphicsImages(projectId: number, productName: string, ca
     const imgUrl = urlPath(projectId, filename);
 
     try {
-      const size = ASPECT_SIZES["1:1"];
+      const arKey = aspectRatio ?? "1:1";
+      const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
       let buffer: Buffer;
       if (sourcePath && fs.existsSync(sourcePath)) {
         buffer = await generateImageWithReference(spec.prompt, sourcePath, size);
@@ -165,7 +166,7 @@ async function generateGraphicsImages(projectId: number, productName: string, ca
       const version = {
         url: imgUrl,
         style: designStyle,
-        aspectRatio: "1:1",
+        aspectRatio: arKey,
         isEdit: false,
         generatedAt: new Date().toISOString(),
       };
@@ -175,7 +176,7 @@ async function generateGraphicsImages(projectId: number, productName: string, ca
         type: spec.type,
         index: spec.index,
         style: designStyle,
-        aspectRatio: "1:1",
+        aspectRatio: arKey,
         currentUrl: imgUrl,
         versions: [version],
       });
@@ -365,14 +366,18 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   // Run generation in background
   (async () => {
     try {
+      const body = req.body as { style?: string; aspectRatio?: string };
+      const generateStyle = body.style ?? project.designStyle;
+      const generateAspectRatio = body.aspectRatio ?? "1:1";
       const imageRecords = await generateGraphicsImages(
         id,
         project.productName,
         project.category,
-        project.designStyle,
+        generateStyle,
         project.lifestyleCount,
         project.featureCount,
         project.sourceImageUrls,
+        generateAspectRatio,
       );
 
       await deductCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded, `Graphics for ${project.name}`, "graphics", { projectId: id });
@@ -432,6 +437,83 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
     res.json(updatedRecord);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Edit failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+// ─── Regenerate single image ──────────────────────────────────────────────────
+router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const userId = getEffectiveUserId(req);
+  const id = parseInt(String(req.params.id ?? ""));
+  const imageId = String(req.params.imageId ?? "");
+  if (isNaN(id) || !imageId) { res.status(400).json({ error: "Invalid parameters" }); return; }
+
+  const [project] = await db
+    .select()
+    .from(graphicsProjectsTable)
+    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const records = (project.imageRecords ?? []) as GraphicsImageRecord[];
+  const existingRecord = records.find(r => r.id === imageId);
+  if (!existingRecord) { res.status(404).json({ error: "Image not found" }); return; }
+
+  const body = req.body as { style?: string; aspectRatio?: string };
+  const regenStyle = body.style ?? existingRecord.style;
+  const regenAspectRatio = body.aspectRatio ?? existingRecord.aspectRatio;
+
+  const cost = await getCreditCost("images");
+  const creditCtx = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, 1);
+  if (!creditCheck) {
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (1 needed).` });
+    return;
+  }
+
+  try {
+    const dir = path.join(IMAGES_DIR, String(id));
+    const styleSuffix = DESIGN_STYLE_PROMPTS[regenStyle] ?? DESIGN_STYLE_PROMPTS.modern;
+    const productDesc = `${project.productName}${project.category ? `, a ${project.category} product` : ""}`;
+    const prompt = existingRecord.type === "lifestyle"
+      ? `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography. ${styleSuffix}`
+      : `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background. ${styleSuffix}`;
+
+    const size = ASPECT_SIZES[regenAspectRatio as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
+    const buffer = await generateImageBuffer(prompt, size);
+    if (!buffer || buffer.length === 0) throw new Error("No image data returned");
+
+    const filename = versionedFilename(existingRecord.type, existingRecord.index);
+    const filePath = path.join(dir, filename);
+    const imgUrl = urlPath(id, filename);
+    fs.writeFileSync(filePath, buffer);
+
+    const newVersion = {
+      url: imgUrl,
+      style: regenStyle,
+      aspectRatio: regenAspectRatio,
+      isEdit: false,
+      generatedAt: new Date().toISOString(),
+    };
+
+    const updatedRecord: GraphicsImageRecord = {
+      ...existingRecord,
+      style: regenStyle,
+      aspectRatio: regenAspectRatio,
+      currentUrl: imgUrl,
+      versions: [...existingRecord.versions, newVersion],
+    };
+
+    const updatedRecords = records.map(r => r.id === imageId ? updatedRecord : r);
+    await db.update(graphicsProjectsTable)
+      .set({ imageRecords: updatedRecords, updatedAt: new Date() })
+      .where(eq(graphicsProjectsTable.id, id));
+
+    await deductCreditsTeamAware(creditCtx, cost.creditType, 1, `Regenerate ${imageId}`, "graphics", { projectId: id, imageId });
+
+    res.json(updatedRecord);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Regeneration failed";
     res.status(500).json({ error: message });
   }
 });
