@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, Loader2, Clock, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, Loader2, Clock, Sparkles, AlertTriangle, ArrowRight } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -13,6 +14,7 @@ interface GraphicsProject {
   lifestyleCount: number;
   featureCount: number;
   imageRecords?: Array<unknown>;
+  errorMessage?: string | null;
   updatedAt: string;
 }
 
@@ -116,6 +118,27 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
               )}
             </div>
           </div>
+
+          {/* Error display */}
+          {project?.status === "failed" && (
+            <div className="bg-red-50 rounded-lg p-4 border border-red-100">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-red-800 font-medium">Generation failed</p>
+                  <p className="text-xs text-red-600 mt-1">{project.errorMessage || "An unexpected error occurred while generating your graphics."}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 text-red-600 border-red-200 hover:bg-red-100"
+                    onClick={() => nav(`/projects/${id}`)}
+                  >
+                    View Project <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tip */}
           <div className="bg-purple-50 rounded-lg p-4 flex items-start gap-3">

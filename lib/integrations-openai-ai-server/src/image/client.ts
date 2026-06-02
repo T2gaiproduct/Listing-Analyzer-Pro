@@ -32,6 +32,24 @@ export async function generateImageBuffer(
   return Buffer.from(base64, "base64");
 }
 
+export async function generateImageWithReference(
+  prompt: string,
+  imageFilePath: string,
+  size: "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256" = "1024x1024"
+): Promise<Buffer> {
+  const image = await toFile(fs.createReadStream(imageFilePath), imageFilePath, {
+    type: "image/png",
+  });
+  const response = await openai.images.generate({
+    model: "gpt-image-1",
+    prompt,
+    image: [image],
+    size: size as "1024x1024",
+  } as any);
+  const base64 = response.data?.[0]?.b64_json ?? "";
+  return Buffer.from(base64, "base64");
+}
+
 export async function editImages(
   imageFiles: string[],
   prompt: string,

@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
-import { generateImageBuffer } from "@workspace/integrations-openai-ai-server/image";
+import { generateImageBuffer, generateImageWithReference } from "@workspace/integrations-openai-ai-server/image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import * as fs from "fs";
@@ -120,13 +120,15 @@ function buildGraphicsSpecs(
   return specs;
 }
 
-async function generateGraphicsImages(projectId: number, productName: string, category: string | null, designStyle: string, lifestyleCount: number, featureCount: number): Promise<GraphicsImageRecord[]> {
+async function generateGraphicsImages(projectId: number, productName: string, category: string | null, designStyle: string, lifestyleCount: number, featureCount: number, sourceImagePaths?: string[] | null): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
 
   const specs = buildGraphicsSpecs(productName, category, designStyle, lifestyleCount, featureCount);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
+
+  const sourcePath = sourceImagePaths?.[0] ?? null;
 
   for (const spec of specs) {
     const filename = versionedFilename(spec.type, spec.index);
@@ -135,7 +137,12 @@ async function generateGraphicsImages(projectId: number, productName: string, ca
 
     try {
       const size = ASPECT_SIZES["1:1"];
-      const buffer = await generateImageBuffer(spec.prompt, size);
+      let buffer: Buffer;
+      if (sourcePath && fs.existsSync(sourcePath)) {
+        buffer = await generateImageWithReference(spec.prompt, sourcePath, size);
+      } else {
+        buffer = await generateImageBuffer(spec.prompt, size);
+      }
       if (!buffer || buffer.length === 0) throw new Error("No image data returned");
       fs.writeFileSync(filePath, buffer);
 
@@ -205,6 +212,14 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
   };
 }
 
+function saveBase64Image(base64Data: string, dir: string, filename: string): string {
+  const base64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+  const buffer = Buffer.from(base64, "base64");
+  const filePath = path.join(dir, filename);
+  fs.writeFileSync(filePath, buffer);
+  return filePath;
+}
+
 // ─── Create project ───────────────────────────────────────────────────────────
 router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
@@ -221,6 +236,22 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
     featureCount: body.featureCount ?? 0,
     status: "draft",
   }).returning();
+
+  // Save uploaded base64 images as files for later use
+  if (body.sourceImageUrls && body.sourceImageUrls.length > 0) {
+    const projectDir = path.join(IMAGES_DIR, String(project.id), "source");
+    ensureDir(projectDir);
+    const savedPaths: string[] = [];
+    body.sourceImageUrls.forEach((img, idx) => {
+      const ext = img.startsWith("data:image/png") ? "png" : "jpg";
+      const filePath = saveBase64Image(img, projectDir, `source_${idx}.${ext}`);
+      savedPaths.push(filePath);
+    });
+    // Update with saved paths
+    await db.update(graphicsProjectsTable)
+      .set({ sourceImageUrls: savedPaths, updatedAt: new Date() })
+      .where(eq(graphicsProjectsTable.id, project.id));
+  }
 
   res.status(201).json(project);
 });
@@ -317,6 +348,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
         project.designStyle,
         project.lifestyleCount,
         project.featureCount,
+        project.sourceImageUrls,
       );
 
       await deductCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded, `Graphics for ${project.name}`, "graphics", { projectId: id });
@@ -326,8 +358,9 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
         .where(eq(graphicsProjectsTable.id, id));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Generation failed";
+      const errorText = message.length > 500 ? message.slice(0, 500) + "..." : message;
       await db.update(graphicsProjectsTable)
-        .set({ status: "failed", updatedAt: new Date() })
+        .set({ status: "failed", errorMessage: errorText, updatedAt: new Date() })
         .where(eq(graphicsProjectsTable.id, id));
       console.error(`Graphics generation failed for project ${id}:`, message);
     }
