@@ -25,6 +25,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 // The frontend redirects the user to the returned URL.
 // Subscription is saved as "pending_payment" — never activated here.
 router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<void> => {
+  try {
   const userId = (req as AuthedRequest).userId;
   const {
     planId, billingCycle, couponCode, autoRenew,
@@ -129,6 +130,10 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
     .where(eq(subscriptionsTable.userId, userId));
 
   res.json({ url: session.url, sessionId: session.id });
+  } catch (err) {
+    req.log?.error?.({ err }, "Stripe create-checkout failed");
+    res.status(502).json({ error: "Unable to start checkout right now. Please try again shortly or contact support." });
+  }
 });
 
 // ─── GET /stripe/session-status ───────────────────────────────────────────────

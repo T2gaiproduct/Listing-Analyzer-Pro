@@ -39,13 +39,6 @@ const COUNTRIES = [
   "Belgium", "Argentina", "Colombia", "Chile", "Peru", "New Zealand", "Other",
 ];
 
-const FALLBACK_PLANS: Plan[] = [
-  { id: 1, name: "Starter", description: "Perfect for solo sellers", priceMonthly: 29, priceYearly: 23, aiCredits: 100, imageCredits: 20, auditCredits: 10, teamMembers: 1, features: ["10 listing audits/mo", "100 AI credits", "20 image credits", "Competitor comparison"], isTrial: true, trialDays: 14, tag: null, isHighlighted: false, ctaText: null },
-  { id: 2, name: "Growth", description: "For growing brands", priceMonthly: 79, priceYearly: 63, aiCredits: 500, imageCredits: 100, auditCredits: 50, teamMembers: 3, features: ["50 listing audits/mo", "500 AI credits", "100 image credits", "3 team members"], isTrial: true, trialDays: 14, tag: "Most Popular", isHighlighted: true, ctaText: null },
-  { id: 3, name: "Pro", description: "For agencies & power sellers", priceMonthly: 149, priceYearly: 119, aiCredits: 2000, imageCredits: 400, auditCredits: 999, teamMembers: 10, features: ["Unlimited audits", "2,000 AI credits", "400 image credits", "API access"], isTrial: true, trialDays: 14, tag: "Best Value", isHighlighted: false, ctaText: null },
-  { id: 4, name: "Enterprise", description: "Custom solution for large agencies", priceMonthly: 0, priceYearly: 0, aiCredits: 999999, imageCredits: 999999, auditCredits: 999, teamMembers: 999, features: ["Unlimited everything", "Custom credits", "Dedicated account manager", "Full API access"], isTrial: false, trialDays: 0, tag: null, isHighlighted: false, ctaText: null },
-];
-
 function StepIndicator({ step, total }: { step: number; total: number }) {
   const labels = ["Your Profile", "Choose Plan", "Payment"];
   return (
@@ -89,7 +82,7 @@ export default function Onboarding() {
     }
   }, [isLoaded, user]);
 
-  const { data: plans = [] } = useQuery<Plan[]>({
+  const { data: plans = [], isLoading: plansLoading } = useQuery<Plan[]>({
     queryKey: ["public-plans"],
     queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
   });
@@ -100,7 +93,7 @@ export default function Onboarding() {
     enabled: isLoaded && !!user,
   });
 
-  const displayPlans = plans.length > 0 ? plans : FALLBACK_PLANS;
+  const displayPlans = Array.isArray(plans) ? plans : [];
 
   // Pre-fill profile from existing data for returning customers
   useEffect(() => {
@@ -328,6 +321,16 @@ export default function Onboarding() {
                   </div>
                 </div>
 
+                {plansLoading && displayPlans.length === 0 && (
+                  <div className="flex items-center justify-center py-12 text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading plans…
+                  </div>
+                )}
+                {!plansLoading && displayPlans.length === 0 && (
+                  <div className="text-center py-12 text-slate-500">
+                    No plans are available right now. Please try again shortly or contact support.
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {displayPlans.map((plan) => (
                     <div

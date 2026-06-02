@@ -90,7 +90,7 @@ const badgeColorClass: Record<string, string> = {
 };
 
 const faqs = [
-  { q: "Is there a free trial?", a: "Starter, Growth, and Pro plans include a 14-day free trial. No credit card required to start. Enterprise plans are custom — contact us for a demo." },
+  { q: "Is there a free plan?", a: "Yes — our Free plan lets you get started with AI optimization at no cost. You can upgrade to a paid plan anytime as your needs grow." },
   { q: "How does scoring work?", a: "Our AI analyzes your listing across 4 dimensions (title, bullets, images, keywords) and scores each 0–100 based on Amazon best practices and competitive benchmarks." },
   { q: "Can I audit competitor listings?", a: "Absolutely. Enter any ASIN to see a full audit and compare it side-by-side with your own listings." },
   { q: "What are AI credits?", a: "AI credits power content generation — rewriting titles, bullet points, and keywords. Each AI credit covers one generation operation." },
