@@ -208,14 +208,14 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
 // ─── Create project ───────────────────────────────────────────────────────────
 router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
-  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrl?: string; designStyle?: string; lifestyleCount?: number; featureCount?: number };
+  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number };
 
   const [project] = await db.insert(graphicsProjectsTable).values({
     userId,
     name: body.name ?? "Untitled Project",
     productName: body.productName,
     category: body.category ?? null,
-    sourceImageUrl: body.sourceImageUrl ?? null,
+    sourceImageUrls: body.sourceImageUrls ?? null,
     designStyle: body.designStyle ?? "modern",
     lifestyleCount: body.lifestyleCount ?? 0,
     featureCount: body.featureCount ?? 0,
@@ -265,7 +265,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAcc
 
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const body = req.body as { name?: string; productName?: string; category?: string; sourceImageUrl?: string; designStyle?: string; lifestyleCount?: number; featureCount?: number };
+  const body = req.body as { name?: string; productName?: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number };
   const [updated] = await db
     .update(graphicsProjectsTable)
     .set({ ...body, updatedAt: new Date() })

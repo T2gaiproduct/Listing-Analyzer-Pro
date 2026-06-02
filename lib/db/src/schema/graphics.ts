@@ -34,7 +34,7 @@ export const graphicsProjectsTable = pgTable("graphics_projects", {
   name: text("name").notNull().default("Untitled Project"),
   productName: text("product_name").notNull(),
   category: text("category"),
-  sourceImageUrl: text("source_image_url"),
+  sourceImageUrls: text("source_image_urls").array(),
   designStyle: text("design_style").notNull().default("modern"),
   status: text("status").notNull().default("draft"),
   lifestyleCount: integer("lifestyle_count").notNull().default(0),
