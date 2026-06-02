@@ -33,6 +33,7 @@ import AdminContentLogs from "@/pages/admin/content/logs";
 import AdminContentDownloads from "@/pages/admin/content/downloads";
 import AdminRoles from "@/pages/admin/roles";
 import AdminNotifications from "@/pages/admin/notifications";
+import AdminTeamActivity from "@/pages/admin/team-activity";
 import AdminSettingsPlatform from "@/pages/admin/settings/platform";
 import AdminSettingsAI from "@/pages/admin/settings/ai";
 import AdminSettingsAPI from "@/pages/admin/settings/api";
@@ -293,6 +294,9 @@ function Router() {
       </Route>
       <Route path="/admin/notifications">
         <AdminRoute><AdminNotifications /></AdminRoute>
+      </Route>
+      <Route path="/admin/team-activity">
+        <AdminRoute><AdminTeamActivity /></AdminRoute>
       </Route>
       <Route path="/admin/settings/platform">
         <AdminRoute><AdminSettingsPlatform /></AdminRoute>

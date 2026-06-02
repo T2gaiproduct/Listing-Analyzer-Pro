@@ -27,17 +27,18 @@ export default function Dashboard() {
     refetchInterval: 30_000,
   });
   const { data: sub } = useCredits();
-  const { canEdit, isTeamMember, role } = useTeam();
+  const { canEdit, isTeamMember, role, memberCredits, memberCreditsLoading } = useTeam();
   const credits = sub?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const displayCredits = isTeamMember && memberCredits ? memberCredits : credits;
   const totalAi = sub?.plan?.planAiCredits ?? 0;
   const totalImage = sub?.plan?.planImageCredits ?? 0;
   const totalAudit = sub?.plan?.planAuditCredits ?? 0;
   const alloc = sub?.plan?.creditAllocations as Record<string, number> | undefined;
-  const lowAudit = totalAudit > 0 && credits.auditCredits <= Math.max(1, totalAudit * 0.15);
-  const lowContent = (alloc?.content ?? totalAi) > 0 && credits.aiCredits <= Math.max(1, (alloc?.content ?? totalAi) * 0.15);
-  const lowImage = totalImage > 0 && credits.imageCredits <= Math.max(1, totalImage * 0.15);
-  const lowEbc = (alloc?.ebc ?? 0) > 0 && credits.aiCredits <= Math.max(1, (alloc?.ebc ?? 0) * 0.15);
-  const lowComp = (alloc?.competitors ?? 0) > 0 && credits.auditCredits <= Math.max(1, (alloc?.competitors ?? 0) * 0.15);
+  const lowAudit = totalAudit > 0 && displayCredits.auditCredits <= Math.max(1, totalAudit * 0.15);
+  const lowContent = (alloc?.content ?? totalAi) > 0 && displayCredits.aiCredits <= Math.max(1, (alloc?.content ?? totalAi) * 0.15);
+  const lowImage = totalImage > 0 && displayCredits.imageCredits <= Math.max(1, totalImage * 0.15);
+  const lowEbc = (alloc?.ebc ?? 0) > 0 && displayCredits.aiCredits <= Math.max(1, (alloc?.ebc ?? 0) * 0.15);
+  const lowComp = (alloc?.competitors ?? 0) > 0 && displayCredits.auditCredits <= Math.max(1, (alloc?.competitors ?? 0) * 0.15);
   const anyLow = lowAudit || lowContent || lowImage || lowEbc || lowComp;
 
   if (isLoading) {
@@ -153,11 +154,11 @@ export default function Dashboard() {
               slate: { bg: "bg-slate-50/60", border: "border-slate-100", text: "text-slate-600", barBg: "bg-slate-100", barFill: "bg-slate-400" },
             };
             const items = [
-              { label: "Audit Credits", ...colorMap["orange"], used: credits.auditCredits ?? 0, total: a?.audit ?? totalAudit ?? 0, key: "audit" },
-              { label: "Text Content", ...colorMap["blue"], used: credits.aiCredits ?? 0, total: a?.content ?? totalAi ?? 0, key: "content" },
-              { label: "Image Credits", ...colorMap["purple"], used: credits.imageCredits ?? 0, total: a?.images ?? totalImage ?? 0, key: "images" },
-              { label: "A+ / EBC", ...colorMap["emerald"], used: credits.aiCredits ?? 0, total: a?.ebc ?? 0, key: "ebc" },
-              { label: "Competitors", ...colorMap["slate"], used: credits.auditCredits ?? 0, total: a?.competitors ?? 0, key: "competitors" },
+              { label: "Audit Credits", ...colorMap["orange"], used: displayCredits.auditCredits ?? 0, total: a?.audit ?? totalAudit ?? 0, key: "audit" },
+              { label: "Text Content", ...colorMap["blue"], used: displayCredits.aiCredits ?? 0, total: a?.content ?? totalAi ?? 0, key: "content" },
+              { label: "Image Credits", ...colorMap["purple"], used: displayCredits.imageCredits ?? 0, total: a?.images ?? totalImage ?? 0, key: "images" },
+              { label: "A+ / EBC", ...colorMap["emerald"], used: displayCredits.aiCredits ?? 0, total: a?.ebc ?? 0, key: "ebc" },
+              { label: "Competitors", ...colorMap["slate"], used: displayCredits.auditCredits ?? 0, total: a?.competitors ?? 0, key: "competitors" },
             ];
             return (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">

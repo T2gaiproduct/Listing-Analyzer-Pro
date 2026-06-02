@@ -1,8 +1,13 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY ?? "");
-
 export const emailFrom = process.env.EMAIL_FROM ?? "ListingAuditor <noreply@listingauditor.com>";
+
+let resend: Resend | null = null;
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (!resend) resend = new Resend(process.env.RESEND_API_KEY);
+  return resend;
+}
 
 export async function sendEmail({
   to,
@@ -13,11 +18,12 @@ export async function sendEmail({
   subject: string;
   html: string;
 }): Promise<{ success: boolean; error?: string; id?: string }> {
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResend();
+  if (!client) {
     return { success: false, error: "RESEND_API_KEY not configured" };
   }
   try {
-    const result = await resend.emails.send({
+    const result = await client.emails.send({
       from: emailFrom,
       to,
       subject,

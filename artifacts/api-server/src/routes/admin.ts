@@ -8,7 +8,7 @@ import {
   adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
   cmsContent, blogPosts, testimonials, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
-  userProfilesTable, subscriptionsTable, teamMembersTable,
+  userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable,
 } from "@workspace/db";
 import { like, or, ilike } from "drizzle-orm";
 
@@ -1394,6 +1394,76 @@ router.delete("/admin/credit-packs/:id", requireAdmin, async (req, res): Promise
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(creditPacksTable).where(eq(creditPacksTable.id, id));
   res.sendStatus(204);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Team Activity
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/team-activity", requireAdmin, async (req, res): Promise<void> => {
+  const teams = await db.select({
+    id: teamMembersTable.id,
+    ownerUserId: teamMembersTable.ownerUserId,
+    memberUserId: teamMembersTable.memberUserId,
+    invitedEmail: teamMembersTable.invitedEmail,
+    invitedName: teamMembersTable.invitedName,
+    role: teamMembersTable.role,
+    status: teamMembersTable.status,
+    invitedAt: teamMembersTable.invitedAt,
+    acceptedAt: teamMembersTable.acceptedAt,
+  }).from(teamMembersTable).orderBy(desc(teamMembersTable.invitedAt));
+
+  // Get owner profiles for company names
+  const ownerIds = [...new Set(teams.map((t) => t.ownerUserId))];
+  const profiles = ownerIds.length > 0
+    ? await db.select().from(userProfilesTable).where(inArray(userProfilesTable.userId, ownerIds))
+    : [];
+
+  const profileMap = new Map(profiles.map((p) => [p.userId, p]));
+
+  // Get member credits
+  const memberIds = teams.map((t) => t.id);
+  const memberCredits = memberIds.length > 0
+    ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.memberId, memberIds))
+    : [];
+  const creditsMap = new Map(memberCredits.map((c) => [c.memberId, c]));
+
+  // Get owner audit counts
+  const ownerAuditCounts: Record<string, number> = {};
+  for (const ownerId of ownerIds) {
+    const [countRow] = await db.select({ c: count() }).from(auditsTable).where(eq(auditsTable.userId, ownerId));
+    ownerAuditCounts[ownerId] = Number(countRow?.c ?? 0);
+  }
+
+  const grouped = ownerIds.map((ownerId) => {
+    const profile = profileMap.get(ownerId);
+    const teamMembers = teams.filter((t) => t.ownerUserId === ownerId);
+    const activeMembers = teamMembers.filter((t) => t.status === "active");
+    const pendingMembers = teamMembers.filter((t) => t.status === "pending");
+    const revokedMembers = teamMembers.filter((t) => t.status === "revoked");
+    return {
+      ownerUserId: ownerId,
+      companyName: profile?.companyName ?? null,
+      ownerEmail: null,
+      ownerAuditCount: ownerAuditCounts[ownerId] ?? 0,
+      totalMembers: teamMembers.length,
+      activeCount: activeMembers.length,
+      pendingCount: pendingMembers.length,
+      revokedCount: revokedMembers.length,
+      members: teamMembers.map((m) => ({
+        ...m,
+        allocatedCredits: creditsMap.get(m.id) ?? null,
+      })),
+    };
+  });
+
+  res.json({
+    totalTeams: grouped.length,
+    totalMembers: teams.length,
+    activeMembers: teams.filter((t) => t.status === "active").length,
+    pendingInvites: teams.filter((t) => t.status === "pending").length,
+    teams: grouped,
+  });
 });
 
 export default router;

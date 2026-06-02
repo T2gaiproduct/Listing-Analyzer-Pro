@@ -46,6 +46,7 @@ interface MemberStat {
   avgScore: number;
   lastAudit: { createdAt: string; productName: string } | null;
   creditBalance: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
+  allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
 }
 
 interface TeamData {
@@ -111,6 +112,20 @@ export default function Team() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["team"] }); toast({ title: "Member removed" }); },
     onError: () => toast({ title: "Failed to remove member", variant: "destructive" }),
   });
+
+  const creditMutation = useMutation({
+    mutationFn: ({ id, aiCredits, imageCredits, auditCredits }: { id: number; aiCredits: number; imageCredits: number; auditCredits: number }) =>
+      fetch(`${basePath}/api/team/${id}/credits`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
+      }).then((r) => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team"] }); toast({ title: "Credits updated" }); },
+    onError: () => toast({ title: "Failed to update credits", variant: "destructive" }),
+  });
+
+  const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});
 
   const members = data?.members ?? [];
   const memberStats = data?.memberStats ?? [];
@@ -328,49 +343,134 @@ export default function Team() {
           {/* Active members */}
           {activeMembers.map((m) => {
             const stat = getStat(m.id);
+            const isEditing = editingCredits[m.id] != null;
+            const editVals = editingCredits[m.id] ?? {
+              aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
+              imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
+              auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
+            };
             return (
-              <div key={m.id} className="flex items-center gap-4 px-5 py-4">
-                <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-sm font-bold text-slate-600">
-                  {m.invitedName[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName}</p>
-                  <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
-                  {stat && (
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs text-slate-400 flex items-center gap-1"><BarChart3 className="w-3 h-3 text-orange-400" />{stat.auditCount} audits</span>
-                      {stat.lastAudit && (
-                        <span className="text-xs text-slate-400">last {formatDistanceToNow(new Date(stat.lastAudit.createdAt), { addSuffix: true })}</span>
-                      )}
-                      {stat.creditBalance && (
-                        <span className="text-xs text-slate-400 flex items-center gap-1"><Zap className="w-3 h-3 text-blue-400" />{stat.creditBalance.aiCredits} AI credits</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
-                <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
-                {m.acceptedAt && <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}</span>}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex-shrink-0"><MoreHorizontal className="w-4 h-4" /></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {(["admin", "editor", "viewer"] as Role[]).map((role) => (
-                      <DropdownMenuItem key={role} onClick={() => roleMutation.mutate({ id: m.id, role })} disabled={m.role === role}>
-                        {m.role === role && <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-500" />}
-                        Make {role.charAt(0).toUpperCase() + role.slice(1)}
+              <div key={m.id} className="px-5 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-sm font-bold text-slate-600">
+                    {m.invitedName[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName}</p>
+                    <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
+                    {stat && !isEditing && (
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs text-slate-400 flex items-center gap-1"><BarChart3 className="w-3 h-3 text-orange-400" />{stat.auditCount} audits</span>
+                        {stat.lastAudit && (
+                          <span className="text-xs text-slate-400">last {formatDistanceToNow(new Date(stat.lastAudit.createdAt), { addSuffix: true })}</span>
+                        )}
+                        {stat.allocatedCredits && (
+                          <span className="text-xs text-slate-400 flex items-center gap-1"><Zap className="w-3 h-3 text-blue-400" />{stat.allocatedCredits.aiCredits} AI / {stat.allocatedCredits.imageCredits} Img / {stat.allocatedCredits.auditCredits} Audit</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+                  <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
+                  {m.acceptedAt && <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}</span>}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="flex-shrink-0"><MoreHorizontal className="w-4 h-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {(["admin", "editor", "viewer"] as Role[]).map((role) => (
+                        <DropdownMenuItem key={role} onClick={() => roleMutation.mutate({ id: m.id, role })} disabled={m.role === role}>
+                          {m.role === role && <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-500" />}
+                          Make {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setEditingCredits((prev) => ({ ...prev, [m.id]: { aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0), imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0), auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0) } }))}>
+                        <Zap className="w-4 h-4 mr-2" />Edit Credits
                       </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => confirm(`Remove ${m.invitedName} from your team?`) && removeMutation.mutate(m.id)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />Remove
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => confirm(`Remove ${m.invitedName} from your team?`) && removeMutation.mutate(m.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {/* Credit allocation inline editor */}
+                {isEditing && (
+                  <div className="mt-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Zap className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium text-slate-700">Allocate Credits</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editVals.aiCredits}
+                          onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id], aiCredits: e.target.value } }))}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-500 mb-1 block">Image Credits</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editVals.imageCredits}
+                          onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id], imageCredits: e.target.value } }))}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-500 mb-1 block">Audit Credits</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editVals.auditCredits}
+                          onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id], auditCredits: e.target.value } }))}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-orange-500 hover:bg-orange-600"
+                        disabled={creditMutation.isPending}
+                        onClick={() => {
+                          creditMutation.mutate({
+                            id: m.id,
+                            aiCredits: Math.max(0, parseInt(editVals.aiCredits) || 0),
+                            imageCredits: Math.max(0, parseInt(editVals.imageCredits) || 0),
+                            auditCredits: Math.max(0, parseInt(editVals.auditCredits) || 0),
+                          });
+                          setEditingCredits((prev) => {
+                            const next = { ...prev };
+                            delete next[m.id];
+                            return next;
+                          });
+                        }}
+                      >
+                        {creditMutation.isPending ? "Saving..." : "Save Credits"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingCredits((prev) => {
+                          const next = { ...prev };
+                          delete next[m.id];
+                          return next;
+                        })}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
