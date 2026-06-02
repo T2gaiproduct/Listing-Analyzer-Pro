@@ -1,0 +1,95 @@
+Analyze the uploaded product image and use it as the exact product reference.
+
+CRITICAL PRODUCT PRESERVATION RULES:
+
+The product shown in the uploaded image must remain identical.
+
+Do not change:
+- Product shape
+- Product dimensions
+- Product proportions
+- Product color
+- Product logo
+- Product branding
+- Product packaging
+- Product material
+- Product texture
+- Product design details
+
+The generated image must look like the same physical product photographed in a different professional setting.
+
+OBJECTIVE:
+
+Create a premium ecommerce marketing image that looks professionally photographed by a commercial product photography agency.
+
+STYLE:
+{{STYLE}}
+
+SCENE:
+{{SCENE}}
+
+CATEGORY:
+{{CATEGORY}}
+
+IMAGE TYPE:
+{{IMAGE_TYPE}}
+
+VISUAL REQUIREMENTS:
+
+- Ultra realistic
+- Commercial photography
+- Premium product advertising
+- Studio quality lighting
+- Natural shadows
+- Realistic reflections
+- High detail
+- Sharp focus
+- Luxury presentation
+- Professional composition
+- Marketing ready
+- High conversion design
+- Photorealistic rendering
+- High resolution
+- Clean background
+- Ecommerce quality
+
+ENVIRONMENT RULES:
+
+- Product must be naturally placed in the scene
+- Environment should support the product use case
+- No unrealistic placements
+- No floating objects
+- No distorted perspective
+- No warped products
+- No duplicate products unless requested
+
+TEXT RULES:
+
+If text is required:
+- Use professional typography
+- Minimal text
+- Clean layout
+- Highlight only provided features
+
+COMPLIANCE RULES:
+
+- No fake certifications
+- No fake reviews
+- No unsupported claims
+- No misleading visuals
+- No misleading dimensions
+- No misleading accessories
+- No inaccurate product representation
+
+QUALITY CHECK:
+
+Before generating, verify that:
+1. The product remains identical to the uploaded image.
+2. The scene looks realistic.
+3. Lighting looks natural.
+4. The image looks like a professional advertising campaign.
+5. The image is suitable for ecommerce listings and paid advertising.
+
+OUTPUT:
+
+Generate a premium, photorealistic, high-converting product marketing image that could be used 
