@@ -23,7 +23,7 @@ export default function AdminContentGenerated() {
     <>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Generated Content</h1>
+          <h1 className="text-2xl font-bold">Listing Optimization</h1>
           <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4" /></Button>
         </div>
         {isLoading ? (

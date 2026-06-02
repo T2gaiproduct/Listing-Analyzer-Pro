@@ -308,7 +308,7 @@ export default function AuditDetail({ id }: { id: number }) {
       addRule();
     }
 
-    // ── Generated Content ──
+    // ── Listing Optimization ──
     if (audit.generatedContent) {
       const gc = audit.generatedContent;
       addText("AI-GENERATED CONTENT", { size: 9, bold: true, color: [100,116,139] });
@@ -414,11 +414,11 @@ export default function AuditDetail({ id }: { id: number }) {
         <TabsList className="mb-6">
           <TabsTrigger value="audit">Audit Results</TabsTrigger>
           <TabsTrigger value="content">
-            Generated Content
+            Listing Optimization
             {gc && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
           </TabsTrigger>
           <TabsTrigger value="images">
-            Generated Images
+            Graphics Creation
             {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
           </TabsTrigger>
           <TabsTrigger value="ebc">
