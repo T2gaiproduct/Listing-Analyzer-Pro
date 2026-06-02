@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
 import {
   Download, RefreshCw, Wand2, ImageIcon, Loader2, ArrowLeft,
-  MoreVertical, Trash2,
+  MoreVertical, Trash2, Maximize2,
 } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -291,6 +291,7 @@ function ImageCard({ record, canEdit, onEdit, onDownload }: {
   onDownload: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const fullUrl = record.currentUrl.startsWith("http") ? record.currentUrl : `${basePath}${record.currentUrl}`;
 
   return (
     <div
@@ -302,6 +303,13 @@ function ImageCard({ record, canEdit, onEdit, onDownload }: {
         <img src={record.currentUrl} alt="" className="w-full h-full object-cover" />
         {hovered && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-2">
+            <button
+              className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 transition-colors"
+              title="View full screen"
+              onClick={() => window.open(fullUrl, "_blank")}
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
             {canEdit && (
               <button
                 className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 transition-colors"

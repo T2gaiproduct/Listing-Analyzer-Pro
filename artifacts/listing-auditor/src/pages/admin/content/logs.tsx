@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Trash2, Eye, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Eye, FileText, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -46,6 +46,12 @@ export default function AdminContentLogs() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" className="text-slate-500 -ml-2" onClick={() => nav("/admin/dashboard")}>
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Back to Admin Dashboard
+        </Button>
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
         <p className="text-slate-500 text-sm mt-1">{data ? `${data.total} total audits across all customers` : "Loading..."}</p>
