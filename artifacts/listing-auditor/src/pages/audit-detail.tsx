@@ -414,11 +414,11 @@ export default function AuditDetail({ id }: { id: number }) {
         <TabsList className="mb-6">
           <TabsTrigger value="audit">Audit Results</TabsTrigger>
           <TabsTrigger value="content">
-            Listing Optimization
+            Generated Content
             {gc && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
           </TabsTrigger>
           <TabsTrigger value="images">
-            Graphics Creation
+            Generated Images
             {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
           </TabsTrigger>
           <TabsTrigger value="ebc">

@@ -20,6 +20,7 @@ import {
   Clock,
   ImageIcon,
   Wand2,
+  Maximize2,
 } from "lucide-react";
 
 type ImageStyle = "premium" | "minimal" | "luxury" | "modern" | "infographic" | "lifestyle";
@@ -82,9 +83,10 @@ interface ImageCardProps {
   onEdit: () => void;
   onHistory: () => void;
   onDownload: () => void;
+  onView: () => void;
 }
 
-function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, canEdit }: ImageCardProps & { canEdit: boolean }) {
+function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, onView, canEdit }: ImageCardProps & { canEdit: boolean }) {
   return (
     <div className="group relative rounded-lg border overflow-hidden bg-muted/20">
       <div className="aspect-square relative overflow-hidden">
@@ -101,6 +103,7 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
         )}
         {!isLoading && (
           <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
             {canEdit && (
               <>
                 <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
@@ -448,6 +451,7 @@ export function ImageGallery({
                         `${productName}-${record.id}.png`,
                       )
                     }
+                    onView={() => window.open(record.currentUrl, "_blank")}
                   />
                 ))}
                 {isGeneratingAll && typeRecords.length === 0 && (
