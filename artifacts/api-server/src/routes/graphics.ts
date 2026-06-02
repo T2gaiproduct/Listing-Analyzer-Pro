@@ -101,12 +101,15 @@ function buildGraphicsSpecs(
   designStyle: string,
   lifestyleCount: number,
   featureCount: number,
+  lifestyleIndexOffset: number = 0,
+  featureIndexOffset: number = 0,
 ): GraphicsSpec[] {
   const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
   const styleSuffix = DESIGN_STYLE_PROMPTS[designStyle] ?? DESIGN_STYLE_PROMPTS.modern;
   const specs: GraphicsSpec[] = [];
 
   for (let i = 0; i < lifestyleCount; i++) {
+    const idx = lifestyleIndexOffset + i;
     const prompts = [
       `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography.`,
       `Product scene for ${productDesc} styled in an upscale, contemporary setting. Product displayed prominently with tasteful props. No people. Editorial-quality product styling.`,
@@ -114,16 +117,17 @@ function buildGraphicsSpecs(
       `Creative lifestyle product image for ${productDesc}. Product in a stylish environment with natural window light. Professional styling. No people.`,
       `Inspirational product scene for ${productDesc}. Product showcased in an aspirational lifestyle setting. Beautifully arranged. No people.`,
     ];
-    specs.push({ id: `lifestyle_${i}`, type: "lifestyle", index: i, prompt: `${prompts[i % prompts.length]} ${styleSuffix}` });
+    specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt: `${prompts[idx % prompts.length]} ${styleSuffix}` });
   }
 
   for (let i = 0; i < featureCount; i++) {
+    const idx = featureIndexOffset + i;
     const prompts = [
       `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background.`,
       `Product infographic image for ${productDesc}. Product centered with geometric icon callouts and benefit highlights. Clean structured layout.`,
       `Feature graphic for ${productDesc}. Product image with clean benefit text callouts and feature icons. Modern e-commerce design.`,
     ];
-    specs.push({ id: `feature_${i}`, type: "feature", index: i, prompt: `${prompts[i % prompts.length]} ${styleSuffix}` });
+    specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt: `${prompts[idx % prompts.length]} ${styleSuffix}` });
   }
 
   return specs;
@@ -132,19 +136,36 @@ function buildGraphicsSpecs(
 const MAX_CONCURRENT_IMAGES = 3;
 const IMAGE_GENERATION_MS = 30000;
 
-async function generateGraphicsImages(projectId: number, productName: string, category: string | null, designStyle: string, lifestyleCount: number, featureCount: number, sourceImagePaths?: string[] | null, aspectRatio?: string): Promise<GraphicsImageRecord[]> {
+async function generateGraphicsImages(
+  projectId: number,
+  productName: string,
+  category: string | null,
+  designStyle: string,
+  lifestyleCount: number,
+  featureCount: number,
+  sourceImagePaths?: string[] | null,
+  aspectRatio?: string,
+  existingRecords?: GraphicsImageRecord[],
+  startIndex?: number,
+): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
 
-  const specs = buildGraphicsSpecs(productName, category, designStyle, lifestyleCount, featureCount);
+  const existing = existingRecords ?? [];
+  const existingLifestyle = existing.filter(r => r.type === "lifestyle");
+  const existingFeature = existing.filter(r => r.type === "feature");
+  const lifestyleIndexOffset = existingLifestyle.length;
+  const featureIndexOffset = existingFeature.length;
+
+  const specs = buildGraphicsSpecs(productName, category, designStyle, lifestyleCount, featureCount, lifestyleIndexOffset, featureIndexOffset);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
   const sourcePath = sourceImagePaths?.[0] ?? null;
   const limit = pLimit(MAX_CONCURRENT_IMAGES);
 
-  let generatedCount = 0;
-  const totalCount = specs.length;
+  let generatedCount = startIndex ?? 0;
+  const totalCount = generatedCount + specs.length;
 
   async function generateOne(spec: GraphicsSpec): Promise<void> {
     const filename = versionedFilename(spec.type, spec.index);
@@ -357,11 +378,17 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const totalImages = project.lifestyleCount + project.featureCount;
+  const body = req.body as { style?: string; aspectRatio?: string; additionalLifestyleCount?: number; additionalFeatureCount?: number };
+
+  const isAdditional = (body.additionalLifestyleCount ?? 0) > 0 || (body.additionalFeatureCount ?? 0) > 0;
+  const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
+  const featureCount = isAdditional ? (body.additionalFeatureCount ?? 0) : project.featureCount;
+  const totalImages = lifestyleCount + featureCount;
+
   if (totalImages === 0) { res.status(400).json({ error: "No image types selected" }); return; }
 
   const cost = await getCreditCost("images");
-  const creditsNeeded = totalImages; // 1 image credit per image
+  const creditsNeeded = totalImages;
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded);
   if (!creditCheck) {
@@ -379,24 +406,39 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   // Run generation in background
   (async () => {
     try {
-      const body = req.body as { style?: string; aspectRatio?: string };
       const generateStyle = body.style ?? project.designStyle;
       const generateAspectRatio = body.aspectRatio ?? "1:1";
-      const imageRecords = await generateGraphicsImages(
+      const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
+      const existingCount = existingRecords.length;
+      const newRecords = await generateGraphicsImages(
         id,
         project.productName,
         project.category,
         generateStyle,
-        project.lifestyleCount,
-        project.featureCount,
+        lifestyleCount,
+        featureCount,
         project.sourceImageUrls,
         generateAspectRatio,
+        existingRecords,
+        existingCount,
       );
+
+      const mergedRecords = [...existingRecords, ...newRecords];
+      const newLifestyleCount = existingRecords.filter(r => r.type === "lifestyle").length + newRecords.filter(r => r.type === "lifestyle").length;
+      const newFeatureCount = existingRecords.filter(r => r.type === "feature").length + newRecords.filter(r => r.type === "feature").length;
+      const generatedCount = mergedRecords.length;
 
       await deductCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded, `Graphics for ${project.name}`, "graphics", { projectId: id });
 
       await db.update(graphicsProjectsTable)
-        .set({ status: "completed", imageRecords, updatedAt: new Date() })
+        .set({
+          status: "completed",
+          imageRecords: mergedRecords,
+          lifestyleCount: newLifestyleCount,
+          featureCount: newFeatureCount,
+          generatedCount,
+          updatedAt: new Date(),
+        })
         .where(eq(graphicsProjectsTable.id, id));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Generation failed";

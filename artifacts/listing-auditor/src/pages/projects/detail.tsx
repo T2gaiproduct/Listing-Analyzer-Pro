@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
 import {
   Download, RefreshCw, Wand2, ImageIcon, Loader2, ArrowLeft,
-  Trash2, Clock, Sparkles, Maximize2,
+  Trash2, Clock, Sparkles, Maximize2, Plus, Check, ArrowRight,
 } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -76,6 +76,15 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
   const [showDelete, setShowDelete] = useState(false);
 
+  // Generate More modal
+  const [showGenerateMore, setShowGenerateMore] = useState(false);
+  const [moreStep, setMoreStep] = useState<1 | 2>(1);
+  const [moreLifestyleEnabled, setMoreLifestyleEnabled] = useState(false);
+  const [moreLifestyleCount, setMoreLifestyleCount] = useState(2);
+  const [moreFeatureEnabled, setMoreFeatureEnabled] = useState(false);
+  const [moreFeatureCount, setMoreFeatureCount] = useState(1);
+  const [moreStyle, setMoreStyle] = useState("modern");
+
   const { data: project, isLoading } = useQuery({
     queryKey: ["graphics-project", id],
     queryFn: () => fetchProject(id),
@@ -96,12 +105,12 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   };
 
   const generateMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload: { additionalLifestyleCount?: number; additionalFeatureCount?: number; style?: string } | undefined) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({}),
+        body: JSON.stringify(payload ?? {}),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -262,7 +271,19 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
           )}
           {canEdit && !isGenerating && (
             <Button
-              onClick={() => generateMutation.mutate()}
+              onClick={() => {
+                if (hasRecords) {
+                  setShowGenerateMore(true);
+                  setMoreStep(1);
+                  setMoreLifestyleEnabled(false);
+                  setMoreLifestyleCount(2);
+                  setMoreFeatureEnabled(false);
+                  setMoreFeatureCount(1);
+                  setMoreStyle(project?.designStyle ?? "modern");
+                } else {
+                  generateMutation.mutate(undefined);
+                }
+              }}
               disabled={generateMutation.isPending || isGenerating}
               className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
             >
@@ -271,7 +292,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
               ) : (
                 <Sparkles className="w-4 h-4" />
               )}
-              {hasRecords ? "Regenerate All" : "Generate All"}
+              {hasRecords ? "Generate More Images" : "Generate All"}
             </Button>
           )}
           <Button variant="outline" onClick={() => setShowDelete(true)} className="text-slate-500 cursor-pointer">
@@ -545,6 +566,196 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             <Button variant="ghost" onClick={() => setShowDelete(false)} className="cursor-pointer">Cancel</Button>
             <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} className="cursor-pointer">
               {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate More Dialog */}
+      <Dialog open={showGenerateMore} onOpenChange={(o) => { if (!o) setShowGenerateMore(false); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Generate More Images</DialogTitle>
+          </DialogHeader>
+
+          {/* Step indicator */}
+          <div className="mb-6">
+            <div className="flex items-center">
+              {[{ id: 1, label: "Select Graphics" }, { id: 2, label: "Design Style" }].map((s, idx, arr) => (
+                <div key={s.id} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                      s.id < moreStep ? "bg-purple-600 text-white" :
+                      s.id === moreStep ? "bg-purple-600 text-white" :
+                      "bg-white text-slate-400 border-2 border-slate-200"
+                    }`}>
+                      {s.id < moreStep ? <Check className="w-4 h-4" /> : s.id}
+                    </div>
+                    <div className="mt-2 text-center">
+                      <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === moreStep ? "text-purple-600" : "text-slate-400"}`}>
+                        Step {s.id} of 2
+                      </p>
+                      <p className={`text-sm font-medium ${s.id === moreStep ? "text-slate-900" : "text-slate-400"}`}>{s.label}</p>
+                    </div>
+                  </div>
+                  {idx < arr.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-2 mb-6 ${s.id < moreStep ? "bg-purple-600" : "bg-slate-200"}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Step 1: Select Graphics */}
+          {moreStep === 1 && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-500">Choose how many additional images to generate.</p>
+
+              {/* Lifestyle */}
+              <div className={`rounded-xl border-2 p-4 transition-all ${moreLifestyleEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer ${moreLifestyleEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
+                    onClick={() => setMoreLifestyleEnabled(!moreLifestyleEnabled)}
+                  >
+                    {moreLifestyleEnabled ? <Check className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 text-sm">Lifestyle Images</h3>
+                        <p className="text-xs text-slate-400">Additional lifestyle images</p>
+                      </div>
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${moreLifestyleEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
+                        onClick={() => setMoreLifestyleEnabled(!moreLifestyleEnabled)}
+                      >
+                        {moreLifestyleEnabled && <Check className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    </div>
+                    {moreLifestyleEnabled && (
+                      <div className="mt-3 flex gap-2">
+                        {[1, 2, 3, 4, 5, 6].map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => setMoreLifestyleCount(q)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${moreLifestyleCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature */}
+              <div className={`rounded-xl border-2 p-4 transition-all ${moreFeatureEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer ${moreFeatureEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
+                    onClick={() => setMoreFeatureEnabled(!moreFeatureEnabled)}
+                  >
+                    {moreFeatureEnabled ? <Check className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 text-sm">Infographics</h3>
+                        <p className="text-xs text-slate-400">Additional feature graphics</p>
+                      </div>
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${moreFeatureEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
+                        onClick={() => setMoreFeatureEnabled(!moreFeatureEnabled)}
+                      >
+                        {moreFeatureEnabled && <Check className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    </div>
+                    {moreFeatureEnabled && (
+                      <div className="mt-3 flex gap-2">
+                        {[1, 2, 3, 4, 5, 6].map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => setMoreFeatureCount(q)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${moreFeatureCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Design Style */}
+          {moreStep === 2 && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-500">Select a style for the new images.</p>
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { id: "modern", label: "Modern", desc: "Contemporary, clean, bold" },
+                  { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody" },
+                  { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure" },
+                  { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space" },
+                ].map((style) => (
+                  <div
+                    key={style.id}
+                    className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-4 ${moreStyle === style.id ? "border-purple-600 bg-purple-50/20" : "border-transparent hover:border-slate-200 bg-white"}`}
+                    onClick={() => setMoreStyle(style.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-sm text-slate-900">{style.label}</p>
+                        <p className="text-xs text-slate-400">{style.desc}</p>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${moreStyle === style.id ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
+                        {moreStyle === style.id && <Check className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t">
+            {moreStep > 1 && (
+              <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setMoreStep(1)}>
+                Back
+              </Button>
+            )}
+            <Button
+              className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+              disabled={moreStep === 1 ? (!moreLifestyleEnabled && !moreFeatureEnabled) : generateMutation.isPending}
+              onClick={() => {
+                if (moreStep === 1) {
+                  setMoreStep(2);
+                } else {
+                  generateMutation.mutate({
+                    additionalLifestyleCount: moreLifestyleEnabled ? moreLifestyleCount : 0,
+                    additionalFeatureCount: moreFeatureEnabled ? moreFeatureCount : 0,
+                    style: moreStyle,
+                  });
+                  setShowGenerateMore(false);
+                }
+              }}
+            >
+              {generateMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  {moreStep === 1 ? "Continue" : "Generate Images"}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>
