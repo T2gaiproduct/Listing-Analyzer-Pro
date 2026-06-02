@@ -370,8 +370,8 @@ export default function AuditDetail({ id }: { id: number }) {
       {/* Header */}
       <div className="flex items-start justify-between border-b pb-6">
         <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" asChild className="-ml-2 mt-1">
-            <Link href="/"><ArrowLeft className="w-4 h-4" /></Link>
+          <Button variant="ghost" size="sm" asChild className="-ml-2 mt-1 text-slate-500">
+            <Link href="/"><ArrowLeft className="w-4 h-4 mr-1" /> Back</Link>
           </Button>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
