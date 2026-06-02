@@ -9,6 +9,7 @@ import {
   settingsTable, notificationsTable,
   cmsContent, blogPosts, testimonials, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
   userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable,
+  graphicsProjectsTable,
 } from "@workspace/db";
 import { like, or, ilike } from "drizzle-orm";
 
@@ -423,6 +424,30 @@ router.delete("/admin/audits/:id", requireAdmin, async (req, res): Promise<void>
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(competitorsTable).where(eq(competitorsTable.auditId, id));
   await db.delete(auditsTable).where(eq(auditsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ─── Admin Graphics Logs ──────────────────────────────────────────────────────
+router.get("/admin/graphics-logs", requireAdmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const offset = Number(req.query.offset ?? 0);
+
+  const projects = await db
+    .select()
+    .from(graphicsProjectsTable)
+    .orderBy(desc(graphicsProjectsTable.updatedAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [total] = await db.select({ c: count() }).from(graphicsProjectsTable);
+
+  res.json({ projects, total: Number(total?.c ?? 0) });
+});
+
+router.delete("/admin/graphics-logs/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(graphicsProjectsTable).where(eq(graphicsProjectsTable.id, id));
   res.sendStatus(204);
 });
 

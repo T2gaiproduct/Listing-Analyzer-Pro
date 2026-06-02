@@ -31,6 +31,7 @@ import AdminContentGenerated from "@/pages/admin/content/generated";
 import AdminContentImages from "@/pages/admin/content/images";
 import AdminContentLogs from "@/pages/admin/content/logs";
 import AdminContentDownloads from "@/pages/admin/content/downloads";
+import AdminGraphicsLogs from "@/pages/admin/content/graphics-logs";
 import AdminRoles from "@/pages/admin/roles";
 import AdminNotifications from "@/pages/admin/notifications";
 import AdminTeamActivity from "@/pages/admin/team-activity";
@@ -292,6 +293,9 @@ function Router() {
       </Route>
       <Route path="/admin/content/downloads">
         <AdminRoute><AdminContentDownloads /></AdminRoute>
+      </Route>
+      <Route path="/admin/content/graphics-logs">
+        <AdminRoute><AdminGraphicsLogs /></AdminRoute>
       </Route>
       <Route path="/admin/roles">
         <AdminRoute><AdminRoles /></AdminRoute>

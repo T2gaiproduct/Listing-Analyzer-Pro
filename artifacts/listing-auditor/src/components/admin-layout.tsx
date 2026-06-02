@@ -6,6 +6,7 @@ import {
   BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
+  ChevronDown, ChevronUp, FileSearch, Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -22,8 +23,13 @@ const navSections = [
     label: "Management",
     items: [
       { href: "/admin/customers", label: "Customers", icon: Users },
-      { href: "/admin/content/logs", label: "Audit Logs", icon: ClipboardList },
-      { href: "/admin/content/downloads", label: "Downloads", icon: Download },
+    ],
+  },
+  {
+    label: "Audit Logs",
+    items: [
+      { href: "/admin/content/logs", label: "Listing Optimization", icon: FileSearch },
+      { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette },
     ],
   },
   {
