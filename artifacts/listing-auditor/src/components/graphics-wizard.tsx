@@ -132,6 +132,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [featureCount, setFeatureCount] = useState(3);
   const [designStyle, setDesignStyle] = useState("modern");
+  const [lifestylePrompt, setLifestylePrompt] = useState("");
+  const [featurePrompt, setFeaturePrompt] = useState("");
   const [projectId, setProjectId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
@@ -149,6 +151,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [moreFeatureEnabled, setMoreFeatureEnabled] = useState(false);
   const [moreFeatureCount, setMoreFeatureCount] = useState(1);
   const [moreStyle, setMoreStyle] = useState("modern");
+  const [moreLifestylePrompt, setMoreLifestylePrompt] = useState("");
+  const [moreFeaturePrompt, setMoreFeaturePrompt] = useState("");
 
   const { data: existingProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId],
@@ -228,7 +232,10 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          customLifestylePrompt: lifestylePrompt.trim() || undefined,
+          customFeaturePrompt: featurePrompt.trim() || undefined,
+        }),
       });
       startTimeRef.current = Date.now();
     },
@@ -286,7 +293,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   });
 
   const generateMoreMutation = useMutation({
-    mutationFn: async ({ pid, payload }: { pid: number; payload: { additionalLifestyleCount?: number; additionalFeatureCount?: number; style?: string } }) => {
+    mutationFn: async ({ pid, payload }: { pid: number; payload: { additionalLifestyleCount?: number; additionalFeatureCount?: number; style?: string; customLifestylePrompt?: string; customFeaturePrompt?: string } }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${pid}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -360,6 +367,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         lifestyleCount: lifestyleEnabled ? lifestyleCount : 0,
         featureCount: featureEnabled ? featureCount : 0,
         auditId,
+        customLifestylePrompt: lifestylePrompt.trim() || undefined,
+        customFeaturePrompt: featurePrompt.trim() || undefined,
       });
     } else {
       setStep((s) => (s + 1) as Step);
@@ -490,6 +499,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   setMoreFeatureEnabled(false);
                   setMoreFeatureCount(1);
                   setMoreStyle(displayProject?.designStyle ?? "modern");
+                  setMoreLifestylePrompt("");
+                  setMoreFeaturePrompt("");
                 }}
               >
                 <Sparkles className="w-4 h-4" />
@@ -794,7 +805,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             {/* Step 2: Design Style */}
             {moreStep === 2 && (
               <div className="space-y-4">
-                <p className="text-sm text-slate-500">Select a style for the new images.</p>
+                <p className="text-sm text-slate-500">Select a style for the new images. Optionally add custom prompts to replace the default AI template.</p>
                 <div className="grid grid-cols-2 gap-4">
                   {DESIGN_STYLES.map((style) => (
                     <div
@@ -814,6 +825,30 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     </div>
                   ))}
                 </div>
+                {moreLifestyleEnabled && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+                    <Textarea
+                      value={moreLifestylePrompt}
+                      onChange={(e) => setMoreLifestylePrompt(e.target.value)}
+                      placeholder="Enter custom prompt to replace the default AI template for lifestyle images..."
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                )}
+                {moreFeatureEnabled && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+                    <Textarea
+                      value={moreFeaturePrompt}
+                      onChange={(e) => setMoreFeaturePrompt(e.target.value)}
+                      placeholder="Enter custom prompt to replace the default AI template for infographics..."
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -839,6 +874,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                           additionalLifestyleCount: moreLifestyleEnabled ? moreLifestyleCount : 0,
                           additionalFeatureCount: moreFeatureEnabled ? moreFeatureCount : 0,
                           style: moreStyle,
+                          customLifestylePrompt: moreLifestylePrompt.trim() || undefined,
+                          customFeaturePrompt: moreFeaturePrompt.trim() || undefined,
                         },
                       });
                     }
@@ -1133,7 +1170,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900">Choose Design Style</h2>
-              <p className="text-sm text-slate-500">Select a style that best represents your brand</p>
+              <p className="text-sm text-slate-500">Select a style. Optionally add custom prompts to replace the default AI template.</p>
             </div>
           </div>
 
@@ -1156,6 +1193,30 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               </div>
             ))}
           </div>
+          {lifestyleEnabled && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+              <Textarea
+                value={lifestylePrompt}
+                onChange={(e) => setLifestylePrompt(e.target.value)}
+                placeholder="Enter custom prompt to replace the default AI template for lifestyle images..."
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          )}
+          {featureEnabled && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+              <Textarea
+                value={featurePrompt}
+                onChange={(e) => setFeaturePrompt(e.target.value)}
+                placeholder="Enter custom prompt to replace the default AI template for infographics..."
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          )}
         </div>
       )}
 

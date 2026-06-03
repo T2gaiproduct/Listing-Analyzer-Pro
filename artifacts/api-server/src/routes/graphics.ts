@@ -103,6 +103,8 @@ function buildGraphicsSpecs(
   featureCount: number,
   lifestyleIndexOffset: number = 0,
   featureIndexOffset: number = 0,
+  customLifestylePrompt?: string,
+  customFeaturePrompt?: string,
 ): GraphicsSpec[] {
   const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
   const styleSuffix = DESIGN_STYLE_PROMPTS[designStyle] ?? DESIGN_STYLE_PROMPTS.modern;
@@ -110,24 +112,18 @@ function buildGraphicsSpecs(
 
   for (let i = 0; i < lifestyleCount; i++) {
     const idx = lifestyleIndexOffset + i;
-    const prompts = [
-      `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography.`,
-      `Product scene for ${productDesc} styled in an upscale, contemporary setting. Product displayed prominently with tasteful props. No people. Editorial-quality product styling.`,
-      `Amazon lifestyle product photography for ${productDesc}. Product shown in a natural home setting with warm lighting. Beautifully decorated interior. No people.`,
-      `Creative lifestyle product image for ${productDesc}. Product in a stylish environment with natural window light. Professional styling. No people.`,
-      `Inspirational product scene for ${productDesc}. Product showcased in an aspirational lifestyle setting. Beautifully arranged. No people.`,
-    ];
-    specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt: `${prompts[idx % prompts.length]} ${styleSuffix}` });
+    const prompt = customLifestylePrompt?.trim()
+      ? `${customLifestylePrompt.trim()} ${styleSuffix}`
+      : `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography. ${styleSuffix}`;
+    specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
   }
 
   for (let i = 0; i < featureCount; i++) {
     const idx = featureIndexOffset + i;
-    const prompts = [
-      `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background.`,
-      `Product infographic image for ${productDesc}. Product centered with geometric icon callouts and benefit highlights. Clean structured layout.`,
-      `Feature graphic for ${productDesc}. Product image with clean benefit text callouts and feature icons. Modern e-commerce design.`,
-    ];
-    specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt: `${prompts[idx % prompts.length]} ${styleSuffix}` });
+    const prompt = customFeaturePrompt?.trim()
+      ? `${customFeaturePrompt.trim()} ${styleSuffix}`
+      : `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background. ${styleSuffix}`;
+    specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt });
   }
 
   return specs;
@@ -147,6 +143,8 @@ async function generateGraphicsImages(
   aspectRatio?: string,
   existingRecords?: GraphicsImageRecord[],
   startIndex?: number,
+  customLifestylePrompt?: string,
+  customFeaturePrompt?: string,
 ): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
@@ -157,7 +155,7 @@ async function generateGraphicsImages(
   const lifestyleIndexOffset = existingLifestyle.length;
   const featureIndexOffset = existingFeature.length;
 
-  const specs = buildGraphicsSpecs(productName, category, designStyle, lifestyleCount, featureCount, lifestyleIndexOffset, featureIndexOffset);
+  const specs = buildGraphicsSpecs(productName, category, designStyle, lifestyleCount, featureCount, lifestyleIndexOffset, featureIndexOffset, customLifestylePrompt, customFeaturePrompt);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -388,7 +386,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const body = req.body as { style?: string; aspectRatio?: string; additionalLifestyleCount?: number; additionalFeatureCount?: number };
+  const body = req.body as { style?: string; aspectRatio?: string; additionalLifestyleCount?: number; additionalFeatureCount?: number; customLifestylePrompt?: string; customFeaturePrompt?: string };
 
   const isAdditional = (body.additionalLifestyleCount ?? 0) > 0 || (body.additionalFeatureCount ?? 0) > 0;
   const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
@@ -431,6 +429,8 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
         generateAspectRatio,
         existingRecords,
         existingCount,
+        body.customLifestylePrompt,
+        body.customFeaturePrompt,
       );
 
       const mergedRecords = [...existingRecords, ...newRecords];

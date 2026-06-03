@@ -84,6 +84,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const [moreFeatureEnabled, setMoreFeatureEnabled] = useState(false);
   const [moreFeatureCount, setMoreFeatureCount] = useState(1);
   const [moreStyle, setMoreStyle] = useState("modern");
+  const [moreLifestylePrompt, setMoreLifestylePrompt] = useState("");
+  const [moreFeaturePrompt, setMoreFeaturePrompt] = useState("");
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["graphics-project", id],
@@ -105,7 +107,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   };
 
   const generateMutation = useMutation({
-    mutationFn: async (payload: { additionalLifestyleCount?: number; additionalFeatureCount?: number; style?: string } | undefined) => {
+    mutationFn: async (payload: { additionalLifestyleCount?: number; additionalFeatureCount?: number; style?: string; customLifestylePrompt?: string; customFeaturePrompt?: string } | undefined) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -280,6 +282,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   setMoreFeatureEnabled(false);
                   setMoreFeatureCount(1);
                   setMoreStyle(project?.designStyle ?? "modern");
+                  setMoreLifestylePrompt("");
+                  setMoreFeaturePrompt("");
                 } else {
                   generateMutation.mutate(undefined);
                 }
@@ -694,7 +698,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
           {/* Step 2: Design Style */}
           {moreStep === 2 && (
             <div className="space-y-4">
-              <p className="text-sm text-slate-500">Select a style for the new images.</p>
+              <p className="text-sm text-slate-500">Select a style for the new images. Optionally add custom prompts to replace the default AI template.</p>
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { id: "modern", label: "Modern", desc: "Contemporary, clean, bold" },
@@ -719,6 +723,30 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   </div>
                 ))}
               </div>
+              {moreLifestyleEnabled && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+                  <Textarea
+                    value={moreLifestylePrompt}
+                    onChange={(e) => setMoreLifestylePrompt(e.target.value)}
+                    placeholder="Enter custom prompt to replace the default AI template for lifestyle images..."
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+              )}
+              {moreFeatureEnabled && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+                  <Textarea
+                    value={moreFeaturePrompt}
+                    onChange={(e) => setMoreFeaturePrompt(e.target.value)}
+                    placeholder="Enter custom prompt to replace the default AI template for infographics..."
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -740,6 +768,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                     additionalLifestyleCount: moreLifestyleEnabled ? moreLifestyleCount : 0,
                     additionalFeatureCount: moreFeatureEnabled ? moreFeatureCount : 0,
                     style: moreStyle,
+                    customLifestylePrompt: moreLifestylePrompt.trim() || undefined,
+                    customFeaturePrompt: moreFeaturePrompt.trim() || undefined,
                   });
                   setShowGenerateMore(false);
                 }

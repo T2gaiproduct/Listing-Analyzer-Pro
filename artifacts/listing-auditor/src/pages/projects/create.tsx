@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Sparkles, Search } from "lucide-react";
 
@@ -101,6 +102,8 @@ export default function CreateProject() {
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [featureCount, setFeatureCount] = useState(3);
   const [designStyle, setDesignStyle] = useState("modern");
+  const [lifestylePrompt, setLifestylePrompt] = useState("");
+  const [featurePrompt, setFeaturePrompt] = useState("");
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -133,7 +136,12 @@ export default function CreateProject() {
     onSuccess: (project) => {
       fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({
+          customLifestylePrompt: lifestylePrompt.trim() || undefined,
+          customFeaturePrompt: featurePrompt.trim() || undefined,
+        }),
       });
       nav(`/projects/${project.id}/generating`);
     },
@@ -246,6 +254,8 @@ export default function CreateProject() {
         designStyle,
         lifestyleCount: lifestyleEnabled ? lifestyleCount : 0,
         featureCount: featureEnabled ? featureCount : 0,
+        customLifestylePrompt: lifestylePrompt.trim() || undefined,
+        customFeaturePrompt: featurePrompt.trim() || undefined,
       });
     } else {
       setStep((s) => (s + 1) as Step);
@@ -506,7 +516,7 @@ export default function CreateProject() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900">Choose Design Style</h2>
-              <p className="text-sm text-slate-500">Select a style that best represents your brand</p>
+              <p className="text-sm text-slate-500">Select a style. Optionally add custom prompts to replace the default AI template.</p>
             </div>
           </div>
 
@@ -532,6 +542,30 @@ export default function CreateProject() {
               </div>
             ))}
           </div>
+          {lifestyleEnabled && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+              <Textarea
+                value={lifestylePrompt}
+                onChange={(e) => setLifestylePrompt(e.target.value)}
+                placeholder="Enter custom prompt to replace the default AI template for lifestyle images..."
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          )}
+          {featureEnabled && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+              <Textarea
+                value={featurePrompt}
+                onChange={(e) => setFeaturePrompt(e.target.value)}
+                placeholder="Enter custom prompt to replace the default AI template for infographics..."
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          )}
         </div>
       )}
 
