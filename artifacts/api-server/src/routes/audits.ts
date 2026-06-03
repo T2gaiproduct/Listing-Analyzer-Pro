@@ -92,7 +92,7 @@ router.get("/audits", requireAuth, resolveTeam, async (req, res): Promise<void> 
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
-    .where(eq(auditsTable.userId, ownerId))
+    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)))
     .orderBy(sql`${auditsTable.createdAt} DESC`);
   res.json(audits);
 });
@@ -274,7 +274,8 @@ router.delete("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async
   }
 
   const [audit] = await db
-    .delete(auditsTable)
+    .update(auditsTable)
+    .set({ isDeleted: 1, deletedAt: new Date() })
     .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId)))
     .returning();
 

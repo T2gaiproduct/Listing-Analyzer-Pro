@@ -67,7 +67,7 @@ router.get("/audits/:id/competitors", requireAuth, resolveTeam, async (req, res)
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId)));
+    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
     return;
@@ -76,7 +76,7 @@ router.get("/audits/:id/competitors", requireAuth, resolveTeam, async (req, res)
   const competitors = await db
     .select()
     .from(competitorsTable)
-    .where(eq(competitorsTable.auditId, params.data.id));
+    .where(and(eq(competitorsTable.auditId, params.data.id), eq(competitorsTable.isDeleted, 0)));
 
   res.json(competitors.map(c => ({ ...c, weaknesses: c.weaknesses ?? [] })));
 });
@@ -155,7 +155,8 @@ router.delete("/competitors/:id", requireAuth, resolveTeam, requireWriteAccess, 
   }
 
   const [competitor] = await db
-    .delete(competitorsTable)
+    .update(competitorsTable)
+    .set({ isDeleted: 1, deletedAt: new Date() })
     .where(eq(competitorsTable.id, params.data.id))
     .returning();
 

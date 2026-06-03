@@ -43,6 +43,8 @@ export const graphicsProjectsTable = pgTable("graphics_projects", {
   imageRecords: jsonb("image_records").$type<GraphicsImageRecords>(),
   generatedCount: integer("generated_count").notNull().default(0),
   errorMessage: text("error_message"),
+  isDeleted: integer("is_deleted").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

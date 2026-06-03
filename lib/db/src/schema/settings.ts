@@ -15,6 +15,7 @@ export const notificationsTable = pgTable("notifications", {
   type: text("type").notNull(),
   title: text("title").notNull(),
   message: text("message").notNull(),
+  link: text("link"),
   read: boolean("read").notNull().default(false),
   sentAt: timestamp("sent_at").notNull().defaultNow(),
   readAt: timestamp("read_at"),

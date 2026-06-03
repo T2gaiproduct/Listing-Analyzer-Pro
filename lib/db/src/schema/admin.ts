@@ -5,6 +5,8 @@ export const adminRolesTable = pgTable("admin_roles", {
   name: text("name").notNull().unique(),
   description: text("description"),
   permissions: jsonb("permissions").notNull().$type<string[]>().default([]),
+  isDeleted: integer("is_deleted").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -12,6 +14,8 @@ export const adminUsersTable = pgTable("admin_users", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().unique(),
   roleId: integer("role_id").notNull(),
+  isDeleted: integer("is_deleted").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

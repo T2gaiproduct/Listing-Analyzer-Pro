@@ -639,13 +639,15 @@ router.delete("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAc
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  await db.delete(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+  const [project] = await db
+    .update(graphicsProjectsTable)
+    .set({ isDeleted: 1, deletedAt: new Date() })
+    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)))
+    .returning();
 
-  // Clean up image directory
-  const dir = path.join(IMAGES_DIR, String(id));
-  if (fs.existsSync(dir)) {
-    fs.rmSync(dir, { recursive: true, force: true });
+  if (!project) {
+    res.status(404).json({ error: "Project not found" });
+    return;
   }
 
   res.status(204).send();

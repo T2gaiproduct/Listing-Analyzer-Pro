@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
 
 export const teamMembersTable = pgTable("team_members", {
   id: serial("id").primaryKey(),
@@ -11,6 +11,8 @@ export const teamMembersTable = pgTable("team_members", {
   inviteToken: text("invite_token").notNull().unique(),
   invitedAt: timestamp("invited_at").notNull().defaultNow(),
   acceptedAt: timestamp("accepted_at"),
+  isDeleted: integer("is_deleted").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export type TeamMember = typeof teamMembersTable.$inferSelect;

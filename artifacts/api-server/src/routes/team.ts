@@ -175,7 +175,7 @@ router.delete("/team/:id", requireAuth, async (req, res): Promise<void> => {
   const [member] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.id, id), eq(teamMembersTable.ownerUserId, userId)));
   if (!member) { res.status(404).json({ error: "Member not found" }); return; }
 
-  await db.update(teamMembersTable).set({ status: "revoked", memberUserId: null }).where(eq(teamMembersTable.id, id));
+  await db.update(teamMembersTable).set({ status: "revoked", memberUserId: null, isDeleted: 1, deletedAt: new Date() }).where(eq(teamMembersTable.id, id));
   res.json({ ok: true });
 });
 

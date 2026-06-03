@@ -15,6 +15,8 @@ export const competitorsTable = pgTable("competitors", {
   overallScore: integer("overall_score").notNull().default(0),
   strengths: jsonb("strengths").notNull().$type<string[]>(),
   weaknesses: jsonb("weaknesses").$type<string[]>(),
+  isDeleted: integer("is_deleted").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

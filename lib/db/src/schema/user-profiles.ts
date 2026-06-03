@@ -12,6 +12,8 @@ export const userProfilesTable = pgTable("user_profiles", {
   teamSize: integer("team_size"),
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   stripeCustomerId: text("stripe_customer_id"),
+  isDeleted: integer("is_deleted").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
