@@ -34,9 +34,9 @@ export async function generateImageBuffer(
 }
 
 /**
- * Generate an image using the OpenAI images.generate endpoint with reference images.
- * The `reference` parameter tells the AI to use the uploaded product as visual inspiration.
- * We pass the reference image as a base64 data URI so it serializes correctly in the JSON body.
+ * Generate an image using the OpenAI images.edit endpoint with a source image.
+ * The image is used as the input canvas, and the prompt tells the AI what to create.
+ * A strong product instruction is prepended to make the AI faithfully reproduce the product.
  */
 export async function generateImageWithReference(
   prompt: string,
@@ -46,30 +46,17 @@ export async function generateImageWithReference(
   const buffer = fs.readFileSync(imageFilePath);
   const ext = imageFilePath.toLowerCase().split(".").pop() ?? "png";
   const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-  const base64 = buffer.toString("base64");
-  const dataUri = `data:${mimeType};base64,${base64}`;
+  const image = await toFile(buffer, path.basename(imageFilePath), { type: mimeType });
 
-  console.log(`[generateImageWithReference] Image path: ${imageFilePath}`);
-  console.log(`[generateImageWithReference] Image size: ${buffer.length} bytes, MIME: ${mimeType}`);
-  console.log(`[generateImageWithReference] Data URI length: ${dataUri.length} chars, prefix: ${dataUri.substring(0, 60)}...`);
-  console.log(`[generateImageWithReference] Prompt: ${prompt.substring(0, 120)}...`);
-
-  const requestBody = {
+  const response = await openai.images.edit({
     model: "gpt-image-1",
+    image: [image],
     prompt,
     size: size as "1024x1024",
-    reference: [dataUri],
-  };
-  console.log(`[generateImageWithReference] Request body keys: ${Object.keys(requestBody).join(", ")}`);
-  console.log(`[generateImageWithReference] Has reference: ${"reference" in requestBody}, reference length: ${requestBody.reference[0].length}`);
+  });
 
-  const response = await openai.images.generate(requestBody as any);
-
-  console.log(`[generateImageWithReference] Response data length: ${response.data?.length ?? 0}`);
-  console.log(`[generateImageWithReference] Response has b64_json: ${!!response.data?.[0]?.b64_json}`);
-
-  const b64 = response.data?.[0]?.b64_json ?? "";
-  return Buffer.from(b64, "base64");
+  const base64 = response.data?.[0]?.b64_json ?? "";
+  return Buffer.from(base64, "base64");
 }
 
 export async function editImages(
