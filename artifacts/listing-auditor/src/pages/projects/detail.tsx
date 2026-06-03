@@ -83,7 +83,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const [moreLifestyleCount, setMoreLifestyleCount] = useState(2);
   const [moreFeatureEnabled, setMoreFeatureEnabled] = useState(false);
   const [moreFeatureCount, setMoreFeatureCount] = useState(1);
-  const [moreStyle, setMoreStyle] = useState("modern");
+  const [moreStyle, setMoreStyle] = useState("custom");
   const [moreLifestylePrompt, setMoreLifestylePrompt] = useState("");
   const [moreFeaturePrompt, setMoreFeaturePrompt] = useState("");
 
@@ -281,7 +281,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   setMoreLifestyleCount(2);
                   setMoreFeatureEnabled(false);
                   setMoreFeatureCount(1);
-                  setMoreStyle(project?.designStyle ?? "modern");
+                  setMoreStyle(project?.designStyle ?? "custom");
                   setMoreLifestylePrompt("");
                   setMoreFeaturePrompt("");
                 } else {
@@ -699,54 +699,61 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
           {moreStep === 2 && (
             <div className="space-y-4">
               <p className="text-sm text-slate-500">Select a style for the new images. Optionally add custom prompts to replace the default AI template.</p>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { id: "modern", label: "Modern", desc: "Contemporary, clean, bold" },
-                  { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody" },
-                  { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure" },
-                  { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space" },
-                ].map((style) => (
-                  <div
-                    key={style.id}
-                    className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-4 ${moreStyle === style.id ? "border-purple-600 bg-purple-50/20" : "border-transparent hover:border-slate-200 bg-white"}`}
-                    onClick={() => setMoreStyle(style.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-sm text-slate-900">{style.label}</p>
-                        <p className="text-xs text-slate-400">{style.desc}</p>
-                      </div>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${moreStyle === style.id ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
-                        {moreStyle === style.id && <Check className="w-3.5 h-3.5 text-white" />}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
               {moreLifestyleEnabled && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
                   <Textarea
                     value={moreLifestylePrompt}
                     onChange={(e) => setMoreLifestylePrompt(e.target.value)}
-                    placeholder="Enter custom prompt to replace the default AI template for lifestyle images..."
-                    rows={3}
-                    className="resize-none"
+                    placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
+                    rows={2}
+                    className="resize-none text-sm"
                   />
                 </div>
               )}
               {moreFeatureEnabled && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
                   <Textarea
                     value={moreFeaturePrompt}
                     onChange={(e) => setMoreFeaturePrompt(e.target.value)}
-                    placeholder="Enter custom prompt to replace the default AI template for infographics..."
-                    rows={3}
-                    className="resize-none"
+                    placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
+                    rows={2}
+                    className="resize-none text-sm"
                   />
                 </div>
               )}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: "custom", label: "Custom / Manual", desc: "Use only your prompt, no style" },
+                  { id: "modern", label: "Modern", desc: "Contemporary, clean, bold" },
+                  { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody" },
+                  { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure" },
+                  { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space" },
+                ].map((style) => {
+                  const isCustom = style.id === "custom";
+                  const isSelected = moreStyle === style.id;
+                  return (
+                    <div
+                      key={style.id}
+                      className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-3 ${isSelected ? "border-purple-600 bg-purple-50/20" : "border-transparent hover:border-slate-200 bg-white"}`}
+                      onClick={() => setMoreStyle(style.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-slate-900">{style.label}</p>
+                          <p className="text-xs text-slate-400 leading-tight">{style.desc}</p>
+                        </div>
+                        {isCustom && (
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 

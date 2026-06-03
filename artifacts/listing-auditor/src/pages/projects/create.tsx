@@ -70,11 +70,14 @@ const AMAZON_CATEGORIES = [
 const QUANTITY_OPTIONS = [1, 2, 3, 4, 5, 6];
 
 const DESIGN_STYLES = [
-  { id: "modern", label: "Modern", desc: "Contemporary, clean, bold", img: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop" },
-  { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody", img: "https://images.unsplash.com/photo-1567690187548-f07b1d7bf5a9?w=400&h=300&fit=crop" },
-  { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure", img: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop" },
-  { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space", img: "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?w=400&h=300&fit=crop" },
+  { id: "custom", label: "Custom / Manual", desc: "Use only your prompt, no style" },
+  { id: "modern", label: "Modern", desc: "Contemporary, clean, bold" },
+  { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody" },
+  { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure" },
+  { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space" },
 ];
+
+const PROMPT_MAX_CHARS = 1000;
 
 type Step = 1 | 2 | 3;
 
@@ -101,7 +104,7 @@ export default function CreateProject() {
   const [lifestyleCount, setLifestyleCount] = useState(5);
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [featureCount, setFeatureCount] = useState(3);
-  const [designStyle, setDesignStyle] = useState("modern");
+  const [designStyle, setDesignStyle] = useState("custom");
   const [lifestylePrompt, setLifestylePrompt] = useState("");
   const [featurePrompt, setFeaturePrompt] = useState("");
 
@@ -520,52 +523,69 @@ export default function CreateProject() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-5">
-            {DESIGN_STYLES.map((style) => (
-              <div
-                key={style.id}
-                className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${designStyle === style.id ? "border-purple-600" : "border-transparent hover:border-slate-200"}`}
-                onClick={() => setDesignStyle(style.id)}
-              >
-                <div className="aspect-[4/3] relative">
-                  <img src={style.img} alt={style.label} className="w-full h-full object-cover" />
-                </div>
-                <div className="absolute top-3 right-3">
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${designStyle === style.id ? "border-purple-600" : "border-slate-300"}`}>
-                    {designStyle === style.id && <Check className="w-3.5 h-3.5 text-purple-600" />}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <p className="font-semibold text-sm text-slate-900">{style.label}</p>
-                  <p className="text-xs text-slate-400">{style.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
           {lifestyleEnabled && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span>
+                {lifestylePrompt.length > 0 && (
+                  <span className={`ml-2 text-xs font-medium ${lifestylePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : lifestylePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
+                    {lifestylePrompt.length} / {PROMPT_MAX_CHARS}
+                  </span>
+                )}
+              </label>
               <Textarea
                 value={lifestylePrompt}
                 onChange={(e) => setLifestylePrompt(e.target.value)}
-                placeholder="Enter custom prompt to replace the default AI template for lifestyle images..."
-                rows={3}
-                className="resize-none"
+                placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
+                rows={2}
+                className="resize-none text-sm"
               />
             </div>
           )}
           {featureEnabled && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span>
+                {featurePrompt.length > 0 && (
+                  <span className={`ml-2 text-xs font-medium ${featurePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : featurePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
+                    {featurePrompt.length} / {PROMPT_MAX_CHARS}
+                  </span>
+                )}
+              </label>
               <Textarea
                 value={featurePrompt}
                 onChange={(e) => setFeaturePrompt(e.target.value)}
-                placeholder="Enter custom prompt to replace the default AI template for infographics..."
-                rows={3}
-                className="resize-none"
+                placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
+                rows={2}
+                className="resize-none text-sm"
               />
             </div>
           )}
+          <div className="grid grid-cols-3 gap-3">
+            {DESIGN_STYLES.map((style) => {
+              const isCustom = style.id === "custom";
+              const isSelected = designStyle === style.id;
+              return (
+                <div
+                  key={style.id}
+                  className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-3 ${isSelected ? "border-purple-600 bg-purple-50/30" : "border-slate-200 hover:border-slate-300"}`}
+                  onClick={() => setDesignStyle(style.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-slate-900">{style.label}</p>
+                      <p className="text-xs text-slate-400 leading-tight">{style.desc}</p>
+                    </div>
+                    {isCustom && (
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
