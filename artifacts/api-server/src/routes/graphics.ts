@@ -404,9 +404,17 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
     return;
   }
 
-  // Mark as generating
+  // Mark as generating and update counts so progress polling is correct
+  const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
+  const existingLifestyle = existingRecords.filter(r => r.type === "lifestyle");
+  const existingFeature = existingRecords.filter(r => r.type === "feature");
   await db.update(graphicsProjectsTable)
-    .set({ status: "generating", updatedAt: new Date() })
+    .set({
+      status: "generating",
+      lifestyleCount: existingLifestyle.length + lifestyleCount,
+      featureCount: existingFeature.length + featureCount,
+      updatedAt: new Date(),
+    })
     .where(eq(graphicsProjectsTable.id, id));
 
   res.status(202).json({ message: "Generation started", status: "generating" });
