@@ -161,11 +161,28 @@ async function generateGraphicsImages(
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
-  const sourcePath = sourceImagePaths?.[0] ?? null;
   const limit = pLimit(MAX_CONCURRENT_IMAGES);
 
   let generatedCount = startIndex ?? 0;
   const totalCount = generatedCount + specs.length;
+
+  // Resolve source image path: download remote URLs to local file
+  let sourcePath: string | null = null;
+  const rawPath = sourceImagePaths?.[0] ?? null;
+  if (rawPath) {
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      const destPath = path.join(dir, "source_remote.jpg");
+      const downloaded = await downloadImage(rawPath, destPath);
+      if (downloaded) {
+        sourcePath = downloaded;
+        console.log(`[generateGraphicsImages] Downloaded source image from ${rawPath} to ${downloaded}`);
+      } else {
+        console.log(`[generateGraphicsImages] Failed to download source image from ${rawPath}`);
+      }
+    } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
+      sourcePath = rawPath;
+    }
+  }
 
   async function generateOne(spec: GraphicsSpec): Promise<void> {
     const filename = versionedFilename(spec.type, spec.index);
@@ -176,11 +193,13 @@ async function generateGraphicsImages(
       const arKey = aspectRatio ?? "1:1";
       const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
       let buffer: Buffer;
-      const sourceFileIsValid = sourcePath && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+      const sourceFileIsValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
       if (sourceFileIsValid) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${spec.prompt}`;
-        buffer = await generateImageWithReference(referencePrompt, sourcePath, size);
+        console.log(`[generateGraphicsImages] Using reference image for ${spec.id}: ${sourcePath}`);
+        buffer = await generateImageWithReference(referencePrompt, sourcePath!, size);
       } else {
+        console.log(`[generateGraphicsImages] No valid source image, generating without reference for ${spec.id}`);
         buffer = await generateImageBuffer(spec.prompt, size);
       }
       if (!buffer || buffer.length === 0) throw new Error("No image data returned");
@@ -270,6 +289,26 @@ function saveBase64Image(base64Data: string, dir: string, filename: string): str
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, buffer);
   return filePath;
+}
+
+async function downloadImage(url: string, destPath: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { timeout: 15000 } as any);
+    if (!res.ok) {
+      console.error(`[downloadImage] Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+      return null;
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length < MIN_FILE_SIZE) {
+      console.error(`[downloadImage] Image too small from ${url}: ${buffer.length} bytes`);
+      return null;
+    }
+    fs.writeFileSync(destPath, buffer);
+    return destPath;
+  } catch (err) {
+    console.error(`[downloadImage] Error downloading ${url}:`, err instanceof Error ? err.message : String(err));
+    return null;
+  }
 }
 
 // ─── Create project ───────────────────────────────────────────────────────────
