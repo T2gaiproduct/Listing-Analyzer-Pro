@@ -22,7 +22,10 @@ const DESIGN_STYLES = [
   { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody" },
   { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure" },
   { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space" },
+  { id: "custom", label: "Custom / Manual", desc: "Use only your prompt, no style" },
 ];
+
+const PROMPT_MAX_CHARS = 1000;
 
 type Step = 1 | 2 | 3;
 
@@ -1195,7 +1198,19 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           </div>
           {lifestyleEnabled && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+              <label className="text-sm font-medium text-slate-700">
+                Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span>
+                {lifestylePrompt.length > 0 && (
+                  <span className={`ml-2 text-xs font-medium ${lifestylePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : lifestylePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
+                    {lifestylePrompt.length} / {PROMPT_MAX_CHARS}
+                  </span>
+                )}
+              </label>
+              {lifestylePrompt.length > PROMPT_MAX_CHARS && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Long prompt may cause issues. Keep it under {PROMPT_MAX_CHARS} characters.
+                </p>
+              )}
               <Textarea
                 value={lifestylePrompt}
                 onChange={(e) => setLifestylePrompt(e.target.value)}
@@ -1207,7 +1222,19 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           )}
           {featureEnabled && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
+              <label className="text-sm font-medium text-slate-700">
+                Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span>
+                {featurePrompt.length > 0 && (
+                  <span className={`ml-2 text-xs font-medium ${featurePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : featurePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
+                    {featurePrompt.length} / {PROMPT_MAX_CHARS}
+                  </span>
+                )}
+              </label>
+              {featurePrompt.length > PROMPT_MAX_CHARS && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Long prompt may cause issues. Keep it under {PROMPT_MAX_CHARS} characters.
+                </p>
+              )}
               <Textarea
                 value={featurePrompt}
                 onChange={(e) => setFeaturePrompt(e.target.value)}

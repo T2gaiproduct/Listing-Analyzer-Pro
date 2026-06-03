@@ -80,6 +80,7 @@ const DESIGN_STYLE_PROMPTS: Record<string, string> = {
   luxury: "Dramatic directional lighting, rich moody atmosphere, opulent premium brand aesthetic, dark complementary tones, editorial high-fashion feel.",
   outdoor: "Natural outdoor setting, scenic environment, adventure and exploration atmosphere, product as the hero, dramatic landscape lighting.",
   minimalist: "Minimalist Scandinavian-inspired product photography, generous white space, clean simple composition, barely-there drop shadow, elegant restraint.",
+  custom: "",
 };
 
 const REFERENCE_IMAGE_INSTRUCTION = "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted. Use this reference image as the visual basis for the product in the scene.";
@@ -115,7 +116,9 @@ function buildGraphicsSpecs(
   for (let i = 0; i < lifestyleCount; i++) {
     const idx = lifestyleIndexOffset + i;
     const prompt = customLifestylePrompt?.trim()
-      ? `${customLifestylePrompt.trim()} ${styleSuffix}`
+      ? designStyle === "custom"
+        ? customLifestylePrompt.trim()
+        : `${customLifestylePrompt.trim()} ${styleSuffix}`
       : `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography. ${styleSuffix}`;
     specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
   }
@@ -123,7 +126,9 @@ function buildGraphicsSpecs(
   for (let i = 0; i < featureCount; i++) {
     const idx = featureIndexOffset + i;
     const prompt = customFeaturePrompt?.trim()
-      ? `${customFeaturePrompt.trim()} ${styleSuffix}`
+      ? designStyle === "custom"
+        ? customFeaturePrompt.trim()
+        : `${customFeaturePrompt.trim()} ${styleSuffix}`
       : `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background. ${styleSuffix}`;
     specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt });
   }
