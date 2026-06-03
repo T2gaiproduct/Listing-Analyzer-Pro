@@ -321,7 +321,7 @@ router.get("/admin/customers/:userId/payments", requireAdmin, async (req, res): 
 
 router.delete("/admin/customers/:userId", requireAdmin, async (req, res): Promise<void> => {
   const userId = String(req.params.userId);
-  await db.delete(auditsTable).where(eq(auditsTable.userId, userId));
+  await db.update(auditsTable).set({ isDeleted: 1, deletedAt: new Date() }).where(eq(auditsTable.userId, userId));
   await clerkFetch(`/users/${userId}`, { method: "DELETE" });
   res.sendStatus(204);
 });
@@ -422,8 +422,8 @@ router.get("/admin/audits", requireAdmin, async (req, res): Promise<void> => {
 router.delete("/admin/audits/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  await db.delete(competitorsTable).where(eq(competitorsTable.auditId, id));
-  await db.delete(auditsTable).where(eq(auditsTable.id, id));
+  await db.update(competitorsTable).set({ isDeleted: 1, deletedAt: new Date() }).where(eq(competitorsTable.auditId, id));
+  await db.update(auditsTable).set({ isDeleted: 1, deletedAt: new Date() }).where(eq(auditsTable.id, id));
   res.sendStatus(204);
 });
 
@@ -447,7 +447,7 @@ router.get("/admin/graphics-logs", requireAdmin, async (req, res): Promise<void>
 router.delete("/admin/graphics-logs/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  await db.delete(graphicsProjectsTable).where(eq(graphicsProjectsTable.id, id));
+  await db.update(graphicsProjectsTable).set({ isDeleted: 1, deletedAt: new Date() }).where(eq(graphicsProjectsTable.id, id));
   res.sendStatus(204);
 });
 
@@ -946,8 +946,8 @@ router.get("/admin/notifications", requireAdmin, async (req, res): Promise<void>
 });
 
 router.post("/admin/notifications", requireAdmin, async (req, res): Promise<void> => {
-  const { userId, type, title, message } = req.body;
-  const [n] = await db.insert(notificationsTable).values({ userId: userId ?? null, type, title, message }).returning();
+  const { userId, type, title, message, link } = req.body;
+  const [n] = await db.insert(notificationsTable).values({ userId: userId ?? null, type, title, message, link }).returning();
   res.status(201).json(n);
 });
 

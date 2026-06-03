@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User, Shield, CreditCard, Users, UserCircle, Bell } from "lucide-react";
+import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User, Shield, CreditCard, Users, UserCircle, Bell, Trash2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -39,6 +39,8 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/billing", label: "Billing", icon: CreditCard },
     { href: "/team", label: "Team", icon: Users },
     { href: "/profile", label: "My Profile", icon: UserCircle },
+    { href: "/archive", label: "Archive", icon: Trash2 },
+    { href: "/notifications", label: "Notifications", icon: Bell },
   ];
 
   return (
@@ -200,6 +202,7 @@ interface NotificationItem {
   type: string;
   title: string;
   message: string;
+  link?: string | null;
   read: boolean;
   sentAt: string;
 }
@@ -280,16 +283,30 @@ function NotificationBell() {
                     "px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors",
                     n.read ? "bg-background/50" : "bg-primary/5 hover:bg-primary/10"
                   )}
-                  onClick={() => { if (!n.read) markRead.mutate(n.id); }}
+                  onClick={() => {
+                    if (!n.read) markRead.mutate(n.id);
+                    if (n.link) {
+                      setTimeout(() => {
+                        window.location.href = n.link as string;
+                      }, 150);
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-snug">{n.title}</p>
+                    <p className={cn("text-sm font-medium leading-snug", n.link && "text-primary")}>{n.title}</p>
                     {!n.read && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1" />}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
-                  <p className="text-[10px] text-muted-foreground/70 mt-1.5">
-                    {formatDistanceToNow(new Date(n.sentAt), { addSuffix: true })}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <p className="text-[10px] text-muted-foreground/70">
+                      {formatDistanceToNow(new Date(n.sentAt), { addSuffix: true })}
+                    </p>
+                    {n.link && (
+                      <span className="text-[10px] text-primary flex items-center gap-0.5">
+                        <ArrowRight className="w-3 h-3" /> Open
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))
             )}

@@ -362,14 +362,14 @@ router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Pro
     projects = await db
       .select()
       .from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.auditId, auditIdQuery)))
+      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.auditId, auditIdQuery), eq(graphicsProjectsTable.isDeleted, 0)))
       .orderBy(desc(graphicsProjectsTable.updatedAt))
       .limit(100);
   } else {
     projects = await db
       .select()
       .from(graphicsProjectsTable)
-      .where(eq(graphicsProjectsTable.userId, userId))
+      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)))
       .orderBy(desc(graphicsProjectsTable.updatedAt))
       .limit(100);
   }
@@ -385,8 +385,8 @@ router.get("/graphics/projects/:id", requireAuth, resolveTeam, async (req, res):
   const admin = await isAdminUser(userId);
 
   const [project] = admin
-    ? await db.select().from(graphicsProjectsTable).where(eq(graphicsProjectsTable.id, id))
-    : await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+    ? await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.isDeleted, 0)))
+    : await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   res.json(project);
@@ -401,7 +401,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAcc
   const [existing] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
 
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -424,7 +424,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -521,7 +521,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -566,7 +566,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)));
+    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 

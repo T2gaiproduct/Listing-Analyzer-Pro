@@ -6,7 +6,7 @@ import {
   BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
-  ChevronDown, ChevronUp, FileSearch, Palette,
+  ChevronDown, ChevronUp, FileSearch, Palette, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -72,6 +72,7 @@ const navSections = [
     label: "Notifications",
     items: [
       { href: "/admin/notifications", label: "Alerts", icon: Bell },
+      { href: "/admin/archive", label: "Archive", icon: Trash2 },
     ],
   },
   {

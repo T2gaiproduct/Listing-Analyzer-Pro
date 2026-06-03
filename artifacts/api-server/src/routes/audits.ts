@@ -186,17 +186,17 @@ router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<
       averageScore: avg(auditsTable.overallScore),
     })
     .from(auditsTable)
-    .where(eq(auditsTable.userId, ownerId));
+    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
 
   const highScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, ownerId), sql`${auditsTable.overallScore} >= 70`));
+    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.overallScore} >= 70`));
 
   const lowScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, ownerId), sql`${auditsTable.overallScore} < 50`));
+    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.overallScore} < 50`));
 
   const recentAudits = await db
     .select({
@@ -210,7 +210,7 @@ router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
-    .where(eq(auditsTable.userId, ownerId))
+    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)))
     .orderBy(sql`${auditsTable.createdAt} DESC`)
     .limit(5);
 
@@ -233,8 +233,8 @@ router.get("/audits/:id", requireAuth, resolveTeam, async (req, res): Promise<vo
   }
 
   const whereClause = isAdmin(userId)
-    ? eq(auditsTable.id, params.data.id)
-    : and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId));
+    ? and(eq(auditsTable.id, params.data.id), eq(auditsTable.isDeleted, 0))
+    : and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0));
 
   const [audit] = await db
     .select()
@@ -249,7 +249,7 @@ router.get("/audits/:id", requireAuth, resolveTeam, async (req, res): Promise<vo
   const competitors = await db
     .select()
     .from(competitorsTable)
-    .where(eq(competitorsTable.auditId, audit.id));
+    .where(and(eq(competitorsTable.auditId, audit.id), eq(competitorsTable.isDeleted, 0)));
 
   res.json({
     ...audit,
@@ -304,7 +304,7 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAc
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
@@ -338,7 +338,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWri
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
@@ -379,7 +379,7 @@ router.post("/audits/:id/generate-images", requireAuth, resolveTeam, requireWrit
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
@@ -457,7 +457,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -515,7 +515,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId)));
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);

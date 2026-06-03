@@ -9,6 +9,7 @@ import teamRouter from "./team";
 import stripeRouter from "./stripe";
 import paymentRouter from "./payment";
 import graphicsRouter from "./graphics";
+import archiveRouter from "./archive";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(competitorsRouter);
 router.use(stripeRouter);
 router.use(paymentRouter);
 router.use(graphicsRouter);
+router.use(archiveRouter);
 
 export default router;

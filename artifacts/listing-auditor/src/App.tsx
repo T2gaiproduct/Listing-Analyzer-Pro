@@ -72,6 +72,9 @@ import ProjectsPage from "@/pages/projects";
 import CreateProject from "@/pages/projects/create";
 import ProjectDetail from "@/pages/projects/detail";
 import GeneratingPage from "@/pages/projects/generating";
+import ArchivePage from "@/pages/archive";
+import NotificationsPage from "@/pages/notifications";
+import AdminArchivePage from "@/pages/admin/archive";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -303,6 +306,9 @@ function Router() {
       <Route path="/admin/notifications">
         <AdminRoute><AdminNotifications /></AdminRoute>
       </Route>
+      <Route path="/admin/archive">
+        <AdminRoute><AdminArchivePage /></AdminRoute>
+      </Route>
       <Route path="/admin/team-activity">
         <AdminRoute><AdminTeamActivity /></AdminRoute>
       </Route>
@@ -448,6 +454,12 @@ function Router() {
         {params => (
           <ProtectedRoute><ProjectDetail params={{ id: params.id }} /></ProtectedRoute>
         )}
+      </Route>
+      <Route path="/archive">
+        <ProtectedRoute><ArchivePage /></ProtectedRoute>
+      </Route>
+      <Route path="/notifications">
+        <ProtectedRoute><NotificationsPage /></ProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>
