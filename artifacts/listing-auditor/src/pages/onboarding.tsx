@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { COUNTRIES } from "@/lib/countries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -29,15 +30,6 @@ interface Plan {
   isHighlighted: boolean;
   ctaText: string | null;
 }
-
-const COUNTRIES = [
-  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France",
-  "India", "Brazil", "Mexico", "Japan", "South Korea", "Netherlands", "Spain",
-  "Italy", "Singapore", "UAE", "South Africa", "Nigeria", "Pakistan", "Bangladesh",
-  "Indonesia", "Philippines", "Vietnam", "Thailand", "Malaysia", "Egypt",
-  "Saudi Arabia", "Turkey", "Poland", "Sweden", "Norway", "Denmark", "Switzerland",
-  "Belgium", "Argentina", "Colombia", "Chile", "Peru", "New Zealand", "Other",
-];
 
 function StepIndicator({ step, total }: { step: number; total: number }) {
   const labels = ["Your Profile", "Choose Plan", "Payment"];

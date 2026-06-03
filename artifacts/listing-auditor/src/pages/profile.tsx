@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { COUNTRIES } from "@/lib/countries";
 import { format } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -313,7 +314,14 @@ export default function Profile() {
             <div>
               <Label className="text-xs flex items-center gap-1.5 text-slate-500"><Globe className="w-3 h-3" />Country</Label>
               {editing ? (
-                <Input className="mt-1 h-8 text-sm" value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} />
+                <select
+                  className="mt-1 w-full h-8 border border-input rounded-md bg-background px-3 text-sm"
+                  value={form.country}
+                  onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+                >
+                  <option value="">Select your country</option>
+                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
               ) : (
                 <p className="text-sm font-medium text-slate-800 mt-1">{form.country || <span className="text-slate-400 italic">Not set</span>}</p>
               )}
