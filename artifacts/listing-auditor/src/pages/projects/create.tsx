@@ -266,31 +266,31 @@ export default function CreateProject() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-6">
+    <div className="max-w-3xl mx-auto py-4">
       {/* Step indicator */}
-      <div className="mb-10">
+      <div className="mb-4">
         <div className="flex items-center">
           {STEPS.map((s, idx) => (
             <div key={s.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
                   s.id < step ? "bg-purple-600 text-white" :
                   s.id === step ? "bg-purple-600 text-white" :
                   "bg-white text-slate-400 border-2 border-slate-200"
                 }`}>
-                  {s.id < step ? <Check className="w-4 h-4" /> : s.id}
+                  {s.id < step ? <Check className="w-3.5 h-3.5" /> : s.id}
                 </div>
-                <div className="mt-2 text-center">
+                <div className="mt-1 text-center">
                   <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-purple-600" : "text-slate-400"}`}>
                     Step {s.id} of 3
                   </p>
-                  <p className={`text-sm font-medium ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
+                  <p className={`text-xs font-medium ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
                     {s.label}
                   </p>
                 </div>
               </div>
               {idx < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-2 mb-6 ${s.id < step ? "bg-purple-600" : "bg-slate-200"}`} />
+                <div className={`flex-1 h-0.5 mx-2 mb-5 ${s.id < step ? "bg-purple-600" : "bg-slate-200"}`} />
               )}
             </div>
           ))}
@@ -299,57 +299,55 @@ export default function CreateProject() {
 
       {/* Step 1: Upload Product */}
       {step === 1 && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Upload className="w-5 h-5 text-purple-600" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+              <Upload className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Upload Product</h2>
-              <p className="text-sm text-slate-500">Upload one or more images of your product. We&apos;ll use them to create stunning graphics.</p>
+              <h2 className="text-lg font-bold text-slate-900">Upload Product</h2>
+              <p className="text-xs text-slate-500">Upload images to create stunning graphics</p>
             </div>
           </div>
 
           {/* Upload area */}
           <div
-            className="border-2 border-dashed border-purple-200 rounded-xl p-12 text-center bg-purple-50/20 hover:bg-purple-50/30 transition-colors cursor-pointer"
+            className="border-2 border-dashed border-purple-200 rounded-xl p-5 text-center bg-purple-50/20 hover:bg-purple-50/30 transition-colors cursor-pointer"
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
           >
-            <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center mx-auto mb-4">
-              <Upload className="w-8 h-8 text-purple-400" />
-            </div>
-            <p className="text-sm font-medium text-slate-700 mb-1">Drag & drop your product images here</p>
-            <p className="text-sm text-slate-400 mb-4">or</p>
+            <Upload className="w-5 h-5 text-purple-400 mx-auto mb-1" />
+            <p className="text-sm font-medium text-slate-700 mb-0.5">Drag & drop images here</p>
+            <p className="text-xs text-slate-400 mb-1.5">or</p>
             <Button
-              className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+              className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 h-7 text-xs"
               onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
             >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Images
+              <Upload className="w-3 h-3 mr-1" />
+              Upload
             </Button>
-            <p className="text-xs text-slate-400 mt-3">PNG, JPG up to 20MB each. Multiple images supported.</p>
+            <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 20MB each</p>
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
           </div>
 
           {/* Image Preview + Form */}
           {uploadedImages.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-100 p-6">
+            <div className="bg-white rounded-xl border border-slate-100 p-3">
               {/* Image Preview */}
-              <div className="mb-6">
-                <p className="text-sm font-medium text-slate-700 mb-3">
-                  Uploaded Images ({uploadedImages.length})
+              <div className="mb-3">
+                <p className="text-xs font-medium text-slate-700 mb-1.5">
+                  Uploaded ({uploadedImages.length})
                 </p>
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-wrap gap-2">
                   {uploadedImages.map((img, idx) => (
-                    <div key={idx} className="relative w-[140px] h-[140px] rounded-lg border border-slate-100 overflow-hidden bg-white flex-shrink-0">
+                    <div key={idx} className="relative w-[80px] h-[80px] rounded-lg border border-slate-100 overflow-hidden bg-white flex-shrink-0">
                       <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-contain" />
                       <button
-                        className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow-sm flex items-center justify-center text-red-500 hover:text-red-600"
+                        className="absolute top-1 right-1 w-5 h-5 bg-white rounded-full shadow-sm flex items-center justify-center text-red-500 hover:text-red-600"
                         onClick={() => removeImage(idx)}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
@@ -357,20 +355,20 @@ export default function CreateProject() {
               </div>
 
               {/* Form fields */}
-              <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Product Name</label>
+                  <label className="text-xs font-medium text-slate-700 mb-1 block">Product Name</label>
                   <Input
                     value={productName}
                     onChange={(e) => setProductName(e.target.value)}
-                    placeholder="Enter product name"
-                    className="border-slate-200 h-11 rounded-lg"
+                    placeholder="Product name"
+                    className="border-slate-200 h-8 rounded-lg text-xs"
                   />
                 </div>
                 <div className="relative" ref={categoryRef}>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Product Category</label>
+                  <label className="text-xs font-medium text-slate-700 mb-1 block">Category</label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
                     <Input
                       value={categorySearch}
                       onChange={(e) => {
@@ -378,18 +376,18 @@ export default function CreateProject() {
                         setShowCategoryDropdown(true);
                       }}
                       onFocus={() => setShowCategoryDropdown(true)}
-                      placeholder="Search Amazon category..."
-                      className="border-slate-200 h-11 rounded-lg pl-9"
+                      placeholder="Search category..."
+                      className="border-slate-200 h-8 rounded-lg pl-7 text-xs"
                     />
                     {showCategoryDropdown && (
-                      <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-y-auto overscroll-contain">
+                      <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
                         {filteredCategories.length === 0 && (
-                          <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
+                          <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
                         )}
                         {filteredCategories.map((c) => (
                           <div
                             key={c}
-                            className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-purple-50 ${category === c ? "bg-purple-50 text-purple-700 font-medium" : "text-slate-700"}`}
+                            className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-purple-50 ${category === c ? "bg-purple-50 text-purple-700 font-medium" : "text-slate-700"}`}
                             onClick={() => {
                               setCategory(c);
                               setCategorySearch(c);
@@ -411,49 +409,48 @@ export default function CreateProject() {
 
       {/* Step 2: Select Graphics */}
       {step === 2 && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Wand2 className="w-5 h-5 text-purple-600" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+              <Wand2 className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Select Graphics</h2>
-              <p className="text-sm text-slate-500">What would you like to create?</p>
+              <h2 className="text-lg font-bold text-slate-900">Select Graphics</h2>
+              <p className="text-xs text-slate-500">What would you like to create?</p>
             </div>
           </div>
 
           {/* Lifestyle Images */}
-          <div className={`rounded-xl border-2 p-5 transition-all ${lifestyleEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
-            <div className="flex items-start gap-4">
+          <div className={`rounded-xl border-2 p-3 transition-all ${lifestyleEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
+            <div className="flex items-start gap-3">
               <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${lifestyleEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${lifestyleEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
                 onClick={() => setLifestyleEnabled(!lifestyleEnabled)}
               >
-                {lifestyleEnabled ? <Check className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
+                {lifestyleEnabled ? <Check className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-slate-900 text-sm">Lifestyle Images</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Realistic lifestyle images of your product</p>
+                    <p className="text-xs text-slate-400">Realistic lifestyle images</p>
                   </div>
                   <div
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${lifestyleEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer ${lifestyleEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
                     onClick={() => setLifestyleEnabled(!lifestyleEnabled)}
                   >
-                    {lifestyleEnabled && <Check className="w-3.5 h-3.5 text-white" />}
+                    {lifestyleEnabled && <Check className="w-3 h-3 text-white" />}
                   </div>
                 </div>
                 {lifestyleEnabled && (
-                  <div className="mt-4">
-                    <p className="text-xs font-medium text-slate-600 mb-2">Lifestyle Images</p>
-                    <p className="text-xs text-slate-400 mb-3">Choose quantity</p>
-                    <div className="flex gap-2">
+                  <div className="mt-2">
+                    <p className="text-xs text-slate-400 mb-1.5">Quantity</p>
+                    <div className="flex gap-1.5">
                       {QUANTITY_OPTIONS.map((q) => (
                         <button
                           key={q}
                           onClick={() => setLifestyleCount(q)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${lifestyleCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${lifestyleCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
                         >
                           {q}
                         </button>
@@ -466,37 +463,36 @@ export default function CreateProject() {
           </div>
 
           {/* Feature / Infographics */}
-          <div className={`rounded-xl border-2 p-5 transition-all ${featureEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
-            <div className="flex items-start gap-4">
+          <div className={`rounded-xl border-2 p-3 transition-all ${featureEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
+            <div className="flex items-start gap-3">
               <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${featureEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${featureEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
                 onClick={() => setFeatureEnabled(!featureEnabled)}
               >
-                {featureEnabled ? <Check className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
+                {featureEnabled ? <Check className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-slate-900 text-sm">Infographics</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Highlight features and benefits</p>
+                    <p className="text-xs text-slate-400">Highlight features</p>
                   </div>
                   <div
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${featureEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer ${featureEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
                     onClick={() => setFeatureEnabled(!featureEnabled)}
                   >
-                    {featureEnabled && <Check className="w-3.5 h-3.5 text-white" />}
+                    {featureEnabled && <Check className="w-3 h-3 text-white" />}
                   </div>
                 </div>
                 {featureEnabled && (
-                  <div className="mt-4">
-                    <p className="text-xs font-medium text-slate-600 mb-2">Infographics</p>
-                    <p className="text-xs text-slate-400 mb-3">Choose quantity</p>
-                    <div className="flex gap-2">
+                  <div className="mt-2">
+                    <p className="text-xs text-slate-400 mb-1.5">Quantity</p>
+                    <div className="flex gap-1.5">
                       {QUANTITY_OPTIONS.map((q) => (
                         <button
                           key={q}
                           onClick={() => setFeatureCount(q)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${featureCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${featureCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
                         >
                           {q}
                         </button>
@@ -512,21 +508,21 @@ export default function CreateProject() {
 
       {/* Step 3: Choose Design Style */}
       {step === 3 && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-purple-600" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Choose Design Style</h2>
-              <p className="text-sm text-slate-500">Select a style. Optionally add custom prompts to replace the default AI template.</p>
+              <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
+              <p className="text-xs text-slate-500">Select a style. Add custom prompts for better results.</p>
             </div>
           </div>
 
           {lifestyleEnabled && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">
-                Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-700">
+                Lifestyle Prompt <span className="text-slate-400 font-normal">(optional)</span>
                 {lifestylePrompt.length > 0 && (
                   <span className={`ml-2 text-xs font-medium ${lifestylePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : lifestylePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
                     {lifestylePrompt.length} / {PROMPT_MAX_CHARS}
@@ -538,14 +534,14 @@ export default function CreateProject() {
                 onChange={(e) => setLifestylePrompt(e.target.value)}
                 placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
                 rows={2}
-                className="resize-none text-sm"
+                className="resize-none text-xs"
               />
             </div>
           )}
           {featureEnabled && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">
-                Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-700">
+                Infographic Prompt <span className="text-slate-400 font-normal">(optional)</span>
                 {featurePrompt.length > 0 && (
                   <span className={`ml-2 text-xs font-medium ${featurePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : featurePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
                     {featurePrompt.length} / {PROMPT_MAX_CHARS}
@@ -557,28 +553,28 @@ export default function CreateProject() {
                 onChange={(e) => setFeaturePrompt(e.target.value)}
                 placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
                 rows={2}
-                className="resize-none text-sm"
+                className="resize-none text-xs"
               />
             </div>
           )}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {DESIGN_STYLES.map((style) => {
               const isCustom = style.id === "custom";
               const isSelected = designStyle === style.id;
               return (
                 <div
                   key={style.id}
-                  className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-3 ${isSelected ? "border-purple-600 bg-purple-50/30" : "border-slate-200 hover:border-slate-300"}`}
+                  className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-2.5 ${isSelected ? "border-purple-600 bg-purple-50/30" : "border-slate-200 hover:border-slate-300"}`}
                   onClick={() => setDesignStyle(style.id)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm text-slate-900">{style.label}</p>
-                      <p className="text-xs text-slate-400 leading-tight">{style.desc}</p>
+                      <p className="font-semibold text-xs text-slate-900">{style.label}</p>
+                      <p className="text-[10px] text-slate-400 leading-tight">{style.desc}</p>
                     </div>
                     {isCustom && (
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
-                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
+                        {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
                       </div>
                     )}
                   </div>
@@ -590,27 +586,27 @@ export default function CreateProject() {
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-end pt-6">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-end pt-3">
+        <div className="flex items-center gap-2">
           {step > 1 && (
-            <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setStep((s) => (s - 1) as Step)}>
+            <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg h-8 text-xs" onClick={() => setStep((s) => (s - 1) as Step)}>
               Back
             </Button>
           )}
           <Button
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 h-8 text-xs"
             disabled={!canContinue() || createProject.isPending}
             onClick={handleContinue}
           >
             {createProject.isPending ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                 Creating...
               </>
             ) : (
               <>
-                {step === 3 ? "Generate Graphics" : "Continue"}
-                <ArrowRight className="w-4 h-4 ml-2" />
+                {step === 3 ? "Generate" : "Continue"}
+                <ArrowRight className="w-3 h-3 ml-1" />
               </>
             )}
           </Button>
