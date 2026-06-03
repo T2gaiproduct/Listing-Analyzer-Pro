@@ -176,7 +176,8 @@ async function generateGraphicsImages(
       const arKey = aspectRatio ?? "1:1";
       const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
       let buffer: Buffer;
-      if (sourcePath && fs.existsSync(sourcePath)) {
+      const sourceFileIsValid = sourcePath && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+      if (sourceFileIsValid) {
         buffer = await generateImageWithReference(spec.prompt, sourcePath, size);
       } else {
         buffer = await generateImageBuffer(spec.prompt, size);
@@ -257,9 +258,14 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
   };
 }
 
-function saveBase64Image(base64Data: string, dir: string, filename: string): string {
+const MIN_FILE_SIZE = 1024; // 1 KB
+
+function saveBase64Image(base64Data: string, dir: string, filename: string): string | null {
   const base64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
   const buffer = Buffer.from(base64, "base64");
+  if (buffer.length < MIN_FILE_SIZE) {
+    return null; // reject tiny/corrupted files
+  }
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, buffer);
   return filePath;
@@ -291,12 +297,16 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
     body.sourceImageUrls.forEach((img, idx) => {
       const ext = img.startsWith("data:image/png") ? "png" : "jpg";
       const filePath = saveBase64Image(img, projectDir, `source_${idx}.${ext}`);
-      savedPaths.push(filePath);
+      if (filePath) {
+        savedPaths.push(filePath);
+      }
     });
     // Update with saved paths
-    await db.update(graphicsProjectsTable)
-      .set({ sourceImageUrls: savedPaths, updatedAt: new Date() })
-      .where(eq(graphicsProjectsTable.id, project.id));
+    if (savedPaths.length > 0) {
+      await db.update(graphicsProjectsTable)
+        .set({ sourceImageUrls: savedPaths, updatedAt: new Date() })
+        .where(eq(graphicsProjectsTable.id, project.id));
+    }
   }
 
   res.status(201).json(project);

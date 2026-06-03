@@ -144,20 +144,71 @@ export default function CreateProject() {
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (imageFiles.length === 0) {
+    const rawFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (rawFiles.length === 0) {
       toast({ title: "Invalid files", description: "Please upload image files only", variant: "destructive" });
       return;
     }
+
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+    const MIN_FILE_SIZE = 1024; // 1 KB
+    const MIN_WIDTH = 256;
+    const MIN_HEIGHT = 256;
+
+    const validFiles: File[] = [];
+    let dimensionChecks = 0;
+
+    for (const file of rawFiles) {
+      if (file.size < MIN_FILE_SIZE) {
+        toast({ title: "Image too small", description: `"${file.name}" is only ${file.size} bytes. It may be corrupted or too low quality.`, variant: "destructive" });
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast({ title: "Image too large", description: `"${file.name}" exceeds the 20 MB limit.`, variant: "destructive" });
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
     setIsUploading(true);
-    let loaded = 0;
     const results: string[] = [];
-    imageFiles.forEach((file) => {
+    let loaded = 0;
+
+    validFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
-        results.push(reader.result as string);
-        loaded++;
-        if (loaded === imageFiles.length) {
+        const dataUrl = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          if (img.width < MIN_WIDTH || img.height < MIN_HEIGHT) {
+            toast({ title: "Image too small", description: `"${file.name}" is ${img.width}x${img.height}. Minimum recommended size is ${MIN_WIDTH}x${MIN_HEIGHT}px for best AI results.`, variant: "destructive" });
+          } else {
+            results.push(dataUrl);
+          }
+          dimensionChecks++;
+          if (dimensionChecks === validFiles.length) {
+            setUploadedImages((prev) => [...prev, ...results]);
+            setIsUploading(false);
+          }
+        };
+        img.onerror = () => {
+          toast({ title: "Invalid image", description: `"${file.name}" could not be loaded.`, variant: "destructive" });
+          dimensionChecks++;
+          if (dimensionChecks === validFiles.length) {
+            setUploadedImages((prev) => [...prev, ...results]);
+            setIsUploading(false);
+          }
+        };
+        img.src = dataUrl;
+      };
+      reader.onerror = () => {
+        toast({ title: "Read failed", description: `"${file.name}" could not be read.`, variant: "destructive" });
+        dimensionChecks++;
+        if (dimensionChecks === validFiles.length) {
           setUploadedImages((prev) => [...prev, ...results]);
           setIsUploading(false);
         }
