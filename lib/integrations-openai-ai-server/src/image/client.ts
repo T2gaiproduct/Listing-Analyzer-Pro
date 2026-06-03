@@ -49,15 +49,24 @@ export async function generateImageWithReference(
   const base64 = buffer.toString("base64");
   const dataUri = `data:${mimeType};base64,${base64}`;
 
-  const response = await openai.images.generate({
+  console.log(`[generateImageWithReference] Image path: ${imageFilePath}`);
+  console.log(`[generateImageWithReference] Image size: ${buffer.length} bytes, MIME: ${mimeType}`);
+  console.log(`[generateImageWithReference] Data URI length: ${dataUri.length} chars, prefix: ${dataUri.substring(0, 60)}...`);
+  console.log(`[generateImageWithReference] Prompt: ${prompt.substring(0, 120)}...`);
+
+  const requestBody = {
     model: "gpt-image-1",
     prompt,
     size: size as "1024x1024",
-    // @ts-ignore - the OpenAI SDK v6.36.0 doesn't include `reference` in its type definitions,
-    // but the runtime API supports it for gpt-image-1. Reference images are used as visual inspiration
-    // without being modified or edited. We pass as a data URI string so it serializes in JSON.
     reference: [dataUri],
-  });
+  };
+  console.log(`[generateImageWithReference] Request body keys: ${Object.keys(requestBody).join(", ")}`);
+  console.log(`[generateImageWithReference] Has reference: ${"reference" in requestBody}, reference length: ${requestBody.reference[0].length}`);
+
+  const response = await openai.images.generate(requestBody as any);
+
+  console.log(`[generateImageWithReference] Response data length: ${response.data?.length ?? 0}`);
+  console.log(`[generateImageWithReference] Response has b64_json: ${!!response.data?.[0]?.b64_json}`);
 
   const b64 = response.data?.[0]?.b64_json ?? "";
   return Buffer.from(b64, "base64");
