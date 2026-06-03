@@ -36,6 +36,7 @@ export async function generateImageBuffer(
 /**
  * Generate an image using the OpenAI images.generate endpoint with reference images.
  * The `reference` parameter tells the AI to use the uploaded product as visual inspiration.
+ * We pass the reference image as a base64 data URI so it serializes correctly in the JSON body.
  */
 export async function generateImageWithReference(
   prompt: string,
@@ -45,7 +46,8 @@ export async function generateImageWithReference(
   const buffer = fs.readFileSync(imageFilePath);
   const ext = imageFilePath.toLowerCase().split(".").pop() ?? "png";
   const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-  const image = await toFile(buffer, path.basename(imageFilePath), { type: mimeType });
+  const base64 = buffer.toString("base64");
+  const dataUri = `data:${mimeType};base64,${base64}`;
 
   const response = await openai.images.generate({
     model: "gpt-image-1",
@@ -53,12 +55,12 @@ export async function generateImageWithReference(
     size: size as "1024x1024",
     // @ts-ignore - the OpenAI SDK v6.36.0 doesn't include `reference` in its type definitions,
     // but the runtime API supports it for gpt-image-1. Reference images are used as visual inspiration
-    // without being modified or edited.
-    reference: [image],
+    // without being modified or edited. We pass as a data URI string so it serializes in JSON.
+    reference: [dataUri],
   });
 
-  const base64 = response.data?.[0]?.b64_json ?? "";
-  return Buffer.from(base64, "base64");
+  const b64 = response.data?.[0]?.b64_json ?? "";
+  return Buffer.from(b64, "base64");
 }
 
 export async function editImages(
