@@ -99,7 +99,7 @@ function formatEta(seconds: number): string {
 
 const TYPE_LABELS: Record<ImageRecord["type"], string> = {
   lifestyle: "Lifestyle",
-  feature: "Feature",
+  feature: "Infographic",
 };
 
 function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: string; onClick: () => void }) {
@@ -490,13 +490,13 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           </div>
         )}
 
-        {/* Feature Graphics */}
+        {/* Infographics */}
         {featureRecords.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Feature Graphics ({featureRecords.length})</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Infographics ({featureRecords.length})</h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {featureRecords.map((record) => (
                 <ImageCard
                   key={record.id}
