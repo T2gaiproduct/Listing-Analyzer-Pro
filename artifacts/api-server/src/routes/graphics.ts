@@ -82,6 +82,8 @@ const DESIGN_STYLE_PROMPTS: Record<string, string> = {
   minimalist: "Minimalist Scandinavian-inspired product photography, generous white space, clean simple composition, barely-there drop shadow, elegant restraint.",
 };
 
+const REFERENCE_IMAGE_INSTRUCTION = "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted. Use this reference image as the visual basis for the product in the scene.";
+
 const ASPECT_SIZES: Record<string, "1024x1024" | "1792x1024" | "1024x1792"> = {
   "1:1": "1024x1024",
   "3:2": "1792x1024",
@@ -176,7 +178,8 @@ async function generateGraphicsImages(
       let buffer: Buffer;
       const sourceFileIsValid = sourcePath && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
       if (sourceFileIsValid) {
-        buffer = await generateImageWithReference(spec.prompt, sourcePath, size);
+        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${spec.prompt}`;
+        buffer = await generateImageWithReference(referencePrompt, sourcePath, size);
       } else {
         buffer = await generateImageBuffer(spec.prompt, size);
       }

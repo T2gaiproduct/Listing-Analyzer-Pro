@@ -33,6 +33,10 @@ export async function generateImageBuffer(
   return Buffer.from(base64, "base64");
 }
 
+/**
+ * Generate an image using the OpenAI images.generate endpoint with reference images.
+ * The `reference` parameter tells the AI to use the uploaded product as visual inspiration.
+ */
 export async function generateImageWithReference(
   prompt: string,
   imageFilePath: string,
@@ -42,12 +46,17 @@ export async function generateImageWithReference(
   const ext = imageFilePath.toLowerCase().split(".").pop() ?? "png";
   const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
   const image = await toFile(buffer, path.basename(imageFilePath), { type: mimeType });
-  const response = await openai.images.edit({
+
+  const response = await openai.images.generate({
     model: "gpt-image-1",
-    image: [image],
     prompt,
     size: size as "1024x1024",
+    // @ts-ignore - the OpenAI SDK v6.36.0 doesn't include `reference` in its type definitions,
+    // but the runtime API supports it for gpt-image-1. Reference images are used as visual inspiration
+    // without being modified or edited.
+    reference: [image],
   });
+
   const base64 = response.data?.[0]?.b64_json ?? "";
   return Buffer.from(base64, "base64");
 }
