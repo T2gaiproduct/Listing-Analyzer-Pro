@@ -40,6 +40,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/team", label: "Team", icon: Users },
     { href: "/profile", label: "My Profile", icon: UserCircle },
     { href: "/archive", label: "Archive", icon: Trash2 },
+    { href: "/notifications", label: "Notifications", icon: Bell },
   ];
 
   return (
