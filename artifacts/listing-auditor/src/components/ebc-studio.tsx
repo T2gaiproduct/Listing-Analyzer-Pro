@@ -402,7 +402,7 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
           const msg = err instanceof Error ? err.message : "Generation failed";
           toast({
             title: "Generation failed",
-            description: msg.includes("spend limit") ? "AI spend limit reached. Please try again later." : msg,
+            description: msg.includes("spend limit") ? "OpenAI API usage limit reached. Check your OpenAI account billing or try again later." : msg,
             variant: "destructive",
           });
         },

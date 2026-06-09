@@ -9,7 +9,7 @@ export async function generateImageBuffer(
 ): Promise<Buffer> {
   const openai = await getOpenAIClient();
   const response = await openai.images.generate({
-    model: "gpt-image-1",
+    model: "dall-e-3",
     prompt,
     size: size as "1024x1024",
   });
@@ -28,7 +28,7 @@ export async function generateImageWithReference(
   const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
 
   const response = await openai.images.edit({
-    model: "gpt-image-1",
+    model: "dall-e-3",
     image: [new File([buffer], path.basename(imageFilePath), { type: mimeType })],
     prompt,
     size: size as "1024x1024",
@@ -55,7 +55,7 @@ export async function editImages(
   );
 
   const response = await openai.images.edit({
-    model: "gpt-image-1",
+    model: "dall-e-3",
     image: images,
     prompt,
   });

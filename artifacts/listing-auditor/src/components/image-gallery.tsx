@@ -279,7 +279,7 @@ export function ImageGallery({
       const msg = err instanceof Error ? err.message : "Image generation failed";
       toast.error(
         msg.includes("spend limit")
-          ? "AI spend limit reached. Please try again later."
+          ? "OpenAI API usage limit reached. Check your OpenAI account billing or try again later."
           : msg,
       );
     } finally {
@@ -304,7 +304,7 @@ export function ImageGallery({
       const msg = err instanceof Error ? err.message : "Regeneration failed";
       toast.error(
         msg.includes("spend limit")
-          ? "AI spend limit reached. Please try again later."
+          ? "OpenAI API usage limit reached. Check your OpenAI account billing or try again later."
           : msg,
       );
     } finally {

@@ -175,10 +175,13 @@ export default function AuditDetail({ id }: { id: number }) {
   const formatAiError = (err: unknown): string => {
     const raw = err instanceof Error ? err.message : String(err);
     if (raw.toLowerCase().includes("spend limit") || raw.includes("403")) {
-      return "The AI service monthly spend limit has been reached. Please upgrade your Replit plan to continue.";
+      return "OpenAI API usage limit reached. Check your OpenAI account billing or try again later.";
     }
     if (raw.includes("402") || raw.toLowerCase().includes("insufficient credits")) {
       return "You don't have enough credits for this action. Go to Billing to purchase more.";
+    }
+    if (raw.toLowerCase().includes("api key") || raw.includes("401") || raw.includes("authentication")) {
+      return "OpenAI API key is invalid or missing. Please check your AI Settings in the admin panel.";
     }
     return raw || "Something went wrong. Please try again.";
   };
@@ -363,7 +366,7 @@ export default function AuditDetail({ id }: { id: number }) {
           <div>
             <p className="text-sm font-semibold text-destructive">AI Analysis Failed</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              The AI service could not analyze this listing. This is usually caused by a monthly spend limit being reached on the Replit AI integration — upgrading your Replit plan will resolve it.
+              {audit.failureReason ?? "The AI service could not analyze this listing. This may be caused by an invalid OpenAI API key, a network issue, or an OpenAI API error. Check your AI Settings in the admin panel."}
             </p>
           </div>
         </div>

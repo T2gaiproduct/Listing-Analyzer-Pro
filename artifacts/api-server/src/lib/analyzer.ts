@@ -57,7 +57,7 @@ Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.
 
   const openai = await getOpenAIClient();
   const response = await openai.chat.completions.create({
-    model: "gpt-5.4",
+    model: "gpt-4o",
     max_completion_tokens: 2048,
     messages: [{ role: "user", content: prompt }],
   });
@@ -134,7 +134,7 @@ Return ONLY the JSON, no markdown.`;
 
   const openai2 = await getOpenAIClient();
   const response = await openai2.chat.completions.create({
-    model: "gpt-5.4",
+    model: "gpt-4o",
     max_completion_tokens: 1024,
     messages: [{ role: "user", content: prompt }],
   });

@@ -84,7 +84,7 @@ No markdown, no extra text. Just the JSON.`;
 
   const openai = await getOpenAIClient();
   const response = await openai.chat.completions.create({
-    model: "gpt-5.4",
+    model: "gpt-4o",
     max_completion_tokens: 1024,
     messages: [
       { role: "system", content: systemPrompt },
