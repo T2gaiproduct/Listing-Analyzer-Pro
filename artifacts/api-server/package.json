@@ -21,6 +21,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "http-proxy-middleware": "^4.0.0",
+    "openai": "^6.36.0",
     "p-limit": "^7.3.0",
     "pdfkit": "^0.18.0",
     "pino": "^9",

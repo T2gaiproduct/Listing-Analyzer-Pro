@@ -1,4 +1,4 @@
-import { generateImageBuffer, editImages } from "@workspace/integrations-openai-ai-server/image";
+import { generateImageBuffer, editImages } from "./openai-image";
 import * as fs from "fs";
 import * as path from "path";
 import type { ImageRecord, ImageVersion, ImageStyle, AspectRatio } from "@workspace/db";

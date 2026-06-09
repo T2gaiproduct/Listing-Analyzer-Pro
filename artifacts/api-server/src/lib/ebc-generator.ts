@@ -1,4 +1,4 @@
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { getOpenAIClient } from "./openai-client";
 
 export interface EbcContent {
   heroHeadline: string;
@@ -82,6 +82,7 @@ Return ONLY this JSON object:
 
 No markdown, no extra text. Just the JSON.`;
 
+  const openai = await getOpenAIClient();
   const response = await openai.chat.completions.create({
     model: "gpt-5.4",
     max_completion_tokens: 1024,

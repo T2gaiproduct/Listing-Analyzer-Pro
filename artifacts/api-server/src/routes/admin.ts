@@ -11,6 +11,7 @@ import {
   userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable,
   graphicsProjectsTable,
 } from "@workspace/db";
+import OpenAI from "openai";
 import { like, or, ilike } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -985,6 +986,7 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     "stripe_secret_key", "stripe_webhook_secret",
     "razorpay_key_secret", "razorpay_webhook_secret",
     "paypal_client_secret",
+    "openai_api_key",
   ]);
 
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
@@ -1005,6 +1007,19 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENHANCED DASHBOARD STATS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+router.post("/admin/test-openai-key", requireAdmin, async (req, res): Promise<void> => {
+  const { key } = req.body as { key?: string };
+  if (!key?.trim()) { res.status(400).json({ valid: false, error: "Key is required" }); return; }
+  try {
+    const client = new OpenAI({ apiKey: key, baseURL: "https://api.openai.com/v1" });
+    await client.models.list();
+    res.json({ valid: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Invalid key";
+    res.json({ valid: false, error: message });
+  }
+});
 
 router.get("/admin/billing-stats", requireAdmin, async (req, res): Promise<void> => {
   const [revenue] = await db.select({ total: sql<number>`COALESCE(SUM(amount),0)` }).from(paymentsTable).where(eq(paymentsTable.status, "completed"));

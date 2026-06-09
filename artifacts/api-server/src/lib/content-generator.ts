@@ -1,4 +1,4 @@
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { getOpenAIClient } from "./openai-client";
 import type { GeneratedContent } from "@workspace/db";
 
 export async function generateListingContent(data: {
@@ -47,6 +47,7 @@ Requirements:
 
 Return ONLY the JSON, no markdown, no explanation.`;
 
+  const openai = await getOpenAIClient();
   const response = await openai.chat.completions.create({
     model: "gpt-5.4",
     max_completion_tokens: 3000,

@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
-import { generateImageBuffer, generateImageWithReference } from "@workspace/integrations-openai-ai-server/image";
+import { generateImageBuffer, generateImageWithReference } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import * as fs from "fs";
@@ -256,7 +256,7 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
     throw new Error("Source image file not found.");
   }
 
-  const { editImages } = await import("@workspace/integrations-openai-ai-server/image");
+  const { editImages } = await import("../lib/openai-image");
   const filename = versionedFilename(existingRecord.type, existingRecord.index);
   const destFilePath = path.join(dir, filename);
   const imgUrl = urlPath(projectId, filename);
