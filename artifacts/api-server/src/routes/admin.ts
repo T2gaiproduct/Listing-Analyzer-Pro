@@ -987,6 +987,7 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     "razorpay_key_secret", "razorpay_webhook_secret",
     "paypal_client_secret",
     "openai_api_key",
+    "gemini_api_key",
   ]);
 
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
@@ -1015,6 +1016,24 @@ router.post("/admin/test-openai-key", requireAdmin, async (req, res): Promise<vo
     const client = new OpenAI({ apiKey: key, baseURL: "https://api.openai.com/v1" });
     await client.models.list();
     res.json({ valid: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Invalid key";
+    res.json({ valid: false, error: message });
+  }
+});
+
+import { GoogleGenAI } from "@google/genai";
+router.post("/admin/test-gemini-key", requireAdmin, async (req, res): Promise<void> => {
+  const { key } = req.body as { key?: string };
+  if (!key?.trim()) { res.status(400).json({ valid: false, error: "Key is required" }); return; }
+  try {
+    const client = new GoogleGenAI({ apiKey: key });
+    const pager = await client.models.list();
+    if (pager.page && pager.page.length > 0) {
+      res.json({ valid: true });
+    } else {
+      res.json({ valid: false, error: "No models available. Check your API key permissions." });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid key";
     res.json({ valid: false, error: message });

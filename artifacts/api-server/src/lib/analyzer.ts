@@ -1,4 +1,4 @@
-import { getOpenAIClient } from "./openai-client";
+import { generateChatCompletion } from "./ai-provider";
 import type { AuditResult } from "@workspace/db";
 
 export async function analyzeListingWithAI(data: {
@@ -55,15 +55,11 @@ Scoring criteria:
 
 Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.`;
 
-  const openai = await getOpenAIClient();
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_completion_tokens: 2048,
-    messages: [{ role: "user", content: prompt }],
-  });
+  const { content } = await generateChatCompletion(
+    [{ role: "user", content: prompt }],
+    { maxTokens: 2048 },
+  );
 
-  const content = response.choices[0]?.message?.content ?? "{}";
-  
   try {
     const parsed = JSON.parse(content);
     return {
@@ -132,14 +128,10 @@ Return a JSON object:
 
 Return ONLY the JSON, no markdown.`;
 
-  const openai2 = await getOpenAIClient();
-  const response = await openai2.chat.completions.create({
-    model: "gpt-4o",
-    max_completion_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const content = response.choices[0]?.message?.content ?? "{}";
+  const { content } = await generateChatCompletion(
+    [{ role: "user", content: prompt }],
+    { maxTokens: 1024 },
+  );
 
   try {
     const parsed = JSON.parse(content);

@@ -1,4 +1,4 @@
-import { generateImageBuffer, editImages } from "./openai-image";
+import { generateImageBuffer, editImagesProxy } from "./openai-image";
 import * as fs from "fs";
 import * as path from "path";
 import type { ImageRecord, ImageVersion, ImageStyle, AspectRatio } from "@workspace/db";
@@ -64,7 +64,7 @@ async function editAndSave(
   filePath: string,
   aspectRatio: AspectRatio,
 ): Promise<void> {
-  const buffer = await editImages([sourceFilePath], prompt);
+  const buffer = await editImagesProxy([sourceFilePath], prompt);
   if (!buffer || buffer.length === 0) throw new Error("No image data returned from AI edit");
   fs.writeFileSync(filePath, buffer);
 }

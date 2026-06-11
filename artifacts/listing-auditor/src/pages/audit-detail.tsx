@@ -366,7 +366,7 @@ export default function AuditDetail({ id }: { id: number }) {
           <div>
             <p className="text-sm font-semibold text-destructive">AI Analysis Failed</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {audit.failureReason ?? "The AI service could not analyze this listing. This may be caused by an invalid OpenAI API key, a network issue, or an OpenAI API error. Check your AI Settings in the admin panel."}
+              {"The AI service could not analyze this listing. This may be caused by an invalid API key, a network issue, or an AI provider error. Check your AI Settings in the admin panel."}
             </p>
           </div>
         </div>

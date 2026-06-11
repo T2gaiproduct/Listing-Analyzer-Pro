@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
-import { generateImageBuffer, generateImageWithReference } from "../lib/openai-image";
+import { generateImageBuffer, generateImageWithReferenceProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import * as fs from "fs";
@@ -202,7 +202,7 @@ async function generateGraphicsImages(
       if (sourceFileIsValid) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${spec.prompt}`;
         console.log(`[generateGraphicsImages] Using reference image for ${spec.id}: ${sourcePath}`);
-        buffer = await generateImageWithReference(referencePrompt, sourcePath!, size);
+        buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);
       } else {
         console.log(`[generateGraphicsImages] No valid source image, generating without reference for ${spec.id}`);
         buffer = await generateImageBuffer(spec.prompt, size);
@@ -256,14 +256,14 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
     throw new Error("Source image file not found.");
   }
 
-  const { editImages } = await import("../lib/openai-image");
+  const { editImagesProxy } = await import("../lib/openai-image");
   const filename = versionedFilename(existingRecord.type, existingRecord.index);
   const destFilePath = path.join(dir, filename);
   const imgUrl = urlPath(projectId, filename);
 
   const styleSuffix = DESIGN_STYLE_PROMPTS[existingRecord.style] ?? "";
   const fullPrompt = `${editPrompt} ${styleSuffix}`;
-  const buffer = await editImages([sourceFilePath], fullPrompt);
+  const buffer = await editImagesProxy([sourceFilePath], fullPrompt);
   if (!buffer || buffer.length === 0) throw new Error("No image data returned from AI edit");
   fs.writeFileSync(destFilePath, buffer);
 

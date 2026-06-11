@@ -1,4 +1,4 @@
-import { getOpenAIClient } from "./openai-client";
+import { generateChatCompletion } from "./ai-provider";
 import type { GeneratedContent } from "@workspace/db";
 
 export async function generateListingContent(data: {
@@ -47,14 +47,10 @@ Requirements:
 
 Return ONLY the JSON, no markdown, no explanation.`;
 
-  const openai = await getOpenAIClient();
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_completion_tokens: 3000,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const content = response.choices[0]?.message?.content ?? "{}";
+  const { content } = await generateChatCompletion(
+    [{ role: "user", content: prompt }],
+    { maxTokens: 3000 },
+  );
 
   try {
     const parsed = JSON.parse(content);

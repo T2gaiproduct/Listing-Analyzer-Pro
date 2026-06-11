@@ -1,4 +1,4 @@
-import { getOpenAIClient } from "./openai-client";
+import { generateChatCompletion } from "./ai-provider";
 
 export interface EbcContent {
   heroHeadline: string;
@@ -82,17 +82,13 @@ Return ONLY this JSON object:
 
 No markdown, no extra text. Just the JSON.`;
 
-  const openai = await getOpenAIClient();
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_completion_tokens: 1024,
-    messages: [
+  const { content } = await generateChatCompletion(
+    [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-  });
-
-  const content = response.choices[0]?.message?.content ?? "{}";
+    { maxTokens: 1024 },
+  );
 
   try {
     const parsed = JSON.parse(content);
