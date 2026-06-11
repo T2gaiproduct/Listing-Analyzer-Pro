@@ -46,5 +46,5 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL,user_3EzhfJwLDGeGLtqFjRuelZXzzOR"
-VITE_ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL,user_3EzhfJwLDGeGLtqFjRuelZXzzOR"
+ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL,user_3EzhfJwLDGeGLtqFjRuelZXzzOR,user_3EziEdSA54Cmr7DT8HpY4Y3095c"
+VITE_ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL,user_3EzhfJwLDGeGLtqFjRuelZXzzOR,user_3EziEdSA54Cmr7DT8HpY4Y3095c"
