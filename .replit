@@ -21,6 +21,10 @@ path = "scripts/post-merge.sh"
 timeoutMs = 20000
 
 [[ports]]
+localPort = 5555
+externalPort = 3003
+
+[[ports]]
 localPort = 8080
 externalPort = 80
 
@@ -42,5 +46,5 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL"
-VITE_ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL"
+ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL,user_3EzhfJwLDGeGLtqFjRuelZXzzOR"
+VITE_ADMIN_USER_IDS = "user_3DaXBiPeghgkEWTwdlZksSiwaum,user_3DabnbhF3hsSNpiJgHuLMAvjtNL,user_3EzhfJwLDGeGLtqFjRuelZXzzOR"
