@@ -40,7 +40,7 @@ const PROVIDERS = [
   {
     value: "openai",
     label: "OpenAI",
-    subtitle: "GPT-4o + DALL-E 3",
+    subtitle: "GPT-4o + Image Model",
     icon: "openai",
   },
   {
@@ -57,6 +57,29 @@ const PROVIDERS = [
   },
 ];
 
+const OPENAI_IMAGE_MODELS = [
+  { value: "gpt-image-1.5", label: "GPT Image 1.5 (Recommended)" },
+  { value: "gpt-image-1", label: "GPT Image 1" },
+  { value: "gpt-image-1-mini", label: "GPT Image 1 Mini" },
+  { value: "dall-e-3", label: "DALL-E 3" },
+  { value: "dall-e-2", label: "DALL-E 2 (Legacy)" },
+];
+
+const GEMINI_IMAGE_MODELS = [
+  { value: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image" },
+  { value: "gemini-2.0-flash-exp-image", label: "Gemini 2.0 Flash Image" },
+];
+
+const REPLIT_IMAGE_MODELS = [
+  { value: "gpt-image-1", label: "GPT Image 1" },
+];
+
+const MODEL_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  openai: OPENAI_IMAGE_MODELS,
+  gemini: GEMINI_IMAGE_MODELS,
+  replit: REPLIT_IMAGE_MODELS,
+};
+
 export default function AdminSettingsAI() {
   const { toast } = useToast();
   const [form, setForm] = useState({
@@ -64,6 +87,9 @@ export default function AdminSettingsAI() {
     openai_api_key: "",
     openai_base_url: "https://api.openai.com/v1",
     gemini_api_key: "",
+    openai_image_model: "gpt-image-1.5",
+    gemini_image_model: "gemini-2.5-flash-image",
+    replit_image_model: "gpt-image-1",
   });
   const [openaiTestStatus, setOpenaiTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
   const [geminiTestStatus, setGeminiTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
@@ -221,6 +247,21 @@ export default function AdminSettingsAI() {
                 />
                 <p className="text-xs text-slate-500 mt-1">Default: https://api.openai.com/v1</p>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Image Model</label>
+                <select
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white"
+                  value={form.openai_image_model}
+                  onChange={(e) => setForm({ ...form, openai_image_model: e.target.value })}
+                >
+                  {OPENAI_IMAGE_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  The image model used for generating and editing images. GPT Image 1.5 is recommended for best quality.
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -268,6 +309,21 @@ export default function AdminSettingsAI() {
                   . Used when Gemini is selected.
                 </p>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Image Model</label>
+                <select
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white"
+                  value={form.gemini_image_model}
+                  onChange={(e) => setForm({ ...form, gemini_image_model: e.target.value })}
+                >
+                  {GEMINI_IMAGE_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  The image model used for generating and editing images.
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -301,6 +357,21 @@ export default function AdminSettingsAI() {
                 Replit AI is powered by the Replit AI integration and is available without any API key.
                 It uses GPT-5.4 for text generation and GPT-Image-1 for image generation.
               </p>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Image Model</label>
+                <select
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white"
+                  value={form.replit_image_model}
+                  onChange={(e) => setForm({ ...form, replit_image_model: e.target.value })}
+                >
+                  {REPLIT_IMAGE_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  The image model used by Replit AI for image generation.
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -341,6 +412,9 @@ export default function AdminSettingsAI() {
                 openai_api_key: "",
                 openai_base_url: "https://api.openai.com/v1",
                 gemini_api_key: "",
+                openai_image_model: "gpt-image-1.5",
+                gemini_image_model: "gemini-2.5-flash-image",
+                replit_image_model: "gpt-image-1",
               });
               toast({ title: "Reset to defaults" });
             }}

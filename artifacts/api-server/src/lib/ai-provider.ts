@@ -9,6 +9,7 @@ import { getReplitClient } from "./replit-client";
 type AIProvider = "openai" | "gemini" | "replit";
 
 let cachedProvider: AIProvider | null = null;
+let cachedImageModels: Record<string, string> | null = null;
 
 export async function getActiveProvider(): Promise<AIProvider> {
   if (cachedProvider) {
@@ -25,8 +26,31 @@ export async function getActiveProvider(): Promise<AIProvider> {
   return provider;
 }
 
+export async function getImageModel(provider: AIProvider): Promise<string> {
+  if (cachedImageModels && cachedImageModels[provider]) {
+    return cachedImageModels[provider];
+  }
+
+  const [setting] = await db
+    .select()
+    .from(settingsTable)
+    .where(eq(settingsTable.key, `${provider}_image_model`));
+
+  const defaults: Record<AIProvider, string> = {
+    openai: "gpt-image-1.5",
+    gemini: "gemini-2.5-flash-image",
+    replit: "gpt-image-1",
+  };
+
+  const model = setting?.value ?? defaults[provider];
+  if (!cachedImageModels) cachedImageModels = {};
+  cachedImageModels[provider] = model;
+  return model;
+}
+
 export function clearProviderCache(): void {
   cachedProvider = null;
+  cachedImageModels = null;
 }
 
 export async function getAIClient(): Promise<OpenAI | GoogleGenAI> {
@@ -117,11 +141,12 @@ export async function generateImage(
   _size: "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256" = "1024x1024",
 ): Promise<Buffer> {
   const provider = await getActiveProvider();
+  const model = await getImageModel(provider);
 
   if (provider === "gemini") {
     const client = await getGeminiClient();
     const response = await client.models.generateContent({
-      model: "gemini-2.5-flash-image",
+      model,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
         responseModalities: ["IMAGE"],
@@ -138,7 +163,6 @@ export async function generateImage(
 
   // Replit or OpenAI path
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
-  const model = provider === "replit" ? "gpt-image-1" : "dall-e-3";
   const response = await client.images.generate({
     model,
     prompt,
@@ -157,6 +181,7 @@ export async function generateImageWithReference(
 ): Promise<Buffer> {
   const fs = await import("node:fs");
   const provider = await getActiveProvider();
+  const model = await getImageModel(provider);
 
   const buffer = fs.readFileSync(imageFilePath);
   const ext = imageFilePath.toLowerCase().split(".").pop() ?? "png";
@@ -165,7 +190,7 @@ export async function generateImageWithReference(
   if (provider === "gemini") {
     const client = await getGeminiClient();
     const response = await client.models.generateContent({
-      model: "gemini-2.5-flash-image",
+      model,
       contents: [
         {
           role: "user",
@@ -190,7 +215,6 @@ export async function generateImageWithReference(
 
   // Replit or OpenAI path
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
-  const model = provider === "replit" ? "gpt-image-1" : "dall-e-2";
   const response = await client.images.edit({
     model,
     image: [new File([buffer], require("node:path").basename(imageFilePath), { type: mimeType })],
@@ -210,6 +234,7 @@ export async function editImages(
   const fs = await import("node:fs");
   const path = await import("node:path");
   const provider = await getActiveProvider();
+  const model = await getImageModel(provider);
 
   const images = await Promise.all(
     imageFiles.map((file) => {
@@ -229,7 +254,7 @@ export async function editImages(
     parts.push({ text: prompt });
 
     const response = await client.models.generateContent({
-      model: "gemini-2.5-flash-image",
+      model,
       contents: [{ role: "user", parts }],
       config: {
         responseModalities: ["IMAGE"],
@@ -250,7 +275,6 @@ export async function editImages(
 
   // Replit or OpenAI path
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
-  const model = provider === "replit" ? "gpt-image-1" : "dall-e-2";
   const response = await client.images.edit({
     model,
     image: images.map(

@@ -13,6 +13,9 @@ import {
 } from "@workspace/db";
 import OpenAI from "openai";
 import { like, or, ilike } from "drizzle-orm";
+import { clearProviderCache } from "../lib/ai-provider";
+import { clearOpenAICache } from "../lib/openai-client";
+import { clearGeminiCache } from "../lib/gemini-client";
 
 const router: IRouter = Router();
 
@@ -1002,6 +1005,12 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
       await db.insert(settingsTable).values({ key, value, category, isSecret });
     }
   }
+
+  // Clear AI provider caches when AI settings change
+  clearProviderCache();
+  clearOpenAICache();
+  clearGeminiCache();
+
   res.json({ success: true });
 });
 
