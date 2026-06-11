@@ -4,8 +4,9 @@ import { db, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getOpenAIClient } from "./openai-client";
 import { getGeminiClient } from "./gemini-client";
+import { getReplitClient } from "./replit-client";
 
-type AIProvider = "openai" | "gemini";
+type AIProvider = "openai" | "gemini" | "replit";
 
 let cachedProvider: AIProvider | null = null;
 
@@ -33,6 +34,9 @@ export async function getAIClient(): Promise<OpenAI | GoogleGenAI> {
   if (provider === "gemini") {
     return getGeminiClient();
   }
+  if (provider === "replit") {
+    return getReplitClient();
+  }
   return getOpenAIClient();
 }
 
@@ -54,7 +58,6 @@ export async function generateChatCompletion(
     const client = await getGeminiClient();
     const model = "gemini-2.5-flash";
 
-    // Gemini uses a single contents array with system instruction as config
     const systemInstruction = messages
       .filter((m) => m.role === "system")
       .map((m) => m.content)
@@ -85,10 +88,10 @@ export async function generateChatCompletion(
     };
   }
 
-  // OpenAI path
-  const client = await getOpenAIClient();
+  // Replit path — uses Replit AI Integrations proxy (OpenAI-compatible)
+  const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
   const response = await client.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-5.4",
     max_completion_tokens: options.maxTokens ?? 2048,
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
@@ -133,16 +136,17 @@ export async function generateImage(
     throw new Error("No image data returned from Gemini");
   }
 
-  // OpenAI path
-  const client = await getOpenAIClient();
+  // Replit or OpenAI path
+  const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
+  const model = provider === "replit" ? "gpt-image-1" : "dall-e-3";
   const response = await client.images.generate({
-    model: "dall-e-3",
+    model,
     prompt,
     response_format: "b64_json",
   });
 
   const base64 = response.data?.[0]?.b64_json ?? "";
-  if (!base64) throw new Error("No image data returned from OpenAI");
+  if (!base64) throw new Error("No image data returned from AI");
   return Buffer.from(base64, "base64");
 }
 
@@ -184,16 +188,17 @@ export async function generateImageWithReference(
     throw new Error("No image data returned from Gemini image edit");
   }
 
-  // OpenAI path
-  const client = await getOpenAIClient();
+  // Replit or OpenAI path
+  const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
+  const model = provider === "replit" ? "gpt-image-1" : "dall-e-2";
   const response = await client.images.edit({
-    model: "dall-e-2",
+    model,
     image: [new File([buffer], require("node:path").basename(imageFilePath), { type: mimeType })],
     prompt,
   });
 
   const base64 = response.data?.[0]?.b64_json ?? "";
-  if (!base64) throw new Error("No image data returned from OpenAI image edit");
+  if (!base64) throw new Error("No image data returned from AI image edit");
   return Buffer.from(base64, "base64");
 }
 
@@ -243,10 +248,11 @@ export async function editImages(
     throw new Error("No image data returned from Gemini image edit");
   }
 
-  // OpenAI path
-  const client = await getOpenAIClient();
+  // Replit or OpenAI path
+  const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
+  const model = provider === "replit" ? "gpt-image-1" : "dall-e-2";
   const response = await client.images.edit({
-    model: "dall-e-2",
+    model,
     image: images.map(
       (img) => new File([img.buffer], img.filename, { type: img.mimeType }),
     ),

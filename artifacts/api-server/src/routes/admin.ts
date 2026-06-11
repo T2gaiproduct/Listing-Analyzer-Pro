@@ -1023,6 +1023,8 @@ router.post("/admin/test-openai-key", requireAdmin, async (req, res): Promise<vo
 });
 
 import { GoogleGenAI } from "@google/genai";
+import { getReplitClient } from "../lib/replit-client";
+
 router.post("/admin/test-gemini-key", requireAdmin, async (req, res): Promise<void> => {
   const { key } = req.body as { key?: string };
   if (!key?.trim()) { res.status(400).json({ valid: false, error: "Key is required" }); return; }
@@ -1036,6 +1038,22 @@ router.post("/admin/test-gemini-key", requireAdmin, async (req, res): Promise<vo
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid key";
+    res.json({ valid: false, error: message });
+  }
+});
+
+router.post("/admin/test-replit-ai", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const client = getReplitClient();
+    const response = await client.chat.completions.create({
+      model: "gpt-5.4",
+      max_completion_tokens: 16,
+      messages: [{ role: "user", content: "Say hello" }],
+    });
+    const ok = response.choices?.[0]?.message?.content !== undefined;
+    res.json({ valid: ok });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Connection failed";
     res.json({ valid: false, error: message });
   }
 });
