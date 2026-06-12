@@ -121,11 +121,6 @@ export function Layout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* Notification bell */}
-        <div className="px-4 py-2 border-t border-sidebar-border/50">
-          <NotificationBell />
-        </div>
-
         {/* User profile */}
         <div className="p-4 border-t border-sidebar-border/50">
           <DropdownMenu>
