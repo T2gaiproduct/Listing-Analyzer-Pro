@@ -96,11 +96,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
       <aside className="w-64 flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col shadow-2xl z-10">
         <div className="h-16 flex items-center px-6 border-b border-slate-700/50 gap-2">
-          <Shield className="w-5 h-5 text-orange-400" />
-          <div className="font-bold text-lg tracking-tight">
-            <span className="text-white">Super</span>
-            <span className="text-orange-400">Admin</span>
-          </div>
+          <Link href="/admin/dashboard" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+            <Shield className="w-5 h-5 text-orange-400" />
+            <div className="font-bold text-lg tracking-tight">
+              <span className="text-white">Super</span>
+              <span className="text-orange-400">Admin</span>
+            </div>
+          </Link>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">

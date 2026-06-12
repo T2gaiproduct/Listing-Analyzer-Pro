@@ -48,10 +48,10 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shadow-2xl z-10">
         <div className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
-          <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
+          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity">
             <Search className="w-5 h-5 text-primary" />
             <span>Listing<span className="text-primary">Auditor</span></span>
-          </div>
+          </Link>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
