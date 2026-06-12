@@ -993,6 +993,19 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     "gemini_api_key",
   ]);
 
+  // Enforce mutual exclusivity for payment gateway enabled flags
+  if (category === "payment_gateway") {
+    const s = settings as Record<string, string>;
+    const stripeEnabled = s.stripe_enabled === "true";
+    const razorpayEnabled = s.razorpay_enabled === "true";
+    const paypalEnabled = s.paypal_enabled === "true";
+    const count = [stripeEnabled, razorpayEnabled, paypalEnabled].filter(Boolean).length;
+    if (count > 1) {
+      res.status(400).json({ error: "Only one payment gateway can be enabled at a time." });
+      return;
+    }
+  }
+
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
     if (value === "***") continue;
     const isSecret = SECRET_KEYS.has(key);

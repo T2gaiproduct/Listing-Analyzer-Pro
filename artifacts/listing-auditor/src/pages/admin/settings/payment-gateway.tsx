@@ -152,7 +152,10 @@ export default function AdminSettingsPaymentGateway() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Stripe Configuration</CardTitle>
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input type="checkbox" className="h-4 w-4" checked={form.stripe_enabled === "true"} onChange={(e) => setForm({ ...form, stripe_enabled: String(e.target.checked) })} />
+                  <input type="checkbox" className="h-4 w-4" checked={form.stripe_enabled === "true"} onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setForm({ ...form, stripe_enabled: String(enabled), razorpay_enabled: "false", paypal_enabled: "false", default_gateway: "stripe" });
+                  }} />
                   Enable Stripe
                 </label>
               </CardHeader>
@@ -195,7 +198,10 @@ export default function AdminSettingsPaymentGateway() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Razorpay Configuration</CardTitle>
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input type="checkbox" className="h-4 w-4" checked={form.razorpay_enabled === "true"} onChange={(e) => setForm({ ...form, razorpay_enabled: String(e.target.checked) })} />
+                  <input type="checkbox" className="h-4 w-4" checked={form.razorpay_enabled === "true"} onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setForm({ ...form, razorpay_enabled: String(enabled), stripe_enabled: "false", paypal_enabled: "false", default_gateway: "razorpay" });
+                  }} />
                   Enable Razorpay
                 </label>
               </CardHeader>
@@ -225,7 +231,10 @@ export default function AdminSettingsPaymentGateway() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>PayPal Configuration</CardTitle>
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input type="checkbox" className="h-4 w-4" checked={form.paypal_enabled === "true"} onChange={(e) => setForm({ ...form, paypal_enabled: String(e.target.checked) })} />
+                  <input type="checkbox" className="h-4 w-4" checked={form.paypal_enabled === "true"} onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setForm({ ...form, paypal_enabled: String(enabled), stripe_enabled: "false", razorpay_enabled: "false", default_gateway: "paypal" });
+                  }} />
                   Enable PayPal
                 </label>
               </CardHeader>
