@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText, Lock } from "lucide-react";
+import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText, Lock, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,14 @@ interface Plan {
   tag: string | null;
   isHighlighted: boolean;
   ctaText: string | null;
+}
+
+interface PaymentConfig {
+  defaultGateway: "stripe" | "razorpay" | "paypal";
+  currency: string;
+  stripe: { enabled: boolean; publishableKey: string; mode: string };
+  razorpay: { enabled: boolean; keyId: string };
+  paypal: { enabled: boolean; clientId: string; mode: string };
 }
 
 function StepIndicator({ step, total }: { step: number; total: number }) {
@@ -65,7 +73,6 @@ export default function Onboarding() {
   const [couponCode, setCouponCode] = useState("");
   const [couponResult, setCouponResult] = useState<{ discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
   const [couponError, setCouponError] = useState("");
-  const [useTrial, setUseTrial] = useState(false);
   const [autoRenew, setAutoRenew] = useState(true);
 
   useEffect(() => {
@@ -77,6 +84,12 @@ export default function Onboarding() {
   const { data: plans = [], isLoading: plansLoading } = useQuery<Plan[]>({
     queryKey: ["public-plans"],
     queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
+  });
+
+  const { data: paymentConfig } = useQuery<PaymentConfig>({
+    queryKey: ["payment-config"],
+    queryFn: () => fetch(`${basePath}/api/payment-config`).then((r) => r.json()),
+    staleTime: 60_000,
   });
 
   const { data: existingProfile } = useQuery<{ profile?: { fullName?: string | null; companyName?: string | null; phone?: string | null; country?: string | null; gstNumber?: string | null; websiteUrl?: string | null; teamSize?: number | null; onboardingCompleted?: boolean } | null }>({
@@ -107,24 +120,15 @@ export default function Onboarding() {
     }
   }, [existingProfile]);
 
-  // Auto-select first plan and sync useTrial to plan's trial eligibility
+  // Auto-select first plan
   useEffect(() => {
     if (displayPlans.length > 0 && selectedPlanId === null) {
       const highlighted = displayPlans.find((p) => p.isHighlighted) ?? displayPlans[0];
       if (highlighted) {
         setSelectedPlanId(highlighted.id);
-        setUseTrial(!!(highlighted.isTrial && (highlighted.trialDays ?? 0) > 0));
       }
     }
   }, [displayPlans, selectedPlanId]);
-
-  // Keep useTrial in sync when user changes plans
-  useEffect(() => {
-    const plan = displayPlans.find((p) => p.id === selectedPlanId);
-    if (plan) {
-      setUseTrial(!!(plan.isTrial && (plan.trialDays ?? 0) > 0));
-    }
-  }, [selectedPlanId, displayPlans]);
 
   const selectedPlan = displayPlans.find((p) => p.id === selectedPlanId) ?? displayPlans[0];
 
@@ -135,34 +139,27 @@ export default function Onboarding() {
     onError: (e: Error) => { setCouponError(e.message); setCouponResult(null); },
   });
 
-  const onboardMutation = useMutation({
-    mutationFn: (body: object) =>
-      fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => {
-      toast({ title: "Welcome aboard!", description: "Your free trial is active." });
-      const pendingToken = localStorage.getItem("pendingInviteToken");
-      if (pendingToken) {
-        localStorage.removeItem("pendingInviteToken");
-        setLocation(`/accept-invite?token=${pendingToken}`);
-      } else {
-        setLocation("/dashboard");
+  const checkoutMutation = useMutation({
+    mutationFn: (body: { gateway: string; [key: string]: unknown }) => {
+      const endpoint =
+        body.gateway === "stripe"
+          ? `${basePath}/api/stripe/create-checkout`
+          : body.gateway === "razorpay"
+            ? `${basePath}/api/razorpay/create-order`
+            : body.gateway === "paypal"
+              ? `${basePath}/api/paypal/create-order`
+              : `${basePath}/api/stripe/create-checkout`;
+      return fetch(endpoint, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); });
+    },
+    onSuccess: (data: { url?: string; approvalUrl?: string; orderId?: string }) => {
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (data.approvalUrl) {
+        sessionStorage.setItem("paypal_order_id", data.orderId ?? "");
+        window.location.href = data.approvalUrl;
       }
     },
-    onError: (e: Error) => { toast({ title: "Setup failed", description: e.message, variant: "destructive" }); },
-  });
-
-  const checkoutMutation = useMutation({
-    mutationFn: (body: object) =>
-      fetch(`${basePath}/api/stripe/create-checkout`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: (data: { url: string }) => { window.location.href = data.url; },
     onError: (e: Error) => { toast({ title: "Checkout failed", description: e.message, variant: "destructive" }); },
-  });
-
-  const freePlanMutation = useMutation({
-    mutationFn: (body: object) =>
-      fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => { toast({ title: "Welcome aboard!", description: "Your free plan is active." }); setLocation("/dashboard"); },
-    onError: (e: Error) => { toast({ title: "Setup failed", description: e.message, variant: "destructive" }); },
   });
 
   if (!isLoaded) return null;
@@ -171,6 +168,11 @@ export default function Onboarding() {
   const price = yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly;
   const discount = couponResult ? (couponResult.discountPercent ? Math.round((price ?? 0) * couponResult.discountPercent / 100) : (couponResult.discountAmount ?? 0)) : 0;
   const finalPrice = Math.max(0, (price ?? 0) - discount);
+
+  const gateway = paymentConfig?.defaultGateway ?? "stripe";
+  const gatewayName = gateway.charAt(0).toUpperCase() + gateway.slice(1);
+  const gatewayLabels: Record<string, string> = { stripe: "Stripe", razorpay: "Razorpay", paypal: "PayPal" };
+  const gatewayDisplayName = gatewayLabels[gateway] ?? gatewayName;
 
   function handleSubmit() {
     if (!selectedPlan) return;
@@ -187,14 +189,35 @@ export default function Onboarding() {
       autoRenew,
       couponCode: couponCode || undefined,
     };
+
+    // Always require payment — no free plan or trial bypass
     const planPrice = yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly;
-    if (planPrice === 0) {
-      // Free plan — activate instantly without payment
-      freePlanMutation.mutate({ ...common, useTrial: false });
-    } else if (useTrial) {
-      onboardMutation.mutate({ ...common, useTrial: true });
+    const finalAmount = Math.max(0, planPrice - discount);
+
+    if (gateway === "stripe") {
+      checkoutMutation.mutate({
+        gateway: "stripe",
+        ...common,
+        successUrl: `${window.location.origin}${basePath}/checkout/success`,
+        cancelUrl: `${window.location.origin}${basePath}/onboarding`,
+      });
+    } else if (gateway === "razorpay") {
+      checkoutMutation.mutate({
+        gateway: "razorpay",
+        ...common,
+        amount: finalAmount,
+        currency: paymentConfig?.currency ?? "USD",
+      });
+    } else if (gateway === "paypal") {
+      checkoutMutation.mutate({
+        gateway: "paypal",
+        ...common,
+        amount: finalAmount,
+        currency: paymentConfig?.currency ?? "USD",
+      });
     } else {
       checkoutMutation.mutate({
+        gateway: "stripe",
         ...common,
         successUrl: `${window.location.origin}${basePath}/checkout/success`,
         cancelUrl: `${window.location.origin}${basePath}/onboarding`,
@@ -390,56 +413,16 @@ export default function Onboarding() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-5">Complete your setup</h2>
 
-                  {/* Trial or Pay toggle — only when plan is not free */}
-                  {selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) > 0 && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
-                    <div className="grid grid-cols-2 gap-3 mb-5">
-                      <button
-                        onClick={() => setUseTrial(true)}
-                        className={`rounded-xl border-2 p-4 text-left transition-all ${useTrial ? "border-orange-400 bg-orange-50" : "border-slate-200 hover:border-slate-300"}`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Gift className="w-4 h-4 text-green-500" />
-                          <span className="font-semibold text-sm text-slate-900">Start Free Trial</span>
-                          {useTrial && <span className="ml-auto w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></span>}
-                        </div>
-                        <p className="text-xs text-slate-500">{selectedPlan.trialDays} days free · No credit card required</p>
-                      </button>
-                      <button
-                        onClick={() => setUseTrial(false)}
-                        className={`rounded-xl border-2 p-4 text-left transition-all ${!useTrial ? "border-orange-400 bg-orange-50" : "border-slate-200 hover:border-slate-300"}`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <CreditCard className="w-4 h-4 text-blue-500" />
-                          <span className="font-semibold text-sm text-slate-900">Pay Now</span>
-                          {!useTrial && <span className="ml-auto w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></span>}
-                        </div>
-                        <p className="text-xs text-slate-500">Start immediately · Secure Stripe checkout</p>
-                      </button>
-                    </div>
-                  )}
+                  {/* Payment info — always shows active gateway */}
+                  <div className="flex items-start gap-2.5 bg-slate-50 rounded-xl border border-slate-100 px-3.5 py-3 mb-5">
+                    <Wallet className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      You'll be securely redirected to <strong className="text-slate-600">{gatewayDisplayName}</strong> to enter your payment details. Your card information is never stored on our servers.
+                    </p>
+                  </div>
 
-                  {/* Free plan info card — when price is $0 */}
-                  {selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) === 0 && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-                      <Gift className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                      <p className="font-semibold text-green-800">Free plan selected</p>
-                      <p className="text-sm text-green-600 mt-1">{selectedPlan.name} — no payment required, instant activation</p>
-                      <p className="text-xs text-green-500 mt-2">You can upgrade to a paid plan anytime from your billing page</p>
-                    </div>
-                  )}
-
-                  {/* Trial info card — only when plan actually supports trial and is paid */}
-                  {useTrial && selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) > 0 && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-                      <Gift className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                      <p className="font-semibold text-green-800">You're starting with a free trial</p>
-                      <p className="text-sm text-green-600 mt-1">{selectedPlan.trialDays} days free on the {selectedPlan.name} plan — cancel anytime</p>
-                      <p className="text-xs text-green-500 mt-2">No credit card required to start your trial</p>
-                    </div>
-                  )}
-
-                  {/* Paid — Stripe redirect */}
-                  {selectedPlan && (yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly) > 0 && (!selectedPlan?.isTrial || !useTrial) && (
+                  {/* Paid — Payment breakdown */}
+                  {selectedPlan && (
                     <div className="space-y-4">
                       {/* Price breakdown */}
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
@@ -465,14 +448,6 @@ export default function Onboarding() {
                         </div>
                       </div>
 
-                      {/* Security notice */}
-                      <div className="flex items-start gap-2.5 bg-slate-50 rounded-xl border border-slate-100 px-3.5 py-3">
-                        <Shield className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          You'll be securely redirected to <strong className="text-slate-600">Stripe</strong> to enter your payment details. Your card information is never stored on our servers.
-                        </p>
-                      </div>
-
                       {/* Auto-renewal */}
                       <div className="flex items-center justify-between border-t pt-4">
                         <div>
@@ -484,7 +459,7 @@ export default function Onboarding() {
 
                       <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
                         <Lock className="w-3 h-3" />
-                        <span>256-bit SSL · PCI-DSS compliant · Powered by Stripe</span>
+                        <span>256-bit SSL · PCI-DSS compliant · Powered by {gatewayDisplayName}</span>
                       </div>
                     </div>
                   )}
@@ -495,15 +470,11 @@ export default function Onboarding() {
                   <Button
                     className="bg-orange-500 hover:bg-orange-600 px-8"
                     onClick={handleSubmit}
-                    disabled={onboardMutation.isPending || checkoutMutation.isPending || freePlanMutation.isPending}
+                    disabled={checkoutMutation.isPending}
                   >
-                    {(onboardMutation.isPending || checkoutMutation.isPending || freePlanMutation.isPending)
-                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{(yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0 ? "Activating..." : useTrial ? "Setting up..." : "Redirecting to Stripe..."}</>
-                      : (yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0
-                        ? "Continue with Free Plan →"
-                        : useTrial && selectedPlan?.isTrial
-                          ? "Start Free Trial →"
-                          : "Pay Securely with Stripe →"}
+                    {checkoutMutation.isPending
+                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Redirecting to {gatewayDisplayName}...</>
+                      : `Pay Securely with ${gatewayDisplayName} →`}
                   </Button>
                 </div>
               </div>
@@ -531,11 +502,8 @@ export default function Onboarding() {
                     )}
                     <div className="border-t pt-3 flex justify-between font-bold">
                       <span>Total</span>
-                      <span className="text-orange-600">{(yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly) === 0 ? "FREE" : useTrial && selectedPlan?.isTrial ? "FREE" : `$${finalPrice}${yearly ? "/year" : "/mo"}`}</span>
+                      <span className="text-orange-600">${finalPrice}{yearly ? "/year" : "/mo"}</span>
                     </div>
-                    {useTrial && selectedPlan?.isTrial && (selectedPlan.trialDays ?? 0) > 0 && (
-                      <p className="text-xs text-slate-400 text-center">Then ${price}{yearly ? "/year" : "/mo"} after trial</p>
-                    )}
                   </div>
                   <div className="mt-5 pt-4 border-t space-y-2 text-xs text-slate-500">
                     <p className="font-semibold text-slate-700">Includes:</p>
