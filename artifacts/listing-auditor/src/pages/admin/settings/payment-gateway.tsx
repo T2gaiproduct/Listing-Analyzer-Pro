@@ -129,14 +129,6 @@ export default function AdminSettingsPaymentGateway() {
                 {["USD", "EUR", "GBP", "INR", "CAD", "AUD"].map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Default Gateway</label>
-              <select value={form.default_gateway} onChange={(e) => setForm({ ...form, default_gateway: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm">
-                <option value="stripe">Stripe</option>
-                <option value="razorpay">Razorpay</option>
-                <option value="paypal">PayPal</option>
-              </select>
-            </div>
           </CardContent>
         </Card>
 
