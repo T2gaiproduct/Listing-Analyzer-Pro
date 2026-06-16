@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User, Shield, CreditCard, Users, UserCircle, Bell, Trash2, ArrowRight } from "lucide-react";
+import { Search, LayoutDashboard, Plus, ChevronRight, LogOut, User, Shield, UserCircle, Bell, Trash2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -36,11 +36,18 @@ export function Layout({ children }: { children: ReactNode }) {
         { href: "/projects", label: "Graphics Creation" },
       ],
     },
-    { href: "/billing", label: "Billing", icon: CreditCard },
-    { href: "/team", label: "Team", icon: Users },
-    { href: "/profile", label: "My Profile", icon: UserCircle },
     { href: "/archive", label: "Archive", icon: Trash2 },
     { href: "/notifications", label: "Notifications", icon: Bell },
+    {
+      label: "My Profile",
+      icon: UserCircle,
+      children: [
+        { href: "/profile", label: "Edit Profile" },
+        { href: "/billing", label: "Billing" },
+        { href: "/team", label: "Team" },
+        { label: "Log Out", action: "logout" },
+      ],
+    },
   ];
 
   return (
@@ -81,20 +88,33 @@ export function Layout({ children }: { children: ReactNode }) {
                   </button>
                   {isExpanded && (
                     <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border/50 pl-2">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.label}
-                          href={child.href}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all",
-                            location === child.href
-                              ? "bg-sidebar-accent/60 text-sidebar-accent-foreground"
-                              : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
-                          )}
-                        >
-                          {child.label}
-                        </Link>
-                      ))}
+                      {item.children.map((child) => {
+                        if (child.action === "logout") {
+                          return (
+                            <button
+                              key={child.label}
+                              onClick={() => signOut({ redirectUrl: `${basePath}/` })}
+                              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all w-full text-left text-destructive hover:text-destructive hover:bg-sidebar-accent/30"
+                            >
+                              {child.label}
+                            </button>
+                          );
+                        }
+                        return (
+                          <Link
+                            key={child.label}
+                            href={child.href!}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all",
+                              location === child.href
+                                ? "bg-sidebar-accent/60 text-sidebar-accent-foreground"
+                                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -121,60 +141,18 @@ export function Layout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* User profile */}
-        <div className="p-4 border-t border-sidebar-border/50">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/50 transition-colors group text-left">
-                {user?.imageUrl ? (
-                  <img
-                    src={user.imageUrl}
-                    alt={user.fullName ?? "User"}
-                    className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-2 ring-primary/20"
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-primary" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="truncate font-semibold text-sidebar-foreground text-xs">
-                    {user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "Account"}
-                  </p>
-                  <p className="truncate text-sidebar-foreground/50 text-xs">
-                    {user?.primaryEmailAddress?.emailAddress}
-                  </p>
-                </div>
-                <ChevronRight className="w-3 h-3 opacity-30 flex-shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-56 mb-1">
-              <div className="px-3 py-2">
-                <p className="text-sm font-semibold truncate">{user?.fullName ?? "Account"}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.primaryEmailAddress?.emailAddress}</p>
-              </div>
-              <DropdownMenuSeparator />
-              {isAdmin && (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin/dashboard" className="flex items-center cursor-pointer">
-                      <Shield className="w-4 h-4 mr-2 text-orange-500" />
-                      Admin Panel
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive cursor-pointer"
-                onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {/* Admin Panel link */}
+        {isAdmin && (
+          <div className="p-4 border-t border-sidebar-border/50">
+            <Link
+              href="/admin/dashboard"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/50 transition-colors group"
+            >
+              <Shield className="w-4 h-4 text-orange-500" />
+              Admin Panel
+            </Link>
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}
