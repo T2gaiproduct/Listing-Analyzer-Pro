@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
@@ -117,6 +119,88 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
       .values({ userId, fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined }).returning();
   }
   res.json(profile);
+});
+
+const AVATARS_DIR = path.join(process.cwd(), "public", "images", "avatars");
+
+function ensureAvatarDir(): void {
+  if (!fs.existsSync(AVATARS_DIR)) {
+    fs.mkdirSync(AVATARS_DIR, { recursive: true });
+  }
+}
+
+router.post("/profile/avatar", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+
+  // Collect raw body buffer
+  const chunks: Buffer[] = [];
+  req.on("data", (chunk) => chunks.push(chunk));
+  req.on("end", async () => {
+    try {
+      const buffer = Buffer.concat(chunks);
+      if (buffer.length === 0) {
+        res.status(400).json({ error: "No image data provided" });
+        return;
+      }
+      if (buffer.length > 5 * 1024 * 1024) {
+        res.status(400).json({ error: "Image too large. Max 5MB." });
+        return;
+      }
+
+      // Detect mime type from magic bytes
+      let ext = "png";
+      let mimeType = "image/png";
+      if (buffer[0] === 0xff && buffer[1] === 0xd8) {
+        ext = "jpg";
+        mimeType = "image/jpeg";
+      } else if (buffer[0] === 0x89 && buffer[1] === 0x50) {
+        ext = "png";
+        mimeType = "image/png";
+      } else if (buffer[0] === 0x47 && buffer[1] === 0x49) {
+        ext = "gif";
+        mimeType = "image/gif";
+      } else if (buffer[0] === 0x52 && buffer[1] === 0x49) {
+        ext = "webp";
+        mimeType = "image/webp";
+      }
+
+      ensureAvatarDir();
+
+      // Delete old avatar if exists
+      const [existing] = await db.select({ avatarUrl: userProfilesTable.avatarUrl }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+      if (existing?.avatarUrl) {
+        const oldPath = path.join(process.cwd(), "public", existing.avatarUrl.replace(/^\//, ""));
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+
+      const filename = `${userId}_${Date.now()}.${ext}`;
+      const filePath = path.join(AVATARS_DIR, filename);
+      const publicUrl = `/images/avatars/${filename}`;
+
+      fs.writeFileSync(filePath, buffer);
+
+      // Update DB
+      const profileRows = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+      if (profileRows.length) {
+        await db.update(userProfilesTable)
+          .set({ avatarUrl: publicUrl, updatedAt: new Date() })
+          .where(eq(userProfilesTable.userId, userId));
+      } else {
+        await db.insert(userProfilesTable)
+          .values({ userId, avatarUrl: publicUrl });
+      }
+
+      res.json({ avatarUrl: publicUrl });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      res.status(500).json({ error: message });
+    }
+  });
+  req.on("error", () => {
+    res.status(500).json({ error: "Request error" });
+  });
 });
 
 router.get("/credits", requireAuth, async (req, res): Promise<void> => {

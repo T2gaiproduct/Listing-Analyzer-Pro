@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { User, Building2, Phone, Globe, Edit2, Save, X, FileText, Link, Users, KeyRound, Eye, EyeOff } from "lucide-react";
+import { User, Building2, Phone, Globe, Edit2, Save, X, FileText, Link, Users, KeyRound, Eye, EyeOff, Camera } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ interface ProfileData {
     gstNumber: string | null;
     websiteUrl: string | null;
     teamSize: number | null;
+    avatarUrl: string | null;
     onboardingCompleted: boolean;
     createdAt: string;
   } | null;
@@ -93,6 +94,8 @@ export default function Profile() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     fullName: "", companyName: "", phone: "", country: "",
     gstNumber: "", websiteUrl: "", teamSize: "",
@@ -172,13 +175,55 @@ export default function Profile() {
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3 flex-row items-center justify-between">
           <div className="flex items-center gap-3">
-            {user?.imageUrl ? (
-              <img src={user.imageUrl} alt={user.fullName ?? "Avatar"} className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-100" />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
-                <User className="w-7 h-7 text-orange-500" />
+            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+              {avatarUploading && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/50">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {data?.profile?.avatarUrl ? (
+                <img src={`${basePath}${data.profile.avatarUrl}`} alt={user?.fullName ?? "Avatar"} className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-100" />
+              ) : user?.imageUrl ? (
+                <img src={user.imageUrl} alt={user.fullName ?? "Avatar"} className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-100" />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
+                  <User className="w-7 h-7 text-orange-500" />
+                </div>
+              )}
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-5 h-5 text-white" />
               </div>
-            )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setAvatarUploading(true);
+                  try {
+                    const res = await fetch(`${basePath}/api/profile/avatar`, {
+                      method: "POST",
+                      credentials: "include",
+                      body: file,
+                    });
+                    const result = await res.json();
+                    if (res.ok) {
+                      qc.invalidateQueries({ queryKey: ["user-profile"] });
+                      toast({ title: "Profile picture updated" });
+                    } else {
+                      toast({ title: result.error || "Upload failed", variant: "destructive" });
+                    }
+                  } catch {
+                    toast({ title: "Upload failed", variant: "destructive" });
+                  } finally {
+                    setAvatarUploading(false);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }
+                }}
+              />
+            </div>
             <div>
               <CardTitle className="text-lg">{form.fullName || user?.fullName || "Your Name"}</CardTitle>
               <p className="text-sm text-slate-400">{user?.primaryEmailAddress?.emailAddress}</p>
