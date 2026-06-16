@@ -86,7 +86,7 @@ export default function AdminGraphicsLogs() {
                   ))}
                 </tr>
               ))}
-            {!isLoading && data?.projects.map((p) => (
+            {!isLoading && (data?.projects ?? []).map((p) => (
               <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                 <td className="px-6 py-3 text-slate-400 text-xs">{p.id}</td>
                 <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">

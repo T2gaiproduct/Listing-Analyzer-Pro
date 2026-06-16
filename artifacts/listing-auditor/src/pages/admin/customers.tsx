@@ -277,7 +277,7 @@ export default function AdminCustomers() {
                   <td className="px-6 py-4"><div className="h-8 w-32 bg-slate-100 rounded animate-pulse ml-auto" /></td>
                 </tr>
               ))}
-            {!isLoading && data?.customers.map((c) => (
+            {!isLoading && (data?.customers ?? []).map((c) => (
               <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
