@@ -169,7 +169,8 @@ router.post("/profile/avatar", requireAuth, async (req, res): Promise<void> => {
       // Delete old avatar if exists
       const [existing] = await db.select({ avatarUrl: userProfilesTable.avatarUrl }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
       if (existing?.avatarUrl) {
-        const oldPath = path.join(process.cwd(), "public", existing.avatarUrl.replace(/^\//, ""));
+        const oldRelativePath = existing.avatarUrl.replace(/^\//, "").replace(/^api\//, "");
+        const oldPath = path.join(process.cwd(), "public", oldRelativePath);
         if (fs.existsSync(oldPath)) {
           fs.unlinkSync(oldPath);
         }
@@ -177,7 +178,7 @@ router.post("/profile/avatar", requireAuth, async (req, res): Promise<void> => {
 
       const filename = `${userId}_${Date.now()}.${ext}`;
       const filePath = path.join(AVATARS_DIR, filename);
-      const publicUrl = `/images/avatars/${filename}`;
+      const publicUrl = `/api/images/avatars/${filename}`;
 
       fs.writeFileSync(filePath, buffer);
 

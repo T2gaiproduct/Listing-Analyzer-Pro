@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { User, Building2, Phone, Globe, Edit2, Save, X, FileText, Link, Users, KeyRound, Eye, EyeOff, Camera } from "lucide-react";
+import { User, Building2, Phone, Globe, Edit2, Save, X, FileText, Link, Users, KeyRound, Eye, EyeOff, Camera, ZoomIn, ZoomOut, Move } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,16 @@ export default function Profile() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Crop modal state
+  const [showCropDialog, setShowCropDialog] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropScale, setCropScale] = useState(1);
+  const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const cropImageRef = useRef<HTMLImageElement>(null);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     fullName: "", companyName: "", phone: "", country: "",
     gstNumber: "", websiteUrl: "", teamSize: "",
@@ -134,6 +144,98 @@ export default function Profile() {
     setShowConfirm(false);
     setShowPwDialog(true);
   }
+
+  // Crop helpers
+  const handleFileSelect = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setCropImageSrc(e.target?.result as string);
+      setCropScale(1);
+      setCropPosition({ x: 0, y: 0 });
+      setShowCropDialog(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!cropImageRef.current) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - cropPosition.x, y: e.clientY - cropPosition.y });
+  }, [cropPosition]);
+
+  const handleCropMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !cropContainerRef.current || !cropImageRef.current) return;
+    const container = cropContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const img = cropImageRef.current;
+    const imgWidth = img.naturalWidth * cropScale;
+    const imgHeight = img.naturalHeight * cropScale;
+    const minX = rect.width - imgWidth;
+    const minY = rect.height - imgHeight;
+    let newX = e.clientX - dragStart.x;
+    let newY = e.clientY - dragStart.y;
+    newX = Math.max(minX, Math.min(0, newX));
+    newY = Math.max(minY, Math.min(0, newY));
+    setCropPosition({ x: newX, y: newY });
+  }, [isDragging, dragStart, cropScale]);
+
+  const handleCropMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleZoomIn = () => setCropScale((s) => Math.min(s + 0.2, 3));
+  const handleZoomOut = () => setCropScale((s) => Math.max(s - 0.2, 0.5));
+
+  const handleCropSave = async () => {
+    if (!cropImageSrc || !cropImageRef.current || !cropContainerRef.current) return;
+    const img = cropImageRef.current;
+    const container = cropContainerRef.current;
+    const containerSize = Math.min(container.clientWidth, container.clientHeight);
+    const scale = cropScale;
+    const imgNaturalW = img.naturalWidth;
+    const imgNaturalH = img.naturalHeight;
+    const displayedW = imgNaturalW * scale;
+    const displayedH = imgNaturalH * scale;
+    const offsetX = -cropPosition.x;
+    const offsetY = -cropPosition.y;
+    const cropRatioX = offsetX / displayedW;
+    const cropRatioY = offsetY / displayedH;
+    const cropRatioSize = containerSize / displayedW;
+    const cropX = Math.max(0, Math.round(cropRatioX * imgNaturalW));
+    const cropY = Math.max(0, Math.round(cropRatioY * imgNaturalH));
+    const cropSize = Math.round(cropRatioSize * imgNaturalW);
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(img, cropX, cropY, cropSize, cropSize, 0, 0, 512, 512);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      setShowCropDialog(false);
+      setCropImageSrc(null);
+      setAvatarUploading(true);
+      try {
+        const res = await fetch(`${basePath}/api/profile/avatar`, {
+          method: "POST",
+          credentials: "include",
+          body: blob,
+        });
+        const result = await res.json();
+        if (res.ok) {
+          qc.invalidateQueries({ queryKey: ["user-profile"] });
+          toast({ title: "Profile picture updated" });
+        } else {
+          toast({ title: result.error || "Upload failed", variant: "destructive" });
+        }
+      } catch {
+        toast({ title: "Upload failed", variant: "destructive" });
+      } finally {
+        setAvatarUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    }, "image/jpeg", 0.9);
+  };
 
   async function handleChangePassword() {
     if (!user) return;
@@ -182,7 +284,7 @@ export default function Profile() {
                 </div>
               )}
               {data?.profile?.avatarUrl ? (
-                <img src={`${basePath}${data.profile.avatarUrl}`} alt={user?.fullName ?? "Avatar"} className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-100" />
+                <img src={data.profile.avatarUrl} alt={user?.fullName ?? "Avatar"} className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-100" />
               ) : user?.imageUrl ? (
                 <img src={user.imageUrl} alt={user.fullName ?? "Avatar"} className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-100" />
               ) : (
@@ -198,29 +300,10 @@ export default function Profile() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={async (e) => {
+                onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  setAvatarUploading(true);
-                  try {
-                    const res = await fetch(`${basePath}/api/profile/avatar`, {
-                      method: "POST",
-                      credentials: "include",
-                      body: file,
-                    });
-                    const result = await res.json();
-                    if (res.ok) {
-                      qc.invalidateQueries({ queryKey: ["user-profile"] });
-                      toast({ title: "Profile picture updated" });
-                    } else {
-                      toast({ title: result.error || "Upload failed", variant: "destructive" });
-                    }
-                  } catch {
-                    toast({ title: "Upload failed", variant: "destructive" });
-                  } finally {
-                    setAvatarUploading(false);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }
+                  handleFileSelect(file);
                 }}
               />
             </div>
@@ -410,6 +493,75 @@ export default function Profile() {
           <Button variant="outline" onClick={() => setShowPwDialog(false)} disabled={pwSaving}>Cancel</Button>
           <Button className="bg-orange-500 hover:bg-orange-600" onClick={handleChangePassword} disabled={pwSaving}>
             {pwSaving ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Crop Avatar Dialog */}
+    <Dialog open={showCropDialog} onOpenChange={(open) => { if (!open) { setShowCropDialog(false); setCropImageSrc(null); } }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Camera className="w-5 h-5" />
+            Crop Profile Picture
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            Drag to position and use zoom to fit your face in the circle. The cropped area will be used for your profile avatar.
+          </p>
+          <div
+            ref={cropContainerRef}
+            className="relative w-80 h-80 mx-auto overflow-hidden rounded-lg border-2 border-orange-200 bg-slate-100 cursor-move"
+            onMouseDown={handleCropMouseDown}
+            onMouseMove={handleCropMouseMove}
+            onMouseUp={handleCropMouseUp}
+            onMouseLeave={handleCropMouseUp}
+          >
+            {/* Circular mask overlay */}
+            <div className="absolute inset-0 z-10 pointer-events-none">
+              <div className="absolute inset-0 bg-black/40" style={{ clipPath: "circle(40% at 50% 50%)" }} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-[80%] h-[80%] rounded-full border-2 border-white border-dashed" />
+              </div>
+            </div>
+            {cropImageSrc && (
+              <img
+                ref={cropImageRef}
+                src={cropImageSrc}
+                alt="Crop preview"
+                className="absolute select-none"
+                style={{
+                  transform: `translate(${cropPosition.x}px, ${cropPosition.y}px) scale(${cropScale})`,
+                  transformOrigin: "top left",
+                  maxWidth: "none",
+                  maxHeight: "none",
+                }}
+                draggable={false}
+              />
+            )}
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleZoomOut}>
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">{Math.round(cropScale * 100)}%</span>
+            <Button variant="outline" size="sm" onClick={handleZoomIn}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            <Move className="w-3 h-3" />
+            Drag to position
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setShowCropDialog(false); setCropImageSrc(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+            Cancel
+          </Button>
+          <Button className="bg-orange-500 hover:bg-orange-600" onClick={handleCropSave} disabled={avatarUploading}>
+            {avatarUploading ? "Saving..." : "Crop & Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
