@@ -9,7 +9,6 @@ import {
   userProfilesTable, subscriptionsTable, notificationsTable,
 } from "@workspace/db";
 import { addCredits } from "../lib/credits";
-import { createNotification, createAdminNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -118,20 +117,6 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
   } else {
     [profile] = await db.insert(userProfilesTable)
       .values({ userId, fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined }).returning();
-    // Notify user on first profile creation
-    await createNotification({
-      userId,
-      type: "system",
-      title: "Welcome to ListingAuditor",
-      message: "Your profile has been created. Start by running a listing audit or generating product images.",
-      link: "/audits/new",
-    });
-    // Notify admins about new user
-    await createAdminNotification({
-      type: "new_user",
-      title: "New User Signup",
-      message: `A new user (${fullName || companyName || "Unknown"}) has created their profile.`,
-    });
   }
   res.json(profile);
 });

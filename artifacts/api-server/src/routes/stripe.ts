@@ -7,7 +7,6 @@ import {
 } from "@workspace/db";
 import { getUncachableStripeClient } from "../stripeClient";
 import type Stripe from "stripe";
-import { createNotification, createAdminNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -262,19 +261,6 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
       .where(and(eq(couponsTable.code, cc.toUpperCase()), eq(couponsTable.isActive, true)));
     if (coupon) await db.update(couponsTable).set({ usedCount: coupon.usedCount + 1 }).where(eq(couponsTable.id, coupon.id));
   }
-
-  await createNotification({
-    userId,
-    type: "payment_success",
-    title: "Payment Confirmed",
-    message: `Your ${plan.name} subscription is now active. Welcome credits have been added to your account.`,
-    link: "/dashboard",
-  });
-  await createAdminNotification({
-    type: "new_purchase",
-    title: "New Purchase",
-    message: `User ${userId} purchased ${plan.name} (${billingCycle}). $${amount.toFixed(2)}.`,
-  });
 
   res.json({ status: "paid", activated: true });
 });

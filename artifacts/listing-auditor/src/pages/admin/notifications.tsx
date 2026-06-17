@@ -15,7 +15,7 @@ interface Notification {
   read: boolean; sentAt: string;
 }
 
-const NOTIFICATION_TYPES = ["credit_low", "credit_expired", "payment_failed", "payment_success", "plan_expiring", "system", "promo", "audit_complete", "competitor_complete", "graphics_complete", "team_invite", "new_user", "new_purchase", "new_team"];
+const NOTIFICATION_TYPES = ["credit_low", "credit_expired", "payment_failed", "payment_success", "plan_expiring", "system", "promo"];
 
 function fetchNotifications(type: string): Promise<{ notifications: Notification[] }> {
   const params = type ? `?type=${type}` : "";

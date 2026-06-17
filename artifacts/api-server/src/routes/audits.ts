@@ -18,7 +18,6 @@ import {
 } from "../lib/image-generator";
 import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
-import { createNotification, createAdminNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -159,12 +158,6 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
       .select()
       .from(competitorsTable)
       .where(eq(competitorsTable.auditId, updatedAudit.id));
-
-    await createAdminNotification({
-      type: "audit_complete",
-      title: "Audit Completed",
-      message: `User ${ownerId} completed an audit for "${productName}" with score ${result.overallScore}.`,
-    });
 
     res.status(201).json({ ...updatedAudit, competitors });
   } catch (err) {

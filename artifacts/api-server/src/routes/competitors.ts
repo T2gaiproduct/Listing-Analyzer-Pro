@@ -11,7 +11,6 @@ import {
 import { analyzeCompetitorWithAI } from "../lib/analyzer";
 import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
-import { createNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -144,14 +143,6 @@ router.post("/audits/:id/competitors", requireAuth, resolveTeam, requireWriteAcc
       weaknesses: analysis.weaknesses,
     })
     .returning();
-
-  await createNotification({
-    userId: ownerId,
-    type: "competitor_complete",
-    title: "Competitor Analysis Complete",
-    message: `Competitor analysis for "${productName}" is ready. Overall score: ${analysis.overallScore}.`,
-    link: `/audits/${params.data.id}`,
-  });
 
   res.status(201).json({ ...competitor, weaknesses: competitor.weaknesses ?? [] });
 });

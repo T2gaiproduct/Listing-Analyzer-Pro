@@ -16,7 +16,6 @@ import { like, or, ilike } from "drizzle-orm";
 import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
-import { createAdminNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -968,36 +967,6 @@ router.delete("/admin/notifications/:id", requireAdmin, async (req, res): Promis
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(notificationsTable).where(eq(notificationsTable.id, id));
   res.sendStatus(204);
-});
-
-// ─── Admin personal notifications (broadcast + admin-scoped) ──────────────────
-
-router.get("/admin/my-notifications", requireAdmin, async (req, res): Promise<void> => {
-  const limit = Math.min(Number(req.query.limit ?? 50), 200);
-  const all = await db.select().from(notificationsTable).orderBy(desc(notificationsTable.sentAt)).limit(limit);
-  // Admin sees broadcast notifications (userId = null) + their own personal notifications
-  const adminUserId = (req as AdminRequest).adminUserId;
-  const filtered = all.filter((n) => n.userId === null || n.userId === adminUserId);
-  res.json({ notifications: filtered });
-});
-
-router.patch("/admin/my-notifications/:id/read", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(String(req.params.id ?? ""));
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const adminUserId = (req as AdminRequest).adminUserId;
-  const [n] = await db.update(notificationsTable)
-    .set({ read: true, readAt: new Date() })
-    .where(and(eq(notificationsTable.id, id), eq(notificationsTable.userId, adminUserId)))
-    .returning();
-  res.json({ ok: true, notification: n });
-});
-
-router.post("/admin/my-notifications/read-all", requireAdmin, async (req, res): Promise<void> => {
-  const adminUserId = (req as AdminRequest).adminUserId;
-  await db.update(notificationsTable)
-    .set({ read: true, readAt: new Date() })
-    .where(and(eq(notificationsTable.userId, adminUserId), eq(notificationsTable.read, false)));
-  res.json({ ok: true });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
