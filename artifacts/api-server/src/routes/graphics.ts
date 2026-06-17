@@ -5,6 +5,7 @@ import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
+import { createNotification, createAdminNotification } from "../lib/notifications";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import * as fs from "fs";
 import * as path from "path";
@@ -697,6 +698,19 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
           updatedAt: new Date(),
         })
         .where(eq(graphicsProjectsTable.id, id));
+
+      await createNotification({
+        userId: userId,
+        type: "graphics_complete",
+        title: "Images Generated",
+        message: `${newRecords.length} new image(s) generated for "${project.name}".`,
+        link: `/projects/${id}`,
+      });
+      await createAdminNotification({
+        type: "graphics_complete",
+        title: "Images Generated",
+        message: `User ${userId} generated ${newRecords.length} image(s) for "${project.name}".`,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Generation failed";
       const errorText = message.length > 500 ? message.slice(0, 500) + "..." : message;

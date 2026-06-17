@@ -10,6 +10,7 @@ import {
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
 import { setMemberCredits, getMemberCredits } from "../lib/credits.js";
+import { createNotification, createAdminNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -147,6 +148,18 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
   } catch (emailErr) {
     req.log?.warn?.({ emailErr }, "Failed to send invite email");
   }
+
+  await createNotification({
+    userId: userId,
+    type: "team_invite",
+    title: "Team Invite Sent",
+    message: `You invited ${invitedName} (${invitedEmail}) to join your team as ${role}.`,
+  });
+  await createAdminNotification({
+    type: "new_team",
+    title: "New Team Invite",
+    message: `User ${userId} invited ${invitedName} (${invitedEmail}) to join their team as ${role}.`,
+  });
 
   res.status(201).json({ invite, token });
 });

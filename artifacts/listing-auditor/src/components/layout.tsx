@@ -37,7 +37,7 @@ export function Layout({ children }: { children: ReactNode }) {
       ],
     },
     { href: "/archive", label: "Archive", icon: Trash2 },
-    { href: "/notifications", label: "Notifications", icon: Bell },
+    { label: "Notifications", icon: Bell, component: "NotificationBell" },
     {
       label: "My Profile",
       icon: UserCircle,
@@ -117,6 +117,13 @@ export function Layout({ children }: { children: ReactNode }) {
                       })}
                     </div>
                   )}
+                </div>
+              );
+            }
+            if ("component" in item && item.component === "NotificationBell") {
+              return (
+                <div key="notifications" className="relative">
+                  <NotificationBell />
                 </div>
               );
             }

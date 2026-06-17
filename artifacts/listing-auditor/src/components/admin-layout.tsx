@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, FileText, BarChart2, CreditCard,
@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
 
 const navSections = [
   {
@@ -87,6 +89,115 @@ const navSections = [
   },
 ];
 
+interface AdminNotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  link?: string | null;
+  read: boolean;
+  sentAt: string;
+}
+
+function AdminNotificationBell() {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-notifications"],
+    queryFn: async (): Promise<{ notifications: AdminNotificationItem[] }> => {
+      const r = await fetch("/api/admin/my-notifications");
+      if (!r.ok) throw new Error("Failed to load notifications");
+      return r.json();
+    },
+    refetchInterval: 30000,
+  });
+  const notifications = data?.notifications ?? [];
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markRead = useMutation({
+    mutationFn: (id: number) => fetch(`/api/admin/my-notifications/${id}/read`, { method: "PATCH" }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-notifications"] }),
+  });
+
+  const markAllRead = useMutation({
+    mutationFn: () => fetch("/api/admin/my-notifications/read-all", { method: "POST" }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-notifications"] }),
+  });
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="relative p-2 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+      >
+        <Bell className="w-5 h-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+            <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={() => markAllRead.mutate()}
+                className="text-xs text-orange-600 hover:underline"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {isLoading ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-500">Loading...</div>
+            ) : notifications.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-500">No notifications</div>
+            ) : (
+              notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-slate-100 last:border-0 cursor-pointer transition-colors",
+                    n.read ? "bg-white" : "bg-orange-50 hover:bg-orange-100"
+                  )}
+                  onClick={() => {
+                    if (!n.read) markRead.mutate(n.id);
+                    if (n.link) {
+                      setTimeout(() => {
+                        window.location.href = n.link as string;
+                      }, 150);
+                    }
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={cn("text-sm font-medium leading-snug text-slate-900", n.link && "text-orange-600")}>{n.title}</p>
+                    {!n.read && <span className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 mt-1" />}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">{n.message}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <p className="text-[10px] text-slate-400">
+                      {formatDistanceToNow(new Date(n.sentAt), { addSuffix: true })}
+                    </p>
+                    {n.link && (
+                      <span className="text-[10px] text-orange-600 flex items-center gap-0.5">
+                        <ChevronRight className="w-3 h-3" /> Open
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
@@ -103,6 +214,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <span className="text-orange-400">Admin</span>
             </div>
           </Link>
+          <div className="ml-auto">
+            <AdminNotificationBell />
+          </div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">

@@ -66,6 +66,14 @@ export default function NotificationsPage() {
       plan_expiring: "bg-orange-100 text-orange-700",
       system: "bg-blue-100 text-blue-700",
       promo: "bg-purple-100 text-purple-700",
+      audit_complete: "bg-emerald-100 text-emerald-700",
+      competitor_complete: "bg-teal-100 text-teal-700",
+      graphics_complete: "bg-indigo-100 text-indigo-700",
+      team_invite: "bg-cyan-100 text-cyan-700",
+      credit_depleted: "bg-red-100 text-red-700",
+      new_user: "bg-green-100 text-green-700",
+      new_purchase: "bg-green-100 text-green-700",
+      new_team: "bg-blue-100 text-blue-700",
     };
     return colors[type] ?? "bg-gray-100 text-gray-700";
   };
