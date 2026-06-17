@@ -522,51 +522,22 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           </div>
         </div>
 
-        {/* Lifestyle Images */}
-        {lifestyleRecords.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Lifestyle Images ({lifestyleRecords.length})</h2>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {lifestyleRecords.map((record) => (
-                <ImageCard
-                  key={record.id}
-                  record={record}
-                  canEdit={canEdit}
-                  isLoading={loadingIds.has(record.id)}
-                  onRegenerate={() => handleRegenerate(record)}
-                  onEdit={() => handleEdit(record)}
-                  onHistory={() => setHistoryRecord(record)}
-                  onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
-                  onView={() => setFullscreenUrl(record.currentUrl)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Infographics */}
-        {featureRecords.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Infographics ({featureRecords.length})</h2>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {featureRecords.map((record) => (
-                <ImageCard
-                  key={record.id}
-                  record={record}
-                  canEdit={canEdit}
-                  isLoading={loadingIds.has(record.id)}
-                  onRegenerate={() => handleRegenerate(record)}
-                  onEdit={() => handleEdit(record)}
-                  onHistory={() => setHistoryRecord(record)}
-                  onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
-                  onView={() => setFullscreenUrl(record.currentUrl)}
-                />
-              ))}
-            </div>
+        {/* All Images */}
+        {allRecords.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {allRecords.map((record) => (
+              <ImageCard
+                key={record.id}
+                record={record}
+                canEdit={canEdit}
+                isLoading={loadingIds.has(record.id)}
+                onRegenerate={() => handleRegenerate(record)}
+                onEdit={() => handleEdit(record)}
+                onHistory={() => setHistoryRecord(record)}
+                onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
+                onView={() => setFullscreenUrl(record.currentUrl)}
+              />
+            ))}
           </div>
         )}
 
