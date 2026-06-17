@@ -11,10 +11,16 @@ const IMAGE_TYPES = [
   { id: "custom", label: "Generate Custom", desc: "Custom main listing image", icon: "✨" },
 ];
 
+const PROMPT_EXAMPLES = [
+  "A sleek coffee mug on a marble countertop with morning sunlight streaming through a window",
+  "My product floating on a cloud against a pastel gradient background with soft shadows",
+  "A 3D render of my product on a rotating pedestal with dramatic rim lighting",
+];
+
 export function GenerateImageOptions() {
   const [selected, setSelected] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [step, setStep] = useState<"select" | "custom" | "generating">("select");
   const [countdown, setCountdown] = useState(0);
   const [progress, setProgress] = useState(0);
 
@@ -26,11 +32,28 @@ export function GenerateImageOptions() {
 
   const selectedCount = selected.length;
   const customSelected = selected.includes("custom");
-  const canGenerate = selectedCount > 0 && (!customSelected || customPrompt.trim().length > 0);
+  const canProceed = selectedCount > 0;
 
-  const handleGenerate = () => {
-    if (!canGenerate) return;
-    setIsGenerating(true);
+  const handleContinue = () => {
+    if (!canProceed) return;
+    if (customSelected) {
+      setStep("custom");
+    } else {
+      startGenerating();
+    }
+  };
+
+  const handleBack = () => {
+    setStep("select");
+  };
+
+  const handleStartGenerate = () => {
+    if (customSelected && !customPrompt.trim()) return;
+    startGenerating();
+  };
+
+  const startGenerating = () => {
+    setStep("generating");
     setCountdown(selectedCount * 30);
     setProgress(0);
     let elapsed = 0;
@@ -42,7 +65,6 @@ export function GenerateImageOptions() {
       setProgress(Math.min(100, (elapsed / total) * 100));
       if (remaining <= 0) {
         clearInterval(interval);
-        setIsGenerating(false);
       }
     }, 1000);
   };
@@ -61,7 +83,11 @@ export function GenerateImageOptions() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Generate More Images</h2>
-              <p className="text-sm text-slate-400 mt-0.5">Select image types to generate</p>
+              <p className="text-sm text-slate-400 mt-0.5">
+                {step === "select" && "Select image types to generate"}
+                {step === "custom" && "Describe your custom image"}
+                {step === "generating" && "Generating your images"}
+              </p>
             </div>
             <button className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -73,7 +99,8 @@ export function GenerateImageOptions() {
 
         {/* Content */}
         <div className="px-6 py-5">
-          {!isGenerating ? (
+          {/* ====== STEP 1: SELECT ====== */}
+          {step === "select" && (
             <>
               <p className="text-sm text-slate-500 mb-4">Choose the image types you want to generate. You can select multiple.</p>
 
@@ -118,23 +145,6 @@ export function GenerateImageOptions() {
                 })}
               </div>
 
-              {/* Custom prompt area */}
-              {customSelected && (
-                <div className="mt-4 p-4 rounded-xl border-2 border-purple-200 bg-purple-50/20">
-                  <label className="text-sm font-semibold text-slate-900 block mb-2">
-                    Custom Prompt <span className="text-slate-400 font-normal">(required)</span>
-                  </label>
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    placeholder="Describe exactly what you want the custom image to look like. Be specific about scene, lighting, composition, and background."
-                    rows={3}
-                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
-                  />
-                  <p className="text-xs text-slate-400 mt-1.5">{customPrompt.length} characters</p>
-                </div>
-              )}
-
               {/* Selection summary */}
               {selectedCount > 0 && (
                 <div className="mt-4 flex items-center gap-2 text-sm">
@@ -156,10 +166,106 @@ export function GenerateImageOptions() {
                   Clear
                 </button>
                 <button
-                  onClick={handleGenerate}
-                  disabled={!canGenerate}
+                  onClick={handleContinue}
+                  disabled={!canProceed}
                   className={`px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition-all flex items-center gap-2 ${
-                    canGenerate
+                    canProceed
+                      ? "bg-purple-600 hover:bg-purple-700 shadow-md shadow-purple-200"
+                      : "bg-slate-300 cursor-not-allowed"
+                  }`}
+                >
+                  {customSelected ? "Continue" : "Generate"}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M1.75 7H12.25M12.25 7L8.75 3.5M12.25 7L8.75 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ====== STEP 2: CUSTOM PROMPT ====== */}
+          {step === "custom" && (
+            <>
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-sm font-bold">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </span>
+                  <span className="text-sm font-medium text-purple-700">Custom Image</span>
+                </div>
+                <p className="text-sm text-slate-500 ml-10">
+                  Describe exactly what you want your custom image to look like.
+                </p>
+              </div>
+
+              {/* Textarea */}
+              <div className="space-y-3">
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Describe your scene, lighting, composition, background, and any specific details you want included..."
+                  rows={5}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none leading-relaxed"
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">{customPrompt.length} characters</span>
+                  <span className={`${customPrompt.trim().length > 0 ? "text-purple-600" : "text-slate-400"}`}>
+                    {customPrompt.trim().length > 0 ? "Ready to generate" : "Add a prompt to continue"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Prompt Examples */}
+              <div className="mt-5">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Need inspiration? Try these:</p>
+                <div className="space-y-2">
+                  {PROMPT_EXAMPLES.map((ex, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCustomPrompt(ex)}
+                      className="w-full text-left p-3 rounded-lg border border-slate-200 bg-slate-50/50 text-sm text-slate-600 hover:border-purple-300 hover:bg-purple-50/30 transition-all leading-snug"
+                    >
+                      <span className="text-purple-400 mr-2">"</span>{ex}<span className="text-purple-400 ml-2">"</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected types preview */}
+              {selected.filter(s => s !== "custom").length > 0 && (
+                <div className="mt-5 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Also generating:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selected.filter(s => s !== "custom").map((id) => {
+                      const type = IMAGE_TYPES.find((t) => t.id === id);
+                      return (
+                        <span key={id} className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
+                          {type?.icon} {type?.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
+                <button
+                  onClick={handleBack}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M12.25 7H1.75M1.75 7L5.25 3.5M1.75 7L5.25 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Back
+                </button>
+                <button
+                  onClick={handleStartGenerate}
+                  disabled={!customPrompt.trim()}
+                  className={`px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition-all flex items-center gap-2 ${
+                    customPrompt.trim()
                       ? "bg-purple-600 hover:bg-purple-700 shadow-md shadow-purple-200"
                       : "bg-slate-300 cursor-not-allowed"
                   }`}
@@ -167,12 +273,14 @@ export function GenerateImageOptions() {
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path d="M1.75 7H12.25M12.25 7L8.75 3.5M12.25 7L8.75 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  Generate {selectedCount > 0 ? `${selectedCount} Image${selectedCount > 1 ? "s" : ""}` : ""}
+                  Generate {selectedCount} Image{selectedCount > 1 ? "s" : ""}
                 </button>
               </div>
             </>
-          ) : (
-            /* Generating State */
+          )}
+
+          {/* ====== STEP 3: GENERATING ====== */}
+          {step === "generating" && (
             <div className="py-6 text-center">
               <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="animate-spin text-purple-600">
