@@ -26,14 +26,6 @@ const IMAGE_TYPES = [
   { id: "custom", label: "Generate Custom", desc: "Custom prompt", icon: "✨" },
 ];
 
-const DESIGN_STYLES = [
-  { id: "custom", label: "Custom / Manual", desc: "Use only your prompt, no style" },
-  { id: "modern", label: "Modern", desc: "Contemporary, clean, bold" },
-  { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody" },
-  { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure" },
-  { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space" },
-];
-
 const PROMPT_MAX_CHARS = 1000;
 
 const CUSTOM_EXAMPLES = [
@@ -49,7 +41,7 @@ type Step = 1 | 2 | 3;
 const STEPS = [
   { id: 1, label: "Upload Product" },
   { id: 2, label: "Select Graphics" },
-  { id: 3, label: "Design Style" },
+  { id: 3, label: "Custom Prompt" },
 ];
 
 interface ImageVersion {
@@ -76,7 +68,6 @@ interface WizardProject {
   auditId?: number | null;
   productName: string;
   category: string | null;
-  designStyle: string;
   status: string;
   lifestyleCount: number;
   featureCount: number;
@@ -149,7 +140,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
-  const [designStyle, setDesignStyle] = useState("custom");
   const [projectId, setProjectId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
@@ -366,17 +356,29 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const canContinue = () => {
     if (step === 1) return productName.trim().length > 0;
     if (step === 2) return selectedImageTypes.length > 0;
+    if (step === 3) return customPrompt.trim().length > 0;
     return true;
   };
 
   const handleContinue = () => {
-    if (step === 3) {
+    if (step === 2 && !selectedImageTypes.includes("custom")) {
+      // Non-custom selected: skip Step 3, generate directly
       createProject.mutate({
         name: `${productName} Project`,
         productName,
         category: wizardCategory,
         sourceImageUrls: uploadedImages,
-        designStyle,
+        imageTypes: selectedImageTypes,
+        customPrompt: undefined,
+        auditId,
+      });
+    } else if (step === 3) {
+      // Custom selected: generate with prompt
+      createProject.mutate({
+        name: `${productName} Project`,
+        productName,
+        category: wizardCategory,
+        sourceImageUrls: uploadedImages,
         imageTypes: selectedImageTypes,
         customPrompt: customPrompt.trim() || undefined,
         auditId,
@@ -1121,7 +1123,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         </div>
       )}
 
-      {/* Step 3: Design Style & Custom Prompt */}
+      {/* Step 3: Custom Prompt (only if custom selected) */}
       {step === 3 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -1129,67 +1131,39 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               <Sparkles className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
-              <p className="text-xs text-slate-500">Select a style and add a custom prompt if desired.</p>
+              <h2 className="text-lg font-bold text-slate-900">Custom Prompt</h2>
+              <p className="text-xs text-slate-500">Describe exactly what you want the AI to create.</p>
             </div>
           </div>
 
-          {selectedImageTypes.includes("custom") && (
-            <div className="space-y-2 rounded-xl border border-purple-200 bg-purple-50/30 p-3">
-              <label className="text-xs font-medium text-purple-900">
-                Custom Prompt
-                {customPrompt.length > 0 && (
-                  <span className={`ml-2 text-xs font-medium ${customPrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : "text-slate-400"}`}>
-                    {customPrompt.length} / {PROMPT_MAX_CHARS}
-                  </span>
-                )}
-              </label>
-              <Textarea
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="Describe exactly what you want the AI to create. Be specific about the scene, lighting, composition, and mood."
-                rows={3}
-                className="resize-none text-xs bg-white"
-              />
-              <div className="space-y-1">
-                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Example prompts</p>
-                {CUSTOM_EXAMPLES.map((ex) => (
-                  <button
-                    key={ex}
-                    className="block text-left text-[11px] text-purple-600 hover:text-purple-700 hover:underline w-full"
-                    onClick={() => setCustomPrompt(ex)}
-                  >
-                    {ex}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-2">
-            {DESIGN_STYLES.map((style) => {
-              const isCustom = style.id === "custom";
-              const isSelected = designStyle === style.id;
-              return (
-                <div
-                  key={style.id}
-                  className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-2.5 ${isSelected ? "border-purple-600 bg-purple-50/30" : "border-slate-200 hover:border-slate-300"}`}
-                  onClick={() => setDesignStyle(style.id)}
+          <div className="space-y-2 rounded-xl border border-purple-200 bg-purple-50/30 p-3">
+            <label className="text-xs font-medium text-purple-900">
+              Custom Prompt
+              {customPrompt.length > 0 && (
+                <span className={`ml-2 text-xs font-medium ${customPrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : "text-slate-400"}`}>
+                  {customPrompt.length} / {PROMPT_MAX_CHARS}
+                </span>
+              )}
+            </label>
+            <Textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="Describe exactly what you want the AI to create. Be specific about the scene, lighting, composition, and mood."
+              rows={3}
+              className="resize-none text-xs bg-white"
+            />
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Example prompts</p>
+              {CUSTOM_EXAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  className="block text-left text-[11px] text-purple-600 hover:text-purple-700 hover:underline w-full"
+                  onClick={() => setCustomPrompt(ex)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-xs text-slate-900">{style.label}</p>
-                      <p className="text-[10px] text-slate-400 leading-tight">{style.desc}</p>
-                    </div>
-                    {isCustom && (
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
-                        {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                  {ex}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1215,7 +1189,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               </>
             ) : (
               <>
-                {step === 3 ? "Generate Graphics" : "Continue"}
+                {step === 2 && !selectedImageTypes.includes("custom") ? "Generate" : step === 3 ? "Generate" : "Continue"}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}

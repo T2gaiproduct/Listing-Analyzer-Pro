@@ -39,7 +39,6 @@ interface GraphicsProject {
   name: string;
   productName: string;
   category: string | null;
-  designStyle: string;
   status: string;
   lifestyleCount: number;
   featureCount: number;
@@ -281,7 +280,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   setMoreLifestyleCount(2);
                   setMoreFeatureEnabled(false);
                   setMoreFeatureCount(1);
-                  setMoreStyle(project?.designStyle ?? "custom");
+                  setMoreStyle("custom");
                   setMoreLifestylePrompt("");
                   setMoreFeaturePrompt("");
                 } else {

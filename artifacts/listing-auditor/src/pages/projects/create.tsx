@@ -78,14 +78,6 @@ const IMAGE_TYPES = [
   { id: "custom", label: "Generate Custom", desc: "Custom prompt", icon: "✨" },
 ];
 
-const DESIGN_STYLES = [
-  { id: "custom", label: "Custom / Manual", desc: "Use only your prompt, no style" },
-  { id: "modern", label: "Modern", desc: "Contemporary, clean, bold" },
-  { id: "luxury", label: "Luxury", desc: "Dramatic, opulent, moody" },
-  { id: "outdoor", label: "Outdoor", desc: "Natural, scenic, adventure" },
-  { id: "minimalist", label: "Minimalist", desc: "Clean, simple, white space" },
-];
-
 const PROMPT_MAX_CHARS = 1000;
 
 const CUSTOM_EXAMPLES = [
@@ -101,7 +93,7 @@ type Step = 1 | 2 | 3;
 const STEPS = [
   { id: 1, label: "Upload Product" },
   { id: 2, label: "Select Graphics" },
-  { id: 3, label: "Design Style" },
+  { id: 3, label: "Custom Prompt" },
 ];
 
 export default function CreateProject() {
@@ -119,7 +111,6 @@ export default function CreateProject() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
-  const [designStyle, setDesignStyle] = useState("custom");
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -257,17 +248,28 @@ export default function CreateProject() {
   const canContinue = () => {
     if (step === 1) return productName.trim().length > 0;
     if (step === 2) return selectedImageTypes.length > 0;
+    if (step === 3) return customPrompt.trim().length > 0;
     return true;
   };
 
   const handleContinue = () => {
-    if (step === 3) {
+    if (step === 2 && !selectedImageTypes.includes("custom")) {
+      // Non-custom selected: skip Step 3, generate directly
       createProject.mutate({
         name: `${productName} Project`,
         productName,
         category,
         sourceImageUrls: uploadedImages,
-        designStyle,
+        imageTypes: selectedImageTypes,
+        customPrompt: undefined,
+      });
+    } else if (step === 3) {
+      // Custom selected: generate with prompt
+      createProject.mutate({
+        name: `${productName} Project`,
+        productName,
+        category,
+        sourceImageUrls: uploadedImages,
         imageTypes: selectedImageTypes,
         customPrompt: customPrompt.trim() || undefined,
       });
@@ -527,31 +529,6 @@ export default function CreateProject() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-2">
-            {DESIGN_STYLES.map((style) => {
-              const isCustom = style.id === "custom";
-              const isSelected = designStyle === style.id;
-              return (
-                <div
-                  key={style.id}
-                  className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-2.5 ${isSelected ? "border-purple-600 bg-purple-50/30" : "border-slate-200 hover:border-slate-300"}`}
-                  onClick={() => setDesignStyle(style.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-xs text-slate-900">{style.label}</p>
-                      <p className="text-[10px] text-slate-400 leading-tight">{style.desc}</p>
-                    </div>
-                    {isCustom && (
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
-                        {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 
@@ -575,7 +552,7 @@ export default function CreateProject() {
               </>
             ) : (
               <>
-                {step === 3 ? "Generate" : "Continue"}
+                {step === 2 && !selectedImageTypes.includes("custom") ? "Generate" : step === 3 ? "Generate" : "Continue"}
                 <ArrowRight className="w-3 h-3 ml-1" />
               </>
             )}

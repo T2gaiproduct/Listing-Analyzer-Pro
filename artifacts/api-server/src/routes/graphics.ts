@@ -101,7 +101,6 @@ interface GraphicsSpec {
 function buildGraphicsSpecs(
   productName: string,
   category: string | null,
-  designStyle: string,
   lifestyleCount: number,
   featureCount: number,
   lifestyleIndexOffset: number = 0,
@@ -110,26 +109,21 @@ function buildGraphicsSpecs(
   customFeaturePrompt?: string,
 ): GraphicsSpec[] {
   const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
-  const styleSuffix = DESIGN_STYLE_PROMPTS[designStyle] ?? DESIGN_STYLE_PROMPTS.modern;
   const specs: GraphicsSpec[] = [];
 
   for (let i = 0; i < lifestyleCount; i++) {
     const idx = lifestyleIndexOffset + i;
     const prompt = customLifestylePrompt?.trim()
-      ? designStyle === "custom"
-        ? customLifestylePrompt.trim()
-        : `${customLifestylePrompt.trim()} ${styleSuffix}`
-      : `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography. ${styleSuffix}`;
+      ? customLifestylePrompt.trim()
+      : `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography.`;
     specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
   }
 
   for (let i = 0; i < featureCount; i++) {
     const idx = featureIndexOffset + i;
     const prompt = customFeaturePrompt?.trim()
-      ? designStyle === "custom"
-        ? customFeaturePrompt.trim()
-        : `${customFeaturePrompt.trim()} ${styleSuffix}`
-      : `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background. ${styleSuffix}`;
+      ? customFeaturePrompt.trim()
+      : `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background.`;
     specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt });
   }
 
@@ -197,7 +191,6 @@ async function generateGraphicsImages(
   projectId: number,
   productName: string,
   category: string | null,
-  designStyle: string,
   lifestyleCount: number,
   featureCount: number,
   sourceImagePaths?: string[] | null,
@@ -216,7 +209,7 @@ async function generateGraphicsImages(
   const lifestyleIndexOffset = existingLifestyle.length;
   const featureIndexOffset = existingFeature.length;
 
-  const specs = buildGraphicsSpecs(productName, category, designStyle, lifestyleCount, featureCount, lifestyleIndexOffset, featureIndexOffset, customLifestylePrompt, customFeaturePrompt);
+  const specs = buildGraphicsSpecs(productName, category, lifestyleCount, featureCount, lifestyleIndexOffset, featureIndexOffset, customLifestylePrompt, customFeaturePrompt);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -266,7 +259,7 @@ async function generateGraphicsImages(
 
       const version = {
         url: imgUrl,
-        style: designStyle,
+        style: "custom",
         aspectRatio: arKey,
         isEdit: false,
         generatedAt: new Date().toISOString(),
@@ -276,7 +269,7 @@ async function generateGraphicsImages(
         id: spec.id,
         type: spec.type,
         index: spec.index,
-        style: designStyle,
+        style: "custom",
         aspectRatio: arKey,
         currentUrl: imgUrl,
         versions: [version],
@@ -472,7 +465,7 @@ async function downloadImage(url: string, destPath: string): Promise<string | nu
 // ─── Create project ───────────────────────────────────────────────────────────
 router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
-  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number; imageTypes?: string[]; customPrompt?: string; auditId?: number };
+  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number; imageTypes?: string[]; customPrompt?: string; auditId?: number };
 
   // Derive lifestyleCount and featureCount from imageTypes if provided
   let lifestyleCount = body.lifestyleCount ?? 0;
@@ -489,7 +482,6 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
     productName: body.productName,
     category: body.category ?? null,
     sourceImageUrls: body.sourceImageUrls ?? null,
-    designStyle: body.designStyle ?? "modern",
     lifestyleCount: lifestyleCount,
     featureCount: featureCount,
     status: "draft",
@@ -571,7 +563,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAcc
 
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const body = req.body as { name?: string; productName?: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number };
+  const body = req.body as { name?: string; productName?: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number };
   const [updated] = await db
     .update(graphicsProjectsTable)
     .set({ ...body, updatedAt: new Date() })
@@ -653,7 +645,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   // Run generation in background
   (async () => {
     try {
-      const generateStyle = body.style ?? project.designStyle;
+      const generateStyle = body.style ?? "custom";
       const generateAspectRatio = body.aspectRatio ?? "1:1";
       const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
       const existingCount = existingRecords.length;
@@ -677,7 +669,6 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
           id,
           project.productName,
           project.category,
-          generateStyle,
           lifestyleCount,
           featureCount,
           project.sourceImageUrls,

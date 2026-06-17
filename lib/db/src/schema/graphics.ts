@@ -3,9 +3,6 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { imageRecordSchema, imageVersionSchema } from "./audits";
 
-export const DESIGN_STYLES = ["modern", "luxury", "outdoor", "minimalist"] as const;
-export type DesignStyle = (typeof DESIGN_STYLES)[number];
-
 export const GRAPHICS_TYPES = ["lifestyle", "feature"] as const;
 export type GraphicsType = (typeof GRAPHICS_TYPES)[number];
 
@@ -36,7 +33,6 @@ export const graphicsProjectsTable = pgTable("graphics_projects", {
   productName: text("product_name").notNull(),
   category: text("category"),
   sourceImageUrls: text("source_image_urls").array(),
-  designStyle: text("design_style").notNull().default("modern"),
   status: text("status").notNull().default("draft"),
   lifestyleCount: integer("lifestyle_count").notNull().default(0),
   featureCount: integer("feature_count").notNull().default(0),

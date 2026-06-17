@@ -17,7 +17,6 @@ interface GraphicsProject {
   name: string;
   productName: string;
   category: string | null;
-  designStyle: string;
   status: string;
   lifestyleCount: number;
   featureCount: number;
@@ -97,7 +96,7 @@ export default function AdminGraphicsLogs() {
                 </td>
                 <td className="px-4 py-3">
                   <span className="text-xs font-medium capitalize px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                    {p.designStyle}
+                    {p.productName}
                   </span>
                 </td>
                 <td className="px-4 py-3">
