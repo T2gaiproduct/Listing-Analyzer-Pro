@@ -472,7 +472,15 @@ async function downloadImage(url: string, destPath: string): Promise<string | nu
 // ─── Create project ───────────────────────────────────────────────────────────
 router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
-  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number; auditId?: number };
+  const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; designStyle?: string; lifestyleCount?: number; featureCount?: number; imageTypes?: string[]; customPrompt?: string; auditId?: number };
+
+  // Derive lifestyleCount and featureCount from imageTypes if provided
+  let lifestyleCount = body.lifestyleCount ?? 0;
+  let featureCount = body.featureCount ?? 0;
+  if (body.imageTypes && body.imageTypes.length > 0) {
+    lifestyleCount = body.imageTypes.filter((t) => !["callouts", "social", "size", "beforeafter"].includes(t)).length;
+    featureCount = body.imageTypes.filter((t) => ["callouts", "social", "size", "beforeafter"].includes(t)).length;
+  }
 
   const [project] = await db.insert(graphicsProjectsTable).values({
     userId,
@@ -482,8 +490,8 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
     category: body.category ?? null,
     sourceImageUrls: body.sourceImageUrls ?? null,
     designStyle: body.designStyle ?? "modern",
-    lifestyleCount: body.lifestyleCount ?? 0,
-    featureCount: body.featureCount ?? 0,
+    lifestyleCount: lifestyleCount,
+    featureCount: featureCount,
     status: "draft",
   }).returning();
 

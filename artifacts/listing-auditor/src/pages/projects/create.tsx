@@ -67,7 +67,16 @@ const AMAZON_CATEGORIES = [
   "Wine",
 ];
 
-const QUANTITY_OPTIONS = [1, 2, 3, 4, 5, 6];
+const IMAGE_TYPES = [
+  { id: "hero", label: "Hero Shot", desc: "White background, product centered", icon: "🏆" },
+  { id: "lifestyle", label: "Lifestyle In-Use", desc: "Product in use, real environment", icon: "🌅" },
+  { id: "callouts", label: "Feature Callouts", desc: "Numbered features, arrows", icon: "🔢" },
+  { id: "size", label: "Size Reference", desc: "Scale comparison with dimensions", icon: "📏" },
+  { id: "beforeafter", label: "Before / After", desc: "Transformation comparison", icon: "⚡" },
+  { id: "bundle", label: "Bundle Shot", desc: "All included items", icon: "📦" },
+  { id: "social", label: "Social Proof", desc: "Ratings & reviews", icon: "⭐" },
+  { id: "custom", label: "Generate Custom", desc: "Custom prompt", icon: "✨" },
+];
 
 const DESIGN_STYLES = [
   { id: "custom", label: "Custom / Manual", desc: "Use only your prompt, no style" },
@@ -78,6 +87,14 @@ const DESIGN_STYLES = [
 ];
 
 const PROMPT_MAX_CHARS = 1000;
+
+const CUSTOM_EXAMPLES = [
+  "Show the product in a modern kitchen setting with warm natural lighting",
+  "Create a minimalist product shot on a marble surface with soft shadows",
+  "Show product being used by a family on a beach during golden hour",
+  "Flat-lay overhead shot of product with complementary lifestyle props",
+  "Product on a clean desk setup with laptop and coffee, work-from-home aesthetic",
+];
 
 type Step = 1 | 2 | 3;
 
@@ -100,13 +117,9 @@ export default function CreateProject() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [lifestyleEnabled, setLifestyleEnabled] = useState(true);
-  const [lifestyleCount, setLifestyleCount] = useState(5);
-  const [featureEnabled, setFeatureEnabled] = useState(true);
-  const [featureCount, setFeatureCount] = useState(3);
+  const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
+  const [customPrompt, setCustomPrompt] = useState("");
   const [designStyle, setDesignStyle] = useState("custom");
-  const [lifestylePrompt, setLifestylePrompt] = useState("");
-  const [featurePrompt, setFeaturePrompt] = useState("");
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -142,8 +155,8 @@ export default function CreateProject() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          customLifestylePrompt: lifestylePrompt.trim() || undefined,
-          customFeaturePrompt: featurePrompt.trim() || undefined,
+          imageTypes: selectedImageTypes,
+          customPrompt: customPrompt.trim() || undefined,
         }),
       });
       nav(`/projects/${project.id}/generating`);
@@ -243,7 +256,7 @@ export default function CreateProject() {
 
   const canContinue = () => {
     if (step === 1) return productName.trim().length > 0;
-    if (step === 2) return lifestyleEnabled || featureEnabled;
+    if (step === 2) return selectedImageTypes.length > 0;
     return true;
   };
 
@@ -255,10 +268,8 @@ export default function CreateProject() {
         category,
         sourceImageUrls: uploadedImages,
         designStyle,
-        lifestyleCount: lifestyleEnabled ? lifestyleCount : 0,
-        featureCount: featureEnabled ? featureCount : 0,
-        customLifestylePrompt: lifestylePrompt.trim() || undefined,
-        customFeaturePrompt: featurePrompt.trim() || undefined,
+        imageTypes: selectedImageTypes,
+        customPrompt: customPrompt.trim() || undefined,
       });
     } else {
       setStep((s) => (s + 1) as Step);
@@ -416,97 +427,62 @@ export default function CreateProject() {
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Select Graphics</h2>
-              <p className="text-xs text-slate-500">What would you like to create?</p>
+              <p className="text-xs text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
             </div>
           </div>
 
-          {/* Lifestyle Images */}
-          <div className={`rounded-xl border-2 p-3 transition-all ${lifestyleEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
-            <div className="flex items-start gap-3">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${lifestyleEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
-                onClick={() => setLifestyleEnabled(!lifestyleEnabled)}
-              >
-                {lifestyleEnabled ? <Check className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 text-sm">Lifestyle Images</h3>
-                    <p className="text-xs text-slate-400">Realistic lifestyle images</p>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer ${lifestyleEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
-                    onClick={() => setLifestyleEnabled(!lifestyleEnabled)}
-                  >
-                    {lifestyleEnabled && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                </div>
-                {lifestyleEnabled && (
-                  <div className="mt-2">
-                    <p className="text-xs text-slate-400 mb-1.5">Quantity</p>
-                    <div className="flex gap-1.5">
-                      {QUANTITY_OPTIONS.map((q) => (
-                        <button
-                          key={q}
-                          onClick={() => setLifestyleCount(q)}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${lifestyleCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+          <div className="grid grid-cols-2 gap-3">
+            {IMAGE_TYPES.map((type) => {
+              const isSelected = selectedImageTypes.includes(type.id);
+              return (
+                <div
+                  key={type.id}
+                  onClick={() => {
+                    setSelectedImageTypes((prev) =>
+                      prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
+                    );
+                  }}
+                  className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
+                    isSelected
+                      ? "border-purple-600 bg-purple-50/30"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-xl leading-none mt-0.5">{type.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                          {type.label}
+                        </h3>
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                          }`}
                         >
-                          {q}
-                        </button>
-                      ))}
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Feature / Infographics */}
-          <div className={`rounded-xl border-2 p-3 transition-all ${featureEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
-            <div className="flex items-start gap-3">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${featureEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
-                onClick={() => setFeatureEnabled(!featureEnabled)}
-              >
-                {featureEnabled ? <Check className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 text-sm">Infographics</h3>
-                    <p className="text-xs text-slate-400">Highlight features</p>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer ${featureEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
-                    onClick={() => setFeatureEnabled(!featureEnabled)}
-                  >
-                    {featureEnabled && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                </div>
-                {featureEnabled && (
-                  <div className="mt-2">
-                    <p className="text-xs text-slate-400 mb-1.5">Quantity</p>
-                    <div className="flex gap-1.5">
-                      {QUANTITY_OPTIONS.map((q) => (
-                        <button
-                          key={q}
-                          onClick={() => setFeatureCount(q)}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${featureCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
-                        >
-                          {q}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+          {selectedImageTypes.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+                {selectedImageTypes.length} selected
+              </span>
+              <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* Step 3: Choose Design Style */}
+      {/* Step 3: Design Style & Custom Prompt */}
       {step === 3 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -515,48 +491,42 @@ export default function CreateProject() {
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
-              <p className="text-xs text-slate-500">Select a style. Add custom prompts for better results.</p>
+              <p className="text-xs text-slate-500">Select a style and add a custom prompt if desired.</p>
             </div>
           </div>
 
-          {lifestyleEnabled && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-700">
-                Lifestyle Prompt <span className="text-slate-400 font-normal">(optional)</span>
-                {lifestylePrompt.length > 0 && (
-                  <span className={`ml-2 text-xs font-medium ${lifestylePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : lifestylePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
-                    {lifestylePrompt.length} / {PROMPT_MAX_CHARS}
+          {selectedImageTypes.includes("custom") && (
+            <div className="space-y-2 rounded-xl border border-purple-200 bg-purple-50/30 p-3">
+              <label className="text-xs font-medium text-purple-900">
+                Custom Prompt
+                {customPrompt.length > 0 && (
+                  <span className={`ml-2 text-xs font-medium ${customPrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : "text-slate-400"}`}>
+                    {customPrompt.length} / {PROMPT_MAX_CHARS}
                   </span>
                 )}
               </label>
               <Textarea
-                value={lifestylePrompt}
-                onChange={(e) => setLifestylePrompt(e.target.value)}
-                placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
-                rows={2}
-                className="resize-none text-xs"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder="Describe exactly what you want the AI to create. Be specific about the scene, lighting, composition, and mood."
+                rows={3}
+                className="resize-none text-xs bg-white"
               />
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Example prompts</p>
+                {CUSTOM_EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    className="block text-left text-[11px] text-purple-600 hover:text-purple-700 hover:underline w-full"
+                    onClick={() => setCustomPrompt(ex)}
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
-          {featureEnabled && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-700">
-                Infographic Prompt <span className="text-slate-400 font-normal">(optional)</span>
-                {featurePrompt.length > 0 && (
-                  <span className={`ml-2 text-xs font-medium ${featurePrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : featurePrompt.length > PROMPT_MAX_CHARS * 0.8 ? "text-amber-500" : "text-slate-400"}`}>
-                    {featurePrompt.length} / {PROMPT_MAX_CHARS}
-                  </span>
-                )}
-              </label>
-              <Textarea
-                value={featurePrompt}
-                onChange={(e) => setFeaturePrompt(e.target.value)}
-                placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
-                rows={2}
-                className="resize-none text-xs"
-              />
-            </div>
-          )}
+
           <div className="grid grid-cols-3 gap-2">
             {DESIGN_STYLES.map((style) => {
               const isCustom = style.id === "custom";
