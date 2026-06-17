@@ -523,9 +523,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         </div>
 
         {/* All Images */}
-        {allRecords.length > 0 && (
+        {records.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {allRecords.map((record) => (
+            {records.map((record) => (
               <ImageCard
                 key={record.id}
                 record={record}
