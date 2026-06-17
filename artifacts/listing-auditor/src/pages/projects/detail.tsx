@@ -237,8 +237,6 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   };
 
   const records = project?.imageRecords ?? [];
-  const lifestyleRecords = records.filter((r) => r.type === "lifestyle");
-  const featureRecords = records.filter((r) => r.type === "feature");
   const isGenerating = project?.status === "generating";
   const hasRecords = records.length > 0;
 
@@ -320,51 +318,22 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
         </Card>
       )}
 
-      {/* Lifestyle Images */}
-      {!isLoading && !isGenerating && lifestyleRecords.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Lifestyle Images ({lifestyleRecords.length})</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {lifestyleRecords.map((record) => (
-              <ImageCard
-                key={record.id}
-                record={record}
-                canEdit={canEdit}
-                isLoading={loadingIds.has(record.id)}
-                onRegenerate={() => handleRegenerate(record)}
-                onEdit={() => handleOpenEdit(record)}
-                onHistory={() => setHistoryRecord(record)}
-                onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
-                onView={() => window.open(record.currentUrl.startsWith("http") ? record.currentUrl : `${basePath}${record.currentUrl}`, "_blank")}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Infographics */}
-      {!isLoading && !isGenerating && featureRecords.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Infographics ({featureRecords.length})</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {featureRecords.map((record) => (
-              <ImageCard
-                key={record.id}
-                record={record}
-                canEdit={canEdit}
-                isLoading={loadingIds.has(record.id)}
-                onRegenerate={() => handleRegenerate(record)}
-                onEdit={() => handleOpenEdit(record)}
-                onHistory={() => setHistoryRecord(record)}
-                onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
-                onView={() => window.open(record.currentUrl.startsWith("http") ? record.currentUrl : `${basePath}${record.currentUrl}`, "_blank")}
-              />
-            ))}
-          </div>
+      {/* All Images */}
+      {!isLoading && !isGenerating && records.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {records.map((record) => (
+            <ImageCard
+              key={record.id}
+              record={record}
+              canEdit={canEdit}
+              isLoading={loadingIds.has(record.id)}
+              onRegenerate={() => handleRegenerate(record)}
+              onEdit={() => handleOpenEdit(record)}
+              onHistory={() => setHistoryRecord(record)}
+              onDownload={() => handleDownload(record.currentUrl, `${record.id}.png`)}
+              onView={() => window.open(record.currentUrl.startsWith("http") ? record.currentUrl : `${basePath}${record.currentUrl}`, "_blank")}
+            />
+          ))}
         </div>
       )}
 
