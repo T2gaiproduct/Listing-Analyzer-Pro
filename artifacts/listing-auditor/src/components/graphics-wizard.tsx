@@ -148,14 +148,11 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   // Generate More Images modal state
   const [showMore, setShowMore] = useState(false);
-  const [moreStep, setMoreStep] = useState<1 | 2>(1);
-  const [moreLifestyleEnabled, setMoreLifestyleEnabled] = useState(false);
-  const [moreLifestyleCount, setMoreLifestyleCount] = useState(2);
-  const [moreFeatureEnabled, setMoreFeatureEnabled] = useState(false);
-  const [moreFeatureCount, setMoreFeatureCount] = useState(1);
-  const [moreStyle, setMoreStyle] = useState("custom");
-  const [moreLifestylePrompt, setMoreLifestylePrompt] = useState("");
-  const [moreFeaturePrompt, setMoreFeaturePrompt] = useState("");
+  const [moreStep, setMoreStep] = useState<"select" | "custom" | "generating">("select");
+  const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [moreEtaSeconds, setMoreEtaSeconds] = useState(0);
+  const [moreProgress, setMoreProgress] = useState(0);
 
   const { data: existingProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId],
@@ -296,7 +293,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   });
 
   const generateMoreMutation = useMutation({
-    mutationFn: async ({ pid, payload }: { pid: number; payload: { additionalLifestyleCount?: number; additionalFeatureCount?: number; style?: string; customLifestylePrompt?: string; customFeaturePrompt?: string } }) => {
+    mutationFn: async ({ pid, payload }: { pid: number; payload: { imageTypes?: string[]; customPrompt?: string } }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${pid}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -496,14 +493,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
                 onClick={() => {
                   setShowMore(true);
-                  setMoreStep(1);
-                  setMoreLifestyleEnabled(false);
-                  setMoreLifestyleCount(2);
-                  setMoreFeatureEnabled(false);
-                  setMoreFeatureCount(1);
-                  setMoreStyle(displayProject?.designStyle ?? "modern");
-                  setMoreLifestylePrompt("");
-                  setMoreFeaturePrompt("");
+                  setMoreStep("select");
+                  setSelectedImageTypes([]);
+                  setCustomPrompt("");
                 }}
               >
                 <Sparkles className="w-4 h-4" />
@@ -686,225 +678,210 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         </Dialog>
 
         {/* Generate More Images Dialog */}
-        <Dialog open={showMore} onOpenChange={(o) => { if (!o) setShowMore(false); }}>
-          <DialogContent className="max-w-2xl">
+        <Dialog open={showMore} onOpenChange={(o) => {
+          if (!o) {
+            setShowMore(false);
+            setMoreStep("select");
+            setSelectedImageTypes([]);
+            setCustomPrompt("");
+          }
+        }}>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Generate More Images</DialogTitle>
             </DialogHeader>
 
-            {/* Step indicator */}
-            <div className="mb-6">
-              <div className="flex items-center">
-                {[{ id: 1, label: "Select Graphics" }, { id: 2, label: "Design Style" }].map((s, idx, arr) => (
-                  <div key={s.id} className="flex items-center flex-1">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                        s.id < moreStep ? "bg-purple-600 text-white" :
-                        s.id === moreStep ? "bg-purple-600 text-white" :
-                        "bg-white text-slate-400 border-2 border-slate-200"
-                      }`}>
-                        {s.id < moreStep ? <Check className="w-4 h-4" /> : s.id}
-                      </div>
-                      <div className="mt-2 text-center">
-                        <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === moreStep ? "text-purple-600" : "text-slate-400"}`}>
-                          Step {s.id} of 2
-                        </p>
-                        <p className={`text-sm font-medium ${s.id === moreStep ? "text-slate-900" : "text-slate-400"}`}>{s.label}</p>
-                      </div>
-                    </div>
-                    {idx < arr.length - 1 && (
-                      <div className={`flex-1 h-0.5 mx-2 mb-6 ${s.id < moreStep ? "bg-purple-600" : "bg-slate-200"}`} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Step 1: Select Graphics */}
-            {moreStep === 1 && (
+            {/* Step 1: Select Image Types */}
+            {moreStep === "select" && (
               <div className="space-y-4">
-                <p className="text-sm text-slate-500">Choose how many additional images to generate.</p>
+                <p className="text-sm text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
 
-                {/* Lifestyle */}
-                <div className={`rounded-xl border-2 p-4 transition-all ${moreLifestyleEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer ${moreLifestyleEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
-                      onClick={() => setMoreLifestyleEnabled(!moreLifestyleEnabled)}
-                    >
-                      {moreLifestyleEnabled ? <Check className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-slate-900 text-sm">Lifestyle Images</h3>
-                          <p className="text-xs text-slate-400">Additional lifestyle images</p>
-                        </div>
-                        <div
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${moreLifestyleEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
-                          onClick={() => setMoreLifestyleEnabled(!moreLifestyleEnabled)}
-                        >
-                          {moreLifestyleEnabled && <Check className="w-3.5 h-3.5 text-white" />}
-                        </div>
-                      </div>
-                      {moreLifestyleEnabled && (
-                        <div className="mt-3 flex gap-2">
-                          {QUANTITY_OPTIONS.map((q) => (
-                            <button
-                              key={q}
-                              onClick={() => setMoreLifestyleCount(q)}
-                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${moreLifestyleCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
-                            >
-                              {q}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Infographics */}
-                <div className={`rounded-xl border-2 p-4 transition-all ${moreFeatureEnabled ? "border-purple-200 bg-purple-50/20" : "border-slate-100 bg-white"}`}>
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer ${moreFeatureEnabled ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"}`}
-                      onClick={() => setMoreFeatureEnabled(!moreFeatureEnabled)}
-                    >
-                      {moreFeatureEnabled ? <Check className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-slate-900 text-sm">Infographics</h3>
-                          <p className="text-xs text-slate-400">Additional feature graphics</p>
-                        </div>
-                        <div
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${moreFeatureEnabled ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}
-                          onClick={() => setMoreFeatureEnabled(!moreFeatureEnabled)}
-                        >
-                          {moreFeatureEnabled && <Check className="w-3.5 h-3.5 text-white" />}
-                        </div>
-                      </div>
-                      {moreFeatureEnabled && (
-                        <div className="mt-3 flex gap-2">
-                          {QUANTITY_OPTIONS.map((q) => (
-                            <button
-                              key={q}
-                              onClick={() => setMoreFeatureCount(q)}
-                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${moreFeatureCount === q ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
-                            >
-                              {q}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Design Style */}
-            {moreStep === 2 && (
-              <div className="space-y-4">
-                <p className="text-sm text-slate-500">Select a style for the new images. Optionally add custom prompts to replace the default AI template.</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {DESIGN_STYLES.map((style) => {
-                    const isCustom = style.id === "custom";
-                    const isSelected = moreStyle === style.id;
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: "hero", label: "Hero Shot", desc: "White background", icon: "🏆" },
+                    { id: "lifestyle", label: "Lifestyle In-Use", desc: "Product in use", icon: "🌅" },
+                    { id: "callouts", label: "Feature Callouts", desc: "Numbered features", icon: "🔢" },
+                    { id: "size", label: "Size Reference", desc: "Scale comparison", icon: "📏" },
+                    { id: "beforeafter", label: "Before / After", desc: "Transformation", icon: "⚡" },
+                    { id: "bundle", label: "Bundle Shot", desc: "All included items", icon: "📦" },
+                    { id: "social", label: "Social Proof", desc: "Ratings & reviews", icon: "⭐" },
+                    { id: "custom", label: "Generate Custom", desc: "Custom prompt", icon: "✨" },
+                  ].map((type) => {
+                    const isSelected = selectedImageTypes.includes(type.id);
                     return (
                       <div
-                        key={style.id}
-                        className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all p-3 ${isSelected ? "border-purple-600 bg-purple-50/20" : "border-transparent hover:border-slate-200 bg-white"}`}
-                        onClick={() => setMoreStyle(style.id)}
+                        key={type.id}
+                        onClick={() => {
+                          setSelectedImageTypes((prev) =>
+                            prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
+                          );
+                        }}
+                        className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-purple-600 bg-purple-50/30"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm text-slate-900">{style.label}</p>
-                            <p className="text-xs text-slate-400 leading-tight">{style.desc}</p>
-                          </div>
-                          {isCustom && (
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"}`}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-xl leading-none mt-0.5">{type.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                                {type.label}
+                              </h3>
+                              <div
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                  isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                                }`}
+                              >
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                              </div>
                             </div>
-                          )}
+                            <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                {moreLifestyleEnabled && (
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Lifestyle Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
-                    <Textarea
-                      value={moreLifestylePrompt}
-                      onChange={(e) => setMoreLifestylePrompt(e.target.value)}
-                      placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
-                      rows={2}
-                      className="resize-none text-sm"
-                    />
+
+                {selectedImageTypes.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+                      {selectedImageTypes.length} selected
+                    </span>
+                    <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
                   </div>
                 )}
-                {moreFeatureEnabled && (
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Infographic Custom Prompt <span className="text-slate-400 font-normal">(optional)</span></label>
-                    <Textarea
-                      value={moreFeaturePrompt}
-                      onChange={(e) => setMoreFeaturePrompt(e.target.value)}
-                      placeholder="Describe your desired scene, lighting, background, and composition. For best results, be specific and detailed. Custom prompts give you full control over the output."
-                      rows={2}
-                      className="resize-none text-sm"
-                    />
-                  </div>
-                )}
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => {
+                    setSelectedImageTypes([]);
+                    setCustomPrompt("");
+                  }}>
+                    Clear
+                  </Button>
+                  <Button
+                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+                    disabled={selectedImageTypes.length === 0}
+                    onClick={() => {
+                      if (selectedImageTypes.includes("custom")) {
+                        setMoreStep("custom");
+                      } else {
+                        const pid = displayProject?.id ?? activeProjectId ?? 0;
+                        if (pid) {
+                          generateMoreMutation.mutate({
+                            pid,
+                            payload: {
+                              imageTypes: selectedImageTypes,
+                            },
+                          });
+                        }
+                        setShowMore(false);
+                      }
+                    }}
+                  >
+                    {selectedImageTypes.includes("custom") ? "Continue" : "Generate"}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t">
-              {moreStep > 1 && (
-                <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setMoreStep(1)}>
-                  Back
-                </Button>
-              )}
-              <Button
-                className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-                disabled={moreStep === 1 ? (!moreLifestyleEnabled && !moreFeatureEnabled) : generateMoreMutation.isPending}
-                onClick={() => {
-                  if (moreStep === 1) {
-                    setMoreStep(2);
-                  } else {
-                    const pid = displayProject?.id ?? activeProjectId ?? 0;
-                    if (pid) {
-                      generateMoreMutation.mutate({
-                        pid,
-                        payload: {
-                          additionalLifestyleCount: moreLifestyleEnabled ? moreLifestyleCount : 0,
-                          additionalFeatureCount: moreFeatureEnabled ? moreFeatureCount : 0,
-                          style: moreStyle,
-                          customLifestylePrompt: moreLifestylePrompt.trim() || undefined,
-                          customFeaturePrompt: moreFeaturePrompt.trim() || undefined,
-                        },
-                      });
-                    }
-                    setShowMore(false);
-                  }
-                }}
-              >
-                {generateMoreMutation.isPending ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    {moreStep === 1 ? "Continue" : "Generate Images"}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </>
+            {/* Step 2: Custom Prompt */}
+            {moreStep === "custom" && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-purple-600">
+                    <ArrowLeft className="w-4 h-4" />
+                  </span>
+                  <span className="font-medium text-slate-900">Custom Image</span>
+                </div>
+                <p className="text-sm text-slate-500">Describe exactly what you want your custom image to look like.</p>
+
+                <Textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Describe your scene, lighting, composition, and background. Be specific and detailed."
+                  rows={4}
+                  className="resize-none text-sm"
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">{customPrompt.length} characters</span>
+                  <span className={customPrompt.trim().length > 0 ? "text-purple-600" : "text-slate-400"}>
+                    {customPrompt.trim().length > 0 ? "Ready to generate" : "Add a prompt to continue"}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Need inspiration? Try these:</p>
+                  {[
+                    "A sleek coffee mug on a marble countertop with morning sunlight streaming through a window",
+                    "My product floating on a cloud against a pastel gradient background with soft shadows",
+                    "A 3D render of my product on a rotating pedestal with dramatic rim lighting",
+                  ].map((ex, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCustomPrompt(ex)}
+                      className="w-full text-left p-3 rounded-lg border border-slate-200 bg-slate-50/50 text-sm text-slate-600 hover:border-purple-300 hover:bg-purple-50/30 transition-all"
+                    >
+                      <span className="text-purple-400">&ldquo;</span>{ex}<span className="text-purple-400">&rdquo;</span>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedImageTypes.filter(s => s !== "custom").length > 0 && (
+                  <div className="pt-3 border-t border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Also generating:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedImageTypes.filter(s => s !== "custom").map((id) => {
+                        const type = [
+                          { id: "hero", label: "Hero Shot" },
+                          { id: "lifestyle", label: "Lifestyle" },
+                          { id: "callouts", label: "Callouts" },
+                          { id: "size", label: "Size Reference" },
+                          { id: "beforeafter", label: "Before/After" },
+                          { id: "bundle", label: "Bundle" },
+                          { id: "social", label: "Social Proof" },
+                        ].find((t) => t.id === id);
+                        return (
+                          <span key={id} className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
+                            {type?.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
-              </Button>
-            </div>
+
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setMoreStep("select")}>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                  <Button
+                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+                    disabled={!customPrompt.trim()}
+                    onClick={() => {
+                      const pid = displayProject?.id ?? activeProjectId ?? 0;
+                      if (pid) {
+                        generateMoreMutation.mutate({
+                          pid,
+                          payload: {
+                            imageTypes: selectedImageTypes,
+                            customPrompt: customPrompt.trim(),
+                          },
+                        });
+                      }
+                      setShowMore(false);
+                    }}
+                  >
+                    Generate {selectedImageTypes.length} Image{selectedImageTypes.length > 1 ? "s" : ""}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

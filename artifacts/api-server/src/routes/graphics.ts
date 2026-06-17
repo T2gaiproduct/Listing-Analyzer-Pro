@@ -136,6 +136,60 @@ function buildGraphicsSpecs(
   return specs;
 }
 
+// AI prompt instructions for each image type (from the Listing Image Instructions)
+const IMAGE_TYPE_PROMPTS: Record<string, (productDesc: string) => string> = {
+  hero: (productDesc) => `Amazon main product image for ${productDesc}. Pure white background, product centered, product taking 80-85% of the canvas. No lifestyle props, no heavy text, no decorative background. Product sharp, clean, and premium. Studio lighting with soft shadows. No text, no logos, no watermarks. High-resolution commercial product photo.`,
+  lifestyle: (productDesc) => `Lifestyle product scene for ${productDesc}. Product being used by a target customer in a realistic environment. Emotional buying appeal, product clearly visible, natural lighting, clean composition. No text, no logos, no watermarks. Professional commercial photography.`,
+  callouts: (productDesc) => `Infographic image for ${productDesc}. Product in center with numbered feature callouts. Arrows, labels, or pointers. Short benefit-driven text. Clean Amazon-style layout. No text, no logos, no watermarks. Professional commercial product photography.`,
+  size: (productDesc) => `Size reference image for ${productDesc}. Product scale clearly shown with dimensions. Human hand, table, ruler, or common object for comparison. Easy-to-understand layout. No text, no logos, no watermarks. Professional commercial product photography.`,
+  beforeafter: (productDesc) => `Before/after transformation image for ${productDesc}. Clear left-right comparison with "Before" and "After" labels. Product benefit or transformation shown. Clean and credible design. No text, no logos, no watermarks. Professional commercial product photography.`,
+  bundle: (productDesc) => `Bundle shot image for ${productDesc}. Main product with accessories or included items. Labels if needed. Clean product arrangement. Premium e-commerce look. No text, no logos, no watermarks. Professional commercial product photography.`,
+  social: (productDesc) => `Social proof image for ${productDesc}. Star rating style, short review-style highlight, product visible. Clean and trustworthy layout. No text, no logos, no watermarks. Professional commercial product photography.`,
+  custom: () => "",
+};
+
+function buildNewImageSpecs(
+  productName: string,
+  category: string | null,
+  imageTypes: string[],
+  customPrompt?: string,
+  existingRecords?: GraphicsImageRecord[],
+): GraphicsSpec[] {
+  const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
+  const existing = existingRecords ?? [];
+  const existingLifestyle = existing.filter(r => r.type === "lifestyle").length;
+  const existingFeature = existing.filter(r => r.type === "feature").length;
+  const specs: GraphicsSpec[] = [];
+  let lifestyleIndex = existingLifestyle;
+  let featureIndex = existingFeature;
+
+  for (const type of imageTypes) {
+    if (type === "custom") {
+      if (!customPrompt?.trim()) continue;
+      const idx = lifestyleIndex;
+      const prompt = `${customPrompt.trim()} Product: ${productDesc}. Professional commercial product photography. High-resolution. No text, no logos, no watermarks.`;
+      specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
+      lifestyleIndex++;
+      continue;
+    }
+    const promptBuilder = IMAGE_TYPE_PROMPTS[type];
+    if (!promptBuilder) continue;
+    const prompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution. No text, no logos, no watermarks.`;
+    const isFeature = type === "callouts" || type === "social" || type === "size" || type === "beforeafter";
+    if (isFeature) {
+      const idx = featureIndex;
+      specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt });
+      featureIndex++;
+    } else {
+      const idx = lifestyleIndex;
+      specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
+      lifestyleIndex++;
+    }
+  }
+
+  return specs;
+}
+
 const MAX_CONCURRENT_IMAGES = 3;
 const IMAGE_GENERATION_MS = 30000;
 
@@ -223,6 +277,105 @@ async function generateGraphicsImages(
         type: spec.type,
         index: spec.index,
         style: designStyle,
+        aspectRatio: arKey,
+        currentUrl: imgUrl,
+        versions: [version],
+      });
+
+      generatedCount++;
+      await db.update(graphicsProjectsTable)
+        .set({ generatedCount, updatedAt: new Date() })
+        .where(eq(graphicsProjectsTable.id, projectId));
+    } catch (err) {
+      errors.push({ id: spec.id, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  await Promise.all(specs.map((spec) => limit(() => generateOne(spec))));
+
+  if (records.length === 0) {
+    const summary = errors.map((e) => `${e.id}: ${e.error}`).join("; ");
+    throw new Error(`All image generations failed: ${summary}`);
+  }
+
+  return records;
+}
+
+async function generateNewImageTypes(
+  projectId: number,
+  productName: string,
+  category: string | null,
+  imageTypes: string[],
+  customPrompt: string | undefined,
+  sourceImagePaths?: string[] | null,
+  aspectRatio?: string,
+  existingRecords?: GraphicsImageRecord[],
+  startIndex?: number,
+): Promise<GraphicsImageRecord[]> {
+  const dir = path.join(IMAGES_DIR, String(projectId));
+  ensureDir(dir);
+
+  const existing = existingRecords ?? [];
+  const specs = buildNewImageSpecs(productName, category, imageTypes, customPrompt, existing);
+  const records: GraphicsImageRecord[] = [];
+  const errors: Array<{ id: string; error: string }> = [];
+
+  const limit = pLimit(MAX_CONCURRENT_IMAGES);
+
+  let generatedCount = startIndex ?? 0;
+
+  // Resolve source image path: download remote URLs to local file
+  let sourcePath: string | null = null;
+  const rawPath = sourceImagePaths?.[0] ?? null;
+  if (rawPath) {
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      const destPath = path.join(dir, "source_remote.jpg");
+      const downloaded = await downloadImage(rawPath, destPath);
+      if (downloaded) {
+        sourcePath = downloaded;
+        console.log(`[generateNewImageTypes] Downloaded source image from ${rawPath} to ${downloaded}`);
+      } else {
+        console.log(`[generateNewImageTypes] Failed to download source image from ${rawPath}`);
+      }
+    } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
+      sourcePath = rawPath;
+    }
+  }
+
+  async function generateOne(spec: GraphicsSpec): Promise<void> {
+    const filename = versionedFilename(spec.type, spec.index);
+    const filePath = path.join(dir, filename);
+    const imgUrl = urlPath(projectId, filename);
+
+    try {
+      const arKey = aspectRatio ?? "1:1";
+      const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
+      let buffer: Buffer;
+      const sourceFileIsValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+      if (sourceFileIsValid) {
+        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${spec.prompt}`;
+        console.log(`[generateNewImageTypes] Using reference image for ${spec.id}: ${sourcePath}`);
+        buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);
+      } else {
+        console.log(`[generateNewImageTypes] No valid source image, generating without reference for ${spec.id}`);
+        buffer = await generateImageBuffer(spec.prompt, size);
+      }
+      if (!buffer || buffer.length === 0) throw new Error("No image data returned");
+      fs.writeFileSync(filePath, buffer);
+
+      const version = {
+        url: imgUrl,
+        style: "custom",
+        aspectRatio: arKey,
+        isEdit: false,
+        generatedAt: new Date().toISOString(),
+      };
+
+      records.push({
+        id: spec.id,
+        type: spec.type,
+        index: spec.index,
+        style: "custom",
         aspectRatio: arKey,
         currentUrl: imgUrl,
         versions: [version],
@@ -433,12 +586,20 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const body = req.body as { style?: string; aspectRatio?: string; additionalLifestyleCount?: number; additionalFeatureCount?: number; customLifestylePrompt?: string; customFeaturePrompt?: string };
+  const body = req.body as { style?: string; aspectRatio?: string; imageTypes?: string[]; customPrompt?: string; additionalLifestyleCount?: number; additionalFeatureCount?: number; customLifestylePrompt?: string; customFeaturePrompt?: string };
 
+  // Support both old payload (additionalLifestyleCount/additionalFeatureCount) and new payload (imageTypes)
+  const isNewFlow = Array.isArray(body.imageTypes) && body.imageTypes.length > 0;
   const isAdditional = (body.additionalLifestyleCount ?? 0) > 0 || (body.additionalFeatureCount ?? 0) > 0;
-  const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
-  const featureCount = isAdditional ? (body.additionalFeatureCount ?? 0) : project.featureCount;
-  const totalImages = lifestyleCount + featureCount;
+
+  let totalImages: number;
+  if (isNewFlow) {
+    totalImages = body.imageTypes!.length;
+  } else {
+    const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
+    const featureCount = isAdditional ? (body.additionalFeatureCount ?? 0) : project.featureCount;
+    totalImages = lifestyleCount + featureCount;
+  }
 
   if (totalImages === 0) { res.status(400).json({ error: "No image types selected" }); return; }
 
@@ -455,11 +616,26 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
   const existingLifestyle = existingRecords.filter(r => r.type === "lifestyle");
   const existingFeature = existingRecords.filter(r => r.type === "feature");
+
+  // For new flow, estimate future counts by mapping image types to lifestyle/feature
+  let newLifestyleCount = 0;
+  let newFeatureCount = 0;
+  if (isNewFlow && body.imageTypes) {
+    for (const t of body.imageTypes) {
+      const isFeature = t === "callouts" || t === "social" || t === "size" || t === "beforeafter";
+      if (isFeature) newFeatureCount++;
+      else newLifestyleCount++;
+    }
+  } else {
+    newLifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
+    newFeatureCount = isAdditional ? (body.additionalFeatureCount ?? 0) : project.featureCount;
+  }
+
   await db.update(graphicsProjectsTable)
     .set({
       status: "generating",
-      lifestyleCount: existingLifestyle.length + lifestyleCount,
-      featureCount: existingFeature.length + featureCount,
+      lifestyleCount: existingLifestyle.length + newLifestyleCount,
+      featureCount: existingFeature.length + newFeatureCount,
       updatedAt: new Date(),
     })
     .where(eq(graphicsProjectsTable.id, id));
@@ -473,20 +649,37 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
       const generateAspectRatio = body.aspectRatio ?? "1:1";
       const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
       const existingCount = existingRecords.length;
-      const newRecords = await generateGraphicsImages(
-        id,
-        project.productName,
-        project.category,
-        generateStyle,
-        lifestyleCount,
-        featureCount,
-        project.sourceImageUrls,
-        generateAspectRatio,
-        existingRecords,
-        existingCount,
-        body.customLifestylePrompt,
-        body.customFeaturePrompt,
-      );
+      let newRecords: GraphicsImageRecord[];
+      if (isNewFlow && body.imageTypes) {
+        newRecords = await generateNewImageTypes(
+          id,
+          project.productName,
+          project.category,
+          body.imageTypes,
+          body.customPrompt,
+          project.sourceImageUrls,
+          generateAspectRatio,
+          existingRecords,
+          existingCount,
+        );
+      } else {
+        const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
+        const featureCount = isAdditional ? (body.additionalFeatureCount ?? 0) : project.featureCount;
+        newRecords = await generateGraphicsImages(
+          id,
+          project.productName,
+          project.category,
+          generateStyle,
+          lifestyleCount,
+          featureCount,
+          project.sourceImageUrls,
+          generateAspectRatio,
+          existingRecords,
+          existingCount,
+          body.customLifestylePrompt,
+          body.customFeaturePrompt,
+        );
+      }
 
       const mergedRecords = [...existingRecords, ...newRecords];
       const newLifestyleCount = existingRecords.filter(r => r.type === "lifestyle").length + newRecords.filter(r => r.type === "lifestyle").length;
