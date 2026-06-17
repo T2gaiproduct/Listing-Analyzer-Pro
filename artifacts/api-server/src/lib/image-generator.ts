@@ -87,32 +87,32 @@ function buildSpecs(productDesc: string): ImageSpec[] {
     {
       type: "main",
       index: 1,
-      basePrompt: `Amazon product photo of ${productDesc} showing all included accessories laid out in a flat-lay arrangement. Pure white background, overhead shot, studio lighting. No text overlays.`,
+      basePrompt: `Amazon product photo of ${productDesc} showing all included accessories laid out in a flat-lay arrangement. Pure white background, overhead shot, studio lighting. Product labels and item names are allowed. No logos, no watermarks.`,
       defaultStyle: "premium",
     },
     {
       type: "infographic",
       index: 0,
-      basePrompt: `Amazon listing infographic image for ${productDesc}. Product prominently displayed in the center. Simple arrow callout lines pointing to key product features. Navy blue and orange accent colors.`,
+      basePrompt: `Amazon listing infographic image for ${productDesc}. Product prominently displayed in the center. Simple arrow callout lines pointing to key product features. Short benefit-driven text for each feature. Navy blue and orange accent colors. Text only for feature callouts and labels. No logos, no watermarks.`,
       defaultStyle: "infographic",
     },
     {
       type: "infographic",
       index: 1,
-      basePrompt: `Amazon product feature highlight image for ${productDesc}. Product on white background with geometric icon placeholders for feature callouts arranged around it. Clean modern e-commerce design.`,
+      basePrompt: `Amazon product feature highlight image for ${productDesc}. Product on white background with geometric icon placeholders for feature callouts arranged around it. Clean modern e-commerce design. Text only for feature callouts and labels. No logos, no watermarks.`,
       defaultStyle: "infographic",
     },
     {
       type: "lifestyle",
       index: 0,
-      basePrompt: `Amazon lifestyle product scene for ${productDesc}. Product placed prominently in a modern, beautifully decorated home setting. No people. Product is the focal point. Professional commercial photography aesthetic.`,
+      basePrompt: `Amazon lifestyle product scene for ${productDesc}. Product placed prominently in a modern, beautifully decorated home setting. No people. Product is the focal point. Professional commercial photography aesthetic. No text, no logos, no watermarks.`,
       defaultStyle: "lifestyle",
     },
     {
       type: "lifestyle",
       index: 1,
-      basePrompt: `Amazon product scene for ${productDesc} styled in an upscale, contemporary environment. Product displayed prominently on a clean surface with tasteful props. No people, no text. Editorial-quality product styling.`,
-      defaultStyle: "lifestyle",
+      basePrompt: `Amazon product scene for ${productDesc} styled in an upscale, contemporary environment. Product displayed prominently on a clean surface with tasteful props. No people, no text. Editorial-quality product styling. No logos, no watermarks.`,
+      defaultStyle: "premium",
     },
   ];
 }

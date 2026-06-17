@@ -132,13 +132,13 @@ function buildGraphicsSpecs(
 
 // AI prompt instructions for each image type (from the Listing Image Instructions)
 const IMAGE_TYPE_PROMPTS: Record<string, (productDesc: string) => string> = {
-  hero: (productDesc) => `Amazon main product image for ${productDesc}. Pure white background, product centered, product taking 80-85% of the canvas. No lifestyle props, no heavy text, no decorative background. Product sharp, clean, and premium. Studio lighting with soft shadows. No text, no logos, no watermarks. High-resolution commercial product photo.`,
-  lifestyle: (productDesc) => `Lifestyle product scene for ${productDesc}. Product being used by a target customer in a realistic environment. Emotional buying appeal, product clearly visible, natural lighting, clean composition. No text, no logos, no watermarks. Professional commercial photography.`,
-  callouts: (productDesc) => `Infographic image for ${productDesc}. Product in center with numbered feature callouts. Arrows, labels, or pointers. Short benefit-driven text. Clean Amazon-style layout. No text, no logos, no watermarks. Professional commercial product photography.`,
-  size: (productDesc) => `Size reference image for ${productDesc}. Product scale clearly shown with dimensions. Human hand, table, ruler, or common object for comparison. Easy-to-understand layout. No text, no logos, no watermarks. Professional commercial product photography.`,
-  beforeafter: (productDesc) => `Before/after transformation image for ${productDesc}. Clear left-right comparison with "Before" and "After" labels. Product benefit or transformation shown. Clean and credible design. No text, no logos, no watermarks. Professional commercial product photography.`,
-  bundle: (productDesc) => `Bundle shot image for ${productDesc}. Main product with accessories or included items. Labels if needed. Clean product arrangement. Premium e-commerce look. No text, no logos, no watermarks. Professional commercial product photography.`,
-  social: (productDesc) => `Social proof image for ${productDesc}. Star rating style, short review-style highlight, product visible. Clean and trustworthy layout. No text, no logos, no watermarks. Professional commercial product photography.`,
+  hero: (productDesc) => `Amazon main product image for ${productDesc}. Pure white background, product centered, product taking 80-85% of the canvas. No lifestyle props, no heavy text, no decorative background. Product sharp, clean, and premium. Studio lighting with soft shadows. No logos, no watermarks. No text, no decorative elements.`,
+  lifestyle: (productDesc) => `Lifestyle product scene for ${productDesc}. Product being used by a target customer in a realistic environment. Emotional buying appeal, product clearly visible, natural lighting, clean composition. No logos, no watermarks. No text, no decorative elements.`,
+  callouts: (productDesc) => `Infographic image for ${productDesc}. Product in center with numbered feature callouts. Arrows, labels, or pointers. Short benefit-driven text. Clean Amazon-style layout. No logos, no watermarks. Text only for feature callouts, labels, and arrows.`,
+  size: (productDesc) => `Size reference image for ${productDesc}. Product scale clearly shown with dimensions. Human hand, table, ruler, or common object for comparison. Easy-to-understand layout. No logos, no watermarks. Dimension text and scale labels are allowed.`,
+  beforeafter: (productDesc) => `Before/after transformation image for ${productDesc}. Clear left-right comparison with "Before" and "After" labels. Product benefit or transformation shown. Clean and credible design. No logos, no watermarks. "Before" and "After" labels are allowed.`,
+  bundle: (productDesc) => `Bundle shot image for ${productDesc}. Main product with accessories or included items. Labels if needed. Clean product arrangement. Premium e-commerce look. No logos, no watermarks. Product labels and item names are allowed.`,
+  social: (productDesc) => `Social proof image for ${productDesc}. Star rating style, short review-style highlight, product visible. Clean and trustworthy layout. No logos, no watermarks. Star ratings and short review text are allowed. Avoid fake customer names or fake review claims.`,
   custom: () => "",
 };
 
@@ -161,14 +161,14 @@ function buildNewImageSpecs(
     if (type === "custom") {
       if (!customPrompt?.trim()) continue;
       const idx = lifestyleIndex;
-      const prompt = `${customPrompt.trim()} Product: ${productDesc}. Professional commercial product photography. High-resolution. No text, no logos, no watermarks.`;
+      const prompt = `${customPrompt.trim()} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
       specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
       lifestyleIndex++;
       continue;
     }
     const promptBuilder = IMAGE_TYPE_PROMPTS[type];
     if (!promptBuilder) continue;
-    const prompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution. No text, no logos, no watermarks.`;
+    const prompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution.`;
     const isFeature = type === "callouts" || type === "social" || type === "size" || type === "beforeafter";
     if (isFeature) {
       const idx = featureIndex;
