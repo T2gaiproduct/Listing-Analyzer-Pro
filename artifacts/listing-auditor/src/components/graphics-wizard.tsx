@@ -447,45 +447,33 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   // If there's a failed project, show error
   const showFailed = (existingProject?.status === "failed" && !projectId) || (project?.status === "failed" && !isGenerating);
 
-  // If generating, show progress
+  // If generating, show centered loader
   if (isGenerating) {
-    const generatingSteps = [
-      { id: "upload", label: "Product uploaded", done: true },
-      { id: "lifestyle", label: "Creating lifestyle images", done: progress > 30 },
-      { id: "feature", label: "Creating feature graphics", done: progress > 70 },
-      { id: "finalize", label: "Finalizing assets", done: progress > 95 },
-    ];
-
     return (
-      <div className="space-y-6">
-        <div className="text-center space-y-4 py-8">
+      <div className="min-h-[40vh] flex items-center justify-center">
+        <div className="text-center space-y-6 max-w-md mx-auto">
+          {/* Centered loader */}
           <div className="relative w-20 h-20 mx-auto">
-            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-              <circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" strokeWidth="6" className="text-purple-100" />
-              <circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" strokeWidth="6" className="text-purple-600"
-                strokeDasharray={226} strokeDashoffset={226 - (226 * progress) / 100} strokeLinecap="round" />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-lg font-bold text-purple-600">{Math.round(progress)}%</span>
-            </div>
+            <div className="absolute inset-0 rounded-full border-4 border-purple-100" />
+            <div className="absolute inset-0 rounded-full border-4 border-purple-600 border-t-transparent animate-spin" />
+            <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-purple-600 animate-spin" />
           </div>
-          <div>
-            <p className="text-lg font-semibold text-slate-900">Generating your graphics...</p>
-            <p className="text-sm text-slate-500 mt-1">
+
+          {/* Status text */}
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold text-slate-900">Generating your images</h1>
+            <p className="text-sm text-slate-500">
               {etaSeconds > 0 ? `ETA: ${formatEta(etaSeconds)}` : "Almost done..."}
             </p>
           </div>
-        </div>
 
-        <div className="space-y-3">
-          {generatingSteps.map((s) => (
-            <div key={s.id} className={`flex items-center gap-3 p-3 rounded-lg border ${s.done ? "border-purple-200 bg-purple-50/30" : "border-slate-100 bg-white"}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${s.done ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                {s.done ? <Check className="w-4 h-4" /> : <Loader2 className="w-4 h-4 animate-spin" />}
-              </div>
-              <span className={`text-sm font-medium ${s.done ? "text-slate-900" : "text-slate-500"}`}>{s.label}</span>
-            </div>
-          ))}
+          {/* Progress bar */}
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-purple-600 transition-all duration-500" style={{ width: `${Math.min(progress, 95)}%` }} />
+          </div>
+
+          {/* Percentage */}
+          <p className="text-xs text-slate-400">{Math.round(progress)}%</p>
         </div>
       </div>
     );
