@@ -104,8 +104,9 @@ function loadRazorpayScript(): Promise<void> {
   });
 }
 
-function CustomCreditsSection({ balance }: { balance: { ai: number; image: number; audit: number } }) {
+function CustomCreditsSection({ balance, config }: { balance: { ai: number; image: number; audit: number }; config: PaymentConfig }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(50);
   const [creditType, setCreditType] = useState("ai");
   const [buying, setBuying] = useState(false);
@@ -115,14 +116,70 @@ function CustomCreditsSection({ balance }: { balance: { ai: number; image: numbe
   async function handleBuy() {
     setBuying(true);
     try {
+      const gateway = config.defaultGateway;
       const res = await fetch(`${basePath}/api/buy-custom-credits`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ amount: quantity, creditType }),
+        credentials: "include", body: JSON.stringify({ amount: quantity, creditType, paymentMethod: gateway }),
       });
-      const d = await res.json() as { url?: string; error?: string };
-      if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
-      else { window.location.href = d.url; }
-    } catch { toast({ title: "Network error", variant: "destructive" }); }
+      const d = await res.json() as {
+        url?: string; error?: string;
+        orderId?: string; approvalUrl?: string; clientId?: string;
+        amount?: number; currency?: string; keyId?: string;
+      };
+      if (!res.ok) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); return; }
+
+      if (gateway === "stripe") {
+        if (d.url) window.location.href = d.url;
+        else toast({ title: "Purchase failed", description: "No checkout URL.", variant: "destructive" });
+        return;
+      }
+
+      if (gateway === "paypal") {
+        if (d.approvalUrl) {
+          sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
+          sessionStorage.setItem("paypal_credit_type", creditType);
+          sessionStorage.setItem("paypal_credit_amount", String(quantity));
+          window.location.href = d.approvalUrl;
+        } else {
+          toast({ title: "Purchase failed", description: "No PayPal approval URL.", variant: "destructive" });
+        }
+        return;
+      }
+
+      if (gateway === "razorpay") {
+        if (!d.orderId || !d.keyId) { toast({ title: "Purchase failed", description: "No Razorpay order.", variant: "destructive" }); return; }
+        await loadRazorpayScript();
+        const rzp = new (window as Window & { Razorpay?: new (opts: Record<string, unknown>) => { open: () => void } }).Razorpay!({
+          key: d.keyId,
+          amount: d.amount,
+          currency: d.currency,
+          name: "ListingAuditor",
+          description: `${quantity} ${creditType} credits`,
+          order_id: d.orderId,
+          handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+            const verify = await fetch(`${basePath}/api/razorpay/verify-payment`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                creditType, creditAmount: quantity,
+              }),
+            });
+            const vd = await verify.json() as { success?: boolean; addedCredits?: number; error?: string };
+            if (vd.success) {
+              toast({ title: "Credit purchase successful", description: `Added ${vd.addedCredits} ${creditType} credits.` });
+              void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
+              void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+            } else {
+              toast({ title: "Payment verification failed", description: vd.error ?? "Please contact support.", variant: "destructive" });
+            }
+          },
+        });
+        rzp.open();
+      }
+    } catch (e) { toast({ title: "Network error", description: (e as Error).message, variant: "destructive" }); }
     finally { setBuying(false); }
   }
 
@@ -481,9 +538,15 @@ export default function Billing() {
       const orderId = sessionStorage.getItem("paypal_order_id");
       const planId = sessionStorage.getItem("paypal_plan_id");
       const billingCycle = sessionStorage.getItem("paypal_billing_cycle");
+      const creditType = sessionStorage.getItem("paypal_credit_type");
+      const creditAmount = sessionStorage.getItem("paypal_credit_amount");
+      const packId = sessionStorage.getItem("paypal_pack_id");
       sessionStorage.removeItem("paypal_order_id");
       sessionStorage.removeItem("paypal_plan_id");
       sessionStorage.removeItem("paypal_billing_cycle");
+      sessionStorage.removeItem("paypal_credit_type");
+      sessionStorage.removeItem("paypal_credit_amount");
+      sessionStorage.removeItem("paypal_pack_id");
       window.history.replaceState({}, "", window.location.pathname);
 
       if (!orderId) {
@@ -496,13 +559,21 @@ export default function Billing() {
           orderId,
           ...(planId ? { planId: Number(planId) } : {}),
           ...(billingCycle ? { billingCycle } : {}),
+          ...(creditType ? { creditType } : {}),
+          ...(creditAmount ? { creditAmount: Number(creditAmount) } : {}),
+          ...(packId ? { packId: Number(packId) } : {}),
         }),
       })
         .then((r) => r.json())
-        .then((d: { success?: boolean; payer?: string; error?: string }) => {
+        .then((d: { success?: boolean; payer?: string; addedCredits?: number; creditType?: string; error?: string }) => {
           if (d.success) {
-            toast({ title: planId ? "Subscription activated" : "PayPal payment method added", description: d.payer ? `Linked to ${d.payer}` : undefined });
+            if (d.addedCredits) {
+              toast({ title: "Credit purchase successful", description: `Added ${d.addedCredits} ${d.creditType} credits.` });
+            } else {
+              toast({ title: planId ? "Subscription activated" : "PayPal payment method added", description: d.payer ? `Linked to ${d.payer}` : undefined });
+            }
             void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+            void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
             void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
           } else {
             toast({ title: "PayPal capture failed", description: d.error, variant: "destructive" });
@@ -749,7 +820,7 @@ export default function Billing() {
             </div>
           )}
           <p className="text-slate-500 text-sm">Top up your credits at any time. Add-on credits never expire after purchase. 1 credit = $0.10</p>
-          <CustomCreditsSection balance={{ ai: credits.aiCredits ?? 0, image: credits.imageCredits ?? 0, audit: credits.auditCredits ?? 0 }} />
+          <CustomCreditsSection balance={{ ai: credits.aiCredits ?? 0, image: credits.imageCredits ?? 0, audit: credits.auditCredits ?? 0 }} config={config} />
           <CreditRulesCard />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {creditPacks.map((pack) => {
@@ -770,15 +841,72 @@ export default function Billing() {
                     onClick={async () => {
                       setBuyingPackId(pack.id);
                       try {
+                        const gateway = config.defaultGateway;
                         const res = await fetch(`${basePath}/api/buy-credits`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
-                          credentials: "include", body: JSON.stringify({ packId: pack.id }),
+                          credentials: "include", body: JSON.stringify({ packId: pack.id, paymentMethod: gateway }),
                         });
-                        const d = await res.json() as { url?: string; error?: string };
-                        if (!res.ok || !d.url) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); }
-                        else { window.location.href = d.url; }
-                      } catch { toast({ title: "Network error", variant: "destructive" }); }
-                      finally { setBuyingPackId(null); }
+                        const d = await res.json() as {
+                          url?: string; error?: string;
+                          orderId?: string; approvalUrl?: string; clientId?: string;
+                          amount?: number; currency?: string; keyId?: string;
+                          creditAmount?: number;
+                        };
+                        if (!res.ok) { toast({ title: "Purchase failed", description: d.error ?? "Please try again.", variant: "destructive" }); setBuyingPackId(null); return; }
+
+                        if (gateway === "stripe") {
+                          if (d.url) window.location.href = d.url;
+                          else { toast({ title: "Purchase failed", description: "No checkout URL.", variant: "destructive" }); setBuyingPackId(null); }
+                          return;
+                        }
+
+                        if (gateway === "paypal") {
+                          if (d.approvalUrl) {
+                            sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
+                            sessionStorage.setItem("paypal_pack_id", String(pack.id));
+                            window.location.href = d.approvalUrl;
+                          } else {
+                            toast({ title: "Purchase failed", description: "No PayPal approval URL.", variant: "destructive" });
+                            setBuyingPackId(null);
+                          }
+                          return;
+                        }
+
+                        if (gateway === "razorpay") {
+                          if (!d.orderId || !d.keyId) { toast({ title: "Purchase failed", description: "No Razorpay order.", variant: "destructive" }); setBuyingPackId(null); return; }
+                          await loadRazorpayScript();
+                          const rzp = new (window as Window & { Razorpay?: new (opts: Record<string, unknown>) => { open: () => void } }).Razorpay!({
+                            key: d.keyId,
+                            amount: d.amount,
+                            currency: d.currency,
+                            name: "ListingAuditor",
+                            description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
+                            order_id: d.orderId,
+                            handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+                              const verify = await fetch(`${basePath}/api/razorpay/verify-payment`, {
+                                method: "POST", headers: { "Content-Type": "application/json" },
+                                credentials: "include",
+                                body: JSON.stringify({
+                                  razorpay_order_id: response.razorpay_order_id,
+                                  razorpay_payment_id: response.razorpay_payment_id,
+                                  razorpay_signature: response.razorpay_signature,
+                                  packId: pack.id,
+                                }),
+                              });
+                              const vd = await verify.json() as { success?: boolean; addedCredits?: number; creditType?: string; error?: string };
+                              if (vd.success) {
+                                toast({ title: "Credit purchase successful", description: `Added ${vd.addedCredits} ${vd.creditType} credits.` });
+                                void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
+                                void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+                              } else {
+                                toast({ title: "Payment verification failed", description: vd.error ?? "Please contact support.", variant: "destructive" });
+                              }
+                              setBuyingPackId(null);
+                            },
+                          });
+                          rzp.open();
+                        }
+                      } catch { toast({ title: "Network error", variant: "destructive" }); setBuyingPackId(null); }
                     }}>
                     {buyingPackId === pack.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
                     Buy — ${(pack.priceCents / 100).toFixed(2)}

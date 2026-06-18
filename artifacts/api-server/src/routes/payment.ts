@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, settingsTable, subscriptionsTable, paymentsTable, plansTable, creditsTable, creditTransactionsTable, userProfilesTable } from "@workspace/db";
+import { db, settingsTable, subscriptionsTable, paymentsTable, plansTable, creditsTable, creditPacksTable, creditTransactionsTable, userProfilesTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -20,7 +20,7 @@ async function getSetting(key: string): Promise<string> {
   return row?.value ?? "";
 }
 
-async function getGatewaySettings(): Promise<Record<string, string>> {
+export async function getGatewaySettings(): Promise<Record<string, string>> {
   const rows = await db
     .select()
     .from(settingsTable)
@@ -59,7 +59,7 @@ router.get("/payment-config", async (_req, res): Promise<void> => {
 
 // ─── Razorpay ─────────────────────────────────────────────────────────────────
 
-async function razorpayFetch<T>(path: string, method: string, body?: unknown): Promise<T> {
+export async function razorpayFetch<T>(path: string, method: string, body?: unknown): Promise<T> {
   const keyId = await getSetting("razorpay_key_id");
   const keySecret = await getSetting("razorpay_key_secret");
   const res = await fetch(`https://api.razorpay.com/v1${path}`, {
@@ -96,10 +96,11 @@ router.post("/razorpay/verify-payment", requireAuth, async (req, res): Promise<v
   const userId = auth!.userId!;
   const {
     razorpay_order_id, razorpay_payment_id, razorpay_signature,
-    planId, billingCycle,
+    planId, billingCycle, creditType, creditAmount, packId,
   } = req.body as {
     razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string;
     planId?: number; billingCycle?: string;
+    creditType?: "ai" | "image" | "audit"; creditAmount?: number; packId?: number;
   };
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -140,12 +141,51 @@ router.post("/razorpay/verify-payment", requireAuth, async (req, res): Promise<v
     }
   }
 
+  // Credit purchase
+  if (creditType && creditAmount) {
+    const { addCredits } = await import("../lib/credits");
+    const newBalance = await addCredits(
+      userId, creditType, creditAmount,
+      `Purchased ${creditAmount} ${creditType} credits via Razorpay`,
+      "custom_credit_purchase",
+      { razorpay_payment_id, gateway: "razorpay" },
+    );
+    await db.insert(paymentsTable).values({
+      userId, amount: payment.amount / 100, currency: payment.currency, status: "completed",
+      gateway: "razorpay", gatewayPaymentId: razorpay_payment_id,
+      metadata: { type: "custom_credit", credits: creditAmount, creditType },
+    });
+    res.json({ success: true, addedCredits: creditAmount, newBalance, creditType });
+    return;
+  }
+
+  if (packId) {
+    const { addCredits } = await import("../lib/credits");
+    const [pack] = await db.select().from(creditPacksTable).where(eq(creditPacksTable.id, packId));
+    if (pack) {
+      const creditType = pack.creditType as "ai" | "image" | "audit";
+      const newBalance = await addCredits(
+        userId, creditType, pack.quantity,
+        `Purchased ${pack.quantity} ${pack.creditType} credits (${pack.label ?? `Pack #${pack.id}`}) via Razorpay`,
+        "credit_pack_purchase",
+        { packId: pack.id, priceCents: pack.priceCents },
+      );
+      await db.insert(paymentsTable).values({
+        userId, amount: payment.amount / 100, currency: payment.currency, status: "completed",
+        gateway: "razorpay", gatewayPaymentId: razorpay_payment_id,
+        metadata: { type: "credit_pack", packId: pack.id, credits: pack.quantity, creditType: pack.creditType },
+      });
+      res.json({ success: true, addedCredits: pack.quantity, newBalance, creditType });
+      return;
+    }
+  }
+
   res.json({ success: true });
 });
 
 // ─── PayPal ───────────────────────────────────────────────────────────────────
 
-async function getPayPalAccessToken(): Promise<{ token: string; baseUrl: string }> {
+export async function getPayPalAccessToken(): Promise<{ token: string; baseUrl: string }> {
   const s = await getGatewaySettings();
   const clientId = s.paypal_client_id ?? "";
   const secret = s.paypal_client_secret ?? "";
@@ -217,8 +257,9 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
 router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth!.userId!;
-  const { orderId, planId, billingCycle } = req.body as {
+  const { orderId, planId, billingCycle, creditType, creditAmount, packId } = req.body as {
     orderId: string; planId?: number; billingCycle?: string;
+    creditType?: "ai" | "image" | "audit"; creditAmount?: number; packId?: number;
   };
   if (!orderId) { res.status(400).json({ error: "orderId is required" }); return; }
 
@@ -314,6 +355,46 @@ router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void
     await db.update(subscriptionsTable)
       .set({ cardBrand: "PayPal", cardLast4: payerEmail.slice(-4) || "ppal", updatedAt: now })
       .where(eq(subscriptionsTable.userId, userId));
+  }
+
+  // Credit purchase (no plan)
+  if (creditType && creditAmount) {
+    const { addCredits } = await import("../lib/credits");
+    const newBalance = await addCredits(
+      userId, creditType, creditAmount,
+      `Purchased ${creditAmount} ${creditType} credits via PayPal`,
+      "custom_credit_purchase",
+      { orderId, gateway: "paypal" },
+    );
+    await db.insert(paymentsTable).values({
+      userId, amount, currency, status: "completed",
+      gateway: "paypal", gatewayPaymentId: captureUnit?.id ?? orderId,
+      metadata: { type: "custom_credit", credits: creditAmount, creditType },
+    });
+    res.json({ success: true, payer: payerEmail, addedCredits: creditAmount, newBalance, creditType });
+    return;
+  }
+
+  // Credit pack purchase
+  if (packId) {
+    const { addCredits } = await import("../lib/credits");
+    const [pack] = await db.select().from(creditPacksTable).where(eq(creditPacksTable.id, packId));
+    if (pack) {
+      const creditType = pack.creditType as "ai" | "image" | "audit";
+      const newBalance = await addCredits(
+        userId, creditType, pack.quantity,
+        `Purchased ${pack.quantity} ${pack.creditType} credits (${pack.label ?? `Pack #${pack.id}`}) via PayPal`,
+        "credit_pack_purchase",
+        { packId: pack.id, priceCents: pack.priceCents },
+      );
+      await db.insert(paymentsTable).values({
+        userId, amount, currency, status: "completed",
+        gateway: "paypal", gatewayPaymentId: captureUnit?.id ?? orderId,
+        metadata: { type: "credit_pack", packId: pack.id, credits: pack.quantity, creditType: pack.creditType },
+      });
+      res.json({ success: true, payer: payerEmail, addedCredits: pack.quantity, newBalance, creditType });
+      return;
+    }
   }
 
   res.json({ success: true, payer: payerEmail });

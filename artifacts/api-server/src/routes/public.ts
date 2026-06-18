@@ -6,9 +6,10 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
-  userProfilesTable, subscriptionsTable, notificationsTable,
+  userProfilesTable, subscriptionsTable, notificationsTable, settingsTable,
 } from "@workspace/db";
 import { addCredits } from "../lib/credits";
+import { getGatewaySettings } from "./payment";
 
 const router: IRouter = Router();
 
@@ -475,7 +476,7 @@ router.get("/credit-packs", async (_req, res): Promise<void> => {
   res.json(packs);
 });
 
-// ─── Buy Credits (Stripe checkout for credit packs) ───────────────────────────
+// ─── Buy Credits (credit packs via any gateway) ──────────────────────────────
 
 router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
@@ -525,46 +526,142 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  // For razorpay/paypal: return pack details; frontend creates order
-  res.json({
-    pack: { id: pack.id, creditType: pack.creditType, quantity: pack.quantity, priceCents: pack.priceCents, label: pack.label },
-    paymentMethod: method,
-  });
+  if (method === "paypal") {
+    const { getPayPalAccessToken } = await import("./payment");
+    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+    const base = domain ? `https://${domain}` : "http://localhost:80";
+    let token: string, baseUrl: string;
+    try {
+      ({ token, baseUrl } = await getPayPalAccessToken());
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message }); return;
+    }
+    const orderRes = await fetch(`${baseUrl}/v2/checkout/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        intent: "CAPTURE",
+        purchase_units: [{
+          amount: { currency_code: "USD", value: (pack.priceCents / 100).toFixed(2) },
+          description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
+        }],
+        payment_source: {
+          paypal: {
+            experience_context: {
+              user_action: "PAY_NOW",
+              return_url: `${base}/billing?paypal_captured=1`,
+              cancel_url: `${base}/billing?paypal_cancelled=1`,
+            },
+          },
+        },
+      }),
+    });
+    const order = await orderRes.json() as { id?: string; links?: Array<{ rel: string; href: string }>; message?: string };
+    if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
+    const s = await getGatewaySettings();
+    const clientId = s.paypal_client_id ?? "";
+    const approvalUrl = order.links?.find((l) => l.rel === "payer-action")?.href ?? "";
+    res.json({ orderId: order.id, approvalUrl, clientId, packId: pack.id, packLabel: pack.label });
+    return;
+  }
+
+  // Razorpay: create order server-side
+  const { razorpayFetch } = await import("./payment");
+  const keyId = await db.select({ value: settingsTable.value }).from(settingsTable).where(eq(settingsTable.key, "razorpay_key_id")).then(r => r[0]?.value ?? "");
+  const order = await razorpayFetch<{ id: string; amount: number; currency: string; error?: { description: string } }>(
+    "/orders", "POST",
+    { amount: pack.priceCents, currency: "USD", receipt: `rcpt_${Date.now()}` },
+  );
+  if (order.error) { res.status(400).json({ error: order.error.description }); return; }
+  res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId, packId: pack.id, packLabel: pack.label });
 });
 
 // ─── Buy Custom Credits (Stripe checkout for arbitrary amounts) ─────────────────
 
 router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const { amount, creditType } = req.body as { amount: number; creditType: string };
+  const { amount, creditType, paymentMethod } = req.body as { amount: number; creditType: string; paymentMethod?: "stripe" | "razorpay" | "paypal" };
   if (!amount || amount < 10 || amount > 10000 || !creditType || !["ai", "image", "audit"].includes(creditType)) {
     res.status(400).json({ error: "Invalid amount (10-10000) or creditType (ai/image/audit)" });
     return;
   }
   const priceCents = amount * 10; // $0.10 per credit
+  const method = paymentMethod ?? "stripe";
 
-  const { getUncachableStripeClient } = await import("../stripeClient");
-  const stripe = await getUncachableStripeClient();
-  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-  const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
-  const successUrl = `${baseUrl}/billing?custom_credit_success={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
+  if (method === "stripe") {
+    const { getUncachableStripeClient } = await import("../stripeClient");
+    const stripe = await getUncachableStripeClient();
+    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+    const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
+    const successUrl = `${baseUrl}/billing?custom_credit_success={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: [{
-      price_data: {
-        currency: "usd",
-        product_data: { name: `${amount} ${creditType} credits` },
-        unit_amount: priceCents,
-      },
-      quantity: 1,
-    }],
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    metadata: { userId, customCredits: String(amount), creditType, type: "custom_credit" },
-  });
-  res.json({ url: session.url, sessionId: session.id });
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: { name: `${amount} ${creditType} credits` },
+          unit_amount: priceCents,
+        },
+        quantity: 1,
+      }],
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: { userId, customCredits: String(amount), creditType, type: "custom_credit" },
+    });
+    res.json({ url: session.url, sessionId: session.id });
+    return;
+  }
+
+  if (method === "paypal") {
+    const { getPayPalAccessToken } = await import("./payment");
+    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+    const base = domain ? `https://${domain}` : "http://localhost:80";
+    let token: string, baseUrl: string;
+    try {
+      ({ token, baseUrl } = await getPayPalAccessToken());
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message }); return;
+    }
+    const orderRes = await fetch(`${baseUrl}/v2/checkout/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        intent: "CAPTURE",
+        purchase_units: [{
+          amount: { currency_code: "USD", value: (priceCents / 100).toFixed(2) },
+          description: `${amount} ${creditType} credits`,
+        }],
+        payment_source: {
+          paypal: {
+            experience_context: {
+              user_action: "PAY_NOW",
+              return_url: `${base}/billing?paypal_captured=1`,
+              cancel_url: `${base}/billing?paypal_cancelled=1`,
+            },
+          },
+        },
+      }),
+    });
+    const order = await orderRes.json() as { id?: string; links?: Array<{ rel: string; href: string }>; message?: string };
+    if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
+    const s = await getGatewaySettings();
+    const clientId = s.paypal_client_id ?? "";
+    const approvalUrl = order.links?.find((l) => l.rel === "payer-action")?.href ?? "";
+    res.json({ orderId: order.id, approvalUrl, clientId, creditType, creditAmount: amount });
+    return;
+  }
+
+  // Razorpay
+  const { razorpayFetch } = await import("./payment");
+  const keyId = await db.select({ value: settingsTable.value }).from(settingsTable).where(eq(settingsTable.key, "razorpay_key_id")).then(r => r[0]?.value ?? "");
+  const order = await razorpayFetch<{ id: string; amount: number; currency: string; error?: { description: string } }>(
+    "/orders", "POST",
+    { amount: priceCents, currency: "USD", receipt: `rcpt_${Date.now()}` },
+  );
+  if (order.error) { res.status(400).json({ error: order.error.description }); return; }
+  res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId, creditType, creditAmount: amount });
 });
 
 // ─── Confirm Credit Purchase (Stripe webhook or direct confirm) ───────────────
