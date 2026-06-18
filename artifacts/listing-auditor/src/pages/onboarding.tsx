@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText, Lock, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,7 @@ export default function Onboarding() {
   const { user, isLoaded } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [yearly, setYearly] = useState(false);
 
@@ -164,6 +165,32 @@ export default function Onboarding() {
     onError: (e: Error) => { toast({ title: "Checkout failed", description: e.message, variant: "destructive" }); },
   });
 
+  const freePlanMutation = useMutation({
+    mutationFn: () => {
+      const body = {
+        fullName: profile.fullName,
+        companyName: profile.companyName,
+        phone: profile.phone,
+        country: profile.country,
+        gstNumber: profile.gstNumber || undefined,
+        websiteUrl: profile.websiteUrl || undefined,
+        teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
+        planId: selectedPlan!.id,
+        billingCycle: yearly ? "yearly" : "monthly",
+        autoRenew,
+        useTrial: false,
+        couponCode: couponCode || undefined,
+      };
+      return fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+      void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+      setLocation("/dashboard");
+    },
+    onError: (e: Error) => { toast({ title: "Activation failed", description: e.message, variant: "destructive" }); },
+  });
+
   if (!isLoaded) return null;
   if (!user) { setLocation("/sign-in"); return null; }
 
@@ -178,6 +205,13 @@ export default function Onboarding() {
 
   function handleSubmit() {
     if (!selectedPlan) return;
+
+    // Free plan — activate directly without payment gateway
+    if (finalPrice === 0) {
+      freePlanMutation.mutate();
+      return;
+    }
+
     const common = {
       fullName: profile.fullName,
       companyName: profile.companyName,
@@ -192,9 +226,7 @@ export default function Onboarding() {
       couponCode: couponCode || undefined,
     };
 
-    // Always require payment — no free plan or trial bypass
-    const planPrice = yearly ? selectedPlan.priceYearly : selectedPlan.priceMonthly;
-    const finalAmount = Math.max(0, planPrice - discount);
+    const finalAmount = Math.max(0, finalPrice);
 
     if (gateway === "stripe") {
       checkoutMutation.mutate({
@@ -415,30 +447,42 @@ export default function Onboarding() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-5">Complete your setup</h2>
 
-                  {/* Payment info — always shows active gateway */}
-                  <div className="flex items-start gap-2.5 bg-slate-50 rounded-xl border border-slate-100 px-3.5 py-3 mb-5">
-                    <Wallet className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      You'll be securely redirected to <strong className="text-slate-600">{gatewayDisplayName}</strong> to enter your payment details. Your card information is never stored on our servers.
-                    </p>
-                  </div>
+                  {/* Free plan info */}
+                  {finalPrice === 0 ? (
+                    <div className="flex items-start gap-2.5 bg-green-50 rounded-xl border border-green-100 px-3.5 py-3 mb-5">
+                      <Zap className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-green-700 leading-relaxed">
+                        You're about to start the <strong className="text-green-800">{selectedPlan?.name}</strong> plan at no cost. No payment details required.
+                      </p>
+                    </div>
+                  ) : (
+                    /* Payment info — shows active gateway */
+                    <div className="flex items-start gap-2.5 bg-slate-50 rounded-xl border border-slate-100 px-3.5 py-3 mb-5">
+                      <Wallet className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        You'll be securely redirected to <strong className="text-slate-600">{gatewayDisplayName}</strong> to enter your payment details. Your card information is never stored on our servers.
+                      </p>
+                    </div>
+                  )}
 
-                  {/* Paid — Payment breakdown */}
+                  {/* Payment / Free plan breakdown */}
                   {selectedPlan && (
                     <div className="space-y-4">
                       {/* Price breakdown */}
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-600">{selectedPlan?.name} Plan</span>
-                          <span className="font-semibold text-slate-900">${price}{yearly ? "/year" : "/mo"}</span>
+                          <span className="font-semibold text-slate-900">
+                            {finalPrice === 0 ? "Free" : <>${price}{yearly ? "/year" : "/mo"}</>}
+                          </span>
                         </div>
-                        {yearly && (
+                        {yearly && finalPrice > 0 && (
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-slate-500">Billed annually</span>
                             <span className="text-green-600 font-medium">–20%</span>
                           </div>
                         )}
-                        {couponResult && (
+                        {couponResult && finalPrice > 0 && (
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-slate-500">Coupon ({couponCode})</span>
                             <span className="text-green-600 font-medium">–${discount}</span>
@@ -446,23 +490,29 @@ export default function Onboarding() {
                         )}
                         <div className="border-t border-slate-200 pt-2.5 flex items-center justify-between">
                           <span className="font-semibold text-slate-900 text-sm">Total today</span>
-                          <span className="font-bold text-orange-600">${finalPrice}{yearly ? "/year" : "/mo"}</span>
+                          <span className={finalPrice === 0 ? "font-bold text-green-600" : "font-bold text-orange-600"}>
+                            {finalPrice === 0 ? "Free" : <>${finalPrice}{yearly ? "/year" : "/mo"}</>}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Auto-renewal */}
-                      <div className="flex items-center justify-between border-t pt-4">
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">Auto-renewal</p>
-                          <p className="text-xs text-slate-500">Automatically renew at end of billing period</p>
+                      {/* Auto-renewal — only for paid */}
+                      {finalPrice > 0 && (
+                        <div className="flex items-center justify-between border-t pt-4">
+                          <div>
+                            <p className="text-sm font-medium text-slate-800">Auto-renewal</p>
+                            <p className="text-xs text-slate-500">Automatically renew at end of billing period</p>
+                          </div>
+                          <Switch checked={autoRenew} onCheckedChange={setAutoRenew} />
                         </div>
-                        <Switch checked={autoRenew} onCheckedChange={setAutoRenew} />
-                      </div>
+                      )}
 
-                      <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
-                        <Lock className="w-3 h-3" />
-                        <span>256-bit SSL · PCI-DSS compliant · Powered by {gatewayDisplayName}</span>
-                      </div>
+                      {finalPrice > 0 && (
+                        <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                          <Lock className="w-3 h-3" />
+                          <span>256-bit SSL · PCI-DSS compliant · Powered by {gatewayDisplayName}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -470,13 +520,17 @@ export default function Onboarding() {
                 <div className="flex justify-between">
                   <Button variant="ghost" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
                   <Button
-                    className="bg-orange-500 hover:bg-orange-600 px-8"
+                    className={finalPrice === 0 ? "bg-green-600 hover:bg-green-700 px-8" : "bg-orange-500 hover:bg-orange-600 px-8"}
                     onClick={handleSubmit}
-                    disabled={checkoutMutation.isPending}
+                    disabled={checkoutMutation.isPending || freePlanMutation.isPending}
                   >
-                    {checkoutMutation.isPending
-                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Redirecting to {gatewayDisplayName}...</>
-                      : `Pay Securely with ${gatewayDisplayName} →`}
+                    {freePlanMutation.isPending
+                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Activating...</>
+                      : checkoutMutation.isPending
+                        ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Redirecting to {gatewayDisplayName}...</>
+                        : finalPrice === 0
+                          ? "Start Free Plan →"
+                          : `Pay Securely with ${gatewayDisplayName} →`}
                   </Button>
                 </div>
               </div>
@@ -488,15 +542,17 @@ export default function Onboarding() {
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">{selectedPlan?.name} Plan</span>
-                      <span className="font-medium">${price}{yearly ? "/year" : "/mo"}</span>
+                      <span className="font-medium">
+                        {finalPrice === 0 ? "Free" : <>${price}{yearly ? "/year" : "/mo"}</>}
+                      </span>
                     </div>
-                    {yearly && (
+                    {yearly && finalPrice > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Billed yearly</span>
                         <span className="text-green-600 font-medium">-20%</span>
                       </div>
                     )}
-                    {couponResult && (
+                    {couponResult && finalPrice > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Coupon ({couponCode})</span>
                         <span className="text-green-600 font-medium">-${discount}</span>
@@ -504,7 +560,9 @@ export default function Onboarding() {
                     )}
                     <div className="border-t pt-3 flex justify-between font-bold">
                       <span>Total</span>
-                      <span className="text-orange-600">${finalPrice}{yearly ? "/year" : "/mo"}</span>
+                      <span className={finalPrice === 0 ? "text-green-600" : "text-orange-600"}>
+                        {finalPrice === 0 ? "Free" : <>${finalPrice}{yearly ? "/year" : "/mo"}</>}
+                      </span>
                     </div>
                   </div>
                   <div className="mt-5 pt-4 border-t space-y-2 text-xs text-slate-500">
