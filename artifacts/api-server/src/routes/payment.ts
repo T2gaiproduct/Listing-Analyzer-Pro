@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, settingsTable, subscriptionsTable, paymentsTable } from "@workspace/db";
+import { db, settingsTable, subscriptionsTable, paymentsTable, plansTable, creditsTable, creditTransactionsTable, userProfilesTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -256,19 +256,64 @@ router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void
   });
 
   const [existing] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
-  if (existing) {
-    const now = new Date();
-    if (planId) {
-      const periodEnd = new Date(now);
-      periodEnd.setMonth(periodEnd.getMonth() + (billingCycle === "yearly" ? 12 : 1));
-      await db.update(subscriptionsTable)
-        .set({ planId, billingCycle: billingCycle ?? "monthly", status: "active", trialEndsAt: null, currentPeriodStart: now, currentPeriodEnd: periodEnd, autoRenew: true, cardBrand: "PayPal", cardLast4: payerEmail.slice(-4) || "ppal", updatedAt: now })
-        .where(eq(subscriptionsTable.userId, userId));
+  const now = new Date();
+  if (planId) {
+    const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
+    const periodEnd = new Date(now);
+    periodEnd.setMonth(periodEnd.getMonth() + (billingCycle === "yearly" ? 12 : 1));
+    const subData = {
+      planId,
+      billingCycle: billingCycle ?? "monthly",
+      status: "active" as const,
+      trialEndsAt: null,
+      currentPeriodStart: now,
+      currentPeriodEnd: periodEnd,
+      autoRenew: true,
+      cardBrand: "PayPal",
+      cardLast4: payerEmail.slice(-4) || "ppal",
+      updatedAt: now,
+    };
+    if (existing) {
+      await db.update(subscriptionsTable).set(subData).where(eq(subscriptionsTable.userId, userId));
     } else {
-      await db.update(subscriptionsTable)
-        .set({ cardBrand: "PayPal", cardLast4: payerEmail.slice(-4) || "ppal", updatedAt: now })
-        .where(eq(subscriptionsTable.userId, userId));
+      await db.insert(subscriptionsTable).values({ userId, ...subData });
     }
+
+    // Set credits
+    if (plan) {
+      const [existingCredits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+      if (existingCredits) {
+        await db.update(creditsTable)
+          .set({
+            aiCredits: existingCredits.aiCredits + plan.aiCredits,
+            imageCredits: existingCredits.imageCredits + plan.imageCredits,
+            auditCredits: existingCredits.auditCredits + plan.auditCredits,
+            updatedAt: now,
+          })
+          .where(eq(creditsTable.userId, userId));
+      } else {
+        await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
+      }
+      await db.insert(creditTransactionsTable).values([
+        { userId, creditType: "ai", amount: plan.aiCredits, reason: `${plan.name} plan — PayPal payment confirmed`, featureType: "subscription" },
+        { userId, creditType: "image", amount: plan.imageCredits, reason: `${plan.name} plan — PayPal payment confirmed`, featureType: "subscription" },
+        { userId, creditType: "audit", amount: plan.auditCredits, reason: `${plan.name} plan — PayPal payment confirmed`, featureType: "subscription" },
+      ]);
+    }
+
+    // Mark onboarding complete
+    const [profileRow] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+    if (profileRow) {
+      await db.update(userProfilesTable)
+        .set({ onboardingCompleted: true, updatedAt: now })
+        .where(eq(userProfilesTable.userId, userId));
+    } else {
+      await db.insert(userProfilesTable).values({ userId, onboardingCompleted: true });
+    }
+  } else if (existing) {
+    await db.update(subscriptionsTable)
+      .set({ cardBrand: "PayPal", cardLast4: payerEmail.slice(-4) || "ppal", updatedAt: now })
+      .where(eq(subscriptionsTable.userId, userId));
   }
 
   res.json({ success: true, payer: payerEmail });

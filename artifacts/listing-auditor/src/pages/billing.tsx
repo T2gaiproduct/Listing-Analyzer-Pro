@@ -479,7 +479,11 @@ export default function Billing() {
     if (params.get("paypal_captured") && !paypalCaptureAttempted.current) {
       paypalCaptureAttempted.current = true;
       const orderId = sessionStorage.getItem("paypal_order_id");
+      const planId = sessionStorage.getItem("paypal_plan_id");
+      const billingCycle = sessionStorage.getItem("paypal_billing_cycle");
       sessionStorage.removeItem("paypal_order_id");
+      sessionStorage.removeItem("paypal_plan_id");
+      sessionStorage.removeItem("paypal_billing_cycle");
       window.history.replaceState({}, "", window.location.pathname);
 
       if (!orderId) {
@@ -488,13 +492,18 @@ export default function Billing() {
 
       fetch(`${basePath}/api/paypal/capture-order`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ orderId }),
+        credentials: "include", body: JSON.stringify({
+          orderId,
+          ...(planId ? { planId: Number(planId) } : {}),
+          ...(billingCycle ? { billingCycle } : {}),
+        }),
       })
         .then((r) => r.json())
         .then((d: { success?: boolean; payer?: string; error?: string }) => {
           if (d.success) {
-            toast({ title: "PayPal payment method added", description: d.payer ? `Linked to ${d.payer}` : undefined });
+            toast({ title: planId ? "Subscription activated" : "PayPal payment method added", description: d.payer ? `Linked to ${d.payer}` : undefined });
             void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+            void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
           } else {
             toast({ title: "PayPal capture failed", description: d.error, variant: "destructive" });
           }
