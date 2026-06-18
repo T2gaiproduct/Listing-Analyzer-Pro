@@ -760,6 +760,29 @@ export default function Billing() {
                       onClick={() => {
                         if (isCurrent) return;
                         setChangingPlan(true);
+                        const newPlan = plans.find((p) => p.id === changePlanId);
+                        const newPlanPrice = changePlanCycle === "yearly" ? (newPlan?.priceYearly ?? 0) * 12 : (newPlan?.priceMonthly ?? 0);
+                        if (newPlanPrice === 0) {
+                          // Free plan — activate directly
+                          fetch(`${basePath}/api/subscription/upgrade`, {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            credentials: "include", body: JSON.stringify({ planId: changePlanId, billingCycle: changePlanCycle }),
+                          })
+                            .then((r) => r.json() as Promise<{ success?: boolean; error?: string }>)
+                            .then((d) => {
+                              if (d.success) {
+                                toast({ title: "Plan updated successfully!" });
+                                invalidateSub();
+                                void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
+                                void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+                              } else {
+                                toast({ title: "Could not update plan", description: d.error ?? "Please try again.", variant: "destructive" });
+                              }
+                            })
+                            .catch(() => toast({ title: "Network error", variant: "destructive" }))
+                            .finally(() => setChangingPlan(false));
+                          return;
+                        }
                         if (sub?.stripeSubscriptionId) {
                           // Existing Stripe subscription — redirect to customer portal
                           fetch(`${basePath}/api/stripe/portal`, {
@@ -773,24 +796,60 @@ export default function Billing() {
                             })
                             .catch(() => toast({ title: "Network error", variant: "destructive" }))
                             .finally(() => setChangingPlan(false));
-                        } else {
-                          // No active Stripe subscription — use server-side upgrade
-                          fetch(`${basePath}/api/subscription/upgrade`, {
+                          return;
+                        }
+                        // Paid plan — redirect to active gateway
+                        const gateway = config.defaultGateway;
+                        if (gateway === "stripe") {
+                          fetch(`${basePath}/api/stripe/create-checkout`, {
                             method: "POST", headers: { "Content-Type": "application/json" },
-                            credentials: "include", body: JSON.stringify({ planId: changePlanId, billingCycle: changePlanCycle }),
+                            credentials: "include", body: JSON.stringify({
+                              planId: changePlanId,
+                              billingCycle: changePlanCycle,
+                              successUrl: `${window.location.origin}${basePath}/checkout/success`,
+                              cancelUrl: `${window.location.origin}${basePath}/billing`,
+                            }),
                           })
-                            .then((r) => r.json() as Promise<{ success?: boolean; error?: string }>)
+                            .then((r) => r.json() as Promise<{ url?: string; error?: string }>)
                             .then((d) => {
-                              if (d.success) {
-                                toast({ title: "Plan updated successfully!" });
-                                invalidateSub();
+                              if (d.url) window.location.href = d.url;
+                              else toast({ title: "Could not start checkout", description: d.error ?? "Please try again.", variant: "destructive" });
+                            })
+                            .catch(() => toast({ title: "Network error", variant: "destructive" }))
+                            .finally(() => setChangingPlan(false));
+                          return;
+                        }
+                        if (gateway === "paypal") {
+                          fetch(`${basePath}/api/paypal/create-order`, {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            credentials: "include", body: JSON.stringify({
+                              amount: newPlanPrice,
+                              currency: "USD",
+                            }),
+                          })
+                            .then((r) => r.json() as Promise<{ orderId?: string; approvalUrl?: string; error?: string }>)
+                            .then((d) => {
+                              if (d.approvalUrl) {
+                                sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
+                                sessionStorage.setItem("paypal_plan_id", String(changePlanId));
+                                sessionStorage.setItem("paypal_billing_cycle", changePlanCycle);
+                                window.location.href = d.approvalUrl;
                               } else {
-                                toast({ title: "Could not update plan", description: d.error ?? "Please try again.", variant: "destructive" });
+                                toast({ title: "Could not start checkout", description: d.error ?? "No PayPal approval URL.", variant: "destructive" });
                               }
                             })
                             .catch(() => toast({ title: "Network error", variant: "destructive" }))
                             .finally(() => setChangingPlan(false));
+                          return;
                         }
+                        if (gateway === "razorpay") {
+                          // Plan change via Razorpay — not yet supported
+                          toast({ title: "Gateway not supported", description: "Razorpay plan changes are not yet supported.", variant: "destructive" });
+                          setChangingPlan(false);
+                          return;
+                        }
+                        toast({ title: "No payment gateway configured", description: "Please configure a payment gateway.", variant: "destructive" });
+                        setChangingPlan(false);
                       }}
                     >
                       {isCurrent ? "Current" : changingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : "Select"}

@@ -34,7 +34,7 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
   } = req.body as {
     planId: number; billingCycle: "monthly" | "yearly";
     couponCode?: string; autoRenew?: boolean;
-    fullName: string; companyName: string; phone: string; country: string;
+    fullName?: string; companyName?: string; phone?: string; country?: string;
     gstNumber?: string; websiteUrl?: string; teamSize?: number;
     successUrl: string; cancelUrl: string;
   };
@@ -57,12 +57,14 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
   const [existingProfile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   let stripeCustomerId = existingProfile?.stripeCustomerId ?? null;
 
-  if (existingProfile) {
-    await db.update(userProfilesTable)
-      .set({ fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null, updatedAt: new Date() })
-      .where(eq(userProfilesTable.userId, userId));
-  } else {
-    await db.insert(userProfilesTable).values({ userId, fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null });
+  if (fullName && companyName && phone && country) {
+    if (existingProfile) {
+      await db.update(userProfilesTable)
+        .set({ fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null, updatedAt: new Date() })
+        .where(eq(userProfilesTable.userId, userId));
+    } else {
+      await db.insert(userProfilesTable).values({ userId, fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null });
+    }
   }
 
   // Validate coupon

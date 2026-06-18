@@ -260,6 +260,14 @@ router.post("/subscription/upgrade", requireAuth, async (req, res): Promise<void
   const { planId, billingCycle } = req.body as { planId: number; billingCycle: "monthly" | "yearly" };
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
   if (!plan) { res.status(400).json({ error: "Invalid plan" }); return; }
+
+  // Paid plans require payment gateway
+  const planPrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
+  if (planPrice > 0) {
+    res.status(400).json({ error: "Paid plans require payment. Use the payment gateway checkout flow instead." });
+    return;
+  }
+
   const now = new Date();
   const periodEnd = new Date(now);
   if (billingCycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
@@ -285,7 +293,7 @@ router.post("/subscription/upgrade", requireAuth, async (req, res): Promise<void
     { userId, creditType: "image", amount: plan.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
     { userId, creditType: "audit", amount: plan.auditCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
   ]);
-  res.json({ ok: true });
+  res.json({ success: true });
 });
 
 router.patch("/subscription/auto-renew", requireAuth, async (req, res): Promise<void> => {
