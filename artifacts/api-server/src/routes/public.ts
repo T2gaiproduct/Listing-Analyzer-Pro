@@ -545,14 +545,11 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
           amount: { currency_code: "USD", value: (pack.priceCents / 100).toFixed(2) },
           description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
         }],
-        payment_source: {
-          paypal: {
-            experience_context: {
-              user_action: "PAY_NOW",
-              return_url: `${base}/billing?paypal_captured=1`,
-              cancel_url: `${base}/billing?paypal_cancelled=1`,
-            },
-          },
+        application_context: {
+          brand_name: "ListingAuditor",
+          user_action: "PAY_NOW",
+          return_url: `${base}/billing?paypal_captured=1`,
+          cancel_url: `${base}/billing?paypal_cancelled=1`,
         },
       }),
     });
@@ -560,7 +557,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
     const s = await getGatewaySettings();
     const clientId = s.paypal_client_id ?? "";
-    const approvalUrl = order.links?.find((l) => l.rel === "payer-action")?.href ?? "";
+    const approvalUrl = order.links?.find((l) => l.rel === "approve" || l.rel === "payer-action")?.href ?? "";
     res.json({ orderId: order.id, approvalUrl, clientId, packId: pack.id, packLabel: pack.label });
     return;
   }
@@ -633,14 +630,11 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
           amount: { currency_code: "USD", value: (priceCents / 100).toFixed(2) },
           description: `${amount} ${creditType} credits`,
         }],
-        payment_source: {
-          paypal: {
-            experience_context: {
-              user_action: "PAY_NOW",
-              return_url: `${base}/billing?paypal_captured=1`,
-              cancel_url: `${base}/billing?paypal_cancelled=1`,
-            },
-          },
+        application_context: {
+          brand_name: "ListingAuditor",
+          user_action: "PAY_NOW",
+          return_url: `${base}/billing?paypal_captured=1`,
+          cancel_url: `${base}/billing?paypal_cancelled=1`,
         },
       }),
     });
@@ -648,7 +642,7 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
     if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
     const s = await getGatewaySettings();
     const clientId = s.paypal_client_id ?? "";
-    const approvalUrl = order.links?.find((l) => l.rel === "payer-action")?.href ?? "";
+    const approvalUrl = order.links?.find((l) => l.rel === "approve" || l.rel === "payer-action")?.href ?? "";
     res.json({ orderId: order.id, approvalUrl, clientId, creditType, creditAmount: amount });
     return;
   }

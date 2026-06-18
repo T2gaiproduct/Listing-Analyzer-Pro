@@ -230,14 +230,11 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
     body: JSON.stringify({
       intent: "CAPTURE",
       purchase_units: [{ amount: { currency_code: currency ?? "USD", value: amount.toFixed(2) } }],
-      payment_source: {
-        paypal: {
-          experience_context: {
-            user_action: "PAY_NOW",
-            return_url: `${base}/billing?paypal_captured=1`,
-            cancel_url: `${base}/billing?paypal_cancelled=1`,
-          },
-        },
+      application_context: {
+        brand_name: "ListingAuditor",
+        user_action: "PAY_NOW",
+        return_url: `${base}/billing?paypal_captured=1`,
+        cancel_url: `${base}/billing?paypal_cancelled=1`,
       },
     }),
   });
@@ -249,7 +246,7 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
 
   if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
 
-  const approvalUrl = order.links?.find((l) => l.rel === "payer-action")?.href ?? "";
+  const approvalUrl = order.links?.find((l) => l.rel === "approve" || l.rel === "payer-action")?.href ?? "";
   res.json({ orderId: order.id, approvalUrl, clientId });
 });
 
