@@ -31,9 +31,12 @@ import type {
   GenerateEbcBody,
   GenerateImagesBody,
   GeneratedContent,
+  GetRecentsParams,
   HealthStatus,
   ImageRecord,
+  RecentsResponse,
   RegenerateImageBody,
+  SearchProjectsParams,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1361,3 +1364,191 @@ export const useDeleteCompetitor = <
 > => {
   return useMutation(getDeleteCompetitorMutationOptions(options));
 };
+
+/**
+ * @summary Get unified recents feed
+ */
+export const getGetRecentsUrl = (params?: GetRecentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/recents?${stringifiedParams}`
+    : `/api/recents`;
+};
+
+export const getRecents = async (
+  params?: GetRecentsParams,
+  options?: RequestInit,
+): Promise<RecentsResponse> => {
+  return customFetch<RecentsResponse>(getGetRecentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRecentsQueryKey = (params?: GetRecentsParams) => {
+  return [`/api/recents`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetRecentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRecents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRecentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRecents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRecentsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecents>>> = ({
+    signal,
+  }) => getRecents(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRecents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRecentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRecents>>
+>;
+export type GetRecentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get unified recents feed
+ */
+
+export function useGetRecents<
+  TData = Awaited<ReturnType<typeof getRecents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRecentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRecents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRecentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Search across all projects
+ */
+export const getSearchProjectsUrl = (params: SearchProjectsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/search/projects?${stringifiedParams}`
+    : `/api/search/projects`;
+};
+
+export const searchProjects = async (
+  params: SearchProjectsParams,
+  options?: RequestInit,
+): Promise<RecentsResponse> => {
+  return customFetch<RecentsResponse>(getSearchProjectsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchProjectsQueryKey = (params?: SearchProjectsParams) => {
+  return [`/api/search/projects`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchProjectsQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchProjects>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchProjectsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchProjects>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchProjectsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchProjects>>> = ({
+    signal,
+  }) => searchProjects(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchProjects>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchProjectsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchProjects>>
+>;
+export type SearchProjectsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Search across all projects
+ */
+
+export function useSearchProjects<
+  TData = Awaited<ReturnType<typeof searchProjects>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchProjectsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchProjects>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchProjectsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

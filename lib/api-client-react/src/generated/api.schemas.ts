@@ -303,3 +303,34 @@ export interface AuditStats {
   lowScoreCount: number;
   recentAudits: Audit[];
 }
+
+export type RecentItemType =
+  (typeof RecentItemType)[keyof typeof RecentItemType];
+
+export const RecentItemType = {
+  audit: "audit",
+  graphics: "graphics",
+  video: "video",
+  ads: "ads",
+} as const;
+
+export interface RecentItem {
+  type: RecentItemType;
+  id: number;
+  name: string;
+  createdAt?: string;
+  url: string;
+}
+
+export interface RecentsResponse {
+  items: RecentItem[];
+}
+
+export type GetRecentsParams = {
+  limit?: number;
+};
+
+export type SearchProjectsParams = {
+  q: string;
+  limit?: number;
+};

@@ -34,11 +34,18 @@ import {
   Lock,
   Bug,
   Folder,
+  Search,
+  FileText as AuditIcon,
+  Image as GraphicsIcon,
+  Clapperboard as VideoIcon,
+  Target as AdsIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { useGetRecents } from "@workspace/api-client-react";
+import type { RecentItem } from "@workspace/api-client-react";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -137,25 +144,38 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-// --- Project context menu ---------------------------------------------------
-function ProjectItem({
-  label,
-  href,
+// --- Type icon mapping for recent projects ----------------------------------
+const typeIconMap: Record<string, typeof AuditIcon> = {
+  audit: AuditIcon,
+  graphics: GraphicsIcon,
+  video: VideoIcon,
+  ads: AdsIcon,
+};
+
+const typeLabelMap: Record<string, string> = {
+  audit: "Audit",
+  graphics: "Graphics",
+  video: "Video",
+  ads: "Ads",
+};
+
+// --- Recent project item with type icon and context menu --------------------
+function RecentProjectItem({
+  item,
   openMenu,
   setOpenMenu,
-  id,
 }: {
-  label: string;
-  href: string;
+  item: RecentItem;
   openMenu: string | null;
   setOpenMenu: (id: string | null) => void;
-  id: string;
 }) {
   const [location] = useLocation();
   const [hovered, setHovered] = useState(false);
-  const menuOpen = openMenu === id;
+  const key = `${item.type}-${item.id}`;
+  const menuOpen = openMenu === key;
   const ref = useRef<HTMLDivElement>(null);
-  const isActive = location === href;
+  const isActive = location === item.url;
+  const TypeIcon = typeIconMap[item.type] || AuditIcon;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -183,8 +203,9 @@ function ProjectItem({
             : "text-sidebar-foreground/60"
         )}
       >
-        <Link href={href} className="truncate flex-1 text-left min-w-0">
-          {label}
+        <TypeIcon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
+        <Link href={item.url} className="truncate flex-1 text-left min-w-0">
+          {item.name}
         </Link>
         {(hovered || menuOpen) && (
           <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -193,7 +214,7 @@ function ProjectItem({
             </button>
             <button
               className="w-5 h-5 flex items-center justify-center rounded text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
-              onClick={(e) => { e.stopPropagation(); setOpenMenu(menuOpen ? null : id); }}
+              onClick={(e) => { e.stopPropagation(); setOpenMenu(menuOpen ? null : key); }}
             >
               <MoreHorizontal className="w-3 h-3" />
             </button>
@@ -234,19 +255,27 @@ export function Layout({ children }: { children: ReactNode }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const profileRef = useRef<HTMLDivElement>(null);
   const helpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch audits for My Projects list
-  const { data: auditsData } = useQuery({
-    queryKey: ["audits-sidebar"],
+  // Fetch unified recents for sidebar
+  const { data: recentsData } = useGetRecents({ limit: 200 });
+  const recents = (recentsData?.items ?? []) as RecentItem[];
+
+  // Search projects
+  const { data: searchData } = useQuery({
+    queryKey: ["search-projects", searchQuery],
     queryFn: async () => {
-      const r = await fetch(`${basePath}/api/audits`);
-      if (!r.ok) return { audits: [] };
-      return r.json() as Promise<{ audits: { id: number; productTitle: string }[] }>;
+      const r = await fetch(`${basePath}/api/search/projects?q=${encodeURIComponent(searchQuery)}&limit=50`);
+      if (!r.ok) return { items: [] };
+      return r.json() as Promise<{ items: RecentItem[] }>;
     },
+    enabled: searchQuery.length > 0,
   });
-  const projects = auditsData?.audits ?? [];
+  const searchResults = (searchData?.items ?? []) as RecentItem[];
+
+  const displayItems = searchQuery.length > 0 ? searchResults : recents;
 
   // Close profile popup on outside click
   useEffect(() => {
@@ -339,6 +368,30 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Nav + Projects (scrollable) ─────────────────────── */}
         <div className="flex-1 overflow-y-auto overflow-x-visible py-4 flex flex-col">
+          {/* Search bar — only when expanded */}
+          {!collapsed && (
+            <div className="px-3 mb-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sidebar-foreground/40" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search projects..."
+                  className="w-full h-8 pl-8 pr-3 rounded-lg text-xs bg-sidebar-accent/50 border border-sidebar-border/50 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/80 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
             {mainNavItems.map(({ icon: Icon, label, href }) => {
@@ -382,7 +435,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {/* My Projects icon — collapsed mode only */}
           {collapsed && (
             <div className="px-2 mt-1">
-              <SidebarTooltip label="My Projects" side="right">
+              <SidebarTooltip label="Recent Projects" side="right">
                 <button
                   className="w-full flex items-center justify-center h-10 rounded-xl transition-colors text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   onClick={() => setCollapsed(false)}
@@ -393,7 +446,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* My Projects section — only when expanded */}
+          {/* Recent Projects section — only when expanded */}
           {!collapsed && (
             <>
               <div className="mx-3 my-4 border-t border-sidebar-border/50" />
@@ -405,8 +458,9 @@ export function Layout({ children }: { children: ReactNode }) {
                 >
                   <Folder className="w-3.5 h-3.5 text-sidebar-foreground/40" />
                   <span className="text-xs font-bold text-sidebar-foreground/50 uppercase tracking-wider flex-1 text-left">
-                    My Projects
+                    {searchQuery ? "Search Results" : "Recent Projects"}
                   </span>
+                  <span className="text-xs text-sidebar-foreground/30 tabular-nums">{displayItems.length}</span>
                   <ChevronDown
                     className={cn(
                       "w-3.5 h-3.5 text-sidebar-foreground/40 transition-transform duration-200",
@@ -416,16 +470,16 @@ export function Layout({ children }: { children: ReactNode }) {
                 </button>
 
                 {projectsOpen && (
-                  <div className="space-y-0.5">
-                    {projects.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-sidebar-foreground/40 italic">No projects yet</p>
+                  <div className="space-y-0.5 max-h-[60vh] overflow-y-auto">
+                    {displayItems.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-sidebar-foreground/40 italic">
+                        {searchQuery ? "No matches found" : "No projects yet"}
+                      </p>
                     ) : (
-                      projects.map((p) => (
-                        <ProjectItem
-                          key={p.id}
-                          id={String(p.id)}
-                          label={p.productTitle}
-                          href={`/audits/${p.id}`}
+                      displayItems.map((item) => (
+                        <RecentProjectItem
+                          key={`${item.type}-${item.id}`}
+                          item={item}
                           openMenu={openMenu}
                           setOpenMenu={setOpenMenu}
                         />

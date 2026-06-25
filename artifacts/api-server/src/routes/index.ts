@@ -10,6 +10,7 @@ import stripeRouter from "./stripe";
 import paymentRouter from "./payment";
 import graphicsRouter from "./graphics";
 import archiveRouter from "./archive";
+import recentsRouter from "./recents";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(stripeRouter);
 router.use(paymentRouter);
 router.use(graphicsRouter);
 router.use(archiveRouter);
+router.use(recentsRouter);
 
 export default router;

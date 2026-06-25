@@ -22,6 +22,11 @@ import {
   Share2,
   PenLine,
   Trash2,
+  Search,
+  FileText,
+  Image,
+  Clapperboard,
+  Target,
 } from "lucide-react";
 
 const navItems = [
@@ -41,24 +46,24 @@ const profileMenuItems = [
 ];
 
 const projectList = [
-  "Nike Shoe Listing Q4",
-  "Wireless Earbuds Audit",
-  "Summer Apparel Graphics",
-  "Brand Video — Oct 2025",
-  "Sponsored Ads — ASIN B09X",
-  "Kitchen Bundle Listing",
-  "Pet Supplies Audit",
-  "Holiday Gift Set Campaign",
-  "Vitamin Gummies SEO Audit",
-  "Outdoor Gear Graphics Pack",
-  "Electronics Category Ads",
-  "Baby Products Listing",
-  "Home Decor Brand Video",
-  "Fitness Tracker Audit",
-  "Office Supplies Q1 Listing",
-  "Skincare Bundle Graphics",
-  "Sports Equipment Ads",
-  "Toy Category Listing",
+  { type: "audit", icon: FileText, label: "Nike Shoe Listing Q4" },
+  { type: "audit", icon: FileText, label: "Wireless Earbuds Audit" },
+  { type: "graphics", icon: Image, label: "Summer Apparel Graphics" },
+  { type: "video", icon: Clapperboard, label: "Brand Video — Oct 2025" },
+  { type: "ads", icon: Target, label: "Sponsored Ads — ASIN B09X" },
+  { type: "audit", icon: FileText, label: "Kitchen Bundle Listing" },
+  { type: "audit", icon: FileText, label: "Pet Supplies Audit" },
+  { type: "ads", icon: Target, label: "Holiday Gift Set Campaign" },
+  { type: "audit", icon: FileText, label: "Vitamin Gummies SEO Audit" },
+  { type: "graphics", icon: Image, label: "Outdoor Gear Graphics Pack" },
+  { type: "ads", icon: Target, label: "Electronics Category Ads" },
+  { type: "audit", icon: FileText, label: "Baby Products Listing" },
+  { type: "video", icon: Clapperboard, label: "Home Decor Brand Video" },
+  { type: "audit", icon: FileText, label: "Fitness Tracker Audit" },
+  { type: "audit", icon: FileText, label: "Office Supplies Q1 Listing" },
+  { type: "graphics", icon: Image, label: "Skincare Bundle Graphics" },
+  { type: "ads", icon: Target, label: "Sports Equipment Ads" },
+  { type: "audit", icon: FileText, label: "Toy Category Listing" },
 ];
 
 const contextMenuOptions = [
@@ -86,12 +91,14 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
 
 function ProjectItem({
   label,
+  TypeIcon,
   isFirst,
   openMenu,
   setOpenMenu,
   id,
 }: {
   label: string;
+  TypeIcon: typeof FileText;
   isFirst: boolean;
   openMenu: string | null;
   setOpenMenu: (id: string | null) => void;
@@ -124,6 +131,7 @@ function ProjectItem({
           hovered || menuOpen ? "bg-slate-100" : ""
         } ${isFirst ? "text-slate-900 font-medium" : "text-slate-600"}`}
       >
+        <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isFirst ? "text-orange-500" : "text-slate-400"}`} />
         <span className="truncate flex-1 text-left">{label}</span>
         {/* Pin + 3-dot shown on hover */}
         {(hovered || menuOpen) && (
@@ -174,6 +182,11 @@ export function CustomerSidebar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const displayItems = searchQuery
+    ? projectList.filter((p) => p.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : projectList;
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-8" onClick={() => { setProfileOpen(false); setOpenMenu(null); }}>
@@ -210,6 +223,28 @@ export function CustomerSidebar() {
 
         {/* Nav + Projects scroll area */}
         <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-0">
+          {/* Search bar */}
+          <div className="mb-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search projects..."
+                className="w-full h-8 pl-8 pr-3 rounded-lg text-xs bg-slate-100 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-orange-400 focus:border-orange-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Main nav */}
           <div className="space-y-0.5">
             {navItems.map(({ icon: Icon, label, active }) => (
@@ -227,17 +262,18 @@ export function CustomerSidebar() {
             ))}
           </div>
 
-          {/* Divider before My Projects */}
+          {/* Divider before Recent Projects */}
           <div className="my-4 border-t border-slate-100" />
 
-          {/* My Projects header */}
+          {/* Recent Projects header */}
           <button
             className="flex items-center gap-1.5 px-3 mb-2 w-full group"
             onClick={() => setProjectsOpen((p) => !p)}
           >
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex-1 text-left">
-              My Projects
+              {searchQuery ? "Search Results" : "Recent Projects"}
             </span>
+            <span className="text-xs text-slate-400 tabular-nums">{displayItems.length}</span>
             <ChevronDown
               className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
                 projectsOpen ? "rotate-0" : "-rotate-90"
@@ -247,17 +283,24 @@ export function CustomerSidebar() {
 
           {/* Project list — scrollable within nav area */}
           {projectsOpen && (
-            <div className="space-y-0.5">
-              {projectList.map((label, i) => (
-                <ProjectItem
-                  key={label}
-                  id={label}
-                  label={label}
-                  isFirst={i === 0}
-                  openMenu={openMenu}
-                  setOpenMenu={setOpenMenu}
-                />
-              ))}
+            <div className="space-y-0.5 max-h-[60vh] overflow-y-auto">
+              {displayItems.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-slate-400 italic">
+                  {searchQuery ? "No matches found" : "No projects yet"}
+                </p>
+              ) : (
+                displayItems.map((p, i) => (
+                  <ProjectItem
+                    key={p.label}
+                    id={p.label}
+                    label={p.label}
+                    TypeIcon={p.icon}
+                    isFirst={i === 0 && !searchQuery}
+                    openMenu={openMenu}
+                    setOpenMenu={setOpenMenu}
+                  />
+                ))
+              )}
             </div>
           )}
         </div>

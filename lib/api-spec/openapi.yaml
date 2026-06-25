@@ -394,6 +394,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /recents:
+    get:
+      operationId: getRecents
+      tags: [projects]
+      summary: Get unified recents feed
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Recents list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentsResponse"
+
+  /search/projects:
+    get:
+      operationId: searchProjects
+      tags: [projects]
+      summary: Search across all projects
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentsResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -939,3 +982,33 @@ components:
         - highScoreCount
         - lowScoreCount
         - recentAudits
+
+    RecentItem:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [audit, graphics, video, ads]
+        id:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+        url:
+          type: string
+      required:
+        - type
+        - id
+        - name
+        - url
+
+    RecentsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentItem"
+      required:
+        - items

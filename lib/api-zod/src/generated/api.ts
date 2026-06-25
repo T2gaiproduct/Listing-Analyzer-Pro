@@ -419,3 +419,46 @@ export const AddCompetitorBody = zod.object({
 export const DeleteCompetitorParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary Get unified recents feed
+ */
+export const getRecentsQueryLimitDefault = 100;
+
+export const GetRecentsQueryParams = zod.object({
+  limit: zod.coerce.number().default(getRecentsQueryLimitDefault),
+});
+
+export const GetRecentsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      type: zod.enum(["audit", "graphics", "video", "ads"]),
+      id: zod.number(),
+      name: zod.string(),
+      createdAt: zod.string().optional(),
+      url: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Search across all projects
+ */
+export const searchProjectsQueryLimitDefault = 50;
+
+export const SearchProjectsQueryParams = zod.object({
+  q: zod.coerce.string(),
+  limit: zod.coerce.number().default(searchProjectsQueryLimitDefault),
+});
+
+export const SearchProjectsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      type: zod.enum(["audit", "graphics", "video", "ads"]),
+      id: zod.number(),
+      name: zod.string(),
+      createdAt: zod.string().optional(),
+      url: zod.string(),
+    }),
+  ),
+});

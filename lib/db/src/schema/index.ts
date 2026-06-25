@@ -10,3 +10,5 @@ export * from "./user-profiles";
 export * from "./subscriptions";
 export * from "./team-members";
 export * from "./graphics";
+export * from "./videos";
+export * from "./ads";
