@@ -185,9 +185,13 @@ export function CustomerSidebar() {
       >
         {/* Header */}
         <div className="px-4 py-4 border-b border-slate-100 flex items-center" style={{ overflow: "visible" }}>
-          <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0">
+          <a
+            href="/dashboard"
+            title="Go to Dashboard"
+            className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0 hover:bg-orange-600 transition-colors cursor-pointer ring-2 ring-transparent hover:ring-orange-300"
+          >
             <Zap className="w-4 h-4 text-white" />
-          </div>
+          </a>
           <div className="flex-1" />
           <Tooltip label="Notifications">
             <button className="relative w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
