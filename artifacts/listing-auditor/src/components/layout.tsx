@@ -287,10 +287,9 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* ── Header ─────────────────────────────────────────────── */}
         <div
           className={cn(
-            "flex items-center border-b border-sidebar-border/50 flex-shrink-0",
-            collapsed ? "px-3 py-4 justify-center" : "px-4 py-4"
+            "border-b border-sidebar-border/50 flex-shrink-0",
+            collapsed ? "px-2 py-3 flex flex-col items-center gap-2" : "px-4 py-4 flex items-center"
           )}
-          style={{ overflow: "visible" }}
         >
           {/* Logo */}
           <Link href="/dashboard">
@@ -330,11 +329,12 @@ export function Layout({ children }: { children: ReactNode }) {
             </>
           )}
 
+          {/* Expand button — sits below logo when collapsed */}
           {collapsed && (
             <SidebarTooltip label="Expand Sidebar" side="right">
               <button
                 onClick={() => setCollapsed(false)}
-                className="absolute -right-4 top-3 w-8 h-8 bg-sidebar border border-sidebar-border rounded-lg flex items-center justify-center text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 shadow-md transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 border border-sidebar-border/60 transition-colors"
               >
                 <PanelLeftOpen className="w-5 h-5" />
               </button>
