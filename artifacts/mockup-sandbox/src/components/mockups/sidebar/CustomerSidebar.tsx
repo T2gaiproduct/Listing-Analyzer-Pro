@@ -14,6 +14,8 @@ import {
   Receipt,
   LogOut,
   X,
+  Trash2,
+  PanelLeftClose,
 } from "lucide-react";
 
 const navItems = [
@@ -35,6 +37,25 @@ const profileMenuItems = [
   { icon: HelpCircle, label: "Help & Support", href: "/help" },
 ];
 
+function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div
+      className="relative flex items-center"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-slate-800 rounded-md whitespace-nowrap z-50 pointer-events-none shadow-lg">
+          {label}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CustomerSidebar() {
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -49,14 +70,40 @@ export function CustomerSidebar() {
         style={{ width: 260, height: 720 }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Logo / Brand */}
-        <div className="px-5 py-5 border-b border-slate-100 flex items-center gap-3 rounded-t-2xl overflow-hidden">
+        {/* Header: Logo left | Notification + Archive + Slider right */}
+        <div className="px-4 py-4 border-b border-slate-100 rounded-t-2xl overflow-hidden flex items-center">
+          {/* Logo only */}
           <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0">
             <Zap className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-slate-900 text-base tracking-tight">
-            ListingAuditor
-          </span>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Notification */}
+          <Tooltip label="Notifications">
+            <button className="relative w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-orange-500" />
+            </button>
+          </Tooltip>
+
+          {/* Archive */}
+          <Tooltip label="Archive">
+            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ml-1">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </Tooltip>
+
+          {/* Divider */}
+          <div className="w-px h-5 bg-slate-200 mx-2" />
+
+          {/* Sidebar toggle */}
+          <Tooltip label="Collapse Sidebar">
+            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Nav Links */}
