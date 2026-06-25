@@ -33,10 +33,12 @@ import {
   ScrollText,
   Lock,
   Bug,
+  Folder,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -78,23 +80,15 @@ const contextMenuOptions = [
 
 // --- Tooltip ----------------------------------------------------------------
 function SidebarTooltip({ label, children, side = "bottom" }: { label: string; children: ReactNode; side?: "bottom" | "right" }) {
-  const [show, setShow] = useState(false);
   return (
-    <div className="relative flex items-center" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      {children}
-      {show && side === "bottom" && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-slate-900 rounded-md whitespace-nowrap z-[100] pointer-events-none shadow-lg">
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
-          {label}
-        </div>
-      )}
-      {show && side === "right" && (
-        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg whitespace-nowrap z-[100] pointer-events-none shadow-xl border border-slate-700">
-          <div className="absolute right-full top-1/2 -translate-y-1/2 border-[6px] border-transparent border-r-slate-900" />
-          {label}
-        </div>
-      )}
-    </div>
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <div className="flex items-center cursor-pointer">{children}</div>
+      </TooltipTrigger>
+      <TooltipContent side={side} className="bg-slate-900 text-white border-slate-800 text-xs font-medium px-2 py-1.5 rounded-md shadow-lg">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -277,13 +271,14 @@ export function Layout({ children }: { children: ReactNode }) {
       onClick={() => { setProfileOpen(false); setOpenMenu(null); }}
     >
       {/* Sidebar */}
-      <aside
-        className={cn(
-          "flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex flex-col shadow-2xl z-10 transition-all duration-200 overflow-y-auto overflow-x-visible",
-          collapsed ? "w-16" : "w-64"
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <TooltipProvider>
+        <aside
+          className={cn(
+            "flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex flex-col shadow-2xl z-10 transition-all duration-200 overflow-y-auto overflow-x-visible",
+            collapsed ? "w-16" : "w-64"
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* ── Header ─────────────────────────────────────────────── */}
         <div
           className={cn(
@@ -391,9 +386,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
               <div className="px-3">
                 <button
-                  className="flex items-center gap-1.5 px-3 mb-2 w-full group"
+                  className="flex items-center gap-2 px-3 mb-2 w-full group"
                   onClick={() => setProjectsOpen((p) => !p)}
                 >
+                  <Folder className="w-3.5 h-3.5 text-sidebar-foreground/40" />
                   <span className="text-xs font-bold text-sidebar-foreground/50 uppercase tracking-wider flex-1 text-left">
                     My Projects
                   </span>
@@ -596,7 +592,8 @@ export function Layout({ children }: { children: ReactNode }) {
             </>
           )}
         </div>
-      </aside>
+        </aside>
+      </TooltipProvider>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
