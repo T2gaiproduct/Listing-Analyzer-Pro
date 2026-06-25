@@ -360,7 +360,7 @@ export function Layout({ children }: { children: ReactNode }) {
                             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                         )}
                       >
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-5 h-5" />
                       </button>
                     </Link>
                   </SidebarTooltip>
@@ -376,7 +376,7 @@ export function Layout({ children }: { children: ReactNode }) {
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                     )}
                   >
-                    <Icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/50")} />
+                    <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/50")} />
                     {label}
                   </button>
                 </Link>
