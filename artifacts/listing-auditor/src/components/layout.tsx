@@ -89,8 +89,8 @@ function SidebarTooltip({ label, children, side = "bottom" }: { label: string; c
         </div>
       )}
       {show && side === "right" && (
-        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 text-xs text-white bg-slate-900 rounded-md whitespace-nowrap z-[100] pointer-events-none shadow-lg">
-          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900" />
+        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg whitespace-nowrap z-[100] pointer-events-none shadow-xl border border-slate-700">
+          <div className="absolute right-full top-1/2 -translate-y-1/2 border-[6px] border-transparent border-r-slate-900" />
           {label}
         </div>
       )}
@@ -279,7 +279,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex flex-col shadow-2xl z-10 transition-all duration-200 overflow-visible",
+          "flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex flex-col shadow-2xl z-10 transition-all duration-200 overflow-y-auto overflow-x-visible",
           collapsed ? "w-16" : "w-64"
         )}
         onClick={(e) => e.stopPropagation()}
@@ -343,7 +343,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
 
         {/* ── Nav + Projects (scrollable) ─────────────────────── */}
-        <div className="flex-1 overflow-y-auto py-4 flex flex-col">
+        <div className="flex-1 overflow-y-auto overflow-x-visible py-4 flex flex-col">
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
             {mainNavItems.map(({ icon: Icon, label, href }) => {
