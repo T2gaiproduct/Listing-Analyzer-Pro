@@ -14,7 +14,7 @@ import {
   Receipt,
   LogOut,
   X,
-  Trash2,
+  Archive,
   PanelLeftClose,
 } from "lucide-react";
 
@@ -71,7 +71,7 @@ export function CustomerSidebar() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header: Logo left | Notification + Archive + Slider right */}
-        <div className="px-4 py-4 border-b border-slate-100 rounded-t-2xl overflow-hidden flex items-center">
+        <div className="px-4 py-4 border-b border-slate-100 flex items-center" style={{ overflow: "visible" }}>
           {/* Logo only */}
           <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0">
             <Zap className="w-4 h-4 text-white" />
@@ -91,7 +91,7 @@ export function CustomerSidebar() {
           {/* Archive */}
           <Tooltip label="Archive">
             <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ml-1">
-              <Trash2 className="w-4 h-4" />
+              <Archive className="w-4 h-4" />
             </button>
           </Tooltip>
 
