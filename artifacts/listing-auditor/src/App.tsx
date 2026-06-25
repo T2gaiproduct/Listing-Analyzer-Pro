@@ -78,6 +78,7 @@ import AdminArchivePage from "@/pages/admin/archive";
 import AuditListings from "@/pages/audit-listings";
 import VideosPage from "@/pages/videos";
 import AdsPage from "@/pages/ads";
+import SettingsPage from "@/pages/settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -437,6 +438,9 @@ function Router() {
       </Route>
       <Route path="/ads">
         <ProtectedRoute><AdsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute><SettingsPage /></ProtectedRoute>
       </Route>
       <Route path="/audits/new">
         <ProtectedRoute><AuditNew /></ProtectedRoute>
