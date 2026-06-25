@@ -9,6 +9,7 @@ import {
   adsProjectsTable,
   pinnedProjectsTable,
 } from "@workspace/db";
+import { createNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -147,16 +148,29 @@ router.post("/projects/pin", requireAuth, async (req: Request, res: Response) =>
     .from(pinnedProjectsTable)
     .where(and(eq(pinnedProjectsTable.userId, userId), eq(pinnedProjectsTable.itemType, type), eq(pinnedProjectsTable.itemId, id)));
 
-  if (existing.length > 0) {
+  const isPinned = existing.length === 0;
+  if (isPinned) {
+    await db.insert(pinnedProjectsTable).values({ userId, itemType: type, itemId: id });
+    await createNotification({
+      userId,
+      type: "project_pinned",
+      title: "Project pinned",
+      message: `Your ${type} project was pinned to the top of your feed.`,
+    });
+    res.json({ pinned: true });
+  } else {
     await db.delete(pinnedProjectsTable).where(and(
       eq(pinnedProjectsTable.userId, userId),
       eq(pinnedProjectsTable.itemType, type),
       eq(pinnedProjectsTable.itemId, id),
     ));
+    await createNotification({
+      userId,
+      type: "project_unpinned",
+      title: "Project unpinned",
+      message: `Your ${type} project was unpinned from your feed.`,
+    });
     res.json({ pinned: false });
-  } else {
-    await db.insert(pinnedProjectsTable).values({ userId, itemType: type, itemId: id });
-    res.json({ pinned: true });
   }
 });
 
@@ -185,6 +199,12 @@ router.patch("/projects/:type/:id/rename", requireAuth, async (req: Request, res
     default:
       res.status(400).json({ error: "unknown type" }); return;
   }
+  await createNotification({
+    userId,
+    type: "project_renamed",
+    title: "Project renamed",
+    message: `Your project was renamed to "${trimmed}".`,
+  });
   res.json({ ok: true, name: trimmed });
 });
 
@@ -210,6 +230,20 @@ router.patch("/projects/:type/:id/archive", requireAuth, async (req: Request, re
     default:
       res.status(400).json({ error: "unknown type" }); return;
   }
+
+  await db.delete(pinnedProjectsTable).where(and(
+    eq(pinnedProjectsTable.userId, userId),
+    eq(pinnedProjectsTable.itemType, type),
+    eq(pinnedProjectsTable.itemId, itemId),
+  ));
+
+  await createNotification({
+    userId,
+    type: "project_archived",
+    title: "Project archived",
+    message: `Your ${type} project was moved to Archive.`,
+    link: "/archive",
+  });
   res.json({ ok: true });
 });
 
@@ -243,6 +277,12 @@ router.delete("/projects/:type/:id", requireAuth, async (req: Request, res: Resp
     eq(pinnedProjectsTable.itemId, itemId),
   ));
 
+  await createNotification({
+    userId,
+    type: "project_deleted",
+    title: "Project deleted",
+    message: `Your ${type} project was permanently deleted.`,
+  });
   res.json({ ok: true });
 });
 

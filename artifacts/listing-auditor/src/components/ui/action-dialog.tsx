@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 type Stage = "confirm" | "loading" | "success";
 
@@ -137,7 +138,13 @@ export function useActionDialog() {
                   )}
                 </div>
               </div>
-              <Button className="w-full mt-2" onClick={() => setOpen(false)}>
+              <Button className="w-full mt-2" onClick={() => {
+                setOpen(false);
+                toast({
+                  title: config.successTitle ?? "Done!",
+                  description: config.successDescription,
+                });
+              }}>
                 OK
               </Button>
             </>

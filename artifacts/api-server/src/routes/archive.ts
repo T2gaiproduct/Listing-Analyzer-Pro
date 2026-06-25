@@ -6,6 +6,7 @@ import {
   videosProjectsTable, adsProjectsTable,
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import { createNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -181,6 +182,13 @@ router.post("/archive/:type/:id/recover", requireAuth, resolveTeam, async (req, 
   }
 
   if (!result) { res.status(404).json({ error: "Item not found" }); return; }
+
+  await createNotification({
+    userId: (req as AuthedRequest).userId,
+    type: "project_restored",
+    title: "Project restored",
+    message: `Your ${type} project was restored from the Archive and is back in your feed.`,
+  });
   res.json({ success: true, item: result });
 });
 
@@ -259,6 +267,13 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
   void isArchivedOrDeleted;
 
   if (!result) { res.status(404).json({ error: "Item not found" }); return; }
+
+  await createNotification({
+    userId,
+    type: "project_deleted",
+    title: "Project permanently deleted",
+    message: `Your ${type} project was permanently removed from the Archive.`,
+  });
   res.sendStatus(204);
 });
 
