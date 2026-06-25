@@ -267,7 +267,7 @@ export default function AdminPlans() {
     };
   }
 
-  const sorted = [...plans].sort((a, b) => a.sortOrder - b.sortOrder);
+  const sorted = (Array.isArray(plans) ? [...plans] : []).sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <div className="space-y-6">

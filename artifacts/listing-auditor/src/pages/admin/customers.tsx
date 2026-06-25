@@ -338,7 +338,7 @@ export default function AdminCustomers() {
                 </td>
               </tr>
             ))}
-            {!isLoading && !data?.customers.length && (
+            {!isLoading && !data?.customers?.length && (
               <tr>
                 <td colSpan={7} className="px-6 py-16 text-center">
                   <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
