@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
+  ChevronRight,
   LogOut,
   Shield,
   UserCircle,
@@ -25,6 +26,13 @@ import {
   PenLine,
   Trash2,
   Zap,
+  LifeBuoy,
+  FileText,
+  Download,
+  Keyboard,
+  ScrollText,
+  Lock,
+  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
@@ -48,7 +56,16 @@ const profileMenuItems = [
   { icon: Receipt, label: "Billing", href: "/billing" },
   { icon: Users, label: "Team", href: "/team" },
   { icon: Settings, label: "Settings", href: "/settings" },
-  { icon: HelpCircle, label: "Help & Support", href: "/help" },
+];
+
+const helpSubmenuItems = [
+  { icon: LifeBuoy,   label: "Help center",         href: "/help" },
+  { icon: FileText,   label: "Release notes",        href: "/help#release" },
+  { icon: Download,   label: "Download apps",        href: "/help#apps" },
+  { icon: Keyboard,   label: "Keyboard shortcuts",   href: "/help#shortcuts" },
+  { icon: ScrollText, label: "Terms of Service",     href: "/terms" },
+  { icon: Lock,       label: "Privacy Policy",       href: "/privacy" },
+  { icon: Bug,        label: "Report a bug",         href: "/contact" },
 ];
 
 const contextMenuOptions = [
@@ -220,9 +237,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const helpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch audits for My Projects list
   const { data: auditsData } = useQuery({
@@ -476,11 +495,11 @@ export function Layout({ children }: { children: ReactNode }) {
                 {/* Profile popup */}
                 {profileOpen && (
                   <div
-                    className="absolute left-0 bottom-full mb-3 w-56 bg-popover border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden"
+                    className="absolute left-0 bottom-full mb-3 w-56 bg-popover border border-border rounded-2xl shadow-2xl z-[100]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Header */}
-                    <div className="px-4 pt-4 pb-3 border-b border-border flex items-center gap-3">
+                    <div className="px-4 pt-4 pb-3 border-b border-border flex items-center gap-3 rounded-t-2xl overflow-hidden">
                       <div className="w-9 h-9 rounded-full bg-primary/80 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                         {initials}
                       </div>
@@ -510,8 +529,52 @@ export function Layout({ children }: { children: ReactNode }) {
                           </button>
                         </Link>
                       ))}
+
+                      {/* Help & Support — flyout on hover */}
+                      <div
+                        className="relative"
+                        onMouseEnter={() => {
+                          if (helpTimeoutRef.current) clearTimeout(helpTimeoutRef.current);
+                          setHelpOpen(true);
+                        }}
+                        onMouseLeave={() => {
+                          helpTimeoutRef.current = setTimeout(() => setHelpOpen(false), 120);
+                        }}
+                      >
+                        <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors text-left">
+                          <HelpCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="flex-1">Help &amp; Support</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                        </button>
+
+                        {/* Flyout submenu */}
+                        {helpOpen && (
+                          <div
+                            className="absolute left-full top-0 ml-1 w-52 bg-popover border border-border rounded-xl shadow-2xl z-[110] py-1.5"
+                            onMouseEnter={() => {
+                              if (helpTimeoutRef.current) clearTimeout(helpTimeoutRef.current);
+                              setHelpOpen(true);
+                            }}
+                            onMouseLeave={() => {
+                              helpTimeoutRef.current = setTimeout(() => setHelpOpen(false), 120);
+                            }}
+                          >
+                            {helpSubmenuItems.map(({ icon: Icon, label, href }) => (
+                              <Link key={label} href={href}>
+                                <button
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors text-left"
+                                  onClick={() => { setHelpOpen(false); setProfileOpen(false); }}
+                                >
+                                  <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                  {label}
+                                </button>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="border-t border-border py-1.5">
+                    <div className="border-t border-border py-1.5 rounded-b-2xl overflow-hidden">
                       <button
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors text-left"
                         onClick={() => signOut({ redirectUrl: `${basePath}/` })}
