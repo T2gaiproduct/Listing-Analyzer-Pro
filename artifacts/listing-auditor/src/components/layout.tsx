@@ -334,9 +334,9 @@ export function Layout({ children }: { children: ReactNode }) {
             <SidebarTooltip label="Expand Sidebar" side="right">
               <button
                 onClick={() => setCollapsed(false)}
-                className="absolute -right-3 top-4 w-6 h-6 bg-sidebar border border-sidebar-border rounded-full flex items-center justify-center text-sidebar-foreground/60 hover:text-sidebar-foreground shadow-sm transition-colors"
+                className="absolute -right-4 top-3 w-8 h-8 bg-sidebar border border-sidebar-border rounded-lg flex items-center justify-center text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 shadow-md transition-colors"
               >
-                <PanelLeftOpen className="w-3 h-3" />
+                <PanelLeftOpen className="w-5 h-5" />
               </button>
             </SidebarTooltip>
           )}
