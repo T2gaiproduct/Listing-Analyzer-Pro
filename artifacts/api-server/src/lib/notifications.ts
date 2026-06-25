@@ -1,5 +1,6 @@
 import { db, notificationsTable } from "@workspace/db";
 import type { Notification } from "@workspace/db";
+import { wsSend } from "./ws";
 
 export type NotificationType =
   | "project_renamed"
@@ -38,6 +39,15 @@ export async function createNotification(params: {
       sentAt: new Date(),
     })
     .returning();
+
+  wsSend(params.userId, "notification", {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    message: row.message,
+    sentAt: row.sentAt,
+  });
+
   return row;
 }
 

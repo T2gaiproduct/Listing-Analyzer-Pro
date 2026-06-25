@@ -52,7 +52,7 @@ app.post(
 );
 
 // ─── General middleware (after webhook) ──────────────────────────────────────
-app.use(cors({ credentials: true, origin: true }));
+app.use(cors({ credentials: true, origin: true, exposedHeaders: ["Upgrade"] }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -67,3 +67,4 @@ app.use("/api/images/graphics", express.static(path.join(process.cwd(), "public"
 app.use("/api", router);
 
 export default app;
+export const serverRef: { current: import("node:http").Server | null } = { current: null };

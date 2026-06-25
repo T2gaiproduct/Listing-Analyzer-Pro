@@ -1,8 +1,11 @@
 import { runMigrations } from "stripe-replit-sync";
-import app from "./app";
+import { createServer } from "node:http";
+import { WebSocketServer } from "ws";
+import app, { serverRef } from "./app";
 import { logger } from "./lib/logger";
 import { getStripeSync } from "./stripeClient";
 import { handleStripeEvent } from "./lib/stripeWebhook";
+import { wsHandler } from "./routes/ws";
 import type Stripe from "stripe";
 
 const rawPort = process.env["PORT"];
@@ -64,10 +67,23 @@ async function initStripe(): Promise<void> {
 
 await initStripe();
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
+// Create HTTP server and attach WebSocket
+const httpServer = createServer(app);
+
+const wss = new WebSocketServer({ noServer: true });
+wss.on("connection", wsHandler);
+
+httpServer.on("upgrade", (req, socket, head) => {
+  // Only handle WebSocket upgrade for /api/ws
+  if (req.url === "/api/ws") {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+  } else {
+    socket.destroy();
   }
+});
+
+serverRef.current = httpServer.listen(port, () => {
   logger.info({ port }, "Server listening");
 });

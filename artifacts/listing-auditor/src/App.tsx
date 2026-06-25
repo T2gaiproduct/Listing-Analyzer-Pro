@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
+import { useWsNotifications } from "@/hooks/use-ws-notifications";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -515,10 +516,16 @@ function ClerkProviderWithRoutes() {
           <Router />
           <Toaster />
           <LiveChatWidget />
+          <WsNotificationListener />
         </TooltipProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );
+}
+
+function WsNotificationListener() {
+  useWsNotifications();
+  return null;
 }
 
 function App() {
