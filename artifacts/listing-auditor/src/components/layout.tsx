@@ -550,7 +550,7 @@ export function Layout({ children }: { children: ReactNode }) {
                         {/* Flyout submenu */}
                         {helpOpen && (
                           <div
-                            className="absolute left-full top-0 ml-1 w-52 bg-popover border border-border rounded-xl shadow-2xl z-[110] py-1.5"
+                            className="absolute left-full bottom-0 ml-1 w-52 bg-popover border border-border rounded-xl shadow-2xl z-[110] py-1.5"
                             onMouseEnter={() => {
                               if (helpTimeoutRef.current) clearTimeout(helpTimeoutRef.current);
                               setHelpOpen(true);
