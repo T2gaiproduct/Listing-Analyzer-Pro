@@ -77,6 +77,7 @@ import NotificationsPage from "@/pages/notifications";
 import AdminArchivePage from "@/pages/admin/archive";
 import AuditListings from "@/pages/audit-listings";
 import VideosPage from "@/pages/videos";
+import AdsPage from "@/pages/ads";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -433,6 +434,9 @@ function Router() {
       </Route>
       <Route path="/videos">
         <ProtectedRoute><VideosPage /></ProtectedRoute>
+      </Route>
+      <Route path="/ads">
+        <ProtectedRoute><AdsPage /></ProtectedRoute>
       </Route>
       <Route path="/audits/new">
         <ProtectedRoute><AuditNew /></ProtectedRoute>
