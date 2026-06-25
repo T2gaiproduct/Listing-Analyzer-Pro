@@ -47,9 +47,9 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
     >
       {children}
       {show && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-slate-800 rounded-md whitespace-nowrap z-50 pointer-events-none shadow-lg">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-slate-800 rounded-md whitespace-nowrap z-50 pointer-events-none shadow-lg">
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-800" />
           {label}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
         </div>
       )}
     </div>
