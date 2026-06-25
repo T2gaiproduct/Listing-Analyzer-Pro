@@ -59,7 +59,7 @@ function RecoverButton({ type, id }: { type: string; id: number }) {
       fetch(`${basePath}/api/archive/${type}/${id}/recover`, { method: "POST", credentials: "include" }).then((r) => r.json()),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["archive"] });
-      void qc.invalidateQueries({ queryKey: ["getRecents"] });
+      void qc.invalidateQueries({ queryKey: ["/api/recents"] });
     },
   });
 

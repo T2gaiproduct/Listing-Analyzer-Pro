@@ -46,7 +46,7 @@ import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { useGetRecents } from "@workspace/api-client-react";
+import { useGetRecents, getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
@@ -356,8 +356,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const helpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
+  const recentsQueryKey = getGetRecentsQueryKey({ limit: 200 });
+
   function invalidateRecents() {
-    void queryClient.invalidateQueries({ queryKey: ["getRecents"] });
+    void queryClient.invalidateQueries({ queryKey: recentsQueryKey });
   }
 
   const pinMutation = useMutation({
@@ -407,15 +409,15 @@ export function Layout({ children }: { children: ReactNode }) {
       return r.json();
     },
     onMutate: async ({ type, id }) => {
-      await queryClient.cancelQueries({ queryKey: ["getRecents"] });
-      const prev = queryClient.getQueryData(["getRecents"]);
-      queryClient.setQueryData(["getRecents"], (old: { items: RecentItem[] } | undefined) => ({
+      await queryClient.cancelQueries({ queryKey: recentsQueryKey });
+      const prev = queryClient.getQueryData(recentsQueryKey);
+      queryClient.setQueryData(recentsQueryKey, (old: { items: RecentItem[] } | undefined) => ({
         items: (old?.items ?? []).filter((i) => !(i.type === type && i.id === id)),
       }));
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(["getRecents"], ctx.prev);
+      if (ctx?.prev) queryClient.setQueryData(recentsQueryKey, ctx.prev);
     },
     onSettled: invalidateRecents,
   });
