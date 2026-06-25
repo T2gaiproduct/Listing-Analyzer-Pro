@@ -1,17 +1,19 @@
 import { useState } from "react";
 import {
-  LayoutDashboard,
+  FilePlus2,
   FileSearch,
-  CreditCard,
-  BarChart3,
-  Settings,
-  HelpCircle,
+  Palette,
+  Video,
+  Megaphone,
   Bell,
   Users,
   ChevronRight,
   Zap,
   UserCircle,
   Receipt,
+  Settings,
+  HelpCircle,
+  CreditCard,
   LogOut,
   X,
   Archive,
@@ -19,14 +21,11 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: FileSearch, label: "Audits", active: false, badge: "3" },
-  { icon: BarChart3, label: "Analytics", active: false },
-  { icon: Users, label: "Competitors", active: false },
-  { icon: Bell, label: "Notifications", active: false, badge: "5" },
-  { icon: CreditCard, label: "Billing", active: false },
-  { icon: Settings, label: "Settings", active: false },
-  { icon: HelpCircle, label: "Help & Support", active: false },
+  { icon: FilePlus2, label: "Create Listings", active: true },
+  { icon: FileSearch, label: "Audit Listings", active: false },
+  { icon: Palette, label: "Create Graphics", active: false },
+  { icon: Video, label: "Create Videos", active: false },
+  { icon: Megaphone, label: "Manage Ads", active: false },
 ];
 
 const profileMenuItems = [
