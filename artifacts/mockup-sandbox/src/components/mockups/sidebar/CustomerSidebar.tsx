@@ -31,6 +31,8 @@ const profileMenuItems = [
   { icon: UserCircle, label: "Edit Profile", href: "/profile" },
   { icon: Receipt, label: "Billing", href: "/billing" },
   { icon: Users, label: "Team", href: "/team" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: HelpCircle, label: "Help & Support", href: "/help" },
 ];
 
 export function CustomerSidebar() {
