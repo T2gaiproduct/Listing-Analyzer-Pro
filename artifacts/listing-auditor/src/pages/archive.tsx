@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Search, Image, Users, RotateCcw, Trash2, AlertCircle } from "lucide-react";
+import { Package, Search, Image, Users, RotateCcw, Trash2, AlertCircle, Video, Megaphone } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
 
 interface ArchivedItem {
   id: number;
-  type: "audit" | "project" | "competitor" | "teamMember";
+  type: "audit" | "project" | "video" | "ad" | "competitor" | "teamMember";
   userId?: string;
   productName?: string;
   name?: string;
@@ -22,19 +20,24 @@ interface ArchivedItem {
   overallScore?: number;
   status?: string;
   role?: string;
-  deletedAt: string;
+  deletedAt?: string | null;
+  updatedAt?: string | null;
   createdAt: string;
 }
 
 interface ArchiveResponse {
   audits: ArchivedItem[];
   projects: ArchivedItem[];
+  videos: ArchivedItem[];
+  ads: ArchivedItem[];
   competitors: ArchivedItem[];
   teamMembers: ArchivedItem[];
 }
 
+const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 function fetchArchive(): Promise<ArchiveResponse> {
-  return fetch("/api/archive").then((r) => r.json());
+  return fetch(`${basePath}/api/archive`, { credentials: "include" }).then((r) => r.json());
 }
 
 function useArchive() {
@@ -44,15 +47,27 @@ function useArchive() {
   });
 }
 
+function archivedAgo(item: ArchivedItem): string {
+  const ts = item.deletedAt ?? item.updatedAt;
+  if (!ts) return "";
+  try {
+    return formatDistanceToNow(new Date(ts), { addSuffix: true });
+  } catch {
+    return "";
+  }
+}
+
 function RecoverButton({ type, id }: { type: string; id: number }) {
   const qc = useQueryClient();
   const recover = useMutation({
-    mutationFn: () => fetch(`/api/archive/${type}/${id}/recover`, { method: "POST" }).then((r) => r.json()),
+    mutationFn: () =>
+      fetch(`${basePath}/api/archive/${type}/${id}/recover`, {
+        method: "POST",
+        credentials: "include",
+      }).then((r) => r.json()),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["archive"] });
-      qc.invalidateQueries({ queryKey: ["audits"] });
-      qc.invalidateQueries({ queryKey: ["graphics-projects"] });
-      qc.invalidateQueries({ queryKey: ["team"] });
+      void qc.invalidateQueries({ queryKey: ["archive"] });
+      void qc.invalidateQueries({ queryKey: ["getRecents"] });
     },
   });
 
@@ -65,7 +80,7 @@ function RecoverButton({ type, id }: { type: string; id: number }) {
       disabled={recover.isPending}
     >
       <RotateCcw className="w-3.5 h-3.5" />
-      Recover
+      {recover.isPending ? "Restoring…" : "Restore"}
     </Button>
   );
 }
@@ -74,9 +89,13 @@ function DeleteButton({ type, id }: { type: string; id: number }) {
   const qc = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const del = useMutation({
-    mutationFn: () => fetch(`/api/archive/${type}/${id}`, { method: "DELETE" }).then((r) => r.ok),
+    mutationFn: () =>
+      fetch(`${basePath}/api/archive/${type}/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      }).then((r) => r.ok),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["archive"] });
+      void qc.invalidateQueries({ queryKey: ["archive"] });
       setConfirming(false);
     },
   });
@@ -88,7 +107,7 @@ function DeleteButton({ type, id }: { type: string; id: number }) {
           Cancel
         </Button>
         <Button size="sm" variant="destructive" className="text-xs" onClick={() => del.mutate()} disabled={del.isPending}>
-          {del.isPending ? "Deleting..." : "Confirm Delete"}
+          {del.isPending ? "Deleting…" : "Delete forever"}
         </Button>
       </div>
     );
@@ -101,12 +120,20 @@ function DeleteButton({ type, id }: { type: string; id: number }) {
   );
 }
 
-function ArchiveList({ items, type, icon: Icon }: { items: ArchivedItem[]; type: string; icon: React.ComponentType<{ className?: string }> }) {
+function ArchiveList({
+  items,
+  emptyLabel,
+  icon: Icon,
+}: {
+  items: ArchivedItem[];
+  emptyLabel: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <AlertCircle className="w-8 h-8 mb-3 opacity-40" />
-        <p className="text-sm">No archived {type}s found</p>
+        <p className="text-sm">No archived {emptyLabel} found</p>
       </div>
     );
   }
@@ -140,10 +167,10 @@ function ArchiveList({ items, type, icon: Icon }: { items: ArchivedItem[]; type:
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                     {item.asin && <span>ASIN: {item.asin}</span>}
                     {item.invitedEmail && <span>{item.invitedEmail}</span>}
-                    {item.status && <span className="capitalize">{item.status}</span>}
-                    <span>
-                      Deleted {formatDistanceToNow(new Date(item.deletedAt), { addSuffix: true })}
-                    </span>
+                    {(() => {
+                      const ago = archivedAgo(item);
+                      return ago ? <span>Archived {ago}</span> : null;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -172,9 +199,11 @@ export default function ArchivePage() {
 
   const audits = data?.audits ?? [];
   const projects = data?.projects ?? [];
+  const videos = data?.videos ?? [];
+  const ads = data?.ads ?? [];
   const competitors = data?.competitors ?? [];
   const teamMembers = data?.teamMembers ?? [];
-  const total = audits.length + projects.length + competitors.length + teamMembers.length;
+  const total = audits.length + projects.length + videos.length + ads.length + competitors.length + teamMembers.length;
 
   return (
     <div className="space-y-6">
@@ -182,20 +211,28 @@ export default function ArchivePage() {
         <div>
           <h1 className="text-2xl font-bold">Archive</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {total} deleted item{total !== 1 ? "s" : ""} in trash
+            {total} archived item{total !== 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="audits" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-md">
+        <TabsList className="flex flex-wrap gap-1 h-auto w-full max-w-2xl">
           <TabsTrigger value="audits" className="gap-1">
             <Search className="w-3.5 h-3.5" />
             Audits {audits.length > 0 && `(${audits.length})`}
           </TabsTrigger>
           <TabsTrigger value="projects" className="gap-1">
             <Image className="w-3.5 h-3.5" />
-            Projects {projects.length > 0 && `(${projects.length})`}
+            Graphics {projects.length > 0 && `(${projects.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="videos" className="gap-1">
+            <Video className="w-3.5 h-3.5" />
+            Videos {videos.length > 0 && `(${videos.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="ads" className="gap-1">
+            <Megaphone className="w-3.5 h-3.5" />
+            Ads {ads.length > 0 && `(${ads.length})`}
           </TabsTrigger>
           <TabsTrigger value="competitors" className="gap-1">
             <Package className="w-3.5 h-3.5" />
@@ -207,16 +244,22 @@ export default function ArchivePage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="audits" className="mt-4">
-          <ArchiveList items={audits} type="audit" icon={Search} />
+          <ArchiveList items={audits} emptyLabel="audits" icon={Search} />
         </TabsContent>
         <TabsContent value="projects" className="mt-4">
-          <ArchiveList items={projects} type="project" icon={Image} />
+          <ArchiveList items={projects} emptyLabel="graphics projects" icon={Image} />
+        </TabsContent>
+        <TabsContent value="videos" className="mt-4">
+          <ArchiveList items={videos} emptyLabel="video projects" icon={Video} />
+        </TabsContent>
+        <TabsContent value="ads" className="mt-4">
+          <ArchiveList items={ads} emptyLabel="ad projects" icon={Megaphone} />
         </TabsContent>
         <TabsContent value="competitors" className="mt-4">
-          <ArchiveList items={competitors} type="competitor" icon={Package} />
+          <ArchiveList items={competitors} emptyLabel="competitors" icon={Package} />
         </TabsContent>
         <TabsContent value="team" className="mt-4">
-          <ArchiveList items={teamMembers} type="team member" icon={Users} />
+          <ArchiveList items={teamMembers} emptyLabel="team members" icon={Users} />
         </TabsContent>
       </Tabs>
     </div>
