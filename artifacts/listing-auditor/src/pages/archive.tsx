@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, Search, Image, Users, RotateCcw, Trash2, AlertCircle, Video, Megaphone } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useActionDialog } from "@/components/ui/action-dialog";
 
 interface ArchivedItem {
   id: number;
@@ -41,82 +41,92 @@ function fetchArchive(): Promise<ArchiveResponse> {
 }
 
 function useArchive() {
-  return useQuery({
-    queryKey: ["archive"],
-    queryFn: fetchArchive,
-  });
+  return useQuery({ queryKey: ["archive"], queryFn: fetchArchive });
 }
 
 function archivedAgo(item: ArchivedItem): string {
   const ts = item.deletedAt ?? item.updatedAt;
   if (!ts) return "";
-  try {
-    return formatDistanceToNow(new Date(ts), { addSuffix: true });
-  } catch {
-    return "";
-  }
+  try { return formatDistanceToNow(new Date(ts), { addSuffix: true }); }
+  catch { return ""; }
 }
 
 function RecoverButton({ type, id }: { type: string; id: number }) {
   const qc = useQueryClient();
+  const { trigger, dialog } = useActionDialog();
   const recover = useMutation({
     mutationFn: () =>
-      fetch(`${basePath}/api/archive/${type}/${id}/recover`, {
-        method: "POST",
-        credentials: "include",
-      }).then((r) => r.json()),
+      fetch(`${basePath}/api/archive/${type}/${id}/recover`, { method: "POST", credentials: "include" }).then((r) => r.json()),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["archive"] });
       void qc.invalidateQueries({ queryKey: ["getRecents"] });
     },
   });
 
+  function handleClick() {
+    trigger(
+      async () => { await recover.mutateAsync(); },
+      {
+        title: "Restore this item?",
+        description: "It will reappear in your Recent Projects feed.",
+        confirmLabel: "Restore",
+        successTitle: "Restored!",
+        successDescription: "The item is back in your projects.",
+      }
+    );
+  }
+
   return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="gap-1 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
-      onClick={() => recover.mutate()}
-      disabled={recover.isPending}
-    >
-      <RotateCcw className="w-3.5 h-3.5" />
-      {recover.isPending ? "Restoring…" : "Restore"}
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+        onClick={handleClick}
+      >
+        <RotateCcw className="w-3.5 h-3.5" />
+        Restore
+      </Button>
+      {dialog}
+    </>
   );
 }
 
 function DeleteButton({ type, id }: { type: string; id: number }) {
   const qc = useQueryClient();
-  const [confirming, setConfirming] = useState(false);
+  const { trigger, dialog } = useActionDialog();
   const del = useMutation({
     mutationFn: () =>
-      fetch(`${basePath}/api/archive/${type}/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      }).then((r) => r.ok),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["archive"] });
-      setConfirming(false);
-    },
+      fetch(`${basePath}/api/archive/${type}/${id}`, { method: "DELETE", credentials: "include" }).then((r) => r.ok),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["archive"] }); },
   });
 
-  if (confirming) {
-    return (
-      <div className="flex items-center gap-1">
-        <Button size="sm" variant="ghost" className="text-xs text-muted-foreground" onClick={() => setConfirming(false)}>
-          Cancel
-        </Button>
-        <Button size="sm" variant="destructive" className="text-xs" onClick={() => del.mutate()} disabled={del.isPending}>
-          {del.isPending ? "Deleting…" : "Delete forever"}
-        </Button>
-      </div>
+  function handleClick() {
+    trigger(
+      async () => { await del.mutateAsync(); },
+      {
+        title: "Delete permanently?",
+        description: "This item will be removed forever and cannot be recovered.",
+        confirmLabel: "Delete forever",
+        confirmVariant: "destructive",
+        successTitle: "Deleted",
+        successDescription: "The item has been permanently removed.",
+      }
     );
   }
 
   return (
-    <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setConfirming(true)}>
-      <Trash2 className="w-3.5 h-3.5" />
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+        onClick={handleClick}
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </Button>
+      {dialog}
+    </>
   );
 }
 
@@ -154,23 +164,16 @@ function ArchiveList({
                       {item.productName || item.name || item.invitedName || `Item #${item.id}`}
                     </p>
                     {item.overallScore !== undefined && (
-                      <Badge variant="outline" className="text-xs">
-                        Score: {item.overallScore}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs">Score: {item.overallScore}</Badge>
                     )}
                     {item.role && (
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {item.role}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs capitalize">{item.role}</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                     {item.asin && <span>ASIN: {item.asin}</span>}
                     {item.invitedEmail && <span>{item.invitedEmail}</span>}
-                    {(() => {
-                      const ago = archivedAgo(item);
-                      return ago ? <span>Archived {ago}</span> : null;
-                    })()}
+                    {(() => { const ago = archivedAgo(item); return ago ? <span>Archived {ago}</span> : null; })()}
                   </div>
                 </div>
               </div>
@@ -207,13 +210,11 @@ export default function ArchivePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Archive</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {total} archived item{total !== 1 ? "s" : ""}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Archive</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {total} archived item{total !== 1 ? "s" : ""}
+        </p>
       </div>
 
       <Tabs defaultValue="audits" className="w-full">

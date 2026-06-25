@@ -1,5 +1,6 @@
 import { ReactNode, useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useActionDialog } from "@/components/ui/action-dialog";
 import { Link, useLocation } from "wouter";
 import {
   FilePlus2,
@@ -174,31 +175,20 @@ function RecentProjectItem({
   openMenu: string | null;
   setOpenMenu: (id: string | null) => void;
   onPin: () => void;
-  onRename: (name: string) => void;
-  onArchive: () => void;
-  onDelete: () => void;
+  onRename: (name: string) => Promise<void>;
+  onArchive: () => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
   const [location] = useLocation();
   const [hovered, setHovered] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(item.name);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const renameInputRef = useRef<HTMLInputElement>(null);
   const key = `${item.type}-${item.id}`;
   const menuOpen = openMenu === key;
   const ref = useRef<HTMLDivElement>(null);
   const dotsRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const [confirmPos, setConfirmPos] = useState<{ top: number; left: number } | null>(null);
   const isActive = location === item.url;
   const TypeIcon = typeIconMap[item.type] || AuditIcon;
-
-  useEffect(() => {
-    if (renaming) {
-      setRenameValue(item.name);
-      setTimeout(() => renameInputRef.current?.select(), 10);
-    }
-  }, [renaming, item.name]);
+  const { trigger, dialog } = useActionDialog();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -225,20 +215,47 @@ function RecentProjectItem({
   function handleMenuAction(label: string) {
     setOpenMenu(null);
     if (label === "Pin project") { onPin(); return; }
-    if (label === "Rename") { setRenaming(true); return; }
-    if (label === "Archive") { onArchive(); return; }
-    if (label === "Delete") {
-      const rect = ref.current?.getBoundingClientRect();
-      if (rect) setConfirmPos({ top: rect.bottom + 4, left: Math.max(4, rect.right - 220) });
-      setConfirmDelete(true);
+    if (label === "Rename") {
+      trigger(
+        async (name) => { await onRename(name); },
+        {
+          title: "Rename Project",
+          description: "Enter a new name for this project.",
+          confirmLabel: "Rename",
+          successTitle: "Renamed!",
+          successDescription: "Your project has been renamed successfully.",
+          inputField: { label: "Project name", placeholder: "Enter name…", defaultValue: item.name },
+        }
+      );
       return;
     }
-  }
-
-  function submitRename() {
-    const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== item.name) onRename(trimmed);
-    setRenaming(false);
+    if (label === "Archive") {
+      trigger(
+        async () => { await onArchive(); },
+        {
+          title: "Archive this project?",
+          description: "It will be moved to your Archive. You can restore it anytime.",
+          confirmLabel: "Archive",
+          successTitle: "Archived!",
+          successDescription: "Your project has been moved to the Archive.",
+        }
+      );
+      return;
+    }
+    if (label === "Delete") {
+      trigger(
+        async () => { await onDelete(); },
+        {
+          title: "Delete this project?",
+          description: "This action cannot be undone.",
+          confirmLabel: "Delete",
+          confirmVariant: "destructive",
+          successTitle: "Deleted",
+          successDescription: "Your project has been permanently deleted.",
+        }
+      );
+      return;
+    }
   }
 
   return (
@@ -260,27 +277,12 @@ function RecentProjectItem({
       >
         <TypeIcon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
 
-        {renaming ? (
-          <input
-            ref={renameInputRef}
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onBlur={submitRename}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submitRename();
-              if (e.key === "Escape") setRenaming(false);
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="flex-1 min-w-0 bg-sidebar-accent border border-primary/30 rounded px-1 py-0 text-sm text-sidebar-foreground outline-none focus:border-primary"
-          />
-        ) : (
-          <Link href={item.url} className="truncate flex-1 text-left min-w-0">
-            {item.name}
-          </Link>
-        )}
+        <Link href={item.url} className="truncate flex-1 text-left min-w-0">
+          {item.name}
+        </Link>
 
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          {(hovered || menuOpen || item.pinned) && !renaming && (
+          {(hovered || menuOpen || item.pinned) && (
             <button
               title={item.pinned ? "Unpin" : "Pin"}
               className={cn(
@@ -294,20 +296,18 @@ function RecentProjectItem({
               <Pin className={cn("w-3 h-3", item.pinned ? "fill-current" : "")} />
             </button>
           )}
-          {!renaming && (
-            <button
-              ref={dotsRef}
-              className={cn(
-                "w-5 h-5 flex items-center justify-center rounded transition-colors",
-                menuOpen
-                  ? "text-sidebar-foreground bg-sidebar-accent/60"
-                  : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-              )}
-              onClick={openDropdown}
-            >
-              <MoreHorizontal className="w-3 h-3" />
-            </button>
-          )}
+          <button
+            ref={dotsRef}
+            className={cn(
+              "w-5 h-5 flex items-center justify-center rounded transition-colors",
+              menuOpen
+                ? "text-sidebar-foreground bg-sidebar-accent/60"
+                : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+            onClick={openDropdown}
+          >
+            <MoreHorizontal className="w-3 h-3" />
+          </button>
         </div>
       </div>
 
@@ -334,31 +334,7 @@ function RecentProjectItem({
         document.body
       )}
 
-      {confirmDelete && confirmPos && createPortal(
-        <div
-          data-recent-menu
-          style={{ position: "fixed", top: confirmPos.top, left: Math.max(4, confirmPos.left), zIndex: 9999 }}
-          className="w-52 bg-popover border border-border rounded-xl shadow-2xl p-3"
-        >
-          <p className="text-xs text-foreground mb-2 font-medium">Delete this project?</p>
-          <p className="text-xs text-muted-foreground mb-3">This action cannot be undone.</p>
-          <div className="flex gap-2">
-            <button
-              className="flex-1 text-xs py-1.5 rounded-lg border border-border bg-muted hover:bg-muted/70 text-foreground transition-colors"
-              onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }}
-            >
-              Cancel
-            </button>
-            <button
-              className="flex-1 text-xs py-1.5 rounded-lg bg-destructive hover:bg-destructive/90 text-white transition-colors"
-              onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); onDelete(); }}
-            >
-              Delete
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      {dialog}
     </div>
   );
 }
@@ -668,9 +644,9 @@ export function Layout({ children }: { children: ReactNode }) {
                           openMenu={openMenu}
                           setOpenMenu={setOpenMenu}
                           onPin={() => pinMutation.mutate({ type: item.type, id: item.id })}
-                          onRename={(name) => renameMutation.mutate({ type: item.type, id: item.id, name })}
-                          onArchive={() => archiveMutation.mutate({ type: item.type, id: item.id })}
-                          onDelete={() => deleteMutation.mutate({ type: item.type, id: item.id })}
+                          onRename={(name) => renameMutation.mutateAsync({ type: item.type, id: item.id, name })}
+                          onArchive={() => archiveMutation.mutateAsync({ type: item.type, id: item.id })}
+                          onDelete={() => deleteMutation.mutateAsync({ type: item.type, id: item.id })}
                         />
                       ))
                     )}
