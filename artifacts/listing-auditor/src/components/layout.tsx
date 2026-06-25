@@ -379,6 +379,20 @@ export function Layout({ children }: { children: ReactNode }) {
             })}
           </div>
 
+          {/* My Projects icon — collapsed mode only */}
+          {collapsed && (
+            <div className="px-2 mt-1">
+              <SidebarTooltip label="My Projects" side="right">
+                <button
+                  className="w-full flex items-center justify-center h-10 rounded-xl transition-colors text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  onClick={() => setCollapsed(false)}
+                >
+                  <Folder className="w-5 h-5" />
+                </button>
+              </SidebarTooltip>
+            </div>
+          )}
+
           {/* My Projects section — only when expanded */}
           {!collapsed && (
             <>
