@@ -37,7 +37,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const mainNavItems = [
   { icon: FilePlus2, label: "Create Listings", href: "/audits/new" },
-  { icon: FileSearch, label: "Audit Listings", href: "/dashboard" },
+  { icon: FileSearch, label: "Audit Listings", href: "/audit-listings" },
   { icon: Palette, label: "Create Graphics", href: "/projects" },
   { icon: Video, label: "Create Videos", href: "/videos" },
   { icon: Megaphone, label: "Manage Ads", href: "/ads" },

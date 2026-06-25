@@ -75,6 +75,7 @@ import GeneratingPage from "@/pages/projects/generating";
 import ArchivePage from "@/pages/archive";
 import NotificationsPage from "@/pages/notifications";
 import AdminArchivePage from "@/pages/admin/archive";
+import AuditListings from "@/pages/audit-listings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -425,6 +426,9 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
+      </Route>
+      <Route path="/audit-listings">
+        <ProtectedRoute><AuditListings /></ProtectedRoute>
       </Route>
       <Route path="/audits/new">
         <ProtectedRoute><AuditNew /></ProtectedRoute>
