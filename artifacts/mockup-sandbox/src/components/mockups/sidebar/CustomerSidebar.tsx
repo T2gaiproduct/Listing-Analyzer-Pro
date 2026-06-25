@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   FilePlus2,
   FileSearch,
@@ -96,6 +97,8 @@ function ProjectItem({
   openMenu,
   setOpenMenu,
   id,
+  pinned,
+  onPin,
 }: {
   label: string;
   TypeIcon: typeof FileText;
@@ -103,21 +106,36 @@ function ProjectItem({
   openMenu: string | null;
   setOpenMenu: (id: string | null) => void;
   id: string;
+  pinned: boolean;
+  onPin: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const menuOpen = openMenu === id;
   const ref = useRef<HTMLDivElement>(null);
+  const dotsRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (
+        ref.current && !ref.current.contains(e.target as Node) &&
+        !(e.target as Element)?.closest?.("[data-recent-menu]")
+      ) {
         setOpenMenu(null);
       }
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen, setOpenMenu]);
+
+  function openDropdown(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (menuOpen) { setOpenMenu(null); return; }
+    const rect = dotsRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
+    setOpenMenu(id);
+  }
 
   return (
     <div
@@ -127,52 +145,65 @@ function ProjectItem({
       onMouseLeave={() => setHovered(false)}
     >
       <div
-        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors group ${
+        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
           hovered || menuOpen ? "bg-slate-100" : ""
         } ${isFirst ? "text-slate-900 font-medium" : "text-slate-600"}`}
       >
         <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isFirst ? "text-orange-500" : "text-slate-400"}`} />
         <span className="truncate flex-1 text-left">{label}</span>
-        {/* Pin + 3-dot shown on hover */}
-        {(hovered || menuOpen) && (
-          <div className="flex items-center gap-0.5 flex-shrink-0">
-            <button className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
-              <Pin className="w-3 h-3" />
-            </button>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {(hovered || menuOpen || pinned) && (
             <button
-              className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenMenu(menuOpen ? null : id);
-              }}
+              title={pinned ? "Unpin" : "Pin"}
+              className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${
+                pinned
+                  ? "text-orange-500 hover:text-orange-400"
+                  : "text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+              }`}
+              onClick={(e) => { e.stopPropagation(); onPin(); }}
             >
-              <MoreHorizontal className="w-3 h-3" />
+              <Pin className={`w-3 h-3 ${pinned ? "fill-current" : ""}`} />
             </button>
-          </div>
-        )}
+          )}
+          <button
+            ref={dotsRef}
+            className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${
+              menuOpen
+                ? "text-slate-700 bg-slate-200"
+                : "text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+            }`}
+            onClick={openDropdown}
+          >
+            <MoreHorizontal className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
-      {/* Context menu dropdown */}
-      {menuOpen && (
+      {menuOpen && menuPos && createPortal(
         <div
-          className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden py-1"
-          style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
+          data-recent-menu
+          style={{ position: "fixed", top: menuPos.top, left: Math.max(4, menuPos.left), zIndex: 9999, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
+          className="w-44 bg-white border border-slate-200 rounded-xl overflow-hidden py-1"
+          onMouseDown={(e) => e.stopPropagation()}
         >
           {contextMenuOptions.map(({ icon: Icon, label: optLabel, danger }) => (
             <button
               key={optLabel}
               className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left ${
-                danger
-                  ? "text-red-500 hover:bg-red-50"
-                  : "text-slate-700 hover:bg-slate-50"
+                danger ? "text-red-500 hover:bg-red-50" : "text-slate-700 hover:bg-slate-50"
               }`}
-              onClick={() => setOpenMenu(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (optLabel === "Pin project") onPin();
+                setOpenMenu(null);
+              }}
             >
               <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${danger ? "text-red-400" : "text-slate-400"}`} />
               {optLabel}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -183,6 +214,15 @@ export function CustomerSidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pinnedItems, setPinnedItems] = useState<Set<string>>(new Set());
+
+  function togglePin(id: string) {
+    setPinnedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const displayItems = searchQuery
     ? projectList.filter((p) => p.label.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -298,6 +338,8 @@ export function CustomerSidebar() {
                     isFirst={i === 0 && !searchQuery}
                     openMenu={openMenu}
                     setOpenMenu={setOpenMenu}
+                    pinned={pinnedItems.has(p.label)}
+                    onPin={() => togglePin(p.label)}
                   />
                 ))
               )}

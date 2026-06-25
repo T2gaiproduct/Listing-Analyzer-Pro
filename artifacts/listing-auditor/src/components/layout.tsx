@@ -1,4 +1,5 @@
 import { ReactNode, useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import {
   FilePlus2,
@@ -164,27 +165,46 @@ function RecentProjectItem({
   item,
   openMenu,
   setOpenMenu,
+  pinned,
+  onPin,
 }: {
   item: RecentItem;
   openMenu: string | null;
   setOpenMenu: (id: string | null) => void;
+  pinned: boolean;
+  onPin: () => void;
 }) {
   const [location] = useLocation();
   const [hovered, setHovered] = useState(false);
   const key = `${item.type}-${item.id}`;
   const menuOpen = openMenu === key;
   const ref = useRef<HTMLDivElement>(null);
+  const dotsRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const isActive = location === item.url;
   const TypeIcon = typeIconMap[item.type] || AuditIcon;
 
   useEffect(() => {
     if (!menuOpen) return;
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpenMenu(null);
+      if (
+        ref.current && !ref.current.contains(e.target as Node) &&
+        !(e.target as Element)?.closest?.("[data-recent-menu]")
+      ) {
+        setOpenMenu(null);
+      }
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen, setOpenMenu]);
+
+  function openDropdown(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (menuOpen) { setOpenMenu(null); return; }
+    const rect = dotsRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
+    setOpenMenu(key);
+  }
 
   return (
     <div
@@ -207,23 +227,42 @@ function RecentProjectItem({
         <Link href={item.url} className="truncate flex-1 text-left min-w-0">
           {item.name}
         </Link>
-        {(hovered || menuOpen) && (
-          <div className="flex items-center gap-0.5 flex-shrink-0">
-            <button className="w-5 h-5 flex items-center justify-center rounded text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors">
-              <Pin className="w-3 h-3" />
-            </button>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {(hovered || menuOpen || pinned) && (
             <button
-              className="w-5 h-5 flex items-center justify-center rounded text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
-              onClick={(e) => { e.stopPropagation(); setOpenMenu(menuOpen ? null : key); }}
+              title={pinned ? "Unpin" : "Pin"}
+              className={cn(
+                "w-5 h-5 flex items-center justify-center rounded transition-colors",
+                pinned
+                  ? "text-primary hover:text-primary/70"
+                  : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+              )}
+              onClick={(e) => { e.stopPropagation(); onPin(); }}
             >
-              <MoreHorizontal className="w-3 h-3" />
+              <Pin className={cn("w-3 h-3", pinned ? "fill-current" : "")} />
             </button>
-          </div>
-        )}
+          )}
+          <button
+            ref={dotsRef}
+            className={cn(
+              "w-5 h-5 flex items-center justify-center rounded transition-colors",
+              menuOpen
+                ? "text-sidebar-foreground bg-sidebar-accent/60"
+                : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+            onClick={openDropdown}
+          >
+            <MoreHorizontal className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
-      {menuOpen && (
-        <div className="absolute right-0 top-full mt-1 w-44 bg-popover border border-border rounded-xl shadow-2xl z-[100] overflow-hidden py-1">
+      {menuOpen && menuPos && createPortal(
+        <div
+          data-recent-menu
+          style={{ position: "fixed", top: menuPos.top, left: Math.max(4, menuPos.left), zIndex: 9999 }}
+          className="w-44 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden py-1"
+        >
           {contextMenuOptions.map(({ icon: Icon, label: optLabel, danger }) => (
             <button
               key={optLabel}
@@ -231,13 +270,18 @@ function RecentProjectItem({
                 "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left",
                 danger ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-muted"
               )}
-              onClick={() => setOpenMenu(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (optLabel === "Pin project") { onPin(); }
+                setOpenMenu(null);
+              }}
             >
               <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", danger ? "text-destructive" : "text-muted-foreground")} />
               {optLabel}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -256,6 +300,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pinnedItems, setPinnedItems] = useState<Set<string>>(new Set());
+
+  function togglePin(key: string) {
+    setPinnedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
   const profileRef = useRef<HTMLDivElement>(null);
   const helpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -476,14 +529,19 @@ export function Layout({ children }: { children: ReactNode }) {
                         {searchQuery ? "No matches found" : "No projects yet"}
                       </p>
                     ) : (
-                      displayItems.map((item) => (
+                      displayItems.map((item) => {
+                        const key = `${item.type}-${item.id}`;
+                        return (
                         <RecentProjectItem
-                          key={`${item.type}-${item.id}`}
+                          key={key}
                           item={item}
                           openMenu={openMenu}
                           setOpenMenu={setOpenMenu}
+                          pinned={pinnedItems.has(key)}
+                          onPin={() => togglePin(key)}
                         />
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 )}
