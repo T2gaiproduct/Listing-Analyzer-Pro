@@ -340,7 +340,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "flex-shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shadow-2xl z-10 transition-all duration-200 overflow-visible",
+          "flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex flex-col shadow-2xl z-10 transition-all duration-200 overflow-visible",
           collapsed ? "w-16" : "w-64"
         )}
         onClick={(e) => e.stopPropagation()}
