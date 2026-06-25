@@ -397,7 +397,10 @@ export function Layout({ children }: { children: ReactNode }) {
       });
       return r.json();
     },
-    onSuccess: invalidateRecents,
+    onSuccess: () => {
+      invalidateRecents();
+      void queryClient.invalidateQueries({ queryKey: ["archive"] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -419,7 +422,10 @@ export function Layout({ children }: { children: ReactNode }) {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(recentsQueryKey, ctx.prev);
     },
-    onSettled: invalidateRecents,
+    onSettled: () => {
+      invalidateRecents();
+      void queryClient.invalidateQueries({ queryKey: ["archive"] });
+    },
   });
 
   // Fetch unified recents for sidebar
