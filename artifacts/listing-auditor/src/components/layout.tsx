@@ -25,12 +25,10 @@ import {
   PenLine,
   Trash2,
   Zap,
-  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { formatDistanceToNow } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -95,9 +93,7 @@ interface NotificationItem {
 }
 
 function NotificationIcon({ collapsed }: { collapsed: boolean }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const qc = useQueryClient();
+  const [, navigate] = useLocation();
 
   const { data } = useQuery({
     queryKey: ["notifications"],
@@ -112,97 +108,21 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
   const notifications = data?.notifications ?? [];
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markRead = useMutation({
-    mutationFn: (id: number) => fetch(`${basePath}/api/notifications/${id}/read`, { method: "PATCH" }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-  const markAllRead = useMutation({
-    mutationFn: () => fetch(`${basePath}/api/notifications/read-all`, { method: "POST" }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-
-  useEffect(() => {
-    if (!open) return;
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const btn = (
-    <button
-      onClick={() => setOpen((o) => !o)}
-      className={cn(
-        "relative flex items-center justify-center rounded-lg transition-colors",
-        collapsed ? "w-9 h-9" : "w-8 h-8",
-        open
-          ? "bg-sidebar-accent text-sidebar-foreground"
-          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-      )}
-    >
-      <Bell className="w-4 h-4" />
-      {unreadCount > 0 && (
-        <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-primary border-2 border-sidebar" />
-      )}
-    </button>
-  );
-
   return (
-    <div ref={ref} className="relative">
-      <SidebarTooltip label="Notifications" side={collapsed ? "right" : "bottom"}>
-        {btn}
-      </SidebarTooltip>
-
-      {open && (
-        <div className="absolute left-full top-0 ml-2 w-80 bg-popover border border-border rounded-xl shadow-2xl z-[100] overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
-            <h3 className="text-sm font-semibold">Notifications</h3>
-            {unreadCount > 0 && (
-              <button onClick={() => markAllRead.mutate()} className="text-xs text-primary hover:underline">
-                Mark all read
-              </button>
-            )}
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications</div>
-            ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={cn(
-                    "px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors",
-                    n.read ? "bg-background/50" : "bg-primary/5 hover:bg-primary/10"
-                  )}
-                  onClick={() => {
-                    if (!n.read) markRead.mutate(n.id);
-                    if (n.link) setTimeout(() => { window.location.href = n.link as string; }, 150);
-                    setOpen(false);
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={cn("text-sm font-medium leading-snug", n.link && "text-primary")}>{n.title}</p>
-                    {!n.read && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1" />}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <p className="text-[10px] text-muted-foreground/70">
-                      {formatDistanceToNow(new Date(n.sentAt), { addSuffix: true })}
-                    </p>
-                    {n.link && (
-                      <span className="text-[10px] text-primary flex items-center gap-0.5">
-                        <ArrowRight className="w-3 h-3" /> Open
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <SidebarTooltip label="Notifications" side={collapsed ? "right" : "bottom"}>
+      <button
+        onClick={() => navigate("/notifications")}
+        className={cn(
+          "relative flex items-center justify-center rounded-lg transition-colors text-slate-500 hover:text-slate-800 hover:bg-slate-100",
+          collapsed ? "w-9 h-9" : "w-8 h-8"
+        )}
+      >
+        <Bell className="w-4 h-4" />
+        {unreadCount > 0 && (
+          <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-primary border-2 border-white" />
+        )}
+      </button>
+    </SidebarTooltip>
   );
 }
 
