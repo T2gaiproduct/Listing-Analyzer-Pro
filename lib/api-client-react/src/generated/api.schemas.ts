@@ -320,11 +320,54 @@ export interface RecentItem {
   name: string;
   createdAt?: string;
   url: string;
+  pinned: boolean;
 }
 
 export interface RecentsResponse {
   items: RecentItem[];
 }
+
+export type TogglePinBodyType =
+  (typeof TogglePinBodyType)[keyof typeof TogglePinBodyType];
+
+export const TogglePinBodyType = {
+  audit: "audit",
+  graphics: "graphics",
+  video: "video",
+  ads: "ads",
+} as const;
+
+export interface TogglePinBody {
+  type: TogglePinBodyType;
+  id: number;
+}
+
+export interface TogglePinResponse {
+  pinned: boolean;
+}
+
+export interface RenameProjectBody {
+  name: string;
+}
+
+export interface RenameProjectResponse {
+  ok: boolean;
+  name: string;
+}
+
+export interface ProjectActionResponse {
+  ok: boolean;
+}
+
+export type ProjectTypeParam =
+  (typeof ProjectTypeParam)[keyof typeof ProjectTypeParam];
+
+export const ProjectTypeParam = {
+  audit: "audit",
+  graphics: "graphics",
+  video: "video",
+  ads: "ads",
+} as const;
 
 export type GetRecentsParams = {
   limit?: number;

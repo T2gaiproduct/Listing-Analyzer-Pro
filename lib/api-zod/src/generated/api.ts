@@ -437,6 +437,7 @@ export const GetRecentsResponse = zod.object({
       name: zod.string(),
       createdAt: zod.string().optional(),
       url: zod.string(),
+      pinned: zod.boolean(),
     }),
   ),
 });
@@ -459,6 +460,60 @@ export const SearchProjectsResponse = zod.object({
       name: zod.string(),
       createdAt: zod.string().optional(),
       url: zod.string(),
+      pinned: zod.boolean(),
     }),
   ),
+});
+
+/**
+ * @summary Toggle pin state for a project
+ */
+export const ToggleProjectPinBody = zod.object({
+  type: zod.enum(["audit", "graphics", "video", "ads"]),
+  id: zod.number(),
+});
+
+export const ToggleProjectPinResponse = zod.object({
+  pinned: zod.boolean(),
+});
+
+/**
+ * @summary Rename a project
+ */
+export const RenameProjectParams = zod.object({
+  type: zod.enum(["audit", "graphics", "video", "ads"]),
+  id: zod.coerce.number(),
+});
+
+export const RenameProjectBody = zod.object({
+  name: zod.string(),
+});
+
+export const RenameProjectResponse = zod.object({
+  ok: zod.boolean(),
+  name: zod.string(),
+});
+
+/**
+ * @summary Archive a project
+ */
+export const ArchiveProjectParams = zod.object({
+  type: zod.enum(["audit", "graphics", "video", "ads"]),
+  id: zod.coerce.number(),
+});
+
+export const ArchiveProjectResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Soft-delete a project
+ */
+export const DeleteProjectParams = zod.object({
+  type: zod.enum(["audit", "graphics", "video", "ads"]),
+  id: zod.coerce.number(),
+});
+
+export const DeleteProjectResponse = zod.object({
+  ok: zod.boolean(),
 });

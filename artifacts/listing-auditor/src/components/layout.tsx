@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useGetRecents } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
@@ -165,24 +165,40 @@ function RecentProjectItem({
   item,
   openMenu,
   setOpenMenu,
-  pinned,
   onPin,
+  onRename,
+  onArchive,
+  onDelete,
 }: {
   item: RecentItem;
   openMenu: string | null;
   setOpenMenu: (id: string | null) => void;
-  pinned: boolean;
   onPin: () => void;
+  onRename: (name: string) => void;
+  onArchive: () => void;
+  onDelete: () => void;
 }) {
   const [location] = useLocation();
   const [hovered, setHovered] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(item.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const key = `${item.type}-${item.id}`;
   const menuOpen = openMenu === key;
   const ref = useRef<HTMLDivElement>(null);
   const dotsRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [confirmPos, setConfirmPos] = useState<{ top: number; left: number } | null>(null);
   const isActive = location === item.url;
   const TypeIcon = typeIconMap[item.type] || AuditIcon;
+
+  useEffect(() => {
+    if (renaming) {
+      setRenameValue(item.name);
+      setTimeout(() => renameInputRef.current?.select(), 10);
+    }
+  }, [renaming, item.name]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -206,6 +222,25 @@ function RecentProjectItem({
     setOpenMenu(key);
   }
 
+  function handleMenuAction(label: string) {
+    setOpenMenu(null);
+    if (label === "Pin project") { onPin(); return; }
+    if (label === "Rename") { setRenaming(true); return; }
+    if (label === "Archive") { onArchive(); return; }
+    if (label === "Delete") {
+      const rect = ref.current?.getBoundingClientRect();
+      if (rect) setConfirmPos({ top: rect.bottom + 4, left: Math.max(4, rect.right - 220) });
+      setConfirmDelete(true);
+      return;
+    }
+  }
+
+  function submitRename() {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== item.name) onRename(trimmed);
+    setRenaming(false);
+  }
+
   return (
     <div
       ref={ref}
@@ -224,36 +259,55 @@ function RecentProjectItem({
         )}
       >
         <TypeIcon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
-        <Link href={item.url} className="truncate flex-1 text-left min-w-0">
-          {item.name}
-        </Link>
+
+        {renaming ? (
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={submitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitRename();
+              if (e.key === "Escape") setRenaming(false);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 min-w-0 bg-sidebar-accent border border-primary/30 rounded px-1 py-0 text-sm text-sidebar-foreground outline-none focus:border-primary"
+          />
+        ) : (
+          <Link href={item.url} className="truncate flex-1 text-left min-w-0">
+            {item.name}
+          </Link>
+        )}
+
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          {(hovered || menuOpen || pinned) && (
+          {(hovered || menuOpen || item.pinned) && !renaming && (
             <button
-              title={pinned ? "Unpin" : "Pin"}
+              title={item.pinned ? "Unpin" : "Pin"}
               className={cn(
                 "w-5 h-5 flex items-center justify-center rounded transition-colors",
-                pinned
+                item.pinned
                   ? "text-primary hover:text-primary/70"
                   : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
               onClick={(e) => { e.stopPropagation(); onPin(); }}
             >
-              <Pin className={cn("w-3 h-3", pinned ? "fill-current" : "")} />
+              <Pin className={cn("w-3 h-3", item.pinned ? "fill-current" : "")} />
             </button>
           )}
-          <button
-            ref={dotsRef}
-            className={cn(
-              "w-5 h-5 flex items-center justify-center rounded transition-colors",
-              menuOpen
-                ? "text-sidebar-foreground bg-sidebar-accent/60"
-                : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-            )}
-            onClick={openDropdown}
-          >
-            <MoreHorizontal className="w-3 h-3" />
-          </button>
+          {!renaming && (
+            <button
+              ref={dotsRef}
+              className={cn(
+                "w-5 h-5 flex items-center justify-center rounded transition-colors",
+                menuOpen
+                  ? "text-sidebar-foreground bg-sidebar-accent/60"
+                  : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+              )}
+              onClick={openDropdown}
+            >
+              <MoreHorizontal className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -270,16 +324,38 @@ function RecentProjectItem({
                 "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left",
                 danger ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-muted"
               )}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (optLabel === "Pin project") { onPin(); }
-                setOpenMenu(null);
-              }}
+              onClick={(e) => { e.stopPropagation(); handleMenuAction(optLabel); }}
             >
               <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", danger ? "text-destructive" : "text-muted-foreground")} />
-              {optLabel}
+              {optLabel === "Pin project" ? (item.pinned ? "Unpin" : "Pin project") : optLabel}
             </button>
           ))}
+        </div>,
+        document.body
+      )}
+
+      {confirmDelete && confirmPos && createPortal(
+        <div
+          data-recent-menu
+          style={{ position: "fixed", top: confirmPos.top, left: Math.max(4, confirmPos.left), zIndex: 9999 }}
+          className="w-52 bg-popover border border-border rounded-xl shadow-2xl p-3"
+        >
+          <p className="text-xs text-foreground mb-2 font-medium">Delete this project?</p>
+          <p className="text-xs text-muted-foreground mb-3">This action cannot be undone.</p>
+          <div className="flex gap-2">
+            <button
+              className="flex-1 text-xs py-1.5 rounded-lg border border-border bg-muted hover:bg-muted/70 text-foreground transition-colors"
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }}
+            >
+              Cancel
+            </button>
+            <button
+              className="flex-1 text-xs py-1.5 rounded-lg bg-destructive hover:bg-destructive/90 text-white transition-colors"
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); onDelete(); }}
+            >
+              Delete
+            </button>
+          </div>
         </div>,
         document.body
       )}
@@ -300,17 +376,73 @@ export function Layout({ children }: { children: ReactNode }) {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [pinnedItems, setPinnedItems] = useState<Set<string>>(new Set());
-
-  function togglePin(key: string) {
-    setPinnedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
   const profileRef = useRef<HTMLDivElement>(null);
   const helpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
+
+  function invalidateRecents() {
+    void queryClient.invalidateQueries({ queryKey: ["getRecents"] });
+  }
+
+  const pinMutation = useMutation({
+    mutationFn: async ({ type, id }: { type: string; id: number }) => {
+      const r = await fetch(`${basePath}/api/projects/pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ type, id }),
+      });
+      return r.json();
+    },
+    onSuccess: invalidateRecents,
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ type, id, name }: { type: string; id: number; name: string }) => {
+      const r = await fetch(`${basePath}/api/projects/${type}/${id}/rename`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name }),
+      });
+      return r.json();
+    },
+    onSuccess: invalidateRecents,
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async ({ type, id }: { type: string; id: number }) => {
+      const r = await fetch(`${basePath}/api/projects/${type}/${id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      return r.json();
+    },
+    onSuccess: invalidateRecents,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async ({ type, id }: { type: string; id: number }) => {
+      const r = await fetch(`${basePath}/api/projects/${type}/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      return r.json();
+    },
+    onMutate: async ({ type, id }) => {
+      await queryClient.cancelQueries({ queryKey: ["getRecents"] });
+      const prev = queryClient.getQueryData(["getRecents"]);
+      queryClient.setQueryData(["getRecents"], (old: { items: RecentItem[] } | undefined) => ({
+        items: (old?.items ?? []).filter((i) => !(i.type === type && i.id === id)),
+      }));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["getRecents"], ctx.prev);
+    },
+    onSettled: invalidateRecents,
+  });
 
   // Fetch unified recents for sidebar
   const { data: recentsData } = useGetRecents({ limit: 200 });
@@ -529,19 +661,18 @@ export function Layout({ children }: { children: ReactNode }) {
                         {searchQuery ? "No matches found" : "No projects yet"}
                       </p>
                     ) : (
-                      displayItems.map((item) => {
-                        const key = `${item.type}-${item.id}`;
-                        return (
+                      displayItems.map((item) => (
                         <RecentProjectItem
-                          key={key}
+                          key={`${item.type}-${item.id}`}
                           item={item}
                           openMenu={openMenu}
                           setOpenMenu={setOpenMenu}
-                          pinned={pinnedItems.has(key)}
-                          onPin={() => togglePin(key)}
+                          onPin={() => pinMutation.mutate({ type: item.type, id: item.id })}
+                          onRename={(name) => renameMutation.mutate({ type: item.type, id: item.id, name })}
+                          onArchive={() => archiveMutation.mutate({ type: item.type, id: item.id })}
+                          onDelete={() => deleteMutation.mutate({ type: item.type, id: item.id })}
                         />
-                        );
-                      })
+                      ))
                     )}
                   </div>
                 )}

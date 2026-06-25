@@ -13,4 +13,5 @@ export interface RecentItem {
   name: string;
   createdAt?: string;
   url: string;
+  pinned: boolean;
 }

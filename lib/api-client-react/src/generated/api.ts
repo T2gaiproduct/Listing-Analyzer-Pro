@@ -34,9 +34,15 @@ import type {
   GetRecentsParams,
   HealthStatus,
   ImageRecord,
+  ProjectActionResponse,
+  ProjectTypeParam,
   RecentsResponse,
   RegenerateImageBody,
+  RenameProjectBody,
+  RenameProjectResponse,
   SearchProjectsParams,
+  TogglePinBody,
+  TogglePinResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1552,3 +1558,347 @@ export function useSearchProjects<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Toggle pin state for a project
+ */
+export const getToggleProjectPinUrl = () => {
+  return `/api/projects/pin`;
+};
+
+export const toggleProjectPin = async (
+  togglePinBody: TogglePinBody,
+  options?: RequestInit,
+): Promise<TogglePinResponse> => {
+  return customFetch<TogglePinResponse>(getToggleProjectPinUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(togglePinBody),
+  });
+};
+
+export const getToggleProjectPinMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof toggleProjectPin>>,
+    TError,
+    { data: BodyType<TogglePinBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof toggleProjectPin>>,
+  TError,
+  { data: BodyType<TogglePinBody> },
+  TContext
+> => {
+  const mutationKey = ["toggleProjectPin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof toggleProjectPin>>,
+    { data: BodyType<TogglePinBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return toggleProjectPin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ToggleProjectPinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof toggleProjectPin>>
+>;
+export type ToggleProjectPinMutationBody = BodyType<TogglePinBody>;
+export type ToggleProjectPinMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle pin state for a project
+ */
+export const useToggleProjectPin = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof toggleProjectPin>>,
+    TError,
+    { data: BodyType<TogglePinBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof toggleProjectPin>>,
+  TError,
+  { data: BodyType<TogglePinBody> },
+  TContext
+> => {
+  return useMutation(getToggleProjectPinMutationOptions(options));
+};
+
+/**
+ * @summary Rename a project
+ */
+export const getRenameProjectUrl = (type: ProjectTypeParam, id: number) => {
+  return `/api/projects/${type}/${id}/rename`;
+};
+
+export const renameProject = async (
+  type: ProjectTypeParam,
+  id: number,
+  renameProjectBody: RenameProjectBody,
+  options?: RequestInit,
+): Promise<RenameProjectResponse> => {
+  return customFetch<RenameProjectResponse>(getRenameProjectUrl(type, id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(renameProjectBody),
+  });
+};
+
+export const getRenameProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameProject>>,
+    TError,
+    { type: ProjectTypeParam; id: number; data: BodyType<RenameProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renameProject>>,
+  TError,
+  { type: ProjectTypeParam; id: number; data: BodyType<RenameProjectBody> },
+  TContext
+> => {
+  const mutationKey = ["renameProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renameProject>>,
+    { type: ProjectTypeParam; id: number; data: BodyType<RenameProjectBody> }
+  > = (props) => {
+    const { type, id, data } = props ?? {};
+
+    return renameProject(type, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenameProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renameProject>>
+>;
+export type RenameProjectMutationBody = BodyType<RenameProjectBody>;
+export type RenameProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Rename a project
+ */
+export const useRenameProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameProject>>,
+    TError,
+    { type: ProjectTypeParam; id: number; data: BodyType<RenameProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof renameProject>>,
+  TError,
+  { type: ProjectTypeParam; id: number; data: BodyType<RenameProjectBody> },
+  TContext
+> => {
+  return useMutation(getRenameProjectMutationOptions(options));
+};
+
+/**
+ * @summary Archive a project
+ */
+export const getArchiveProjectUrl = (type: ProjectTypeParam, id: number) => {
+  return `/api/projects/${type}/${id}/archive`;
+};
+
+export const archiveProject = async (
+  type: ProjectTypeParam,
+  id: number,
+  options?: RequestInit,
+): Promise<ProjectActionResponse> => {
+  return customFetch<ProjectActionResponse>(getArchiveProjectUrl(type, id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getArchiveProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveProject>>,
+    TError,
+    { type: ProjectTypeParam; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveProject>>,
+  TError,
+  { type: ProjectTypeParam; id: number },
+  TContext
+> => {
+  const mutationKey = ["archiveProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveProject>>,
+    { type: ProjectTypeParam; id: number }
+  > = (props) => {
+    const { type, id } = props ?? {};
+
+    return archiveProject(type, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveProject>>
+>;
+
+export type ArchiveProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Archive a project
+ */
+export const useArchiveProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveProject>>,
+    TError,
+    { type: ProjectTypeParam; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveProject>>,
+  TError,
+  { type: ProjectTypeParam; id: number },
+  TContext
+> => {
+  return useMutation(getArchiveProjectMutationOptions(options));
+};
+
+/**
+ * @summary Soft-delete a project
+ */
+export const getDeleteProjectUrl = (type: ProjectTypeParam, id: number) => {
+  return `/api/projects/${type}/${id}`;
+};
+
+export const deleteProject = async (
+  type: ProjectTypeParam,
+  id: number,
+  options?: RequestInit,
+): Promise<ProjectActionResponse> => {
+  return customFetch<ProjectActionResponse>(getDeleteProjectUrl(type, id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProject>>,
+    TError,
+    { type: ProjectTypeParam; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteProject>>,
+  TError,
+  { type: ProjectTypeParam; id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteProject>>,
+    { type: ProjectTypeParam; id: number }
+  > = (props) => {
+    const { type, id } = props ?? {};
+
+    return deleteProject(type, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteProject>>
+>;
+
+export type DeleteProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Soft-delete a project
+ */
+export const useDeleteProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProject>>,
+    TError,
+    { type: ProjectTypeParam; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteProject>>,
+  TError,
+  { type: ProjectTypeParam; id: number },
+  TContext
+> => {
+  return useMutation(getDeleteProjectMutationOptions(options));
+};

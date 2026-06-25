@@ -12,3 +12,4 @@ export * from "./team-members";
 export * from "./graphics";
 export * from "./videos";
 export * from "./ads";
+export * from "./pinned-projects";

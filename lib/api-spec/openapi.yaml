@@ -437,6 +437,103 @@ paths:
               schema:
                 $ref: "#/components/schemas/RecentsResponse"
 
+  /projects/pin:
+    post:
+      operationId: toggleProjectPin
+      tags: [projects]
+      summary: Toggle pin state for a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TogglePinBody"
+      responses:
+        "200":
+          description: Pin toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TogglePinResponse"
+
+  /projects/{type}/{id}/rename:
+    patch:
+      operationId: renameProject
+      tags: [projects]
+      summary: Rename a project
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProjectTypeParam"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameProjectBody"
+      responses:
+        "200":
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenameProjectResponse"
+
+  /projects/{type}/{id}/archive:
+    patch:
+      operationId: archiveProject
+      tags: [projects]
+      summary: Archive a project
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProjectTypeParam"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectActionResponse"
+
+  /projects/{type}/{id}:
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Soft-delete a project
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProjectTypeParam"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectActionResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -997,11 +1094,14 @@ components:
           type: string
         url:
           type: string
+        pinned:
+          type: boolean
       required:
         - type
         - id
         - name
         - url
+        - pinned
 
     RecentsResponse:
       type: object
@@ -1012,3 +1112,54 @@ components:
             $ref: "#/components/schemas/RecentItem"
       required:
         - items
+
+    TogglePinBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [audit, graphics, video, ads]
+        id:
+          type: integer
+      required:
+        - type
+        - id
+
+    TogglePinResponse:
+      type: object
+      properties:
+        pinned:
+          type: boolean
+      required:
+        - pinned
+
+    RenameProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    RenameProjectResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        name:
+          type: string
+      required:
+        - ok
+        - name
+
+    ProjectActionResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+
+    ProjectTypeParam:
+      type: string
+      enum: [audit, graphics, video, ads]
