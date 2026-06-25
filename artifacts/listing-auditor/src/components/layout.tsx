@@ -417,20 +417,23 @@ export function Layout({ children }: { children: ReactNode }) {
 
                 {projectsOpen && (
                   <div className="space-y-0.5">
-                    {projects.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-sidebar-foreground/40 italic">No projects yet</p>
-                    ) : (
-                      projects.map((p) => (
-                        <ProjectItem
-                          key={p.id}
-                          id={String(p.id)}
-                          label={p.productTitle}
-                          href={`/audits/${p.id}`}
-                          openMenu={openMenu}
-                          setOpenMenu={setOpenMenu}
-                        />
-                      ))
-                    )}
+                    {[
+                      { id: "demo-1", label: "Wireless Earbuds Pro Listing", href: "/dashboard" },
+                      { id: "demo-2", label: "Yoga Mat Premium Audit", href: "/dashboard" },
+                      { id: "demo-3", label: "Coffee Grinder Rewrite", href: "/dashboard" },
+                      { id: "demo-4", label: "Standing Desk Q4 Review", href: "/dashboard" },
+                    ].concat(
+                      projects.map((p) => ({ id: String(p.id), label: p.productTitle, href: `/audits/${p.id}` }))
+                    ).map((item) => (
+                      <ProjectItem
+                        key={item.id}
+                        id={item.id}
+                        label={item.label}
+                        href={item.href}
+                        openMenu={openMenu}
+                        setOpenMenu={setOpenMenu}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
