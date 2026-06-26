@@ -67,7 +67,7 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
   const pinnedSet = new Set(pins.map((p) => `${p.itemType}-${p.itemId}`));
 
   const items = [
-    ...audits.map((a) => ({ type: "audit" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/audits/${a.id}`, pinned: pinnedSet.has(`audit-${a.id}`) })),
+    ...audits.map((a) => ({ type: "audit" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: pinnedSet.has(`audit-${a.id}`) })),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: pinnedSet.has(`graphics-${g.id}`) })),
     ...videos.map((v) => ({ type: "video" as const, id: v.id, name: v.name, createdAt: v.createdAt, url: `/videos/${v.id}`, pinned: pinnedSet.has(`video-${v.id}`) })),
     ...ads.map((a) => ({ type: "ads" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/ads/${a.id}`, pinned: pinnedSet.has(`ads-${a.id}`) })),
@@ -122,7 +122,7 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
   ]);
 
   const items = [
-    ...audits.map((a) => ({ type: "audit" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/audits/${a.id}`, pinned: false })),
+    ...audits.map((a) => ({ type: "audit" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: false })),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: false })),
     ...videos.map((v) => ({ type: "video" as const, id: v.id, name: v.name, createdAt: v.createdAt, url: `/videos/${v.id}`, pinned: false })),
     ...ads.map((a) => ({ type: "ads" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/ads/${a.id}`, pinned: false })),

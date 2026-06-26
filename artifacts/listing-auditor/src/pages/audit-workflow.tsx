@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -342,6 +342,7 @@ function CreatingPanel({
 ═══════════════════════════════════════════════════════════════════════════ */
 export default function AuditWorkflow() {
   const [, nav]         = useLocation();
+  const search          = useSearch();
   const { toast }       = useToast();
   const queryClient     = useQueryClient();
 
@@ -351,6 +352,19 @@ export default function AuditWorkflow() {
   /* ── Creating panel state ── */
   const [isCreating, setIsCreating]         = useState(false);
   const [creatingStep, setCreatingStep]     = useState<StepId>(1);
+
+  /* ── Resume from sidebar query param ── */
+  const [resumeAuditId] = useState(() => {
+    const params = new URLSearchParams(search);
+    const resume = params.get("resume");
+    return resume ? parseInt(resume, 10) : null;
+  });
+  useEffect(() => {
+    if (resumeAuditId && !isNaN(resumeAuditId)) {
+      setCurrentAuditId(resumeAuditId);
+      setActiveStep(2);
+    }
+  }, [resumeAuditId]);
 
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);

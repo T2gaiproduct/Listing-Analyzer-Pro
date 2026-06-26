@@ -84,6 +84,7 @@ const helpSubmenuItems = [
 ];
 
 const contextMenuOptions = [
+  { icon: FilePlus2, label: "Open" },
   { icon: Share2, label: "Share" },
   { icon: PenLine, label: "Rename" },
   { icon: Pin, label: "Pin project" },
@@ -216,8 +217,10 @@ function RecentProjectItem({
     setOpenMenu(key);
   }
 
+  const [, navigateTo] = useLocation();
   function handleMenuAction(label: string) {
     setOpenMenu(null);
+    if (label === "Open") { navigateTo(item.url); return; }
     if (label === "Pin project") { onPin(); return; }
     if (label === "Rename") {
       trigger(
