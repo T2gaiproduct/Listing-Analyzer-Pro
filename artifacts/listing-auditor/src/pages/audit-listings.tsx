@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
+import { useFetchListing, useCreateAudit, getGetAuditStatsQueryKey, getListAuditsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const stores = [
   { label: "Amazon", letter: "A", color: "bg-orange-500" },
@@ -32,15 +35,91 @@ const features = [
 export default function AuditListings() {
   const [url, setUrl] = useState("");
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const fetchListing = useFetchListing();
+  const createAudit = useCreateAudit();
+
+  const isLoading = fetchListing.isPending || createAudit.isPending;
 
   function handleAnalyze() {
-    if (!url.trim()) return;
-    const encoded = encodeURIComponent(url.trim());
-    navigate(`/audits/new?url=${encoded}`);
+    const trimmed = url.trim();
+    if (!trimmed || isLoading) return;
+
+    const isUrl = trimmed.startsWith("http");
+    fetchListing.mutate(
+      { data: isUrl ? { url: trimmed } : { asin: trimmed } },
+      {
+        onSuccess: (listing) => {
+          createAudit.mutate(
+            {
+              data: {
+                productName: listing.productName,
+                asin: listing.asin,
+                category: listing.category ?? undefined,
+                title: listing.title,
+                bulletPoints: listing.bulletPoints,
+                imageUrls: listing.imageUrls,
+                targetKeywords: listing.targetKeywords,
+              },
+            },
+            {
+              onSuccess: (audit) => {
+                queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+                queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
+                queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+                navigate(`/audits/${audit.id}`);
+              },
+              onError: () => {
+                toast({
+                  title: "Audit failed",
+                  description: "Could not analyze the listing. Please try again.",
+                  variant: "destructive",
+                });
+              },
+            }
+          );
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          const isBlocked = msg.toLowerCase().includes("captcha") || msg.toLowerCase().includes("blocked");
+          const isNotFound = msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("404");
+          toast({
+            title: isBlocked ? "Amazon blocked the request" : isNotFound ? "Product not found" : "Failed to fetch listing",
+            description: isBlocked
+              ? "Amazon blocks automated fetches from cloud servers. Try using the New Audit page to paste your listing manually."
+              : msg,
+            variant: "destructive",
+          });
+        },
+      }
+    );
   }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] px-4 py-16">
+      {/* Full-screen loading overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 w-80">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <Loader2 className="w-7 h-7 text-primary animate-spin" />
+            </div>
+            <div className="text-center">
+              <h3 className="font-bold text-base">
+                {fetchListing.isPending ? "Fetching listing…" : "Analyzing with AI…"}
+              </h3>
+              <p className="text-muted-foreground text-sm mt-1">
+                {fetchListing.isPending
+                  ? "Pulling your product data"
+                  : "Scoring title, bullets, images, and keywords"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Heading */}
       <h1 className="text-4xl font-bold text-foreground text-center tracking-tight mb-3">
         Analyze your listing
@@ -60,12 +139,18 @@ export default function AuditListings() {
             onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
             placeholder="Paste any product page URL..."
             className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm outline-none min-w-0"
+            disabled={isLoading}
           />
           <button
             onClick={handleAnalyze}
-            className="flex-shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm px-5 py-2 rounded-lg transition-colors"
+            disabled={isLoading || !url.trim()}
+            className="flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed text-primary-foreground font-semibold text-sm px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
           >
-            Analyze
+            {isLoading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" />Analyzing…</>
+            ) : (
+              "Analyze"
+            )}
           </button>
         </div>
         <p className="text-center text-xs text-muted-foreground mt-3">
