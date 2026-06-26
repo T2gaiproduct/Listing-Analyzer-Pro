@@ -409,8 +409,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
   /* ── Ribbon actions state ── */
   const [dotsOpen, setDotsOpen] = useState(false);
-  const [groupChatOpen, setGroupChatOpen] = useState(false);
-  const [groupChatEmails, setGroupChatEmails] = useState("");
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
@@ -545,20 +545,27 @@ export function Layout({ children }: { children: ReactNode }) {
     navigate("/notifications");
   }
 
-  function handleGroupChat() {
+  function handleRibbonRename() {
+    if (!projectCtx) return;
     setDotsOpen(false);
-    setGroupChatOpen(true);
+    setRenameModalOpen(true);
+    setRenameValue("");
   }
 
-  function handleGroupChatSubmit() {
-    const emails = groupChatEmails.trim();
-    if (!emails) {
-      toast({ title: "No emails entered", description: "Please enter at least one email address.", variant: "destructive" });
+  function handleRenameSubmit() {
+    const name = renameValue.trim();
+    if (!name) {
+      toast({ title: "No name entered", description: "Please enter a new name.", variant: "destructive" });
       return;
     }
-    setGroupChatOpen(false);
-    setGroupChatEmails("");
-    toast({ title: "Invites sent", description: "Group chat invitations have been sent to your team." });
+    if (!projectCtx) return;
+    renameMutation.mutateAsync({ type: projectCtx.type, id: projectCtx.id, name }).then(() => {
+      setRenameModalOpen(false);
+      setRenameValue("");
+      toast({ title: "Renamed", description: "Project name updated." });
+    }).catch(() => {
+      toast({ title: "Failed", description: "Could not rename this project.", variant: "destructive" });
+    });
   }
 
   function handleRibbonPin() {
@@ -716,7 +723,13 @@ export function Layout({ children }: { children: ReactNode }) {
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
             {mainNavItems.map(({ icon: Icon, label, href }) => {
-              const isActive = location === href || (href === "/dashboard" && location === "/");
+              const isActive =
+                location === href ||
+                (href === "/dashboard" && location === "/") ||
+                (href === "/audits/new" && location.startsWith("/audits/")) ||
+                (href === "/projects" && location.startsWith("/projects/")) ||
+                (href === "/videos" && location.startsWith("/videos/")) ||
+                (href === "/ads" && location.startsWith("/ads/"));
               if (collapsed) {
                 return (
                   <SidebarTooltip key={href} label={label} side="right">
@@ -1031,27 +1044,32 @@ export function Layout({ children }: { children: ReactNode }) {
 
               {dotsOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
-                  {/* Group chat */}
+                  {/* Share (also in dropdown) */}
                   <button
-                    onClick={handleGroupChat}
+                    onClick={() => { setDotsOpen(false); handleShare(); }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
                   >
-                    <MessageSquare className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    Start a group chat
+                    <Share2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    Share
                   </button>
 
-                  {/* View in chat */}
+                  {/* Rename */}
                   <button
-                    onClick={handleViewInChat}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                    onClick={handleRibbonRename}
+                    disabled={!projectCtx}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left",
+                      projectCtx
+                        ? "text-slate-700 hover:bg-slate-50"
+                        : "text-slate-300 cursor-not-allowed"
+                    )}
                   >
-                    <Eye className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    View file in chat
+                    <PenLine className="w-4 h-4 flex-shrink-0 text-inherit opacity-60" />
+                    Rename
+                    {!projectCtx && <span className="ml-auto text-[10px] text-slate-300">project only</span>}
                   </button>
 
-                  <div className="my-1 border-t border-slate-100" />
-
-                  {/* Pin */}
+                  {/* Pin project */}
                   <button
                     onClick={handleRibbonPin}
                     disabled={!projectCtx}
@@ -1063,7 +1081,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     )}
                   >
                     <Pin className="w-4 h-4 flex-shrink-0 text-inherit opacity-60" />
-                    Pin chat
+                    Pin project
                     {!projectCtx && <span className="ml-auto text-[10px] text-slate-300">project only</span>}
                   </button>
 
@@ -1114,57 +1132,51 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </main>
 
-      {/* ── Group Chat Modal ── */}
-      {groupChatOpen && (
-        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4" onClick={() => setGroupChatOpen(false)}>
+      {/* ── Rename Modal ── */}
+      {renameModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4" onClick={() => setRenameModalOpen(false)}>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-orange-500" />
+                  <PenLine className="w-4 h-4 text-orange-500" />
                 </div>
-                <h2 className="text-base font-semibold text-slate-900">Start a group chat</h2>
+                <h2 className="text-base font-semibold text-slate-900">Rename project</h2>
               </div>
               <button
-                onClick={() => setGroupChatOpen(false)}
+                onClick={() => setRenameModalOpen(false)}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-sm text-slate-500">
-              Invite team members to collaborate on{" "}
-              <span className="font-medium text-slate-700">{getPageTitle(location)}</span>.
-            </p>
-
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Email addresses</label>
-              <textarea
-                value={groupChatEmails}
-                onChange={(e) => setGroupChatEmails(e.target.value)}
-                placeholder={"colleague@example.com\nanother@example.com"}
-                rows={4}
-                className="w-full resize-none text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
+              <label className="text-sm font-medium text-slate-700">New name</label>
+              <input
+                value={renameValue}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRenameValue(e.target.value)}
+                placeholder="Enter new project name"
+                className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") handleRenameSubmit(); }}
               />
-              <p className="text-xs text-slate-400">Enter one email per line</p>
             </div>
 
-            <div className="flex gap-3 justify-end pt-1">
+            <div className="flex gap-3 justify-end">
               <button
-                onClick={() => setGroupChatOpen(false)}
+                onClick={() => setRenameModalOpen(false)}
                 className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleGroupChatSubmit}
+                onClick={handleRenameSubmit}
                 className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-sm font-medium text-white transition-colors"
               >
-                Send Invites
+                Rename
               </button>
             </div>
           </div>
