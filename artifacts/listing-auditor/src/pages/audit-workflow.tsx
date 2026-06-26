@@ -99,17 +99,64 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
   ],
 };
 
-/* ── Amazon categories ──────────────────────────────────────────────────── */
+/* ── Amazon categories (real top-level browse nodes + popular sub-categories) ── */
 const AMAZON_CATEGORIES = [
-  "Appliances", "Apps & Games", "Arts, Crafts & Sewing", "Automotive", "Baby",
-  "Beauty & Personal Care", "Books", "Camera & Photo", "Cell Phones & Accessories",
-  "Clothing, Shoes & Jewelry", "Computers & Accessories", "Electronics",
-  "Food & Beverage", "Furniture & Décor", "Grocery & Gourmet Food", "Handmade",
-  "Health & Household", "Home & Kitchen", "Industrial & Scientific", "Jewelry & Watches",
-  "Kitchen & Dining", "Luggage & Travel Gear", "Movies & TV", "Musical Instruments",
-  "Office Products", "Outdoor Recreation", "Pet Supplies", "Software",
+  "Appliances", "Arts, Crafts & Sewing", "Automotive", "Baby", "Beauty & Personal Care",
+  "Books", "CDs & Vinyl", "Camera & Photo", "Cell Phones & Accessories",
+  "Clothing, Shoes & Jewelry", "Collectibles & Fine Art", "Computers & Accessories",
+  "Electronics", "Garden & Outdoor", "Grocery & Gourmet Food", "Handmade", "Health & Household",
+  "Home & Kitchen", "Industrial & Scientific", "Kindle Store", "Kitchen & Dining",
+  "Luggage & Travel Gear", "Luxury Beauty", "Magazine Subscriptions", "Movies & TV",
+  "Musical Instruments", "Office Products", "Pet Supplies", "Prime Video", "Software",
   "Sports & Outdoors", "Tools & Home Improvement", "Toys & Games", "Video Games",
-  "Watches",
+  "Watches", "Music", "Gift Cards", "Amazon Pharmacy", "Amazon Launchpad",
+  "Subscribe & Save", "Climate Pledge Friendly", "Smart Home", "Amazon Renewed",
+  "Baby Registry", "Wedding Registry", "Gift Registry", "International Shopping",
+  "Trade-In", "School Supplies", "College Textbooks", "Books for Kids",
+  "Women's Fashion", "Men's Fashion", "Girls' Fashion", "Boys' Fashion",
+  "Baby Clothing", "Maternity", "Big & Tall", "Uniforms, Work & Safety",
+  "Activewear", "Contemporary & Designer", "Luggage & Bags", "Travel Accessories",
+  "Wedding & Engagement", "Fashion Jewelry", "Fine Jewelry", "Wedding Bands",
+  "Engagement Rings", "Athletic Shoes", "Boots", "Fashion Sneakers", "Outdoor Shoes",
+  "Slippers", "Work & Safety Shoes", "Shoe Care & Accessories", "Costumes & Accessories",
+  "Handbags & Wallets", "Backpacks", "Diaper Bags", "Kids' Backpacks",
+  "Laptop Bags", "Briefcases", "Messenger Bags", "Tote Bags", "Crossbody Bags",
+  "Clutches & Evening Bags", "Wallets, Card Cases & Money Organizers", "Luggage Sets",
+  "Carry-Ons", "Garment Bags", "Luggage Carts", "Packing Organizers", "Travel Duffels",
+  "Travel Totes", "Umbrellas", "Women's Sunglasses", "Men's Sunglasses",
+  "Unisex Sunglasses", "Sunglasses Accessories", "Jewelry Boxes & Organizers",
+  "Women's Rings", "Women's Necklaces", "Women's Bracelets", "Women's Earrings",
+  "Women's Body Jewelry", "Men's Rings", "Men's Necklaces", "Men's Bracelets",
+  "Men's Earrings & Body Jewelry", "Men's Tie Clips & Tacks", "Men's Cuff Links",
+  "Men's Tie Pins, Clips & Bars", "Men's Collar Stays", "Men's Tie Sets",
+  "Women's Anklets", "Women's Brooches & Pins", "Women's Charms & Charm Bracelets",
+  "Women's Hair Jewelry", "Women's Jewelry Sets", "Women's Pendants & Coins",
+  "Women's Piercing Jewelry", "Women's Watches", "Women's Smartwatches",
+  "Women's Pocket Watches", "Women's Watch Bands", "Men's Watches", "Men's Smartwatches",
+  "Men's Pocket Watches", "Men's Watch Bands", "Women's Athletic Shoes",
+  "Women's Boots", "Women's Fashion Sneakers", "Women's Flats", "Women's Loafers",
+  "Women's Mules & Clogs", "Women's Outdoor Shoes", "Women's Pumps",
+  "Women's Sandals", "Women's Slippers", "Women's Walking Shoes", "Women's Work & Safety",
+  "Men's Athletic Shoes", "Men's Boots", "Men's Fashion Sneakers", "Men's Loafers",
+  "Men's Outdoor Shoes", "Men's Oxfords", "Men's Sandals", "Men's Slippers",
+  "Men's Walking Shoes", "Men's Work & Safety", "Girls' Athletic Shoes",
+  "Girls' Boots", "Girls' Fashion Sneakers", "Girls' Flats", "Girls' Outdoor Shoes",
+  "Girls' Sandals", "Girls' School Shoes", "Girls' Slippers", "Boys' Athletic Shoes",
+  "Boys' Boots", "Boys' Fashion Sneakers", "Boys' Outdoor Shoes", "Boys' Sandals",
+  "Boys' School Shoes", "Boys' Slippers", "Boys' Sneakers", "Baby Shoes", "Baby Boots",
+  "Baby Outdoor Shoes", "Baby Sneakers", "Baby Athletic", "Baby Sandals",
+  "Baby Slippers", "Baby Walking Shoes", "Baby Accessories", "Baby Girls", "Baby Boys",
+  "Unisex Baby", "Baby Jewelry", "Hair Accessories", "Women's Belts", "Women's Earmuffs",
+  "Women's Eyewear & Accessories", "Women's Gloves & Mittens", "Women's Hats & Caps",
+  "Women's Scarves & Wraps", "Women's Sleep & Lounge", "Women's Socks & Hosiery",
+  "Women's Suiting & Blazers", "Women's Underwear", "Men's Belts", "Men's Earmuffs",
+  "Men's Eyewear & Accessories", "Men's Gloves & Mittens", "Men's Hats & Caps",
+  "Men's Scarves", "Men's Sleep & Lounge", "Men's Socks", "Men's Underwear",
+  "Men's Suiting & Blazers", "Girls' Belts", "Girls' Earmuffs", "Girls' Eyewear & Accessories",
+  "Girls' Gloves & Mittens", "Girls' Hats & Caps", "Girls' Scarves & Wraps",
+  "Girls' Socks & Tights", "Girls' Underwear", "Boys' Belts", "Boys' Earmuffs",
+  "Boys' Eyewear & Accessories", "Boys' Gloves & Mittens", "Boys' Hats & Caps",
+  "Boys' Scarves", "Boys' Socks", "Boys' Underwear",
 ];
 
 /* ── Image types ────────────────────────────────────────────────────────── */
@@ -711,7 +758,16 @@ export default function AuditWorkflow() {
                         type="button"
                         onClick={() => {
                           const rect = catBtnRef.current?.getBoundingClientRect();
-                          if (rect) setCatPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+                          if (rect) {
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const portalHeight = Math.min(420, window.innerHeight * 0.6);
+                            const placeAbove = spaceBelow < portalHeight + 8 && rect.top > portalHeight + 8;
+                            setCatPos({
+                              top: placeAbove ? rect.top - portalHeight - 4 : rect.bottom + 4,
+                              left: rect.left,
+                              width: rect.width,
+                            });
+                          }
                           setCatOpen((o) => !o);
                         }}
                         className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
@@ -725,7 +781,7 @@ export default function AuditWorkflow() {
                         <div
                           data-cat-portal
                           style={{ position: "fixed", top: catPos.top, left: catPos.left, width: catPos.width, zIndex: 9999 }}
-                          className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-52 overflow-y-auto"
+                          className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[60vh] overflow-y-auto"
                         >
                           <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2">
                             <input
@@ -933,11 +989,11 @@ export default function AuditWorkflow() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { icon: "📄", title: "Export as PDF",     desc: "Full listing report with all content",  action: "Download PDF"   },
-                  { icon: "🗂️", title: "Export as ZIP",     desc: "All images + listing text bundled",     action: "Download ZIP"   },
-                  { icon: "🛒", title: "Publish to Amazon", desc: "Push directly to Seller Central",       action: "Connect & Push" },
+                  { icon: "📊", title: "Export as Excel file", desc: "Amazon supports Excel file uploads for bulk listings", action: "Download Excel", comingSoon: false },
+                  { icon: "🗂️", title: "Export as ZIP",        desc: "Excel file + all images bundled together",           action: "Download ZIP",   comingSoon: false },
+                  { icon: "🛒", title: "Publish to Amazon",    desc: "Push directly to Seller Central",                      action: "Coming soon",    comingSoon: true  },
                 ].map((opt) => (
-                  <div key={opt.title} className="border border-slate-200 rounded-xl p-5 flex flex-col gap-4 hover:border-orange-300 hover:shadow-sm transition-all">
+                  <div key={opt.title} className={cn("border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all", opt.comingSoon ? "opacity-60" : "hover:border-orange-300 hover:shadow-sm")}>
                     <span className="text-3xl">{opt.icon}</span>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{opt.title}</p>
@@ -945,8 +1001,14 @@ export default function AuditWorkflow() {
                     </div>
                     <Button
                       variant="outline"
-                      className="rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 w-full"
-                      onClick={() => toast({ title: "Coming soon", description: `${opt.action} is coming soon.` })}
+                      className={cn("rounded-xl w-full", opt.comingSoon
+                        ? "border-slate-200 text-slate-400 cursor-default hover:bg-transparent"
+                        : "border-orange-200 text-orange-600 hover:bg-orange-50"
+                      )}
+                      onClick={() => {
+                        if (opt.comingSoon) return;
+                        toast({ title: "Coming soon", description: `${opt.action} is coming soon.` });
+                      }}
                     >
                       {opt.action}
                     </Button>
