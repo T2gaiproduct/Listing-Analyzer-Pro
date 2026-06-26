@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Search, Loader2, TrendingUp, DollarSign, Trophy, Star, Check, ArrowUpRight, Link as LinkIcon, Shield, Users, BarChart3, LineChart, Target, Sparkles } from "lucide-react";
+import { Loader2, TrendingUp, DollarSign, Trophy, Star, Check, ArrowUpRight, Link as LinkIcon, Users, BarChart3, LineChart, Target, Sparkles, Wrench, Zap } from "lucide-react";
 import { useFetchListing, useCreateAudit, getGetAuditStatsQueryKey, getListAuditsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -9,35 +9,35 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 const stores = [
-  { name: "Amazon", color: "text-amber-600" },
-  { name: "Shopify", color: "text-green-600" },
-  { name: "Walmart", color: "text-blue-600" },
-  { name: "eBay", color: "text-red-500" },
-  { name: "Etsy", color: "text-orange-600" },
-  { name: "+ More", color: "text-muted-foreground" },
+  { name: "Amazon", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  { name: "Shopify", color: "bg-green-50 text-green-700 border-green-200" },
+  { name: "Walmart", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  { name: "eBay", color: "bg-red-50 text-red-700 border-red-200" },
+  { name: "Etsy", color: "bg-orange-50 text-orange-700 border-orange-200" },
+  { name: "+ More", color: "bg-gray-50 text-gray-500 border-gray-200" },
 ];
 
 const features = [
   {
-    icon: LineChart,
+    icon: Star,
     title: "Listing Score",
     desc: "Overall quality rating from 1-100",
     chart: true,
   },
   {
-    icon: Target,
+    icon: Wrench,
     title: "Top Fixes",
     desc: "Personalized, high-impact improvements",
     items: ["Optimize your title", "Improve main images", "Enhance bullet points", "Strengthen description"],
   },
   {
-    icon: BarChart3,
+    icon: Users,
     title: "Competitor Intel",
     desc: "Benchmark against top-performing sellers",
     bars: true,
   },
   {
-    icon: TrendingUp,
+    icon: Zap,
     title: "Action Plan",
     desc: "Step-by-step roadmap to grow your sales",
     steps: ["Prioritize high-impact fixes", "Implement changes", "Track performance & grow"],
@@ -184,49 +184,62 @@ export default function AuditListings() {
         </div>
 
         {/* Right - Score Card */}
-        <Card className="border border-border/60 shadow-lg">
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">Listing Score</span>
-              <span className="text-xs text-muted-foreground">82 /100</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20">
-                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                  <circle cx="18" cy="18" r="16" fill="none" stroke="#f97316" strokeWidth="3" strokeDasharray="82 100" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-foreground">82</span>
-                </div>
+        <div className="relative">
+          {/* Decorative sparkles */}
+          <div className="absolute -top-4 -right-4">
+            <Sparkles className="w-6 h-6 text-orange-300" />
+          </div>
+          <div className="absolute top-8 -right-6">
+            <div className="w-2 h-2 rounded-full bg-orange-400" />
+          </div>
+          <div className="absolute -top-2 left-1/4">
+            <div className="w-1.5 h-1.5 rounded-full bg-orange-300" />
+          </div>
+
+          <Card className="border border-border/60 shadow-lg">
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-foreground">Listing Score</span>
+                <span className="text-xs text-muted-foreground">82 /100</span>
               </div>
-              <div className="text-xs text-muted-foreground">Great</div>
-            </div>
-            <div className="space-y-2">
-              {[
-                { label: "Title", score: 85 },
-                { label: "Images", score: 90 },
-                { label: "Bullet Points", score: 78 },
-                { label: "Description", score: 80 },
-                { label: "Reviews", score: 75 },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground w-20">{item.label}</span>
-                  <Progress value={item.score} className="h-1.5 flex-1" />
-                  <span className="text-xs text-muted-foreground w-8 text-right">{item.score}/100</span>
+              <div className="flex items-center gap-4">
+                <div className="relative w-20 h-20">
+                  <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="#f97316" strokeWidth="3" strokeDasharray="82 100" />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-lg font-bold text-foreground">82</span>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              <span>4.6 (2,873)</span>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-orange-500">
-              <ArrowUpRight className="w-3 h-3" />
-              <span>Top 5% in Electronics</span>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="text-xs text-muted-foreground">Great</div>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { label: "Title", score: 85 },
+                  { label: "Images", score: 90 },
+                  { label: "Bullet Points", score: 78 },
+                  { label: "Description", score: 80 },
+                  { label: "Reviews", score: 75 },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-20">{item.label}</span>
+                    <Progress value={item.score} className="h-1.5 flex-1" />
+                    <span className="text-xs text-muted-foreground w-8 text-right">{item.score}/100</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <span>4.6 (2,873)</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-orange-500">
+                <ArrowUpRight className="w-3 h-3" />
+                <span>Top 5% in Electronics</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* URL Input */}
@@ -268,13 +281,13 @@ export default function AuditListings() {
         <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
           Works With Any Store
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           {stores.map(({ name, color }) => (
             <div
               key={name}
-              className="flex items-center gap-2 border border-border rounded-xl px-5 py-2.5 bg-card text-sm font-semibold"
+              className={`flex items-center gap-2 border rounded-xl px-5 py-2.5 text-sm font-semibold ${color}`}
             >
-              <span className={`text-sm font-bold ${color}`}>{name}</span>
+              {name}
             </div>
           ))}
         </div>
@@ -406,17 +419,6 @@ export default function AuditListings() {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Footer Trust */}
-      <div className="text-center space-y-3 pb-8">
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Shield className="w-4 h-4 text-orange-500" />
-          <span>Your data is secure and never shared.</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Start your free analysis in seconds. No sign-up required.
-        </p>
       </div>
     </div>
   );
