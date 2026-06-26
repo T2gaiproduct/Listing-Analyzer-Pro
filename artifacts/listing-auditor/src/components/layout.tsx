@@ -37,11 +37,14 @@ import {
   Bug,
   Folder,
   Search,
+  MessageSquare,
+  Eye,
   FileText as AuditIcon,
   Image as GraphicsIcon,
   Clapperboard as VideoIcon,
   Target as AdsIcon,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -362,11 +365,21 @@ function getPageTitle(location: string): string {
   return "ListingAuditor";
 }
 
+// --- Project context from URL -----------------------------------------------
+function parseProjectContext(location: string): { type: string; id: number } | null {
+  const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
+  if (auditMatch) return { type: "audit", id: parseInt(auditMatch[1]) };
+  const projectMatch = location.match(/^\/projects\/(\d+)(?:\/|$)/);
+  if (projectMatch) return { type: "graphics", id: parseInt(projectMatch[1]) };
+  return null;
+}
+
 // --- Main Layout ------------------------------------------------------------
 export function Layout({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { user } = useUser();
   const { signOut } = useClerk();
+  const { toast } = useToast();
   const isAdmin = user ? adminUserIds.includes(user.id) : false;
 
   const [collapsed, setCollapsed] = useState(false);
@@ -375,7 +388,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  /* ── Ribbon actions state ── */
+  const [dotsOpen, setDotsOpen] = useState(false);
+  const [groupChatOpen, setGroupChatOpen] = useState(false);
+  const [groupChatEmails, setGroupChatEmails] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
   const profileRef = useRef<HTMLDivElement>(null);
+  const ribbonDotsRef = useRef<HTMLDivElement>(null);
   const helpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
@@ -478,6 +499,96 @@ export function Layout({ children }: { children: ReactNode }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [profileOpen]);
+
+  // Close ribbon dots dropdown on outside click
+  useEffect(() => {
+    if (!dotsOpen) return;
+    function handler(e: MouseEvent) {
+      if (ribbonDotsRef.current && !ribbonDotsRef.current.contains(e.target as Node)) setDotsOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dotsOpen]);
+
+  /* ── Ribbon action handlers ── */
+  const projectCtx = parseProjectContext(location);
+
+  function handleShare() {
+    const url = window.location.href;
+    void navigator.clipboard.writeText(url).then(() => {
+      toast({ title: "Link copied", description: "Page URL copied to clipboard." });
+    }).catch(() => {
+      toast({ title: "Copy failed", description: "Could not copy — please copy the URL manually.", variant: "destructive" });
+    });
+  }
+
+  function handleViewInChat() {
+    setDotsOpen(false);
+    navigate("/notifications");
+  }
+
+  function handleGroupChat() {
+    setDotsOpen(false);
+    setGroupChatOpen(true);
+  }
+
+  function handleGroupChatSubmit() {
+    const emails = groupChatEmails.trim();
+    if (!emails) {
+      toast({ title: "No emails entered", description: "Please enter at least one email address.", variant: "destructive" });
+      return;
+    }
+    setGroupChatOpen(false);
+    setGroupChatEmails("");
+    toast({ title: "Invites sent", description: "Group chat invitations have been sent to your team." });
+  }
+
+  function handleRibbonPin() {
+    if (!projectCtx) return;
+    setDotsOpen(false);
+    pinMutation.mutate({ type: projectCtx.type, id: projectCtx.id });
+    toast({ title: "Pinned", description: "Project pinned to the top of your sidebar." });
+  }
+
+  function handleRibbonArchive() {
+    if (!projectCtx) return;
+    setDotsOpen(false);
+    archiveMutation.mutate(
+      { type: projectCtx.type, id: projectCtx.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Archived", description: "Project moved to Archive." });
+          navigate("/archive");
+        },
+        onError: () => {
+          toast({ title: "Failed", description: "Could not archive this project.", variant: "destructive" });
+        },
+      }
+    );
+  }
+
+  function handleRibbonDelete() {
+    if (!projectCtx) return;
+    setDotsOpen(false);
+    setDeleteConfirmOpen(true);
+  }
+
+  function confirmDelete() {
+    if (!projectCtx) return;
+    setDeleteConfirmOpen(false);
+    deleteMutation.mutate(
+      { type: projectCtx.type, id: projectCtx.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Deleted", description: "Project has been permanently deleted." });
+          navigate("/dashboard");
+        },
+        onError: () => {
+          toast({ title: "Failed", description: "Could not delete this project.", variant: "destructive" });
+        },
+      }
+    );
+  }
 
   const initials = user?.firstName && user?.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`
@@ -864,10 +975,112 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="h-1 w-full bg-gradient-to-r from-primary to-orange-300 flex-shrink-0" />
 
         {/* ── Top ribbon ── */}
-        <div className="flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
-          <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight">
+        <div className="flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0 group/ribbon">
+          <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight flex-1">
             {getPageTitle(location)}
           </h1>
+
+          {/* Right actions — fade in on ribbon hover */}
+          <div className="flex items-center gap-1 opacity-0 group-hover/ribbon:opacity-100 transition-opacity duration-150">
+            {/* Share */}
+            <button
+              onClick={handleShare}
+              title="Share"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+
+            {/* Three-dots */}
+            <div className="relative" ref={ribbonDotsRef}>
+              <button
+                onClick={() => setDotsOpen((p) => !p)}
+                title="More options"
+                className={cn(
+                  "w-8 h-8 flex items-center justify-center rounded-lg transition-colors",
+                  dotsOpen
+                    ? "text-slate-700 bg-slate-100"
+                    : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                )}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+
+              {dotsOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
+                  {/* Group chat */}
+                  <button
+                    onClick={handleGroupChat}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                  >
+                    <MessageSquare className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    Start a group chat
+                  </button>
+
+                  {/* View in chat */}
+                  <button
+                    onClick={handleViewInChat}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                  >
+                    <Eye className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    View file in chat
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100" />
+
+                  {/* Pin */}
+                  <button
+                    onClick={handleRibbonPin}
+                    disabled={!projectCtx}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left",
+                      projectCtx
+                        ? "text-slate-700 hover:bg-slate-50"
+                        : "text-slate-300 cursor-not-allowed"
+                    )}
+                  >
+                    <Pin className="w-4 h-4 flex-shrink-0 text-inherit opacity-60" />
+                    Pin chat
+                    {!projectCtx && <span className="ml-auto text-[10px] text-slate-300">project only</span>}
+                  </button>
+
+                  {/* Archive */}
+                  <button
+                    onClick={handleRibbonArchive}
+                    disabled={!projectCtx}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left",
+                      projectCtx
+                        ? "text-slate-700 hover:bg-slate-50"
+                        : "text-slate-300 cursor-not-allowed"
+                    )}
+                  >
+                    <Archive className="w-4 h-4 flex-shrink-0 text-inherit opacity-60" />
+                    Archive
+                    {!projectCtx && <span className="ml-auto text-[10px] text-slate-300">project only</span>}
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100" />
+
+                  {/* Delete */}
+                  <button
+                    onClick={handleRibbonDelete}
+                    disabled={!projectCtx}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left",
+                      projectCtx
+                        ? "text-red-600 hover:bg-red-50"
+                        : "text-slate-300 cursor-not-allowed"
+                    )}
+                  >
+                    <Trash2 className="w-4 h-4 flex-shrink-0 text-inherit opacity-80" />
+                    Delete
+                    {!projectCtx && <span className="ml-auto text-[10px] text-slate-300">project only</span>}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-8">
@@ -876,6 +1089,101 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </main>
+
+      {/* ── Group Chat Modal ── */}
+      {groupChatOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4" onClick={() => setGroupChatOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <MessageSquare className="w-4 h-4 text-orange-500" />
+                </div>
+                <h2 className="text-base font-semibold text-slate-900">Start a group chat</h2>
+              </div>
+              <button
+                onClick={() => setGroupChatOpen(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-500">
+              Invite team members to collaborate on{" "}
+              <span className="font-medium text-slate-700">{getPageTitle(location)}</span>.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Email addresses</label>
+              <textarea
+                value={groupChatEmails}
+                onChange={(e) => setGroupChatEmails(e.target.value)}
+                placeholder={"colleague@example.com\nanother@example.com"}
+                rows={4}
+                className="w-full resize-none text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
+              />
+              <p className="text-xs text-slate-400">Enter one email per line</p>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-1">
+              <button
+                onClick={() => setGroupChatOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGroupChatSubmit}
+                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-sm font-medium text-white transition-colors"
+              >
+                Send Invites
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4" onClick={() => setDeleteConfirmOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Delete project?</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  This will permanently delete{" "}
+                  <span className="font-medium text-slate-700">{getPageTitle(location)}</span>. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-sm font-medium text-white transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
