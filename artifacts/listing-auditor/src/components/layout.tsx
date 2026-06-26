@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   ChevronDown,
   ChevronRight,
+  ArrowLeft,
   LogOut,
   Shield,
   UserCircle,
@@ -365,6 +366,23 @@ function getPageTitle(location: string): string {
   return "ListingAuditor";
 }
 
+// --- Ribbon visibility -------------------------------------------------------
+function isRibbonVisible(location: string): boolean {
+  if (location === "/" || location === "/dashboard") return false;
+  if (location === "/audits/new") return false;
+  if (location === "/projects") return false;
+  if (location === "/videos") return false;
+  if (location === "/ads") return false;
+  if (location === "/audit-listings") return false;
+  if (location === "/billing") return false;
+  if (location === "/profile") return false;
+  if (location === "/settings") return false;
+  if (location === "/team") return false;
+  if (location === "/notifications") return false;
+  if (location === "/archive") return false;
+  return true;
+}
+
 // --- Project context from URL -----------------------------------------------
 function parseProjectContext(location: string): { type: string; id: number } | null {
   const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
@@ -707,11 +725,11 @@ export function Layout({ children }: { children: ReactNode }) {
                         className={cn(
                           "w-full flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
                           isActive
-                            ? "bg-sidebar-accent text-primary"
+                            ? "bg-orange-500 text-white shadow-sm"
                             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                         )}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className={cn("w-5 h-5", isActive ? "text-white" : "")} />
                       </button>
                     </Link>
                   </SidebarTooltip>
@@ -723,11 +741,11 @@ export function Layout({ children }: { children: ReactNode }) {
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left",
                       isActive
-                        ? "bg-sidebar-accent text-slate-900 font-semibold"
+                        ? "bg-orange-500 text-white font-semibold shadow-sm"
                         : "text-sidebar-foreground/60 font-medium hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                     )}
                   >
-                    <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
+                    <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
                     {label}
                   </button>
                 </Link>
@@ -975,21 +993,26 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="h-1 w-full bg-gradient-to-r from-primary to-orange-300 flex-shrink-0" />
 
         {/* ── Top ribbon ── */}
-        <div className="flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0 group/ribbon">
-          <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight flex-1">
-            {getPageTitle(location)}
-          </h1>
-
-          {/* Right actions — fade in on ribbon hover */}
-          <div className="flex items-center gap-1 opacity-0 group-hover/ribbon:opacity-100 transition-opacity duration-150">
-            {/* Share */}
+        {isRibbonVisible(location) && (
+          <div className="flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
+            {/* Back button */}
             <button
-              onClick={handleShare}
-              title="Share"
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              onClick={() => window.history.back()}
+              className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-1.5 transition-colors"
             >
-              <Share2 className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" />
+              Back
             </button>
+
+            {/* Share + three-dots — always visible */}
+            <div className="flex items-center gap-1 ml-auto">
+              <button
+                onClick={handleShare}
+                title="Share"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
 
             {/* Three-dots */}
             <div className="relative" ref={ribbonDotsRef}>
@@ -1082,6 +1105,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl mx-auto">
