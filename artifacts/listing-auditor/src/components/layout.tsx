@@ -339,6 +339,29 @@ function RecentProjectItem({
   );
 }
 
+// --- Page title map ---------------------------------------------------------
+function getPageTitle(location: string): string {
+  if (location === "/" || location === "/dashboard") return "Dashboard";
+  if (location === "/audits/new") return "Create Listing";
+  if (location === "/audits/workflow") return "Create Listing";
+  if (location.startsWith("/audits/") && location.includes("/competitors/")) return "Add Competitor";
+  if (location.startsWith("/audits/")) return "Audit Details";
+  if (location === "/audit-listings") return "Audit Listings";
+  if (location === "/projects/create") return "New Graphics Project";
+  if (location.endsWith("/generating")) return "Generating Graphics";
+  if (location.startsWith("/projects/")) return "Project Details";
+  if (location === "/projects") return "Create Graphics";
+  if (location === "/videos") return "Create Videos";
+  if (location === "/ads") return "Manage Ads";
+  if (location === "/billing") return "Billing";
+  if (location === "/profile") return "Profile";
+  if (location === "/settings") return "Settings";
+  if (location === "/team") return "Team";
+  if (location === "/notifications") return "Notifications";
+  if (location === "/archive") return "Archive";
+  return "ListingAuditor";
+}
+
 // --- Main Layout ------------------------------------------------------------
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -587,13 +610,13 @@ export function Layout({ children }: { children: ReactNode }) {
                 <Link key={href} href={href}>
                   <button
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors text-left",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left",
                       isActive
-                        ? "bg-sidebar-accent text-sidebar-foreground"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        ? "bg-sidebar-accent text-slate-900 font-semibold"
+                        : "text-sidebar-foreground/60 font-medium hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                     )}
                   >
-                    <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/50")} />
+                    <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
                     {label}
                   </button>
                 </Link>
@@ -839,6 +862,14 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <div className="h-1 w-full bg-gradient-to-r from-primary to-orange-300 flex-shrink-0" />
+
+        {/* ── Top ribbon ── */}
+        <div className="flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
+          <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight">
+            {getPageTitle(location)}
+          </h1>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl mx-auto">
             {children}
