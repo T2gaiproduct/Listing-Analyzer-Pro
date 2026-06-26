@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -306,7 +307,9 @@ export default function AuditWorkflow() {
   const [category, setCategory]         = useState("");
   const [catSearch, setCatSearch]       = useState("");
   const [catOpen, setCatOpen]           = useState(false);
-  const catRef = useRef<HTMLDivElement>(null);
+  const catRef     = useRef<HTMLDivElement>(null);
+  const catBtnRef  = useRef<HTMLButtonElement>(null);
+  const [catPos, setCatPos] = useState({ top: 0, left: 0, width: 0 });
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading]       = useState(false);
 
@@ -322,8 +325,10 @@ export default function AuditWorkflow() {
   /* ── Close category dropdown on outside click ── */
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (catRef.current && !catRef.current.contains(e.target as Node))
-        setCatOpen(false);
+      const target = e.target as Node;
+      const inTrigger = catRef.current?.contains(target);
+      const inPortal  = (target as Element)?.closest?.("[data-cat-portal]");
+      if (!inTrigger && !inPortal) setCatOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -702,8 +707,13 @@ export default function AuditWorkflow() {
                     <label className="text-sm font-medium text-slate-700">Select Category</label>
                     <div className="relative">
                       <button
+                        ref={catBtnRef}
                         type="button"
-                        onClick={() => setCatOpen((o) => !o)}
+                        onClick={() => {
+                          const rect = catBtnRef.current?.getBoundingClientRect();
+                          if (rect) setCatPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+                          setCatOpen((o) => !o);
+                        }}
                         className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
                       >
                         <span className={category ? "text-slate-900" : "text-slate-400"}>
@@ -711,8 +721,12 @@ export default function AuditWorkflow() {
                         </span>
                         <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
-                      {catOpen && (
-                        <div className="absolute z-[999] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                      {catOpen && createPortal(
+                        <div
+                          data-cat-portal
+                          style={{ position: "fixed", top: catPos.top, left: catPos.left, width: catPos.width, zIndex: 9999 }}
+                          className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-52 overflow-y-auto"
+                        >
                           <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2">
                             <input
                               autoFocus
@@ -734,7 +748,8 @@ export default function AuditWorkflow() {
                               </div>
                             ))
                           }
-                        </div>
+                        </div>,
+                        document.body
                       )}
                     </div>
                   </div>
