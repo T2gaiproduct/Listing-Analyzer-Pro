@@ -8,10 +8,9 @@ import {
   Upload,
   Monitor,
   Camera,
-  Search,
-  ChevronDown,
   Check,
   ArrowLeft,
+  ArrowRight,
   Save,
   Sparkles,
   Loader2,
@@ -22,6 +21,8 @@ import {
   Trash2,
   X,
   Zap,
+  Plus,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -44,12 +45,19 @@ const STEPS: { id: StepId; key: string; label: string; sub: string; icon: React.
   { id: 5, key: "export",   label: "EXPORT",     sub: "Export & publish",        icon: Download  },
 ];
 
-const CREATE_DROPDOWN: { label: string; step: StepId }[] = [
-  { label: "Listing",    step: 2 },
-  { label: "Graphics",   step: 3 },
-  { label: "A+ Content", step: 4 },
-  { label: "Export",     step: 5 },
-];
+/* ── localStorage helpers ───────────────────────────────────────────────── */
+type SavedProject = { id: string; name: string; category: string; images: number; date: string };
+
+function loadProjects(key: string): SavedProject[] {
+  try { return JSON.parse(localStorage.getItem(key) ?? "[]") as SavedProject[]; } catch { return []; }
+}
+function saveProjectToStorage(key: string, project: SavedProject) {
+  const existing = loadProjects(key).filter((p) => p.id !== project.id);
+  localStorage.setItem(key, JSON.stringify([project, ...existing].slice(0, 20)));
+}
+
+const LS_RECENT = "listing_auditor_recent_projects";
+const LS_DRAFT  = "listing_auditor_draft_projects";
 
 /* ── Loading messages per step ──────────────────────────────────────────── */
 const LOADING_MESSAGES: Record<StepId, string[]> = {
@@ -285,8 +293,7 @@ export default function AuditWorkflow() {
   const queryClient     = useQueryClient();
 
   const [activeStep, setActiveStep] = useState<StepId>(1);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
   /* ── Creating panel state ── */
   const [isCreating, setIsCreating]         = useState(false);
@@ -312,11 +319,9 @@ export default function AuditWorkflow() {
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt]             = useState("");
 
-  /* ── Close dropdowns on outside click ── */
+  /* ── Close category dropdown on outside click ── */
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
-        setDropdownOpen(false);
       if (catRef.current && !catRef.current.contains(e.target as Node))
         setCatOpen(false);
     }
@@ -387,11 +392,37 @@ export default function AuditWorkflow() {
     });
   }
 
+  /* ── Save Draft / Save Project ── */
+  function buildProjectRecord(): SavedProject {
+    return {
+      id: projectId,
+      name: productName.trim() || "Untitled Product",
+      category: category || "Uncategorized",
+      images: uploadedImages.length,
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    };
+  }
+
+  function handleSaveDraft() {
+    saveProjectToStorage(LS_DRAFT, buildProjectRecord());
+    // Remove from recent if it was there
+    const recentList = loadProjects(LS_RECENT).filter((p) => p.id !== projectId);
+    localStorage.setItem(LS_RECENT, JSON.stringify(recentList));
+    toast({ title: "Draft saved", description: "Your project was saved to Draft Projects." });
+  }
+
+  function handleSaveProject() {
+    saveProjectToStorage(LS_RECENT, buildProjectRecord());
+    // Remove from drafts
+    const draftList = loadProjects(LS_DRAFT).filter((p) => p.id !== projectId);
+    localStorage.setItem(LS_DRAFT, JSON.stringify(draftList));
+    toast({ title: "Project saved!", description: "Your project was saved to Recent Projects." });
+  }
+
   /* ── Execute create for current step ── */
   const handleCreate = useCallback(() => {
     setCreatingStep(activeStep);
     setIsCreating(true);
-    setDropdownOpen(false);
 
     if (activeStep === 1) {
       // Upload: just advance to next step after a brief load
@@ -478,8 +509,9 @@ export default function AuditWorkflow() {
     else setActiveStep((s) => (s - 1) as StepId);
   }
 
-  function handleSave() {
-    toast({ title: "Saved", description: "Your progress has been saved." });
+  /* ── Next step ── */
+  function handleNextStep() {
+    if (activeStep < 5) setActiveStep((s) => (s + 1) as StepId);
   }
 
   const filteredCats = AMAZON_CATEGORIES.filter((c) =>
@@ -545,117 +577,166 @@ export default function AuditWorkflow() {
           {/* STEP 1: Upload ── */}
           {activeStep === 1 && (
             <div className="space-y-6">
+              {/* Header */}
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
                   <Upload className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Upload Product</h2>
-                  <p className="text-sm text-slate-500">Upload product images to get started</p>
+                  <h2 className="text-xl font-bold text-slate-900">Upload Product Images</h2>
+                  <p className="text-sm text-slate-500">Add high-quality images to showcase your product in the best way</p>
                 </div>
               </div>
 
-              <div
-                className="border-2 border-dashed border-orange-200 rounded-2xl bg-orange-50/20 p-10 flex flex-col items-center gap-4 cursor-pointer hover:bg-orange-50/40 transition-colors"
-                onClick={() => fileRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
-              >
-                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Upload className="w-6 h-6 text-orange-400" />
-                </div>
-                <p className="text-base font-medium text-slate-700">Choose upload option</p>
-
-                <div className="grid grid-cols-2 gap-4 w-full max-w-md">
+              {/* Two-column: upload zone + preview */}
+              <div className="border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left: upload zone */}
+                <div
+                  className="border-2 border-dashed border-orange-200 rounded-xl bg-orange-50/20 p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-orange-50/40 transition-colors"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+                >
+                  <div className="w-14 h-14 rounded-full bg-orange-50 flex items-center justify-center">
+                    <Upload className="w-7 h-7 text-orange-400" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-slate-800">Drag or upload product images</p>
+                    <p className="text-xs text-slate-400 mt-0.5">PNG, JPG up to 20MB each</p>
+                  </div>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-                    className="flex flex-col items-center gap-3 p-6 bg-white border border-orange-100 rounded-xl hover:border-orange-300 hover:shadow-sm transition-all"
+                    onClick={() => fileRef.current?.click()}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-xl transition-colors w-full justify-center"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
-                      <Monitor className="w-6 h-6 text-orange-400" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-slate-800">From Computer</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Upload images from your computer</p>
-                    </div>
+                    <Monitor className="w-4 h-4" />
+                    Upload from device
                   </button>
-
+                  <span className="text-xs text-slate-400">or</span>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }}
-                    className="flex flex-col items-center gap-3 p-6 bg-white border border-orange-100 rounded-xl hover:border-orange-300 hover:shadow-sm transition-all"
+                    onClick={() => cameraRef.current?.click()}
+                    className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors w-full justify-center"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
-                      <Camera className="w-6 h-6 text-orange-400" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-slate-800">From Camera</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Take photos using your camera</p>
-                    </div>
+                    <Camera className="w-4 h-4 text-orange-400" />
+                    Use camera
                   </button>
+                  <div className="flex items-start gap-2 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 w-full">
+                    <Lightbulb className="w-3.5 h-3.5 text-orange-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-orange-600">Tip: Use high-quality images with good lighting for better results.</p>
+                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+                  <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
                 </div>
 
-                <p className="text-xs text-slate-400">PNG, JPG up to 20MB each</p>
-                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-                <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-              </div>
-
-              {uploadedImages.length > 0 && (
-                <div className="flex flex-wrap gap-3">
-                  {uploadedImages.map((img, idx) => (
-                    <div key={idx} className="relative w-20 h-20 rounded-xl border border-slate-200 overflow-hidden bg-white">
-                      <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-contain" />
+                {/* Right: uploaded images preview */}
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700">
+                      Uploaded Images ({uploadedImages.length}/10)
+                    </span>
+                    {uploadedImages.length > 0 && (
                       <button
-                        className="absolute top-1 right-1 w-5 h-5 bg-white rounded-full shadow flex items-center justify-center text-red-500 hover:text-red-600"
-                        onClick={() => setUploadedImages((p) => p.filter((_, i) => i !== idx))}
+                        className="text-xs text-orange-500 hover:text-orange-600 font-medium"
+                        onClick={() => setUploadedImages([])}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        Clear all
                       </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Product Name</label>
-                  <Input
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                    placeholder="Enter product name"
-                    className="border-slate-200 rounded-xl h-11"
-                  />
-                </div>
-
-                <div className="space-y-1.5" ref={catRef}>
-                  <label className="text-sm font-medium text-slate-700">Select Category</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    <input
-                      value={catSearch}
-                      onChange={(e) => { setCatSearch(e.target.value); setCatOpen(true); }}
-                      onFocus={() => setCatOpen(true)}
-                      placeholder="Search or select category"
-                      className="w-full h-11 pl-9 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
-                    />
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    {catOpen && (
-                      <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                        {filteredCats.length === 0
-                          ? <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
-                          : filteredCats.map((c) => (
-                            <div
-                              key={c}
-                              className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-50", category === c ? "bg-orange-50 text-orange-600 font-medium" : "text-slate-700")}
-                              onClick={() => { setCategory(c); setCatSearch(c); setCatOpen(false); }}
-                            >
-                              {c}
-                            </div>
-                          ))
-                        }
-                      </div>
                     )}
+                  </div>
+
+                  {uploadedImages.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-slate-300 text-sm border-2 border-dashed border-slate-100 rounded-xl py-10">
+                      No images yet
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-4 gap-2">
+                        {uploadedImages.slice(0, 8).map((img, idx) => (
+                          <div key={idx} className="relative aspect-square rounded-xl border border-slate-200 overflow-hidden bg-white">
+                            <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              className="absolute top-1 right-1 w-5 h-5 bg-white/90 rounded-full shadow flex items-center justify-center text-slate-500 hover:text-red-500 transition-colors"
+                              onClick={() => setUploadedImages((p) => p.filter((_, i) => i !== idx))}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        className="mt-auto w-full flex items-center justify-center gap-2 border border-slate-200 rounded-xl py-2.5 text-sm text-orange-500 hover:bg-orange-50 font-medium transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add more images
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Product Details */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Product Details</p>
+                    <p className="text-xs text-slate-400">Provide basic information about your product</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Product Name</label>
+                    <Input
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value)}
+                      placeholder="Enter product name"
+                      className="border-slate-200 rounded-xl h-11"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5" ref={catRef}>
+                    <label className="text-sm font-medium text-slate-700">Select Category</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setCatOpen((o) => !o)}
+                        className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
+                      >
+                        <span className={category ? "text-slate-900" : "text-slate-400"}>
+                          {category || "Search or select category"}
+                        </span>
+                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                      {catOpen && (
+                        <div className="absolute z-[999] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                          <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2">
+                            <input
+                              autoFocus
+                              value={catSearch}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCatSearch(e.target.value)}
+                              placeholder="Search categories…"
+                              className="w-full text-sm focus:outline-none text-slate-700 placeholder-slate-400"
+                            />
+                          </div>
+                          {filteredCats.length === 0
+                            ? <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
+                            : filteredCats.map((c) => (
+                              <div
+                                key={c}
+                                className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-50", category === c ? "bg-orange-50 text-orange-600 font-medium" : "text-slate-700")}
+                                onClick={() => { setCategory(c); setCatSearch(""); setCatOpen(false); }}
+                              >
+                                {c}
+                              </div>
+                            ))
+                          }
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -671,33 +752,22 @@ export default function AuditWorkflow() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Create Listing Content</h2>
-                  <p className="text-sm text-slate-500">Enter a product URL or ASIN to analyze and generate optimized content</p>
+                  <p className="text-sm text-slate-500">AI will generate optimized content based on your product images and details</p>
                 </div>
               </div>
 
+              {/* What gets generated */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                <label className="text-sm font-medium text-slate-700">Amazon Product URL or ASIN</label>
-                <div className="flex gap-3">
-                  <Input
-                    value={listingUrl}
-                    onChange={(e) => setListingUrl(e.target.value)}
-                    placeholder="https://amazon.com/dp/... or B0XXXXXXXXX"
-                    className="border-slate-200 rounded-xl h-11 flex-1"
-                    onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
-                  />
-                </div>
-                <div className="border-t border-slate-100 pt-4">
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">What gets analyzed</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {["Product Title", "Bullet Points", "Keywords", "Images"].map((item) => (
-                      <div key={item} className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 text-orange-500" />
-                        </div>
-                        {item}
+                <p className="text-sm font-medium text-slate-700">What will be generated</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {["Product Title", "Bullet Points", "Keywords", "Description"].map((item) => (
+                    <div key={item} className="flex items-center gap-2 text-sm text-slate-600">
+                      <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3 h-3 text-orange-500" />
                       </div>
-                    ))}
-                  </div>
+                      {item}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -705,9 +775,24 @@ export default function AuditWorkflow() {
                 <Sparkles className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-orange-900">AI-Powered Optimization</p>
-                  <p className="text-sm text-orange-700 mt-1">Our AI scores your listing across 4 key categories — title, bullet points, images, and keywords — then provides actionable fixes.</p>
+                  <p className="text-sm text-orange-700 mt-1">Our AI generates compelling titles, bullet points, keywords, and descriptions optimized for Amazon search and conversions.</p>
                 </div>
               </div>
+
+              {/* Generate button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatingStep(2);
+                  setIsCreating(true);
+                  setTimeout(() => { setIsCreating(false); toast({ title: "Listing content ready!", description: "Your optimized listing content has been generated." }); }, 3000);
+                }}
+                disabled={isCreating}
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm shadow-orange-200"
+              >
+                {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Generate Listing Content
+              </button>
             </div>
           )}
 
@@ -872,61 +957,39 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
-            onClick={handleSave}
-            disabled={isCreating}
-          >
-            <Save className="w-4 h-4" />
-            Save
-          </Button>
-
-          {/* Split Create button */}
-          <div className="flex items-center" ref={dropdownRef}>
-            {/* Main action */}
+          {/* Steps 1-4: Save Draft | Step 5: Save Project */}
+          {activeStep < 5 ? (
             <Button
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-l-xl rounded-r-none gap-2 border-r border-orange-600"
-              onClick={handleCreate}
+              variant="outline"
+              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
+              onClick={handleSaveDraft}
               disabled={isCreating}
             >
-              {isCreating
-                ? <><Loader2 className="w-4 h-4 animate-spin" />Creating…</>
-                : <><Sparkles className="w-4 h-4" />Create</>
-              }
+              <Save className="w-4 h-4" />
+              Save Draft
             </Button>
-            {/* Dropdown arrow */}
-            <div className="relative">
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white rounded-l-none rounded-r-xl px-2.5"
-                onClick={() => setDropdownOpen((o) => !o)}
-                disabled={isCreating}
-              >
-                <ChevronDown className={cn("w-4 h-4 transition-transform", dropdownOpen ? "rotate-180" : "")} />
-              </Button>
+          ) : (
+            <Button
+              className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              onClick={handleSaveProject}
+              disabled={isCreating}
+            >
+              <Save className="w-4 h-4" />
+              Save Project
+            </Button>
+          )}
 
-              {dropdownOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
-                  {CREATE_DROPDOWN.map((item) => (
-                    <button
-                      key={item.label}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors hover:bg-orange-50",
-                        activeStep === item.step ? "text-orange-600 bg-orange-50/70 font-medium" : "text-slate-700"
-                      )}
-                      onClick={() => { setActiveStep(item.step); setDropdownOpen(false); }}
-                    >
-                      {activeStep === item.step
-                        ? <Check className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
-                        : <div className="w-3.5 h-3.5 flex-shrink-0" />
-                      }
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Steps 1-4: Next Step button */}
+          {activeStep < 5 && (
+            <Button
+              className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              onClick={handleNextStep}
+              disabled={isCreating}
+            >
+              Next Step
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 

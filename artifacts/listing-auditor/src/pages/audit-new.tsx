@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,20 +12,79 @@ const steps = [
   { number: "5", icon: Download, title: "Export", desc: "Export and publish your listing to your store" },
 ];
 
-const recentProjects = [
-  { name: "Travel Backpack", platform: "Shopify", images: 5, date: "May 20, 2024" },
-  { name: "Stainless Steel Bottle", platform: "Walmart", images: 4, date: "May 19, 2024" },
-  { name: "Running Shoes", platform: "eBay", images: 6, date: "May 18, 2024" },
-];
+type SavedProject = { id: string; name: string; category: string; images: number; date: string };
 
-const draftProjects = [
-  { name: "Wireless Headphones", platform: "Shopify", images: 3, date: "May 20, 2024" },
-  { name: "Coffee Maker", platform: "Walmart", images: 2, date: "May 19, 2024" },
-  { name: "Desk Lamp", platform: "Shopify", images: 2, date: "May 18, 2024" },
-];
+const LS_RECENT = "listing_auditor_recent_projects";
+const LS_DRAFT  = "listing_auditor_draft_projects";
+
+function loadProjects(key: string): SavedProject[] {
+  try { return JSON.parse(localStorage.getItem(key) ?? "[]") as SavedProject[]; } catch { return []; }
+}
+
+function ProjectRow({ project, onDelete }: { project: SavedProject; onDelete: () => void }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer relative">
+      <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+        <Image className="w-5 h-5 text-slate-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
+        <p className="text-xs text-muted-foreground">
+          {project.category} • {project.images} image{project.images !== 1 ? "s" : ""}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-xs text-muted-foreground">{project.date}</span>
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+          >
+            <MoreVertical className="w-3.5 h-3.5" />
+          </Button>
+          {menuOpen && (
+            <div
+              className="absolute right-0 top-8 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden w-36"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                onClick={() => { setMenuOpen(false); onDelete(); }}
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AuditNew() {
   const [, setLocation] = useLocation();
+  const [recentProjects, setRecentProjects] = useState<SavedProject[]>([]);
+  const [draftProjects, setDraftProjects]   = useState<SavedProject[]>([]);
+
+  useEffect(() => {
+    setRecentProjects(loadProjects(LS_RECENT));
+    setDraftProjects(loadProjects(LS_DRAFT));
+  }, []);
+
+  function deleteRecent(id: string) {
+    const updated = recentProjects.filter((p) => p.id !== id);
+    setRecentProjects(updated);
+    localStorage.setItem(LS_RECENT, JSON.stringify(updated));
+  }
+
+  function deleteDraft(id: string) {
+    const updated = draftProjects.filter((p) => p.id !== id);
+    setDraftProjects(updated);
+    localStorage.setItem(LS_DRAFT, JSON.stringify(updated));
+  }
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500 max-w-5xl mx-auto">
@@ -98,31 +157,22 @@ export default function AuditNew() {
                 View All
               </Button>
             </div>
-            <div className="space-y-3">
-              {recentProjects.map((project) => (
-                <div
-                  key={project.name}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => {}}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                    <Image className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {project.platform} • {project.images} images
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground">{project.date}</span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
-                      <MoreVertical className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {recentProjects.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No recent projects yet.<br />
+                <span className="text-xs">Saved projects will appear here.</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {recentProjects.slice(0, 5).map((project) => (
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
+                    onDelete={() => deleteRecent(project.id)}
+                  />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -135,31 +185,22 @@ export default function AuditNew() {
                 View All
               </Button>
             </div>
-            <div className="space-y-3">
-              {draftProjects.map((project) => (
-                <div
-                  key={project.name}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => {}}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                    <Image className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {project.platform} • {project.images} images
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground">{project.date}</span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
-                      <MoreVertical className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {draftProjects.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No drafts yet.<br />
+                <span className="text-xs">Use "Save Draft" while working to save here.</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {draftProjects.slice(0, 5).map((project) => (
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
+                    onDelete={() => deleteDraft(project.id)}
+                  />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
