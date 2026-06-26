@@ -1,35 +1,53 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, TrendingUp, DollarSign, Trophy, Star, Check, ArrowUpRight, Link as LinkIcon, Shield, Users, BarChart3, LineChart, Target, Sparkles } from "lucide-react";
 import { useFetchListing, useCreateAudit, getGetAuditStatsQueryKey, getListAuditsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 const stores = [
-  { label: "Amazon", letter: "A", color: "bg-orange-500" },
-  { label: "Shopify", letter: "S", color: "bg-green-600" },
-  { label: "Walmart", letter: "W", color: "bg-blue-600" },
-  { label: "eBay", letter: "e", color: "bg-red-500" },
-  { label: "Etsy", letter: "E", color: "bg-orange-400" },
+  { name: "Amazon", color: "text-amber-600" },
+  { name: "Shopify", color: "text-green-600" },
+  { name: "Walmart", color: "text-blue-600" },
+  { name: "eBay", color: "text-red-500" },
+  { name: "Etsy", color: "text-orange-600" },
+  { name: "+ More", color: "text-muted-foreground" },
 ];
 
 const features = [
   {
+    icon: LineChart,
     title: "Listing Score",
-    desc: "Overall quality rating 1–100",
+    desc: "Overall quality rating from 1-100",
+    chart: true,
   },
   {
+    icon: Target,
     title: "Top Fixes",
-    desc: "Highest-impact improvements",
+    desc: "Personalized, high-impact improvements",
+    items: ["Optimize your title", "Improve main images", "Enhance bullet points", "Strengthen description"],
   },
   {
+    icon: BarChart3,
     title: "Competitor Intel",
-    desc: "Benchmark against top sellers",
+    desc: "Benchmark against top-performing sellers",
+    bars: true,
   },
   {
+    icon: TrendingUp,
     title: "Action Plan",
-    desc: "Step-by-step improvement roadmap",
+    desc: "Step-by-step roadmap to grow your sales",
+    steps: ["Prioritize high-impact fixes", "Implement changes", "Track performance & grow"],
   },
+];
+
+const stats = [
+  { icon: BarChart3, value: "2M+", label: "Listings Analyzed" },
+  { icon: Users, value: "150K+", label: "Sellers Helped" },
+  { icon: DollarSign, value: "$250M+", label: "Revenue Impacted" },
 ];
 
 export default function AuditListings() {
@@ -98,7 +116,7 @@ export default function AuditListings() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] px-4 py-16">
+    <div className="max-w-6xl mx-auto px-4 py-12 space-y-16 animate-in fade-in duration-500">
       {/* Full-screen loading overlay */}
       {isLoading && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -120,80 +138,285 @@ export default function AuditListings() {
         </div>
       )}
 
-      {/* Heading */}
-      <h1 className="text-4xl font-bold text-foreground text-center tracking-tight mb-3">
-        Analyze your listing
-      </h1>
-      <p className="text-muted-foreground text-center text-base mb-10">
-        Paste any product page URL for an instant AI audit
-      </p>
+      {/* Hero Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        {/* Left */}
+        <div className="space-y-6">
+          <h1 className="text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+            Analyze your
+            <br />
+            <span className="text-orange-500">product listing</span>
+            <br />
+            using AI
+          </h1>
+          <p className="text-muted-foreground text-lg max-w-md">
+            Get an instant AI audit of any product page to boost rankings, increase conversions, and outperform the competition.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                <Target className="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Boost Rankings</p>
+                <p className="text-xs text-muted-foreground">Improve search visibility</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Increase Sales</p>
+                <p className="text-xs text-muted-foreground">Optimize for conversions</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                <Trophy className="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Outsmart Competitors</p>
+                <p className="text-xs text-muted-foreground">Benchmark & win</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      {/* URL input */}
-      <div className="w-full max-w-2xl">
-        <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-4 py-3 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
-          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        {/* Right - Score Card */}
+        <Card className="border border-border/60 shadow-lg">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">Listing Score</span>
+              <span className="text-xs text-muted-foreground">82 /100</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative w-20 h-20">
+                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+                  <circle cx="18" cy="18" r="16" fill="none" stroke="#f97316" strokeWidth="3" strokeDasharray="82 100" />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-lg font-bold text-foreground">82</span>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">Great</div>
+            </div>
+            <div className="space-y-2">
+              {[
+                { label: "Title", score: 85 },
+                { label: "Images", score: 90 },
+                { label: "Bullet Points", score: 78 },
+                { label: "Description", score: 80 },
+                { label: "Reviews", score: 75 },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-20">{item.label}</span>
+                  <Progress value={item.score} className="h-1.5 flex-1" />
+                  <span className="text-xs text-muted-foreground w-8 text-right">{item.score}/100</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <span>4.6 (2,873)</span>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-orange-500">
+              <ArrowUpRight className="w-3 h-3" />
+              <span>Top 5% in Electronics</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* URL Input */}
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-5 py-4 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+          <LinkIcon className="w-5 h-5 text-orange-400 flex-shrink-0" />
           <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
             placeholder="Paste any product page URL..."
-            className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm outline-none min-w-0"
+            className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-base outline-none min-w-0"
             disabled={isLoading}
           />
-          <button
+          <Button
             onClick={handleAnalyze}
             disabled={isLoading || !url.trim()}
-            className="flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed text-primary-foreground font-semibold text-sm px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
+            className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-6 h-11 font-semibold flex items-center gap-2"
           >
             {isLoading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" />Analyzing…</>
+              <><Loader2 className="w-4 h-4 animate-spin" />Analyzing...</>
             ) : (
-              "Analyze"
+              <><Sparkles className="w-4 h-4" />Analyze Now</>
             )}
-          </button>
+          </Button>
         </div>
-        <p className="text-center text-xs text-muted-foreground mt-3">
-          Works with Amazon, Shopify, Walmart, eBay, and most product pages
+        <p className="text-center text-sm text-muted-foreground mt-3">
+          Works with <span className="text-orange-500 font-medium">Amazon</span>,{" "}
+          <span className="text-orange-500 font-medium">Shopify</span>,{" "}
+          <span className="text-orange-500 font-medium">Walmart</span>,{" "}
+          <span className="text-orange-500 font-medium">eBay</span>,{" "}
+          <span className="text-orange-500 font-medium">Etsy</span>, and most product pages
         </p>
       </div>
 
-      {/* Works with any store */}
-      <div className="mt-14 w-full max-w-2xl">
-        <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-5">
-          Works with any store
+      {/* Works With Any Store */}
+      <div className="space-y-5">
+        <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          Works With Any Store
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          {stores.map(({ label, letter, color }) => (
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {stores.map(({ name, color }) => (
             <div
-              key={label}
-              className="flex items-center gap-2 border border-border rounded-lg px-4 py-2 bg-card text-sm font-medium text-foreground"
+              key={name}
+              className="flex items-center gap-2 border border-border rounded-xl px-5 py-2.5 bg-card text-sm font-semibold"
             >
-              <span className={`w-5 h-5 rounded flex items-center justify-center text-white text-xs font-bold ${color}`}>
-                {letter}
-              </span>
-              {label}
+              <span className={`text-sm font-bold ${color}`}>{name}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* What you get */}
-      <div className="mt-14 w-full max-w-2xl">
-        <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-5">
-          What you get
+      {/* What You Get */}
+      <div className="space-y-5">
+        <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          What You Get
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {features.map(({ title, desc }) => (
-            <div
-              key={title}
-              className="bg-card border border-border rounded-xl px-4 py-5 text-center"
-            >
-              <p className="text-sm font-semibold text-foreground mb-1">{title}</p>
-              <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {features.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <Card key={feature.title} className="border border-border/60 hover:border-orange-300/50 transition-colors">
+                <CardContent className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                      <Icon className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{feature.title}</p>
+                      <p className="text-xs text-muted-foreground">{feature.desc}</p>
+                    </div>
+                  </div>
+                  {feature.chart && (
+                    <div className="h-16 flex items-end gap-1">
+                      <div className="w-1/5 h-6 bg-orange-200 rounded-t" />
+                      <div className="w-1/5 h-10 bg-orange-300 rounded-t" />
+                      <div className="w-1/5 h-8 bg-orange-400 rounded-t" />
+                      <div className="w-1/5 h-14 bg-orange-500 rounded-t" />
+                      <div className="w-1/5 h-12 bg-orange-400 rounded-t" />
+                    </div>
+                  )}
+                  {feature.items && (
+                    <div className="space-y-1.5">
+                      {feature.items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Check className="w-3 h-3 text-orange-500" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {feature.bars && (
+                    <div className="flex items-end gap-1 h-16">
+                      <div className="w-1/6 h-8 bg-orange-100 rounded-t" />
+                      <div className="w-1/6 h-12 bg-orange-200 rounded-t" />
+                      <div className="w-1/6 h-6 bg-orange-100 rounded-t" />
+                      <div className="w-1/6 h-14 bg-orange-500 rounded-t" />
+                      <div className="w-1/6 h-10 bg-orange-300 rounded-t" />
+                      <div className="w-1/6 h-4 bg-orange-100 rounded-t" />
+                    </div>
+                  )}
+                  {feature.steps && (
+                    <div className="space-y-1.5">
+                      {feature.steps.map((step, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">
+                            {i + 1}
+                          </span>
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Trust Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        {/* Left - Stats */}
+        <div className="space-y-6">
+          <h3 className="text-xl font-bold text-foreground">Trusted by sellers worldwide</h3>
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="w-8 h-8 rounded-full bg-orange-100 border-2 border-background flex items-center justify-center text-xs font-bold text-orange-600"
+                >
+                  {String.fromCharCode(64 + i)}
+                </div>
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">+2K</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Star key={i} className="w-4 h-4 text-amber-500 fill-amber-500" />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">4.9/5 from 2,500+ reviews</p>
+          <div className="grid grid-cols-3 gap-4">
+            {stats.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div key={stat.label} className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Icon className="w-4 h-4 text-orange-500" />
+                    <span className="text-lg font-bold text-foreground">{stat.value}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right - Testimonial */}
+        <Card className="border border-border/60 bg-orange-50/30">
+          <CardContent className="p-6 space-y-4">
+            <div className="text-4xl text-orange-300 font-serif">&ldquo;</div>
+            <p className="text-sm text-foreground leading-relaxed">
+              ListingAudit helped us uncover critical issues we didn&apos;t even know were hurting our sales. Our conversion rate increased by 27% in just 30 days!
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-sm font-bold text-orange-600">
+                J
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Jessica M.</p>
+                <p className="text-xs text-muted-foreground">Amazon Top Seller</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Footer Trust */}
+      <div className="text-center space-y-3 pb-8">
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Shield className="w-4 h-4 text-orange-500" />
+          <span>Your data is secure and never shared.</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Start your free analysis in seconds. No sign-up required.
+        </p>
       </div>
     </div>
   );
