@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import {
   useFetchListing,
   useCreateAudit,
+  useGenerateContent,
   getGetAuditStatsQueryKey,
   getListAuditsQueryKey,
 } from "@workspace/api-client-react";
@@ -362,8 +363,11 @@ export default function AuditWorkflow() {
 
   /* ── Listing step state ── */
   const [listingUrl, setListingUrl] = useState("");
+  const [currentAuditId, setCurrentAuditId] = useState<number | null>(null);
+  const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const fetchListing = useFetchListing();
   const createAudit  = useCreateAudit();
+  const generateContent = useGenerateContent();
 
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
@@ -513,6 +517,7 @@ export default function AuditWorkflow() {
                   void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
                   void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
                   setIsCreating(false);
+                  setCurrentAuditId(audit.id);
                   toast({ title: "Listing analyzed!", description: "Your audit is ready." });
                   nav(`/audits/${audit.id}?returnTo=/audits/workflow`);
                 },
@@ -854,9 +859,84 @@ export default function AuditWorkflow() {
               <button
                 type="button"
                 onClick={() => {
+                  const trimmed = listingUrl.trim();
+                  if (!trimmed) {
+                    toast({ title: "Enter a URL or ASIN", description: "Please enter a product URL or ASIN first.", variant: "destructive" });
+                    return;
+                  }
                   setCreatingStep(2);
                   setIsCreating(true);
-                  setTimeout(() => { setIsCreating(false); toast({ title: "Listing content ready!", description: "Your optimized listing content has been generated." }); }, 3000);
+                  const isUrl = trimmed.startsWith("http");
+
+                  if (currentAuditId) {
+                    // Already have an audit, just generate content
+                    generateContent.mutate(
+                      { id: currentAuditId },
+                      {
+                        onSuccess: (data) => {
+                          setIsCreating(false);
+                          setGeneratedContent(data);
+                          toast({ title: "Listing content ready!", description: "Your optimized listing content has been generated." });
+                        },
+                        onError: (err) => {
+                          setIsCreating(false);
+                          toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
+                        },
+                      }
+                    );
+                    return;
+                  }
+
+                  // No audit yet: fetch listing, create audit, then generate content
+                  fetchListing.mutate(
+                    { data: isUrl ? { url: trimmed } : { asin: trimmed } },
+                    {
+                      onSuccess: (listing) => {
+                        createAudit.mutate(
+                          {
+                            data: {
+                              productName: listing.productName,
+                              asin: listing.asin,
+                              category: listing.category ?? undefined,
+                              title: listing.title,
+                              bulletPoints: listing.bulletPoints,
+                              targetKeywords: listing.targetKeywords,
+                              imageUrls: listing.imageUrls,
+                            },
+                          },
+                          {
+                            onSuccess: (audit) => {
+                              setCurrentAuditId(audit.id);
+                              void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
+                              void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+                              generateContent.mutate(
+                                { id: audit.id },
+                                {
+                                  onSuccess: (data) => {
+                                    setIsCreating(false);
+                                    setGeneratedContent(data);
+                                    toast({ title: "Listing content ready!", description: "Your optimized listing content has been generated." });
+                                  },
+                                  onError: (err) => {
+                                    setIsCreating(false);
+                                    toast({ title: "Content generation failed", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+                                  },
+                                }
+                              );
+                            },
+                            onError: (err) => {
+                              setIsCreating(false);
+                              toast({ title: "Failed", description: err instanceof Error ? err.message : "Could not create audit", variant: "destructive" });
+                            },
+                          }
+                        );
+                      },
+                      onError: (err) => {
+                        setIsCreating(false);
+                        toast({ title: "Failed to fetch", description: err instanceof Error ? err.message : "Could not fetch listing", variant: "destructive" });
+                      },
+                    }
+                  );
                 }}
                 disabled={isCreating}
                 className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm shadow-orange-200"
@@ -864,6 +944,49 @@ export default function AuditWorkflow() {
                 {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 Generate Listing Content
               </button>
+
+              {/* Display generated content */}
+              {generatedContent && (
+                <div className="bg-white border border-orange-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-orange-50 border-b border-orange-100 px-6 py-3 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-orange-500" />
+                    <p className="text-sm font-semibold text-orange-900">Generated Content</p>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    {/* Title */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Product Title</p>
+                      <p className="text-sm text-slate-900 font-medium">{generatedContent.title}</p>
+                    </div>
+                    {/* Bullet Points */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Bullet Points</p>
+                      <ul className="space-y-1.5">
+                        {generatedContent.bulletPoints.map((b, i) => (
+                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                            <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                            {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    {/* Keywords */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Keywords</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {generatedContent.keywords.map((k, i) => (
+                          <span key={i} className="px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium border border-orange-100">{k}</span>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Description */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</p>
+                      <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
