@@ -487,7 +487,7 @@ export default function AuditWorkflow() {
 
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="flex flex-col h-full min-h-screen bg-white">
+    <div className="flex flex-col h-full overflow-hidden bg-white">
 
       {/* ── Top Progress Stepper ─────────────────────────────────────────── */}
       <div className="border-b border-slate-200 bg-white px-6 py-0 flex-shrink-0">
