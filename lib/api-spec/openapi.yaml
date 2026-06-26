@@ -869,6 +869,8 @@ components:
           type: string
         asin:
           type: string
+        brandName:
+          type: string
         category:
           type: string
         title:

@@ -68,6 +68,7 @@ export const auditsTable = pgTable("audits", {
   userId: text("user_id").notNull().default(""),
   productName: text("product_name").notNull(),
   asin: text("asin"),
+  brandName: text("brand_name"),
   category: text("category"),
   title: text("title").notNull(),
   bulletPoints: jsonb("bullet_points").notNull().$type<string[]>(),

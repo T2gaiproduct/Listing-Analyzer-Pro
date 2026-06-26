@@ -5,6 +5,8 @@ export async function generateListingContent(data: {
   productName: string;
   asin?: string | null;
   category?: string | null;
+  brandName?: string | null;
+  imageUrls?: string[];
   currentTitle: string;
   currentBullets: string[];
   currentKeywords: string[];
@@ -13,8 +15,10 @@ export async function generateListingContent(data: {
   const prompt = `You are an expert Amazon listing copywriter and SEO specialist. Create Amazon-ready, optimized listing content for the following product.
 
 Product: ${data.productName}
+${data.brandName ? `Brand: ${data.brandName}` : ""}
 ${data.asin ? `ASIN: ${data.asin}` : ""}
 ${data.category ? `Category: ${data.category}` : ""}
+${data.imageUrls && data.imageUrls.length > 0 ? `Product Images: ${data.imageUrls.length} image(s) provided for reference` : ""}
 
 Current Title: ${data.currentTitle}
 Current Bullet Points:

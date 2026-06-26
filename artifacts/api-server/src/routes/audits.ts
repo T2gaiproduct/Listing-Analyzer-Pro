@@ -106,7 +106,7 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
     return;
   }
 
-  const { productName, asin, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+  const { productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
 
   const cost = await getCreditCost("audit");
   const creditCtx = getCreditCtx(req);
@@ -122,6 +122,7 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
       userId: ownerId,
       productName,
       asin: asin ?? null,
+      brandName: brandName ?? null,
       category: category ?? null,
       title,
       bulletPoints,
@@ -347,7 +348,9 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWri
     const generatedContent = await generateListingContent({
       productName: audit.productName,
       asin: audit.asin,
+      brandName: audit.brandName,
       category: audit.category,
+      imageUrls: audit.imageUrls as string[],
       currentTitle: audit.title,
       currentBullets: audit.bulletPoints as string[],
       currentKeywords: audit.targetKeywords as string[],

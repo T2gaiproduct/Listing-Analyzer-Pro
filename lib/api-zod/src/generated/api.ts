@@ -59,6 +59,7 @@ export const ListAuditsResponse = zod.array(ListAuditsResponseItem);
 export const CreateAuditBody = zod.object({
   productName: zod.string(),
   asin: zod.string().optional(),
+  brandName: zod.string().optional(),
   category: zod.string().optional(),
   title: zod.string(),
   bulletPoints: zod.array(zod.string()),

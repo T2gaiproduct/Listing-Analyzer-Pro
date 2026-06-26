@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  useFetchListing,
   useCreateAudit,
   useGenerateContent,
   useGetAudit,
@@ -353,6 +352,7 @@ export default function AuditWorkflow() {
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
   const cameraRef  = useRef<HTMLInputElement>(null);
+  const [brandName, setBrandName]       = useState("");
   const [productName, setProductName]   = useState("");
   const [category, setCategory]         = useState("");
   const [catSearch, setCatSearch]       = useState("");
@@ -364,7 +364,6 @@ export default function AuditWorkflow() {
   const [isUploading, setIsUploading]       = useState(false);
 
   /* ── Listing step state ── */
-  const [listingUrl, setListingUrl] = useState("");
   const [currentAuditId, setCurrentAuditId] = useState<number | null>(null);
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const [auditResult, setAuditResult] = useState<null | {
@@ -375,7 +374,6 @@ export default function AuditWorkflow() {
     overallScore: number;
     summary: string;
   }>(null);
-  const fetchListing = useFetchListing();
   const createAudit  = useCreateAudit();
   const generateContent = useGenerateContent();
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
@@ -527,49 +525,62 @@ export default function AuditWorkflow() {
       }, 2500);
 
     } else if (activeStep === 2) {
-      // Listing: analyze
-      const trimmed = listingUrl.trim();
-      if (!trimmed) {
+      // Listing: analyze (no ASIN required — use user inputs)
+      if (!productName.trim()) {
         setIsCreating(false);
-        toast({ title: "Enter a URL or ASIN", description: "Please enter a product URL or ASIN first.", variant: "destructive" });
+        toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
         return;
       }
-      const isUrl = trimmed.startsWith("http");
-      fetchListing.mutate(
-        { data: isUrl ? { url: trimmed } : { asin: trimmed } },
+      if (!category) {
+        setIsCreating(false);
+        toast({ title: "Category required", description: "Please select a category in Step 1 first.", variant: "destructive" });
+        return;
+      }
+      const syntheticTitle = brandName.trim()
+        ? `${brandName.trim()} ${productName.trim()} — ${category}`
+        : `${productName.trim()} — ${category}`;
+      const syntheticBullets = [
+        `High-quality ${productName.trim().toLowerCase()} designed for everyday use`,
+        `Perfect for ${category.toLowerCase()} enthusiasts and professionals`,
+        `Durable, reliable, and built to last`,
+        `Easy to use and maintain — great value for money`,
+        `Premium quality backed by customer satisfaction`,
+      ];
+      const syntheticKeywords = productName.trim().split(/\s+/).filter((w) => w.length > 2);
+      if (category) {
+        syntheticKeywords.push(...category.split(/\s+/).filter((w) => w.length > 2));
+      }
+      const filler = [
+        "premium", "best seller", "top rated", "quality", "durable", "reliable", "easy", "value",
+        "professional", "home", "gift", "essential", "popular", "recommended", "trusted",
+      ];
+      while (syntheticKeywords.length < 10 && filler.length > 0) {
+        syntheticKeywords.push(filler.shift()!);
+      }
+      createAudit.mutate(
         {
-          onSuccess: (listing) => {
-            createAudit.mutate(
-              {
-                data: {
-                  productName: listing.productName,
-                  asin: listing.asin,
-                  category: listing.category ?? undefined,
-                  title: listing.title,
-                  bulletPoints: listing.bulletPoints,
-                  targetKeywords: listing.targetKeywords,
-                  imageUrls: listing.imageUrls,
-                },
-              },
-              {
-                onSuccess: (audit) => {
-                  void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
-                  void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
-                  setIsCreating(false);
-                  setCurrentAuditId(audit.id);
-                  toast({ title: "Listing analyzed!", description: "Your audit is ready." });
-                  nav(`/audits/${audit.id}?returnTo=/audits/workflow`);
-                },
-                onError: (err) => {
-                  setIsCreating(false);
-                  toast({ title: "Failed", description: err instanceof Error ? err.message : "Could not create audit", variant: "destructive" });
-                },
-              }
-            );
+          data: {
+            productName: productName.trim(),
+            brandName: brandName.trim() || undefined,
+            category: category || undefined,
+            title: syntheticTitle,
+            bulletPoints: syntheticBullets,
+            targetKeywords: syntheticKeywords.slice(0, 10),
+            imageUrls: uploadedImages,
+          },
+        },
+        {
+          onSuccess: (audit) => {
+            void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
+            void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+            setIsCreating(false);
+            setCurrentAuditId(audit.id);
+            toast({ title: "Listing analyzed!", description: "Your audit is ready." });
+            nav(`/audits/${audit.id}?returnTo=/audits/workflow`);
           },
           onError: (err) => {
             setIsCreating(false);
-            toast({ title: "Failed to fetch", description: err instanceof Error ? err.message : "Could not fetch listing", variant: "destructive" });
+            toast({ title: "Failed", description: err instanceof Error ? err.message : "Could not create audit", variant: "destructive" });
           },
         }
       );
@@ -597,7 +608,7 @@ export default function AuditWorkflow() {
         toast({ title: activeStep === 4 ? "A+ Content ready!" : "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, listingUrl, selectedImageTypes, productName, category, uploadedImages, customPrompt, fetchListing, createAudit, createProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAudit, createProject, queryClient, nav, toast]);
 
   /* ── Bottom bar ── */
   function handleBack() {
@@ -785,6 +796,15 @@ export default function AuditWorkflow() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Brand Name</label>
+                    <Input
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      placeholder="e.g. Acme Co."
+                      className="border-slate-200 rounded-xl h-11"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-sm font-medium text-slate-700">Product Name</label>
                     <Input
                       value={productName}
@@ -793,7 +813,8 @@ export default function AuditWorkflow() {
                       className="border-slate-200 rounded-xl h-11"
                     />
                   </div>
-
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5" ref={catRef}>
                     <label className="text-sm font-medium text-slate-700">Select Category</label>
                     <div className="relative">
@@ -894,18 +915,20 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              {/* Generate button */}
+              {/* Generate button — no ASIN required */}
               <button
                 type="button"
                 onClick={() => {
-                  const trimmed = listingUrl.trim();
-                  if (!trimmed) {
-                    toast({ title: "Enter a URL or ASIN", description: "Please enter a product URL or ASIN first.", variant: "destructive" });
+                  if (!productName.trim()) {
+                    toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
+                    return;
+                  }
+                  if (!category) {
+                    toast({ title: "Category required", description: "Please select a category in Step 1 first.", variant: "destructive" });
                     return;
                   }
                   setCreatingStep(2);
                   setIsCreating(true);
-                  const isUrl = trimmed.startsWith("http");
 
                   if (currentAuditId) {
                     // Already have an audit: just regenerate content
@@ -926,41 +949,53 @@ export default function AuditWorkflow() {
                     return;
                   }
 
-                  // No audit yet: create audit (which triggers AI analysis), then poll for results
-                  fetchListing.mutate(
-                    { data: isUrl ? { url: trimmed } : { asin: trimmed } },
+                  // Build synthetic listing from user inputs + images
+                  const syntheticTitle = brandName.trim()
+                    ? `${brandName.trim()} ${productName.trim()} — ${category}`
+                    : `${productName.trim()} — ${category}`;
+                  const syntheticBullets = [
+                    `High-quality ${productName.trim().toLowerCase()} designed for everyday use`,
+                    `Perfect for ${category.toLowerCase()} enthusiasts and professionals`,
+                    `Durable, reliable, and built to last`,
+                    `Easy to use and maintain — great value for money`,
+                    `Premium quality backed by customer satisfaction`,
+                  ];
+                  const syntheticKeywords = productName.trim().split(/\s+/).filter((w) => w.length > 2);
+                  if (category) {
+                    syntheticKeywords.push(...category.split(/\s+/).filter((w) => w.length > 2));
+                  }
+                  // Ensure at least 10 keywords
+                  const filler = [
+                    "premium", "best seller", "top rated", "quality", "durable", "reliable", "easy", "value",
+                    "professional", "home", "gift", "essential", "popular", "recommended", "trusted",
+                  ];
+                  while (syntheticKeywords.length < 10 && filler.length > 0) {
+                    syntheticKeywords.push(filler.shift()!);
+                  }
+
+                  createAudit.mutate(
                     {
-                      onSuccess: (listing) => {
-                        createAudit.mutate(
-                          {
-                            data: {
-                              productName: listing.productName,
-                              asin: listing.asin,
-                              category: listing.category ?? undefined,
-                              title: listing.title,
-                              bulletPoints: listing.bulletPoints,
-                              targetKeywords: listing.targetKeywords,
-                              imageUrls: listing.imageUrls,
-                            },
-                          },
-                          {
-                            onSuccess: (audit) => {
-                              setCurrentAuditId(audit.id);
-                              void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
-                              void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
-                              // Audit is analyzing — the useEffect will poll for results and then generate content
-                              toast({ title: "Analyzing...", description: "AI is analyzing your listing. This may take a few seconds." });
-                            },
-                            onError: (err) => {
-                              setIsCreating(false);
-                              toast({ title: "Failed", description: err instanceof Error ? err.message : "Could not create audit", variant: "destructive" });
-                            },
-                          }
-                        );
+                      data: {
+                        productName: productName.trim(),
+                        brandName: brandName.trim() || undefined,
+                        category: category || undefined,
+                        title: syntheticTitle,
+                        bulletPoints: syntheticBullets,
+                        targetKeywords: syntheticKeywords.slice(0, 10),
+                        imageUrls: uploadedImages,
+                      },
+                    },
+                    {
+                      onSuccess: (audit) => {
+                        setCurrentAuditId(audit.id);
+                        void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
+                        void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+                        // Audit is analyzing — the useEffect will poll for results and then generate content
+                        toast({ title: "Analyzing...", description: "AI is analyzing your product. This may take a few seconds." });
                       },
                       onError: (err) => {
                         setIsCreating(false);
-                        toast({ title: "Failed to fetch", description: err instanceof Error ? err.message : "Could not fetch listing", variant: "destructive" });
+                        toast({ title: "Failed", description: err instanceof Error ? err.message : "Could not create audit", variant: "destructive" });
                       },
                     }
                   );
