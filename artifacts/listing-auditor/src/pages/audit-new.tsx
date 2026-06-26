@@ -34,15 +34,15 @@ export default function AuditNew() {
       <div className="text-center pt-6 pb-2">
         <h1 className="text-4xl font-bold tracking-tight text-foreground">
           Create Product Listings{" "}
-          <span className="bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">Using AI</span>
-          <Sparkles className="inline w-6 h-6 text-fuchsia-400 ml-1 align-middle" />
+          <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Using AI</span>
+          <Sparkles className="inline w-6 h-6 text-orange-400 ml-1 align-middle" />
         </h1>
         <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
           Turn product information into high-converting listings in minutes.
         </p>
         <Button
           size="lg"
-          className="mt-6 bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white px-8 rounded-xl shadow-lg shadow-violet-500/20"
+          className="mt-6 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-8 rounded-xl shadow-lg shadow-orange-500/20"
           onClick={() => setLoading(true)}
           disabled={loading}
         >
@@ -64,18 +64,18 @@ export default function AuditNew() {
       {/* How It Works */}
       <div className="space-y-6">
         <div className="flex items-center justify-center gap-3">
-          <div className="h-px w-8 bg-violet-300" />
-          <span className="text-xs font-semibold text-violet-500 uppercase tracking-widest">How It Works</span>
-          <div className="h-px w-8 bg-violet-300" />
+          <div className="h-px w-8 bg-orange-300" />
+          <span className="text-xs font-semibold text-orange-500 uppercase tracking-widest">How It Works</span>
+          <div className="h-px w-8 bg-orange-300" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {steps.map((step, i) => {
             const Icon = step.icon;
             return (
               <div key={step.number} className="relative">
-                <Card className="border-border/60 hover:border-violet-300/50 transition-colors h-full">
+                <Card className="border-border/60 hover:border-orange-300/50 transition-colors h-full">
                   <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-100 to-fuchsia-100 flex items-center justify-center text-violet-600">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center text-orange-600">
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
@@ -86,7 +86,7 @@ export default function AuditNew() {
                 </Card>
                 {i < steps.length - 1 && (
                   <div className="hidden lg:flex absolute top-1/2 -right-3 w-6 items-center justify-center z-10">
-                    <ArrowRight className="w-4 h-4 text-violet-300" />
+                    <ArrowRight className="w-4 h-4 text-orange-300" />
                   </div>
                 )}
               </div>
@@ -102,7 +102,7 @@ export default function AuditNew() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-foreground">Recent Projects</h3>
-              <Button variant="ghost" size="sm" className="text-violet-500 text-xs h-7 px-2">
+              <Button variant="ghost" size="sm" className="text-orange-500 text-xs h-7 px-2">
                 View All
               </Button>
             </div>
@@ -139,7 +139,7 @@ export default function AuditNew() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-foreground">Draft Projects</h3>
-              <Button variant="ghost" size="sm" className="text-violet-500 text-xs h-7 px-2">
+              <Button variant="ghost" size="sm" className="text-orange-500 text-xs h-7 px-2">
                 View All
               </Button>
             </div>
