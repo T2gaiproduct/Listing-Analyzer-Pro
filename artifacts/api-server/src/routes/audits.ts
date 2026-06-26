@@ -6,7 +6,9 @@ import {
   CreateAuditBody,
   GetAuditParams,
   DeleteAuditParams,
+  GenerateContentDirectBody,
 } from "@workspace/api-zod";
+import { generateChatCompletion } from "../lib/ai-provider";
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
 import { generateListingContent } from "../lib/content-generator";
@@ -321,6 +323,43 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAc
     res.json(content);
   } catch (err) {
     const message = err instanceof Error ? err.message : "EBC generation failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/generate-content", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
+
+  const parsed = GenerateContentDirectBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const cost = await getCreditCost("content");
+  const creditCtx = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
+  if (!creditCheck) {
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed). Please purchase more credits.` });
+    return;
+  }
+
+  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "content", { userId: ownerId });
+
+  try {
+    const generatedContent = await generateListingContent({
+      productName: parsed.data.productName,
+      brandName: parsed.data.brandName,
+      category: parsed.data.category,
+      imageUrls: parsed.data.imageUrls,
+      currentTitle: parsed.data.title,
+      currentBullets: parsed.data.bulletPoints,
+      currentKeywords: parsed.data.targetKeywords,
+    });
+    res.json(generatedContent);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Content generation failed";
     res.status(500).json({ error: message });
   }
 });

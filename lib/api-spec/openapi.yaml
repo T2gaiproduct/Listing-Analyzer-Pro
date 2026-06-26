@@ -30,6 +30,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /generate-content:
+    post:
+      operationId: generateContentDirect
+      tags: [listings]
+      summary: Generate listing content directly without creating an audit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateContentDirectBody"
+      responses:
+        "200":
+          description: Generated content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedContent"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /fetch-listing:
     post:
       operationId: fetchListing
@@ -598,6 +623,35 @@ components:
         - title
         - bulletPoints
         - imageUrls
+        - targetKeywords
+
+    GenerateContentDirectBody:
+      type: object
+      properties:
+        productName:
+          type: string
+        brandName:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        bulletPoints:
+          type: array
+          items:
+            type: string
+        targetKeywords:
+          type: array
+          items:
+            type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+      required:
+        - productName
+        - title
+        - bulletPoints
         - targetKeywords
 
     GeneratedContent:

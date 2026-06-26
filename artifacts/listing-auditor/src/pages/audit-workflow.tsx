@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import {
   useCreateAudit,
   useGenerateContent,
+  useGenerateContentDirect,
   useGetAudit,
   getGetAuditStatsQueryKey,
   getListAuditsQueryKey,
@@ -376,6 +377,7 @@ export default function AuditWorkflow() {
   }>(null);
   const createAudit  = useCreateAudit();
   const generateContent = useGenerateContent();
+  const generateContentDirect = useGenerateContentDirect();
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
     query: { enabled: currentAuditId !== null && !auditResult, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
   });
@@ -408,7 +410,7 @@ export default function AuditWorkflow() {
       setIsCreating(false);
       toast({ title: "Audit failed", description: auditData.result?.summary || "Analysis failed", variant: "destructive" });
     }
-  }, [auditData, currentAuditId, auditResult, generateContent, toast, setIsCreating]);
+  }, [auditData, currentAuditId, auditResult, generateContent, toast]);
 
   /* ── Close category dropdown on outside click ── */
   useEffect(() => {
@@ -525,7 +527,7 @@ export default function AuditWorkflow() {
       }, 2500);
 
     } else if (activeStep === 2) {
-      // Listing: analyze (no ASIN required — use user inputs)
+      // Listing: generate content directly (no audit)
       if (!productName.trim()) {
         setIsCreating(false);
         toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
@@ -557,7 +559,7 @@ export default function AuditWorkflow() {
       while (syntheticKeywords.length < 10 && filler.length > 0) {
         syntheticKeywords.push(filler.shift()!);
       }
-      createAudit.mutate(
+      generateContentDirect.mutate(
         {
           data: {
             productName: productName.trim(),
@@ -570,17 +572,14 @@ export default function AuditWorkflow() {
           },
         },
         {
-          onSuccess: (audit) => {
-            void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
-            void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+          onSuccess: (data) => {
             setIsCreating(false);
-            setCurrentAuditId(audit.id);
-            toast({ title: "Listing analyzed!", description: "Your audit is ready." });
-            nav(`/audits/${audit.id}?returnTo=/audits/workflow`);
+            setGeneratedContent(data);
+            toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
           },
           onError: (err) => {
             setIsCreating(false);
-            toast({ title: "Failed", description: err instanceof Error ? err.message : "Could not create audit", variant: "destructive" });
+            toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
           },
         }
       );
@@ -973,7 +972,7 @@ export default function AuditWorkflow() {
                     syntheticKeywords.push(filler.shift()!);
                   }
 
-                  createAudit.mutate(
+                  generateContentDirect.mutate(
                     {
                       data: {
                         productName: productName.trim(),
@@ -986,16 +985,14 @@ export default function AuditWorkflow() {
                       },
                     },
                     {
-                      onSuccess: (audit) => {
-                        setCurrentAuditId(audit.id);
-                        void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
-                        void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
-                        // Audit is analyzing — the useEffect will poll for results and then generate content
-                        toast({ title: "Analyzing...", description: "AI is analyzing your product. This may take a few seconds." });
+                      onSuccess: (data) => {
+                        setIsCreating(false);
+                        setGeneratedContent(data);
+                        toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
                       },
                       onError: (err) => {
                         setIsCreating(false);
-                        toast({ title: "Failed", description: err instanceof Error ? err.message : "Could not create audit", variant: "destructive" });
+                        toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
                       },
                     }
                   );

@@ -16,6 +16,26 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * @summary Generate listing content directly without creating an audit
+ */
+export const GenerateContentDirectBody = zod.object({
+  productName: zod.string(),
+  brandName: zod.string().optional(),
+  category: zod.string().optional(),
+  title: zod.string(),
+  bulletPoints: zod.array(zod.string()),
+  targetKeywords: zod.array(zod.string()),
+  imageUrls: zod.array(zod.string()).optional(),
+});
+
+export const GenerateContentDirectResponse = zod.object({
+  title: zod.string(),
+  bulletPoints: zod.array(zod.string()),
+  keywords: zod.array(zod.string()),
+  htmlDescription: zod.string(),
+});
+
+/**
  * @summary Fetch Amazon listing data by ASIN or URL
  */
 export const FetchListingBody = zod

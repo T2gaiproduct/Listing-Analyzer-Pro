@@ -22,6 +22,7 @@ export * from "./editImageBodyAspectRatio";
 export * from "./editImageBodyStyle";
 export * from "./fetchedListing";
 export * from "./fetchListingBody";
+export * from "./generateContentDirectBody";
 export * from "./generatedContent";
 export * from "./generatedImages";
 export * from "./generateEbcBody";

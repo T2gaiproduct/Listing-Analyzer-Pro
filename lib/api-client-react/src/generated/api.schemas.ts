@@ -40,6 +40,16 @@ export interface FetchedListing {
   rating?: string | null;
 }
 
+export interface GenerateContentDirectBody {
+  productName: string;
+  brandName?: string;
+  category?: string;
+  title: string;
+  bulletPoints: string[];
+  targetKeywords: string[];
+  imageUrls?: string[];
+}
+
 export interface GeneratedContent {
   title: string;
   bulletPoints: string[];

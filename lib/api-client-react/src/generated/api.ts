@@ -28,6 +28,7 @@ import type {
   EditImageBody,
   FetchListingBody,
   FetchedListing,
+  GenerateContentDirectBody,
   GenerateEbcBody,
   GenerateImagesBody,
   GeneratedContent,
@@ -129,6 +130,93 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Generate listing content directly without creating an audit
+ */
+export const getGenerateContentDirectUrl = () => {
+  return `/api/generate-content`;
+};
+
+export const generateContentDirect = async (
+  generateContentDirectBody: GenerateContentDirectBody,
+  options?: RequestInit,
+): Promise<GeneratedContent> => {
+  return customFetch<GeneratedContent>(getGenerateContentDirectUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateContentDirectBody),
+  });
+};
+
+export const getGenerateContentDirectMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateContentDirect>>,
+    TError,
+    { data: BodyType<GenerateContentDirectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateContentDirect>>,
+  TError,
+  { data: BodyType<GenerateContentDirectBody> },
+  TContext
+> => {
+  const mutationKey = ["generateContentDirect"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateContentDirect>>,
+    { data: BodyType<GenerateContentDirectBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateContentDirect(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateContentDirectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateContentDirect>>
+>;
+export type GenerateContentDirectMutationBody =
+  BodyType<GenerateContentDirectBody>;
+export type GenerateContentDirectMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Generate listing content directly without creating an audit
+ */
+export const useGenerateContentDirect = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateContentDirect>>,
+    TError,
+    { data: BodyType<GenerateContentDirectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateContentDirect>>,
+  TError,
+  { data: BodyType<GenerateContentDirectBody> },
+  TContext
+> => {
+  return useMutation(getGenerateContentDirectMutationOptions(options));
+};
 
 /**
  * @summary Fetch Amazon listing data by ASIN or URL
