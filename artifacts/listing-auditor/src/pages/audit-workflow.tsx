@@ -30,8 +30,10 @@ import {
   useFetchListing,
   useCreateAudit,
   useGenerateContent,
+  useGetAudit,
   getGetAuditStatsQueryKey,
   getListAuditsQueryKey,
+  getGetAuditQueryKey,
 } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -365,13 +367,50 @@ export default function AuditWorkflow() {
   const [listingUrl, setListingUrl] = useState("");
   const [currentAuditId, setCurrentAuditId] = useState<number | null>(null);
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
+  const [auditResult, setAuditResult] = useState<null | {
+    titleScore: { score: number; issues: string[]; suggestions: string[] };
+    bulletScore: { score: number; issues: string[]; suggestions: string[] };
+    imageScore: { score: number; issues: string[]; suggestions: string[] };
+    keywordScore: { score: number; issues: string[]; suggestions: string[] };
+    overallScore: number;
+    summary: string;
+  }>(null);
   const fetchListing = useFetchListing();
   const createAudit  = useCreateAudit();
   const generateContent = useGenerateContent();
+  const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
+    query: { enabled: currentAuditId !== null && !auditResult, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
+  });
 
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt]             = useState("");
+
+  /* ── Poll for audit results when we have an audit ID ── */
+  useEffect(() => {
+    if (!auditData || !currentAuditId || auditResult) return;
+    if (auditData.status === "complete" && auditData.result) {
+      setAuditResult(auditData.result as any);
+      // Now also generate content
+      generateContent.mutate(
+        { id: currentAuditId },
+        {
+          onSuccess: (data) => {
+            setIsCreating(false);
+            setGeneratedContent(data);
+            toast({ title: "Complete!", description: "Audit and listing content are ready." });
+          },
+          onError: (err) => {
+            setIsCreating(false);
+            toast({ title: "Content failed", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+          },
+        }
+      );
+    } else if (auditData.status === "failed") {
+      setIsCreating(false);
+      toast({ title: "Audit failed", description: auditData.result?.summary || "Analysis failed", variant: "destructive" });
+    }
+  }, [auditData, currentAuditId, auditResult, generateContent, toast, setIsCreating]);
 
   /* ── Close category dropdown on outside click ── */
   useEffect(() => {
@@ -869,14 +908,14 @@ export default function AuditWorkflow() {
                   const isUrl = trimmed.startsWith("http");
 
                   if (currentAuditId) {
-                    // Already have an audit, just generate content
+                    // Already have an audit: just regenerate content
                     generateContent.mutate(
                       { id: currentAuditId },
                       {
                         onSuccess: (data) => {
                           setIsCreating(false);
                           setGeneratedContent(data);
-                          toast({ title: "Listing content ready!", description: "Your optimized listing content has been generated." });
+                          toast({ title: "Listing content regenerated!", description: "Your optimized content is ready." });
                         },
                         onError: (err) => {
                           setIsCreating(false);
@@ -887,7 +926,7 @@ export default function AuditWorkflow() {
                     return;
                   }
 
-                  // No audit yet: fetch listing, create audit, then generate content
+                  // No audit yet: create audit (which triggers AI analysis), then poll for results
                   fetchListing.mutate(
                     { data: isUrl ? { url: trimmed } : { asin: trimmed } },
                     {
@@ -909,20 +948,8 @@ export default function AuditWorkflow() {
                               setCurrentAuditId(audit.id);
                               void queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
                               void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
-                              generateContent.mutate(
-                                { id: audit.id },
-                                {
-                                  onSuccess: (data) => {
-                                    setIsCreating(false);
-                                    setGeneratedContent(data);
-                                    toast({ title: "Listing content ready!", description: "Your optimized listing content has been generated." });
-                                  },
-                                  onError: (err) => {
-                                    setIsCreating(false);
-                                    toast({ title: "Content generation failed", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
-                                  },
-                                }
-                              );
+                              // Audit is analyzing — the useEffect will poll for results and then generate content
+                              toast({ title: "Analyzing...", description: "AI is analyzing your listing. This may take a few seconds." });
                             },
                             onError: (err) => {
                               setIsCreating(false);
@@ -942,8 +969,88 @@ export default function AuditWorkflow() {
                 className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm shadow-orange-200"
               >
                 {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                Generate Listing Content
+                {generatedContent ? "Regenerate Content" : "Generate Listing Content"}
               </button>
+
+              {/* Audit Results Panel */}
+              {auditResult && (
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="bg-slate-50 border-b border-slate-100 px-6 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-slate-500" />
+                      <p className="text-sm font-semibold text-slate-900">Listing Audit Results</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-500">Overall Score</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                        auditResult.overallScore >= 80 ? "bg-emerald-100 text-emerald-700" :
+                        auditResult.overallScore >= 60 ? "bg-amber-100 text-amber-700" :
+                        "bg-red-100 text-red-700"
+                      }`}>{auditResult.overallScore}</span>
+                    </div>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {[
+                      { label: "Title", score: auditResult.titleScore },
+                      { label: "Bullets", score: auditResult.bulletScore },
+                      { label: "Images", score: auditResult.imageScore },
+                      { label: "Keywords", score: auditResult.keywordScore },
+                    ].map((cat) => (
+                      <div key={cat.label} className="border border-slate-100 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-slate-900">{cat.label} Analysis</span>
+                            {cat.score.issues.length > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-semibold">{cat.score.issues.length} issues</span>
+                            )}
+                            {cat.score.suggestions.length > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 text-[10px] font-semibold">{cat.score.suggestions.length} suggestions</span>
+                            )}
+                          </div>
+                          <span className={`text-sm font-bold ${
+                            cat.score.score >= 80 ? "text-emerald-600" :
+                            cat.score.score >= 60 ? "text-amber-600" :
+                            "text-red-600"
+                          }`}>{cat.score.score}/100</span>
+                        </div>
+                        {/* Issues */}
+                        {cat.score.issues.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wider mb-1">Issues</p>
+                            <ul className="space-y-1">
+                              {cat.score.issues.map((issue, i) => (
+                                <li key={i} className="text-xs text-slate-600 flex items-start gap-1.5">
+                                  <span className="text-red-400 mt-0.5">•</span>
+                                  {issue}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {/* Suggestions */}
+                        {cat.score.suggestions.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider mb-1">Suggestions</p>
+                            <ul className="space-y-1">
+                              {cat.score.suggestions.map((s, i) => (
+                                <li key={i} className="text-xs text-slate-600 flex items-start gap-1.5">
+                                  <span className="text-emerald-500 mt-0.5">✓</span>
+                                  {s}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {/* Summary */}
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Summary</p>
+                      <p className="text-sm text-slate-700">{auditResult.summary}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Display generated content */}
               {generatedContent && (
@@ -982,7 +1089,7 @@ export default function AuditWorkflow() {
                     {/* Description */}
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</p>
-                      <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }} />
+                      <div className="text-sm text-slate-700 leading-relaxed border rounded-md p-3 bg-slate-50" dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }} />
                     </div>
                   </div>
                 </div>
