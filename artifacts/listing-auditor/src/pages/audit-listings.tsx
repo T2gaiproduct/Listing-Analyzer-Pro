@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 const stores = [
-  { name: "Amazon", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  { name: "Shopify", color: "bg-green-50 text-green-700 border-green-200" },
-  { name: "Walmart", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  { name: "eBay", color: "bg-red-50 text-red-700 border-red-200" },
-  { name: "Etsy", color: "bg-orange-50 text-orange-700 border-orange-200" },
-  { name: "+ More", color: "bg-gray-50 text-gray-500 border-gray-200" },
+  { name: "Amazon" },
+  { name: "Shopify" },
+  { name: "Walmart" },
+  { name: "eBay" },
+  { name: "Etsy" },
+  { name: "+ More" },
 ];
 
 const features = [
@@ -282,10 +282,10 @@ export default function AuditListings() {
           Works With Any Store
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          {stores.map(({ name, color }) => (
+          {stores.map(({ name }) => (
             <div
               key={name}
-              className={`flex items-center gap-2 border rounded-xl px-5 py-2.5 text-sm font-semibold ${color}`}
+              className="px-5 py-2 rounded-full text-sm font-semibold bg-card border border-border text-foreground hover:border-orange-300 transition-colors"
             >
               {name}
             </div>
@@ -299,79 +299,126 @@ export default function AuditListings() {
           What You Get
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {features.map((feature) => {
-            const Icon = feature.icon;
-            return (
-              <Card key={feature.title} className="border border-border/60 hover:border-orange-300/50 transition-colors">
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                      <Icon className="w-4 h-4 text-orange-600" />
+          {/* Listing Score */}
+          <Card className="border border-border/60">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+                  <Star className="w-4 h-4 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Listing Score</p>
+                  <p className="text-xs text-muted-foreground">Overall quality rating from 1-100</p>
+                </div>
+              </div>
+              <div className="h-16 relative">
+                <svg className="w-full h-full" viewBox="0 0 200 60">
+                  <polyline
+                    points="10,45 50,40 90,25 130,20 170,15"
+                    fill="none"
+                    stroke="#8b5cf6"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="10" cy="45" r="3" fill="#8b5cf6" />
+                  <circle cx="50" cy="40" r="3" fill="#8b5cf6" />
+                  <circle cx="90" cy="25" r="3" fill="#8b5cf6" />
+                  <circle cx="130" cy="20" r="3" fill="#8b5cf6" />
+                  <circle cx="170" cy="15" r="3" fill="#8b5cf6" />
+                  <text x="165" y="12" fontSize="10" fill="#8b5cf6" fontWeight="bold">82</text>
+                </svg>
+                <div className="absolute left-0 bottom-0 text-[10px] text-muted-foreground">65</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top Fixes */}
+          <Card className="border border-border/60">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <Wrench className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Top Fixes</p>
+                  <p className="text-xs text-muted-foreground">Personalized, high-impact improvements</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {["Optimize your title", "Improve main images", "Enhance bullet points", "Strengthen description"].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-emerald-600" />
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{feature.title}</p>
-                      <p className="text-xs text-muted-foreground">{feature.desc}</p>
-                    </div>
+                    <span>{item}</span>
                   </div>
-                  {feature.chart && (
-                    <div className="h-16 flex items-end gap-1">
-                      <div className="w-1/5 h-6 bg-orange-200 rounded-t" />
-                      <div className="w-1/5 h-10 bg-orange-300 rounded-t" />
-                      <div className="w-1/5 h-8 bg-orange-400 rounded-t" />
-                      <div className="w-1/5 h-14 bg-orange-500 rounded-t" />
-                      <div className="w-1/5 h-12 bg-orange-400 rounded-t" />
-                    </div>
-                  )}
-                  {feature.items && (
-                    <div className="space-y-1.5">
-                      {feature.items.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Check className="w-3 h-3 text-orange-500" />
-                          <span>{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {feature.bars && (
-                    <div className="flex items-end gap-1 h-16">
-                      <div className="w-1/6 h-8 bg-orange-100 rounded-t" />
-                      <div className="w-1/6 h-12 bg-orange-200 rounded-t" />
-                      <div className="w-1/6 h-6 bg-orange-100 rounded-t" />
-                      <div className="w-1/6 h-14 bg-orange-500 rounded-t" />
-                      <div className="w-1/6 h-10 bg-orange-300 rounded-t" />
-                      <div className="w-1/6 h-4 bg-orange-100 rounded-t" />
-                    </div>
-                  )}
-                  {feature.steps && (
-                    <div className="space-y-1.5">
-                      {feature.steps.map((step, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">
-                            {i + 1}
-                          </span>
-                          <span>{step}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Competitor Intel */}
+          <Card className="border border-border/60">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Users className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Competitor Intel</p>
+                  <p className="text-xs text-muted-foreground">Benchmark against top-performing sellers</p>
+                </div>
+              </div>
+              <div className="flex items-end gap-1 h-16">
+                <div className="w-1/6 h-6 bg-slate-100 rounded-t" />
+                <div className="w-1/6 h-10 bg-slate-100 rounded-t" />
+                <div className="w-1/6 h-5 bg-slate-100 rounded-t" />
+                <div className="w-1/6 h-14 bg-orange-500 rounded-t" />
+                <div className="w-1/6 h-8 bg-slate-100 rounded-t" />
+                <div className="w-1/6 h-4 bg-slate-100 rounded-t" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Plan */}
+          <Card className="border border-border/60">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Action Plan</p>
+                  <p className="text-xs text-muted-foreground">Step-by-step roadmap to grow your sales</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {["Prioritize high-impact fixes", "Implement changes", "Track performance & grow"].map((step, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">
+                      {i + 1}
+                    </span>
+                    <span>{step}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       {/* Trust Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Left - Stats */}
-        <div className="space-y-6">
-          <h3 className="text-xl font-bold text-foreground">Trusted by sellers worldwide</h3>
+        <div className="space-y-5">
+          <h3 className="text-lg font-bold text-foreground">Trusted by sellers worldwide</h3>
           <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="w-8 h-8 rounded-full bg-orange-100 border-2 border-background flex items-center justify-center text-xs font-bold text-orange-600"
+                  className="w-8 h-8 rounded-full bg-slate-100 border-2 border-background flex items-center justify-center text-xs font-bold text-slate-600"
                 >
                   {String.fromCharCode(64 + i)}
                 </div>
@@ -385,19 +432,34 @@ export default function AuditListings() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground">4.9/5 from 2,500+ reviews</p>
-          <div className="grid grid-cols-3 gap-4">
-            {stats.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <div key={stat.label} className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Icon className="w-4 h-4 text-orange-500" />
-                    <span className="text-lg font-bold text-foreground">{stat.value}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
-                </div>
-              );
-            })}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">2M+</p>
+                <p className="text-xs text-muted-foreground">Listings Analyzed</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <Users className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">150K+</p>
+                <p className="text-xs text-muted-foreground">Sellers Helped</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">$250M+</p>
+                <p className="text-xs text-muted-foreground">Revenue Impacted</p>
+              </div>
+            </div>
           </div>
         </div>
 
