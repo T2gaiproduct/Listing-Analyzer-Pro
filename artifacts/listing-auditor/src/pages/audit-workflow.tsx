@@ -251,21 +251,21 @@ export default function AuditWorkflow() {
                 onClick={() => setActiveStep(s.id)}
                 className={cn(
                   "flex-1 flex flex-col items-center py-4 gap-1 border-b-2 transition-all text-center",
-                  isActive    ? "border-violet-600" : "border-transparent hover:border-slate-200"
+                  isActive    ? "border-orange-500" : "border-transparent hover:border-slate-200"
                 )}
               >
                 {/* Circle */}
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors",
-                  isCompleted ? "bg-violet-600 border-violet-600 text-white" :
-                  isActive    ? "bg-violet-600 border-violet-600 text-white" :
+                  isCompleted ? "bg-orange-500 border-orange-500 text-white" :
+                  isActive    ? "bg-orange-500 border-orange-500 text-white" :
                                 "bg-white border-slate-300 text-slate-400"
                 )}>
                   {isCompleted ? <Check className="w-4 h-4" /> : s.id}
                 </div>
                 {/* Labels */}
                 <p className={cn("text-[10px] font-bold uppercase tracking-wider leading-none",
-                  isActive ? "text-violet-600" : isCompleted ? "text-violet-500" : "text-slate-400"
+                  isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-slate-400"
                 )}>
                   {s.label}
                 </p>
@@ -288,8 +288,8 @@ export default function AuditWorkflow() {
           {activeStep === 1 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <Upload className="w-5 h-5 text-violet-600" />
+                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Upload className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Upload Product</h2>
@@ -299,13 +299,13 @@ export default function AuditWorkflow() {
 
               {/* Upload zone */}
               <div
-                className="border-2 border-dashed border-violet-200 rounded-2xl bg-violet-50/20 p-10 flex flex-col items-center gap-4 cursor-pointer hover:bg-violet-50/40 transition-colors"
+                className="border-2 border-dashed border-orange-200 rounded-2xl bg-orange-50/20 p-10 flex flex-col items-center gap-4 cursor-pointer hover:bg-orange-50/40 transition-colors"
                 onClick={() => fileRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
               >
-                <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center">
-                  <Upload className="w-6 h-6 text-violet-500" />
+                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Upload className="w-6 h-6 text-orange-400" />
                 </div>
                 <p className="text-base font-medium text-slate-700">Choose upload option</p>
 
@@ -314,10 +314,10 @@ export default function AuditWorkflow() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-                    className="flex flex-col items-center gap-3 p-6 bg-white border border-violet-100 rounded-xl hover:border-violet-300 hover:shadow-sm transition-all"
+                    className="flex flex-col items-center gap-3 p-6 bg-white border border-orange-100 rounded-xl hover:border-orange-300 hover:shadow-sm transition-all"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center">
-                      <Monitor className="w-6 h-6 text-violet-500" />
+                    <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                      <Monitor className="w-6 h-6 text-orange-400" />
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-semibold text-slate-800">From Computer</p>
@@ -328,10 +328,10 @@ export default function AuditWorkflow() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-                    className="flex flex-col items-center gap-3 p-6 bg-white border border-violet-100 rounded-xl hover:border-violet-300 hover:shadow-sm transition-all"
+                    className="flex flex-col items-center gap-3 p-6 bg-white border border-orange-100 rounded-xl hover:border-orange-300 hover:shadow-sm transition-all"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center">
-                      <Camera className="w-6 h-6 text-violet-500" />
+                    <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                      <Camera className="w-6 h-6 text-orange-400" />
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-semibold text-slate-800">From Camera</p>
@@ -384,7 +384,7 @@ export default function AuditWorkflow() {
                       onChange={(e) => { setCatSearch(e.target.value); setCatOpen(true); }}
                       onFocus={() => setCatOpen(true)}
                       placeholder="Search or select category"
-                      className="w-full h-11 pl-9 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400"
+                      className="w-full h-11 pl-9 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
                     />
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     {catOpen && (
@@ -394,7 +394,7 @@ export default function AuditWorkflow() {
                         ) : filteredCats.map((c) => (
                           <div
                             key={c}
-                            className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-violet-50", category === c ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700")}
+                            className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-50", category === c ? "bg-orange-50 text-orange-600 font-medium" : "text-slate-700")}
                             onClick={() => { setCategory(c); setCatSearch(c); setCatOpen(false); }}
                           >
                             {c}
@@ -412,8 +412,8 @@ export default function AuditWorkflow() {
           {activeStep === 2 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-violet-600" />
+                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Create Listing Content</h2>
@@ -434,7 +434,7 @@ export default function AuditWorkflow() {
                   <Button
                     onClick={handleAnalyzeListing}
                     disabled={!listingUrl.trim() || isListingLoading}
-                    className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl h-11 px-6 shrink-0"
+                    className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-11 px-6 shrink-0"
                   >
                     {isListingLoading ? (
                       <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analyzing…</>
@@ -449,8 +449,8 @@ export default function AuditWorkflow() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {["Product Title", "Bullet Points", "Keywords", "Images"].map((item) => (
                       <div key={item} className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="w-5 h-5 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 text-violet-600" />
+                        <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                          <Check className="w-3 h-3 text-orange-500" />
                         </div>
                         {item}
                       </div>
@@ -459,11 +459,11 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              <div className="bg-violet-50 border border-violet-100 rounded-2xl p-5 flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-violet-500 mt-0.5 flex-shrink-0" />
+              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-5 flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-violet-900">AI-Powered Optimization</p>
-                  <p className="text-sm text-violet-700 mt-1">Our AI scores your listing across 4 key categories — title, bullet points, images, and keywords — then provides actionable fixes to boost your ranking.</p>
+                  <p className="text-sm font-semibold text-orange-900">AI-Powered Optimization</p>
+                  <p className="text-sm text-orange-600 mt-1">Our AI scores your listing across 4 key categories — title, bullet points, images, and keywords — then provides actionable fixes to boost your ranking.</p>
                 </div>
               </div>
             </div>
@@ -473,8 +473,8 @@ export default function AuditWorkflow() {
           {activeStep === 3 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <Wand2 className="w-5 h-5 text-violet-600" />
+                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Wand2 className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Create Product Graphics</h2>
@@ -495,16 +495,16 @@ export default function AuditWorkflow() {
                       }
                       className={cn(
                         "relative rounded-xl border-2 p-4 text-left transition-all",
-                        isSelected ? "border-violet-600 bg-violet-50/40" : "border-slate-200 bg-white hover:border-slate-300"
+                        isSelected ? "border-orange-500 bg-orange-50/40" : "border-slate-200 bg-white hover:border-slate-300"
                       )}
                     >
                       <span className="text-2xl leading-none block mb-2">{type.icon}</span>
-                      <p className={cn("text-sm font-semibold", isSelected ? "text-violet-900" : "text-slate-900")}>
+                      <p className={cn("text-sm font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
                         {type.label}
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
                       {isSelected && (
-                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center">
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
                           <Check className="w-3 h-3 text-white" />
                         </div>
                       )}
@@ -515,7 +515,7 @@ export default function AuditWorkflow() {
 
               {selectedImageTypes.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-violet-100 text-violet-700 font-semibold text-xs">
+                  <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-600 font-semibold text-xs">
                     {selectedImageTypes.length} selected
                   </span>
                   <span className="text-sm text-slate-400">~{selectedImageTypes.length * 30}s total</span>
@@ -523,14 +523,14 @@ export default function AuditWorkflow() {
               )}
 
               {selectedImageTypes.includes("custom") && (
-                <div className="rounded-xl border border-violet-200 bg-violet-50/30 p-4 space-y-3">
-                  <label className="text-sm font-medium text-violet-900">Custom Prompt</label>
+                <div className="rounded-xl border border-orange-200 bg-orange-50/30 p-4 space-y-3">
+                  <label className="text-sm font-medium text-orange-900">Custom Prompt</label>
                   <textarea
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     placeholder="Describe exactly what you want the AI to create..."
                     rows={3}
-                    className="w-full resize-none text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                    className="w-full resize-none text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-orange-200"
                   />
                 </div>
               )}
@@ -541,8 +541,8 @@ export default function AuditWorkflow() {
           {activeStep === 4 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-violet-600" />
+                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Create A+ Content</h2>
@@ -557,7 +557,7 @@ export default function AuditWorkflow() {
                   { icon: "📊", title: "Comparison Chart", desc: "Compare your product against competitors" },
                   { icon: "📖", title: "Brand Story", desc: "Tell your brand story with rich imagery" },
                 ].map((module) => (
-                  <div key={module.title} className="border border-slate-200 rounded-xl p-4 hover:border-violet-300 hover:bg-violet-50/20 transition-all cursor-pointer">
+                  <div key={module.title} className="border border-slate-200 rounded-xl p-4 hover:border-orange-300 hover:bg-orange-50/20 transition-all cursor-pointer">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl">{module.icon}</span>
                       <div>
@@ -580,8 +580,8 @@ export default function AuditWorkflow() {
           {activeStep === 5 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <Download className="w-5 h-5 text-violet-600" />
+                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Download className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Export & Publish</h2>
@@ -595,7 +595,7 @@ export default function AuditWorkflow() {
                   { icon: "🗂️", title: "Export as ZIP",    desc: "All images + listing text bundled",    action: "Download ZIP"   },
                   { icon: "🛒", title: "Publish to Amazon", desc: "Push directly to Seller Central",      action: "Connect & Push" },
                 ].map((opt) => (
-                  <div key={opt.title} className="border border-slate-200 rounded-xl p-5 flex flex-col gap-4 hover:border-violet-300 hover:shadow-sm transition-all">
+                  <div key={opt.title} className="border border-slate-200 rounded-xl p-5 flex flex-col gap-4 hover:border-orange-300 hover:shadow-sm transition-all">
                     <span className="text-3xl">{opt.icon}</span>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{opt.title}</p>
@@ -603,7 +603,7 @@ export default function AuditWorkflow() {
                     </div>
                     <Button
                       variant="outline"
-                      className="rounded-xl border-violet-200 text-violet-700 hover:bg-violet-50 w-full"
+                      className="rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 w-full"
                       onClick={() => toast({ title: "Coming soon", description: `${opt.action} is coming soon.` })}
                     >
                       {opt.action}
@@ -643,7 +643,7 @@ export default function AuditWorkflow() {
           {/* Create button + dropdown */}
           <div className="relative" ref={dropdownRef}>
             <Button
-              className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl gap-2 pl-4 pr-2"
+              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 pl-4 pr-2"
               onClick={() => setDropdownOpen((o) => !o)}
             >
               <Sparkles className="w-4 h-4" />
@@ -657,12 +657,12 @@ export default function AuditWorkflow() {
                   <button
                     key={item.label}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors hover:bg-violet-50",
-                      activeStep === item.step ? "text-violet-700 bg-violet-50/70 font-medium" : "text-slate-700"
+                      "w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors hover:bg-orange-50",
+                      activeStep === item.step ? "text-orange-600 bg-orange-50/70 font-medium" : "text-slate-700"
                     )}
                     onClick={() => { setActiveStep(item.step); setDropdownOpen(false); }}
                   >
-                    {activeStep === item.step && <Check className="w-3.5 h-3.5 text-violet-600 flex-shrink-0" />}
+                    {activeStep === item.step && <Check className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />}
                     {activeStep !== item.step && <div className="w-3.5 h-3.5 flex-shrink-0" />}
                     {item.label}
                   </button>
