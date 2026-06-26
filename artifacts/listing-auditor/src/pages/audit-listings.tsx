@@ -69,7 +69,7 @@ export default function AuditListings() {
                 queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
                 queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                navigate(`/audits/${audit.id}`);
+                navigate(`/audits/${audit.id}?returnTo=/audit-listings`);
               },
               onError: () => {
                 toast({
