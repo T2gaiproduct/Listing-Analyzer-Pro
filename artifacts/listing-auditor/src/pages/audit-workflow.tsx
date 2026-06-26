@@ -293,7 +293,8 @@ export default function AuditWorkflow() {
   const [creatingStep, setCreatingStep]     = useState<StepId>(1);
 
   /* ── Upload step state ── */
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef    = useRef<HTMLInputElement>(null);
+  const cameraRef  = useRef<HTMLInputElement>(null);
   const [productName, setProductName]   = useState("");
   const [category, setCategory]         = useState("");
   const [catSearch, setCatSearch]       = useState("");
@@ -582,7 +583,7 @@ export default function AuditWorkflow() {
 
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+                    onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }}
                     className="flex flex-col items-center gap-3 p-6 bg-white border border-orange-100 rounded-xl hover:border-orange-300 hover:shadow-sm transition-all"
                   >
                     <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -597,6 +598,7 @@ export default function AuditWorkflow() {
 
                 <p className="text-xs text-slate-400">PNG, JPG up to 20MB each</p>
                 <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+                <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
               </div>
 
               {uploadedImages.length > 0 && (
