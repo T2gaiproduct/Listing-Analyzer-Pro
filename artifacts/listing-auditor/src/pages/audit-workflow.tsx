@@ -24,6 +24,8 @@ import {
   Zap,
   Plus,
   Lightbulb,
+  Code2,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -73,12 +75,12 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
     "Almost ready…",
   ],
   2: [
-    "Fetching listing data…",
-    "Analyzing product title…",
-    "Evaluating bullet points…",
-    "Scoring keyword density…",
-    "Generating recommendations…",
-    "Finalizing your audit…",
+    "Crafting your product title…",
+    "Writing bullet points…",
+    "Researching backend keywords…",
+    "Building your HTML description…",
+    "Polishing the listing copy…",
+    "Finalizing your content…",
   ],
   3: [
     "Processing product images…",
@@ -367,6 +369,7 @@ export default function AuditWorkflow() {
   /* ── Listing step state ── */
   const [currentAuditId, setCurrentAuditId] = useState<number | null>(null);
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
+  const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
   const [auditResult, setAuditResult] = useState<null | {
     titleScore: { score: number; issues: string[]; suggestions: string[] };
     bulletScore: { score: number; issues: string[]; suggestions: string[] };
@@ -1120,8 +1123,34 @@ export default function AuditWorkflow() {
                     </div>
                     {/* Description */}
                     <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</p>
-                      <div className="text-sm text-slate-700 leading-relaxed border rounded-md p-3 bg-slate-50" dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }} />
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
+                        <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+                          <button
+                            onClick={() => setDescViewMode("preview")}
+                            className={cn(
+                              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
+                              descViewMode === "preview" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
+                            )}
+                          >
+                            <Eye className="w-3 h-3" /> Preview
+                          </button>
+                          <button
+                            onClick={() => setDescViewMode("code")}
+                            className={cn(
+                              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
+                              descViewMode === "code" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
+                            )}
+                          >
+                            <Code2 className="w-3 h-3" /> Code
+                          </button>
+                        </div>
+                      </div>
+                      {descViewMode === "preview" ? (
+                        <div className="text-sm text-slate-700 leading-relaxed border rounded-md p-3 bg-slate-50" dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }} />
+                      ) : (
+                        <pre className="text-xs text-slate-700 leading-relaxed border rounded-md p-3 bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap font-mono">{generatedContent.htmlDescription}</pre>
+                      )}
                     </div>
                   </div>
                 </div>
