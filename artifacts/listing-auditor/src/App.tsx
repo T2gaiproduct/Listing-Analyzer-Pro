@@ -77,6 +77,7 @@ import ArchivePage from "@/pages/archive";
 import NotificationsPage from "@/pages/notifications";
 import AdminArchivePage from "@/pages/admin/archive";
 import AuditListings from "@/pages/audit-listings";
+import AuditWorkflow from "@/pages/audit-workflow";
 import VideosPage from "@/pages/videos";
 import AdsPage from "@/pages/ads";
 import SettingsPage from "@/pages/settings";
@@ -445,6 +446,9 @@ function Router() {
       </Route>
       <Route path="/audits/new">
         <ProtectedRoute><AuditNew /></ProtectedRoute>
+      </Route>
+      <Route path="/audits/workflow">
+        <ProtectedRoute><AuditWorkflow /></ProtectedRoute>
       </Route>
       <Route path="/audits/:id">
         {params => (

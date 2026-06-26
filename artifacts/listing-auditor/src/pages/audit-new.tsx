@@ -26,7 +26,6 @@ const draftProjects = [
 
 export default function AuditNew() {
   const [, setLocation] = useLocation();
-  const [loading, setLoading] = useState(false);
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500 max-w-5xl mx-auto">
@@ -43,18 +42,11 @@ export default function AuditNew() {
         <Button
           size="lg"
           className="mt-6 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-8 rounded-xl shadow-lg shadow-orange-500/20"
-          onClick={() => setLoading(true)}
-          disabled={loading}
+          onClick={() => setLocation("/audits/workflow")}
         >
-          {loading ? (
-            "Coming soon..."
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Start Generating
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </>
-          )}
+          <Sparkles className="w-4 h-4 mr-2" />
+          Start Generating
+          <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
         <p className="text-xs text-muted-foreground mt-3">
           Works with Shopify, Walmart, eBay, and most product pages
