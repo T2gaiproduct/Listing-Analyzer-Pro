@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Sparkles, Search } from "lucide-react";
+import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Sparkles, Search, Camera, Monitor, Lightbulb } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -103,6 +103,7 @@ export default function CreateProject() {
   const categoryRef = useRef<HTMLDivElement>(null);
 
   const [step, setStep] = useState<Step>(1);
+  const [brandName, setBrandName] = useState("");
   const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
@@ -246,7 +247,7 @@ export default function CreateProject() {
   };
 
   const canContinue = () => {
-    if (step === 1) return productName.trim().length > 0;
+    if (step === 1) return brandName.trim().length > 0 && productName.trim().length > 0;
     if (step === 2) return selectedImageTypes.length > 0;
     if (step === 3) return customPrompt.trim().length > 0;
     return true;
@@ -310,48 +311,66 @@ export default function CreateProject() {
         </div>
       </div>
 
-      {/* Step 1: Upload Product */}
+      {/* Step 1: Upload Product Images */}
       {step === 1 && (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* Section header */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
               <Upload className="w-4 h-4 text-orange-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Upload Product</h2>
-              <p className="text-xs text-slate-500">Upload images to create stunning graphics</p>
+              <h2 className="text-lg font-bold text-slate-900">Upload Product Images</h2>
+              <p className="text-xs text-slate-500">Add high-quality images to showcase your product in the best way</p>
             </div>
           </div>
 
-          {/* Upload area */}
-          <div
-            className="border-2 border-dashed border-orange-200 rounded-xl p-5 text-center bg-orange-50/20 hover:bg-orange-50/30 transition-colors cursor-pointer"
-            onClick={() => fileRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-          >
-            <Upload className="w-5 h-5 text-orange-400 mx-auto mb-1" />
-            <p className="text-sm font-medium text-slate-700 mb-0.5">Drag & drop images here</p>
-            <p className="text-xs text-slate-400 mb-1.5">or</p>
-            <Button
-              className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-7 text-xs"
-              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+          {/* Two-column layout: Upload area + Uploaded images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Left: Upload controls */}
+            <div
+              className="border-2 border-dashed border-orange-200 rounded-xl p-5 text-center bg-orange-50/20 hover:bg-orange-50/30 transition-colors"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
             >
-              <Upload className="w-3 h-3 mr-1" />
-              Upload
-            </Button>
-            <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 20MB each</p>
-            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-          </div>
+              <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-2">
+                <Upload className="w-5 h-5 text-orange-500" />
+              </div>
+              <p className="text-sm font-semibold text-slate-800 mb-0.5">Drag or upload product images</p>
+              <p className="text-xs text-slate-400 mb-3">PNG, JPG up to 20MB each</p>
+              <Button
+                className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-9 text-xs w-full"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Monitor className="w-3.5 h-3.5 mr-1.5" />
+                Upload from device
+              </Button>
+              <p className="text-xs text-slate-400 my-2">or</p>
+              <Button
+                variant="outline"
+                className="border-slate-200 text-slate-600 rounded-lg px-4 h-9 text-xs w-full hover:bg-slate-50"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Camera className="w-3.5 h-3.5 mr-1.5" />
+                Use camera
+              </Button>
+              <div className="mt-3 flex items-center gap-1.5 bg-orange-50 rounded-lg px-3 py-2">
+                <Lightbulb className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                <p className="text-[11px] text-orange-700">Tip: Use high-quality images with good lighting for better results.</p>
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+            </div>
 
-          {/* Image Preview + Form */}
-          {uploadedImages.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-100 p-3">
-              {/* Image Preview */}
-              <div className="mb-3">
-                <p className="text-xs font-medium text-slate-700 mb-1.5">
-                  Uploaded ({uploadedImages.length})
-                </p>
+            {/* Right: Uploaded images preview */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-medium text-slate-700 mb-2">
+                Uploaded Images ({uploadedImages.length}/10)
+              </p>
+              {uploadedImages.length === 0 ? (
+                <div className="border border-dashed border-slate-200 rounded-lg p-8 text-center">
+                  <p className="text-sm text-slate-300">No images yet</p>
+                </div>
+              ) : (
                 <div className="flex flex-wrap gap-2">
                   {uploadedImages.map((img, idx) => (
                     <div key={idx} className="relative w-[80px] h-[80px] rounded-lg border border-slate-100 overflow-hidden bg-white flex-shrink-0">
@@ -365,58 +384,78 @@ export default function CreateProject() {
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
+            </div>
+          </div>
 
-              {/* Form fields */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-700 mb-1 block">Product Name</label>
-                  <Input
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                    placeholder="Product name"
-                    className="border-slate-200 h-8 rounded-lg text-xs"
-                  />
-                </div>
-                <div className="relative" ref={categoryRef}>
-                  <label className="text-xs font-medium text-slate-700 mb-1 block">Category</label>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
-                    <Input
-                      value={categorySearch}
-                      onChange={(e) => {
-                        setCategorySearch(e.target.value);
-                        setShowCategoryDropdown(true);
-                      }}
-                      onFocus={() => setShowCategoryDropdown(true)}
-                      placeholder="Search category..."
-                      className="border-slate-200 h-8 rounded-lg pl-7 text-xs"
-                    />
-                    {showCategoryDropdown && (
-                      <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
-                        {filteredCategories.length === 0 && (
-                          <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
-                        )}
-                        {filteredCategories.map((c) => (
-                          <div
-                            key={c}
-                            className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-orange-50 ${category === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
-                            onClick={() => {
-                              setCategory(c);
-                              setCategorySearch(c);
-                              setShowCategoryDropdown(false);
-                            }}
-                          >
-                            {c}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {/* Product Details section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                <ImageIcon className="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Product Details</h2>
+                <p className="text-xs text-slate-500">Provide basic information about your product</p>
               </div>
             </div>
-          )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-slate-700 mb-1 block">Brand Name</label>
+                <Input
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  placeholder="e.g. Acme Co."
+                  className="border-slate-200 h-9 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-700 mb-1 block">Product Name</label>
+                <Input
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder="Enter product name"
+                  className="border-slate-200 h-9 rounded-lg text-sm"
+                />
+              </div>
+            </div>
+            <div className="relative" ref={categoryRef}>
+              <label className="text-xs font-medium text-slate-700 mb-1 block">Select Category</label>
+              <div className="relative">
+                <Input
+                  value={categorySearch}
+                  onChange={(e) => {
+                    setCategorySearch(e.target.value);
+                    setShowCategoryDropdown(true);
+                  }}
+                  onFocus={() => setShowCategoryDropdown(true)}
+                  placeholder="Search or select category"
+                  className="border-slate-200 h-9 rounded-lg text-sm"
+                />
+                {showCategoryDropdown && (
+                  <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
+                    {filteredCategories.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
+                    )}
+                    {filteredCategories.map((c) => (
+                      <div
+                        key={c}
+                        className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-orange-50 ${category === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
+                        onClick={() => {
+                          setCategory(c);
+                          setCategorySearch(c);
+                          setShowCategoryDropdown(false);
+                        }}
+                      >
+                        {c}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
