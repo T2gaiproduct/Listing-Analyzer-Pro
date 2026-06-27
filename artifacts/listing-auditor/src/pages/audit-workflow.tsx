@@ -12,7 +12,6 @@ import {
   Check,
   ArrowLeft,
   ArrowRight,
-  Save,
   Sparkles,
   Loader2,
   Wand2,
@@ -105,33 +104,7 @@ const STEPS: { id: StepId; key: string; label: string; sub: string; icon: React.
 ];
 
 /* ── localStorage helpers ───────────────────────────────────────────────── */
-type SavedProject = {
-  id: string;
-  name: string;
-  brandName: string;
-  category: string;
-  images: number;
-  uploadedImages: string[];
-  activeStep: number;
-  date: string;
-  currentAuditId?: number | null;
-  generatedContent?: { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string } | null;
-};
-
-function loadProjects(key: string): SavedProject[] {
-  try { return JSON.parse(localStorage.getItem(key) ?? "[]") as SavedProject[]; } catch { return []; }
-}
-function saveProjectToStorage(key: string, project: SavedProject) {
-  const existing = loadProjects(key).filter((p) => p.id !== project.id);
-  localStorage.setItem(key, JSON.stringify([project, ...existing].slice(0, 20)));
-}
-function findProjectById(id: string): SavedProject | undefined {
-  return loadProjects(LS_RECENT).find((p) => p.id === id)
-    || loadProjects(LS_DRAFT).find((p) => p.id === id);
-}
-
-const LS_RECENT = "listing_auditor_recent_projects";
-const LS_DRAFT  = "listing_auditor_draft_projects";
+/* No client-side draft/recent storage — server-side recents via sidebar only */
 
 /* ── Loading messages per step ──────────────────────────────────────────── */
 const LOADING_MESSAGES: Record<StepId, string[]> = {
@@ -421,33 +394,18 @@ export default function AuditWorkflow() {
   const [isCreating, setIsCreating]         = useState(false);
   const [creatingStep, setCreatingStep]     = useState<StepId>(1);
 
-  /* ── Resume from saved project or audit ID ── */
-  const [resumeParam] = useState(() => {
+  /* ── Resume from DB audit ID (sidebar server-side recents) ── */
+  const [resumeAuditId] = useState(() => {
     const params = new URLSearchParams(search);
-    return params.get("resume");
+    const resume = params.get("resume");
+    return resume ? parseInt(resume, 10) : null;
   });
   useEffect(() => {
-    if (!resumeParam) return;
-    // Numeric resume = DB audit ID (from sidebar server-side recents)
-    const numericId = parseInt(resumeParam, 10);
-    if (!isNaN(numericId) && String(numericId) === resumeParam) {
-      setCurrentAuditId(numericId);
+    if (resumeAuditId && !isNaN(resumeAuditId)) {
+      setCurrentAuditId(resumeAuditId);
       setActiveStep(2);
-      return;
     }
-    // String resume = localStorage project ID (from drafts/recents)
-    const saved = findProjectById(resumeParam);
-    if (saved) {
-      setBrandName(saved.brandName || "");
-      setProductName(saved.name || "");
-      setCategory(saved.category || "");
-      setCatSearch(saved.category || "");
-      setUploadedImages(saved.uploadedImages || []);
-      setActiveStep((saved.activeStep as StepId) || 1);
-      if (saved.currentAuditId) setCurrentAuditId(saved.currentAuditId);
-      if (saved.generatedContent) setGeneratedContent(saved.generatedContent);
-    }
-  }, [resumeParam]);
+  }, [resumeAuditId]);
 
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
@@ -585,45 +543,6 @@ export default function AuditWorkflow() {
       };
       reader.readAsDataURL(file);
     });
-  }
-
-  /* ── Save Draft / Save Project ── */
-  function buildProjectRecord(): SavedProject {
-    return {
-      id: projectId,
-      name: productName.trim() || "Untitled Product",
-      brandName: brandName.trim(),
-      category: category || "Uncategorized",
-      images: uploadedImages.length,
-      uploadedImages: uploadedImages.slice(0, 10),
-      activeStep: activeStep,
-      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      currentAuditId,
-      generatedContent,
-    };
-  }
-
-  /* Auto-save whenever step changes */
-  useEffect(() => {
-    if (productName.trim() || brandName.trim()) {
-      saveProjectToStorage(LS_DRAFT, buildProjectRecord());
-    }
-  }, [activeStep, brandName, productName, category, uploadedImages, currentAuditId, generatedContent]);
-
-  function handleSaveDraft() {
-    saveProjectToStorage(LS_DRAFT, buildProjectRecord());
-    // Remove from recent if it was there
-    const recentList = loadProjects(LS_RECENT).filter((p) => p.id !== projectId);
-    localStorage.setItem(LS_RECENT, JSON.stringify(recentList));
-    toast({ title: "Draft saved", description: "Your project was saved to Draft Projects." });
-  }
-
-  function handleSaveProject() {
-    saveProjectToStorage(LS_RECENT, buildProjectRecord());
-    // Remove from drafts
-    const draftList = loadProjects(LS_DRAFT).filter((p) => p.id !== projectId);
-    localStorage.setItem(LS_DRAFT, JSON.stringify(draftList));
-    toast({ title: "Project saved!", description: "Your project was saved to Recent Projects." });
   }
 
   /* ── Execute create for current step ── */
@@ -1414,28 +1333,6 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* Steps 1-4: Save Draft | Step 5: Save Project */}
-          {activeStep < 5 ? (
-            <Button
-              variant="outline"
-              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
-              onClick={handleSaveDraft}
-              disabled={isCreating}
-            >
-              <Save className="w-4 h-4" />
-              Save Draft
-            </Button>
-          ) : (
-            <Button
-              className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
-              onClick={handleSaveProject}
-              disabled={isCreating}
-            >
-              <Save className="w-4 h-4" />
-              Save Project
-            </Button>
-          )}
-
           {/* Steps 1-4: Next Step button */}
           {activeStep < 5 && (
             <Button
