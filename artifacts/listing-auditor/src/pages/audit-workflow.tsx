@@ -1231,6 +1231,26 @@ export default function AuditWorkflow() {
                   />
                 </div>
               )}
+
+              {/* Generate Graphics button */}
+              <Button
+                size="lg"
+                className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2 shadow-lg shadow-orange-500/20"
+                disabled={isCreating || selectedImageTypes.length === 0}
+                onClick={handleCreate}
+              >
+                {isCreating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    Generate {selectedImageTypes.length > 0 ? `${selectedImageTypes.length} Image${selectedImageTypes.length > 1 ? "s" : ""}` : "Graphics"}
+                  </>
+                )}
+              </Button>
             </div>
           )}
 
