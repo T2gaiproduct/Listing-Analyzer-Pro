@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
@@ -59,8 +59,12 @@ function CategoryPortalDropdown({
   setCatOpen: (v: boolean) => void;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    searchRef.current?.focus();
+  useLayoutEffect(() => {
+    const input = searchRef.current;
+    if (input) {
+      input.focus();
+      input.select();
+    }
   }, []);
   return (
     <div
@@ -71,6 +75,7 @@ function CategoryPortalDropdown({
       <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2">
         <input
           ref={searchRef}
+          autoFocus
           value={catSearch}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCatSearch(e.target.value)}
           placeholder="Search categories…"
@@ -892,11 +897,9 @@ export default function AuditWorkflow() {
                       onClick={() => {
                         const rect = catBtnRef.current?.getBoundingClientRect();
                         if (rect) {
-                          const spaceBelow = window.innerHeight - rect.bottom;
                           const portalHeight = Math.min(420, window.innerHeight * 0.6);
-                          const placeAbove = spaceBelow < portalHeight + 8 && rect.top > portalHeight + 8;
                           setCatPos({
-                            top: placeAbove ? rect.top - portalHeight - 4 : rect.bottom + 4,
+                            top: rect.top - portalHeight - 4,
                             left: rect.left,
                             width: rect.width,
                           });
