@@ -859,33 +859,15 @@ export default function AuditWorkflow() {
                         <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
                       {catOpen && createPortal(
-                        <div
-                          data-cat-portal
-                          style={{ position: "fixed", top: catPos.top, left: catPos.left, width: catPos.width, zIndex: 9999 }}
-                          className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[60vh] overflow-y-auto"
-                        >
-                          <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2">
-                            <input
-                              autoFocus
-                              value={catSearch}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCatSearch(e.target.value)}
-                              placeholder="Search categories…"
-                              className="w-full text-sm focus:outline-none text-slate-700 placeholder-slate-400"
-                            />
-                          </div>
-                          {filteredCats.length === 0
-                            ? <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
-                            : filteredCats.map((c) => (
-                              <div
-                                key={c}
-                                className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-50", category === c ? "bg-orange-50 text-orange-600 font-medium" : "text-slate-700")}
-                                onClick={() => { setCategory(c); setCatSearch(""); setCatOpen(false); }}
-                              >
-                                {c}
-                              </div>
-                            ))
-                          }
-                        </div>,
+                        <CategoryPortalDropdown
+                          catPos={catPos}
+                          catSearch={catSearch}
+                          setCatSearch={setCatSearch}
+                          filteredCats={filteredCats}
+                          category={category}
+                          setCategory={setCategory}
+                          setCatOpen={setCatOpen}
+                        />,
                         document.body
                       )}
                     </div>
