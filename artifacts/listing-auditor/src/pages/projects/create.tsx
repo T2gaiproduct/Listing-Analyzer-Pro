@@ -287,14 +287,14 @@ export default function CreateProject() {
             <div key={s.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
-                  s.id < step ? "bg-purple-600 text-white" :
-                  s.id === step ? "bg-purple-600 text-white" :
+                  s.id < step ? "bg-orange-600 text-white" :
+                  s.id === step ? "bg-orange-600 text-white" :
                   "bg-white text-slate-400 border-2 border-slate-200"
                 }`}>
                   {s.id < step ? <Check className="w-3.5 h-3.5" /> : s.id}
                 </div>
                 <div className="mt-1 text-center">
-                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-purple-600" : "text-slate-400"}`}>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-orange-600" : "text-slate-400"}`}>
                     Step {s.id} of 3
                   </p>
                   <p className={`text-xs font-medium ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
@@ -303,7 +303,7 @@ export default function CreateProject() {
                 </div>
               </div>
               {idx < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-2 mb-5 ${s.id < step ? "bg-purple-600" : "bg-slate-200"}`} />
+                <div className={`flex-1 h-0.5 mx-2 mb-5 ${s.id < step ? "bg-orange-600" : "bg-slate-200"}`} />
               )}
             </div>
           ))}
@@ -314,8 +314,8 @@ export default function CreateProject() {
       {step === 1 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Upload className="w-4 h-4 text-purple-600" />
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Upload className="w-4 h-4 text-orange-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Upload Product</h2>
@@ -325,16 +325,16 @@ export default function CreateProject() {
 
           {/* Upload area */}
           <div
-            className="border-2 border-dashed border-purple-200 rounded-xl p-5 text-center bg-purple-50/20 hover:bg-purple-50/30 transition-colors cursor-pointer"
+            className="border-2 border-dashed border-orange-200 rounded-xl p-5 text-center bg-orange-50/20 hover:bg-orange-50/30 transition-colors cursor-pointer"
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
           >
-            <Upload className="w-5 h-5 text-purple-400 mx-auto mb-1" />
+            <Upload className="w-5 h-5 text-orange-400 mx-auto mb-1" />
             <p className="text-sm font-medium text-slate-700 mb-0.5">Drag & drop images here</p>
             <p className="text-xs text-slate-400 mb-1.5">or</p>
             <Button
-              className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 h-7 text-xs"
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-7 text-xs"
               onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
             >
               <Upload className="w-3 h-3 mr-1" />
@@ -400,7 +400,7 @@ export default function CreateProject() {
                         {filteredCategories.map((c) => (
                           <div
                             key={c}
-                            className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-purple-50 ${category === c ? "bg-purple-50 text-purple-700 font-medium" : "text-slate-700"}`}
+                            className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-orange-50 ${category === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
                             onClick={() => {
                               setCategory(c);
                               setCategorySearch(c);
@@ -424,8 +424,8 @@ export default function CreateProject() {
       {step === 2 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Wand2 className="w-4 h-4 text-purple-600" />
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Wand2 className="w-4 h-4 text-orange-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Select Graphics</h2>
@@ -446,7 +446,7 @@ export default function CreateProject() {
                   }}
                   className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
                     isSelected
-                      ? "border-purple-600 bg-purple-50/30"
+                      ? "border-orange-600 bg-orange-50/30"
                       : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
@@ -454,12 +454,12 @@ export default function CreateProject() {
                     <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                        <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
                           {type.label}
                         </h3>
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                            isSelected ? "border-orange-600 bg-orange-600" : "border-slate-300"
                           }`}
                         >
                           {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -475,7 +475,7 @@ export default function CreateProject() {
 
           {selectedImageTypes.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+              <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
                 {selectedImageTypes.length} selected
               </span>
               <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
@@ -488,8 +488,8 @@ export default function CreateProject() {
       {step === 3 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-purple-600" />
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-orange-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
@@ -498,8 +498,8 @@ export default function CreateProject() {
           </div>
 
           {selectedImageTypes.includes("custom") && (
-            <div className="space-y-2 rounded-xl border border-purple-200 bg-purple-50/30 p-3">
-              <label className="text-xs font-medium text-purple-900">
+            <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50/30 p-3">
+              <label className="text-xs font-medium text-orange-900">
                 Custom Prompt
                 {customPrompt.length > 0 && (
                   <span className={`ml-2 text-xs font-medium ${customPrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : "text-slate-400"}`}>
@@ -519,7 +519,7 @@ export default function CreateProject() {
                 {CUSTOM_EXAMPLES.map((ex) => (
                   <button
                     key={ex}
-                    className="block text-left text-[11px] text-purple-600 hover:text-purple-700 hover:underline w-full"
+                    className="block text-left text-[11px] text-orange-600 hover:text-orange-700 hover:underline w-full"
                     onClick={() => setCustomPrompt(ex)}
                   >
                     {ex}
@@ -541,7 +541,7 @@ export default function CreateProject() {
             </Button>
           )}
           <Button
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 h-8 text-xs"
+            className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 h-8 text-xs"
             disabled={!canContinue() || createProject.isPending}
             onClick={handleContinue}
           >
