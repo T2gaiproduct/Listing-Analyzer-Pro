@@ -40,6 +40,59 @@ import {
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/* ── Category Dropdown Portal (fixes autoFocus + full-width) ──────────── */
+function CategoryPortalDropdown({
+  catPos,
+  catSearch,
+  setCatSearch,
+  filteredCats,
+  category,
+  setCategory,
+  setCatOpen,
+}: {
+  catPos: { top: number; left: number; width: number };
+  catSearch: string;
+  setCatSearch: (v: string) => void;
+  filteredCats: string[];
+  category: string;
+  setCategory: (v: string) => void;
+  setCatOpen: (v: boolean) => void;
+}) {
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
+  return (
+    <div
+      data-cat-portal
+      style={{ position: "fixed", top: catPos.top, left: catPos.left, width: catPos.width, zIndex: 9999 }}
+      className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[60vh] overflow-y-auto"
+    >
+      <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2">
+        <input
+          ref={searchRef}
+          value={catSearch}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCatSearch(e.target.value)}
+          placeholder="Search categories…"
+          className="w-full text-sm focus:outline-none text-slate-700 placeholder-slate-400"
+        />
+      </div>
+      {filteredCats.length === 0
+        ? <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
+        : filteredCats.map((c) => (
+          <div
+            key={c}
+            className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-50", category === c ? "bg-orange-50 text-orange-600 font-medium" : "text-slate-700")}
+            onClick={() => { setCategory(c); setCatSearch(""); setCatOpen(false); }}
+          >
+            {c}
+          </div>
+        ))
+      }
+    </div>
+  );
+}
+
 /* ── Steps ─────────────────────────────────────────────────────────────── */
 type StepId = 1 | 2 | 3 | 4 | 5;
 
