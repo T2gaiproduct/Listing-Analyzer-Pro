@@ -892,11 +892,8 @@ export default function AuditWorkflow() {
                       onClick={() => {
                         const rect = catBtnRef.current?.getBoundingClientRect();
                         if (rect) {
-                          const spaceBelow = window.innerHeight - rect.bottom;
-                          const portalHeight = Math.min(420, window.innerHeight * 0.6);
-                          const placeAbove = spaceBelow < portalHeight + 8 && rect.top > portalHeight + 8;
                           setCatPos({
-                            top: placeAbove ? rect.top - portalHeight - 4 : rect.bottom + 4,
+                            top: rect.bottom + 4,
                             left: rect.left,
                             width: rect.width,
                           });
