@@ -883,47 +883,45 @@ export default function AuditWorkflow() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5" ref={catRef}>
-                    <label className="text-sm font-medium text-slate-700">Select Category</label>
-                    <div className="relative">
-                      <button
-                        ref={catBtnRef}
-                        type="button"
-                        onClick={() => {
-                          const rect = catBtnRef.current?.getBoundingClientRect();
-                          if (rect) {
-                            const spaceBelow = window.innerHeight - rect.bottom;
-                            const portalHeight = Math.min(420, window.innerHeight * 0.6);
-                            const placeAbove = spaceBelow < portalHeight + 8 && rect.top > portalHeight + 8;
-                            setCatPos({
-                              top: placeAbove ? rect.top - portalHeight - 4 : rect.bottom + 4,
-                              left: rect.left,
-                              width: rect.width,
-                            });
-                          }
-                          setCatOpen((o) => !o);
-                        }}
-                        className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
-                      >
-                        <span className={category ? "text-slate-900" : "text-slate-400"}>
-                          {category || "Search or select category"}
-                        </span>
-                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      </button>
-                      {catOpen && createPortal(
-                        <CategoryPortalDropdown
-                          catPos={catPos}
-                          catSearch={catSearch}
-                          setCatSearch={setCatSearch}
-                          filteredCats={filteredCats}
-                          category={category}
-                          setCategory={setCategory}
-                          setCatOpen={setCatOpen}
-                        />,
-                        document.body
-                      )}
-                    </div>
+                <div className="space-y-1.5" ref={catRef}>
+                  <label className="text-sm font-medium text-slate-700">Select Category</label>
+                  <div className="relative">
+                    <button
+                      ref={catBtnRef}
+                      type="button"
+                      onClick={() => {
+                        const rect = catBtnRef.current?.getBoundingClientRect();
+                        if (rect) {
+                          const spaceBelow = window.innerHeight - rect.bottom;
+                          const portalHeight = Math.min(420, window.innerHeight * 0.6);
+                          const placeAbove = spaceBelow < portalHeight + 8 && rect.top > portalHeight + 8;
+                          setCatPos({
+                            top: placeAbove ? rect.top - portalHeight - 4 : rect.bottom + 4,
+                            left: rect.left,
+                            width: rect.width,
+                          });
+                        }
+                        setCatOpen((o) => !o);
+                      }}
+                      className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
+                    >
+                      <span className={category ? "text-slate-900" : "text-slate-400"}>
+                        {category || "Search or select category"}
+                      </span>
+                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {catOpen && createPortal(
+                      <CategoryPortalDropdown
+                        catPos={catPos}
+                        catSearch={catSearch}
+                        setCatSearch={setCatSearch}
+                        filteredCats={filteredCats}
+                        category={category}
+                        setCategory={setCategory}
+                        setCatOpen={setCatOpen}
+                      />,
+                      document.body
+                    )}
                   </div>
                 </div>
               </div>
