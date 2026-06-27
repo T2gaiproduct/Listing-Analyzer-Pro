@@ -434,7 +434,7 @@ export default function CreateProject() {
                   className="border-slate-200 h-9 rounded-lg text-sm"
                 />
                 {showCategoryDropdown && (
-                  <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
+                  <div className="absolute z-50 top-full left-0 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
                     {filteredCategories.length === 0 && (
                       <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
                     )}
