@@ -15,10 +15,15 @@ const steps = [
 type SavedProject = {
   id: string;
   name: string;
+  brandName: string;
   category: string;
   images: number;
+  uploadedImages: string[];
+  activeStep: number;
   date: string;
   url?: string;
+  currentAuditId?: number | null;
+  generatedContent?: { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string } | null;
 };
 
 const LS_RECENT = "listing_auditor_recent_projects";
@@ -68,13 +73,17 @@ function ProjectRow({ project, onDelete, onRename }: { project: SavedProject; on
         className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
         onClick={handleClick}
       >
-        <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-          <Image className="w-5 h-5 text-slate-400" />
+        <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+          {project.uploadedImages && project.uploadedImages.length > 0 ? (
+            <img src={project.uploadedImages[0]} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Image className="w-5 h-5 text-slate-400" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
           <p className="text-xs text-muted-foreground">
-            {project.category} • {project.images} image{project.images !== 1 ? "s" : ""}
+            {project.brandName ? `${project.brandName} • ` : ""}{project.category} • Step {project.activeStep || 1}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

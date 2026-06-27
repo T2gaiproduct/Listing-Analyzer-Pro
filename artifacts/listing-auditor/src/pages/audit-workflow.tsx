@@ -105,7 +105,18 @@ const STEPS: { id: StepId; key: string; label: string; sub: string; icon: React.
 ];
 
 /* ── localStorage helpers ───────────────────────────────────────────────── */
-type SavedProject = { id: string; name: string; category: string; images: number; date: string };
+type SavedProject = {
+  id: string;
+  name: string;
+  brandName: string;
+  category: string;
+  images: number;
+  uploadedImages: string[];
+  activeStep: number;
+  date: string;
+  currentAuditId?: number | null;
+  generatedContent?: { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string } | null;
+};
 
 function loadProjects(key: string): SavedProject[] {
   try { return JSON.parse(localStorage.getItem(key) ?? "[]") as SavedProject[]; } catch { return []; }
@@ -113,6 +124,10 @@ function loadProjects(key: string): SavedProject[] {
 function saveProjectToStorage(key: string, project: SavedProject) {
   const existing = loadProjects(key).filter((p) => p.id !== project.id);
   localStorage.setItem(key, JSON.stringify([project, ...existing].slice(0, 20)));
+}
+function findProjectById(id: string): SavedProject | undefined {
+  return loadProjects(LS_RECENT).find((p) => p.id === id)
+    || loadProjects(LS_DRAFT).find((p) => p.id === id);
 }
 
 const LS_RECENT = "listing_auditor_recent_projects";
@@ -406,18 +421,33 @@ export default function AuditWorkflow() {
   const [isCreating, setIsCreating]         = useState(false);
   const [creatingStep, setCreatingStep]     = useState<StepId>(1);
 
-  /* ── Resume from sidebar query param ── */
-  const [resumeAuditId] = useState(() => {
+  /* ── Resume from saved project or audit ID ── */
+  const [resumeParam] = useState(() => {
     const params = new URLSearchParams(search);
-    const resume = params.get("resume");
-    return resume ? parseInt(resume, 10) : null;
+    return params.get("resume");
   });
   useEffect(() => {
-    if (resumeAuditId && !isNaN(resumeAuditId)) {
-      setCurrentAuditId(resumeAuditId);
+    if (!resumeParam) return;
+    // Numeric resume = DB audit ID (from sidebar server-side recents)
+    const numericId = parseInt(resumeParam, 10);
+    if (!isNaN(numericId) && String(numericId) === resumeParam) {
+      setCurrentAuditId(numericId);
       setActiveStep(2);
+      return;
     }
-  }, [resumeAuditId]);
+    // String resume = localStorage project ID (from drafts/recents)
+    const saved = findProjectById(resumeParam);
+    if (saved) {
+      setBrandName(saved.brandName || "");
+      setProductName(saved.name || "");
+      setCategory(saved.category || "");
+      setCatSearch(saved.category || "");
+      setUploadedImages(saved.uploadedImages || []);
+      setActiveStep((saved.activeStep as StepId) || 1);
+      if (saved.currentAuditId) setCurrentAuditId(saved.currentAuditId);
+      if (saved.generatedContent) setGeneratedContent(saved.generatedContent);
+    }
+  }, [resumeParam]);
 
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
@@ -562,11 +592,23 @@ export default function AuditWorkflow() {
     return {
       id: projectId,
       name: productName.trim() || "Untitled Product",
+      brandName: brandName.trim(),
       category: category || "Uncategorized",
       images: uploadedImages.length,
+      uploadedImages: uploadedImages.slice(0, 10),
+      activeStep: activeStep,
       date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      currentAuditId,
+      generatedContent,
     };
   }
+
+  /* Auto-save whenever step changes */
+  useEffect(() => {
+    if (productName.trim() || brandName.trim()) {
+      saveProjectToStorage(LS_DRAFT, buildProjectRecord());
+    }
+  }, [activeStep, brandName, productName, category, uploadedImages, currentAuditId, generatedContent]);
 
   function handleSaveDraft() {
     saveProjectToStorage(LS_DRAFT, buildProjectRecord());
