@@ -420,7 +420,7 @@ export default function CreateProject() {
                 />
               </div>
             </div>
-            <div className="relative" ref={categoryRef}>
+            <div ref={categoryRef}>
               <label className="text-xs font-medium text-slate-700 mb-1 block">Select Category</label>
               <div className="relative">
                 <Input
@@ -431,10 +431,10 @@ export default function CreateProject() {
                   }}
                   onFocus={() => setShowCategoryDropdown(true)}
                   placeholder="Search or select category"
-                  className="border-slate-200 h-9 rounded-lg text-sm"
+                  className="border-slate-200 h-9 rounded-lg text-sm w-full"
                 />
                 {showCategoryDropdown && (
-                  <div className="absolute z-50 top-full left-0 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
+                  <div className="absolute z-[100] inset-x-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto overscroll-contain">
                     {filteredCategories.length === 0 && (
                       <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
                     )}
