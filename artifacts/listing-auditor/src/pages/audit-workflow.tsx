@@ -424,14 +424,7 @@ export default function AuditWorkflow() {
   const [currentAuditId, setCurrentAuditId] = useState<number | null>(null);
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
-  const [auditResult, setAuditResult] = useState<null | {
-    titleScore: { score: number; issues: string[]; suggestions: string[] };
-    bulletScore: { score: number; issues: string[]; suggestions: string[] };
-    imageScore: { score: number; issues: string[]; suggestions: string[] };
-    keywordScore: { score: number; issues: string[]; suggestions: string[] };
-    overallScore: number;
-    summary: string;
-  }>(null);
+  const [isDirty, setIsDirty] = useState(false);
   const createAudit  = useCreateAudit();
   const patchAudit   = usePatchAudit();
   const generateContent = useGenerateContent();
@@ -458,9 +451,6 @@ export default function AuditWorkflow() {
     if (auditData.generatedContent) {
       setGeneratedContent(auditData.generatedContent as any);
     }
-    if (auditData.result && auditData.result.overallScore !== undefined) {
-      setAuditResult(auditData.result as any);
-    }
     const step = (auditData.currentStep || 1) as StepId;
     if (step >= 1 && step <= 5) setActiveStep(step);
   }, [auditData]);
@@ -469,31 +459,6 @@ export default function AuditWorkflow() {
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt]             = useState("");
 
-  /* ── Poll for audit results when we have an audit ID ── */
-  useEffect(() => {
-    if (!auditData || !currentAuditId || auditResult) return;
-    if (auditData.status === "complete" && auditData.result) {
-      setAuditResult(auditData.result as any);
-      // Now also generate content
-      generateContent.mutate(
-        { id: currentAuditId },
-        {
-          onSuccess: (data) => {
-            setIsCreating(false);
-            setGeneratedContent(data);
-            toast({ title: "Complete!", description: "Audit and listing content are ready." });
-          },
-          onError: (err) => {
-            setIsCreating(false);
-            toast({ title: "Content failed", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
-          },
-        }
-      );
-    } else if (auditData.status === "failed") {
-      setIsCreating(false);
-      toast({ title: "Audit failed", description: auditData.result?.summary || "Analysis failed", variant: "destructive" });
-    }
-  }, [auditData, currentAuditId, auditResult, generateContent, toast]);
 
   /* ── Close category dropdown on outside click ── */
   useEffect(() => {
@@ -782,7 +747,13 @@ export default function AuditWorkflow() {
     if (uploadedImages.length) payload.imageUrls = uploadedImages;
     if (generatedContent) payload.generatedContent = generatedContent;
     patchAudit.mutate({ id: currentAuditId, data: payload });
+    setIsDirty(false);
   }, [currentAuditId, brandName, productName, category, uploadedImages, generatedContent, patchAudit]);
+
+  /* ── Explicit save (same step, no navigation) ── */
+  const handleSave = useCallback(() => {
+    autoSave(activeStep);
+  }, [autoSave, activeStep]);
 
   /* ── Bottom bar ── */
   function handleBack() {
@@ -795,10 +766,21 @@ export default function AuditWorkflow() {
 
   /* ── Next step ── */
   function handleNextStep() {
-    if (activeStep === 1 && currentAuditId === null) {
-      // Step 1 with no audit yet: create the project first (handleCreate advances to step 2 on success)
-      handleCreate();
-      return;
+    if (activeStep === 1) {
+      // Step 1: always requires product name + category
+      if (!productName.trim()) {
+        toast({ title: "Product name required", description: "Please enter a product name before continuing.", variant: "destructive" });
+        return;
+      }
+      if (!category) {
+        toast({ title: "Category required", description: "Please select a category before continuing.", variant: "destructive" });
+        return;
+      }
+      if (currentAuditId === null) {
+        // No audit yet — create it (handleCreate advances to step 2 on success)
+        handleCreate();
+        return;
+      }
     }
     if (activeStep < 5) {
       autoSave((activeStep + 1) as StepId);
@@ -983,7 +965,7 @@ export default function AuditWorkflow() {
                   <label className="text-sm font-medium text-slate-700">Project Name</label>
                   <Input
                     value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
+                    onChange={(e) => { setProjectName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                     placeholder="e.g. Summer Launch 2025"
                     className="border-slate-200 rounded-xl h-11"
                   />
@@ -993,16 +975,16 @@ export default function AuditWorkflow() {
                     <label className="text-sm font-medium text-slate-700">Brand Name</label>
                     <Input
                       value={brandName}
-                      onChange={(e) => setBrandName(e.target.value)}
+                      onChange={(e) => { setBrandName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                       placeholder="e.g. Acme Co."
                       className="border-slate-200 rounded-xl h-11"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Product Name</label>
+                    <label className="text-sm font-medium text-slate-700">Product Name <span className="text-red-500">*</span></label>
                     <Input
                       value={productName}
-                      onChange={(e) => setProductName(e.target.value)}
+                      onChange={(e) => { setProductName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                       placeholder="Enter product name"
                       className="border-slate-200 rounded-xl h-11"
                     />
@@ -1578,7 +1560,24 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* Steps 1-4: Next Step / Save & Continue button */}
+          {/* Save button — shown whenever there are unsaved changes on steps 2+ */}
+          {activeStep > 1 && currentAuditId !== null && isDirty && (
+            <Button
+              variant="outline"
+              className="rounded-xl border-orange-300 text-orange-600 hover:bg-orange-50 gap-2"
+              onClick={handleSave}
+              disabled={patchAudit.isPending}
+            >
+              {patchAudit.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              Save Changes
+            </Button>
+          )}
+
+          {/* Steps 1-4: Save & Continue / Next Step button */}
           {activeStep < 5 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
@@ -1590,7 +1589,7 @@ export default function AuditWorkflow() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Saving…
                 </>
-              ) : activeStep === 1 && currentAuditId === null ? (
+              ) : activeStep === 1 ? (
                 <>
                   Save & Continue
                   <ArrowRight className="w-4 h-4" />
