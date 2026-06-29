@@ -1141,7 +1141,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto pt-12 pb-8 px-8">
           <div className="max-w-6xl mx-auto">
             {children}
           </div>
