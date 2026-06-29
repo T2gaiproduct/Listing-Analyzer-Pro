@@ -285,8 +285,6 @@ export interface PatchAuditBody {
   generatedContent?: PatchAuditBodyGeneratedContent;
   generatedImages?: PatchAuditBodyGeneratedImages;
   imageRecords?: ImageRecord[];
-  selectedImageTypes?: string[];
-  graphicsProjectId?: number;
   currentStep?: number;
 }
 
@@ -345,7 +343,6 @@ export type RecentItemType =
 
 export const RecentItemType = {
   audit: "audit",
-  listing: "listing",
   graphics: "graphics",
   video: "video",
   ads: "ads",
@@ -358,7 +355,6 @@ export interface RecentItem {
   createdAt?: string;
   url: string;
   pinned: boolean;
-  currentStep?: number;
 }
 
 export interface RecentsResponse {

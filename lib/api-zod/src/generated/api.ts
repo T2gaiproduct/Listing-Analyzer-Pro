@@ -258,8 +258,6 @@ export const PatchAuditBody = zod.object({
       }),
     )
     .optional(),
-  selectedImageTypes: zod.array(zod.string()).optional(),
-  graphicsProjectId: zod.number().optional(),
   currentStep: zod.number().optional(),
 });
 
@@ -513,13 +511,12 @@ export const GetRecentsQueryParams = zod.object({
 export const GetRecentsResponse = zod.object({
   items: zod.array(
     zod.object({
-      type: zod.enum(["audit", "listing", "graphics", "video", "ads"]),
+      type: zod.enum(["audit", "graphics", "video", "ads"]),
       id: zod.number(),
       name: zod.string(),
       createdAt: zod.string().optional(),
       url: zod.string(),
       pinned: zod.boolean(),
-      currentStep: zod.number().optional(),
     }),
   ),
 });
@@ -537,13 +534,12 @@ export const SearchProjectsQueryParams = zod.object({
 export const SearchProjectsResponse = zod.object({
   items: zod.array(
     zod.object({
-      type: zod.enum(["audit", "listing", "graphics", "video", "ads"]),
+      type: zod.enum(["audit", "graphics", "video", "ads"]),
       id: zod.number(),
       name: zod.string(),
       createdAt: zod.string().optional(),
       url: zod.string(),
       pinned: zod.boolean(),
-      currentStep: zod.number().optional(),
     }),
   ),
 });

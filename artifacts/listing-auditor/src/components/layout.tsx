@@ -290,13 +290,6 @@ function RecentProjectItem({
           {item.name}
         </Link>
 
-        {/* Step badge for Create Listing items */}
-        {item.type === "listing" && item.currentStep && item.currentStep > 0 && (
-          <span className="flex-shrink-0 px-1.5 py-0.5 rounded bg-orange-100 text-orange-600 text-[10px] font-semibold">
-            Step {item.currentStep}
-          </span>
-        )}
-
         <div className="flex items-center gap-0.5 flex-shrink-0">
           {(hovered || menuOpen || item.pinned) && (
             <button

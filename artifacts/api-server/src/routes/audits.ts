@@ -312,8 +312,6 @@ router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async 
     generatedContent: object;
     generatedImages: object;
     imageRecords: object;
-    selectedImageTypes: string[];
-    graphicsProjectId: number;
     currentStep: number;
   }>;
 
@@ -326,8 +324,6 @@ router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async 
   if (body.generatedContent !== undefined) updates.generatedContent = body.generatedContent;
   if (body.generatedImages !== undefined) updates.generatedImages = body.generatedImages;
   if (body.imageRecords !== undefined) updates.imageRecords = body.imageRecords;
-  if (body.selectedImageTypes !== undefined) updates.selectedImageTypes = body.selectedImageTypes;
-  if (body.graphicsProjectId !== undefined) updates.graphicsProjectId = body.graphicsProjectId;
   if (body.currentStep !== undefined) updates.currentStep = body.currentStep;
 
   const [updated] = await db
