@@ -5,7 +5,9 @@
  * Amazon Listing Auditor API
  * OpenAPI spec version: 0.1.0
  */
+import type { ImageRecord } from "./imageRecord";
 import type { PatchAuditBodyGeneratedContent } from "./patchAuditBodyGeneratedContent";
+import type { PatchAuditBodyGeneratedImages } from "./patchAuditBodyGeneratedImages";
 
 export interface PatchAuditBody {
   projectName?: string;
@@ -14,5 +16,7 @@ export interface PatchAuditBody {
   category?: string;
   imageUrls?: string[];
   generatedContent?: PatchAuditBodyGeneratedContent;
+  generatedImages?: PatchAuditBodyGeneratedImages;
+  imageRecords?: ImageRecord[];
   currentStep?: number;
 }

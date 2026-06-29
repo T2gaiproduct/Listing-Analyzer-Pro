@@ -403,8 +403,8 @@ export default function AuditWorkflow() {
     return resume ? parseInt(resume, 10) : null;
   });
 
-  /* ── Guard: only restore state from DB once (prevents refetch clobbering edits) ── */
-  const hasRestoredRef = useRef(false);
+  /* ── Guard: only restore from the newest data (stale → fresh still restores) ── */
+  const lastRestoredAtRef = useRef<string | null>(null);
 
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
@@ -442,8 +442,10 @@ export default function AuditWorkflow() {
 
   /* ── Restore full state when audit data loads (resume from sidebar) ── */
   useEffect(() => {
-    if (!auditData || hasRestoredRef.current) return;
-    hasRestoredRef.current = true;
+    if (!auditData || !currentAuditId) return;
+    const updatedAt = (auditData as any).updatedAt as string | undefined;
+    if (updatedAt && lastRestoredAtRef.current === updatedAt) return; // already restored this version
+    if (updatedAt) lastRestoredAtRef.current = updatedAt;
     setProjectName((auditData.projectName as string) || auditData.productName || "");
     setBrandName((auditData.brandName as string) || "");
     setProductName(auditData.productName || "");
@@ -452,10 +454,16 @@ export default function AuditWorkflow() {
     if (auditData.generatedContent) {
       setGeneratedContent(auditData.generatedContent as any);
     }
-    // Restore graphics selections + generated images from saved imageRecords
-    if (auditData.imageRecords && (auditData.imageRecords as any[]).length > 0) {
+    // Restore graphics selections from saved payload or imageRecords
+    if ((auditData as any).selectedImageTypes && Array.isArray((auditData as any).selectedImageTypes)) {
+      setSelectedImageTypes((auditData as any).selectedImageTypes as string[]);
+    } else if (auditData.imageRecords && (auditData.imageRecords as any[]).length > 0) {
       const records = auditData.imageRecords as any[];
       setSelectedImageTypes(records.map((r) => r.type || "lifestyle"));
+    }
+    // Restore generated images from imageRecords
+    if (auditData.imageRecords && (auditData.imageRecords as any[]).length > 0) {
+      const records = auditData.imageRecords as any[];
       setGeneratedImages(records.filter((r) => r.currentUrl).map((r) => ({
         url: r.currentUrl, type: r.type || "lifestyle", index: r.index ?? 0,
       })));
@@ -463,7 +471,7 @@ export default function AuditWorkflow() {
     setIsDirty(false);
     const step = (auditData.currentStep || 1) as StepId;
     if (step >= 1 && step <= 5) setActiveStep(step);
-  }, [auditData]);
+  }, [auditData, currentAuditId]);
 
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
@@ -518,6 +526,24 @@ export default function AuditWorkflow() {
         if (project.status === "completed") {
           setIsCreating(false);
           toast({ title: "Graphics ready!", description: `${total} images generated successfully.` });
+          // Persist completed graphics directly from poll data (avoids stale state)
+          if (currentAuditId && project.imageRecords) {
+            const imageRecords = project.imageRecords
+              .filter((r) => r.currentUrl)
+              .map((r) => ({
+                id: `${r.type ?? "lifestyle"}_${r.index ?? 0}`,
+                type: (r.type === "feature" ? "infographic" : "lifestyle") as "main" | "infographic" | "lifestyle",
+                index: r.index ?? 0,
+                style: "modern",
+                aspectRatio: "1:1",
+                currentUrl: r.currentUrl!,
+                versions: [],
+              }));
+            patchAudit.mutate(
+              { id: currentAuditId, data: { currentStep: activeStep, imageRecords } },
+              { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) }) }
+            );
+          }
         }
         if (project.status === "failed") {
           setIsCreating(false);
@@ -757,17 +783,31 @@ export default function AuditWorkflow() {
     if (category) payload.category = category;
     if (uploadedImages.length) payload.imageUrls = uploadedImages;
     if (generatedContent) payload.generatedContent = generatedContent;
-    // Save generated images as imageRecords (round-trips through audit)
-    if (generatedImages.length) {
-      payload.imageRecords = generatedImages.map((img, i) => ({
-        id: `${img.type}_${i}`, type: img.type, index: img.index ?? i,
-        style: "modern", aspectRatio: "1:1", currentUrl: img.url,
-        versions: [],
-      }));
+    if (selectedImageTypes.length) payload.selectedImageTypes = selectedImageTypes;
+    // Persist generated images via imageRecords — only if there are real URLs
+    if (generatedImages.length > 0 && generatedImages.some((img) => img.url)) {
+      payload.imageRecords = generatedImages
+        .filter((img) => img.url)
+        .map((img, i) => ({
+          id: `${img.type}_${img.index ?? i}`,
+          type: img.type === "infographic" ? "infographic" : "lifestyle",
+          index: img.index ?? i,
+          style: "modern",
+          aspectRatio: "1:1",
+          currentUrl: img.url,
+          versions: [],
+        }));
     }
-    patchAudit.mutate({ id: currentAuditId, data: payload });
+    patchAudit.mutate(
+      { id: currentAuditId, data: payload },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+        },
+      }
+    );
     setIsDirty(false);
-  }, [currentAuditId, projectName, brandName, productName, category, uploadedImages, generatedContent, generatedImages, patchAudit]);
+  }, [currentAuditId, projectName, brandName, productName, category, uploadedImages, generatedContent, generatedImages, selectedImageTypes, patchAudit, queryClient]);
 
   /* ── Explicit save (same step, no navigation) ── */
   const handleSave = useCallback(() => {

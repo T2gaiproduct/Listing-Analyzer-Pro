@@ -36,6 +36,7 @@ export * from "./imageRecordType";
 export * from "./imageVersion";
 export * from "./patchAuditBody";
 export * from "./patchAuditBodyGeneratedContent";
+export * from "./patchAuditBodyGeneratedImages";
 export * from "./projectActionResponse";
 export * from "./projectTypeParam";
 export * from "./recentItem";

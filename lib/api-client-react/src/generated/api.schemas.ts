@@ -274,6 +274,8 @@ export interface CreateAuditBody {
 
 export type PatchAuditBodyGeneratedContent = { [key: string]: unknown };
 
+export type PatchAuditBodyGeneratedImages = { [key: string]: unknown };
+
 export interface PatchAuditBody {
   projectName?: string;
   productName?: string;
@@ -281,6 +283,8 @@ export interface PatchAuditBody {
   category?: string;
   imageUrls?: string[];
   generatedContent?: PatchAuditBodyGeneratedContent;
+  generatedImages?: PatchAuditBodyGeneratedImages;
+  imageRecords?: ImageRecord[];
   currentStep?: number;
 }
 

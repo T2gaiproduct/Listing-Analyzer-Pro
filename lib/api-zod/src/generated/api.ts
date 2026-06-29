@@ -235,6 +235,29 @@ export const PatchAuditBody = zod.object({
   category: zod.string().optional(),
   imageUrls: zod.array(zod.string()).optional(),
   generatedContent: zod.object({}).passthrough().optional(),
+  generatedImages: zod.object({}).passthrough().optional(),
+  imageRecords: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        type: zod.enum(["main", "infographic", "lifestyle"]),
+        index: zod.number(),
+        style: zod.string(),
+        aspectRatio: zod.string(),
+        currentUrl: zod.string(),
+        versions: zod.array(
+          zod.object({
+            url: zod.string(),
+            style: zod.string(),
+            aspectRatio: zod.string(),
+            prompt: zod.string().optional(),
+            isEdit: zod.boolean(),
+            generatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
   currentStep: zod.number().optional(),
 });
 
