@@ -552,7 +552,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ? (ribbonAudit?.productName ?? "")
     : isListingPage
     ? (ribbonAudit?.projectName ?? ribbonAudit?.productName ?? "")
-    : (recents.find((r) => r.id === projectCtx?.id)?.name ?? "");
+    : (recents.find((r) => r.id === projectCtx?.id && r.type === projectCtx?.type)?.name ?? "");
 
   function handleShare() {
     const url = window.location.href;

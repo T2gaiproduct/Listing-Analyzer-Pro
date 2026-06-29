@@ -242,54 +242,40 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="text-slate-500 cursor-pointer" onClick={() => nav(returnTo)}>
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
+      {/* ── Action bar ── */}
+      <div className="flex items-center justify-end gap-2 mb-6">
+        {project?.status === "completed" && hasRecords && (
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer" onClick={handleDownloadAll}>
+            <Download className="w-4 h-4 mr-2" />
+            Download All
           </Button>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{project?.name ?? "Project"}</h1>
-            <p className="text-sm text-slate-500">
-              {isGenerating ? "Generating images..." : project?.status === "completed" ? "Your graphics are ready!" : ""}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {project?.status === "completed" && hasRecords && (
-            <Button className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer" onClick={handleDownloadAll}>
-              <Download className="w-4 h-4 mr-2" />
-              Download All
-            </Button>
-          )}
-          {canEdit && !isGenerating && (
-            <Button
-              onClick={() => {
-                if (hasRecords) {
-                  setShowGenerateMore(true);
-                  setMoreStep("select");
-                  setMoreImageTypes([]);
-                  setMoreCustomPrompt("");
-                } else {
-                  generateMutation.mutate(undefined);
-                }
-              }}
-              disabled={generateMutation.isPending || isGenerating}
-              className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
-            >
-              {generateMutation.isPending || isGenerating ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-              {hasRecords ? "Generate More Images" : "Generate All"}
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => setShowDelete(true)} className="text-slate-500 cursor-pointer">
-            <Trash2 className="w-4 h-4" />
+        )}
+        {canEdit && !isGenerating && (
+          <Button
+            onClick={() => {
+              if (hasRecords) {
+                setShowGenerateMore(true);
+                setMoreStep("select");
+                setMoreImageTypes([]);
+                setMoreCustomPrompt("");
+              } else {
+                generateMutation.mutate(undefined);
+              }
+            }}
+            disabled={generateMutation.isPending || isGenerating}
+            className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+          >
+            {generateMutation.isPending || isGenerating ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            {hasRecords ? "Generate More Images" : "Generate All"}
           </Button>
-        </div>
+        )}
+        <Button variant="outline" onClick={() => setShowDelete(true)} className="text-slate-500 cursor-pointer">
+          <Trash2 className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* Loading state */}
