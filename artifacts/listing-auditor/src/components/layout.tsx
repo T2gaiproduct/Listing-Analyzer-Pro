@@ -538,12 +538,20 @@ export function Layout({ children }: { children: ReactNode }) {
   /* ── Ribbon action handlers ── */
   const projectCtx = parseProjectContext(location);
 
-  // For audit pages, fetch the audit to get productName for ribbon
+  // For audit/listing pages, fetch the audit to get product/project name for ribbon
   const isAuditPage = projectCtx?.type === "audit";
+  const isListingPage = projectCtx?.type === "listing";
+  const ribbonAuditId = (isAuditPage || isListingPage) ? projectCtx!.id : 0;
   const { data: ribbonAudit } = useGetAudit(
-    isAuditPage ? projectCtx!.id : 0,
-    { query: { enabled: isAuditPage, queryKey: getGetAuditQueryKey(isAuditPage ? projectCtx!.id : 0) } }
+    ribbonAuditId,
+    { query: { enabled: isAuditPage || isListingPage, queryKey: getGetAuditQueryKey(ribbonAuditId) } }
   );
+
+  const ribbonTitle = isAuditPage
+    ? (ribbonAudit?.productName ?? "")
+    : isListingPage
+    ? ((ribbonAudit as { projectName?: string } | undefined)?.projectName ?? ribbonAudit?.productName ?? "")
+    : (recents.find((r) => r.id === projectCtx?.id)?.name ?? "");
 
   function handleShare() {
     const url = window.location.href;
@@ -1021,29 +1029,27 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Top ribbon ── */}
         {isRibbonVisible(location) && (
-          <div className="flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
+          <div className="relative flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
             {/* Back button */}
             <button
               onClick={() => window.history.back()}
-              className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-1.5 transition-colors"
+              className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-1.5 transition-colors z-10"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </button>
 
-            {/* Project/product name in ribbon */}
-            {projectCtx && (
-              <div className="ml-6 flex items-center">
-                <span className="text-lg font-bold text-slate-900">
-                  {isAuditPage
-                    ? (ribbonAudit?.productName ?? "")
-                    : (recents.find((r) => r.id === projectCtx.id)?.name ?? "")}
+            {/* Project/product name — centered absolutely */}
+            {projectCtx && ribbonTitle && (
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
+                <span className="text-lg font-bold text-slate-900 truncate max-w-md">
+                  {ribbonTitle}
                 </span>
               </div>
             )}
 
             {/* Share + three-dots — always visible */}
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1 ml-auto z-10">
               <button
                 onClick={handleShare}
                 title="Share"
