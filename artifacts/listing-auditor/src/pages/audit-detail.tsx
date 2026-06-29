@@ -371,44 +371,6 @@ export default function AuditDetail({ id }: { id: number }) {
           </div>
         </div>
       )}
-      {/* Header */}
-      <div className="flex items-start justify-between border-b pb-6">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="sm" asChild className="-ml-2 mt-1 text-slate-500">
-            <Link href={returnTo}><ArrowLeft className="w-4 h-4 mr-1" /> Back</Link>
-          </Button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h1 className="text-2xl font-bold tracking-tight truncate max-w-xl">{audit.productName}</h1>
-              {audit.asin && <Badge variant="outline" className="font-mono text-xs shrink-0">{audit.asin}</Badge>}
-              {audit.category && <Badge variant="secondary" className="text-xs max-w-xs truncate shrink-0">{(audit.category.split("›").pop() ?? audit.category.split(">").pop() ?? audit.category).trim()}</Badge>}
-            </div>
-            <p className="text-muted-foreground text-sm">Audited {format(new Date(audit.createdAt), 'MMMM d, yyyy')}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {canEdit && (
-            <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete audit?</AlertDialogTitle>
-                <AlertDialogDescription>This will permanently delete this audit and all competitor data.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAudit} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
-      </div>
-
       {/* Tabs */}
       <Tabs defaultValue="audit">
         <div className="flex items-center gap-3 mb-6">
