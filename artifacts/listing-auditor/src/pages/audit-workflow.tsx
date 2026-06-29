@@ -487,6 +487,7 @@ export default function AuditWorkflow() {
   const [graphicsStatus, setGraphicsStatus] = useState<string>("idle");
   const [generatedImages, setGeneratedImages] = useState<Array<{ url: string; type: string; index: number }>>([]);
   const [graphicsProgress, setGraphicsProgress] = useState({ generated: 0, total: 0 });
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   /* ── Poll graphics project status ── */
   useEffect(() => {
@@ -1287,10 +1288,10 @@ export default function AuditWorkflow() {
               <Button
                 size="lg"
                 className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2 shadow-lg shadow-orange-500/20"
-                disabled={isCreating || selectedImageTypes.length === 0}
+                disabled={isCreating || selectedImageTypes.length === 0 || graphicsStatus === "generating"}
                 onClick={handleCreate}
               >
-                {isCreating ? (
+                {isCreating || graphicsStatus === "generating" ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Generating…
@@ -1302,6 +1303,67 @@ export default function AuditWorkflow() {
                   </>
                 )}
               </Button>
+
+              {/* Inline progress */}
+              {graphicsStatus === "generating" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600 font-medium">
+                      Generating {graphicsProgress.total} image{graphicsProgress.total > 1 ? "s" : ""}…
+                    </span>
+                    <span className="text-orange-600 font-semibold">
+                      {graphicsProgress.generated} / {graphicsProgress.total}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500"
+                      style={{ width: `${graphicsProgress.total > 0 ? (graphicsProgress.generated / graphicsProgress.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Generated images grid */}
+              {generatedImages.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Generated Images ({generatedImages.length})
+                    </h3>
+                    {graphicsStatus === "completed" && (
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Complete
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {generatedImages.map((img, i) => (
+                      <button
+                        key={`${img.url}-${i}`}
+                        className="relative aspect-square rounded-xl border border-slate-200 overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group"
+                        onClick={() => setLightboxImage(img.url)}
+                      >
+                        <img
+                          src={img.url}
+                          alt={`Generated ${img.type} ${img.index + 1}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/50 text-white text-[10px] font-medium uppercase tracking-wider">
+                          {img.type}
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                            <Eye className="w-4 h-4 text-slate-700" />
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1417,6 +1479,30 @@ export default function AuditWorkflow() {
           )}
         </div>
       </div>
+
+      {/* Lightbox modal */}
+      {lightboxImage && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            <img
+              src={lightboxImage}
+              alt="Full size"
+              className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center shadow-lg hover:bg-slate-100 transition-colors"
+              onClick={() => setLightboxImage(null)}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
