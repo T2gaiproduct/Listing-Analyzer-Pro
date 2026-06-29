@@ -502,7 +502,7 @@ export default function AuditWorkflow() {
           generatedCount: number;
           lifestyleCount: number;
           featureCount: number;
-          imageRecords?: Array<{ urlPath?: string; type?: string; index?: number }>;
+          imageRecords?: Array<{ currentUrl?: string; type?: string; index?: number }>;
           errorMessage?: string | null;
         };
         setGraphicsStatus(project.status);
@@ -511,8 +511,8 @@ export default function AuditWorkflow() {
         if (project.imageRecords) {
           setGeneratedImages(
             project.imageRecords
-              .filter((r) => r.urlPath)
-              .map((r) => ({ url: r.urlPath!, type: r.type ?? "lifestyle", index: r.index ?? 0 }))
+              .filter((r) => r.currentUrl)
+              .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }))
           );
         }
         if (project.status === "completed") {
