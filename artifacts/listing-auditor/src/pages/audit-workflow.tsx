@@ -482,6 +482,54 @@ export default function AuditWorkflow() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  /* ── Graphics generation state (inline in workflow) ── */
+  const [graphicsProjectId, setGraphicsProjectId] = useState<number | null>(null);
+  const [graphicsStatus, setGraphicsStatus] = useState<string>("idle");
+  const [generatedImages, setGeneratedImages] = useState<Array<{ url: string; type: string; index: number }>>([]);
+  const [graphicsProgress, setGraphicsProgress] = useState({ generated: 0, total: 0 });
+
+  /* ── Poll graphics project status ── */
+  useEffect(() => {
+    if (!graphicsProjectId || graphicsStatus === "completed" || graphicsStatus === "failed") return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`${basePath}/api/graphics/projects/${graphicsProjectId}`, { credentials: "include" });
+        if (!res.ok) return;
+        const project = await res.json() as {
+          status: string;
+          generatedCount: number;
+          lifestyleCount: number;
+          featureCount: number;
+          imageRecords?: Array<{ urlPath?: string; type?: string; index?: number }>;
+          errorMessage?: string | null;
+        };
+        setGraphicsStatus(project.status);
+        const total = (project.lifestyleCount ?? 0) + (project.featureCount ?? 0);
+        setGraphicsProgress({ generated: project.generatedCount ?? 0, total });
+        if (project.imageRecords) {
+          setGeneratedImages(
+            project.imageRecords
+              .filter((r) => r.urlPath)
+              .map((r) => ({ url: r.urlPath!, type: r.type ?? "lifestyle", index: r.index ?? 0 }))
+          );
+        }
+        if (project.status === "completed") {
+          setIsCreating(false);
+          toast({ title: "Graphics ready!", description: `${total} images generated successfully.` });
+        }
+        if (project.status === "failed") {
+          setIsCreating(false);
+          toast({ title: "Generation failed", description: project.errorMessage || "Something went wrong", variant: "destructive" });
+        }
+      } catch { /* ignore poll errors */ }
+    };
+
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => clearInterval(interval);
+  }, [graphicsProjectId, graphicsStatus, toast]);
+
   /* ── Graphics project mutation ── */
   const createProject = useMutation({
     mutationFn: async (body: object) => {
@@ -497,15 +545,18 @@ export default function AuditWorkflow() {
       }
       return res.json();
     },
-    onSuccess: (project: { id: number }) => {
+    onSuccess: (project: { id: number; lifestyleCount?: number; featureCount?: number }) => {
       void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ imageTypes: selectedImageTypes, customPrompt: customPrompt.trim() || undefined }),
       });
-      setIsCreating(false);
-      nav(`/projects/${project.id}/generating`);
+      setGraphicsProjectId(project.id);
+      setGraphicsStatus("generating");
+      setGeneratedImages([]);
+      setGraphicsProgress({ generated: 0, total: selectedImageTypes.length });
+      /* Stay in workflow — no nav() away */
     },
     onError: (err) => {
       setIsCreating(false);
