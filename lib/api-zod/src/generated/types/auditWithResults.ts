@@ -14,9 +14,13 @@ import type { ImageRecord } from "./imageRecord";
 
 export interface AuditWithResults {
   id: number;
+  /** @nullable */
+  projectName?: string | null;
   productName: string;
   /** @nullable */
   asin?: string | null;
+  /** @nullable */
+  brandName?: string | null;
   /** @nullable */
   category?: string | null;
   title: string;
@@ -30,6 +34,7 @@ export interface AuditWithResults {
   generatedContent?: GeneratedContent;
   generatedImages?: GeneratedImages;
   imageRecords?: ImageRecord[];
+  currentStep?: number;
   createdAt: Date;
   updatedAt: Date;
 }

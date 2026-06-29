@@ -34,6 +34,8 @@ export * from "./healthStatus";
 export * from "./imageRecord";
 export * from "./imageRecordType";
 export * from "./imageVersion";
+export * from "./patchAuditBody";
+export * from "./patchAuditBodyGeneratedContent";
 export * from "./projectActionResponse";
 export * from "./projectTypeParam";
 export * from "./recentItem";

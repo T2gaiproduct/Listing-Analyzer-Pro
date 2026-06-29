@@ -9,6 +9,7 @@ import type { AuditStatus } from "./auditStatus";
 
 export interface Audit {
   id: number;
+  projectName?: string;
   productName: string;
   /** @nullable */
   asin?: string | null;

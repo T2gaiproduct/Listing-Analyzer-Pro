@@ -7,6 +7,7 @@
  */
 
 export interface CreateAuditBody {
+  projectName?: string;
   productName: string;
   asin?: string;
   brandName?: string;

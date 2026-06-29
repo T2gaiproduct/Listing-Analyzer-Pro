@@ -35,6 +35,7 @@ import type {
   GetRecentsParams,
   HealthStatus,
   ImageRecord,
+  PatchAuditBody,
   ProjectActionResponse,
   ProjectTypeParam,
   RecentsResponse,
@@ -705,6 +706,93 @@ export const useDeleteAudit = <
   TContext
 > => {
   return useMutation(getDeleteAuditMutationOptions(options));
+};
+
+/**
+ * @summary Update audit progress
+ */
+export const getPatchAuditUrl = (id: number) => {
+  return `/api/audits/${id}`;
+};
+
+export const patchAudit = async (
+  id: number,
+  patchAuditBody: PatchAuditBody,
+  options?: RequestInit,
+): Promise<Audit> => {
+  return customFetch<Audit>(getPatchAuditUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchAuditBody),
+  });
+};
+
+export const getPatchAuditMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchAudit>>,
+    TError,
+    { id: number; data: BodyType<PatchAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchAudit>>,
+  TError,
+  { id: number; data: BodyType<PatchAuditBody> },
+  TContext
+> => {
+  const mutationKey = ["patchAudit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchAudit>>,
+    { id: number; data: BodyType<PatchAuditBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return patchAudit(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchAuditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchAudit>>
+>;
+export type PatchAuditMutationBody = BodyType<PatchAuditBody>;
+export type PatchAuditMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Update audit progress
+ */
+export const usePatchAudit = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchAudit>>,
+    TError,
+    { id: number; data: BodyType<PatchAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchAudit>>,
+  TError,
+  { id: number; data: BodyType<PatchAuditBody> },
+  TContext
+> => {
+  return useMutation(getPatchAuditMutationOptions(options));
 };
 
 /**

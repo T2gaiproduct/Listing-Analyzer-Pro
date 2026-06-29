@@ -35,7 +35,7 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
 
   const [audits, graphics, videos, ads, pins] = await Promise.all([
     db
-      .select({ id: auditsTable.id, name: auditsTable.productName, createdAt: auditsTable.createdAt })
+      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, createdAt: auditsTable.createdAt })
       .from(auditsTable)
       .where(and(eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`))
       .orderBy(desc(auditsTable.createdAt))
@@ -67,7 +67,7 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
   const pinnedSet = new Set(pins.map((p) => `${p.itemType}-${p.itemId}`));
 
   const items = [
-    ...audits.map((a) => ({ type: "audit" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: pinnedSet.has(`audit-${a.id}`) })),
+    ...audits.map((a) => ({ type: "listing" as const, id: a.id, name: a.name || a.productName || "Untitled Project", createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: pinnedSet.has(`audit-${a.id}`) })),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: pinnedSet.has(`graphics-${g.id}`) })),
     ...videos.map((v) => ({ type: "video" as const, id: v.id, name: v.name, createdAt: v.createdAt, url: `/videos/${v.id}`, pinned: pinnedSet.has(`video-${v.id}`) })),
     ...ads.map((a) => ({ type: "ads" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/ads/${a.id}`, pinned: pinnedSet.has(`ads-${a.id}`) })),
@@ -96,7 +96,7 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
 
   const [audits, graphics, videos, ads] = await Promise.all([
     db
-      .select({ id: auditsTable.id, name: auditsTable.productName, createdAt: auditsTable.createdAt })
+      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, createdAt: auditsTable.createdAt })
       .from(auditsTable)
       .where(and(eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0), ilike(auditsTable.productName, `%${q}%`)))
       .orderBy(desc(auditsTable.createdAt))
@@ -122,7 +122,7 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
   ]);
 
   const items = [
-    ...audits.map((a) => ({ type: "audit" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: false })),
+    ...audits.map((a) => ({ type: "listing" as const, id: a.id, name: a.name || a.productName || "Untitled Project", createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: false })),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: false })),
     ...videos.map((v) => ({ type: "video" as const, id: v.id, name: v.name, createdAt: v.createdAt, url: `/videos/${v.id}`, pinned: false })),
     ...ads.map((a) => ({ type: "ads" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/ads/${a.id}`, pinned: false })),
@@ -142,15 +142,16 @@ router.post("/projects/pin", requireAuth, async (req: Request, res: Response) =>
   const userId = (req as AuthedRequest).userId;
   const { type, id } = req.body as { type: string; id: number };
   if (!type || !id) { res.status(400).json({ error: "type and id required" }); return; }
+  const dbType = type === "listing" ? "audit" : type;
 
   const existing = await db
     .select()
     .from(pinnedProjectsTable)
-    .where(and(eq(pinnedProjectsTable.userId, userId), eq(pinnedProjectsTable.itemType, type), eq(pinnedProjectsTable.itemId, id)));
+    .where(and(eq(pinnedProjectsTable.userId, userId), eq(pinnedProjectsTable.itemType, dbType), eq(pinnedProjectsTable.itemId, id)));
 
   const isPinned = existing.length === 0;
   if (isPinned) {
-    await db.insert(pinnedProjectsTable).values({ userId, itemType: type, itemId: id });
+    await db.insert(pinnedProjectsTable).values({ userId, itemType: dbType, itemId: id });
     await createNotification({
       userId,
       type: "project_pinned",
@@ -161,7 +162,7 @@ router.post("/projects/pin", requireAuth, async (req: Request, res: Response) =>
   } else {
     await db.delete(pinnedProjectsTable).where(and(
       eq(pinnedProjectsTable.userId, userId),
-      eq(pinnedProjectsTable.itemType, type),
+      eq(pinnedProjectsTable.itemType, dbType),
       eq(pinnedProjectsTable.itemId, id),
     ));
     await createNotification({
@@ -179,13 +180,14 @@ router.patch("/projects/:type/:id/rename", requireAuth, async (req: Request, res
   const userId = (req as AuthedRequest).userId;
   const { type, id } = req.params;
   const itemId = Number(id);
+  const dbType = type === "listing" ? "audit" : type;
   const { name } = req.body as { name: string };
   if (!name?.trim()) { res.status(400).json({ error: "name required" }); return; }
 
   const trimmed = name.trim();
-  switch (type) {
+  switch (dbType) {
     case "audit":
-      await db.update(auditsTable).set({ productName: trimmed, updatedAt: new Date() }).where(and(eq(auditsTable.id, itemId), eq(auditsTable.userId, userId)));
+      await db.update(auditsTable).set({ projectName: trimmed, updatedAt: new Date() }).where(and(eq(auditsTable.id, itemId), eq(auditsTable.userId, userId)));
       break;
     case "graphics":
       await db.update(graphicsProjectsTable).set({ name: trimmed, updatedAt: new Date() }).where(and(eq(graphicsProjectsTable.id, itemId), eq(graphicsProjectsTable.userId, userId)));
@@ -213,8 +215,9 @@ router.patch("/projects/:type/:id/archive", requireAuth, async (req: Request, re
   const userId = (req as AuthedRequest).userId;
   const { type, id } = req.params;
   const itemId = Number(id);
+  const dbType = type === "listing" ? "audit" : type;
 
-  switch (type) {
+  switch (dbType) {
     case "audit":
       await db.update(auditsTable).set({ status: "archived", updatedAt: new Date() }).where(and(eq(auditsTable.id, itemId), eq(auditsTable.userId, userId)));
       break;
@@ -233,7 +236,7 @@ router.patch("/projects/:type/:id/archive", requireAuth, async (req: Request, re
 
   await db.delete(pinnedProjectsTable).where(and(
     eq(pinnedProjectsTable.userId, userId),
-    eq(pinnedProjectsTable.itemType, type),
+    eq(pinnedProjectsTable.itemType, dbType),
     eq(pinnedProjectsTable.itemId, itemId),
   ));
 
@@ -252,9 +255,10 @@ router.delete("/projects/:type/:id", requireAuth, async (req: Request, res: Resp
   const userId = (req as AuthedRequest).userId;
   const { type, id } = req.params;
   const itemId = Number(id);
+  const dbType = type === "listing" ? "audit" : type;
   const now = new Date();
 
-  switch (type) {
+  switch (dbType) {
     case "audit":
       await db.update(auditsTable).set({ isDeleted: 1, deletedAt: now, updatedAt: now }).where(and(eq(auditsTable.id, itemId), eq(auditsTable.userId, userId)));
       break;
@@ -273,7 +277,7 @@ router.delete("/projects/:type/:id", requireAuth, async (req: Request, res: Resp
 
   await db.delete(pinnedProjectsTable).where(and(
     eq(pinnedProjectsTable.userId, userId),
-    eq(pinnedProjectsTable.itemType, type),
+    eq(pinnedProjectsTable.itemType, dbType),
     eq(pinnedProjectsTable.itemId, itemId),
   ));
 

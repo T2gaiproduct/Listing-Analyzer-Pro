@@ -196,6 +196,7 @@ export const AuditStatus = {
 
 export interface Audit {
   id: number;
+  projectName?: string;
   productName: string;
   /** @nullable */
   asin?: string | null;
@@ -234,9 +235,13 @@ export interface Competitor {
 
 export interface AuditWithResults {
   id: number;
+  /** @nullable */
+  projectName?: string | null;
   productName: string;
   /** @nullable */
   asin?: string | null;
+  /** @nullable */
+  brandName?: string | null;
   /** @nullable */
   category?: string | null;
   title: string;
@@ -250,11 +255,13 @@ export interface AuditWithResults {
   generatedContent?: GeneratedContent;
   generatedImages?: GeneratedImages;
   imageRecords?: ImageRecord[];
+  currentStep?: number;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateAuditBody {
+  projectName?: string;
   productName: string;
   asin?: string;
   brandName?: string;
@@ -263,6 +270,18 @@ export interface CreateAuditBody {
   bulletPoints: string[];
   imageUrls: string[];
   targetKeywords: string[];
+}
+
+export type PatchAuditBodyGeneratedContent = { [key: string]: unknown };
+
+export interface PatchAuditBody {
+  projectName?: string;
+  productName?: string;
+  brandName?: string;
+  category?: string;
+  imageUrls?: string[];
+  generatedContent?: PatchAuditBodyGeneratedContent;
+  currentStep?: number;
 }
 
 export interface AddCompetitorBody {
@@ -343,6 +362,7 @@ export type TogglePinBodyType =
 
 export const TogglePinBodyType = {
   audit: "audit",
+  listing: "listing",
   graphics: "graphics",
   video: "video",
   ads: "ads",

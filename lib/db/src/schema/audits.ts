@@ -66,6 +66,7 @@ export type ImageRecords = z.infer<typeof imageRecordsSchema>;
 export const auditsTable = pgTable("audits", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().default(""),
+  projectName: text("project_name"),
   productName: text("product_name").notNull(),
   asin: text("asin"),
   brandName: text("brand_name"),
@@ -80,6 +81,7 @@ export const auditsTable = pgTable("audits", {
   generatedContent: jsonb("generated_content").$type<GeneratedContent>(),
   generatedImages: jsonb("generated_images").$type<GeneratedImages>(),
   imageRecords: jsonb("image_records").$type<ImageRecords>(),
+  currentStep: integer("current_step").default(1),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

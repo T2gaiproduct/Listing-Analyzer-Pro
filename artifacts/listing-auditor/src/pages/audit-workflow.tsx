@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useCreateAudit,
+  usePatchAudit,
   useGenerateContent,
   useGenerateContentDirect,
   useGetAudit,
@@ -400,16 +401,11 @@ export default function AuditWorkflow() {
     const resume = params.get("resume");
     return resume ? parseInt(resume, 10) : null;
   });
-  useEffect(() => {
-    if (resumeAuditId && !isNaN(resumeAuditId)) {
-      setCurrentAuditId(resumeAuditId);
-      setActiveStep(2);
-    }
-  }, [resumeAuditId]);
 
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
   const cameraRef  = useRef<HTMLInputElement>(null);
+  const [projectName, setProjectName]   = useState("");
   const [brandName, setBrandName]       = useState("");
   const [productName, setProductName]   = useState("");
   const [category, setCategory]         = useState("");
@@ -434,11 +430,36 @@ export default function AuditWorkflow() {
     summary: string;
   }>(null);
   const createAudit  = useCreateAudit();
+  const patchAudit   = usePatchAudit();
   const generateContent = useGenerateContent();
   const generateContentDirect = useGenerateContentDirect();
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
-    query: { enabled: currentAuditId !== null && !auditResult, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
+    query: { enabled: currentAuditId !== null, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
   });
+
+  useEffect(() => {
+    if (resumeAuditId && !isNaN(resumeAuditId)) {
+      setCurrentAuditId(resumeAuditId);
+    }
+  }, [resumeAuditId]);
+
+  /* ── Restore full state when audit data loads (resume from sidebar) ── */
+  useEffect(() => {
+    if (!auditData) return;
+    setProjectName((auditData.projectName as string) || auditData.productName || "");
+    setBrandName((auditData.brandName as string) || "");
+    setProductName(auditData.productName || "");
+    setCategory((auditData.category as string) || "");
+    setUploadedImages((auditData.imageUrls as string[]) || []);
+    if (auditData.generatedContent) {
+      setGeneratedContent(auditData.generatedContent as any);
+    }
+    if (auditData.result && auditData.result.overallScore !== undefined) {
+      setAuditResult(auditData.result as any);
+    }
+    const step = (auditData.currentStep || 1) as StepId;
+    if (step >= 1 && step <= 5) setActiveStep(step);
+  }, [auditData]);
 
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
@@ -603,11 +624,65 @@ export default function AuditWorkflow() {
     setIsCreating(true);
 
     if (activeStep === 1) {
-      // Upload: just advance to next step after a brief load
-      setTimeout(() => {
+      // Step 1: Create audit immediately with all available info
+      if (!productName.trim()) {
         setIsCreating(false);
-        setActiveStep(2);
-      }, 2500);
+        toast({ title: "Product name required", description: "Please enter a product name.", variant: "destructive" });
+        return;
+      }
+      if (!category) {
+        setIsCreating(false);
+        toast({ title: "Category required", description: "Please select a category.", variant: "destructive" });
+        return;
+      }
+      const syntheticTitle = brandName.trim()
+        ? `${brandName.trim()} ${productName.trim()} — ${category}`
+        : `${productName.trim()} — ${category}`;
+      const syntheticBullets = [
+        `High-quality ${productName.trim().toLowerCase()} designed for everyday use`,
+        `Perfect for ${category.toLowerCase()} enthusiasts and professionals`,
+        `Durable, reliable, and built to last`,
+        `Easy to use and maintain — great value for money`,
+        `Premium quality backed by customer satisfaction`,
+      ];
+      const syntheticKeywords = productName.trim().split(/\s+/).filter((w) => w.length > 2);
+      if (category) {
+        syntheticKeywords.push(...category.split(/\s+/).filter((w) => w.length > 2));
+      }
+      const filler = [
+        "premium", "best seller", "top rated", "quality", "durable", "reliable", "easy", "value",
+        "professional", "home", "gift", "essential", "popular", "recommended", "trusted",
+      ];
+      while (syntheticKeywords.length < 10 && filler.length > 0) {
+        syntheticKeywords.push(filler.shift()!);
+      }
+      createAudit.mutate(
+        {
+          data: {
+            projectName: projectName.trim() || productName.trim(),
+            productName: productName.trim(),
+            brandName: brandName.trim() || undefined,
+            category: category || undefined,
+            title: syntheticTitle,
+            bulletPoints: syntheticBullets,
+            targetKeywords: syntheticKeywords.slice(0, 10),
+            imageUrls: uploadedImages,
+          },
+        },
+        {
+          onSuccess: (audit) => {
+            setIsCreating(false);
+            setCurrentAuditId(audit.id);
+            toast({ title: "Project created!", description: `Saved as "${audit.projectName || audit.productName}"` });
+            setActiveStep(2);
+            queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+          },
+          onError: (err) => {
+            setIsCreating(false);
+            toast({ title: "Failed to create project", description: err instanceof Error ? err.message : "Please try again", variant: "destructive" });
+          },
+        }
+      );
 
     } else if (activeStep === 2) {
       // Listing: generate content directly (no audit)
@@ -675,12 +750,13 @@ export default function AuditWorkflow() {
         return;
       }
       createProject.mutate({
-        name: `${productName || "Product"} Project`,
+        name: `${productName || "Product"}`,
         productName: productName || "Product",
         category,
         sourceImageUrls: uploadedImages,
         imageTypes: selectedImageTypes,
         customPrompt: customPrompt.trim() || undefined,
+        auditId: currentAuditId ?? undefined,
       });
 
     } else if (activeStep === 4 || activeStep === 5) {
@@ -692,15 +768,33 @@ export default function AuditWorkflow() {
     }
   }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAudit, createProject, queryClient, nav, toast]);
 
+  /* ── Auto-save helper ── */
+  const autoSave = useCallback((step: StepId) => {
+    if (!currentAuditId) return;
+    const payload: Record<string, unknown> = { currentStep: step };
+    if (brandName) payload.brandName = brandName;
+    if (productName) payload.productName = productName;
+    if (category) payload.category = category;
+    if (uploadedImages.length) payload.imageUrls = uploadedImages;
+    if (generatedContent) payload.generatedContent = generatedContent;
+    patchAudit.mutate({ id: currentAuditId, data: payload });
+  }, [currentAuditId, brandName, productName, category, uploadedImages, generatedContent, patchAudit]);
+
   /* ── Bottom bar ── */
   function handleBack() {
     if (activeStep === 1) nav("/audits/new");
-    else setActiveStep((s) => (s - 1) as StepId);
+    else {
+      autoSave((activeStep - 1) as StepId);
+      setActiveStep((s) => (s - 1) as StepId);
+    }
   }
 
   /* ── Next step ── */
   function handleNextStep() {
-    if (activeStep < 5) setActiveStep((s) => (s + 1) as StepId);
+    if (activeStep < 5) {
+      autoSave((activeStep + 1) as StepId);
+      setActiveStep((s) => (s + 1) as StepId);
+    }
   }
 
   const filteredCats = AMAZON_CATEGORIES.filter((c) =>
@@ -875,6 +969,15 @@ export default function AuditWorkflow() {
                     <p className="text-sm font-semibold text-slate-900">Product Details</p>
                     <p className="text-xs text-slate-400">Provide basic information about your product</p>
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Project Name</label>
+                  <Input
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="e.g. Summer Launch 2025"
+                    className="border-slate-200 rounded-xl h-11"
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">

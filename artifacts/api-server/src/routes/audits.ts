@@ -108,7 +108,7 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
     return;
   }
 
-  const { productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+  const { projectName, productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
 
   const cost = await getCreditCost("audit");
   const creditCtx = getCreditCtx(req);
@@ -122,6 +122,7 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
     .insert(auditsTable)
     .values({
       userId: ownerId,
+      projectName: projectName ?? productName,
       productName,
       asin: asin ?? null,
       brandName: brandName ?? null,
@@ -288,6 +289,46 @@ router.delete("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async
   }
 
   res.sendStatus(204);
+});
+
+router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db
+    .select()
+    .from(auditsTable)
+    .where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+
+  if (!existing) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const body = req.body as Partial<{
+    projectName: string;
+    brandName: string;
+    productName: string;
+    category: string;
+    imageUrls: string[];
+    generatedContent: object;
+    currentStep: number;
+  }>;
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (body.projectName !== undefined) updates.projectName = body.projectName;
+  if (body.brandName !== undefined) updates.brandName = body.brandName;
+  if (body.productName !== undefined) updates.productName = body.productName;
+  if (body.category !== undefined) updates.category = body.category;
+  if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;
+  if (body.generatedContent !== undefined) updates.generatedContent = body.generatedContent;
+  if (body.currentStep !== undefined) updates.currentStep = body.currentStep;
+
+  const [updated] = await db
+    .update(auditsTable)
+    .set(updates)
+    .where(eq(auditsTable.id, id))
+    .returning();
+
+  res.json(updated);
 });
 
 router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {

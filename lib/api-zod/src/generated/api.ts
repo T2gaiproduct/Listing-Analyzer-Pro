@@ -63,6 +63,7 @@ export const FetchListingResponse = zod.object({
  */
 export const ListAuditsResponseItem = zod.object({
   id: zod.number(),
+  projectName: zod.string().optional(),
   productName: zod.string(),
   asin: zod.string().nullish(),
   category: zod.string().nullish(),
@@ -77,6 +78,7 @@ export const ListAuditsResponse = zod.array(ListAuditsResponseItem);
  * @summary Create and run a new listing audit
  */
 export const CreateAuditBody = zod.object({
+  projectName: zod.string().optional(),
   productName: zod.string(),
   asin: zod.string().optional(),
   brandName: zod.string().optional(),
@@ -98,6 +100,7 @@ export const GetAuditStatsResponse = zod.object({
   recentAudits: zod.array(
     zod.object({
       id: zod.number(),
+      projectName: zod.string().optional(),
       productName: zod.string(),
       asin: zod.string().nullish(),
       category: zod.string().nullish(),
@@ -118,8 +121,10 @@ export const GetAuditParams = zod.object({
 
 export const GetAuditResponse = zod.object({
   id: zod.number(),
+  projectName: zod.string().nullish(),
   productName: zod.string(),
   asin: zod.string().nullish(),
+  brandName: zod.string().nullish(),
   category: zod.string().nullish(),
   title: zod.string(),
   bulletPoints: zod.array(zod.string()),
@@ -204,6 +209,7 @@ export const GetAuditResponse = zod.object({
       }),
     )
     .optional(),
+  currentStep: zod.number().optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -213,6 +219,35 @@ export const GetAuditResponse = zod.object({
  */
 export const DeleteAuditParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Update audit progress
+ */
+export const PatchAuditParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PatchAuditBody = zod.object({
+  projectName: zod.string().optional(),
+  productName: zod.string().optional(),
+  brandName: zod.string().optional(),
+  category: zod.string().optional(),
+  imageUrls: zod.array(zod.string()).optional(),
+  generatedContent: zod.object({}).passthrough().optional(),
+  currentStep: zod.number().optional(),
+});
+
+export const PatchAuditResponse = zod.object({
+  id: zod.number(),
+  projectName: zod.string().optional(),
+  productName: zod.string(),
+  asin: zod.string().nullish(),
+  category: zod.string().nullish(),
+  overallScore: zod.number(),
+  status: zod.enum(["pending", "complete", "failed"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 /**
@@ -490,7 +525,7 @@ export const SearchProjectsResponse = zod.object({
  * @summary Toggle pin state for a project
  */
 export const ToggleProjectPinBody = zod.object({
-  type: zod.enum(["audit", "graphics", "video", "ads"]),
+  type: zod.enum(["audit", "listing", "graphics", "video", "ads"]),
   id: zod.number(),
 });
 

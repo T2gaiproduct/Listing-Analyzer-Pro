@@ -154,6 +154,7 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 // --- Type icon mapping for recent projects ----------------------------------
 const typeIconMap: Record<string, typeof AuditIcon> = {
   audit: AuditIcon,
+  listing: AuditIcon,
   graphics: GraphicsIcon,
   video: VideoIcon,
   ads: AdsIcon,
@@ -161,6 +162,7 @@ const typeIconMap: Record<string, typeof AuditIcon> = {
 
 const typeLabelMap: Record<string, string> = {
   audit: "Audit",
+  listing: "Create Listing",
   graphics: "Graphics",
   video: "Video",
   ads: "Ads",
@@ -390,6 +392,8 @@ function isRibbonVisible(location: string): boolean {
 function parseProjectContext(location: string): { type: string; id: number } | null {
   const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
   if (auditMatch) return { type: "audit", id: parseInt(auditMatch[1]) };
+  const workflowMatch = location.match(/^\/audits\/workflow\?resume=(\d+)/);
+  if (workflowMatch) return { type: "listing", id: parseInt(workflowMatch[1]) };
   const projectMatch = location.match(/^\/projects\/(\d+)(?:\/|$)/);
   if (projectMatch) return { type: "graphics", id: parseInt(projectMatch[1]) };
   return null;

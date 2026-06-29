@@ -11,6 +11,7 @@ export type TogglePinBodyType =
 
 export const TogglePinBodyType = {
   audit: "audit",
+  listing: "listing",
   graphics: "graphics",
   video: "video",
   ads: "ads",
