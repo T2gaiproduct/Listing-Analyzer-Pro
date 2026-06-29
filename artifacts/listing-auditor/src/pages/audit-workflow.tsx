@@ -1024,7 +1024,7 @@ export default function AuditWorkflow() {
                         setCatSearch={setCatSearch}
                         filteredCats={filteredCats}
                         category={category}
-                        setCategory={setCategory}
+                        setCategory={(v) => { setCategory(v); if (currentAuditId) setIsDirty(true); }}
                         setCatOpen={setCatOpen}
                       />,
                       document.body
@@ -1161,86 +1161,6 @@ export default function AuditWorkflow() {
                 {generatedContent ? "Regenerate Content" : "Generate Listing Content"}
               </button>
 
-              {/* Audit Results Panel */}
-              {auditResult && (
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="bg-slate-50 border-b border-slate-100 px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-slate-500" />
-                      <p className="text-sm font-semibold text-slate-900">Listing Audit Results</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-500">Overall Score</span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                        auditResult.overallScore >= 80 ? "bg-emerald-100 text-emerald-700" :
-                        auditResult.overallScore >= 60 ? "bg-amber-100 text-amber-700" :
-                        "bg-red-100 text-red-700"
-                      }`}>{auditResult.overallScore}</span>
-                    </div>
-                  </div>
-                  <div className="p-6 space-y-4">
-                    {[
-                      { label: "Title", score: auditResult.titleScore },
-                      { label: "Bullets", score: auditResult.bulletScore },
-                      { label: "Images", score: auditResult.imageScore },
-                      { label: "Keywords", score: auditResult.keywordScore },
-                    ].map((cat) => (
-                      <div key={cat.label} className="border border-slate-100 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-slate-900">{cat.label} Analysis</span>
-                            {cat.score.issues.length > 0 && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-semibold">{cat.score.issues.length} issues</span>
-                            )}
-                            {cat.score.suggestions.length > 0 && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 text-[10px] font-semibold">{cat.score.suggestions.length} suggestions</span>
-                            )}
-                          </div>
-                          <span className={`text-sm font-bold ${
-                            cat.score.score >= 80 ? "text-emerald-600" :
-                            cat.score.score >= 60 ? "text-amber-600" :
-                            "text-red-600"
-                          }`}>{cat.score.score}/100</span>
-                        </div>
-                        {/* Issues */}
-                        {cat.score.issues.length > 0 && (
-                          <div className="mb-2">
-                            <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wider mb-1">Issues</p>
-                            <ul className="space-y-1">
-                              {cat.score.issues.map((issue, i) => (
-                                <li key={i} className="text-xs text-slate-600 flex items-start gap-1.5">
-                                  <span className="text-red-400 mt-0.5">•</span>
-                                  {issue}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {/* Suggestions */}
-                        {cat.score.suggestions.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider mb-1">Suggestions</p>
-                            <ul className="space-y-1">
-                              {cat.score.suggestions.map((s, i) => (
-                                <li key={i} className="text-xs text-slate-600 flex items-start gap-1.5">
-                                  <span className="text-emerald-500 mt-0.5">✓</span>
-                                  {s}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {/* Summary */}
-                    <div className="bg-slate-50 rounded-xl p-4">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Summary</p>
-                      <p className="text-sm text-slate-700">{auditResult.summary}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Display generated content */}
               {generatedContent && (
                 <div className="bg-white border border-orange-200 rounded-2xl overflow-hidden shadow-sm">
@@ -1370,7 +1290,7 @@ export default function AuditWorkflow() {
                   <label className="text-sm font-medium text-orange-900">Custom Prompt</label>
                   <textarea
                     value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    onChange={(e) => { setCustomPrompt(e.target.value); setIsDirty(true); }}
                     placeholder="Describe exactly what you want the AI to create..."
                     rows={3}
                     className="w-full resize-none text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-orange-200"
