@@ -387,9 +387,6 @@ export default function AuditDetail({ id }: { id: number }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
-            <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
-          </Button>
           {canEdit && (
             <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -414,26 +411,31 @@ export default function AuditDetail({ id }: { id: number }) {
 
       {/* Tabs */}
       <Tabs defaultValue="audit">
-        <TabsList className="mb-6">
-          <TabsTrigger value="audit">Audit Results</TabsTrigger>
-          <TabsTrigger value="content">
-            Listing Optimization
-            {gc && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
-          </TabsTrigger>
-          <TabsTrigger value="images">
-            Graphics Creation
-            {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
-          </TabsTrigger>
-          <TabsTrigger value="ebc">
-            A+ / EBC Content
-          </TabsTrigger>
-          <TabsTrigger value="competitors">
-            Competitors
-            {audit.competitors.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">{audit.competitors.length}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center gap-3 mb-6">
+          <TabsList>
+            <TabsTrigger value="audit">Audit Results</TabsTrigger>
+            <TabsTrigger value="content">
+              Listing Optimization
+              {gc && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
+            </TabsTrigger>
+            <TabsTrigger value="images">
+              Graphics Creation
+              {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
+            </TabsTrigger>
+            <TabsTrigger value="ebc">
+              A+ / EBC Content
+            </TabsTrigger>
+            <TabsTrigger value="competitors">
+              Competitors
+              {audit.competitors.length > 0 && (
+                <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">{audit.competitors.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+            <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
+          </Button>
+        </div>
 
         {/* ── AUDIT TAB ── */}
         <TabsContent value="audit" className="space-y-6">
