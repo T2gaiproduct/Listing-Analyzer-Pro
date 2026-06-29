@@ -136,9 +136,9 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
 
       if (gateway === "paypal") {
         if (d.approvalUrl) {
-          sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
-          sessionStorage.setItem("paypal_credit_type", creditType);
-          sessionStorage.setItem("paypal_credit_amount", String(quantity));
+          localStorage.setItem("paypal_order_id", d.orderId ?? "");
+          localStorage.setItem("paypal_credit_type", creditType);
+          localStorage.setItem("paypal_credit_amount", String(quantity));
           window.location.href = d.approvalUrl;
         } else {
           toast({ title: "Purchase failed", description: "No PayPal approval URL.", variant: "destructive" });
@@ -370,7 +370,7 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
         toast({ title: "PayPal setup failed", description: d.error ?? "Please try again.", variant: "destructive" });
         setLoading(false); return;
       }
-      sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
+      localStorage.setItem("paypal_order_id", d.orderId ?? "");
       window.location.href = d.approvalUrl;
     } catch {
       toast({ title: "Network error", description: "Please check your connection.", variant: "destructive" });
@@ -535,18 +535,18 @@ export default function Billing() {
     }
     if (params.get("paypal_captured") && !paypalCaptureAttempted.current) {
       paypalCaptureAttempted.current = true;
-      const orderId = sessionStorage.getItem("paypal_order_id");
-      const planId = sessionStorage.getItem("paypal_plan_id");
-      const billingCycle = sessionStorage.getItem("paypal_billing_cycle");
-      const creditType = sessionStorage.getItem("paypal_credit_type");
-      const creditAmount = sessionStorage.getItem("paypal_credit_amount");
-      const packId = sessionStorage.getItem("paypal_pack_id");
-      sessionStorage.removeItem("paypal_order_id");
-      sessionStorage.removeItem("paypal_plan_id");
-      sessionStorage.removeItem("paypal_billing_cycle");
-      sessionStorage.removeItem("paypal_credit_type");
-      sessionStorage.removeItem("paypal_credit_amount");
-      sessionStorage.removeItem("paypal_pack_id");
+      const orderId = localStorage.getItem("paypal_order_id");
+      const planId = localStorage.getItem("paypal_plan_id");
+      const billingCycle = localStorage.getItem("paypal_billing_cycle");
+      const creditType = localStorage.getItem("paypal_credit_type");
+      const creditAmount = localStorage.getItem("paypal_credit_amount");
+      const packId = localStorage.getItem("paypal_pack_id");
+      localStorage.removeItem("paypal_order_id");
+      localStorage.removeItem("paypal_plan_id");
+      localStorage.removeItem("paypal_billing_cycle");
+      localStorage.removeItem("paypal_credit_type");
+      localStorage.removeItem("paypal_credit_amount");
+      localStorage.removeItem("paypal_pack_id");
       window.history.replaceState({}, "", window.location.pathname);
 
       if (!orderId) {
@@ -830,9 +830,9 @@ export default function Billing() {
                             .then((r) => r.json() as Promise<{ orderId?: string; approvalUrl?: string; error?: string }>)
                             .then((d) => {
                               if (d.approvalUrl) {
-                                sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
-                                sessionStorage.setItem("paypal_plan_id", String(changePlanId));
-                                sessionStorage.setItem("paypal_billing_cycle", changePlanCycle);
+                                localStorage.setItem("paypal_order_id", d.orderId ?? "");
+                                localStorage.setItem("paypal_plan_id", String(changePlanId));
+                                localStorage.setItem("paypal_billing_cycle", changePlanCycle);
                                 window.location.href = d.approvalUrl;
                               } else {
                                 toast({ title: "Could not start checkout", description: d.error ?? "No PayPal approval URL.", variant: "destructive" });
@@ -921,8 +921,8 @@ export default function Billing() {
 
                         if (gateway === "paypal") {
                           if (d.approvalUrl) {
-                            sessionStorage.setItem("paypal_order_id", d.orderId ?? "");
-                            sessionStorage.setItem("paypal_pack_id", String(pack.id));
+                            localStorage.setItem("paypal_order_id", d.orderId ?? "");
+                            localStorage.setItem("paypal_pack_id", String(pack.id));
                             window.location.href = d.approvalUrl;
                           } else {
                             toast({ title: "Purchase failed", description: "No PayPal approval URL.", variant: "destructive" });

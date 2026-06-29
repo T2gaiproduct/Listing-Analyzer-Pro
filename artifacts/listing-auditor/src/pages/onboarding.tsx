@@ -156,9 +156,9 @@ export default function Onboarding() {
       if (data.url) {
         window.location.href = data.url;
       } else if (data.approvalUrl) {
-        sessionStorage.setItem("paypal_order_id", data.orderId ?? "");
-        sessionStorage.setItem("paypal_plan_id", String(selectedPlan.id));
-        sessionStorage.setItem("paypal_billing_cycle", yearly ? "yearly" : "monthly");
+        localStorage.setItem("paypal_order_id", data.orderId ?? "");
+        localStorage.setItem("paypal_plan_id", String(selectedPlan.id));
+        localStorage.setItem("paypal_billing_cycle", yearly ? "yearly" : "monthly");
         window.location.href = data.approvalUrl;
       }
     },
