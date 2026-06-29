@@ -402,6 +402,9 @@ export default function AuditWorkflow() {
     return resume ? parseInt(resume, 10) : null;
   });
 
+  /* ── Guard: only restore state from DB once (prevents refetch clobbering edits) ── */
+  const hasRestoredRef = useRef(false);
+
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
   const cameraRef  = useRef<HTMLInputElement>(null);
@@ -445,7 +448,8 @@ export default function AuditWorkflow() {
 
   /* ── Restore full state when audit data loads (resume from sidebar) ── */
   useEffect(() => {
-    if (!auditData) return;
+    if (!auditData || hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
     setProjectName((auditData.projectName as string) || auditData.productName || "");
     setBrandName((auditData.brandName as string) || "");
     setProductName(auditData.productName || "");
@@ -791,6 +795,11 @@ export default function AuditWorkflow() {
 
   /* ── Next step ── */
   function handleNextStep() {
+    if (activeStep === 1 && currentAuditId === null) {
+      // Step 1 with no audit yet: create the project first (handleCreate advances to step 2 on success)
+      handleCreate();
+      return;
+    }
     if (activeStep < 5) {
       autoSave((activeStep + 1) as StepId);
       setActiveStep((s) => (s + 1) as StepId);
@@ -1569,15 +1578,29 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* Steps 1-4: Next Step button */}
+          {/* Steps 1-4: Next Step / Save & Continue button */}
           {activeStep < 5 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={handleNextStep}
               disabled={isCreating}
             >
-              Next Step
-              <ArrowRight className="w-4 h-4" />
+              {isCreating && activeStep === 1 ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving…
+                </>
+              ) : activeStep === 1 && currentAuditId === null ? (
+                <>
+                  Save & Continue
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  Next Step
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
           )}
         </div>
