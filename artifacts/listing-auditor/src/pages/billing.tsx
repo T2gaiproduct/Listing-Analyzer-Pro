@@ -119,7 +119,7 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
       const gateway = config.defaultGateway;
       const res = await fetch(`${basePath}/api/buy-custom-credits`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ amount: quantity, creditType, paymentMethod: gateway }),
+        credentials: "include", body: JSON.stringify({ amount: quantity, creditType, paymentMethod: gateway, origin: window.location.origin }),
       });
       const d = await res.json() as {
         url?: string; error?: string;
@@ -363,7 +363,7 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
     try {
       const res = await fetch(`${basePath}/api/paypal/create-order`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ amount: 1, currency: config.currency }),
+        credentials: "include", body: JSON.stringify({ amount: 1, currency: config.currency, origin: window.location.origin }),
       });
       const d = await res.json() as { orderId?: string; approvalUrl?: string; error?: string };
       if (!res.ok || !d.approvalUrl) {
@@ -825,6 +825,7 @@ export default function Billing() {
                             credentials: "include", body: JSON.stringify({
                               amount: newPlanPrice,
                               currency: "USD",
+                              origin: window.location.origin,
                             }),
                           })
                             .then((r) => r.json() as Promise<{ orderId?: string; approvalUrl?: string; error?: string }>)
@@ -903,7 +904,7 @@ export default function Billing() {
                         const gateway = config.defaultGateway;
                         const res = await fetch(`${basePath}/api/buy-credits`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
-                          credentials: "include", body: JSON.stringify({ packId: pack.id, paymentMethod: gateway }),
+                          credentials: "include", body: JSON.stringify({ packId: pack.id, paymentMethod: gateway, origin: window.location.origin }),
                         });
                         const d = await res.json() as {
                           url?: string; error?: string;

@@ -248,6 +248,7 @@ export default function Onboarding() {
         ...common,
         amount: finalAmount,
         currency: paymentConfig?.currency ?? "USD",
+        origin: window.location.origin,
       });
     } else {
       checkoutMutation.mutate({

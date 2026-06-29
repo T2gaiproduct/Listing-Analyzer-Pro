@@ -208,14 +208,14 @@ export async function getPayPalAccessToken(): Promise<{ token: string; baseUrl: 
 
 // POST /paypal/create-order — creates a PayPal order and returns the approval URL
 router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void> => {
-  const { amount, currency } = req.body as { amount?: number; currency?: string };
+  const { amount, currency, origin } = req.body as { amount?: number; currency?: string; origin?: string };
   if (!amount) { res.status(400).json({ error: "amount is required" }); return; }
 
   const s = await getGatewaySettings();
   const clientId = s.paypal_client_id ?? "";
 
-  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-  const base = domain ? `https://${domain}` : "http://localhost:80";
+  const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
+  const base = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
 
   let token: string, baseUrl: string;
   try {

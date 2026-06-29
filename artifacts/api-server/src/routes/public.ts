@@ -488,9 +488,10 @@ router.get("/credit-packs", async (_req, res): Promise<void> => {
 
 router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const { packId, paymentMethod } = req.body as {
+  const { packId, paymentMethod, origin } = req.body as {
     packId: number;
     paymentMethod?: "stripe" | "razorpay" | "paypal";
+    origin?: string;
   };
   if (!packId || isNaN(Number(packId))) {
     res.status(400).json({ error: "packId is required" });
@@ -536,8 +537,8 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
 
   if (method === "paypal") {
     const { getPayPalAccessToken } = await import("./payment");
-    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-    const base = domain ? `https://${domain}` : "http://localhost:80";
+    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
+    const base = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
     let token: string, baseUrl: string;
     try {
       ({ token, baseUrl } = await getPayPalAccessToken());
@@ -585,7 +586,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
 
 router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const { amount, creditType, paymentMethod } = req.body as { amount: number; creditType: string; paymentMethod?: "stripe" | "razorpay" | "paypal" };
+  const { amount, creditType, paymentMethod, origin } = req.body as { amount: number; creditType: string; paymentMethod?: "stripe" | "razorpay" | "paypal"; origin?: string };
   if (!amount || amount < 10 || amount > 10000 || !creditType || !["ai", "image", "audit"].includes(creditType)) {
     res.status(400).json({ error: "Invalid amount (10-10000) or creditType (ai/image/audit)" });
     return;
@@ -621,8 +622,8 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
 
   if (method === "paypal") {
     const { getPayPalAccessToken } = await import("./payment");
-    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-    const base = domain ? `https://${domain}` : "http://localhost:80";
+    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
+    const base = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
     let token: string, baseUrl: string;
     try {
       ({ token, baseUrl } = await getPayPalAccessToken());
