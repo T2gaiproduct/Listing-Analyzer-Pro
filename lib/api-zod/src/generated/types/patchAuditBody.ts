@@ -18,5 +18,7 @@ export interface PatchAuditBody {
   generatedContent?: PatchAuditBodyGeneratedContent;
   generatedImages?: PatchAuditBodyGeneratedImages;
   imageRecords?: ImageRecord[];
+  selectedImageTypes?: string[];
+  graphicsProjectId?: number;
   currentStep?: number;
 }

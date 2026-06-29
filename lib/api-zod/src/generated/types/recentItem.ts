@@ -14,4 +14,5 @@ export interface RecentItem {
   createdAt?: string;
   url: string;
   pinned: boolean;
+  currentStep?: number;
 }

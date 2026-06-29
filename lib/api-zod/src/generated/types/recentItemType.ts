@@ -11,6 +11,7 @@ export type RecentItemType =
 
 export const RecentItemType = {
   audit: "audit",
+  listing: "listing",
   graphics: "graphics",
   video: "video",
   ads: "ads",

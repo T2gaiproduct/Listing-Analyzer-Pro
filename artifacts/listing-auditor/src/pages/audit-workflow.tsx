@@ -468,6 +468,10 @@ export default function AuditWorkflow() {
         url: r.currentUrl, type: r.type || "lifestyle", index: r.index ?? 0,
       })));
     }
+    // Restore linked graphics project
+    if ((auditData as any).graphicsProjectId) {
+      setGraphicsProjectId((auditData as any).graphicsProjectId);
+    }
     setIsDirty(false);
     const step = (auditData.currentStep || 1) as StepId;
     if (step >= 1 && step <= 5) setActiveStep(step);
@@ -516,12 +520,21 @@ export default function AuditWorkflow() {
         setGraphicsStatus(project.status);
         const total = (project.lifestyleCount ?? 0) + (project.featureCount ?? 0);
         setGraphicsProgress({ generated: project.generatedCount ?? 0, total });
-        if (project.imageRecords) {
-          setGeneratedImages(
-            project.imageRecords
-              .filter((r) => r.currentUrl)
-              .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }))
-          );
+        // Merge new imageRecords with existing generatedImages (don't replace on every poll)
+        if (project.imageRecords && project.imageRecords.length > 0) {
+          setGeneratedImages((prev) => {
+            const existingMap = new Map(prev.map((img) => [`${img.type}_${img.index}`, img]));
+            project.imageRecords!.forEach((r) => {
+              if (r.currentUrl) {
+                existingMap.set(`${r.type ?? "lifestyle"}_${r.index ?? 0}`, {
+                  url: r.currentUrl!,
+                  type: r.type ?? "lifestyle",
+                  index: r.index ?? 0,
+                });
+              }
+            });
+            return Array.from(existingMap.values());
+          });
         }
         if (project.status === "completed") {
           setIsCreating(false);
@@ -540,7 +553,7 @@ export default function AuditWorkflow() {
                 versions: [],
               }));
             patchAudit.mutate(
-              { id: currentAuditId, data: { currentStep: activeStep, imageRecords } },
+              { id: currentAuditId, data: { currentStep: activeStep, imageRecords, graphicsProjectId } },
               { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) }) }
             );
           }
@@ -555,7 +568,7 @@ export default function AuditWorkflow() {
     poll();
     const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
-  }, [graphicsProjectId, graphicsStatus, toast]);
+  }, [graphicsProjectId, graphicsStatus, toast, currentAuditId, activeStep]);
 
   /* ── Graphics project mutation ── */
   const createProject = useMutation({
@@ -583,6 +596,13 @@ export default function AuditWorkflow() {
       setGraphicsStatus("generating");
       setGeneratedImages([]);
       setGraphicsProgress({ generated: 0, total: selectedImageTypes.length });
+      // Save graphicsProjectId to audit immediately so resume can find it
+      if (currentAuditId) {
+        patchAudit.mutate(
+          { id: currentAuditId, data: { graphicsProjectId: project.id, selectedImageTypes, currentStep: activeStep } },
+          { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) }) }
+        );
+      }
       /* Stay in workflow — no nav() away */
     },
     onError: (err) => {
@@ -784,6 +804,7 @@ export default function AuditWorkflow() {
     if (uploadedImages.length) payload.imageUrls = uploadedImages;
     if (generatedContent) payload.generatedContent = generatedContent;
     if (selectedImageTypes.length) payload.selectedImageTypes = selectedImageTypes;
+    if (graphicsProjectId) payload.graphicsProjectId = graphicsProjectId;
     // Persist generated images via imageRecords — only if there are real URLs
     if (generatedImages.length > 0 && generatedImages.some((img) => img.url)) {
       payload.imageRecords = generatedImages
@@ -807,7 +828,7 @@ export default function AuditWorkflow() {
       }
     );
     setIsDirty(false);
-  }, [currentAuditId, projectName, brandName, productName, category, uploadedImages, generatedContent, generatedImages, selectedImageTypes, patchAudit, queryClient]);
+  }, [currentAuditId, projectName, brandName, productName, category, uploadedImages, generatedContent, generatedImages, selectedImageTypes, graphicsProjectId, patchAudit, queryClient]);
 
   /* ── Explicit save (same step, no navigation) ── */
   const handleSave = useCallback(() => {

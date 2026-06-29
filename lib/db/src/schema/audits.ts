@@ -82,6 +82,8 @@ export const auditsTable = pgTable("audits", {
   generatedImages: jsonb("generated_images").$type<GeneratedImages>(),
   imageRecords: jsonb("image_records").$type<ImageRecords>(),
   currentStep: integer("current_step").default(1),
+  selectedImageTypes: jsonb("selected_image_types").$type<string[]>(),
+  graphicsProjectId: integer("graphics_project_id"),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -35,7 +35,7 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
 
   const [audits, graphics, videos, ads, pins] = await Promise.all([
     db
-      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, asin: auditsTable.asin, createdAt: auditsTable.createdAt })
+      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, asin: auditsTable.asin, currentStep: auditsTable.currentStep, createdAt: auditsTable.createdAt })
       .from(auditsTable)
       .where(and(eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`))
       .orderBy(desc(auditsTable.createdAt))
@@ -76,6 +76,7 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
         createdAt: a.createdAt,
         url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
         pinned: pinnedSet.has(`audit-${a.id}`),
+        currentStep: (a.currentStep ?? 1) as number,
       };
     }),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: pinnedSet.has(`graphics-${g.id}`) })),
@@ -106,7 +107,7 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
 
   const [audits, graphics, videos, ads] = await Promise.all([
     db
-      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, asin: auditsTable.asin, createdAt: auditsTable.createdAt })
+      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, asin: auditsTable.asin, currentStep: auditsTable.currentStep, createdAt: auditsTable.createdAt })
       .from(auditsTable)
       .where(and(eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0), ilike(auditsTable.productName, `%${q}%`)))
       .orderBy(desc(auditsTable.createdAt))
@@ -141,6 +142,7 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
         createdAt: a.createdAt,
         url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
         pinned: false,
+        currentStep: (a.currentStep ?? 1) as number,
       };
     }),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: false })),
