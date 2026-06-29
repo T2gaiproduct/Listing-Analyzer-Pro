@@ -392,8 +392,9 @@ function isRibbonVisible(location: string): boolean {
 function parseProjectContext(location: string): { type: string; id: number } | null {
   const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
   if (auditMatch) return { type: "audit", id: parseInt(auditMatch[1]) };
-  const workflowMatch = location.match(/^\/audits\/workflow\?resume=(\d+)/);
-  if (workflowMatch) return { type: "listing", id: parseInt(workflowMatch[1]) };
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const resumeId = searchParams.get("resume");
+  if (location === "/audits/workflow" && resumeId) return { type: "listing", id: parseInt(resumeId, 10) };
   const projectMatch = location.match(/^\/projects\/(\d+)(?:\/|$)/);
   if (projectMatch) return { type: "graphics", id: parseInt(projectMatch[1]) };
   return null;
