@@ -35,7 +35,7 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
 
   const [audits, graphics, videos, ads, pins] = await Promise.all([
     db
-      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, createdAt: auditsTable.createdAt })
+      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, asin: auditsTable.asin, createdAt: auditsTable.createdAt })
       .from(auditsTable)
       .where(and(eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`))
       .orderBy(desc(auditsTable.createdAt))
@@ -67,7 +67,17 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
   const pinnedSet = new Set(pins.map((p) => `${p.itemType}-${p.itemId}`));
 
   const items = [
-    ...audits.map((a) => ({ type: "listing" as const, id: a.id, name: a.name || a.productName || "Untitled Project", createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: pinnedSet.has(`audit-${a.id}`) })),
+    ...audits.map((a) => {
+      const isAudit = !!a.asin;
+      return {
+        type: isAudit ? "audit" as const : "listing" as const,
+        id: a.id,
+        name: a.name || a.productName || "Untitled Project",
+        createdAt: a.createdAt,
+        url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+        pinned: pinnedSet.has(`audit-${a.id}`),
+      };
+    }),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: pinnedSet.has(`graphics-${g.id}`) })),
     ...videos.map((v) => ({ type: "video" as const, id: v.id, name: v.name, createdAt: v.createdAt, url: `/videos/${v.id}`, pinned: pinnedSet.has(`video-${v.id}`) })),
     ...ads.map((a) => ({ type: "ads" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/ads/${a.id}`, pinned: pinnedSet.has(`ads-${a.id}`) })),
@@ -96,7 +106,7 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
 
   const [audits, graphics, videos, ads] = await Promise.all([
     db
-      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, createdAt: auditsTable.createdAt })
+      .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, asin: auditsTable.asin, createdAt: auditsTable.createdAt })
       .from(auditsTable)
       .where(and(eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0), ilike(auditsTable.productName, `%${q}%`)))
       .orderBy(desc(auditsTable.createdAt))
@@ -122,7 +132,17 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
   ]);
 
   const items = [
-    ...audits.map((a) => ({ type: "listing" as const, id: a.id, name: a.name || a.productName || "Untitled Project", createdAt: a.createdAt, url: `/audits/workflow?resume=${a.id}`, pinned: false })),
+    ...audits.map((a) => {
+      const isAudit = !!a.asin;
+      return {
+        type: isAudit ? "audit" as const : "listing" as const,
+        id: a.id,
+        name: a.name || a.productName || "Untitled Project",
+        createdAt: a.createdAt,
+        url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+        pinned: false,
+      };
+    }),
     ...graphics.map((g) => ({ type: "graphics" as const, id: g.id, name: g.name, createdAt: g.createdAt, url: `/projects/${g.id}`, pinned: false })),
     ...videos.map((v) => ({ type: "video" as const, id: v.id, name: v.name, createdAt: v.createdAt, url: `/videos/${v.id}`, pinned: false })),
     ...ads.map((a) => ({ type: "ads" as const, id: a.id, name: a.name, createdAt: a.createdAt, url: `/ads/${a.id}`, pinned: false })),
