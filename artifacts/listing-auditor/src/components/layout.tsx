@@ -455,7 +455,13 @@ export function Layout({ children }: { children: ReactNode }) {
       });
       return r.json();
     },
-    onSuccess: invalidateRecents,
+    onSuccess: (_data, { type, id }) => {
+      invalidateRecents();
+      // Also refresh the audit cache so the ribbon title updates immediately
+      if (type === "audit" || type === "listing") {
+        void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+      }
+    },
   });
 
   const archiveMutation = useMutation({

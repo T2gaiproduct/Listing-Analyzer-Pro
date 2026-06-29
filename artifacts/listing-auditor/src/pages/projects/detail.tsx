@@ -273,9 +273,6 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             {hasRecords ? "Generate More Images" : "Generate All"}
           </Button>
         )}
-        <Button variant="outline" onClick={() => setShowDelete(true)} className="text-slate-500 cursor-pointer">
-          <Trash2 className="w-4 h-4" />
-        </Button>
       </div>
 
       {/* Loading state */}
