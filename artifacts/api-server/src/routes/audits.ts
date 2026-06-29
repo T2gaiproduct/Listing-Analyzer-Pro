@@ -310,6 +310,8 @@ router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async 
     category: string;
     imageUrls: string[];
     generatedContent: object;
+    generatedImages: object;
+    imageRecords: object;
     currentStep: number;
   }>;
 
@@ -320,6 +322,8 @@ router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async 
   if (body.category !== undefined) updates.category = body.category;
   if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;
   if (body.generatedContent !== undefined) updates.generatedContent = body.generatedContent;
+  if (body.generatedImages !== undefined) updates.generatedImages = body.generatedImages;
+  if (body.imageRecords !== undefined) updates.imageRecords = body.imageRecords;
   if (body.currentStep !== undefined) updates.currentStep = body.currentStep;
 
   const [updated] = await db

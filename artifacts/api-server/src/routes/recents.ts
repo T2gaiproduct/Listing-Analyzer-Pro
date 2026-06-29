@@ -43,7 +43,7 @@ router.get("/recents", requireAuth, async (req: Request, res: Response) => {
     db
       .select({ id: graphicsProjectsTable.id, name: graphicsProjectsTable.name, createdAt: graphicsProjectsTable.createdAt })
       .from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0), sql`${graphicsProjectsTable.status} != 'archived'`))
+      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0), sql`${graphicsProjectsTable.status} != 'archived'`, sql`${graphicsProjectsTable.auditId} IS NULL`))
       .orderBy(desc(graphicsProjectsTable.createdAt))
       .limit(limit),
     db

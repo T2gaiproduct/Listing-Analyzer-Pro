@@ -25,6 +25,7 @@ import {
   Lightbulb,
   Code2,
   Eye,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -451,6 +452,15 @@ export default function AuditWorkflow() {
     if (auditData.generatedContent) {
       setGeneratedContent(auditData.generatedContent as any);
     }
+    // Restore graphics selections + generated images from saved imageRecords
+    if (auditData.imageRecords && (auditData.imageRecords as any[]).length > 0) {
+      const records = auditData.imageRecords as any[];
+      setSelectedImageTypes(records.map((r) => r.type || "lifestyle"));
+      setGeneratedImages(records.filter((r) => r.currentUrl).map((r) => ({
+        url: r.currentUrl, type: r.type || "lifestyle", index: r.index ?? 0,
+      })));
+    }
+    setIsDirty(false);
     const step = (auditData.currentStep || 1) as StepId;
     if (step >= 1 && step <= 5) setActiveStep(step);
   }, [auditData]);
@@ -741,14 +751,23 @@ export default function AuditWorkflow() {
   const autoSave = useCallback((step: StepId) => {
     if (!currentAuditId) return;
     const payload: Record<string, unknown> = { currentStep: step };
+    if (projectName) payload.projectName = projectName;
     if (brandName) payload.brandName = brandName;
     if (productName) payload.productName = productName;
     if (category) payload.category = category;
     if (uploadedImages.length) payload.imageUrls = uploadedImages;
     if (generatedContent) payload.generatedContent = generatedContent;
+    // Save generated images as imageRecords (round-trips through audit)
+    if (generatedImages.length) {
+      payload.imageRecords = generatedImages.map((img, i) => ({
+        id: `${img.type}_${i}`, type: img.type, index: img.index ?? i,
+        style: "modern", aspectRatio: "1:1", currentUrl: img.url,
+        versions: [],
+      }));
+    }
     patchAudit.mutate({ id: currentAuditId, data: payload });
     setIsDirty(false);
-  }, [currentAuditId, brandName, productName, category, uploadedImages, generatedContent, patchAudit]);
+  }, [currentAuditId, projectName, brandName, productName, category, uploadedImages, generatedContent, generatedImages, patchAudit]);
 
   /* ── Explicit save (same step, no navigation) ── */
   const handleSave = useCallback(() => {
@@ -1251,11 +1270,12 @@ export default function AuditWorkflow() {
                   return (
                     <button
                       key={type.id}
-                      onClick={() =>
+                      onClick={() => {
                         setSelectedImageTypes((prev) =>
                           prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                        )
-                      }
+                        );
+                        if (currentAuditId) setIsDirty(true);
+                      }}
                       className={cn(
                         "relative rounded-xl border-2 p-4 text-left transition-all",
                         isSelected ? "border-orange-500 bg-orange-50/40" : "border-slate-200 bg-white hover:border-slate-300"
@@ -1480,24 +1500,24 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* Save button — shown whenever there are unsaved changes on steps 2+ */}
-          {activeStep > 1 && currentAuditId !== null && isDirty && (
+          {/* Step 5: Save only (no navigation) */}
+          {activeStep === 5 && currentAuditId !== null && (
             <Button
               variant="outline"
               className="rounded-xl border-orange-300 text-orange-600 hover:bg-orange-50 gap-2"
               onClick={handleSave}
-              disabled={patchAudit.isPending}
+              disabled={patchAudit.isPending || !isDirty}
             >
               {patchAudit.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Check className="w-4 h-4" />
+                <Save className="w-4 h-4" />
               )}
-              Save Changes
+              Save Project
             </Button>
           )}
 
-          {/* Steps 1-4: Save & Continue / Next Step button */}
+          {/* Steps 1-4: Save & Continue */}
           {activeStep < 5 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
@@ -1509,14 +1529,9 @@ export default function AuditWorkflow() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Saving…
                 </>
-              ) : activeStep === 1 ? (
-                <>
-                  Save & Continue
-                  <ArrowRight className="w-4 h-4" />
-                </>
               ) : (
                 <>
-                  Next Step
+                  Save & Continue
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
