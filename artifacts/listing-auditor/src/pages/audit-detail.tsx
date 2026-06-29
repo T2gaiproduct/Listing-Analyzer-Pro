@@ -372,12 +372,19 @@ export default function AuditDetail({ id }: { id: number }) {
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between border-b pb-6">
-        <div className="flex items-center gap-6">
-          <Button variant="ghost" size="sm" asChild className="-ml-2 text-slate-500">
+      <div className="flex items-start justify-between border-b pb-6">
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="sm" asChild className="-ml-2 mt-1 text-slate-500">
             <Link href={returnTo}><ArrowLeft className="w-4 h-4 mr-1" /> Back</Link>
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">{audit.projectName || audit.productName}</h1>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h1 className="text-2xl font-bold tracking-tight truncate max-w-xl">{audit.productName}</h1>
+              {audit.asin && <Badge variant="outline" className="font-mono text-xs shrink-0">{audit.asin}</Badge>}
+              {audit.category && <Badge variant="secondary" className="text-xs max-w-xs truncate shrink-0">{(audit.category.split("›").pop() ?? audit.category.split(">").pop() ?? audit.category).trim()}</Badge>}
+            </div>
+            <p className="text-muted-foreground text-sm">Audited {format(new Date(audit.createdAt), 'MMMM d, yyyy')}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleDownloadPdf}>

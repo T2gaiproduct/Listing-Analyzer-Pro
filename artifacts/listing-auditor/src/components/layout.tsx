@@ -1024,6 +1024,15 @@ export function Layout({ children }: { children: ReactNode }) {
               Back
             </button>
 
+            {/* Project name — derived from recents for audit/listing pages */}
+            {projectCtx && (
+              <div className="ml-6 flex items-center">
+                <span className="text-lg font-bold text-slate-900">
+                  {recents.find((r) => r.id === projectCtx.id && (r.type === projectCtx.type || (projectCtx.type === "audit" && r.type === "audit")))?.name || ""}
+                </span>
+              </div>
+            )}
+
             {/* Share + three-dots — always visible */}
             <div className="flex items-center gap-1 ml-auto">
               <button
