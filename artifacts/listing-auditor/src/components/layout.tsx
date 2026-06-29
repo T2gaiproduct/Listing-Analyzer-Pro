@@ -50,7 +50,7 @@ import { cn } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { useGetRecents, getGetRecentsQueryKey } from "@workspace/api-client-react";
+import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
@@ -538,6 +538,13 @@ export function Layout({ children }: { children: ReactNode }) {
   /* ── Ribbon action handlers ── */
   const projectCtx = parseProjectContext(location);
 
+  // For audit pages, fetch the audit to get productName for ribbon
+  const isAuditPage = projectCtx?.type === "audit";
+  const { data: ribbonAudit } = useGetAudit(
+    isAuditPage ? projectCtx!.id : 0,
+    { query: { enabled: isAuditPage, queryKey: getGetAuditQueryKey(isAuditPage ? projectCtx!.id : 0) } }
+  );
+
   function handleShare() {
     const url = window.location.href;
     void navigator.clipboard.writeText(url).then(() => {
@@ -1024,11 +1031,13 @@ export function Layout({ children }: { children: ReactNode }) {
               Back
             </button>
 
-            {/* Project name — derived from recents for audit/listing pages */}
+            {/* Project/product name in ribbon */}
             {projectCtx && (
               <div className="ml-6 flex items-center">
                 <span className="text-lg font-bold text-slate-900">
-                  {recents.find((r) => r.id === projectCtx.id && (r.type === projectCtx.type || (projectCtx.type === "audit" && r.type === "audit")))?.name || ""}
+                  {isAuditPage
+                    ? (ribbonAudit?.productName ?? "")
+                    : (recents.find((r) => r.id === projectCtx.id)?.name ?? "")}
                 </span>
               </div>
             )}
