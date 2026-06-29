@@ -550,7 +550,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const ribbonTitle = isAuditPage
     ? (ribbonAudit?.productName ?? "")
     : isListingPage
-    ? ((ribbonAudit as { projectName?: string } | undefined)?.projectName ?? ribbonAudit?.productName ?? "")
+    ? (ribbonAudit?.projectName ?? ribbonAudit?.productName ?? "")
     : (recents.find((r) => r.id === projectCtx?.id)?.name ?? "");
 
   function handleShare() {
@@ -1039,10 +1039,10 @@ export function Layout({ children }: { children: ReactNode }) {
               Back
             </button>
 
-            {/* Project/product name — centered absolutely */}
+            {/* Project/product name — after Back with gap */}
             {projectCtx && ribbonTitle && (
-              <div className="absolute left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
-                <span className="text-lg font-bold text-slate-900 truncate max-w-md">
+              <div className="ml-6 flex items-center min-w-0">
+                <span className="text-lg font-bold text-slate-900 truncate max-w-lg">
                   {ribbonTitle}
                 </span>
               </div>
