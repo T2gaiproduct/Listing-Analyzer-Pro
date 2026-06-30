@@ -46,24 +46,36 @@ Generate optimized, Amazon-compliant listing content. Return ONLY a JSON object:
 9. Information order: Brand Name → Flavour/Style → Product Type → Key Attribute → Color → Size/Pack Count → Model Number.
 10. If no brand name, do NOT add "generic" to the title. Just omit the brand.
 
---- STRICT AMAZON BULLET POINT REQUIREMENTS ---
-1. EXACTLY 5 bullet points.
-2. Each bullet 10-255 characters.
-3. Begin with a capital letter.
-4. Format as a sentence fragment — NO end punctuation (no periods, no exclamation marks, no question marks).
-5. Use header-with-colon structure: "Feature: description" (e.g., "Cotton fabric: Made from 100% cotton for softness and breathability").
-6. Write numbers 1-9 in full ("three" not "3"), EXCEPT names, model numbers, and measurements.
-7. Include a space between digit and unit ("60 ml" not "60ml").
-8. Highlight product features, benefits, and how it meets customer needs. NO brand marketing stories.
-9. NO subjective/performance/comparative claims unless verifiable on packaging.
-10. NO comparison to competitor brands or other products.
-11. NO special characters: ™, ®, €, …, †, ‡, ¢, £, ¥, ©, ±, ~, â, Æ, Š, Œ, Ÿ, Ž.
-12. NO emojis.
-13. NO prohibited claims: "eco-friendly", "environmentally friendly", "anti-microbial", "anti-bacterial", "made from bamboo", "contains bamboo", "made from soy", "contains soy".
-14. NO guarantee language: "Full refund", "If not satisfied, send it back", "Unconditional guarantee".
-15. NO external information: company info, website links, contact info.
-16. Each bullet must mention UNIQUE product information — no repetition across bullets.
-17. Minimize duplication with title and description.
+--- AMAZON BULLET POINT REQUIREMENTS ---
+Generate exactly 5 high-converting, SEO-friendly, Amazon-ready bullet points following these rules.
+
+OUTPUT REQUIREMENTS:
+- Exactly 5 bullet points.
+- Each bullet approximately 180–250 characters.
+- Return only the bullet points without headings, numbering, introductions, explanations, or Markdown.
+
+BULLET POINT STRUCTURE:
+Each bullet must follow this exact format:
+• **FEATURE TITLE IN ALL CAPS:** Customer benefit → Supporting details → Practical value.
+
+Example:
+• **PREMIUM MATERIAL:** Crafted from food-grade stainless steel that delivers exceptional durability, resists rust, and provides reliable everyday performance for long-lasting use.
+
+WRITING GUIDELINES:
+1. Feature Title — Start with the • symbol, followed by a concise FEATURE TITLE in ALL CAPS, ending with a colon.
+2. Sell Benefits, Not Just Features — Every bullet must explain why the feature matters, how it improves the customer's experience, and what problem it solves. Avoid listing specs alone.
+3. Naturally Include SEO Keywords — Include relevant keywords naturally without stuffing. Keywords should read naturally within sentences.
+4. Make Every Bullet Unique — Cover a different selling point in each bullet (e.g., Premium Material, Performance, Ease of Use, Comfort & Design, Versatility, Safety, Durability, Convenience, Compatibility, Purchase Confidence). Avoid repeating benefits or keywords.
+5. Customer-Focused Language — Write from the customer's perspective using phrases like "Designed to...", "Helps you...", "Keeps your...", "Enjoy...", "Perfect for...", "Built for...", "Makes it easy to..."
+6. Readability — Use one concise paragraph per bullet. Keep sentences clear and easy to scan. Maintain a professional, premium, and trustworthy tone.
+7. Amazon Compliance — NO emojis. NO exaggerated or unverifiable claims. NO phrases like "Best", "#1", "Guaranteed", or "Cheapest". NO keyword overuse. NO repeated information. NO guarantee/warranty/refund language. NO external information (company info, website links, contact info).
+
+PREFERRED BULLET ORDER:
+1. Premium Quality / Material
+2. Main Performance Benefit
+3. Convenience / Ease of Use
+4. Versatility / Applications
+5. Durability / Value / Purchase Confidence
 
 --- AMAZON KEYWORD REQUIREMENTS (generic_keywords) ---
 1. Search Terms (generic_keywords) should be less than 250 bytes total.
