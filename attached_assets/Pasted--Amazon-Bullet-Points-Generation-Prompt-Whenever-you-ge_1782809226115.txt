@@ -1,0 +1,124 @@
+# Amazon Bullet Points Generation Prompt
+
+Whenever you generate Amazon Product Bullet Points, follow these instructions exactly to create high-converting, SEO-friendly, and Amazon-ready content.
+
+## Objective
+
+Generate bullet points that are:
+
+* Conversion-focused
+* Easy to scan and read
+* SEO optimized with natural keyword placement
+* Customer benefit-driven
+* Professional and premium in tone
+* Suitable for Amazon product listings
+
+## Output Requirements
+
+* Generate **exactly 5 bullet points**.
+* Each bullet should contain approximately **180–250 characters**.
+* Return **only the bullet points** without headings, numbering, introductions, explanations, or Markdown.
+
+## Bullet Point Structure
+
+Each bullet must follow this format:
+
+• **FEATURE TITLE IN ALL CAPS:** Customer benefit → Supporting details → Practical value.
+
+Example:
+
+• **PREMIUM MATERIAL:** Crafted from food-grade stainless steel that delivers exceptional durability, resists rust, and provides reliable everyday performance for long-lasting use.
+
+## Writing Guidelines
+
+### 1. Feature Title
+
+* Start every bullet with the **•** bullet symbol.
+* Follow with a concise FEATURE TITLE in ALL CAPS.
+* End the title with a colon.
+
+Examples:
+
+* • PREMIUM QUALITY:
+* • ADVANCED PERFORMANCE:
+* • LEAKPROOF DESIGN:
+* • EASY TO USE:
+* • MULTIPURPOSE USE:
+
+### 2. Sell Benefits, Not Just Features
+
+Every bullet should explain:
+
+* Why the feature matters
+* How it improves the customer's experience
+* What problem it solves
+
+Avoid simply listing specifications.
+
+### 3. Naturally Include SEO Keywords
+
+Include relevant keywords naturally without stuffing.
+
+Examples:
+
+* stainless steel water bottle
+* insulated bottle
+* reusable bottle
+* leakproof water bottle
+
+Keywords should read naturally within the sentence.
+
+### 4. Make Every Bullet Unique
+
+Cover a different selling point in each bullet, such as:
+
+* Premium Material
+* Performance
+* Ease of Use
+* Comfort & Design
+* Versatility
+* Safety
+* Durability
+* Convenience
+* Compatibility
+* Purchase Confidence
+
+Avoid repeating the same benefits or keywords.
+
+### 5. Customer-Focused Language
+
+Write from the customer's perspective using benefit-driven phrases such as:
+
+* Designed to...
+* Helps you...
+* Keeps your...
+* Enjoy...
+* Perfect for...
+* Built for...
+* Makes it easy to...
+
+### 6. Readability
+
+* Use one concise paragraph per bullet.
+* Keep sentences clear and easy to scan.
+* Maintain a professional, premium, and trustworthy tone.
+
+### 7. Amazon Compliance
+
+Do NOT:
+
+* Use emojis
+* Make exaggerated or unverifiable claims
+* Use phrases like "Best", "#1", "Guaranteed", or "Cheapest"
+* Overuse keywords
+* Repeat the same information
+
+### Preferred Bullet Order
+
+1. Premium Quality / Material
+2. Main Performance Benefit
+3. Convenience / Ease of Use
+4. Versatility / Applications
+5. Durability / Value / Purchase Confidence
+
+Always produce polished, customer-focused bullet points that resemble listings from premium Amazon brands.
