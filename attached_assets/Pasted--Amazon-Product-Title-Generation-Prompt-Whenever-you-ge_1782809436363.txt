@@ -1,0 +1,165 @@
+# Amazon Product Title Generation Prompt
+
+Whenever you generate an Amazon Product Title, follow these instructions exactly to create a high-converting, SEO-optimized, and Amazon-compliant title.
+
+## Objective
+
+Generate product titles that:
+
+* Maximize search visibility (SEO)
+* Improve click-through rate (CTR)
+* Clearly communicate the product
+* Look premium and professional
+* Are easy to read on desktop and mobile
+* Follow Amazon best practices
+
+## Output Requirements
+
+* Generate **1 optimized Amazon title**.
+* Keep the title between **150–200 characters** (unless a marketplace requires a different limit).
+* Return **only the final title** without explanations, headings, quotation marks, or Markdown.
+
+## Title Structure
+
+Follow this order whenever applicable:
+
+**Brand | Main Product | Primary Keyword | Key Feature | Material | Size/Capacity | Color | Quantity | Compatibility/Use Case | Additional Benefit**
+
+### Example Structure
+
+Brand + Product Type + Main Keyword + Material + Capacity + Key Feature + Color + Pack Size + Ideal Use
+
+---
+
+## Writing Guidelines
+
+### 1. Start with the Brand Name
+
+Always begin with the brand name (if provided).
+
+Example:
+Tech2Globe Stainless Steel Water Bottle...
+
+If no brand is provided, start directly with the product name.
+
+---
+
+### 2. Use the Most Important Keywords First
+
+Include the highest-value keywords naturally near the beginning.
+
+Examples:
+
+* Stainless Steel Water Bottle
+* Wireless Earbuds
+* Air Fryer
+* Yoga Mat
+* Dog Harness
+
+Avoid keyword stuffing.
+
+---
+
+### 3. Include Only Relevant Features
+
+Include only meaningful selling points, such as:
+
+* Leakproof
+* BPA Free
+* Vacuum Insulated
+* Waterproof
+* Foldable
+* Heavy Duty
+* Rechargeable
+* Fast Charging
+* Non-Slip
+
+Do not list unnecessary specifications.
+
+---
+
+### 4. Include Product Attributes
+
+Where applicable include:
+
+* Material
+* Capacity
+* Dimensions
+* Size
+* Color
+* Quantity
+* Pack Size
+* Model
+* Compatibility
+
+Example:
+750ml | Black | Pack of 2
+
+---
+
+### 5. Add Use Cases Naturally
+
+Include who or where the product is ideal for.
+
+Examples:
+Office, Gym, Travel, Home, Camping, Hiking, Kitchen, School
+
+---
+
+### 6. Readability Rules
+
+Use separators like commas or hyphens naturally.
+
+Example:
+
+Brand Stainless Steel Water Bottle, Vacuum Insulated, Leakproof, BPA Free, 750ml, Black, for Gym, Office & Travel
+
+Avoid excessive punctuation.
+
+---
+
+### 7. Amazon Compliance
+
+Do NOT:
+
+* Use promotional phrases such as:
+
+  * Best
+  * #1
+  * Guaranteed
+  * Cheapest
+  * Free Shipping
+  * Hot Sale
+  * Limited Offer
+* Use ALL CAPS (except brand abbreviations if required).
+* Use emojis or special characters.
+* Repeat keywords unnecessarily.
+* Include subjective or unverifiable claims.
+
+---
+
+## SEO Best Practices
+
+Naturally include:
+
+* Primary keyword
+* Secondary keyword
+* Feature keyword
+* Material
+* Size
+* Use case
+
+Every keyword should fit naturally into the title.
+
+---
+
+## Writing Style
+
+The title should:
+
+* Read naturally like a sentence.
+* Prioritize clarity over stuffing keywords.
+* Look similar to premium Amazon brands.
+* Instantly communicate what the product is and why customers should click.
+
+Always generate a polished, customer-friendly, SEO-rich Amazon title that balances discoverability, readability, and conversion potential.
