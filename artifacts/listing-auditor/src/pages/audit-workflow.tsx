@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -497,13 +497,89 @@ export default function AuditWorkflow() {
   const [graphicsProgress, setGraphicsProgress] = useState({ generated: 0, total: 0 });
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
+  /* ── Fetch existing graphics project for this audit ── */
+  const { data: existingGraphicsProject } = useQuery({
+    queryKey: ["graphics-project-for-audit", currentAuditId],
+    queryFn: async () => {
+      if (!currentAuditId) return null;
+      const res = await fetch(`${basePath}/api/graphics/projects?auditId=${currentAuditId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      const data = await res.json() as { projects?: Array<{ id: number }> };
+      return data.projects?.[0] ?? null;
+    },
+    enabled: !!currentAuditId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  /* ── Generate on existing project ── */
+  const generateExisting = useMutation({
+    mutationFn: async ({ projectId, imageTypes, customPrompt }: { projectId: number; imageTypes: string[]; customPrompt?: string }) => {
+      const res = await fetch(`${basePath}/api/graphics/projects/${projectId}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ imageTypes, customPrompt: customPrompt?.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
+      }
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      setGraphicsProjectId(variables.projectId);
+      setGraphicsStatus("generating");
+      // Keep existing images visible during generation
+      setGraphicsProgress({ generated: 0, total: variables.imageTypes.length });
+    },
+    onError: (err) => {
+      setIsCreating(false);
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+    },
+  });
+
+  /* ── Graphics project mutation ── */
+  const createProject = useMutation({
+    mutationFn: async (body: object) => {
+      const res = await fetch(`${basePath}/api/graphics/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
+      }
+      return res.json();
+    },
+    onSuccess: (project: { id: number; lifestyleCount?: number; featureCount?: number }) => {
+      void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ imageTypes: selectedImageTypes, customPrompt: customPrompt.trim() || undefined }),
+      });
+      setGraphicsProjectId(project.id);
+      setGraphicsStatus("generating");
+      // Keep existing images visible during generation
+      setGraphicsProgress({ generated: 0, total: selectedImageTypes.length });
+      /* Stay in workflow — no nav() away */
+    },
+    onError: (err) => {
+      setIsCreating(false);
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+    },
+  });
+
   /* ── Poll graphics project status ── */
   useEffect(() => {
-    if (!graphicsProjectId || graphicsStatus === "completed" || graphicsStatus === "failed") return;
+    const activeGraphicsProjectId = graphicsProjectId ?? existingGraphicsProject?.id ?? null;
+    if (!activeGraphicsProjectId || graphicsStatus === "completed" || graphicsStatus === "failed") return;
 
     const poll = async () => {
       try {
-        const res = await fetch(`${basePath}/api/graphics/projects/${graphicsProjectId}`, { credentials: "include" });
+        const res = await fetch(`${basePath}/api/graphics/projects/${activeGraphicsProjectId}`, { credentials: "include" });
         if (!res.ok) return;
         const project = await res.json() as {
           status: string;
@@ -555,41 +631,7 @@ export default function AuditWorkflow() {
     poll();
     const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
-  }, [graphicsProjectId, graphicsStatus, toast]);
-
-  /* ── Graphics project mutation ── */
-  const createProject = useMutation({
-    mutationFn: async (body: object) => {
-      const res = await fetch(`${basePath}/api/graphics/projects`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
-      }
-      return res.json();
-    },
-    onSuccess: (project: { id: number; lifestyleCount?: number; featureCount?: number }) => {
-      void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ imageTypes: selectedImageTypes, customPrompt: customPrompt.trim() || undefined }),
-      });
-      setGraphicsProjectId(project.id);
-      setGraphicsStatus("generating");
-      setGeneratedImages([]);
-      setGraphicsProgress({ generated: 0, total: selectedImageTypes.length });
-      /* Stay in workflow — no nav() away */
-    },
-    onError: (err) => {
-      setIsCreating(false);
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
-    },
-  });
+  }, [graphicsProjectId, existingGraphicsProject, graphicsStatus, toast]);
 
   /* ── File upload helpers ── */
   function handleFiles(files: FileList | null) {
@@ -754,15 +796,24 @@ export default function AuditWorkflow() {
         toast({ title: "Select image types", description: "Please select at least one image type.", variant: "destructive" });
         return;
       }
-      createProject.mutate({
-        name: `${productName || "Product"}`,
-        productName: productName || "Product",
-        category,
-        sourceImageUrls: uploadedImages,
-        imageTypes: selectedImageTypes,
-        customPrompt: customPrompt.trim() || undefined,
-        auditId: currentAuditId ?? undefined,
-      });
+      // Reuse existing graphics project for this audit, or create new one
+      if (existingGraphicsProject?.id) {
+        generateExisting.mutate({
+          projectId: existingGraphicsProject.id,
+          imageTypes: selectedImageTypes,
+          customPrompt: customPrompt.trim() || undefined,
+        });
+      } else {
+        createProject.mutate({
+          name: `${productName || "Product"}`,
+          productName: productName || "Product",
+          category,
+          sourceImageUrls: uploadedImages,
+          imageTypes: selectedImageTypes,
+          customPrompt: customPrompt.trim() || undefined,
+          auditId: currentAuditId ?? undefined,
+        });
+      }
 
     } else if (activeStep === 4 || activeStep === 5) {
       // A+ Content / Export: simulate
@@ -771,7 +822,7 @@ export default function AuditWorkflow() {
         toast({ title: activeStep === 4 ? "A+ Content ready!" : "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAudit, createProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAudit, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
