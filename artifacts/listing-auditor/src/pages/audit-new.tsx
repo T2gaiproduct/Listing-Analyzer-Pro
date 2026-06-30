@@ -78,7 +78,7 @@ export default function AuditNew() {
         }}
       >
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-          Create Product Listings
+          Build Your Brand Content
         </h1>
         <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight mt-1">
           <span className="bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-transparent">
