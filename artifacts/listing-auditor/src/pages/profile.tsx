@@ -133,7 +133,22 @@ export default function Profile() {
   const updateMutation = useMutation({
     mutationFn: (body: object) =>
       fetch(`${basePath}/api/profile`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile"] }); setEditing(false); toast({ title: "Profile updated" }); },
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: ["user-profile"] });
+      setEditing(false);
+      toast({ title: "Profile updated" });
+      // Sync fullName back to Clerk so sidebar reflects it immediately
+      if (user && form.fullName.trim()) {
+        const parts = form.fullName.trim().split(" ");
+        const firstName = parts[0] ?? "";
+        const lastName = parts.slice(1).join(" ") ?? "";
+        try {
+          await user.update({ firstName, lastName });
+        } catch {
+          // Clerk sync failed — name is saved in DB, sidebar may need page refresh
+        }
+      }
+    },
   });
 
   function openPwDialog() {
