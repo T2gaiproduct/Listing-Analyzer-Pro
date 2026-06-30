@@ -26,6 +26,7 @@ import {
   Code2,
   Eye,
   Save,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -1306,29 +1307,44 @@ export default function AuditWorkflow() {
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
-                        <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setDescViewMode("preview")}
-                            className={cn(
-                              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
-                              descViewMode === "preview" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
-                            )}
+                            onClick={() => {
+                              navigator.clipboard.writeText(generatedContent.htmlDescription);
+                              toast({ title: "Copied", description: "HTML description copied to clipboard." });
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                            title="Copy HTML"
                           >
-                            <Eye className="w-3 h-3" /> Preview
+                            <Copy className="w-3 h-3" /> Copy
                           </button>
-                          <button
-                            onClick={() => setDescViewMode("code")}
-                            className={cn(
-                              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
-                              descViewMode === "code" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
-                            )}
-                          >
-                            <Code2 className="w-3 h-3" /> Code
-                          </button>
+                          <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+                            <button
+                              onClick={() => setDescViewMode("preview")}
+                              className={cn(
+                                "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
+                                descViewMode === "preview" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
+                              )}
+                            >
+                              <Eye className="w-3 h-3" /> Preview
+                            </button>
+                            <button
+                              onClick={() => setDescViewMode("code")}
+                              className={cn(
+                                "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
+                                descViewMode === "code" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
+                              )}
+                            >
+                              <Code2 className="w-3 h-3" /> Code
+                            </button>
+                          </div>
                         </div>
                       </div>
                       {descViewMode === "preview" ? (
-                        <div className="text-sm text-slate-700 leading-relaxed border rounded-md p-3 bg-slate-50" dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }} />
+                        <div
+                          className="prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
+                          dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }}
+                        />
                       ) : (
                         <pre className="text-xs text-slate-700 leading-relaxed border rounded-md p-3 bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap font-mono">{generatedContent.htmlDescription}</pre>
                       )}
