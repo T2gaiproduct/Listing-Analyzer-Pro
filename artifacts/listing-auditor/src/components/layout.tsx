@@ -517,11 +517,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: searchData } = useQuery({
     queryKey: ["search-projects", searchQuery],
     queryFn: async () => {
-      const r = await fetch(`${basePath}/api/search/projects?q=${encodeURIComponent(searchQuery)}&limit=50`);
+      const r = await fetch(`${basePath}/api/search/projects?q=${encodeURIComponent(searchQuery)}&limit=50`, { credentials: "include" });
       if (!r.ok) return { items: [] };
       return r.json() as Promise<{ items: RecentItem[] }>;
     },
     enabled: searchQuery.length > 0,
+    staleTime: 0,
   });
   const searchResults = (searchData?.items ?? []) as RecentItem[];
 

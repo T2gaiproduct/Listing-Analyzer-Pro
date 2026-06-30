@@ -108,7 +108,12 @@ router.get("/search/projects", requireAuth, async (req: Request, res: Response) 
     db
       .select({ id: auditsTable.id, name: auditsTable.projectName, productName: auditsTable.productName, asin: auditsTable.asin, createdAt: auditsTable.createdAt })
       .from(auditsTable)
-      .where(and(eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0), ilike(auditsTable.productName, `%${q}%`)))
+      .where(and(
+        eq(auditsTable.userId, userId),
+        eq(auditsTable.isDeleted, 0),
+        sql`${auditsTable.status} != 'archived'`,
+        sql`(${auditsTable.productName} ilike ${`%${q}%`} OR ${auditsTable.projectName} ilike ${`%${q}%`})`
+      ))
       .orderBy(desc(auditsTable.createdAt))
       .limit(limit),
     db
