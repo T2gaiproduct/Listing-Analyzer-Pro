@@ -75,15 +75,56 @@ Generate optimized, Amazon-compliant listing content. Return ONLY a JSON object:
 7. Separate terms with spaces (do not use commas, semicolons, or pipes in the backend field — but return as an array of individual terms here).
 
 --- AMAZON HTML DESCRIPTION REQUIREMENTS ---
-1. Use ONLY Amazon-legal HTML tags: <p>, <h3>, <ul>, <li>, <br>, <b>, <strong>, <i>, <em>.
-2. NO promotional language: "free shipping", "100% guaranteed", "best seller", "hot deal", "limited time", "act now", "buy now", "risk-free", "no questions asked".
-3. NO guarantee/warranty/refund language.
-4. NO external links or references to other products.
-5. NO ALL CAPS text.
-6. 400-600 words total.
-7. Include primary and secondary keywords naturally (no keyword stuffing).
-8. End with a customer benefit summary, NOT a hard sales call-to-action.
-9. Well-structured with headings (<h3>) for key sections and paragraphs (<p>) for detail.
+Generate a premium, conversion-focused Amazon product description in clean HTML format following these rules to maximize readability, engagement, and conversion.
+
+HTML STRUCTURE:
+- Generate clean, lightweight HTML only.
+- Do not use CSS, JavaScript, tables, or external styling.
+- Use only Amazon-supported HTML tags: <h2>, <h3>, <p>, <strong>, <ul>, <li>, <br>.
+
+CONTENT LAYOUT (follow this exact 6-section structure inside the htmlDescription string):
+
+1. Compelling Heading
+   - Start with a clear, benefit-driven heading inside an <h2> tag.
+   - Example: <h2>Experience Superior Performance & Everyday Convenience</h2>
+
+2. Opening Summary
+   - Write a short paragraph (2-4 sentences) explaining: what the product is, who it is for, the primary benefit, and why it stands out.
+
+3. Key Features
+   - Use heading: <h3><strong>Key Features</strong></h3>
+   - Present features using bullet points (<ul><li>).
+   - Each bullet must start with the feature name in <strong>, then explain the customer benefit focusing on value rather than specs alone.
+   - Example: <li><strong>Premium Material</strong> – Built with durable, high-quality materials for long-lasting performance.</li>
+
+4. Benefits Section
+   - Use heading: <h3><strong>Why You'll Love It</strong></h3>
+   - Bullet points explaining how the product improves the customer's life or solves common problems.
+
+5. Usage / Application
+   - Use heading: <h3><strong>Perfect For</strong></h3>
+   - Bullet points listing ideal users, occasions, or environments.
+
+6. Pitch Summary (Mandatory)
+   - Use heading: <h3><strong>Why Choose This Product?</strong></h3>
+   - Write a concise sales-oriented paragraph that reinforces the biggest benefits, builds confidence, and encourages purchase naturally.
+   - Avoid exaggerated or misleading claims.
+
+FORMATTING RULES:
+- Every section heading must be bold.
+- Use headings to break content into easy-to-scan sections.
+- Use bullet points wherever possible instead of long paragraphs.
+- Keep paragraphs short (2-3 sentences maximum).
+- Highlight important keywords using <strong>.
+- Write naturally for humans while incorporating relevant SEO keywords.
+- Maintain a premium, professional, and trustworthy tone.
+- Avoid keyword stuffing, emojis, and ALL CAPS (except brand names if required).
+- Never repeat the same information across multiple sections.
+- 400-600 words total.
+- Include primary and secondary keywords naturally (no keyword stuffing).
+- NO promotional language: "free shipping", "100% guaranteed", "best seller", "hot deal", "limited time", "act now", "buy now", "risk-free", "no questions asked".
+- NO guarantee/warranty/refund language.
+- NO external links or references to other products.
 
 Return ONLY the JSON object, no markdown, no explanation.`;
 
