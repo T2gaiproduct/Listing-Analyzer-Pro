@@ -8,6 +8,14 @@ import { handleStripeEvent } from "./lib/stripeWebhook";
 import { wsHandler } from "./routes/ws";
 import type Stripe from "stripe";
 
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception — server remains up");
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "Unhandled promise rejection — server remains up");
+});
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {

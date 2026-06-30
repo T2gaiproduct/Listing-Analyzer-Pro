@@ -5,3 +5,4 @@
 - [Dynamic Tailwind classes](tailwind-colors.md) — `bg-${color}-50` won't render in production. Always use hardcoded string maps for dynamic colors.
 - [Landing page pricing sync](homepage-sync.md) — Homepage pricing section should fetch from `/api/plans` instead of hardcoding, to stay in sync with DB values and admin edits.
 - [Checkout HTML error parse](checkout-html-error-parse.md) — "The string did not match the expected pattern" on checkout = server threw unhandled error → HTML body → client `r.json()` fails. Fix server-side, always return JSON errors.
+- [DB pool crash prevention](db-pool-crash.md) — `lib/db/src/index.ts` pool must have `pool.on('error', ...)` + process-level uncaught handlers in `index.ts`. Without these, Postgres admin connection terminations crash the server.
