@@ -297,7 +297,9 @@ function RecentProjectItem({
               title={item.pinned ? "Unpin" : "Pin"}
               className={cn(
                 "w-5 h-5 flex items-center justify-center rounded transition-colors",
-                item.pinned
+                isActive
+                  ? "text-white hover:text-white/80"
+                  : item.pinned
                   ? "text-primary hover:text-primary/70"
                   : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
@@ -310,7 +312,9 @@ function RecentProjectItem({
             ref={dotsRef}
             className={cn(
               "w-5 h-5 flex items-center justify-center rounded transition-colors",
-              menuOpen
+              isActive
+                ? "text-white hover:text-white/80"
+                : menuOpen
                 ? "text-sidebar-foreground bg-sidebar-accent/60"
                 : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
             )}
