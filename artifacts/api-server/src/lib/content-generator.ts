@@ -34,17 +34,39 @@ Generate optimized, Amazon-compliant listing content. Return ONLY a JSON object:
   "htmlDescription": "<p>Opening paragraph...</p><h3>Feature 1</h3><p>Details...</p>..."
 }
 
---- STRICT AMAZON TITLE REQUIREMENTS ---
-1. MAX 200 characters including spaces (ideally 80 or fewer). Count carefully.
-2. NO promotional phrases: "free shipping", "100% quality guaranteed", "best seller", "hot item", "best", "top rated", "#1", "premium quality", etc.
-3. NO special characters: !, $, ?, _, {, }, ^, ¬, ¦. Decorative usage of ~, #, <, >, * is prohibited. Only use hyphens (-), forward slashes (/), commas (,), ampersands (&), and periods (.) where necessary.
-4. NO restricted phrases: "FSA/HSA eligible", "guarantee", "warranty", "refund", "money back", "unconditional", "risk-free".
-5. NO word repeated more than twice (except prepositions, articles, conjunctions). Brand names count toward this limit.
-6. Capitalize first letter of each word EXCEPT prepositions (in, on, over, with), conjunctions (and, or, for), and articles (the, a, an).
-7. Use numerals for all numbers ("2" not "two").
-8. Use standard abbreviations for measurements (cm, oz, in, kg, lb, ml).
-9. Information order: Brand Name → Flavour/Style → Product Type → Key Attribute → Color → Size/Pack Count → Model Number.
-10. If no brand name, do NOT add "generic" to the title. Just omit the brand.
+--- AMAZON TITLE REQUIREMENTS ---
+Generate a high-converting, SEO-optimized, Amazon-compliant product title following these rules.
+
+OUTPUT REQUIREMENTS:
+- Generate exactly 1 optimized Amazon title.
+- Keep the title between 150–200 characters (including spaces).
+- Return only the final title without explanations, headings, quotation marks, or Markdown.
+
+TITLE STRUCTURE (follow this order whenever applicable):
+Brand | Main Product | Primary Keyword | Key Feature | Material | Size/Capacity | Color | Quantity | Compatibility/Use Case | Additional Benefit
+
+Example Structure:
+Brand + Product Type + Main Keyword + Material + Capacity + Key Feature + Color + Pack Size + Ideal Use
+
+WRITING GUIDELINES:
+1. Start with the Brand Name — Always begin with the brand name (if provided). If no brand is provided, start directly with the product name.
+2. Use the Most Important Keywords First — Include the highest-value keywords naturally near the beginning. Avoid keyword stuffing.
+3. Include Only Relevant Features — Include only meaningful selling points such as: Leakproof, BPA Free, Vacuum Insulated, Waterproof, Foldable, Heavy Duty, Rechargeable, Fast Charging, Non-Slip. Do not list unnecessary specifications.
+4. Include Product Attributes — Where applicable include: Material, Capacity, Dimensions, Size, Color, Quantity, Pack Size, Model, Compatibility.
+5. Add Use Cases Naturally — Include who or where the product is ideal for: Office, Gym, Travel, Home, Camping, Hiking, Kitchen, School.
+6. Readability — Use separators like commas or hyphens naturally. Avoid excessive punctuation.
+   Example: Brand Stainless Steel Water Bottle, Vacuum Insulated, Leakproof, BPA Free, 750ml, Black, for Gym, Office & Travel
+7. Amazon Compliance — NO promotional phrases ("Best", "#1", "Guaranteed", "Cheapest", "Free Shipping", "Hot Sale", "Limited Offer"). NO ALL CAPS (except brand abbreviations if required). NO emojis or special characters. NO repeated keywords unnecessarily. NO subjective or unverifiable claims.
+
+SEO BEST PRACTICES:
+- Naturally include: primary keyword, secondary keyword, feature keyword, material, size, use case.
+- Every keyword should fit naturally into the title.
+- Prioritize clarity over stuffing keywords.
+
+WRITING STYLE:
+- Read naturally like a sentence.
+- Look similar to premium Amazon brands.
+- Instantly communicate what the product is and why customers should click.
 
 --- AMAZON BULLET POINT REQUIREMENTS ---
 Generate exactly 5 high-converting, SEO-friendly, Amazon-ready bullet points following these rules.

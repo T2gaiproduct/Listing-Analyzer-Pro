@@ -48,7 +48,7 @@ Evaluate each section and return a JSON object with this exact structure:
 }
 
 Scoring criteria:
-- Title: Max 200 chars, primary keyword near front, includes key features/benefits, not keyword-stuffed
+- Title: 150-200 characters, starts with brand (if available), primary keyword near front, follows structure Brand | Product | Keyword | Feature | Material | Size | Color | Use Case, includes key features/benefits, no promotional phrases/ALL CAPS/emojis, not keyword-stuffed, reads naturally
 - Bullets: Exactly 5 bullet points, 180-250 characters each, format "• **FEATURE TITLE IN ALL CAPS:** Customer benefit → Supporting details → Practical value.", benefit-driven not spec-only, natural SEO keywords, unique selling points per bullet, customer-focused language, no emojis/exaggerated claims/repeated info
 - Images: 7+ images ideal (main, lifestyle, infographic, dimensions, detail shots), diverse angles
 - Keywords: Primary keyword in title, secondary in bullets, no keyword repetition, natural placement
