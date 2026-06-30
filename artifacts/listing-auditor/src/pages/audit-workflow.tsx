@@ -38,6 +38,7 @@ import {
   getGetAuditStatsQueryKey,
   getListAuditsQueryKey,
   getGetAuditQueryKey,
+  getGetRecentsQueryKey,
 } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -600,11 +601,22 @@ export default function AuditWorkflow() {
         const total = (project.lifestyleCount ?? 0) + (project.featureCount ?? 0);
         setGraphicsProgress({ generated: project.generatedCount ?? 0, total });
         if (project.imageRecords) {
-          setGeneratedImages(
-            project.imageRecords
+          setGeneratedImages((prev) => {
+            const newImages = project.imageRecords
               .filter((r) => r.currentUrl)
-              .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }))
-          );
+              .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }));
+            // Merge: keep existing, add new ones keyed by url+type+index
+            const existingKeys = new Set(prev.map((i) => `${i.url}|${i.type}|${i.index}`));
+            const merged = [...prev];
+            for (const img of newImages) {
+              const key = `${img.url}|${img.type}|${img.index}`;
+              if (!existingKeys.has(key)) {
+                merged.push(img);
+                existingKeys.add(key);
+              }
+            }
+            return merged;
+          });
         }
         if (project.status === "completed") {
           setIsCreating(false);
@@ -733,6 +745,7 @@ export default function AuditWorkflow() {
             toast({ title: "Project created!", description: `Saved as "${audit.projectName || audit.productName}"` });
             setActiveStep(2);
             queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+            void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
           },
           onError: (err) => {
             setIsCreating(false);
