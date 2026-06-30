@@ -193,8 +193,8 @@ function RecentProjectItem({
   const ref = useRef<HTMLDivElement>(null);
   const dotsRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const itemPath = item.url.split("?")[0];
-  const isActive = location === itemPath || location === item.url;
+  const fullLocation = location + window.location.search;
+  const isActive = fullLocation === item.url;
   const TypeIcon = typeIconMap[item.type] || AuditIcon;
   const { trigger, dialog } = useActionDialog();
 
