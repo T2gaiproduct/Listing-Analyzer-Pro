@@ -1482,7 +1482,7 @@ export default function AuditWorkflow() {
                       Generated Images ({generatedImages.length})
                     </h3>
                     {graphicsStatus === "completed" && (
-                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                      <span className="text-xs text-orange-600 font-medium flex items-center gap-1">
                         <Check className="w-3 h-3" /> Complete
                       </span>
                     )}

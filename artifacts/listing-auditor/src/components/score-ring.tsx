@@ -9,13 +9,13 @@ interface ScoreRingProps {
 
 export function ScoreRing({ score, size = "md", showLabel = true, className }: ScoreRingProps) {
   const getColor = (val: number) => {
-    if (val >= 70) return "text-emerald-500";
+    if (val >= 70) return "text-orange-500";
     if (val >= 50) return "text-amber-500";
     return "text-rose-500";
   };
-  
+
   const getBgColor = (val: number) => {
-    if (val >= 70) return "text-emerald-500/10";
+    if (val >= 70) return "text-orange-500/10";
     if (val >= 50) return "text-amber-500/10";
     return "text-rose-500/10";
   };
@@ -84,7 +84,7 @@ export function ScoreRing({ score, size = "md", showLabel = true, className }: S
 
 export function ScoreBadge({ score, className }: { score: number; className?: string }) {
   const getColor = (val: number) => {
-    if (val >= 70) return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+    if (val >= 70) return "bg-orange-500/10 text-orange-600 border-orange-500/20";
     if (val >= 50) return "bg-amber-500/10 text-amber-600 border-amber-500/20";
     return "bg-rose-500/10 text-rose-600 border-rose-500/20";
   };

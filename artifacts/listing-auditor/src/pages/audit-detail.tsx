@@ -91,7 +91,7 @@ function ScoreCard({ icon: Icon, title, score, issues, suggestions }: ScoreCardP
               <ul className="space-y-1.5">
                 {suggestions.map((s, i) => (
                   <li key={i} className="text-sm text-foreground/80 flex gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" /><span>{s}</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 mt-0.5 shrink-0" /><span>{s}</span>
                   </li>
                 ))}
               </ul>
@@ -378,11 +378,11 @@ export default function AuditDetail({ id }: { id: number }) {
             <TabsTrigger value="audit">Audit Results</TabsTrigger>
             <TabsTrigger value="content">
               Listing Optimization
-              {gc && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
+              {gc && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
             </TabsTrigger>
             <TabsTrigger value="images">
               Graphics Creation
-              {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-emerald-500 inline-block" />}
+              {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
             </TabsTrigger>
             <TabsTrigger value="ebc">
               A+ / EBC Content
@@ -696,7 +696,7 @@ export default function AuditDetail({ id }: { id: number }) {
                       <div className="col-span-2 space-y-2">
                         {competitor.strengths.slice(0, 2).map((s, i) => (
                           <div key={i} className="flex gap-1.5 items-start">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
                             <span className="text-xs text-foreground/80">{s}</span>
                           </div>
                         ))}

@@ -337,8 +337,8 @@ export default function AuditListings() {
           <Card className="border border-border/60">
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <Wrench className="w-4 h-4 text-emerald-600" />
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Wrench className="w-4 h-4 text-orange-600" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">Top Fixes</p>
@@ -348,8 +348,8 @@ export default function AuditListings() {
               <div className="space-y-2">
                 {["Optimize your title", "Improve main images", "Enhance bullet points", "Strengthen description"].map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-emerald-600" />
+                    <div className="w-4 h-4 rounded-full bg-orange-100 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-orange-600" />
                     </div>
                     <span>{item}</span>
                   </div>
@@ -443,8 +443,8 @@ export default function AuditListings() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <Users className="w-4 h-4 text-emerald-600" />
+              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                <Users className="w-4 h-4 text-orange-600" />
               </div>
               <div>
                 <p className="text-sm font-bold text-foreground">150K+</p>
