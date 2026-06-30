@@ -649,11 +649,27 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   }
 
-  const initials = user?.firstName && user?.lastName
-    ? `${user.firstName[0]}${user.lastName[0]}`
-    : user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?";
+  // Fetch local profile so name edits reflect in sidebar immediately
+  const { data: profileData } = useQuery<{ profile: { fullName: string | null } | null }>({
+    queryKey: ["user-profile"],
+    queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 60_000,
+  });
 
-  const displayName = user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? "Account";
+  const profileName = profileData?.profile?.fullName;
+  const clerkName = user?.fullName ?? undefined;
+  const emailName = user?.emailAddresses?.[0]?.emailAddress ?? undefined;
+  const resolvedName = profileName || clerkName || emailName || "Account";
+
+  const initials = (() => {
+    if (resolvedName && resolvedName.includes(" ")) {
+      const parts = resolvedName.split(" ").filter(Boolean);
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return resolvedName?.[0]?.toUpperCase() ?? "?";
+  })();
+
+  const displayName = resolvedName;
   const planLabel = "Free"; // Can be wired to subscription API later
 
   return (
