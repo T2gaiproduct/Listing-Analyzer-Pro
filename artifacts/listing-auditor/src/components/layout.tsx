@@ -755,10 +755,10 @@ export function Layout({ children }: { children: ReactNode }) {
               const isActive =
                 location === href ||
                 (href === "/dashboard" && location === "/") ||
-                (href === "/audits/new" && location.startsWith("/audits/")) ||
-                (href === "/projects" && location.startsWith("/projects/")) ||
-                (href === "/videos" && location.startsWith("/videos/")) ||
-                (href === "/ads" && location.startsWith("/ads/"));
+                (href === "/audits/new" && (location === "/audits/new" || location === "/audits/workflow")) ||
+                (href === "/projects" && location === "/projects") ||
+                (href === "/videos" && location === "/videos") ||
+                (href === "/ads" && location === "/ads");
               if (collapsed) {
                 return (
                   <SidebarTooltip key={href} label={label} side="right">
