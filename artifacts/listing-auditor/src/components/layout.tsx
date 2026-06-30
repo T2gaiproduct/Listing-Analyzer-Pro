@@ -59,7 +59,7 @@ const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const mainNavItems = [
-  { icon: FilePlus2, label: "Create Listings", href: "/audits/new" },
+  { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new" },
   { icon: FileSearch, label: "Audit Listings", href: "/audit-listings" },
   { icon: Palette, label: "Create Graphics", href: "/projects" },
   { icon: Video, label: "Create Videos", href: "/videos" },
@@ -162,7 +162,7 @@ const typeIconMap: Record<string, typeof AuditIcon> = {
 
 const typeLabelMap: Record<string, string> = {
   audit: "Audit",
-  listing: "Create Listing",
+  listing: "Build Your Brand",
   graphics: "Graphics",
   video: "Video",
   ads: "Ads",
