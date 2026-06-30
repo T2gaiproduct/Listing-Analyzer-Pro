@@ -1,0 +1,112 @@
+# Amazon HTML Description Generation Guidelines
+
+Whenever you generate an Amazon product description in HTML format, follow these rules to maximize readability, customer engagement, and conversion rate.
+
+## HTML Structure
+
+* Generate clean, lightweight HTML only.
+* Do not use CSS, JavaScript, tables, or external styling.
+* Use only Amazon-supported HTML tags such as:
+
+  * `<h2>`
+  * `<h3>`
+  * `<p>`
+  * `<strong>`
+  * `<ul>`
+  * `<li>`
+  * `<br>`
+
+## Content Layout
+
+### 1. Compelling Heading
+
+Start with a clear, benefit-driven heading inside an `<h2>` tag.
+
+Example:
+`<h2>Experience Superior Performance & Everyday Convenience</h2>`
+
+### 2. Opening Summary
+
+Write a short paragraph (2–4 sentences) explaining:
+
+* What the product is
+* Who it is for
+* The primary benefit
+* Why it stands out
+
+### 3. Key Features
+
+Create a section with a bold heading.
+
+Example:
+`<h3><strong>Key Features</strong></h3>`
+
+Present features using bullet points (`<ul><li>`).
+
+Each bullet should:
+
+* Start with the feature name in **bold**
+* Explain the customer benefit
+* Focus on value rather than specifications alone
+
+Example:
+
+* **Premium Material** – Built with durable, high-quality materials for long-lasting performance.
+* **Easy to Use** – Designed for quick setup and effortless daily operation.
+
+### 4. Benefits Section
+
+Include another bold heading:
+
+`<h3><strong>Why You'll Love It</strong></h3>`
+
+Provide bullet points explaining how the product improves the customer's life or solves common problems.
+
+### 5. Usage/Application
+
+If applicable, include:
+
+`<h3><strong>Perfect For</strong></h3>`
+
+Use bullet points listing ideal users, occasions, or environments.
+
+### 6. Pitch Summary (Mandatory)
+
+Always end with a persuasive closing section.
+
+Heading:
+
+`<h3><strong>Why Choose This Product?</strong></h3>`
+
+Write a concise sales-oriented paragraph that:
+
+* Reinforces the biggest benefits
+* Builds confidence
+* Encourages purchase naturally
+* Avoids exaggerated or misleading claims
+
+## Formatting Rules
+
+* Every section heading must be bold.
+* Use headings to break content into easy-to-scan sections.
+* Use bullet points wherever possible instead of long paragraphs.
+* Keep paragraphs short (2–3 sentences maximum).
+* Highlight important keywords using `<strong>`.
+* Write naturally for humans while incorporating relevant SEO keywords.
+* Maintain a premium, professional, and trustworthy tone.
+* Avoid keyword stuffing.
+* Avoid emojis.
+* Avoid ALL CAPS except for brand names if required.
+* Never repeat the same information across multiple sections.
+
+## Writing Style
+
+The description should:
+
+* Be visually easy to scan.
+* Increase readability on Amazon mobile and desktop.
+* Focus on customer benefits before technical details.
+* Be persuasive without sounding overly promotional.
+* Feel premium, informative, and conversion-focused.
+
+Always generate the final output as valid HTML only, with no Markdown, explanations, or additional notes outside the HTML.
