@@ -454,12 +454,9 @@ export default function AuditWorkflow() {
     if (auditData.generatedContent) {
       setGeneratedContent(auditData.generatedContent as any);
     }
-    // Restore graphics selections from saved payload or imageRecords
+    // Restore graphics selections from saved payload only
     if ((auditData as any).selectedImageTypes && Array.isArray((auditData as any).selectedImageTypes)) {
       setSelectedImageTypes((auditData as any).selectedImageTypes as string[]);
-    } else if (auditData.imageRecords && (auditData.imageRecords as any[]).length > 0) {
-      const records = auditData.imageRecords as any[];
-      setSelectedImageTypes(records.map((r) => r.type || "lifestyle"));
     }
     // Restore generated images from imageRecords
     if (auditData.imageRecords && (auditData.imageRecords as any[]).length > 0) {
