@@ -495,6 +495,7 @@ export default function AuditWorkflow() {
   const [graphicsProgress, setGraphicsProgress] = useState({ generated: 0, total: 0 });
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const completionToastShownRef = useRef(false);
+  const hasSeenGeneratingRef = useRef(false);
 
   /* ── Fetch existing graphics project for this audit ── */
   const { data: existingGraphicsProject } = useQuery({
@@ -529,6 +530,7 @@ export default function AuditWorkflow() {
       setGraphicsProjectId(variables.projectId);
       setGraphicsStatus("generating");
       completionToastShownRef.current = false;
+      hasSeenGeneratingRef.current = false;
       // Keep existing images visible during generation
       setGraphicsProgress({ generated: 0, total: variables.imageTypes.length });
     },
@@ -563,6 +565,7 @@ export default function AuditWorkflow() {
       setGraphicsProjectId(project.id);
       setGraphicsStatus("generating");
       completionToastShownRef.current = false;
+      hasSeenGeneratingRef.current = false;
       // Keep existing images visible during generation
       setGraphicsProgress({ generated: 0, total: selectedImageTypes.length });
       /* Stay in workflow — no nav() away */
@@ -591,6 +594,9 @@ export default function AuditWorkflow() {
           errorMessage?: string | null;
         };
         setGraphicsStatus(project.status);
+        if (project.status === "generating") {
+          hasSeenGeneratingRef.current = true;
+        }
         const total = (project.lifestyleCount ?? 0) + (project.featureCount ?? 0);
         setGraphicsProgress({ generated: project.generatedCount ?? 0, total });
         if (project.imageRecords) {
@@ -602,7 +608,7 @@ export default function AuditWorkflow() {
         }
         if (project.status === "completed") {
           setIsCreating(false);
-          if (!completionToastShownRef.current) {
+          if (hasSeenGeneratingRef.current && !completionToastShownRef.current) {
             completionToastShownRef.current = true;
             toast({ title: "Graphics ready!", description: `${total} images generated successfully.` });
           }
