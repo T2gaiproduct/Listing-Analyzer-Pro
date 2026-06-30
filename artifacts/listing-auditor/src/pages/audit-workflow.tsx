@@ -1369,18 +1369,18 @@ export default function AuditWorkflow() {
 
           {/* STEP 3: Graphics ── */}
           {activeStep === 3 && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <Wand2 className="w-5 h-5 text-orange-500" />
+            <div className="space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                  <Wand2 className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Create Product Graphics</h2>
-                  <p className="text-sm text-slate-500">Choose the image types you want to generate</p>
+                  <h2 className="text-2xl font-bold text-slate-900">Create Product Graphics</h2>
+                  <p className="text-base text-slate-500 mt-0.5">Choose the image types you want to generate</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {IMAGE_TYPES.map((type) => {
                   const isSelected = selectedImageTypes.includes(type.id);
                   return (
@@ -1393,18 +1393,18 @@ export default function AuditWorkflow() {
                         if (currentAuditId) setIsDirty(true);
                       }}
                       className={cn(
-                        "relative rounded-xl border-2 p-4 text-left transition-all",
-                        isSelected ? "border-orange-500 bg-orange-50/40" : "border-slate-200 bg-white hover:border-slate-300"
+                        "relative rounded-2xl border-2 p-5 text-left transition-all",
+                        isSelected ? "border-orange-500 bg-orange-50/40 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
                       )}
                     >
-                      <span className="text-2xl leading-none block mb-2">{type.icon}</span>
-                      <p className={cn("text-sm font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                      <span className="text-3xl leading-none block mb-3">{type.icon}</span>
+                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
                         {type.label}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
+                      <p className="text-sm text-slate-400 mt-1 leading-snug">{type.desc}</p>
                       {isSelected && (
-                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
-                          <Check className="w-3 h-3 text-white" />
+                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
+                          <Check className="w-3.5 h-3.5 text-white" />
                         </div>
                       )}
                     </button>
@@ -1413,23 +1413,23 @@ export default function AuditWorkflow() {
               </div>
 
               {selectedImageTypes.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-600 font-semibold text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm">
                     {selectedImageTypes.length} selected
                   </span>
-                  <span className="text-sm text-slate-400">~{selectedImageTypes.length * 30}s total</span>
+                  <span className="text-base text-slate-400">~{selectedImageTypes.length * 30}s total</span>
                 </div>
               )}
 
               {selectedImageTypes.includes("custom") && (
-                <div className="rounded-xl border border-orange-200 bg-orange-50/30 p-4 space-y-3">
-                  <label className="text-sm font-medium text-orange-900">Custom Prompt</label>
+                <div className="rounded-2xl border border-orange-200 bg-orange-50/30 p-5 space-y-3">
+                  <label className="text-base font-medium text-orange-900">Custom Prompt</label>
                   <textarea
                     value={customPrompt}
                     onChange={(e) => { setCustomPrompt(e.target.value); setIsDirty(true); }}
                     placeholder="Describe exactly what you want the AI to create..."
-                    rows={3}
-                    className="w-full resize-none text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                    rows={4}
+                    className="w-full resize-none text-base border border-slate-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-200"
                   />
                 </div>
               )}
@@ -1437,7 +1437,7 @@ export default function AuditWorkflow() {
               {/* Generate Graphics button */}
               <Button
                 size="lg"
-                className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2 shadow-lg shadow-orange-500/20"
+                className="w-full h-14 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2.5 shadow-lg shadow-orange-500/20 text-base font-semibold"
                 disabled={isCreating || selectedImageTypes.length === 0 || graphicsStatus === "generating"}
                 onClick={handleCreate}
               >
@@ -1456,8 +1456,8 @@ export default function AuditWorkflow() {
 
               {/* Inline progress */}
               {graphicsStatus === "generating" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-base">
                     <span className="text-slate-600 font-medium">
                       Generating {graphicsProgress.total} image{graphicsProgress.total > 1 ? "s" : ""}…
                     </span>
@@ -1465,7 +1465,7 @@ export default function AuditWorkflow() {
                       {graphicsProgress.generated} / {graphicsProgress.total}
                     </span>
                   </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500"
                       style={{ width: `${graphicsProgress.total > 0 ? (graphicsProgress.generated / graphicsProgress.total) * 100 : 0}%` }}
@@ -1476,18 +1476,18 @@ export default function AuditWorkflow() {
 
               {/* Generated images grid */}
               {generatedImages.length > 0 && (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-800">
+                    <h3 className="text-base font-semibold text-slate-800">
                       Generated Images ({generatedImages.length})
                     </h3>
                     {graphicsStatus === "completed" && (
-                      <span className="text-xs text-orange-600 font-medium flex items-center gap-1">
-                        <Check className="w-3 h-3" /> Complete
+                      <span className="text-sm text-orange-600 font-medium flex items-center gap-1">
+                        <Check className="w-4 h-4" /> Complete
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {generatedImages.map((img, i) => (
                       <button
                         key={`${img.url}-${i}`}
