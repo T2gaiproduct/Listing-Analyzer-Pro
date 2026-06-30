@@ -193,7 +193,8 @@ function RecentProjectItem({
   const ref = useRef<HTMLDivElement>(null);
   const dotsRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const isActive = location === item.url;
+  const itemPath = item.url.split("?")[0];
+  const isActive = location === itemPath || location === item.url;
   const TypeIcon = typeIconMap[item.type] || AuditIcon;
   const { trigger, dialog } = useActionDialog();
 
@@ -755,7 +756,7 @@ export function Layout({ children }: { children: ReactNode }) {
               const isActive =
                 location === href ||
                 (href === "/dashboard" && location === "/") ||
-                (href === "/audits/new" && (location === "/audits/new" || location.startsWith("/audits/workflow"))) ||
+                (href === "/audits/new" && (location === "/audits/new" || location === "/audits/workflow")) ||
                 (href === "/projects" && location === "/projects") ||
                 (href === "/videos" && location === "/videos") ||
                 (href === "/ads" && location === "/ads");
