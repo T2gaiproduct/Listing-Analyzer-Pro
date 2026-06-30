@@ -494,6 +494,7 @@ export default function AuditWorkflow() {
   const [generatedImages, setGeneratedImages] = useState<Array<{ url: string; type: string; index: number }>>([]);
   const [graphicsProgress, setGraphicsProgress] = useState({ generated: 0, total: 0 });
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const completionToastShownRef = useRef(false);
 
   /* ── Fetch existing graphics project for this audit ── */
   const { data: existingGraphicsProject } = useQuery({
@@ -527,6 +528,7 @@ export default function AuditWorkflow() {
     onSuccess: (_data, variables) => {
       setGraphicsProjectId(variables.projectId);
       setGraphicsStatus("generating");
+      completionToastShownRef.current = false;
       // Keep existing images visible during generation
       setGraphicsProgress({ generated: 0, total: variables.imageTypes.length });
     },
@@ -560,6 +562,7 @@ export default function AuditWorkflow() {
       });
       setGraphicsProjectId(project.id);
       setGraphicsStatus("generating");
+      completionToastShownRef.current = false;
       // Keep existing images visible during generation
       setGraphicsProgress({ generated: 0, total: selectedImageTypes.length });
       /* Stay in workflow — no nav() away */
@@ -599,7 +602,10 @@ export default function AuditWorkflow() {
         }
         if (project.status === "completed") {
           setIsCreating(false);
-          toast({ title: "Graphics ready!", description: `${total} images generated successfully.` });
+          if (!completionToastShownRef.current) {
+            completionToastShownRef.current = true;
+            toast({ title: "Graphics ready!", description: `${total} images generated successfully.` });
+          }
           // Persist completed graphics directly from poll data (avoids stale state)
           if (currentAuditId && project.imageRecords) {
             const imageRecords = project.imageRecords
