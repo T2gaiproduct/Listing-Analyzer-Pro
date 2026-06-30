@@ -278,13 +278,13 @@ function RecentProjectItem({
         className={cn(
           "w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer",
           isActive
-            ? "bg-sidebar-accent text-sidebar-foreground font-medium"
+            ? "bg-orange-500 text-white font-medium"
             : hovered || menuOpen
             ? "bg-sidebar-accent/40 text-sidebar-foreground/90"
             : "text-sidebar-foreground/60"
         )}
       >
-        <TypeIcon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
+        <TypeIcon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
 
         <Link href={item.url} className="truncate flex-1 text-left min-w-0">
           {item.name}
@@ -755,7 +755,7 @@ export function Layout({ children }: { children: ReactNode }) {
               const isActive =
                 location === href ||
                 (href === "/dashboard" && location === "/") ||
-                (href === "/audits/new" && (location === "/audits/new" || location === "/audits/workflow")) ||
+                (href === "/audits/new" && (location === "/audits/new" || location.startsWith("/audits/workflow"))) ||
                 (href === "/projects" && location === "/projects") ||
                 (href === "/videos" && location === "/videos") ||
                 (href === "/ads" && location === "/ads");
