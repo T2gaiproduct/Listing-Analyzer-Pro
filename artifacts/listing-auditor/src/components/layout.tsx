@@ -756,7 +756,7 @@ export function Layout({ children }: { children: ReactNode }) {
               const isActive =
                 location === href ||
                 (href === "/dashboard" && location === "/") ||
-                (href === "/audits/new" && (location === "/audits/new" || location === "/audits/workflow")) ||
+                (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
                 (href === "/videos" && location === "/videos") ||
                 (href === "/ads" && location === "/ads");
