@@ -145,7 +145,7 @@ export default function AdminGraphicsLogs() {
                 </td>
               </tr>
             ))}
-            {!isLoading && !data?.projects.length && (
+            {!isLoading && !data?.projects?.length && (
               <tr>
                 <td colSpan={8} className="px-6 py-16 text-center">
                   <Palette className="w-8 h-8 text-slate-300 mx-auto mb-2" />
