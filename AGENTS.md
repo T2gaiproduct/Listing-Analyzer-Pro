@@ -40,6 +40,11 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
   - Use a Clerk **test email** (`+clerk_test@example.com`); `.test`/disposable TLDs are rejected. The email-code verification step accepts the fixed dev code **`424242`**.
 - With real Clerk keys, signing in reaches the dashboard and the API authenticates the session (profile/stats/credits load from Postgres). Creating an audit still needs a real AI key.
 
+### AI provider configuration (audits / content / images)
+- The default AI provider is **OpenAI**, and its key is read from the **DB `settings` table** (`openai_api_key`, optional `openai_base_url`) — i.e. the **Admin → AI Settings** screen — NOT from the `AI_INTEGRATIONS_OPENAI_*` env (those are only used by the legacy `replit` provider). See `artifacts/api-server/src/lib/openai-client.ts` / `ai-provider.ts`.
+- The chat model is hardcoded to **`gpt-5.4`** and images to `gpt-image-1.5`; the OpenAI key must have access to those. To enable AI, upsert `settings` rows `ai_provider=openai` and `openai_api_key=<key>` (the client caches by key, so restart the API or change the key to refresh).
+- Audit/content/image endpoints require **credits** from the `credits` table (audit = 1 audit credit by default). A brand-new user has 0 credits until onboarding/plan grants them; for testing you can insert a `credits` row for the user id.
+
 ### External secrets
-- Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are required for auth / any UI. These are currently provisioned.
-- An AI provider key (OpenAI/Gemini via `AI_INTEGRATIONS_OPENAI_*`, or configured in Admin → AI Settings) is required for audits, content, and image generation. Currently only a dummy `AI_INTEGRATIONS_OPENAI_API_KEY` is set, so the app boots but AI features won't produce real output.
+- Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are required for auth / any UI — currently provisioned.
+- A real OpenAI key enables the full audit flow; when present it lives in the DB `settings` table (see above). The `AI_INTEGRATIONS_OPENAI_API_KEY` env is only a dummy and does not drive the default OpenAI provider.
