@@ -32,6 +32,14 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 - There is **no ESLint config and no automated test suite**. The quality gate is `pnpm run typecheck`.
 - Note: `pnpm run typecheck` currently fails on one pre-existing frontend error in `artifacts/listing-auditor/src/pages/audit-workflow.tsx` (`project.imageRecords` possibly undefined). This is unrelated to environment setup. `pnpm run build` runs typecheck first, so build per-package (`pnpm --filter <pkg> run build`) to bypass it; both `api-server` (esbuild) and `listing-auditor` (vite) build cleanly on their own.
 
-### External secrets needed for full E2E (not present in this environment)
-- Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`) for auth / any UI.
-- An AI provider key (OpenAI/Gemini via `AI_INTEGRATIONS_OPENAI_*`, or configured in Admin → AI Settings) for audits, content, and image generation.
+### Full UI E2E — same-origin proxy + auth testing (important gotchas)
+- The frontend has no Vite `/api` proxy, so for a working UI run a reverse proxy that serves the SPA and forwards `/api` to the API. A minimal Node proxy (route `/api*` → `127.0.0.1:8080`, everything else + websocket upgrades → `127.0.0.1:19145`) on a spare port works; then browse to the proxy port so `/api` calls resolve.
+- Clerk **sign-up** is blocked in this VM: the instance has bot-protection CAPTCHA (Smart CAPTCHA/Turnstile) that can't load headlessly ("The CAPTCHA failed to load"). Do NOT try to demo account creation through the UI.
+- To test authenticated flows, create the user via the **Clerk Backend API** (bypasses CAPTCHA), then **sign in** through the UI (sign-in has no CAPTCHA):
+  - `curl -X POST https://api.clerk.com/v1/users -H "Authorization: Bearer $CLERK_SECRET_KEY" -H 'Content-Type: application/json' -d '{"email_address":["demo+clerk_test@example.com"],"password":"DemoAudit!2026","skip_password_checks":true}'`
+  - Use a Clerk **test email** (`+clerk_test@example.com`); `.test`/disposable TLDs are rejected. The email-code verification step accepts the fixed dev code **`424242`**.
+- With real Clerk keys, signing in reaches the dashboard and the API authenticates the session (profile/stats/credits load from Postgres). Creating an audit still needs a real AI key.
+
+### External secrets
+- Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are required for auth / any UI. These are currently provisioned.
+- An AI provider key (OpenAI/Gemini via `AI_INTEGRATIONS_OPENAI_*`, or configured in Admin → AI Settings) is required for audits, content, and image generation. Currently only a dummy `AI_INTEGRATIONS_OPENAI_API_KEY` is set, so the app boots but AI features won't produce real output.
