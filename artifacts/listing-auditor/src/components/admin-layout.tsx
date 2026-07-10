@@ -107,12 +107,14 @@ const navSections = [
   },
   {
     label: "Settings",
+    collapsible: true,
     items: [
-      { href: "/admin/settings/platform", label: "Platform", icon: Settings },
+      { href: "/admin/settings/platform", label: "Company Settings", icon: Settings },
       { href: "/admin/settings/ai", label: "AI Settings", icon: BrainCircuit },
-      { href: "/admin/settings/api", label: "API Management", icon: KeyRound },
-      { href: "/admin/settings/security", label: "Security", icon: Lock },
-      { href: "/admin/settings/payment-gateway", label: "Payment Gateway", icon: Wallet },
+      { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound },
+      { href: "/admin/settings/email", label: "Email Settings", icon: Mail },
+      { href: "/admin/settings/payment-gateway", label: "Payment Settings", icon: Wallet },
+      { href: "/admin/settings/security", label: "Security Settings", icon: Lock },
     ],
   },
 ];
