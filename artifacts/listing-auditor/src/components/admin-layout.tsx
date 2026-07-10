@@ -51,6 +51,14 @@ const navSections = [
     ],
   },
   {
+    label: "Marketing",
+    collapsible: true,
+    items: [
+      { href: "/admin/notifications", label: "Announcements", icon: Megaphone },
+      { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent },
+    ],
+  },
+  {
     label: "Website CMS",
     collapsible: true,
     items: [
