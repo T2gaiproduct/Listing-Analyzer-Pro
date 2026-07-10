@@ -6,7 +6,7 @@ import {
   BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
-  ChevronDown, ChevronUp, FileSearch, Palette, Trash2, Archive, Maximize,
+  ChevronDown, ChevronUp, FileSearch, Palette, Archive, Maximize,
   Video, Megaphone, HelpCircle, Mail, PanelBottom, LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -96,13 +96,6 @@ const navSections = [
     label: "Teams",
     items: [
       { href: "/admin/team-activity", label: "Team Activity", icon: Users },
-    ],
-  },
-  {
-    label: "Notifications",
-    items: [
-      { href: "/admin/notifications", label: "Alerts", icon: Bell },
-      { href: "/admin/archive", label: "Archive", icon: Trash2 },
     ],
   },
   {
