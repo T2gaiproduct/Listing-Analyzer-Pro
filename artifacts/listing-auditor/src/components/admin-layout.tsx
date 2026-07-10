@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Users, FileText, BarChart2, CreditCard,
@@ -19,9 +19,11 @@ const navSections = [
     ],
   },
   {
-    label: "Management",
+    label: "User Management",
+    collapsible: true,
     items: [
       { href: "/admin/customers", label: "Customers", icon: Users },
+      { href: "/admin/roles", label: "Roles", icon: Shield },
     ],
   },
   {
@@ -56,12 +58,6 @@ const navSections = [
     ],
   },
   {
-    label: "Roles",
-    items: [
-      { href: "/admin/roles", label: "Admin Roles", icon: Shield },
-    ],
-  },
-  {
     label: "Teams",
     items: [
       { href: "/admin/team-activity", label: "Team Activity", icon: Users },
@@ -90,6 +86,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (label: string) =>
+    setCollapsedSections((s) => ({ ...s, [label]: !s[label] }));
 
   const toggleFullscreen = () => {
     if (typeof document === "undefined") return;
@@ -138,12 +137,30 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-          {navSections.map((section) => (
+          {navSections.map((section) => {
+            const collapsible = (section as { collapsible?: boolean }).collapsible === true;
+            const isCollapsed = collapsible && (collapsedSections[section.label] ?? false);
+            return (
             <div key={section.label}>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
-                {section.label}
-              </p>
-              <div className="space-y-0.5">
+              {collapsible ? (
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.label)}
+                  className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3 hover:text-slate-300 transition-colors"
+                >
+                  <span>{section.label}</span>
+                  {isCollapsed ? (
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              ) : (
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
+                  {section.label}
+                </p>
+              )}
+              <div className={cn("space-y-0.5", isCollapsed && "hidden")}>
                 {section.items.map((item) => {
                   const isActive = location.startsWith(item.href);
                   return (
@@ -165,7 +182,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="p-3 border-t border-slate-700/50 space-y-1">
