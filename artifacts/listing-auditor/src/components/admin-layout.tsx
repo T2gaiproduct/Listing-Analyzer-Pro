@@ -7,7 +7,7 @@ import {
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Trash2, Archive, Maximize,
-  Video, Megaphone,
+  Video, Megaphone, HelpCircle, Mail, PanelBottom,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -54,14 +54,17 @@ const navSections = [
     label: "Website CMS",
     collapsible: true,
     items: [
-      { href: "/admin/marketing/homepage", label: "Homepage CMS", icon: Home },
+      { href: "/admin/marketing/homepage", label: "Homepage", icon: Home },
       { href: "/admin/marketing/pages", label: "Pages", icon: Globe },
+      { href: "/admin/marketing/navigation", label: "Navigation Menu", icon: Navigation },
       { href: "/admin/marketing/blog", label: "Blog", icon: BookOpen },
       { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp },
       { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare },
+      { href: "/admin/marketing/pages", label: "FAQ", icon: HelpCircle },
+      { href: "/admin/marketing/pages", label: "Contact Us", icon: Mail },
+      { href: "/admin/marketing/navigation", label: "Footer", icon: PanelBottom },
       { href: "/admin/marketing/media", label: "Media Library", icon: Image },
       { href: "/admin/marketing/forms", label: "Form Submissions", icon: Inbox },
-      { href: "/admin/marketing/navigation", label: "Navigation", icon: Navigation },
     ],
   },
   {
@@ -172,7 +175,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                   const isActive = location.startsWith(item.href);
                   return (
                     <Link
-                      key={item.href}
+                      key={item.label}
                       href={item.href}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all group",
