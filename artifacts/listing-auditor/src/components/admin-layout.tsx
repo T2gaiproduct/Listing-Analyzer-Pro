@@ -7,7 +7,7 @@ import {
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Trash2, Archive, Maximize,
-  Video, Megaphone, HelpCircle, Mail, PanelBottom,
+  Video, Megaphone, HelpCircle, Mail, PanelBottom, LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -65,6 +65,14 @@ const navSections = [
       { href: "/admin/marketing/navigation", label: "Footer", icon: PanelBottom },
       { href: "/admin/marketing/media", label: "Media Library", icon: Image },
       { href: "/admin/marketing/forms", label: "Form Submissions", icon: Inbox },
+    ],
+  },
+  {
+    label: "Help & Support",
+    collapsible: true,
+    items: [
+      { href: "/admin/marketing/forms", label: "Support Tickets", icon: LifeBuoy },
+      { href: "/admin/marketing/forms", label: "Contact Messages", icon: Mail },
     ],
   },
   {
