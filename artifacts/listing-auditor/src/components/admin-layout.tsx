@@ -40,6 +40,7 @@ const navSections = [
   },
   {
     label: "Billing",
+    collapsible: true,
     items: [
       { href: "/admin/plans", label: "Plans & Packages", icon: Layers },
       { href: "/admin/credit-rules", label: "Credit Rules", icon: Shield },
