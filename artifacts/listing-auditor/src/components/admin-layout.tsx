@@ -53,9 +53,9 @@ const navSections = [
     label: "Reports",
     collapsible: true,
     items: [
-      { href: "/admin/analytics", label: "Revenue Reports", icon: BarChart2 },
-      { href: "/admin/analytics", label: "Customer Reports", icon: Users },
-      { href: "/admin/analytics", label: "Subscription Reports", icon: CreditCard },
+      { href: "/admin/reports/revenue", label: "Revenue Reports", icon: BarChart2 },
+      { href: "/admin/reports/customers", label: "Customer Reports", icon: Users },
+      { href: "/admin/reports/subscriptions", label: "Subscription Reports", icon: CreditCard },
     ],
   },
   {

@@ -53,6 +53,9 @@ import AdminMarketingMedia from "@/pages/admin/marketing/media";
 import AdminMarketingForms from "@/pages/admin/marketing/forms";
 import AdminMarketingNavigation from "@/pages/admin/marketing/navigation";
 import AdminFaqs from "@/pages/admin/marketing/faqs";
+import RevenueReport from "@/pages/admin/reports/revenue";
+import CustomerReport from "@/pages/admin/reports/customer";
+import SubscriptionReport from "@/pages/admin/reports/subscription";
 import Pricing from "@/pages/pricing";
 import Features from "@/pages/features";
 import Contact from "@/pages/contact";
@@ -376,6 +379,15 @@ function Router() {
       </Route>
       <Route path="/admin/marketing/faqs">
         <AdminRoute><AdminFaqs /></AdminRoute>
+      </Route>
+      <Route path="/admin/reports/revenue">
+        <AdminRoute><RevenueReport /></AdminRoute>
+      </Route>
+      <Route path="/admin/reports/customers">
+        <AdminRoute><CustomerReport /></AdminRoute>
+      </Route>
+      <Route path="/admin/reports/subscriptions">
+        <AdminRoute><SubscriptionReport /></AdminRoute>
       </Route>
 
       {/* Public pages */}
