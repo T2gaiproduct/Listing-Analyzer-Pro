@@ -7,6 +7,7 @@ import {
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Trash2, Archive, Maximize,
+  FilePlus2, Video, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -30,8 +31,11 @@ const navSections = [
     label: "Services",
     collapsible: true,
     items: [
-      { href: "/admin/content/logs", label: "Listing Optimization", icon: FileSearch },
+      { href: "/audits/new", label: "Build Your Brand", icon: FilePlus2 },
+      { href: "/admin/content/logs", label: "Audit Listing", icon: FileSearch },
       { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette },
+      { href: "/videos", label: "Create Videos", icon: Video },
+      { href: "/ads", label: "Manage Ads", icon: Megaphone },
     ],
   },
   {
