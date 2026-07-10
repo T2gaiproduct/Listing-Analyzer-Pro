@@ -151,7 +151,7 @@ const addOns = [
   { name: "Competitor Analysis", price: "$0.50", per: "5 analyses" },
 ];
 
-const faqs = [
+const defaultFaqs = [
   { q: "What are credits?", a: "Credits are the currency for AI operations. AI content credits power title/bullet rewrites and keyword suggestions. Image credits generate professional product photos. Audit credits run full listing analyses." },
   { q: "Can I change plans anytime?", a: "Yes — upgrade or downgrade anytime from your billing settings. Upgrades take effect immediately; downgrades apply at the next billing cycle." },
   { q: "Is there a free trial?", a: "Starter, Growth, and Pro plans include a 14-day free trial. No credit card required to start. Enterprise plans are custom and do not include a trial." },
@@ -178,6 +178,12 @@ export default function Pricing() {
     queryKey: ["public-plans"],
     queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
   });
+
+  const { data: dbFaqs = [] } = useQuery<{ question: string; answer: string }[]>({
+    queryKey: ["public-faqs"],
+    queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
+  });
+  const faqs = dbFaqs.length > 0 ? dbFaqs.map((f) => ({ q: f.question, a: f.answer })) : defaultFaqs;
 
   const plans: DisplayPlan[] = dbPlans.length > 0
     ? dbPlans.map((p) => dbPlanToDisplay(p))
