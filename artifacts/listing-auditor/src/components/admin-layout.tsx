@@ -1,12 +1,12 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard, Users, FileText, BarChart2, CreditCard,
+  Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
   BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
-  ChevronDown, ChevronUp, FileSearch, Palette, Trash2,
+  ChevronDown, ChevronUp, FileSearch, Palette, Trash2, Archive, Maximize,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -15,7 +15,6 @@ const navSections = [
   {
     label: "Overview",
     items: [
-      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
     ],
   },
@@ -92,10 +91,19 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+  const toggleFullscreen = () => {
+    if (typeof document === "undefined") return;
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
       <aside className="w-64 flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col shadow-2xl z-10">
-        <div className="h-16 flex items-center px-6 border-b border-slate-700/50 gap-2">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-700/50 gap-2">
           <Link href="/admin/dashboard" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
             <Shield className="w-5 h-5 text-orange-400" />
             <div className="font-bold text-lg tracking-tight">
@@ -103,6 +111,30 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <span className="text-orange-400">Admin</span>
             </div>
           </Link>
+          <div className="flex items-center gap-0.5">
+            <Link
+              href="/admin/notifications"
+              aria-label="Notifications"
+              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/admin/archive"
+              aria-label="Archive"
+              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Archive className="w-4 h-4" />
+            </Link>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label="Toggle fullscreen"
+              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Maximize className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
