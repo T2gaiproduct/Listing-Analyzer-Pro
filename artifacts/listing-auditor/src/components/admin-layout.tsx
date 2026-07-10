@@ -6,8 +6,8 @@ import {
   BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
-  ChevronDown, ChevronUp, FileSearch, Palette, Archive, Maximize,
-  Video, Megaphone, HelpCircle, Mail, PanelBottom, LifeBuoy,
+  ChevronDown, ChevronUp, FileSearch, Palette, Archive,
+  Video, Megaphone, HelpCircle, Mail, PanelBottom, LifeBuoy, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -115,69 +115,79 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState(false);
   const toggleSection = (label: string) =>
     setCollapsedSections((s) => ({ ...s, [label]: !s[label] }));
 
-  const toggleFullscreen = () => {
-    if (typeof document === "undefined") return;
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-  };
-
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
-      <aside className="w-64 flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col shadow-2xl z-10">
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-700/50 gap-2">
-          <Link href="/admin/dashboard" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-            <Shield className="w-5 h-5 text-orange-400" />
-            <div className="font-bold text-lg tracking-tight">
-              <span className="text-white">Super</span>
-              <span className="text-orange-400">Admin</span>
-            </div>
-          </Link>
-          <div className="flex items-center gap-0.5">
-            <Link
-              href="/admin/notifications"
-              aria-label="Notifications"
-              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/admin/archive"
-              aria-label="Archive"
-              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <Archive className="w-4 h-4" />
+      <aside className={cn("flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
+        {collapsed ? (
+          <div className="h-16 flex flex-col items-center justify-center gap-1 px-2 border-b border-slate-700/50">
+            <Link href="/admin/dashboard" aria-label="Dashboard">
+              <Shield className="w-5 h-5 text-orange-400" />
             </Link>
             <button
               type="button"
-              onClick={toggleFullscreen}
-              aria-label="Toggle fullscreen"
+              onClick={() => setCollapsed(false)}
+              title="Expand Sidebar"
+              aria-label="Expand Sidebar"
               className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
             >
-              <Maximize className="w-4 h-4" />
+              <PanelLeftOpen className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        ) : (
+          <div className="h-16 flex items-center justify-between px-6 border-b border-slate-700/50 gap-2">
+            <Link href="/admin/dashboard" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+              <Shield className="w-5 h-5 text-orange-400" />
+              <div className="font-bold text-lg tracking-tight">
+                <span className="text-white">Super</span>
+                <span className="text-orange-400">Admin</span>
+              </div>
+            </Link>
+            <div className="flex items-center gap-0.5">
+              <Link
+                href="/admin/notifications"
+                aria-label="Notifications"
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <Bell className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/admin/archive"
+                aria-label="Archive"
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <Archive className="w-4 h-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                title="Collapse Sidebar"
+                aria-label="Collapse Sidebar"
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
-        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+        <nav className={cn("flex-1 py-4 overflow-y-auto", collapsed ? "px-2 space-y-1" : "px-3 space-y-5")}>
           {navSections.map((section) => {
             const collapsible = (section as { collapsible?: boolean }).collapsible === true;
-            const isCollapsed = collapsible && (collapsedSections[section.label] ?? false);
+            const isSectionCollapsed = !collapsed && collapsible && (collapsedSections[section.label] ?? false);
             return (
             <div key={section.label}>
-              {collapsible ? (
+              {!collapsed && (collapsible ? (
                 <button
                   type="button"
                   onClick={() => toggleSection(section.label)}
                   className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3 hover:text-slate-300 transition-colors"
                 >
                   <span>{section.label}</span>
-                  {isCollapsed ? (
+                  {isSectionCollapsed ? (
                     <ChevronRight className="w-3.5 h-3.5" />
                   ) : (
                     <ChevronDown className="w-3.5 h-3.5" />
@@ -187,24 +197,26 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
                   {section.label}
                 </p>
-              )}
-              <div className={cn("space-y-0.5", isCollapsed && "hidden")}>
+              ))}
+              <div className={cn("space-y-0.5", isSectionCollapsed && "hidden")}>
                 {section.items.map((item) => {
                   const isActive = location.startsWith(item.href);
                   return (
                     <Link
                       key={item.label}
                       href={item.href}
+                      title={collapsed ? item.label : undefined}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all group",
+                        "flex items-center rounded-md text-sm font-medium transition-all group",
+                        collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                         isActive
                           ? "bg-orange-500 text-white shadow-sm"
                           : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                       )}
                     >
                       <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
-                      {item.label}
-                      {isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
+                      {!collapsed && item.label}
+                      {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
                     </Link>
                   );
                 })}
@@ -217,10 +229,14 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         <div className="p-3 border-t border-slate-700/50 space-y-1">
           <button
             onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all w-full text-left"
+            title={collapsed ? "Sign Out" : undefined}
+            className={cn(
+              "flex items-center rounded-md text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all w-full",
+              collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2 text-left"
+            )}
           >
             <LogOut className="w-4 h-4" />
-            Sign Out
+            {!collapsed && "Sign Out"}
           </button>
         </div>
       </aside>
