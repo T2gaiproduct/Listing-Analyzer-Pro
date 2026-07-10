@@ -77,7 +77,6 @@ const navSections = [
       { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp },
       { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare },
       { href: "/admin/marketing/faqs", label: "FAQ", icon: HelpCircle },
-      { href: "/admin/marketing/pages", label: "Contact Us", icon: Mail },
       { href: "/admin/marketing/navigation", label: "Footer", icon: PanelBottom },
       { href: "/admin/marketing/media", label: "Media Library", icon: Image },
     ],
