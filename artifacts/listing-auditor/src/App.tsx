@@ -31,6 +31,7 @@ import AdminBillingCoupons from "@/pages/admin/billing/coupons";
 import AdminContentGenerated from "@/pages/admin/content/generated";
 import AdminContentImages from "@/pages/admin/content/images";
 import AdminContentLogs from "@/pages/admin/content/logs";
+import AdminBuildBrandLogs from "@/pages/admin/content/build-brand-logs";
 import AdminContentDownloads from "@/pages/admin/content/downloads";
 import AdminGraphicsLogs from "@/pages/admin/content/graphics-logs";
 import AdminRoles from "@/pages/admin/roles";
@@ -305,6 +306,9 @@ function Router() {
       </Route>
       <Route path="/admin/content/graphics-logs">
         <AdminRoute><AdminGraphicsLogs /></AdminRoute>
+      </Route>
+      <Route path="/admin/content/build-brand-logs">
+        <AdminRoute><AdminBuildBrandLogs /></AdminRoute>
       </Route>
       <Route path="/admin/roles">
         <AdminRoute><AdminRoles /></AdminRoute>
