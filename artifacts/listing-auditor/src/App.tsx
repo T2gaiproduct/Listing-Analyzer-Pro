@@ -42,6 +42,7 @@ import AdminSettingsAI from "@/pages/admin/settings/ai";
 import AdminSettingsAPI from "@/pages/admin/settings/api";
 import AdminSettingsSecurity from "@/pages/admin/settings/security";
 import AdminSettingsPaymentGateway from "@/pages/admin/settings/payment-gateway";
+import AdminSettingsEmail from "@/pages/admin/settings/email";
 import AdminMarketingHomepage from "@/pages/admin/marketing/homepage";
 import AdminMarketingPages from "@/pages/admin/marketing/pages";
 import AdminMarketingBlog from "@/pages/admin/marketing/blog";
@@ -336,6 +337,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/payment-gateway">
         <AdminRoute><AdminSettingsPaymentGateway /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/email">
+        <AdminRoute><AdminSettingsEmail /></AdminRoute>
       </Route>
 
       {/* Marketing */}

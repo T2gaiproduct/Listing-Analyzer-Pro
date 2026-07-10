@@ -991,6 +991,8 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     "paypal_client_secret",
     "openai_api_key",
     "gemini_api_key",
+    "resend_api_key",
+    "smtp_password",
   ]);
 
   // Enforce mutual exclusivity for payment gateway enabled flags
