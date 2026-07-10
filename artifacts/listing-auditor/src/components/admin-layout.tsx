@@ -7,7 +7,7 @@ import {
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
-  Video, Megaphone, HelpCircle, Mail, PanelBottom, LifeBuoy, PanelLeftClose, PanelLeftOpen,
+  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
@@ -77,7 +77,6 @@ const navSections = [
       { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp },
       { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare },
       { href: "/admin/marketing/faqs", label: "FAQ", icon: HelpCircle },
-      { href: "/admin/marketing/navigation", label: "Footer", icon: PanelBottom },
       { href: "/admin/marketing/media", label: "Media Library", icon: Image },
     ],
   },
