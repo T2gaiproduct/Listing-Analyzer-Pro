@@ -31,7 +31,7 @@ const navSections = [
     label: "Services",
     collapsible: true,
     items: [
-      { href: "/admin/content/build-brand-logs", label: "Build Your Brand Logs", icon: ClipboardList },
+      { href: "/admin/content/build-brand-logs", label: "Build Your Brand", icon: ClipboardList },
       { href: "/admin/content/logs", label: "Audit Listing", icon: FileSearch },
       { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette },
       { href: "/videos", label: "Create Videos", icon: Video },
