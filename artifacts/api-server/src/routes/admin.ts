@@ -668,6 +668,30 @@ router.get("/admin/payments", requireAdmin, async (req, res): Promise<void> => {
   res.json({ payments: filtered, total: Number(total?.c ?? 0) });
 });
 
+router.get("/admin/subscriptions", requireAdmin, async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      id: subscriptionsTable.id,
+      userId: subscriptionsTable.userId,
+      planId: subscriptionsTable.planId,
+      planName: plansTable.name,
+      billingCycle: subscriptionsTable.billingCycle,
+      status: subscriptionsTable.status,
+      priceMonthly: plansTable.priceMonthly,
+      priceYearly: plansTable.priceYearly,
+      discountAmount: subscriptionsTable.discountAmount,
+      trialEndsAt: subscriptionsTable.trialEndsAt,
+      currentPeriodStart: subscriptionsTable.currentPeriodStart,
+      currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+      autoRenew: subscriptionsTable.autoRenew,
+      createdAt: subscriptionsTable.createdAt,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .orderBy(desc(subscriptionsTable.createdAt));
+  res.json({ subscriptions: rows, total: rows.length });
+});
+
 router.post("/admin/payments", requireAdmin, async (req, res): Promise<void> => {
   const { userId, amount, currency, status, gateway, planId, metadata } = req.body;
   const [p] = await db.insert(paymentsTable).values({ userId, amount, currency, status, gateway, planId, metadata }).returning();
