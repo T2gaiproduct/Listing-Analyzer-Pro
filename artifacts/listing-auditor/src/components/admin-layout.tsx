@@ -28,6 +28,7 @@ const navSections = [
   },
   {
     label: "Audit Logs",
+    collapsible: true,
     items: [
       { href: "/admin/content/logs", label: "Listing Optimization", icon: FileSearch },
       { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette },
