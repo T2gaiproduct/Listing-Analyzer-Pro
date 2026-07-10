@@ -27,7 +27,7 @@ const navSections = [
     ],
   },
   {
-    label: "Audit Logs",
+    label: "Services",
     collapsible: true,
     items: [
       { href: "/admin/content/logs", label: "Listing Optimization", icon: FileSearch },
