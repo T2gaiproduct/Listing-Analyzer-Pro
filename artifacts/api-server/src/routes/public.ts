@@ -6,7 +6,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
-  userProfilesTable, subscriptionsTable, notificationsTable, settingsTable,
+  userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs,
 } from "@workspace/db";
 import { addCredits } from "../lib/credits";
 import { getGatewaySettings } from "./payment";
@@ -38,6 +38,13 @@ router.get("/plans", async (_req, res): Promise<void> => {
     .where(eq(plansTable.isActive, true))
     .orderBy(plansTable.sortOrder);
   res.json(plans);
+});
+
+router.get("/faqs", async (_req, res): Promise<void> => {
+  const items = await db.select().from(faqs)
+    .where(eq(faqs.isPublished, true))
+    .orderBy(faqs.sortOrder);
+  res.json(items);
 });
 
 // ─── Authenticated ────────────────────────────────────────────────────────────

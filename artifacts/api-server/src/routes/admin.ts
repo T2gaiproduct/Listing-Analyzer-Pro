@@ -7,7 +7,7 @@ import {
   paymentsTable, invoicesTable, refundsTable, couponsTable,
   adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
-  cmsContent, blogPosts, testimonials, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
+  cmsContent, blogPosts, testimonials, faqs, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
   userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable,
   graphicsProjectsTable,
 } from "@workspace/db";
@@ -1236,6 +1236,48 @@ router.delete("/admin/testimonials/:id", requireAdmin, async (req, res): Promise
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(testimonials).where(eq(testimonials.id, id));
+  res.sendStatus(204);
+});
+
+// ─── FAQs ──────────────────────────────────────────────────────────────────
+router.get("/admin/faqs", requireAdmin, async (_req, res): Promise<void> => {
+  const items = await db.select().from(faqs).orderBy(faqs.sortOrder);
+  res.json(items);
+});
+
+router.post("/admin/faqs", requireAdmin, async (req, res): Promise<void> => {
+  const { question, answer, category, isPublished, sortOrder } = req.body as Record<string, unknown>;
+  if (!question || !answer) { res.status(400).json({ error: "question and answer are required" }); return; }
+  const [item] = await db.insert(faqs).values({
+    question: String(question),
+    answer: String(answer),
+    category: (category as string) ?? null,
+    isPublished: isPublished === undefined ? true : Boolean(isPublished),
+    sortOrder: sortOrder != null ? Number(sortOrder) : 0,
+  }).returning();
+  res.status(201).json(item);
+});
+
+router.patch("/admin/faqs/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { question, answer, category, isPublished, sortOrder } = req.body as Record<string, unknown>;
+  const [item] = await db.update(faqs).set({
+    question: question as string,
+    answer: answer as string,
+    category: category as string,
+    isPublished: isPublished as boolean,
+    sortOrder: sortOrder as number,
+    updatedAt: new Date(),
+  }).where(eq(faqs.id, id)).returning();
+  if (!item) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(item);
+});
+
+router.delete("/admin/faqs/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(faqs).where(eq(faqs.id, id));
   res.sendStatus(204);
 });
 
