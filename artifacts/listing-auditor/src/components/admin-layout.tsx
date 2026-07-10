@@ -5,7 +5,7 @@ import {
   Layers, Shield, LogOut, ChevronRight, Settings,
   BadgePercent, ClipboardList, Download,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
-  Globe, BookOpen, TrendingUp, MessageSquare, Image, Inbox, Navigation, Home,
+  Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive, Maximize,
   Video, Megaphone, HelpCircle, Mail, PanelBottom, LifeBuoy,
 } from "lucide-react";
@@ -80,7 +80,6 @@ const navSections = [
       { href: "/admin/marketing/pages", label: "Contact Us", icon: Mail },
       { href: "/admin/marketing/navigation", label: "Footer", icon: PanelBottom },
       { href: "/admin/marketing/media", label: "Media Library", icon: Image },
-      { href: "/admin/marketing/forms", label: "Form Submissions", icon: Inbox },
     ],
   },
   {
