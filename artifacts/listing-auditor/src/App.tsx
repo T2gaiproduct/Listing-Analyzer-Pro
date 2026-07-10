@@ -31,6 +31,7 @@ import AdminBillingCoupons from "@/pages/admin/billing/coupons";
 import AdminContentGenerated from "@/pages/admin/content/generated";
 import AdminContentImages from "@/pages/admin/content/images";
 import AdminContentLogs from "@/pages/admin/content/logs";
+import AdminBuildBrandLogs from "@/pages/admin/content/build-brand-logs";
 import AdminContentDownloads from "@/pages/admin/content/downloads";
 import AdminGraphicsLogs from "@/pages/admin/content/graphics-logs";
 import AdminRoles from "@/pages/admin/roles";
@@ -41,6 +42,7 @@ import AdminSettingsAI from "@/pages/admin/settings/ai";
 import AdminSettingsAPI from "@/pages/admin/settings/api";
 import AdminSettingsSecurity from "@/pages/admin/settings/security";
 import AdminSettingsPaymentGateway from "@/pages/admin/settings/payment-gateway";
+import AdminSettingsEmail from "@/pages/admin/settings/email";
 import AdminMarketingHomepage from "@/pages/admin/marketing/homepage";
 import AdminMarketingPages from "@/pages/admin/marketing/pages";
 import AdminMarketingBlog from "@/pages/admin/marketing/blog";
@@ -50,6 +52,10 @@ import AdminMarketingTestimonials from "@/pages/admin/marketing/testimonials";
 import AdminMarketingMedia from "@/pages/admin/marketing/media";
 import AdminMarketingForms from "@/pages/admin/marketing/forms";
 import AdminMarketingNavigation from "@/pages/admin/marketing/navigation";
+import AdminFaqs from "@/pages/admin/marketing/faqs";
+import RevenueReport from "@/pages/admin/reports/revenue";
+import CustomerReport from "@/pages/admin/reports/customer";
+import SubscriptionReport from "@/pages/admin/reports/subscription";
 import Pricing from "@/pages/pricing";
 import Features from "@/pages/features";
 import Contact from "@/pages/contact";
@@ -306,6 +312,9 @@ function Router() {
       <Route path="/admin/content/graphics-logs">
         <AdminRoute><AdminGraphicsLogs /></AdminRoute>
       </Route>
+      <Route path="/admin/content/build-brand-logs">
+        <AdminRoute><AdminBuildBrandLogs /></AdminRoute>
+      </Route>
       <Route path="/admin/roles">
         <AdminRoute><AdminRoles /></AdminRoute>
       </Route>
@@ -332,6 +341,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/payment-gateway">
         <AdminRoute><AdminSettingsPaymentGateway /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/email">
+        <AdminRoute><AdminSettingsEmail /></AdminRoute>
       </Route>
 
       {/* Marketing */}
@@ -364,6 +376,18 @@ function Router() {
       </Route>
       <Route path="/admin/marketing/navigation">
         <AdminRoute><AdminMarketingNavigation /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/faqs">
+        <AdminRoute><AdminFaqs /></AdminRoute>
+      </Route>
+      <Route path="/admin/reports/revenue">
+        <AdminRoute><RevenueReport /></AdminRoute>
+      </Route>
+      <Route path="/admin/reports/customers">
+        <AdminRoute><CustomerReport /></AdminRoute>
+      </Route>
+      <Route path="/admin/reports/subscriptions">
+        <AdminRoute><SubscriptionReport /></AdminRoute>
       </Route>
 
       {/* Public pages */}
