@@ -47,7 +47,6 @@ const navSections = [
       { href: "/admin/billing/payments", label: "Payments", icon: CreditCard },
       { href: "/admin/billing/invoices", label: "Invoices", icon: FileText },
       { href: "/admin/billing/refunds", label: "Refunds", icon: Layers },
-      { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent },
     ],
   },
   {
