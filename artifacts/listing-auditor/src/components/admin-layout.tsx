@@ -51,7 +51,8 @@ const navSections = [
     ],
   },
   {
-    label: "Marketing",
+    label: "Website CMS",
+    collapsible: true,
     items: [
       { href: "/admin/marketing/homepage", label: "Homepage CMS", icon: Home },
       { href: "/admin/marketing/pages", label: "Pages", icon: Globe },
