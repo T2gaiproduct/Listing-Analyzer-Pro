@@ -52,6 +52,7 @@ import AdminMarketingTestimonials from "@/pages/admin/marketing/testimonials";
 import AdminMarketingMedia from "@/pages/admin/marketing/media";
 import AdminMarketingForms from "@/pages/admin/marketing/forms";
 import AdminMarketingNavigation from "@/pages/admin/marketing/navigation";
+import AdminFaqs from "@/pages/admin/marketing/faqs";
 import Pricing from "@/pages/pricing";
 import Features from "@/pages/features";
 import Contact from "@/pages/contact";
@@ -372,6 +373,9 @@ function Router() {
       </Route>
       <Route path="/admin/marketing/navigation">
         <AdminRoute><AdminMarketingNavigation /></AdminRoute>
+      </Route>
+      <Route path="/admin/marketing/faqs">
+        <AdminRoute><AdminFaqs /></AdminRoute>
       </Route>
 
       {/* Public pages */}
