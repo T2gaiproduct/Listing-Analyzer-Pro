@@ -98,6 +98,10 @@ export default function Help() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [ticketForm, setTicketForm] = useState({ email: "", subject: "", message: "" });
   const [ticketSent, setTicketSent] = useState(false);
+  const [ticketError, setTicketError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const filteredFaqs = faqs.filter(
     f => f.q.toLowerCase().includes(search.toLowerCase()) || f.a.toLowerCase().includes(search.toLowerCase())
@@ -105,8 +109,28 @@ export default function Help() {
 
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault();
-    await new Promise(r => setTimeout(r, 800));
-    setTicketSent(true);
+    setTicketError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${basePath}/api/forms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formType: "support",
+          email: ticketForm.email,
+          data: { subject: ticketForm.subject, message: ticketForm.message },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to submit ticket");
+      }
+      setTicketSent(true);
+    } catch (err) {
+      setTicketError(err instanceof Error ? err.message : "Failed to submit ticket");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -237,9 +261,10 @@ export default function Help() {
                   onChange={e => setTicketForm(f => ({ ...f, message: e.target.value }))}
                 />
               </div>
-              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white">
-                Submit Ticket
+              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white" disabled={submitting}>
+                {submitting ? "Submitting…" : "Submit Ticket"}
               </Button>
+              {ticketError && <p className="text-sm text-red-600 text-center">{ticketError}</p>}
             </form>
           )}
         </div>

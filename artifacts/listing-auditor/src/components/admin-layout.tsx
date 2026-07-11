@@ -84,8 +84,8 @@ const navSections = [
     label: "Help & Support",
     collapsible: true,
     items: [
-      { href: "/admin/marketing/forms", label: "Support Tickets", icon: LifeBuoy },
-      { href: "/admin/marketing/forms", label: "Contact Messages", icon: Mail },
+      { href: "/admin/help/support-tickets", label: "Support Tickets", icon: LifeBuoy },
+      { href: "/admin/marketing/forms?type=contact", label: "Contact Messages", icon: Mail },
     ],
   },
   {
@@ -193,7 +193,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               ))}
               <div className={cn("space-y-0.5", isSectionCollapsed && "hidden")}>
                 {section.items.map((item) => {
-                  const isActive = location.startsWith(item.href);
+                  const itemPath = item.href.split("?")[0];
+                  const isActive = location.startsWith(itemPath);
                   return (
                     <Link
                       key={item.label}

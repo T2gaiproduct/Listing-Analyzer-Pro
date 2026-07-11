@@ -6,7 +6,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
-  userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs,
+  userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
 } from "@workspace/db";
 import { addCredits } from "../lib/credits";
 import { getGatewaySettings } from "./payment";
@@ -45,6 +45,33 @@ router.get("/faqs", async (_req, res): Promise<void> => {
     .where(eq(faqs.isPublished, true))
     .orderBy(faqs.sortOrder);
   res.json(items);
+});
+
+router.post("/forms", async (req, res): Promise<void> => {
+  const { formType, email, name, data } = req.body ?? {};
+
+  if (formType !== "support") {
+    res.status(400).json({ error: "Unsupported form type" });
+    return;
+  }
+
+  const trimmedEmail = typeof email === "string" ? email.trim() : "";
+  const subject = typeof data?.subject === "string" ? data.subject.trim() : "";
+  const message = typeof data?.message === "string" ? data.message.trim() : "";
+
+  if (!trimmedEmail || !subject || !message) {
+    res.status(400).json({ error: "Email, subject, and message are required" });
+    return;
+  }
+
+  const [item] = await db.insert(formSubmissions).values({
+    formType: "support",
+    email: trimmedEmail,
+    name: typeof name === "string" && name.trim() ? name.trim() : null,
+    data: { subject, message },
+  }).returning();
+
+  res.status(201).json(item);
 });
 
 // ─── Authenticated ────────────────────────────────────────────────────────────

@@ -23,7 +23,10 @@ interface FormSubmission {
 export default function AdminMarketingForms() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [typeFilter, setTypeFilter] = useState("all");
+  const initialType = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("type") ?? "all"
+    : "all";
+  const [typeFilter, setTypeFilter] = useState(initialType);
   const [selected, setSelected] = useState<FormSubmission | null>(null);
 
   const { data: submissions = [], isLoading } = useQuery<FormSubmission[]>({
@@ -66,6 +69,7 @@ export default function AdminMarketingForms() {
       demo: "bg-purple-100 text-purple-700",
       newsletter: "bg-green-100 text-green-700",
       enterprise: "bg-orange-100 text-orange-700",
+      support: "bg-amber-100 text-amber-700",
     };
     return <Badge className={`${colors[type] ?? "bg-slate-100 text-slate-600"} hover:opacity-90 capitalize`}>{type}</Badge>;
   }
@@ -77,7 +81,7 @@ export default function AdminMarketingForms() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Inbox className="w-6 h-6 text-orange-500" /> Form Submissions
+            <Inbox className="w-6 h-6 text-orange-500" /> {typeFilter === "contact" ? "Contact Messages" : "Form Submissions"}
           </h1>
           <p className="text-slate-500 text-sm mt-1">
             {submissions.length} total {unread > 0 && <span className="text-orange-600 font-medium">· {unread} unread</span>}
