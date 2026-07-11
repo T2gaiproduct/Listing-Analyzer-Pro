@@ -89,12 +89,6 @@ const navSections = [
     ],
   },
   {
-    label: "Teams",
-    items: [
-      { href: "/admin/team-activity", label: "Team Activity", icon: Users },
-    ],
-  },
-  {
     label: "Settings",
     collapsible: true,
     items: [
@@ -104,6 +98,7 @@ const navSections = [
       { href: "/admin/settings/email", label: "Email Settings", icon: Mail },
       { href: "/admin/settings/payment-gateway", label: "Payment Settings", icon: Wallet },
       { href: "/admin/settings/security", label: "Security Settings", icon: Lock },
+      { href: "/admin/team-activity", label: "Team Activity", icon: Users },
     ],
   },
 ];
