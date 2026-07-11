@@ -51,6 +51,7 @@ import AdminMarketingSeo from "@/pages/admin/marketing/seo";
 import AdminMarketingTestimonials from "@/pages/admin/marketing/testimonials";
 import AdminMarketingMedia from "@/pages/admin/marketing/media";
 import AdminMarketingForms from "@/pages/admin/marketing/forms";
+import AdminSupportTickets from "@/pages/admin/help/support-tickets";
 import AdminMarketingNavigation from "@/pages/admin/marketing/navigation";
 import AdminFaqs from "@/pages/admin/marketing/faqs";
 import RevenueReport from "@/pages/admin/reports/revenue";
@@ -370,6 +371,9 @@ function Router() {
       </Route>
       <Route path="/admin/marketing/media">
         <AdminRoute><AdminMarketingMedia /></AdminRoute>
+      </Route>
+      <Route path="/admin/help/support-tickets">
+        <AdminRoute><AdminSupportTickets /></AdminRoute>
       </Route>
       <Route path="/admin/marketing/forms">
         <AdminRoute><AdminMarketingForms /></AdminRoute>
