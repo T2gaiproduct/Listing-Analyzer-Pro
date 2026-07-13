@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { BillingOverview } from "@/components/billing-overview";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -24,6 +25,7 @@ interface Subscription {
   priceMonthly: number;
   priceYearly: number;
   trialEndsAt: string | null;
+  currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cardLast4: string | null;
   cardBrand: string | null;
@@ -37,7 +39,7 @@ interface Subscription {
 }
 
 interface Credits { aiCredits: number; imageCredits: number; auditCredits: number; }
-interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; isHighlighted: boolean; tag: string | null; }
+interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; isHighlighted: boolean; tag: string | null; features?: string[]; }
 interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; invoiceId?: number | null; couponCode?: string | null; discountAmount?: number | null; }
 interface Invoice { id: number; amount: number; status: string; currency: string; items: Array<{ description: string; amount: number; quantity: number }>; paidAt: string | null; createdAt: string; }
 
@@ -65,32 +67,6 @@ interface CreditUsage {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function CreditBar({ label, icon: Icon, used, total, color, bg, available }: {
-  label: string; icon: React.ElementType; used: number; total: number; color: string; bg: string; available?: number;
-}) {
-  const avail = available ?? Math.max(0, total - used);
-  const pct = avail > 0 ? Math.min(100, Math.round((used / avail) * 100)) : 0;
-  const isLow = avail > 0 && used >= avail * 0.8;
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center`}>
-            <Icon className={`w-3.5 h-3.5 ${color}`} />
-          </div>
-          <span className="text-sm font-medium text-slate-700">{label}</span>
-        </div>
-        <span className={`text-xs font-bold ${isLow ? "text-red-500" : "text-slate-600"}`}>
-          {used.toLocaleString()} used / {avail.toLocaleString()}
-        </span>
-      </div>
-      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${isLow ? "bg-red-400" : "bg-orange-400"}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
 
 /** Dynamically load the Razorpay checkout script */
 function loadRazorpayScript(): Promise<void> {
@@ -591,9 +567,6 @@ export default function Billing() {
   const totalAi = sub?.planAiCredits ?? 0;
   const totalImage = sub?.planImageCredits ?? 0;
   const totalAudit = sub?.planAuditCredits ?? 0;
-  const usedAi = Math.max(0, totalAi - credits.aiCredits);
-  const usedImage = Math.max(0, totalImage - credits.imageCredits);
-  const usedAudit = Math.max(0, totalAudit - credits.auditCredits);
   const lowAi = totalAi > 0 && credits.aiCredits <= Math.max(1, totalAi * 0.15);
   const lowImage = totalImage > 0 && credits.imageCredits <= Math.max(1, totalImage * 0.15);
   const lowAudit = totalAudit > 0 && credits.auditCredits <= Math.max(1, totalAudit * 0.15);
@@ -606,7 +579,7 @@ export default function Billing() {
   const { data: creditUsage } = useQuery<CreditUsage>({
     queryKey: ["credit-usage"],
     queryFn: () => fetch(`${basePath}/api/credit-usage`, { credentials: "include" }).then((r) => r.json()),
-    enabled: tab === "credits",
+    enabled: tab === "credits" || tab === "overview",
   });
 
   const [buyingPackId, setBuyingPackId] = useState<number | null>(null);
@@ -664,52 +637,14 @@ export default function Billing() {
       </div>
 
       {tab === "overview" && (
-        <div className="space-y-6">
-          {/* Credit Balance Summary */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-slate-900">Credit Balance Summary</h2>
-              <Button variant="outline" size="sm" onClick={() => setTab("plans")}><RefreshCw className="w-4 h-4 mr-2" />Update Your Plan</Button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 rounded-xl p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <Zap className="w-4 h-4 text-blue-500" />
-                  <p className="text-xs text-blue-600 font-semibold uppercase">AI Credits</p>
-                </div>
-                <p className="text-3xl font-bold text-blue-700">{credits.aiCredits.toLocaleString()}</p>
-                <p className="text-xs text-blue-400 mt-0.5">Available</p>
-              </div>
-              <div className="bg-purple-50 rounded-xl p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <Image className="w-4 h-4 text-purple-500" />
-                  <p className="text-xs text-purple-600 font-semibold uppercase">Image Credits</p>
-                </div>
-                <p className="text-3xl font-bold text-purple-700">{credits.imageCredits.toLocaleString()}</p>
-                <p className="text-xs text-purple-400 mt-0.5">Available</p>
-              </div>
-              <div className="bg-orange-50 rounded-xl p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <BarChart3 className="w-4 h-4 text-orange-500" />
-                  <p className="text-xs text-orange-600 font-semibold uppercase">Audit Credits</p>
-                </div>
-                <p className="text-3xl font-bold text-orange-700">{credits.auditCredits.toLocaleString()}</p>
-                <p className="text-xs text-orange-400 mt-0.5">Available</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <CreditBar label="AI Content Credits" icon={Zap} used={usedAi} total={totalAi} color="text-blue-500" bg="bg-blue-50" available={credits.aiCredits} />
-              <CreditBar label="Image Generation Credits" icon={Image} used={usedImage} total={totalImage} color="text-purple-500" bg="bg-purple-50" available={credits.imageCredits} />
-              <CreditBar label="Audit Credits" icon={BarChart3} used={usedAudit} total={totalAudit} color="text-orange-500" bg="bg-orange-50" available={credits.auditCredits} />
-            </div>
-          </div>
-
-          {/* Payment Method */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <h2 className="font-semibold text-slate-900 mb-4">Payment Method</h2>
-            <PaymentMethodSection sub={sub} config={config} onSuccess={invalidateSub} />
-          </div>
-        </div>
+        <BillingOverview
+          sub={sub}
+          plans={plans}
+          creditUsage={creditUsage}
+          onAddCredits={() => setTab("credits")}
+          onUpgradePlan={() => setTab("plans")}
+          paymentSection={<PaymentMethodSection sub={sub} config={config} onSuccess={invalidateSub} />}
+        />
       )}
 
       {tab === "plans" && (
