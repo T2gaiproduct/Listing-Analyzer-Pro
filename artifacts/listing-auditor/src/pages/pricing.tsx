@@ -276,6 +276,24 @@ export default function Pricing() {
                       <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
                     </div>
                   </div>
+
+                  {plan.features.length > 0 && (
+                    <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
+                      {plan.features.map((feat) => (
+                        <div
+                          key={feat.text}
+                          className={`flex items-start gap-2 text-sm ${feat.included ? "text-slate-600" : "text-slate-400"}`}
+                        >
+                          {feat.included ? (
+                            <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <X className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
+                          )}
+                          <span>{feat.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <Button

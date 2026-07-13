@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Search, TrendingUp, Zap, ShieldCheck, BarChart3, ArrowRight,
   CheckCircle2, Star, ChevronDown, ChevronUp, Image, Users,
-  LayoutDashboard, MousePointerClick, Sparkles, Wand2, ClipboardCheck, Globe
+  LayoutDashboard, MousePointerClick, Sparkles, Wand2, ClipboardCheck, Globe, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -168,6 +168,37 @@ function LandingPricingSection() {
                       <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
                     </div>
                   </div>
+
+                  {(() => {
+                    const includedFeatures = p.features.length > 0
+                      ? p.features
+                      : [
+                          ...(a.audit ? [`${a.audit} listing audits/mo`] : []),
+                          ...(a.content ? [`${a.content} AI content credits`] : []),
+                          ...(a.images ? [`${a.images} image generation credits`] : []),
+                          ...(a.ebc ? [`${a.ebc} A+ / EBC content credits`] : []),
+                          ...(a.competitors ? [`${a.competitors} competitor analysis credits`] : []),
+                          ...(p.teamMembers ? [`${p.teamMembers} team members`] : []),
+                        ];
+                    const excludedFeatures = p.excludedFeatures ?? [];
+                    if (includedFeatures.length === 0 && excludedFeatures.length === 0) return null;
+                    return (
+                      <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
+                        {includedFeatures.map((feat) => (
+                          <div key={feat} className="flex items-start gap-2 text-sm text-slate-600">
+                            <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                            <span>{feat}</span>
+                          </div>
+                        ))}
+                        {excludedFeatures.map((feat) => (
+                          <div key={feat} className="flex items-start gap-2 text-sm text-slate-400">
+                            <X className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
+                            <span>{feat}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <Button
