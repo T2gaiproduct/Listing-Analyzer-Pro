@@ -185,6 +185,7 @@ export default function Onboarding() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+      void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
       setLocation("/dashboard");
     },

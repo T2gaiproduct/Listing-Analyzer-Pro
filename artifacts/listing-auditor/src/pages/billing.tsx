@@ -171,6 +171,7 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
             if (vd.success) {
               toast({ title: "Credit purchase successful", description: `Added ${vd.addedCredits} ${creditType} credits.` });
               void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
+              void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
               void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
             } else {
               toast({ title: "Payment verification failed", description: vd.error ?? "Please contact support.", variant: "destructive" });
@@ -496,6 +497,7 @@ export default function Billing() {
             toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
           }
           void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
           void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
         })
         .catch(() => toast({ title: "Confirmation error", variant: "destructive" }));
@@ -514,6 +516,7 @@ export default function Billing() {
             toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
           }
           void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
           void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
         })
         .catch(() => toast({ title: "Confirmation error", variant: "destructive" }));
@@ -574,6 +577,7 @@ export default function Billing() {
             }
             void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
             void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
+            void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
             void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
           } else {
             toast({ title: "PayPal capture failed", description: d.error, variant: "destructive" });
@@ -612,6 +616,7 @@ export default function Billing() {
 
   function invalidateSub() {
     void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+    void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
   }
 
   if (subLoading) {

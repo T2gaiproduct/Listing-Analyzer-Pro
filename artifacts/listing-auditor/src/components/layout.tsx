@@ -52,6 +52,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
+import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { useTeam } from "@/hooks/use-team";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -650,17 +652,28 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Fetch local profile so name edits reflect in sidebar immediately
-  const { data: profileData } = useQuery<{ profile: { fullName: string | null } | null }>({
+  // Fetch profile, subscription, and credits for topbar + sidebar
+  const { data: profileData } = useQuery<{
+    profile: { fullName: string | null } | null;
+    subscription: { planName: string | null; status: string } | null;
+    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+  }>({
     queryKey: ["user-profile"],
     queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
+
+  const { isTeamMember, memberCredits } = useTeam();
+
+  const ownerCredits = profileData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const displayCredits = isTeamMember && memberCredits ? memberCredits : ownerCredits;
 
   const profileName = profileData?.profile?.fullName;
   const clerkName = user?.fullName ?? undefined;
   const emailName = user?.emailAddresses?.[0]?.emailAddress ?? undefined;
   const resolvedName = profileName || clerkName || emailName || "Account";
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
 
   const initials = (() => {
     if (resolvedName && resolvedName.includes(" ")) {
@@ -671,7 +684,8 @@ export function Layout({ children }: { children: ReactNode }) {
   })();
 
   const displayName = resolvedName;
-  const planLabel = "Free"; // Can be wired to subscription API later
+  const planName = profileData?.subscription?.planName;
+  const planLabel = planName ? `${planName} Plan` : "Free";
 
   return (
     <div
@@ -1056,7 +1070,18 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <div className="h-1 w-full bg-gradient-to-r from-primary to-orange-300 flex-shrink-0" />
 
-        {/* ── Top ribbon ── */}
+        <DashboardTopbar
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          searchResults={searchResults}
+          displayName={displayName}
+          initials={initials}
+          email={userEmail}
+          planLabel={planLabel}
+          credits={displayCredits}
+        />
+
+        {/* ── Top ribbon (project context) ── */}
         {isRibbonVisible(location) && (
           <div className="relative flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
             {/* Back button */}
@@ -1185,7 +1210,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         )}
 
-        <div className="flex-1 overflow-y-auto pt-12 pb-8 px-8">
+        <div className="flex-1 overflow-y-auto py-8 px-8">
           <div className="max-w-6xl mx-auto">
             {children}
           </div>
