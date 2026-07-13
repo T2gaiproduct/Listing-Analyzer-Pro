@@ -181,15 +181,16 @@ export function DashboardTopbar({
               </div>
             </div>
             <div className="px-2 pt-1 border-t border-slate-100">
-              <Link href="/billing">
-                <button
-                  type="button"
-                  className="w-full px-3 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors"
-                  onClick={() => setCreditsOpen(false)}
-                >
-                  Buy more credits →
-                </button>
-              </Link>
+              <button
+                type="button"
+                className="w-full px-3 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors"
+                onClick={() => {
+                  setCreditsOpen(false);
+                  navigate("/billing?tab=credits");
+                }}
+              >
+                Buy more credits →
+              </button>
             </div>
           </div>
         )}

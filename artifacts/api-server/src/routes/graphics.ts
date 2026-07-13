@@ -603,8 +603,8 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
 
   if (totalImages === 0) { res.status(400).json({ error: "No image types selected" }); return; }
 
-  const cost = await getCreditCost("images");
-  const creditsNeeded = totalImages;
+  const cost = await getCreditCost("graphics");
+  const creditsNeeded = cost.creditsRequired * totalImages;
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded);
   if (!creditCheck) {
@@ -729,7 +729,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const body = req.body as { editPrompt: string };
   if (!body.editPrompt?.trim()) { res.status(400).json({ error: "Edit prompt is required" }); return; }
 
-  const cost = await getCreditCost("image_edit");
+  const cost = await getCreditCost("graphics_edit");
   const creditCtx = getCreditCtx(req);
   const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
   if (!creditCheck) {
@@ -775,11 +775,12 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
   const regenStyle = body.style ?? existingRecord.style;
   const regenAspectRatio = body.aspectRatio ?? existingRecord.aspectRatio;
 
-  const cost = await getCreditCost("images");
+  const cost = await getCreditCost("graphics");
+  const regenCredits = cost.creditsRequired;
   const creditCtx = getCreditCtx(req);
-  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, 1);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, regenCredits);
   if (!creditCheck) {
-    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (1 needed).` });
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${regenCredits} needed).` });
     return;
   }
 
@@ -821,7 +822,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
       .set({ imageRecords: updatedRecords, updatedAt: new Date() })
       .where(eq(graphicsProjectsTable.id, id));
 
-    await deductCreditsTeamAware(creditCtx, cost.creditType, 1, `Regenerate ${imageId}`, "graphics", { projectId: id, imageId });
+    await deductCreditsTeamAware(creditCtx, cost.creditType, regenCredits, `Regenerate ${imageId}`, "graphics", { projectId: id, imageId });
 
     res.json(updatedRecord);
   } catch (err) {

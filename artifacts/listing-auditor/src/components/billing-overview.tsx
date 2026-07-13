@@ -90,11 +90,11 @@ const SERVICE_CONFIG = [
     id: "graphics",
     label: "Create Graphics",
     icon: Palette,
-    featureTypes: ["images", "image_regenerate", "image_edit"],
+    featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit"],
     iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
     barColor: "bg-violet-500",
-    ruleFeature: "images",
+    ruleFeature: "graphics",
     unit: "Graphic",
     fallbackCost: 8,
   },
@@ -239,14 +239,13 @@ export function BillingOverview({
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
 
   const serviceUsage = useMemo(() => {
-    const totalSpent = totalSpentInRange(transactions, filterStart, filterEnd);
     return SERVICE_CONFIG.map((svc) => {
       const spent = spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
-      const pct = totalSpent > 0 ? Math.round((spent / totalSpent) * 100) : 0;
+      const pct = planTotalCredits > 0 ? Math.min(100, Math.round((spent / planTotalCredits) * 100)) : 0;
       const cost = ruleCost(svc.ruleFeature, svc.fallbackCost);
       return { ...svc, spent, pct, cost };
     });
-  }, [transactions, filterStart, filterEnd, creditRules]);
+  }, [transactions, filterStart, filterEnd, creditRules, planTotalCredits]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
   const ownerUsed = totalSpentInRange(transactions, filterStart, filterEnd);
@@ -369,7 +368,7 @@ export function BillingOverview({
           <div>
             <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              See how your credits are being used across different services.
+              See how your credits are being used across different services. Percentages are of your monthly plan total ({planTotalCredits.toLocaleString()} credits).
             </p>
           </div>
           <div className="relative">
