@@ -79,6 +79,7 @@ const SERVICE_CONFIG = [
     label: "Audit Listing",
     icon: FileSearch,
     featureTypes: ["audit"],
+    planPool: "audit" as const,
     iconBg: "bg-emerald-50",
     iconColor: "text-emerald-600",
     barColor: "bg-emerald-500",
@@ -91,6 +92,7 @@ const SERVICE_CONFIG = [
     label: "Create Graphics",
     icon: Palette,
     featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit"],
+    planPool: "image" as const,
     iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
     barColor: "bg-violet-500",
@@ -103,6 +105,7 @@ const SERVICE_CONFIG = [
     label: "Build Your Brand",
     icon: FilePlus2,
     featureTypes: ["ebc", "content"],
+    planPool: "ai" as const,
     iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
     barColor: "bg-blue-500",
@@ -115,6 +118,7 @@ const SERVICE_CONFIG = [
     label: "Create Videos",
     icon: Video,
     featureTypes: ["videos", "video"],
+    planPool: "ai" as const,
     iconBg: "bg-pink-50",
     iconColor: "text-pink-600",
     barColor: "bg-pink-500",
@@ -127,6 +131,7 @@ const SERVICE_CONFIG = [
     label: "Manage Ads",
     icon: Megaphone,
     featureTypes: ["ads", "manage_ads"],
+    planPool: "audit" as const,
     iconBg: "bg-orange-50",
     iconColor: "text-orange-600",
     barColor: "bg-orange-500",
@@ -235,18 +240,24 @@ export function BillingOverview({
 
   const usagePct = planTotalCredits > 0 ? Math.min(100, Math.round((usedInPeriod / planTotalCredits) * 100)) : 0;
 
+  const planPoolTotals = {
+    audit: sub.planAuditCredits,
+    ai: sub.planAiCredits,
+    image: sub.planImageCredits,
+  };
+
   const ruleCost = (featureType: string, fallback: number) =>
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
 
   const serviceUsage = useMemo(() => {
-    const totalSpent = totalSpentInRange(transactions, filterStart, filterEnd);
     return SERVICE_CONFIG.map((svc) => {
       const spent = spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
-      const pct = totalSpent > 0 ? Math.round((spent / totalSpent) * 100) : 0;
+      const poolTotal = planPoolTotals[svc.planPool];
+      const pct = poolTotal > 0 ? Math.min(100, Math.round((spent / poolTotal) * 100)) : 0;
       const cost = ruleCost(svc.ruleFeature, svc.fallbackCost);
       return { ...svc, spent, pct, cost };
     });
-  }, [transactions, filterStart, filterEnd, creditRules]);
+  }, [transactions, filterStart, filterEnd, creditRules, sub.planAuditCredits, sub.planAiCredits, sub.planImageCredits]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
   const ownerUsed = totalSpentInRange(transactions, filterStart, filterEnd);
