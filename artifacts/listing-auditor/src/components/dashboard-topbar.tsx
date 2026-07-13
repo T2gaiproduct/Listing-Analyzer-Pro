@@ -143,7 +143,8 @@ export function DashboardTopbar({
         )}
       </div>
 
-      {/* Credits */}
+      {/* Credits + profile — pinned to the right on wide screens */}
+      <div className="ml-auto flex items-center gap-4 flex-shrink-0">
       <div ref={creditsRef} className="relative flex-shrink-0">
         <button
           type="button"
@@ -286,6 +287,7 @@ export function DashboardTopbar({
             </div>
           </div>
         )}
+      </div>
       </div>
     </header>
   );
