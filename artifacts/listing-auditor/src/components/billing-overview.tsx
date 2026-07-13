@@ -79,7 +79,6 @@ const SERVICE_CONFIG = [
     label: "Audit Listing",
     icon: FileSearch,
     featureTypes: ["audit"],
-    planPool: "audit" as const,
     iconBg: "bg-emerald-50",
     iconColor: "text-emerald-600",
     barColor: "bg-emerald-500",
@@ -92,7 +91,6 @@ const SERVICE_CONFIG = [
     label: "Create Graphics",
     icon: Palette,
     featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit"],
-    planPool: "image" as const,
     iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
     barColor: "bg-violet-500",
@@ -105,7 +103,6 @@ const SERVICE_CONFIG = [
     label: "Build Your Brand",
     icon: FilePlus2,
     featureTypes: ["ebc", "content"],
-    planPool: "ai" as const,
     iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
     barColor: "bg-blue-500",
@@ -118,7 +115,6 @@ const SERVICE_CONFIG = [
     label: "Create Videos",
     icon: Video,
     featureTypes: ["videos", "video"],
-    planPool: "ai" as const,
     iconBg: "bg-pink-50",
     iconColor: "text-pink-600",
     barColor: "bg-pink-500",
@@ -131,7 +127,6 @@ const SERVICE_CONFIG = [
     label: "Manage Ads",
     icon: Megaphone,
     featureTypes: ["ads", "manage_ads"],
-    planPool: "audit" as const,
     iconBg: "bg-orange-50",
     iconColor: "text-orange-600",
     barColor: "bg-orange-500",
@@ -240,24 +235,17 @@ export function BillingOverview({
 
   const usagePct = planTotalCredits > 0 ? Math.min(100, Math.round((usedInPeriod / planTotalCredits) * 100)) : 0;
 
-  const planPoolTotals = {
-    audit: sub.planAuditCredits,
-    ai: sub.planAiCredits,
-    image: sub.planImageCredits,
-  };
-
   const ruleCost = (featureType: string, fallback: number) =>
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
 
   const serviceUsage = useMemo(() => {
     return SERVICE_CONFIG.map((svc) => {
       const spent = spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
-      const poolTotal = planPoolTotals[svc.planPool];
-      const pct = poolTotal > 0 ? Math.min(100, Math.round((spent / poolTotal) * 100)) : 0;
+      const pct = planTotalCredits > 0 ? Math.min(100, Math.round((spent / planTotalCredits) * 100)) : 0;
       const cost = ruleCost(svc.ruleFeature, svc.fallbackCost);
       return { ...svc, spent, pct, cost };
     });
-  }, [transactions, filterStart, filterEnd, creditRules, sub.planAuditCredits, sub.planAiCredits, sub.planImageCredits]);
+  }, [transactions, filterStart, filterEnd, creditRules, planTotalCredits]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
   const ownerUsed = totalSpentInRange(transactions, filterStart, filterEnd);
@@ -380,7 +368,7 @@ export function BillingOverview({
           <div>
             <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              See how your credits are being used across different services.
+              See how your credits are being used across different services. Percentages are of your monthly plan total ({planTotalCredits.toLocaleString()} credits).
             </p>
           </div>
           <div className="relative">
