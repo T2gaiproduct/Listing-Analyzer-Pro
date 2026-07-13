@@ -120,7 +120,8 @@ const SERVICE_CONFIG = [
     barColor: "bg-pink-500",
     ruleFeature: "videos",
     unit: "Video",
-    fallbackCost: 20,
+    fallbackCost: 0,
+    unavailable: true,
   },
   {
     id: "ads",
@@ -132,9 +133,18 @@ const SERVICE_CONFIG = [
     barColor: "bg-orange-500",
     ruleFeature: "ads",
     unit: "Campaign",
-    fallbackCost: 5,
+    fallbackCost: 0,
+    unavailable: true,
   },
 ] as const;
+
+function serviceDisplayCost(
+  svc: (typeof SERVICE_CONFIG)[number],
+  lookupRuleCost: (featureType: string, fallback: number) => number,
+): number {
+  if ("unavailable" in svc && svc.unavailable) return 0;
+  return lookupRuleCost(svc.ruleFeature, svc.fallbackCost);
+}
 
 const AVATAR_COLORS = [
   "bg-orange-500",
@@ -242,7 +252,7 @@ export function BillingOverview({
     return SERVICE_CONFIG.map((svc) => {
       const spent = spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
       const pct = planTotalCredits > 0 ? Math.min(100, Math.round((spent / planTotalCredits) * 100)) : 0;
-      const cost = ruleCost(svc.ruleFeature, svc.fallbackCost);
+      const cost = serviceDisplayCost(svc, ruleCost);
       return { ...svc, spent, pct, cost };
     });
   }, [transactions, filterStart, filterEnd, creditRules, planTotalCredits]);
@@ -342,7 +352,7 @@ export function BillingOverview({
         <h3 className="text-sm font-semibold text-slate-900 mb-3">Credit Cost (per action)</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {SERVICE_CONFIG.map((svc) => {
-            const cost = ruleCost(svc.ruleFeature, svc.fallbackCost);
+            const cost = serviceDisplayCost(svc, ruleCost);
             const Icon = svc.icon;
             return (
               <div
