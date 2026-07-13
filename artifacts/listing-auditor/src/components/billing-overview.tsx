@@ -90,7 +90,7 @@ const SERVICE_CONFIG = [
     id: "graphics",
     label: "Create Graphics",
     icon: Palette,
-    featureTypes: ["images", "image_regenerate", "image_edit"],
+    featureTypes: ["images", "image_regenerate", "image_edit", "graphics", "graphics_edit"],
     iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
     barColor: "bg-violet-500",
