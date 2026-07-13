@@ -94,7 +94,7 @@ const SERVICE_CONFIG = [
     iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
     barColor: "bg-violet-500",
-    ruleFeature: "images",
+    ruleFeature: "graphics",
     unit: "Graphic",
     fallbackCost: 8,
   },
