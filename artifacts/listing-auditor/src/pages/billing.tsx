@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import {
   CreditCard, Download, RefreshCw, Plus, CheckCircle2,
   Zap, Image, BarChart3, Clock, CheckCircle, ArrowRight,
@@ -417,12 +417,34 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+type BillingTab = "overview" | "plans" | "credits" | "history";
+
+function parseBillingTab(search: string): BillingTab {
+  const value = new URLSearchParams(search).get("tab");
+  if (value === "plans" || value === "credits" || value === "history" || value === "overview") return value;
+  return "overview";
+}
+
+function billingTabPath(tab: BillingTab): string {
+  return tab === "overview" ? "/billing" : `/billing?tab=${tab}`;
+}
+
 export default function Billing() {
-  const [, setLocation] = useLocation();
-  const [tab, setTab] = useState<"overview" | "plans" | "credits" | "history">("overview");
+  const [location, setLocation] = useLocation();
+  const search = useSearch();
+  const [tab, setTab] = useState<BillingTab>(() => parseBillingTab(window.location.search));
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const paypalCaptureAttempted = useRef(false);
+
+  const selectTab = (next: BillingTab) => {
+    setTab(next);
+    setLocation(billingTabPath(next));
+  };
+
+  useEffect(() => {
+    setTab(parseBillingTab(search));
+  }, [location, search]);
 
   const { data: sub, isLoading: subLoading } = useQuery<Subscription | null>({
     queryKey: ["user-subscription"],
@@ -628,7 +650,7 @@ export default function Billing() {
         {(["overview", "plans", "credits", "history"] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => selectTab(t)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all capitalize ${tab === t ? "border-orange-500 text-orange-500" : "border-transparent text-slate-500 hover:text-slate-900"}`}
           >
             {t === "history" ? "Billing History" : t === "credits" ? "Buy Credits" : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -641,8 +663,8 @@ export default function Billing() {
           sub={sub}
           plans={plans}
           creditUsage={creditUsage}
-          onAddCredits={() => setTab("credits")}
-          onUpgradePlan={() => setTab("plans")}
+          onAddCredits={() => selectTab("credits")}
+          onUpgradePlan={() => selectTab("plans")}
           paymentSection={<PaymentMethodSection sub={sub} config={config} onSuccess={invalidateSub} />}
         />
       )}
