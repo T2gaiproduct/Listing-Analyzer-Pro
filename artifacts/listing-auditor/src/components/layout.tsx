@@ -13,15 +13,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
-  ChevronRight,
   ArrowLeft,
-  LogOut,
   Shield,
-  UserCircle,
-  Receipt,
-  Settings,
-  HelpCircle,
-  Users,
   X,
   Pin,
   MoreHorizontal,
@@ -29,13 +22,6 @@ import {
   PenLine,
   Trash2,
   Zap,
-  LifeBuoy,
-  FileText,
-  Download,
-  Keyboard,
-  ScrollText,
-  Lock,
-  Bug,
   Folder,
   Search,
   MessageSquare,
@@ -47,11 +33,13 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useUser, useClerk } from "@clerk/react";
+import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
+import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { useTeam } from "@/hooks/use-team";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -64,23 +52,6 @@ const mainNavItems = [
   { icon: Palette, label: "Create Graphics", href: "/projects" },
   { icon: Video, label: "Create Videos", href: "/videos" },
   { icon: Megaphone, label: "Manage Ads", href: "/ads" },
-];
-
-const profileMenuItems = [
-  { icon: UserCircle, label: "Edit Profile", href: "/profile" },
-  { icon: Receipt, label: "Billing", href: "/billing" },
-  { icon: Users, label: "Team", href: "/team" },
-  { icon: Settings, label: "Settings", href: "/settings" },
-];
-
-const helpSubmenuItems = [
-  { icon: LifeBuoy,   label: "Help center",         href: "/help" },
-  { icon: FileText,   label: "Release notes",        href: "/help#release" },
-  { icon: Download,   label: "Download apps",        href: "/help#apps" },
-  { icon: Keyboard,   label: "Keyboard shortcuts",   href: "/help#shortcuts" },
-  { icon: ScrollText, label: "Terms of Service",     href: "/terms" },
-  { icon: Lock,       label: "Privacy Policy",       href: "/privacy" },
-  { icon: Bug,        label: "Report a bug",         href: "/contact" },
 ];
 
 const contextMenuOptions = [
@@ -409,13 +380,10 @@ function parseProjectContext(location: string): { type: string; id: number } | n
 export function Layout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
   const { user } = useUser();
-  const { signOut } = useClerk();
   const { toast } = useToast();
   const isAdmin = user ? adminUserIds.includes(user.id) : false;
 
   const [collapsed, setCollapsed] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -426,9 +394,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [renameValue, setRenameValue] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const profileRef = useRef<HTMLDivElement>(null);
   const ribbonDotsRef = useRef<HTMLDivElement>(null);
-  const helpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
   const recentsQueryKey = getGetRecentsQueryKey({ limit: 200 });
@@ -527,16 +493,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const searchResults = (searchData?.items ?? []) as RecentItem[];
 
   const displayItems = searchQuery.length > 0 ? searchResults : recents;
-
-  // Close profile popup on outside click
-  useEffect(() => {
-    if (!profileOpen) return;
-    function handler(e: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [profileOpen]);
 
   // Close ribbon dots dropdown on outside click
   useEffect(() => {
@@ -650,17 +606,28 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Fetch local profile so name edits reflect in sidebar immediately
-  const { data: profileData } = useQuery<{ profile: { fullName: string | null } | null }>({
+  // Fetch profile, subscription, and credits for topbar + sidebar
+  const { data: profileData } = useQuery<{
+    profile: { fullName: string | null } | null;
+    subscription: { planName: string | null; status: string } | null;
+    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+  }>({
     queryKey: ["user-profile"],
     queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
+
+  const { isTeamMember, memberCredits } = useTeam();
+
+  const ownerCredits = profileData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const displayCredits = isTeamMember && memberCredits ? memberCredits : ownerCredits;
 
   const profileName = profileData?.profile?.fullName;
   const clerkName = user?.fullName ?? undefined;
   const emailName = user?.emailAddresses?.[0]?.emailAddress ?? undefined;
   const resolvedName = profileName || clerkName || emailName || "Account";
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
 
   const initials = (() => {
     if (resolvedName && resolvedName.includes(" ")) {
@@ -671,12 +638,13 @@ export function Layout({ children }: { children: ReactNode }) {
   })();
 
   const displayName = resolvedName;
-  const planLabel = "Free"; // Can be wired to subscription API later
+  const planName = profileData?.subscription?.planName;
+  const planLabel = planName ? `${planName} Plan` : "Free";
 
   return (
     <div
       className="flex h-screen w-full bg-background overflow-hidden"
-      onClick={() => { setProfileOpen(false); setOpenMenu(null); }}
+      onClick={() => { setOpenMenu(null); }}
     >
       {/* Sidebar */}
       <TooltipProvider>
@@ -906,147 +874,27 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        {/* ── Footer: Profile + Upgrade ──────────────────────── */}
+        {/* ── Footer: Upgrade ───────────────────────────────── */}
         <div
           className={cn(
             "border-t border-sidebar-border/50 flex-shrink-0",
-            collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-4 flex items-center justify-between gap-3"
+            collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-4"
           )}
         >
           {collapsed ? (
-            /* Collapsed: just avatar */
-            <SidebarTooltip label={displayName} side="right">
-              <button
-                onClick={(e) => { e.stopPropagation(); setProfileOpen((p) => !p); }}
-                className="w-9 h-9 rounded-full bg-primary/80 flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-              >
-                {initials}
-              </button>
-            </SidebarTooltip>
-          ) : (
-            <>
-              {/* Profile button */}
-              <div ref={profileRef} className="relative min-w-0">
-                <button
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-1 py-1 -mx-1 transition-colors min-w-0",
-                    profileOpen ? "bg-sidebar-accent/50" : "hover:bg-sidebar-accent/50"
-                  )}
-                  onClick={(e) => { e.stopPropagation(); setProfileOpen((p) => !p); }}
-                >
-                  <div className="w-8 h-8 rounded-full bg-primary/80 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    {initials}
-                  </div>
-                  <div className="min-w-0 text-left">
-                    <p className="text-sm font-semibold text-sidebar-foreground leading-tight truncate max-w-[90px]">
-                      {displayName}
-                    </p>
-                    <p className="text-xs text-sidebar-foreground/50 leading-tight">{planLabel}</p>
-                  </div>
-                </button>
-
-                {/* Profile popup */}
-                {profileOpen && (
-                  <div
-                    className="absolute left-0 bottom-full mb-3 w-56 bg-popover border border-border rounded-2xl shadow-2xl z-[100]"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Header */}
-                    <div className="px-4 pt-4 pb-3 border-b border-border flex items-center gap-3 rounded-t-2xl overflow-hidden">
-                      <div className="w-9 h-9 rounded-full bg-primary/80 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {initials}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold leading-tight truncate">{displayName}</p>
-                        <p className="text-xs text-muted-foreground leading-tight truncate">
-                          {user?.emailAddresses?.[0]?.emailAddress ?? ""}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setProfileOpen(false)}
-                        className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    {/* Menu items */}
-                    <div className="py-1.5">
-                      {profileMenuItems.map(({ icon: Icon, label, href }) => (
-                        <Link key={label} href={href}>
-                          <button
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors text-left"
-                            onClick={() => setProfileOpen(false)}
-                          >
-                            <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            {label}
-                          </button>
-                        </Link>
-                      ))}
-
-                      {/* Help & Support — flyout on hover */}
-                      <div
-                        className="relative"
-                        onMouseEnter={() => {
-                          if (helpTimeoutRef.current) clearTimeout(helpTimeoutRef.current);
-                          setHelpOpen(true);
-                        }}
-                        onMouseLeave={() => {
-                          helpTimeoutRef.current = setTimeout(() => setHelpOpen(false), 120);
-                        }}
-                      >
-                        <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors text-left">
-                          <HelpCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="flex-1">Help &amp; Support</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                        </button>
-
-                        {/* Flyout submenu */}
-                        {helpOpen && (
-                          <div
-                            className="absolute left-full bottom-0 ml-1 w-52 bg-popover border border-border rounded-xl shadow-2xl z-[110] py-1.5"
-                            onMouseEnter={() => {
-                              if (helpTimeoutRef.current) clearTimeout(helpTimeoutRef.current);
-                              setHelpOpen(true);
-                            }}
-                            onMouseLeave={() => {
-                              helpTimeoutRef.current = setTimeout(() => setHelpOpen(false), 120);
-                            }}
-                          >
-                            {helpSubmenuItems.map(({ icon: Icon, label, href }) => (
-                              <Link key={label} href={href}>
-                                <button
-                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors text-left"
-                                  onClick={() => { setHelpOpen(false); setProfileOpen(false); }}
-                                >
-                                  <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                                  {label}
-                                </button>
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="border-t border-border py-1.5 rounded-b-2xl overflow-hidden">
-                      <button
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors text-left"
-                        onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-                      >
-                        <LogOut className="w-4 h-4 flex-shrink-0" />
-                        Log Out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Upgrade button */}
+            <SidebarTooltip label="Upgrade" side="right">
               <Link href="/billing">
-                <button className="flex-shrink-0 text-sm font-medium text-sidebar-foreground/80 border border-sidebar-border rounded-full px-4 py-1.5 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors">
-                  Upgrade
+                <button className="w-9 h-9 flex items-center justify-center rounded-xl text-sidebar-foreground/70 hover:text-primary hover:bg-primary/10 border border-sidebar-border/60 transition-colors">
+                  <Zap className="w-4 h-4 text-primary" />
                 </button>
               </Link>
-            </>
+            </SidebarTooltip>
+          ) : (
+            <Link href="/billing" className="block w-full">
+              <button className="w-full text-sm font-medium text-sidebar-foreground/80 border border-sidebar-border rounded-full px-4 py-1.5 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors">
+                Upgrade
+              </button>
+            </Link>
           )}
         </div>
         </aside>
@@ -1056,7 +904,18 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <div className="h-1 w-full bg-gradient-to-r from-primary to-orange-300 flex-shrink-0" />
 
-        {/* ── Top ribbon ── */}
+        <DashboardTopbar
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          searchResults={searchResults}
+          displayName={displayName}
+          initials={initials}
+          email={userEmail}
+          planLabel={planLabel}
+          credits={displayCredits}
+        />
+
+        {/* ── Top ribbon (project context) ── */}
         {isRibbonVisible(location) && (
           <div className="relative flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
             {/* Back button */}
@@ -1185,7 +1044,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         )}
 
-        <div className="flex-1 overflow-y-auto pt-12 pb-8 px-8">
+        <div className="flex-1 overflow-y-auto py-8 px-8">
           <div className="max-w-6xl mx-auto">
             {children}
           </div>
