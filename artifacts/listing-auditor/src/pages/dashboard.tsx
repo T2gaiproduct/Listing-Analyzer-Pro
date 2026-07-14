@@ -61,17 +61,6 @@ interface DashboardData {
   quickActions: Array<{ label: string; href: string; icon: string }>;
 }
 
-function periodRange(preset: PeriodPreset, billing: { start: string; end: string }): { start: Date; end: Date } {
-  const now = new Date();
-  if (preset === "this_week") {
-    return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
-  }
-  if (preset === "this_month") {
-    return { start: startOfMonth(now), end: endOfMonth(now) };
-  }
-  return { start: new Date(billing.start), end: new Date(billing.end) };
-}
-
 function formatHours(hours: number): string {
   if (hours >= 1) return `${hours % 1 === 0 ? hours : hours.toFixed(1)} hrs`;
   return `${Math.round(hours * 60)} min`;
@@ -158,47 +147,41 @@ export default function Dashboard() {
   const { user } = useUser();
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("billing_period");
 
-  const { data: initialData } = useQuery<DashboardData>({
-    queryKey: ["dashboard"],
-    queryFn: () => fetch(`${basePath}/api/dashboard`, { credentials: "include" }).then((r) => {
-      if (!r.ok) throw new Error("Failed to load dashboard");
+  const clientRange = useMemo(() => {
+    const now = new Date();
+    if (periodPreset === "this_week") {
+      return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+    }
+    if (periodPreset === "this_month") {
+      return { start: startOfMonth(now), end: endOfMonth(now) };
+    }
+    return null;
+  }, [periodPreset]);
+
+  const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
+    queryKey: ["dashboard", periodPreset, clientRange?.start.toISOString(), clientRange?.end.toISOString()],
+    queryFn: async () => {
+      const url = clientRange
+        ? `${basePath}/api/dashboard?${new URLSearchParams({
+            start: clientRange.start.toISOString(),
+            end: clientRange.end.toISOString(),
+          })}`
+        : `${basePath}/api/dashboard`;
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error(`Failed to load dashboard (${r.status})`);
       return r.json();
-    }),
-    staleTime: 30_000,
-  });
-
-  const range = useMemo(() => {
-    if (!initialData) return null;
-    return periodRange(periodPreset, {
-      start: initialData.period.billingStart,
-      end: initialData.period.billingEnd,
-    });
-  }, [initialData, periodPreset]);
-
-  const { data, isLoading, isFetching } = useQuery<DashboardData>({
-    queryKey: ["dashboard", periodPreset, range?.start.toISOString(), range?.end.toISOString()],
-    queryFn: () => {
-      const params = new URLSearchParams({
-        start: range!.start.toISOString(),
-        end: range!.end.toISOString(),
-      });
-      return fetch(`${basePath}/api/dashboard?${params}`, { credentials: "include" }).then((r) => {
-        if (!r.ok) throw new Error("Failed to load dashboard");
-        return r.json();
-      });
     },
-    enabled: !!range,
     staleTime: 30_000,
+    retry: 2,
   });
 
-  const dashboard = data ?? initialData;
-  const loading = isLoading && !dashboard;
+  const periodLabel = dashboard
+    ? `${format(new Date(dashboard.period.start), "MMM d, yyyy")} – ${format(new Date(dashboard.period.end), "MMM d, yyyy")}`
+    : clientRange
+      ? `${format(clientRange.start, "MMM d, yyyy")} – ${format(clientRange.end, "MMM d, yyyy")}`
+      : "";
 
-  const periodLabel = range
-    ? `${format(range.start, "MMM d, yyyy")} – ${format(range.end, "MMM d, yyyy")}`
-    : "";
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6 animate-in fade-in">
         <Skeleton className="h-12 w-96" />
@@ -213,11 +196,18 @@ export default function Dashboard() {
     );
   }
 
-  if (!dashboard) {
+  if (!dashboard || isError) {
     return (
       <div className="text-center py-16 text-slate-500">
         <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />
         <p>Could not load dashboard data.</p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="mt-4 text-sm font-medium text-orange-500 hover:text-orange-600"
+        >
+          Try again
+        </button>
       </div>
     );
   }
