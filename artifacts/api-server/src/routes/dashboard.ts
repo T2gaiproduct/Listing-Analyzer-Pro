@@ -202,6 +202,7 @@ function computeTimeSavedHours(transactions: { featureType: string | null; amoun
 }
 
 router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Response): Promise<void> => {
+  try {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getOwnerId(req);
   const team = (req as TeamAuthedRequest).team;
@@ -450,6 +451,10 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
       { label: "View Projects", href: "/projects", icon: "projects" },
     ],
   });
+  } catch (err) {
+    console.error("[dashboard] failed to load", err);
+    res.status(500).json({ error: "Failed to load dashboard data" });
+  }
 });
 
 export default router;

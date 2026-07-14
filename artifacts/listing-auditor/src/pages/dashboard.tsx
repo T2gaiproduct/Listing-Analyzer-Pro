@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { format } from "date-fns";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -21,13 +20,10 @@ import {
   LineChart,
   CheckCircle2,
   AlertTriangle,
-  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-type PeriodPreset = "billing_period" | "this_month" | "this_week";
 
 interface DashboardData {
   greetingName: string | null;
@@ -59,17 +55,6 @@ interface DashboardData {
     createdAt: string;
   }>;
   quickActions: Array<{ label: string; href: string; icon: string }>;
-}
-
-function periodRange(preset: PeriodPreset, billing: { start: string; end: string }): { start: Date; end: Date } {
-  const now = new Date();
-  if (preset === "this_week") {
-    return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
-  }
-  if (preset === "this_month") {
-    return { start: startOfMonth(now), end: endOfMonth(now) };
-  }
-  return { start: new Date(billing.start), end: new Date(billing.end) };
 }
 
 function formatHours(hours: number): string {
@@ -156,49 +141,19 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 
 export default function Dashboard() {
   const { user } = useUser();
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("billing_period");
 
-  const { data: initialData } = useQuery<DashboardData>({
+  const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
-    queryFn: () => fetch(`${basePath}/api/dashboard`, { credentials: "include" }).then((r) => {
-      if (!r.ok) throw new Error("Failed to load dashboard");
+    queryFn: async () => {
+      const r = await fetch(`${basePath}/api/dashboard`, { credentials: "include" });
+      if (!r.ok) throw new Error(`Failed to load dashboard (${r.status})`);
       return r.json();
-    }),
-    staleTime: 30_000,
-  });
-
-  const range = useMemo(() => {
-    if (!initialData) return null;
-    return periodRange(periodPreset, {
-      start: initialData.period.billingStart,
-      end: initialData.period.billingEnd,
-    });
-  }, [initialData, periodPreset]);
-
-  const { data, isLoading, isFetching } = useQuery<DashboardData>({
-    queryKey: ["dashboard", periodPreset, range?.start.toISOString(), range?.end.toISOString()],
-    queryFn: () => {
-      const params = new URLSearchParams({
-        start: range!.start.toISOString(),
-        end: range!.end.toISOString(),
-      });
-      return fetch(`${basePath}/api/dashboard?${params}`, { credentials: "include" }).then((r) => {
-        if (!r.ok) throw new Error("Failed to load dashboard");
-        return r.json();
-      });
     },
-    enabled: !!range,
     staleTime: 30_000,
+    retry: 2,
   });
 
-  const dashboard = data ?? initialData;
-  const loading = isLoading && !dashboard;
-
-  const periodLabel = range
-    ? `${format(range.start, "MMM d, yyyy")} – ${format(range.end, "MMM d, yyyy")}`
-    : "";
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6 animate-in fade-in">
         <Skeleton className="h-12 w-96" />
@@ -213,11 +168,18 @@ export default function Dashboard() {
     );
   }
 
-  if (!dashboard) {
+  if (!dashboard || isError) {
     return (
       <div className="text-center py-16 text-slate-500">
         <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />
         <p>Could not load dashboard data.</p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="mt-4 text-sm font-medium text-orange-500 hover:text-orange-600"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -231,29 +193,12 @@ export default function Dashboard() {
 
   return (
     <div className={cn("space-y-6 animate-in fade-in duration-500", isFetching && "opacity-90")}>
-      {/* Welcome + date filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Welcome back, {name}! 👋
-          </h1>
-          <p className="text-slate-500 mt-1">Here&apos;s your overview for today.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={periodPreset}
-            onChange={(e) => setPeriodPreset(e.target.value as PeriodPreset)}
-            className="text-sm border border-slate-200 rounded-xl px-3 py-2.5 bg-white text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-          >
-            <option value="billing_period">Billing Period</option>
-            <option value="this_month">This Month</option>
-            <option value="this_week">This Week</option>
-          </select>
-          <div className="flex items-center gap-2 text-sm text-slate-500 border border-slate-200 rounded-xl px-3 py-2.5 bg-white shadow-sm">
-            <CalendarDays className="w-4 h-4 text-slate-400" />
-            <span className="hidden sm:inline">{periodLabel}</span>
-          </div>
-        </div>
+      {/* Welcome */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+          Welcome back, {name}! 👋
+        </h1>
+        <p className="text-slate-500 mt-1">Here&apos;s your overview for today.</p>
       </div>
 
       {/* Top stats row */}
