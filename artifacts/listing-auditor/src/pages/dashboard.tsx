@@ -1,246 +1,437 @@
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import { getAuditStats, getGetAuditStatsQueryKey } from "@workspace/api-client-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ScoreRing, ScoreBadge } from "@/components/score-ring";
-import { Plus, ArrowUpRight, TrendingUp, AlertTriangle, ShieldCheck, Target, Loader2, Search, Coins } from "lucide-react";
+import { useUser } from "@clerk/react";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTeam } from "@/hooks/use-team";
+import {
+  Folder,
+  TrendingUp,
+  Clock,
+  Wallet,
+  ChevronRight,
+  FilePlus2,
+  FileSearch,
+  Palette,
+  Video,
+  Megaphone,
+  LayoutGrid,
+  Zap,
+  LineChart,
+  CheckCircle2,
+  AlertTriangle,
+  CalendarDays,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function useCredits() {
-  return useQuery({
-    queryKey: ["user-subscription"],
-    queryFn: () => fetch(`${basePath}/api/user-subscription`, { credentials: "include" }).then((r) => r.json()),
-    staleTime: 30_000,
-  });
+type PeriodPreset = "billing_period" | "this_month" | "this_week";
+
+interface DashboardData {
+  greetingName: string | null;
+  period: { start: string; end: string; billingStart: string; billingEnd: string };
+  stats: {
+    projectsSaved: number;
+    projectsSavedThisWeek: number;
+    totalAudits: number;
+    auditsWeekOverWeekPct: number;
+    timeSavedHours: number;
+    timeSavedThisWeek: number;
+    creditsBalance: number;
+    creditsAllowance: number;
+  };
+  impact: {
+    listingsOptimized: number;
+    issuesIdentified: number;
+    timeSavedHours: number;
+  };
+  creditBreakdown: Array<{ key: string; label: string; balance: number; pct: number; color: string }>;
+  recentProjects: Array<{
+    type: string;
+    id: number;
+    name: string;
+    typeLabel: string;
+    statusLabel: string;
+    statusColor: "orange" | "green" | "blue" | "red" | "gray";
+    url: string;
+    createdAt: string;
+  }>;
+  quickActions: Array<{ label: string; href: string; icon: string }>;
+}
+
+function periodRange(preset: PeriodPreset, billing: { start: string; end: string }): { start: Date; end: Date } {
+  const now = new Date();
+  if (preset === "this_week") {
+    return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+  }
+  if (preset === "this_month") {
+    return { start: startOfMonth(now), end: endOfMonth(now) };
+  }
+  return { start: new Date(billing.start), end: new Date(billing.end) };
+}
+
+function formatHours(hours: number): string {
+  if (hours >= 1) return `${hours % 1 === 0 ? hours : hours.toFixed(1)} hrs`;
+  return `${Math.round(hours * 60)} min`;
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  orange: "bg-orange-50 text-orange-700 border-orange-200",
+  green: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  blue: "bg-blue-50 text-blue-700 border-blue-200",
+  red: "bg-red-50 text-red-700 border-red-200",
+  gray: "bg-slate-50 text-slate-600 border-slate-200",
+};
+
+const QUICK_ACTION_ICONS: Record<string, typeof FilePlus2> = {
+  brand: FilePlus2,
+  audit: FileSearch,
+  graphics: Palette,
+  video: Video,
+  ads: Megaphone,
+  projects: LayoutGrid,
+};
+
+function StatCard({
+  title,
+  value,
+  subtext,
+  subtextPositive,
+  icon: Icon,
+}: {
+  title: string;
+  value: string | number;
+  subtext: string;
+  subtextPositive?: boolean;
+  icon: typeof Folder;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+      <div className="flex items-start justify-between">
+        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+          <Icon className="w-5 h-5 text-slate-600" />
+        </div>
+      </div>
+      <p className="text-sm text-slate-500 mt-4">{title}</p>
+      <p className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{value}</p>
+      <p className={cn("text-xs mt-2", subtextPositive ? "text-emerald-600" : "text-slate-400")}>{subtext}</p>
+    </div>
+  );
+}
+
+function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; total: number }) {
+  const chartData = data.filter((d) => d.balance > 0);
+  const display = chartData.length > 0 ? chartData : data;
+
+  return (
+    <div className="relative h-52">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={display}
+            dataKey="balance"
+            nameKey="label"
+            cx="50%"
+            cy="50%"
+            innerRadius={62}
+            outerRadius={88}
+            paddingAngle={2}
+            strokeWidth={0}
+          >
+            {display.map((entry) => (
+              <Cell key={entry.key} fill={entry.color} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <p className="text-2xl font-bold text-slate-900">{total.toLocaleString()}</p>
+        <p className="text-xs text-slate-500">Total Credits</p>
+      </div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: getGetAuditStatsQueryKey(),
-    queryFn: getAuditStats,
-    staleTime: 0,
-    refetchInterval: 30_000,
-  });
-  const { data: sub } = useCredits();
-  const { canEdit, isTeamMember, role, memberCredits, memberCreditsLoading } = useTeam();
-  const credits = sub?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const displayCredits = isTeamMember && memberCredits ? memberCredits : credits;
-  const totalAi = sub?.plan?.planAiCredits ?? 0;
-  const totalImage = sub?.plan?.planImageCredits ?? 0;
-  const totalAudit = sub?.plan?.planAuditCredits ?? 0;
-  const alloc = sub?.plan?.creditAllocations as Record<string, number> | undefined;
-  const lowAudit = totalAudit > 0 && displayCredits.auditCredits <= Math.max(1, totalAudit * 0.15);
-  const lowContent = (alloc?.content ?? totalAi) > 0 && displayCredits.aiCredits <= Math.max(1, (alloc?.content ?? totalAi) * 0.15);
-  const lowImage = totalImage > 0 && displayCredits.imageCredits <= Math.max(1, totalImage * 0.15);
-  const lowEbc = (alloc?.ebc ?? 0) > 0 && displayCredits.aiCredits <= Math.max(1, (alloc?.ebc ?? 0) * 0.15);
-  const lowComp = (alloc?.competitors ?? 0) > 0 && displayCredits.auditCredits <= Math.max(1, (alloc?.competitors ?? 0) * 0.15);
-  const anyLow = lowAudit || lowContent || lowImage || lowEbc || lowComp;
+  const { user } = useUser();
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("billing_period");
 
-  if (isLoading) {
+  const { data: initialData } = useQuery<DashboardData>({
+    queryKey: ["dashboard"],
+    queryFn: () => fetch(`${basePath}/api/dashboard`, { credentials: "include" }).then((r) => {
+      if (!r.ok) throw new Error("Failed to load dashboard");
+      return r.json();
+    }),
+    staleTime: 30_000,
+  });
+
+  const range = useMemo(() => {
+    if (!initialData) return null;
+    return periodRange(periodPreset, {
+      start: initialData.period.billingStart,
+      end: initialData.period.billingEnd,
+    });
+  }, [initialData, periodPreset]);
+
+  const { data, isLoading, isFetching } = useQuery<DashboardData>({
+    queryKey: ["dashboard", periodPreset, range?.start.toISOString(), range?.end.toISOString()],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        start: range!.start.toISOString(),
+        end: range!.end.toISOString(),
+      });
+      return fetch(`${basePath}/api/dashboard?${params}`, { credentials: "include" }).then((r) => {
+        if (!r.ok) throw new Error("Failed to load dashboard");
+        return r.json();
+      });
+    },
+    enabled: !!range,
+    staleTime: 30_000,
+  });
+
+  const dashboard = data ?? initialData;
+  const loading = isLoading && !dashboard;
+
+  const periodLabel = range
+    ? `${format(range.start, "MMM d, yyyy")} – ${format(range.end, "MMM d, yyyy")}`
+    : "";
+
+  if (loading) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex items-end justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-64" />
-            <Skeleton className="h-5 w-96" />
-          </div>
+      <div className="space-y-6 animate-in fade-in">
+        <Skeleton className="h-12 w-96" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32" />)}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Skeleton className="h-80 rounded-2xl lg:col-span-2" />
+          <Skeleton className="h-80 rounded-2xl" />
         </div>
-        <Skeleton className="h-96" />
       </div>
     );
   }
 
-  const statCards = [
-    { title: "Total Audits", value: stats?.totalAudits || 0, icon: Target, desc: "Listings analyzed" },
-    { title: "Average Score", value: stats?.averageScore || 0, icon: TrendingUp, desc: "Across all audits", isScore: true },
-    { title: "High Scores", value: stats?.highScoreCount || 0, icon: ShieldCheck, desc: "Scores 70+" },
-    { title: "Needs Work", value: stats?.lowScoreCount || 0, icon: AlertTriangle, desc: "Scores < 50" },
-  ];
+  if (!dashboard) {
+    return (
+      <div className="text-center py-16 text-slate-500">
+        <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />
+        <p>Could not load dashboard data.</p>
+      </div>
+    );
+  }
+
+  const name = dashboard.greetingName
+    ?? user?.firstName
+    ?? user?.fullName?.split(" ")[0]
+    ?? "there";
+  const { stats, impact, creditBreakdown, recentProjects, quickActions } = dashboard;
+  const auditsTrendPositive = stats.auditsWeekOverWeekPct >= 0;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Low credit banner */}
-      {anyLow && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold text-red-700 text-sm">Low Credits Warning</p>
-            <p className="text-red-600/80 text-xs mt-0.5">
-              {lowAudit && "Audit credits running low. "}
-              {lowContent && "Text content credits running low. "}
-              {lowImage && "Image credits running low. "}
-              {lowEbc && "A+ / EBC credits running low. "}
-              {lowComp && "Competitor analysis credits running low. "}
-              Purchase more to avoid interruptions.
-            </p>
-          </div>
-          <Button asChild size="sm" className="bg-red-500 hover:bg-red-600 text-white flex-shrink-0">
-            <Link href="/billing">Buy Credits</Link>
-          </Button>
-        </div>
-      )}
-
-      <div className="flex items-end justify-between border-b pb-6">
+    <div className={cn("space-y-6 animate-in fade-in duration-500", isFetching && "opacity-90")}>
+      {/* Welcome + date filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-2 text-lg">Your portfolio performance at a glance.</p>
-          {isTeamMember && (
-            <p className="text-xs text-muted-foreground mt-1">Team role: <span className="font-medium capitalize">{role}</span></p>
-          )}
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+            Welcome back, {name}! 👋
+          </h1>
+          <p className="text-slate-500 mt-1">Here&apos;s your overview for today.</p>
         </div>
-        {canEdit && (
-          <Button asChild size="lg" className="shadow-md">
-            <Link href="/audits/new">
-              <Plus className="w-5 h-5 mr-2" />
-              New Audit
-            </Link>
-          </Button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {statCards.map((stat, i) => (
-          <Card key={i} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{stat.title}</p>
-                  {stat.isScore ? (
-                    <div className="text-3xl font-bold font-mono tracking-tighter">
-                      <span className={stat.value >= 70 ? "text-emerald-500" : stat.value >= 50 ? "text-amber-500" : "text-rose-500"}>
-                        {stat.value}
-                      </span>
-                      <span className="text-muted-foreground text-xl">/100</span>
-                    </div>
-                  ) : (
-                    <p className="text-4xl font-bold font-mono tracking-tighter">{stat.value}</p>
-                  )}
-                </div>
-                <div className="p-3 bg-secondary/5 rounded-lg text-secondary">
-                  <stat.icon className="w-5 h-5" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-4">{stat.desc}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Credit summary strip */}
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Coins className="w-5 h-5 text-orange-500" />
-            Credit Balance
-          </CardTitle>
-          <CardDescription>Your current credit pool across all activity types</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {(() => {
-            const a = sub?.plan?.creditAllocations as Record<string, number> | undefined;
-            const colorMap: Record<string, { bg: string; border: string; text: string; barBg: string; barFill: string }> = {
-              orange: { bg: "bg-orange-50/60", border: "border-orange-100", text: "text-orange-600", barBg: "bg-orange-100", barFill: "bg-orange-400" },
-              blue: { bg: "bg-blue-50/60", border: "border-blue-100", text: "text-blue-600", barBg: "bg-blue-100", barFill: "bg-blue-400" },
-              purple: { bg: "bg-purple-50/60", border: "border-purple-100", text: "text-purple-600", barBg: "bg-purple-100", barFill: "bg-purple-400" },
-              emerald: { bg: "bg-emerald-50/60", border: "border-emerald-100", text: "text-emerald-600", barBg: "bg-emerald-100", barFill: "bg-emerald-400" },
-              slate: { bg: "bg-slate-50/60", border: "border-slate-100", text: "text-slate-600", barBg: "bg-slate-100", barFill: "bg-slate-400" },
-            };
-            const items = [
-              { label: "Audit Credits", ...colorMap["orange"], used: displayCredits.auditCredits ?? 0, total: a?.audit ?? totalAudit ?? 0, key: "audit" },
-              { label: "Text Content", ...colorMap["blue"], used: displayCredits.aiCredits ?? 0, total: a?.content ?? totalAi ?? 0, key: "content" },
-              { label: "Image Credits", ...colorMap["purple"], used: displayCredits.imageCredits ?? 0, total: a?.images ?? totalImage ?? 0, key: "images" },
-              { label: "A+ / EBC", ...colorMap["emerald"], used: displayCredits.aiCredits ?? 0, total: a?.ebc ?? 0, key: "ebc" },
-              { label: "Competitors", ...colorMap["slate"], used: displayCredits.auditCredits ?? 0, total: a?.competitors ?? 0, key: "competitors" },
-            ];
-            return (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                {items.map((it) => {
-                  const pct = it.total > 0 ? Math.min(100, (it.used / it.total) * 100) : 0;
-                  const low = it.total > 0 && it.used <= Math.max(1, it.total * 0.15);
-                  return (
-                    <div key={it.key} className={`${it.bg} border ${it.border} rounded-xl p-4 ${low ? "ring-2 ring-red-200" : ""}`}>
-                      <p className={`text-xs font-medium ${it.text} uppercase flex items-center gap-1`}>
-                        {it.label}
-                        {low && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                      </p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">{it.used.toLocaleString()} <span className="text-sm text-slate-400 font-normal">/ {it.total > 0 ? it.total.toLocaleString() : "∞"}</span></p>
-                      {it.total > 0 && <div className={`mt-2 h-1.5 ${it.barBg} rounded-full overflow-hidden`}><div className={`h-full ${it.barFill} rounded-full`} style={{ width: `${pct}%` }} /></div>}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </CardContent>
-      </Card>
-
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">Recent Audits</h2>
-
-        {(!stats?.recentAudits || stats.recentAudits.length === 0) ? (
-          <Card className="border-dashed bg-muted/30">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
-                <Search className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">No audits yet</h3>
-              <p className="text-muted-foreground max-w-sm mb-6">Start by analyzing your first Amazon listing to uncover SEO opportunities and content improvements.</p>
-              {canEdit && (
-                <Button asChild>
-                  <Link href="/audits/new">Create First Audit</Link>
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {stats.recentAudits.map((audit) => (
-              <Link key={audit.id} href={`/audits/${audit.id}`}>
-                <Card className="group hover:border-primary/50 transition-colors cursor-pointer border-border/50">
-                  <CardContent className="p-6 flex items-center gap-6">
-                    <ScoreRing score={audit.overallScore} size="sm" showLabel={false} />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="font-bold text-lg truncate group-hover:text-primary transition-colors">
-                          {audit.productName}
-                        </h3>
-                        {audit.status === "pending" && (
-                          <span className="inline-flex items-center text-xs font-medium bg-secondary/10 text-secondary px-2 py-0.5 rounded-full">
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Analyzing
-                          </span>
-                        )}
-                        {audit.status === "failed" && (
-                          <span className="inline-flex items-center text-xs font-medium bg-destructive/10 text-destructive px-2 py-0.5 rounded-full">
-                            Failed
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        {audit.asin && <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground/70">ASIN: {audit.asin}</span>}
-                        {audit.category && <span className="text-xs uppercase tracking-wider">{audit.category}</span>}
-                        <span>•</span>
-                        <span>{format(new Date(audit.createdAt), 'MMM d, yyyy')}</span>
-                      </div>
-                    </div>
-
-                    <div className="text-muted-foreground group-hover:text-primary transition-colors">
-                      <ArrowUpRight className="w-6 h-6" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+        <div className="flex items-center gap-2">
+          <select
+            value={periodPreset}
+            onChange={(e) => setPeriodPreset(e.target.value as PeriodPreset)}
+            className="text-sm border border-slate-200 rounded-xl px-3 py-2.5 bg-white text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+          >
+            <option value="billing_period">Billing Period</option>
+            <option value="this_month">This Month</option>
+            <option value="this_week">This Week</option>
+          </select>
+          <div className="flex items-center gap-2 text-sm text-slate-500 border border-slate-200 rounded-xl px-3 py-2.5 bg-white shadow-sm">
+            <CalendarDays className="w-4 h-4 text-slate-400" />
+            <span className="hidden sm:inline">{periodLabel}</span>
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* Top stats row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          title="Projects Saved"
+          value={stats.projectsSaved}
+          subtext={`+${stats.projectsSavedThisWeek} this week`}
+          subtextPositive
+          icon={Folder}
+        />
+        <StatCard
+          title="Total Audits"
+          value={stats.totalAudits}
+          subtext={`${auditsTrendPositive ? "+" : ""}${stats.auditsWeekOverWeekPct}% vs last week`}
+          subtextPositive={auditsTrendPositive}
+          icon={TrendingUp}
+        />
+        <StatCard
+          title="Time Saved"
+          value={formatHours(stats.timeSavedHours)}
+          subtext="From AI tasks completed"
+          icon={Clock}
+        />
+        <StatCard
+          title="Credits Balance"
+          value={stats.creditsBalance.toLocaleString()}
+          subtext={`of ${stats.creditsAllowance.toLocaleString()} credits`}
+          icon={Wallet}
+        />
+      </div>
+
+      {/* Main two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left column */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Impact card */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-slate-900">Your Impact This Week</h2>
+                <p className="text-sm text-slate-500 mt-1">You&apos;re doing great! Here&apos;s the value you&apos;ve created.</p>
+                <ul className="mt-6 space-y-4">
+                  <li className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Listings Optimized</p>
+                      <p className="text-xs text-slate-500">Improve visibility and ranking</p>
+                    </div>
+                    <span className="text-xl font-bold text-slate-900">{impact.listingsOptimized}</span>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Key Issues Identified</p>
+                      <p className="text-xs text-slate-500">Fixed or flagged for improvement</p>
+                    </div>
+                    <span className="text-xl font-bold text-slate-900">{impact.issuesIdentified}</span>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Time Saved</p>
+                      <p className="text-xs text-slate-500">By using Listing Auditor</p>
+                    </div>
+                    <span className="text-xl font-bold text-slate-900">{formatHours(impact.timeSavedHours)}</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="hidden sm:flex w-40 items-center justify-center">
+                <div className="relative w-32 h-32">
+                  <div className="absolute inset-0 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center">
+                    <LineChart className="w-12 h-12 text-orange-400" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shadow-md">
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent projects */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-900">Recent Projects</h2>
+              <Link href="/projects" className="text-sm font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1">
+                View All Projects <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+            {recentProjects.length === 0 ? (
+              <div className="px-6 py-12 text-center text-slate-500 text-sm">
+                No projects yet. Start with a quick action below.
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {recentProjects.map((project) => (
+                  <li key={`${project.type}-${project.id}`}>
+                    <Link href={project.url}>
+                      <div className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <Folder className="w-5 h-5 text-slate-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-orange-600 transition-colors">
+                            {project.name}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {project.typeLabel} • {format(new Date(project.createdAt), "MMM d, yyyy")}
+                          </p>
+                        </div>
+                        <span className={cn(
+                          "text-xs font-medium px-2.5 py-1 rounded-full border flex-shrink-0",
+                          STATUS_STYLES[project.statusColor] ?? STATUS_STYLES.gray,
+                        )}>
+                          {project.statusLabel}
+                        </span>
+                        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-400 flex-shrink-0" />
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Credits donut */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">Credits Usage</h2>
+            <DonutChart data={creditBreakdown} total={stats.creditsBalance} />
+            <ul className="mt-4 space-y-2.5">
+              {creditBreakdown.map((seg) => (
+                <li key={seg.key} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                    <span className="text-slate-600">{seg.label}</span>
+                  </div>
+                  <span className="text-slate-800 font-medium">
+                    {seg.balance.toLocaleString()} ({seg.pct}%)
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/billing"
+              className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"
+            >
+              View Detailed Usage <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Quick actions */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {quickActions.map((action) => {
+                const Icon = QUICK_ACTION_ICONS[action.icon] ?? FilePlus2;
+                return (
+                  <Link key={action.href + action.label} href={action.href}>
+                    <button
+                      type="button"
+                      className="w-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-orange-50 hover:border-orange-200 transition-colors text-center min-h-[88px]"
+                    >
+                      <Icon className="w-5 h-5 text-slate-600" />
+                      <span className="text-xs font-semibold text-slate-700 leading-tight">{action.label}</span>
+                    </button>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex items-start gap-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+              <Zap className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-slate-500">
+                Tip: Use credits wisely to get the most out of your plan.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
