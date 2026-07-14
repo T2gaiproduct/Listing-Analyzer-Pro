@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { BillingOverview } from "@/components/billing-overview";
+import { refetchCreditQueries, useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -146,9 +147,7 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
             const vd = await verify.json() as { success?: boolean; addedCredits?: number; error?: string };
             if (vd.success) {
               toast({ title: "Credit purchase successful", description: `Added ${vd.addedCredits} ${creditType} credits.` });
-              void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-              void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-              void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+              void refetchCreditQueries(queryClient);
             } else {
               toast({ title: "Payment verification failed", description: vd.error ?? "Please contact support.", variant: "destructive" });
             }
@@ -436,6 +435,7 @@ export default function Billing() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const paypalCaptureAttempted = useRef(false);
+  useCreditPurchaseReturn();
 
   const selectTab = (next: BillingTab) => {
     setTab(next);
@@ -474,59 +474,6 @@ export default function Billing() {
     queryFn: () => fetch(`${basePath}/api/payment-config`).then((r) => r.json()),
     staleTime: 60_000,
   });
-
-  // Handle Stripe credit-pack return and custom-credit return
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const success = params.get("credit_success");
-    const customSuccess = params.get("custom_credit_success");
-    const cancelled = params.get("credit_cancel");
-    if (success) {
-      // pack redirect: credit_success=<packId> — confirm via API and show generic success toast
-      fetch(`${basePath}/api/buy-credits/confirm`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ sessionId: success }),
-      })
-        .then((r) => r.json())
-        .then((d: { success?: boolean; addedCredits?: number; creditType?: string; error?: string }) => {
-          if (d.success) {
-            toast({ title: "Credit purchase successful", description: `Added ${d.addedCredits} ${d.creditType} credits.` });
-          } else {
-            toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
-          }
-          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-          void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
-        })
-        .catch(() => toast({ title: "Confirmation error", variant: "destructive" }));
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-    if (customSuccess) {
-      fetch(`${basePath}/api/buy-credits/confirm`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ sessionId: customSuccess }),
-      })
-        .then((r) => r.json())
-        .then((d: { success?: boolean; addedCredits?: number; creditType?: string; error?: string }) => {
-          if (d.success) {
-            toast({ title: "Credit purchase successful", description: `Added ${d.addedCredits} ${d.creditType} credits.` });
-          } else {
-            toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
-          }
-          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-          void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
-        })
-        .catch(() => toast({ title: "Confirmation error", variant: "destructive" }));
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-    if (cancelled) {
-      toast({ title: "Credit purchase cancelled" });
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle PayPal return redirect (?paypal_captured=1 or ?paypal_cancelled=1)
   useEffect(() => {
@@ -575,10 +522,7 @@ export default function Billing() {
             } else {
               toast({ title: planId ? "Subscription activated" : "PayPal payment method added", description: d.payer ? `Linked to ${d.payer}` : undefined });
             }
-            void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-            void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-            void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-            void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+            void refetchCreditQueries(queryClient);
           } else {
             toast({ title: "PayPal capture failed", description: d.error, variant: "destructive" });
           }
@@ -921,8 +865,7 @@ export default function Billing() {
                               const vd = await verify.json() as { success?: boolean; addedCredits?: number; creditType?: string; error?: string };
                               if (vd.success) {
                                 toast({ title: "Credit purchase successful", description: `Added ${vd.addedCredits} ${vd.creditType} credits.` });
-                                void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-                                void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+                                void refetchCreditQueries(queryClient);
                               } else {
                                 toast({ title: "Payment verification failed", description: vd.error ?? "Please contact support.", variant: "destructive" });
                               }

@@ -8,7 +8,7 @@ import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
 } from "@workspace/db";
-import { addCredits } from "../lib/credits";
+import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { getGatewaySettings } from "./payment";
 
 const router: IRouter = Router();
@@ -548,8 +548,8 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     const stripe = await getUncachableStripeClient();
     const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
     const baseUrl = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
-    const successUrl = `${baseUrl}/billing?credit_success={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
+    const successUrl = `${baseUrl}/billing?tab=credits&credit_success={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl}/billing?tab=credits&credit_cancel=1`;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -633,8 +633,8 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
     const stripe = await getUncachableStripeClient();
     const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
     const baseUrl = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
-    const successUrl = `${baseUrl}/billing?custom_credit_success={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
+    const successUrl = `${baseUrl}/billing?tab=credits&custom_credit_success={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl}/billing?tab=credits&credit_cancel=1`;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -708,93 +708,29 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
   const { sessionId } = req.body as { sessionId: string };
   if (!sessionId) { res.status(400).json({ error: "sessionId required" }); return; }
 
-  // ─── Idempotency guard: already processed this session? ─────────────────────
-  const existingPayment = await db.select().from(paymentsTable)
-    .where(and(eq(paymentsTable.userId, userId), eq(paymentsTable.gatewayPaymentId, sessionId)))
-    .limit(1);
-  if (existingPayment.length > 0) {
-    const meta = existingPayment[0].metadata as Record<string, unknown> | null;
-    res.json({ success: true, alreadyProcessed: true, addedCredits: meta?.credits ?? 0, creditType: meta?.creditType ?? "audit" });
-    return;
-  }
-
   const { getUncachableStripeClient } = await import("../stripeClient");
   const stripe = await getUncachableStripeClient();
   const session = await stripe.checkout.sessions.retrieve(sessionId);
-  if (session.payment_status !== "paid") {
-    res.status(400).json({ error: "Payment not completed" });
+
+  const metaUserId = session.metadata?.userId;
+  if (metaUserId && metaUserId !== userId) {
+    res.status(403).json({ error: "Session does not belong to this account" });
     return;
   }
 
-  const meta = session.metadata ?? {};
-  const type = meta.type;
-
-  if (type === "custom_credit") {
-    const amount = Number(meta.customCredits);
-    const creditType = meta.creditType as "ai" | "image" | "audit";
-    if (!amount || !creditType || !["ai", "image", "audit"].includes(creditType)) {
-      res.status(400).json({ error: "Invalid custom credit metadata" });
-      return;
-    }
-    const priceCents = amount * 10;
-    const priceDollars = priceCents / 100;
-    const newBalance = await addCredits(
-      userId, creditType, amount,
-      `Purchased ${amount} ${creditType} credits`,
-      "custom_credit_purchase",
-      { sessionId: session.id, priceCents },
-    );
-    const [payment] = await db.insert(paymentsTable).values({
-      userId, amount: priceDollars, currency: "USD", status: "completed",
-      gateway: "stripe", gatewayPaymentId: sessionId,
-      metadata: { type: "custom_credit", credits: amount, creditType },
-    }).returning();
-    const [invoice] = await db.insert(invoicesTable).values({
-      userId, amount: priceDollars, currency: "USD", status: "paid",
-      items: [{ description: `${amount} ${creditType} credits`, quantity: amount, amount: priceDollars }],
-      paidAt: new Date(),
-    }).returning();
-    if (payment && invoice) {
-      await db.update(paymentsTable).set({ invoiceId: invoice.id }).where(eq(paymentsTable.id, payment.id));
-    }
-    res.json({ success: true, addedCredits: amount, newBalance, creditType });
+  const result = await fulfillStripeCreditCheckout(session);
+  if (!result) {
+    res.status(400).json({ error: "Not a credit purchase session or payment not completed" });
     return;
   }
 
-  // Pack purchase
-  const packId = Number(meta.creditPackId);
-  if (!packId || isNaN(packId)) {
-    res.status(400).json({ error: "Invalid session metadata" });
-    return;
-  }
-
-  const [pack] = await db.select().from(creditPacksTable).where(eq(creditPacksTable.id, packId));
-  if (!pack) { res.status(404).json({ error: "Pack not found" }); return; }
-
-  const creditType = pack.creditType as "ai" | "image" | "audit";
-  const newBalance = await addCredits(
-    userId, creditType, pack.quantity,
-    `Purchased ${pack.quantity} ${pack.creditType} credits`,
-    "credit_pack_purchase",
-    { packId: pack.id, priceCents: pack.priceCents },
-  );
-
-  const amount = pack.priceCents / 100;
-  const [payment] = await db.insert(paymentsTable).values({
-    userId, amount, currency: "USD", status: "completed",
-    gateway: "stripe", gatewayPaymentId: sessionId,
-    metadata: { type: "credit_pack", packId: pack.id, credits: pack.quantity, creditType: pack.creditType },
-  }).returning();
-  const [invoice] = await db.insert(invoicesTable).values({
-    userId, amount, currency: "USD", status: "paid",
-    items: [{ description: `${pack.quantity} ${pack.creditType} credits (${pack.label ?? `Pack #${pack.id}`})`, quantity: pack.quantity, amount }],
-    paidAt: new Date(),
-  }).returning();
-  if (payment && invoice) {
-    await db.update(paymentsTable).set({ invoiceId: invoice.id }).where(eq(paymentsTable.id, payment.id));
-  }
-
-  res.json({ success: true, addedCredits: pack.quantity, newBalance, creditType });
+  res.json({
+    success: true,
+    alreadyProcessed: result.alreadyProcessed,
+    addedCredits: result.addedCredits,
+    newBalance: result.newBalance,
+    creditType: result.creditType,
+  });
 });
 
 // ─── Credit Usage Breakdown ───────────────────────────────────────────────────

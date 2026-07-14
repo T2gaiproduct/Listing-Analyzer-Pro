@@ -5,6 +5,7 @@ import {
   paymentsTable, subscriptionsTable, userProfilesTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { fulfillStripeCreditCheckout } from "./stripe-credit-checkout";
 
 /**
  * App-specific Stripe webhook handling.
@@ -27,6 +28,10 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     }
     case "customer.subscription.updated": {
       await handleSubscriptionUpdated(event.data.object as unknown as Parameters<typeof handleSubscriptionUpdated>[0]);
+      break;
+    }
+    case "checkout.session.completed": {
+      await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
       break;
     }
     default:
@@ -225,4 +230,22 @@ async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: st
     .where(eq(subscriptionsTable.userId, userId));
 
   logger.info({ userId, status: newStatus, planId, billingCycle }, "Subscription updated from Stripe");
+}
+
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  if (session.mode !== "payment") return;
+
+  const result = await fulfillStripeCreditCheckout(session);
+  if (!result) return;
+
+  logger.info(
+    {
+      userId: result.userId,
+      addedCredits: result.addedCredits,
+      creditType: result.creditType,
+      alreadyProcessed: result.alreadyProcessed,
+      sessionId: session.id,
+    },
+    "Credit purchase fulfilled via Stripe checkout.session.completed",
+  );
 }
