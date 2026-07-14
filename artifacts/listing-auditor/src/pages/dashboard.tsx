@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { format } from "date-fns";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -21,13 +20,10 @@ import {
   LineChart,
   CheckCircle2,
   AlertTriangle,
-  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-type PeriodPreset = "billing_period" | "this_month" | "this_week";
 
 interface DashboardData {
   greetingName: string | null;
@@ -145,41 +141,17 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 
 export default function Dashboard() {
   const { user } = useUser();
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("billing_period");
-
-  const clientRange = useMemo(() => {
-    const now = new Date();
-    if (periodPreset === "this_week") {
-      return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
-    }
-    if (periodPreset === "this_month") {
-      return { start: startOfMonth(now), end: endOfMonth(now) };
-    }
-    return null;
-  }, [periodPreset]);
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard", periodPreset, clientRange?.start.toISOString(), clientRange?.end.toISOString()],
+    queryKey: ["dashboard"],
     queryFn: async () => {
-      const url = clientRange
-        ? `${basePath}/api/dashboard?${new URLSearchParams({
-            start: clientRange.start.toISOString(),
-            end: clientRange.end.toISOString(),
-          })}`
-        : `${basePath}/api/dashboard`;
-      const r = await fetch(url, { credentials: "include" });
+      const r = await fetch(`${basePath}/api/dashboard`, { credentials: "include" });
       if (!r.ok) throw new Error(`Failed to load dashboard (${r.status})`);
       return r.json();
     },
     staleTime: 30_000,
     retry: 2,
   });
-
-  const periodLabel = dashboard
-    ? `${format(new Date(dashboard.period.start), "MMM d, yyyy")} – ${format(new Date(dashboard.period.end), "MMM d, yyyy")}`
-    : clientRange
-      ? `${format(clientRange.start, "MMM d, yyyy")} – ${format(clientRange.end, "MMM d, yyyy")}`
-      : "";
 
   if (isLoading) {
     return (
@@ -221,29 +193,12 @@ export default function Dashboard() {
 
   return (
     <div className={cn("space-y-6 animate-in fade-in duration-500", isFetching && "opacity-90")}>
-      {/* Welcome + date filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Welcome back, {name}! 👋
-          </h1>
-          <p className="text-slate-500 mt-1">Here&apos;s your overview for today.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={periodPreset}
-            onChange={(e) => setPeriodPreset(e.target.value as PeriodPreset)}
-            className="text-sm border border-slate-200 rounded-xl px-3 py-2.5 bg-white text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-          >
-            <option value="billing_period">Billing Period</option>
-            <option value="this_month">This Month</option>
-            <option value="this_week">This Week</option>
-          </select>
-          <div className="flex items-center gap-2 text-sm text-slate-500 border border-slate-200 rounded-xl px-3 py-2.5 bg-white shadow-sm">
-            <CalendarDays className="w-4 h-4 text-slate-400" />
-            <span className="hidden sm:inline">{periodLabel}</span>
-          </div>
-        </div>
+      {/* Welcome */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+          Welcome back, {name}! 👋
+        </h1>
+        <p className="text-slate-500 mt-1">Here&apos;s your overview for today.</p>
       </div>
 
       {/* Top stats row */}
