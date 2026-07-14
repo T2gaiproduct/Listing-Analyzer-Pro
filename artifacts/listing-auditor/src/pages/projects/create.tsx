@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Sparkles, Search, Camera, Monitor, Lightbulb } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -99,6 +100,7 @@ const STEPS = [
 export default function CreateProject() {
   const [, nav] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
 
@@ -142,7 +144,7 @@ export default function CreateProject() {
       return res.json();
     },
     onSuccess: (project) => {
-      fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+      void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -150,7 +152,7 @@ export default function CreateProject() {
           imageTypes: selectedImageTypes,
           customPrompt: customPrompt.trim() || undefined,
         }),
-      });
+      }).then(() => refreshCreditBalances(queryClient));
       nav(`/projects/${project.id}/generating`);
     },
     onError: (err) => {

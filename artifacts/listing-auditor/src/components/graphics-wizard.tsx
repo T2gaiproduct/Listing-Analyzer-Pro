@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import {
   Upload, ArrowRight, Check, ImageIcon, Loader2, Trash2,
@@ -127,6 +128,7 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
 
 export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords }: GraphicsWizardProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { canEdit } = useTeam();
   const fileRef = useRef<HTMLInputElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -231,7 +233,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     onSuccess: (project) => {
       setProjectId(project.id);
       setIsGenerating(true);
-      fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+      void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -239,7 +241,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           imageTypes: selectedImageTypes,
           customPrompt: customPrompt.trim() || undefined,
         }),
-      });
+      }).then(() => refreshCreditBalances(queryClient));
       startTimeRef.current = Date.now();
     },
     onError: (err) => {
@@ -262,6 +264,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       return res.json();
     },
     onSuccess: () => {
+      refreshCreditBalances(queryClient);
       toast({ title: "Image regenerated" });
       refetch();
     },
@@ -285,6 +288,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       return res.json();
     },
     onSuccess: () => {
+      refreshCreditBalances(queryClient);
       toast({ title: "Image edited" });
       setEditRecord(null);
       setEditPrompt("");
@@ -310,6 +314,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       return res.json();
     },
     onSuccess: () => {
+      refreshCreditBalances(queryClient);
       toast({ title: "Additional generation started" });
       setIsGenerating(true);
       startTimeRef.current = Date.now();

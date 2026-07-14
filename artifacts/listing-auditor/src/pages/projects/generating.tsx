@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, ArrowRight } from "lucide-react";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -39,8 +40,10 @@ function formatEta(seconds: number): string {
 export default function GeneratingPage({ params }: { params?: { id?: string } }) {
   const id = params?.id ?? "";
   const [, nav] = useLocation();
+  const queryClient = useQueryClient();
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
+  const creditsRefreshedRef = useRef(false);
 
   const { data: project } = useQuery({
     queryKey: ["graphics-project", id],
@@ -54,6 +57,10 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
   useEffect(() => {
     if (!project) return;
     if (project.status === "completed") {
+      if (!creditsRefreshedRef.current) {
+        creditsRefreshedRef.current = true;
+        refreshCreditBalances(queryClient);
+      }
       setTimeout(() => nav(`/projects/${id}`), 1000);
       return;
     }
@@ -70,7 +77,7 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
     } else {
       setEtaSeconds(0);
     }
-  }, [project, id, nav, totalImages]);
+  }, [project, id, nav, totalImages, queryClient]);
 
   useEffect(() => {
     if (project?.status !== "generating") return;

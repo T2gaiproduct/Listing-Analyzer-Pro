@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import {
   RefreshCw,
@@ -274,6 +275,7 @@ export function ImageGallery({
         data: {},
       });
       invalidate();
+      refreshCreditBalances(queryClient);
       toast.success("All 6 images generated successfully!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Image generation failed";
@@ -297,6 +299,7 @@ export function ImageGallery({
         data: {},
       });
       invalidate();
+      refreshCreditBalances(queryClient);
       toast.success(
         `${TYPE_LABELS[record.type as ImageType]} image ${record.index + 1} regenerated`,
       );
@@ -329,6 +332,7 @@ export function ImageGallery({
         data: { prompt: editPrompt },
       });
       invalidate();
+      refreshCreditBalances(queryClient);
       setEditRecord(null);
       toast.success("Image edited successfully!");
     } catch (err) {

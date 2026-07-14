@@ -51,6 +51,7 @@ interface CreditUsage {
     reason: string | null;
     featureType: string | null;
     createdAt: string;
+    metadata?: Record<string, unknown> | null;
   }[];
   breakdown: Record<string, { spent: number; earned: number; count: number }>;
 }
@@ -184,6 +185,36 @@ function spentInRange(
     .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 }
 
+/** One audit listing = 1 charge in usage UI, even if competitor analysis adds another audit-pool debit. */
+function auditListingCreditsUsed(
+  transactions: CreditUsage["transactions"],
+  start: Date,
+  end: Date,
+  costPerAudit: number,
+): number {
+  const listingsAudited = new Set<string>();
+  let orphanSpend = 0;
+
+  for (const tx of transactions) {
+    if (tx.amount >= 0) continue;
+    if (!tx.featureType || !["audit", "competitors"].includes(tx.featureType)) continue;
+    const at = new Date(tx.createdAt);
+    if (!isWithinInterval(at, { start, end })) continue;
+
+    const auditId = tx.metadata?.auditId;
+    if (tx.featureType === "audit") {
+      if (auditId != null) listingsAudited.add(String(auditId));
+      else orphanSpend += Math.abs(tx.amount);
+      continue;
+    }
+
+    // Competitor analysis on a listing is part of the same audit listing — not a second listing.
+    if (auditId == null) orphanSpend += Math.abs(tx.amount);
+  }
+
+  return listingsAudited.size * costPerAudit + orphanSpend;
+}
+
 function totalSpentInRange(
   transactions: CreditUsage["transactions"],
   start: Date,
@@ -215,7 +246,7 @@ export function BillingOverview({
   paymentSection,
 }: BillingOverviewProps) {
   const { user } = useUser();
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("this_month");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("billing_period");
 
   const { data: creditRules = [] } = useQuery<CreditRule[]>({
     queryKey: ["credit-rules"],
@@ -252,9 +283,11 @@ export function BillingOverview({
 
   const serviceUsage = useMemo(() => {
     return SERVICE_CONFIG.map((svc) => {
-      const spent = spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
-      const pct = planTotalCredits > 0 ? Math.min(100, Math.round((spent / planTotalCredits) * 100)) : 0;
       const cost = serviceDisplayCost(svc, ruleCost);
+      const spent = svc.id === "audit"
+        ? auditListingCreditsUsed(transactions, filterStart, filterEnd, cost)
+        : spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
+      const pct = planTotalCredits > 0 ? Math.min(100, Math.round((spent / planTotalCredits) * 100)) : 0;
       return { ...svc, spent, pct, cost };
     });
   }, [transactions, filterStart, filterEnd, creditRules, planTotalCredits]);
@@ -391,8 +424,8 @@ export function BillingOverview({
               onChange={(e) => setPeriodFilter(e.target.value as PeriodFilter)}
               className="appearance-none h-9 pl-3 pr-8 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200"
             >
-              <option value="this_month">This Month</option>
               <option value="billing_period">Billing Period</option>
+              <option value="this_month">This Month</option>
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>

@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { BillingOverview } from "@/components/billing-overview";
-import { refetchCreditQueries, useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
+import { refetchCreditQueries } from "@/lib/credit-queries";
+import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 

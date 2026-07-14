@@ -29,6 +29,7 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import {
   useCreateAudit,
   usePatchAudit,
@@ -528,6 +529,7 @@ export default function AuditWorkflow() {
       return res.json();
     },
     onSuccess: (_data, variables) => {
+      refreshCreditBalances(queryClient);
       setGraphicsProjectId(variables.projectId);
       setGraphicsStatus("generating");
       completionToastShownRef.current = false;
@@ -562,7 +564,7 @@ export default function AuditWorkflow() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ imageTypes: selectedImageTypes, customPrompt: customPrompt.trim() || undefined }),
-      });
+      }).then(() => refreshCreditBalances(queryClient));
       setGraphicsProjectId(project.id);
       setGraphicsStatus("generating");
       completionToastShownRef.current = false;
@@ -620,6 +622,7 @@ export default function AuditWorkflow() {
         }
         if (project.status === "completed") {
           setIsCreating(false);
+          refreshCreditBalances(queryClient);
           if (hasSeenGeneratingRef.current && !completionToastShownRef.current) {
             completionToastShownRef.current = true;
             toast({ title: "Graphics ready!", description: `${total} images generated successfully.` });
@@ -653,7 +656,7 @@ export default function AuditWorkflow() {
     poll();
     const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
-  }, [graphicsProjectId, existingGraphicsProject, graphicsStatus, toast]);
+  }, [graphicsProjectId, existingGraphicsProject, graphicsStatus, toast, queryClient, currentAuditId, activeStep, patchAudit]);
 
   /* ── File upload helpers ── */
   function handleFiles(files: FileList | null) {
@@ -746,6 +749,7 @@ export default function AuditWorkflow() {
             setActiveStep(2);
             queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
             void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+            refreshCreditBalances(queryClient);
           },
           onError: (err) => {
             setIsCreating(false);
@@ -804,6 +808,7 @@ export default function AuditWorkflow() {
             setIsCreating(false);
             setGeneratedContent(data);
             toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
+            refreshCreditBalances(queryClient);
           },
           onError: (err) => {
             setIsCreating(false);
@@ -1228,6 +1233,7 @@ export default function AuditWorkflow() {
                           setIsCreating(false);
                           setGeneratedContent(data);
                           toast({ title: "Listing content regenerated!", description: "Your optimized content is ready." });
+                          refreshCreditBalances(queryClient);
                         },
                         onError: (err) => {
                           setIsCreating(false);
@@ -1279,6 +1285,7 @@ export default function AuditWorkflow() {
                         setIsCreating(false);
                         setGeneratedContent(data);
                         toast({ title: "Listing content ready!", description: "Your optimized content is ready." });
+                        refreshCreditBalances(queryClient);
                       },
                       onError: (err) => {
                         setIsCreating(false);
