@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGenerateEbc } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 
@@ -336,6 +338,7 @@ function ClosingModule({ data, colors }: { data: ClosingData; colors: typeof BRA
 export function EbcStudio({ audit, auditId }: EbcStudioProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isExporting, setIsExporting] = useState(false);
   const [colorIdx, setColorIdx] = useState(0);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -396,6 +399,7 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
           setClosing({ headline: data.closingHeadline, body: data.closingBody, cta: data.closingCta });
           setShowAiPrompt(false);
           setAiPrompt("");
+          refreshCreditBalances(queryClient);
           toast({ title: "A+ content generated", description: "All modules updated with AI-crafted copy." });
         },
         onError: (err) => {

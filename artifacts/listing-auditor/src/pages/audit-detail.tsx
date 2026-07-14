@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScoreRing, ScoreBadge } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { format } from "date-fns";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -341,6 +342,7 @@ export default function AuditDetail({ id }: { id: number }) {
     generateContent.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+        refreshCreditBalances(queryClient);
         toast({ title: "Content generated", description: "Your optimized listing content is ready." });
       },
       onError: (err) => toast({ title: "Content generation failed", description: formatAiError(err), variant: "destructive" }),

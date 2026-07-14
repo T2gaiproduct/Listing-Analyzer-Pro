@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { ArrowLeft, Plus, X, Loader2, Users, Search, Sparkles, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 
 const formSchema = z.object({
@@ -156,6 +157,7 @@ function CompetitorForm({
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+          refreshCreditBalances(queryClient);
           onSuccess(values.productName);
           toast({ title: "Competitor analyzed", description: `${values.productName} added and scored.` });
         },

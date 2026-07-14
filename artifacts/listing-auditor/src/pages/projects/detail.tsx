@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import {
   Download, RefreshCw, Wand2, ImageIcon, Loader2, ArrowLeft,
@@ -115,6 +116,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       return res.json();
     },
     onSuccess: () => {
+      refreshCreditBalances(qc);
       toast({ title: "Generation started" });
       // Start polling for status update
       const interval = setInterval(() => {
@@ -143,6 +145,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     },
     onSuccess: () => {
       invalidate();
+      refreshCreditBalances(qc);
       toast({ title: "Image regenerated" });
     },
     onError: (err) => {
@@ -166,6 +169,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     },
     onSuccess: () => {
       invalidate();
+      refreshCreditBalances(qc);
       setEditRecord(null);
       setEditPrompt("");
       toast({ title: "Image edited" });

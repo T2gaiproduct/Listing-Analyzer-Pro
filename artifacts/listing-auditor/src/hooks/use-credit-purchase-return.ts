@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,16 +27,6 @@ function stripCreditReturnParams(): void {
     ? `${window.location.pathname}?${nextSearch}`
     : window.location.pathname;
   window.history.replaceState({}, "", nextUrl);
-}
-
-async function refetchCreditQueries(queryClient: ReturnType<typeof useQueryClient>): Promise<void> {
-  await Promise.all([
-    queryClient.refetchQueries({ queryKey: ["user-profile"] }),
-    queryClient.refetchQueries({ queryKey: ["user-credits"] }),
-    queryClient.refetchQueries({ queryKey: ["team-membership-credits"] }),
-    queryClient.refetchQueries({ queryKey: ["credit-usage"] }),
-    queryClient.refetchQueries({ queryKey: ["user-subscription"] }),
-  ]);
 }
 
 /**
@@ -105,5 +96,3 @@ export function useCreditPurchaseReturn(): void {
       });
   }, [queryClient, toast]);
 }
-
-export { refetchCreditQueries };

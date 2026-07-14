@@ -4,6 +4,7 @@ import { Loader2, TrendingUp, DollarSign, Trophy, Star, Check, ArrowUpRight, Lin
 import { useFetchListing, useCreateAudit, getGetAuditStatsQueryKey, getListAuditsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -87,6 +88,7 @@ export default function AuditListings() {
                 queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
                 queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+                refreshCreditBalances(queryClient);
                 navigate(`/audits/${audit.id}?returnTo=/audit-listings`);
               },
               onError: () => {
