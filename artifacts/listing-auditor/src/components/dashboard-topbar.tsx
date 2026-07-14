@@ -153,7 +153,7 @@ export function DashboardTopbar({
         >
           <Coins className="w-4 h-4 text-amber-500 flex-shrink-0" />
           <div className="text-left hidden sm:block">
-            <p className="text-[10px] font-medium text-slate-500 leading-none">Total Credits</p>
+            <p className="text-[10px] font-medium text-slate-500 leading-none">Credit Balance</p>
             <p className="text-sm font-bold text-slate-900 leading-tight">{totalCredits.toLocaleString()} Credits</p>
           </div>
           <span className="sm:hidden text-sm font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
@@ -165,6 +165,9 @@ export function DashboardTopbar({
             <div className="px-4 py-2 border-b border-slate-100">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Credit balance</p>
               <p className="text-lg font-bold text-slate-900 mt-0.5">{totalCredits.toLocaleString()} total</p>
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                Your available credits across all types. Unused credits roll over; purchases add to one pool below.
+              </p>
             </div>
             <div className="px-4 py-2 space-y-1.5 text-sm">
               <div className="flex justify-between text-slate-600">

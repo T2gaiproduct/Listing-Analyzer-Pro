@@ -198,6 +198,7 @@ function totalSpentInRange(
 interface BillingOverviewProps {
   sub: Subscription;
   plans: Plan[];
+  credits: Credits;
   creditUsage: CreditUsage | undefined;
   onAddCredits: () => void;
   onUpgradePlan: () => void;
@@ -207,6 +208,7 @@ interface BillingOverviewProps {
 export function BillingOverview({
   sub,
   plans,
+  credits,
   creditUsage,
   onAddCredits,
   onUpgradePlan,
@@ -307,6 +309,8 @@ export function BillingOverview({
   const monthlyCredits = currentPlan
     ? currentPlan.aiCredits + currentPlan.imageCredits + currentPlan.auditCredits
     : planTotalCredits;
+
+  const currentBalance = sumCredits(credits);
 
   return (
     <div className="space-y-6">
@@ -491,6 +495,16 @@ export function BillingOverview({
           <p className="text-2xl font-bold text-orange-600 mt-2">
             {monthlyCredits.toLocaleString()} Credits / Month
           </p>
+          <p className="text-xs text-slate-500 mt-1 leading-snug">
+            Included each billing period ({sub.planAuditCredits} audit · {sub.planAiCredits} text · {sub.planImageCredits} images). Unused credits roll over.
+          </p>
+          <div className="mt-4 pt-4 border-t border-stone-200">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Current balance</p>
+            <p className="text-lg font-bold text-slate-900 mt-0.5">{currentBalance.toLocaleString()} credits</p>
+            <p className="text-xs text-slate-500 mt-1">
+              {credits.auditCredits.toLocaleString()} audit · {credits.aiCredits.toLocaleString()} text · {credits.imageCredits.toLocaleString()} images
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-5 flex-1">
             {planFeatures.slice(0, 6).map((feat) => (
               <div key={feat} className="flex items-start gap-1.5 text-xs text-slate-700">
