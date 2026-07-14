@@ -546,8 +546,8 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
   if (method === "stripe") {
     const { getUncachableStripeClient } = await import("../stripeClient");
     const stripe = await getUncachableStripeClient();
-    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-    const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
+    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
+    const baseUrl = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
     const successUrl = `${baseUrl}/billing?credit_success={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
 
@@ -631,8 +631,8 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
   if (method === "stripe") {
     const { getUncachableStripeClient } = await import("../stripeClient");
     const stripe = await getUncachableStripeClient();
-    const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-    const baseUrl = domain ? `https://${domain}` : "http://localhost:80";
+    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
+    const baseUrl = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
     const successUrl = `${baseUrl}/billing?custom_credit_success={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/billing?credit_cancel=1`;
 

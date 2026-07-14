@@ -495,6 +495,7 @@ export default function Billing() {
             toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
           }
           void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
           void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
           void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
         })
@@ -514,6 +515,7 @@ export default function Billing() {
             toast({ title: "Credit confirmation failed", description: d.error ?? "Please contact support.", variant: "destructive" });
           }
           void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
           void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
           void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
         })
@@ -662,6 +664,7 @@ export default function Billing() {
         <BillingOverview
           sub={sub}
           plans={plans}
+          credits={credits}
           creditUsage={creditUsage}
           onAddCredits={() => selectTab("credits")}
           onUpgradePlan={() => selectTab("plans")}
