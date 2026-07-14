@@ -11,6 +11,7 @@ import paymentRouter from "./payment";
 import graphicsRouter from "./graphics";
 import archiveRouter from "./archive";
 import recentsRouter from "./recents";
+import dashboardRouter from "./dashboard";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(paymentRouter);
 router.use(graphicsRouter);
 router.use(archiveRouter);
 router.use(recentsRouter);
+router.use(dashboardRouter);
 
 export default router;
