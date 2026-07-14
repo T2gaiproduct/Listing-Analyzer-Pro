@@ -39,6 +39,7 @@ import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey 
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { useTeam } from "@/hooks/use-team";
+import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -380,6 +381,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
   const { user } = useUser();
   const { toast } = useToast();
+  useCreditPurchaseReturn();
   const isAdmin = user ? adminUserIds.includes(user.id) : false;
 
   const [collapsed, setCollapsed] = useState(false);
@@ -613,7 +615,7 @@ export function Layout({ children }: { children: ReactNode }) {
   }>({
     queryKey: ["user-profile"],
     queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
-    staleTime: 30_000,
+    staleTime: 5_000,
     refetchOnWindowFocus: true,
   });
 

@@ -57,6 +57,7 @@ async function initStripe(): Promise<void> {
     wrapHandler("invoice.paid");
     wrapHandler("customer.subscription.deleted");
     wrapHandler("customer.subscription.updated");
+    wrapHandler("checkout.session.completed");
 
     const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
     if (domain) {

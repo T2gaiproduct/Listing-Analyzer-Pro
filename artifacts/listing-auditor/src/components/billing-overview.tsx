@@ -108,7 +108,7 @@ const SERVICE_CONFIG = [
     barColor: "bg-blue-500",
     ruleFeature: "ebc",
     unit: "Generation",
-    fallbackCost: 2,
+    fallbackCost: 1,
   },
   {
     id: "videos",
