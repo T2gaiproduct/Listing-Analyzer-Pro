@@ -2,8 +2,7 @@ import { generateImageBuffer, editImagesProxy } from "./openai-image";
 import * as fs from "fs";
 import * as path from "path";
 import type { ImageRecord, ImageVersion, ImageStyle, AspectRatio } from "@workspace/db";
-
-const IMAGES_DIR = path.join(process.cwd(), "public", "images");
+import { auditImageDir, ensureAuditImageDir, imageUrlPath, resolveAuditImagePath } from "./image-storage";
 
 export const STYLE_LABELS: Record<ImageStyle, string> = {
   premium: "Premium",
@@ -44,7 +43,7 @@ function versionedFilename(type: string, index: number): string {
 }
 
 function urlPath(auditId: number, filename: string): string {
-  return `/api/images/${auditId}/${filename}`;
+  return imageUrlPath(auditId, filename);
 }
 
 async function generateAndSave(
@@ -126,8 +125,7 @@ export async function generateProductImages(data: {
   style?: ImageStyle;
   aspectRatio?: AspectRatio;
 }): Promise<ImageRecord[]> {
-  const dir = path.join(IMAGES_DIR, String(data.auditId));
-  ensureDir(dir);
+  const dir = ensureAuditImageDir(data.auditId);
 
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
   const globalStyle = data.style;
@@ -187,8 +185,7 @@ export async function regenerateSingleImage(data: {
   style?: ImageStyle;
   aspectRatio?: AspectRatio;
 }): Promise<ImageRecord> {
-  const dir = path.join(IMAGES_DIR, String(data.auditId));
-  ensureDir(dir);
+  const dir = ensureAuditImageDir(data.auditId);
 
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
   const specs = buildSpecs(productDesc);
@@ -233,16 +230,14 @@ export async function editSingleImage(data: {
   style?: ImageStyle;
   aspectRatio?: AspectRatio;
 }): Promise<ImageRecord> {
-  const dir = path.join(IMAGES_DIR, String(data.auditId));
-  ensureDir(dir);
+  const dir = ensureAuditImageDir(data.auditId);
 
   const style: ImageStyle = data.style ?? (data.existingRecord.style as ImageStyle) ?? "premium";
   const aspectRatio: AspectRatio = data.aspectRatio ?? (data.existingRecord.aspectRatio as AspectRatio) ?? "1:1";
 
-  const currentFilename = path.basename(data.existingRecord.currentUrl);
-  const sourceFilePath = path.join(dir, currentFilename);
+  const sourceFilePath = resolveAuditImagePath(data.auditId, data.existingRecord.currentUrl);
 
-  if (!fs.existsSync(sourceFilePath)) {
+  if (!sourceFilePath) {
     throw new Error("Source image file not found. Please regenerate the image first.");
   }
 

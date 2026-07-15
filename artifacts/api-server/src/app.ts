@@ -5,6 +5,7 @@ import path from "path";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { IMAGES_DIR, GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./lib/image-storage";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -62,8 +63,23 @@ app.use(
   }),
 );
 
-app.use("/api/images", express.static(path.join(process.cwd(), "public", "images")));
-app.use("/api/images/graphics", express.static(path.join(process.cwd(), "public", "images", "graphics")));
+app.get("/api/images/:auditId/:filename", (req, res, next) => {
+  const auditId = parseInt(String(req.params.auditId ?? ""), 10);
+  const filename = String(req.params.filename ?? "");
+  if (isNaN(auditId) || !filename || filename.includes("..")) {
+    next();
+    return;
+  }
+  const resolved = resolveAuditImagePath(auditId, `/api/images/${auditId}/${filename}`);
+  if (resolved) {
+    res.sendFile(resolved);
+    return;
+  }
+  next();
+});
+
+app.use("/api/images", express.static(IMAGES_DIR));
+app.use("/api/images/graphics", express.static(GRAPHICS_IMAGES_DIR));
 app.use("/api", router);
 
 export default app;

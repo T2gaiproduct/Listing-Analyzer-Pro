@@ -2,8 +2,13 @@ import * as fs from "fs";
 import * as path from "path";
 import type { EbcContent } from "./ebc-generator";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "./openai-image";
+import {
+  auditImageDir,
+  ensureAuditImageDir,
+  imageUrlPath,
+  resolveAuditImagePath,
+} from "./image-storage";
 
-const IMAGES_DIR = path.join(process.cwd(), "public", "images");
 const MIN_FILE_SIZE = 1024;
 const REFERENCE_IMAGE_INSTRUCTION =
   "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted.";
@@ -138,10 +143,7 @@ export function normalizeAplusModule(module: AplusModule): AplusModule {
 }
 
 function resolveImageFilePath(auditId: number, imageUrl: string): string | null {
-  const filename = path.basename(imageUrl.split("?")[0] ?? imageUrl);
-  const filePath = path.join(IMAGES_DIR, String(auditId), filename);
-  if (fs.existsSync(filePath) && fs.statSync(filePath).size >= MIN_FILE_SIZE) return filePath;
-  return null;
+  return resolveAuditImagePath(auditId, imageUrl);
 }
 
 async function generateModuleBuffer(
@@ -200,8 +202,7 @@ export async function regenerateAplusModule(data: {
   const spec = getModuleSpec(data.moduleId);
   if (!spec) throw new Error("Invalid A+ module");
 
-  const dir = path.join(IMAGES_DIR, String(data.auditId));
-  ensureDir(dir);
+  const dir = ensureAuditImageDir(data.auditId);
 
   const buffer = await generateModuleBuffer(spec, data);
   if (!buffer?.length) throw new Error("No image data returned");
@@ -240,8 +241,7 @@ export async function editAplusModule(data: {
     throw new Error("Source image file not found. Please regenerate the image first.");
   }
 
-  const dir = path.join(IMAGES_DIR, String(data.auditId));
-  ensureDir(dir);
+  const dir = ensureAuditImageDir(data.auditId);
 
   const filename = `aplus_${spec.id}_edit_${Date.now()}.png`;
   const filePath = path.join(dir, filename);
@@ -268,7 +268,7 @@ function ensureDir(dir: string): void {
 }
 
 function urlPath(auditId: number, filename: string): string {
-  return `/api/images/${auditId}/${filename}`;
+  return imageUrlPath(auditId, filename);
 }
 
 function saveBase64Image(base64Data: string, dir: string, filename: string): string | null {
@@ -294,8 +294,8 @@ async function downloadImage(url: string, destPath: string): Promise<string | nu
 }
 
 async function resolveSourceImage(auditId: number, imageUrls: string[]): Promise<string | null> {
-  const dir = path.join(IMAGES_DIR, String(auditId));
-  ensureDir(dir);
+  const dir = auditImageDir(auditId);
+  ensureAuditImageDir(auditId);
 
   for (let i = 0; i < imageUrls.length; i++) {
     const raw = imageUrls[i];
@@ -355,8 +355,7 @@ export async function generateAplusModuleImages(data: {
   moduleIds: AplusModule["id"][];
   onModuleComplete?: (module: AplusModule, done: number, total: number) => void | Promise<void>;
 }): Promise<AplusModule[]> {
-  const dir = path.join(IMAGES_DIR, String(data.auditId));
-  ensureDir(dir);
+  const dir = ensureAuditImageDir(data.auditId);
 
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
   const sourcePath = await resolveSourceImage(data.auditId, data.imageUrls);

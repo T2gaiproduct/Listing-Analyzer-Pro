@@ -154,9 +154,17 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
         method: "POST",
         credentials: "include",
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? `Failed (${res.status})`);
-      return data as AplusModuleItem;
+      let data: { error?: string } = {};
+      const text = await res.text();
+      try {
+        data = text ? JSON.parse(text) as { error?: string } : {};
+      } catch {
+        if (res.status === 404) {
+          throw new Error("A+ regenerate API not found. Rebuild and restart the API server on latest-code.");
+        }
+      }
+      if (!res.ok) throw new Error(data.error ?? `Failed (${res.status})`);
+      return JSON.parse(text) as AplusModuleItem;
     },
     onMutate: (moduleId) => setLoading(moduleId, true),
     onSuccess: (updated) => {
@@ -178,9 +186,17 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
         credentials: "include",
         body: JSON.stringify({ prompt }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? `Failed (${res.status})`);
-      return data as AplusModuleItem;
+      let data: { error?: string } = {};
+      const text = await res.text();
+      try {
+        data = text ? JSON.parse(text) as { error?: string } : {};
+      } catch {
+        if (res.status === 404) {
+          throw new Error("A+ edit API not found. Rebuild and restart the API server on latest-code.");
+        }
+      }
+      if (!res.ok) throw new Error(data.error ?? `Failed (${res.status})`);
+      return JSON.parse(text) as AplusModuleItem;
     },
     onMutate: ({ moduleId }) => setLoading(moduleId, true),
     onSuccess: (updated) => {
