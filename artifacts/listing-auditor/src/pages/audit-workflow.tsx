@@ -153,6 +153,9 @@ const APLUS_MODULE_CARDS = [
   { id: "brand_story" as const, icon: "📖", title: "Brand Story", desc: "Tell your brand story with rich imagery" },
 ];
 
+type AplusModuleId = AplusModule["id"];
+const ALL_APLUS_MODULE_IDS: AplusModuleId[] = APLUS_MODULE_CARDS.map((m) => m.id);
+
 function formatAplusApiError(status: number, apiError?: string): string {
   if (apiError) return apiError;
   if (status === 404) {
@@ -611,18 +614,19 @@ export default function AuditWorkflow() {
 
   /* ── A+ Content step state ── */
   const [aplusPrompt, setAplusPrompt] = useState("");
+  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([...ALL_APLUS_MODULE_IDS]);
   const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
   const aplusCompletionToastShownRef = useRef(false);
   const generateAplus = useMutation({
-    mutationFn: async ({ auditId, prompt }: { auditId: number; prompt?: string }) => {
+    mutationFn: async ({ auditId, prompt, moduleIds }: { auditId: number; prompt?: string; moduleIds: AplusModuleId[] }) => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ prompt: prompt?.trim() || undefined }),
+        body: JSON.stringify({ prompt: prompt?.trim() || undefined, moduleIds }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1071,13 +1075,18 @@ export default function AuditWorkflow() {
       toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
       return;
     }
+    if (selectedAplusModules.length === 0) {
+      toast({ title: "Select modules", description: "Choose at least one A+ module to generate.", variant: "destructive" });
+      return;
+    }
     setCreatingStep(4);
     setIsCreating(true);
     generateAplus.mutate({
       auditId: currentAuditId,
       prompt: aplusPrompt.trim() || undefined,
+      moduleIds: selectedAplusModules,
     });
-  }, [currentAuditId, productName, aplusPrompt, generateAplus, toast]);
+  }, [currentAuditId, productName, aplusPrompt, selectedAplusModules, generateAplus, toast]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1777,19 +1786,85 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                <p className="text-sm font-medium text-slate-700">What will be generated</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {APLUS_MODULE_CARDS.map((module) => (
-                    <div key={module.id} className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-3 h-3 text-orange-500" />
-                      </div>
-                      {module.title}
-                    </div>
-                  ))}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-sm font-medium text-slate-700">Choose modules to generate</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-orange-600 hover:text-orange-700"
+                    onClick={() => setSelectedAplusModules([...ALL_APLUS_MODULE_IDS])}
+                    disabled={aplusStatus === "generating" || generateAplus.isPending}
+                  >
+                    Select all
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                    onClick={() => setSelectedAplusModules([])}
+                    disabled={aplusStatus === "generating" || generateAplus.isPending}
+                  >
+                    Clear
+                  </button>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {APLUS_MODULE_CARDS.map((module) => {
+                  const isSelected = selectedAplusModules.includes(module.id);
+                  const generated = aplusModules.find((m) => m.id === module.id);
+                  return (
+                    <button
+                      key={module.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAplusModules((prev) =>
+                          prev.includes(module.id)
+                            ? prev.filter((id) => id !== module.id)
+                            : [...prev, module.id],
+                        );
+                        setIsDirty(true);
+                      }}
+                      disabled={aplusStatus === "generating" || generateAplus.isPending}
+                      className={cn(
+                        "relative rounded-2xl border-2 p-5 text-left transition-all",
+                        isSelected
+                          ? "border-orange-500 bg-orange-50/40 shadow-sm"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                      )}
+                    >
+                      <span className="text-3xl leading-none block mb-3">{module.icon}</span>
+                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                        {module.title}
+                      </p>
+                      <p className="text-sm text-slate-400 mt-1 leading-snug">{module.desc}</p>
+                      {generated && (
+                        <p className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Already generated
+                        </p>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
+                          <Check className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedAplusModules.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm">
+                    {selectedAplusModules.length} selected
+                  </span>
+                  <span className="text-sm text-slate-400">
+                    {selectedAplusModules.length === ALL_APLUS_MODULE_IDS.length
+                      ? "All modules will be generated"
+                      : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
+                  </span>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-orange-200 bg-orange-50/30 p-5 space-y-3">
                 <label className="text-sm font-medium text-orange-900">Custom prompt (optional)</label>
@@ -1807,7 +1882,7 @@ export default function AuditWorkflow() {
               <Button
                 size="lg"
                 className="w-full h-14 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2.5 shadow-lg shadow-orange-500/20 text-base font-semibold"
-                disabled={isCreating || generateAplus.isPending || aplusStatus === "generating" || !currentAuditId}
+                disabled={isCreating || generateAplus.isPending || aplusStatus === "generating" || !currentAuditId || selectedAplusModules.length === 0}
                 onClick={handleGenerateAplus}
               >
                 {isCreating || generateAplus.isPending || aplusStatus === "generating" ? (
@@ -1818,7 +1893,9 @@ export default function AuditWorkflow() {
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    {aplusModules.length > 0 ? "Regenerate A+ Content" : "Generate A+ Content"}
+                    {selectedAplusModules.length > 0
+                      ? `Generate ${selectedAplusModules.length} A+ Module${selectedAplusModules.length > 1 ? "s" : ""}`
+                      : "Generate A+ Content"}
                   </>
                 )}
               </Button>
@@ -1898,34 +1975,6 @@ export default function AuditWorkflow() {
                   )}
                 </div>
               )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {APLUS_MODULE_CARDS.map((module) => {
-                  const generated = aplusModules.find((m) => m.id === module.id);
-                  return (
-                    <div
-                      key={module.title}
-                      className={cn(
-                        "border rounded-xl p-4 transition-all",
-                        generated ? "border-orange-300 bg-orange-50/20" : "border-slate-200 hover:border-orange-300 hover:bg-orange-50/20",
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl">{module.icon}</span>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">{module.title}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{module.desc}</p>
-                          {generated && (
-                            <p className="text-xs text-orange-600 font-medium mt-2 flex items-center gap-1">
-                              <Check className="w-3 h-3" /> Generated
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
                 <p className="text-sm font-semibold text-amber-900">✦ A+ Content requires Brand Registry</p>

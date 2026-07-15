@@ -30,6 +30,35 @@ export interface AplusStoredState {
   errorMessage?: string;
 }
 
+export const ALL_APLUS_MODULE_IDS: AplusModule["id"][] = ["hero", "features", "comparison", "brand_story"];
+export const APLUS_MODULE_BATCH_SIZE = ALL_APLUS_MODULE_IDS.length;
+
+export function parseAplusModuleIds(moduleIds: unknown): AplusModule["id"][] {
+  if (!Array.isArray(moduleIds) || moduleIds.length === 0) {
+    return [...ALL_APLUS_MODULE_IDS];
+  }
+  const valid = new Set<string>(ALL_APLUS_MODULE_IDS);
+  const parsed = moduleIds.filter(
+    (id): id is AplusModule["id"] => typeof id === "string" && valid.has(id),
+  );
+  if (parsed.length === 0) {
+    throw new Error("Select at least one A+ module");
+  }
+  return parsed;
+}
+
+export function aplusImageCreditsForCount(batchCredits: number, selectedCount: number): number {
+  return Math.max(1, Math.ceil((batchCredits * selectedCount) / APLUS_MODULE_BATCH_SIZE));
+}
+
+export function mergeAplusModules(existing: AplusModule[], incoming: AplusModule[]): AplusModule[] {
+  const byId = new Map(existing.map((m) => [m.id, m]));
+  for (const module of incoming) byId.set(module.id, module);
+  return ALL_APLUS_MODULE_IDS
+    .map((id) => byId.get(id))
+    .filter((m): m is AplusModule => !!m);
+}
+
 type ModuleSpec = {
   id: AplusModule["id"];
   title: string;
@@ -172,6 +201,7 @@ export async function generateAplusModuleImages(data: {
   category?: string | null;
   content: EbcContent;
   imageUrls: string[];
+  moduleIds: AplusModule["id"][];
   onModuleComplete?: (module: AplusModule, done: number, total: number) => void | Promise<void>;
 }): Promise<AplusModule[]> {
   const dir = path.join(IMAGES_DIR, String(data.auditId));
@@ -181,12 +211,12 @@ export async function generateAplusModuleImages(data: {
   const sourcePath = await resolveSourceImage(data.auditId, data.imageUrls);
   const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
 
+  const specs = MODULE_SPECS.filter((spec) => data.moduleIds.includes(spec.id));
   const modules: AplusModule[] = [];
   const errors: string[] = [];
-  const total = MODULE_SPECS.length;
+  const total = specs.length;
 
-  for (let i = 0; i < MODULE_SPECS.length; i++) {
-    const spec = MODULE_SPECS[i];
+  for (const spec of specs) {
     const filename = `aplus_${spec.id}_${Date.now()}.png`;
     const filePath = path.join(dir, filename);
     const imageUrl = urlPath(data.auditId, filename);
@@ -225,7 +255,7 @@ export async function generateAplusModuleImages(data: {
     throw new Error(errors[0] ?? "A+ image generation failed");
   }
 
-  return MODULE_SPECS
+  return specs
     .map((spec) => modules.find((m) => m.id === spec.id))
     .filter((m): m is AplusModule => !!m);
 }
