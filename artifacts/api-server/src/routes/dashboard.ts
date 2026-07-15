@@ -123,7 +123,7 @@ function countIssuesInResult(result: unknown): number {
 }
 
 function auditStatusLabel(status: string, overallScore: number | null): string {
-  if (status === "pending") return "In Progress";
+  if (status === "pending" || status === "draft") return "In Progress";
   if (status === "failed") return "Failed";
   if (status === "archived") return "Archived";
   if (overallScore != null && overallScore >= 70) return "High Score";

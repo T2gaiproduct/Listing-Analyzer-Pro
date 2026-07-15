@@ -465,6 +465,92 @@ export const useCreateAudit = <
 };
 
 /**
+ * @summary Create a Build Your Brand draft project without charging credits or running audit analysis
+ */
+export const getCreateAuditDraftUrl = () => {
+  return `/api/audits/draft`;
+};
+
+export const createAuditDraft = async (
+  createAuditBody: CreateAuditBody,
+  options?: RequestInit,
+): Promise<Audit> => {
+  return customFetch<Audit>(getCreateAuditDraftUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAuditBody),
+  });
+};
+
+export const getCreateAuditDraftMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAuditDraft>>,
+    TError,
+    { data: BodyType<CreateAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAuditDraft>>,
+  TError,
+  { data: BodyType<CreateAuditBody> },
+  TContext
+> => {
+  const mutationKey = ["createAuditDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAuditDraft>>,
+    { data: BodyType<CreateAuditBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAuditDraft(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAuditDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAuditDraft>>
+>;
+export type CreateAuditDraftMutationBody = BodyType<CreateAuditBody>;
+export type CreateAuditDraftMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Create a Build Your Brand draft project without charging credits or running audit analysis
+ */
+export const useCreateAuditDraft = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAuditDraft>>,
+    TError,
+    { data: BodyType<CreateAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAuditDraft>>,
+  TError,
+  { data: BodyType<CreateAuditBody> },
+  TContext
+> => {
+  return useMutation(getCreateAuditDraftMutationOptions(options));
+};
+
+/**
  * @summary Get audit statistics
  */
 export const getGetAuditStatsUrl = () => {

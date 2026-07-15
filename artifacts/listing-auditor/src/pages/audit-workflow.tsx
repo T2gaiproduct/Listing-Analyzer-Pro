@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
-  useCreateAudit,
+  useCreateAuditDraft,
   usePatchAudit,
   useGenerateContent,
   useGenerateContentDirect,
@@ -529,7 +529,7 @@ export default function AuditWorkflow() {
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
   const [isDirty, setIsDirty] = useState(false);
-  const createAudit  = useCreateAudit();
+  const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
   const generateContent = useGenerateContent();
   const generateContentDirect = useGenerateContentDirect();
@@ -949,7 +949,7 @@ export default function AuditWorkflow() {
       while (syntheticKeywords.length < 10 && filler.length > 0) {
         syntheticKeywords.push(filler.shift()!);
       }
-      createAudit.mutate(
+      createAuditDraft.mutate(
         {
           data: {
             projectName: projectName.trim() || productName.trim(),
@@ -970,7 +970,6 @@ export default function AuditWorkflow() {
             setActiveStep(2);
             queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
             void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
-            refreshCreditBalances(queryClient);
           },
           onError: (err) => {
             setIsCreating(false);
@@ -1071,7 +1070,7 @@ export default function AuditWorkflow() {
         toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAudit, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {

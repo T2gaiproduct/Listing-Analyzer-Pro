@@ -242,6 +242,38 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
   }
 });
 
+router.post("/audits/draft", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
+  const parsed = CreateAuditBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { projectName, productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+
+  const [audit] = await db
+    .insert(auditsTable)
+    .values({
+      userId: ownerId,
+      projectName: projectName ?? productName,
+      productName,
+      asin: asin ?? null,
+      brandName: brandName ?? null,
+      category: category ?? null,
+      title,
+      bulletPoints,
+      imageUrls,
+      targetKeywords,
+      overallScore: 0,
+      status: "draft",
+      currentStep: 1,
+    })
+    .returning();
+
+  res.status(201).json(audit);
+});
+
 router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const [stats] = await db

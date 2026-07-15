@@ -13,4 +13,5 @@ export const AuditWithResultsStatus = {
   pending: "pending",
   complete: "complete",
   failed: "failed",
+  draft: "draft",
 } as const;

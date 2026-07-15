@@ -68,7 +68,7 @@ export const ListAuditsResponseItem = zod.object({
   asin: zod.string().nullish(),
   category: zod.string().nullish(),
   overallScore: zod.number(),
-  status: zod.enum(["pending", "complete", "failed"]),
+  status: zod.enum(["pending", "complete", "failed", "draft"]),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -78,6 +78,21 @@ export const ListAuditsResponse = zod.array(ListAuditsResponseItem);
  * @summary Create and run a new listing audit
  */
 export const CreateAuditBody = zod.object({
+  projectName: zod.string().optional(),
+  productName: zod.string(),
+  asin: zod.string().optional(),
+  brandName: zod.string().optional(),
+  category: zod.string().optional(),
+  title: zod.string(),
+  bulletPoints: zod.array(zod.string()),
+  imageUrls: zod.array(zod.string()),
+  targetKeywords: zod.array(zod.string()),
+});
+
+/**
+ * @summary Create a Build Your Brand draft project without charging credits or running audit analysis
+ */
+export const CreateAuditDraftBody = zod.object({
   projectName: zod.string().optional(),
   productName: zod.string(),
   asin: zod.string().optional(),
@@ -105,7 +120,7 @@ export const GetAuditStatsResponse = zod.object({
       asin: zod.string().nullish(),
       category: zod.string().nullish(),
       overallScore: zod.number(),
-      status: zod.enum(["pending", "complete", "failed"]),
+      status: zod.enum(["pending", "complete", "failed", "draft"]),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
@@ -131,7 +146,7 @@ export const GetAuditResponse = zod.object({
   imageUrls: zod.array(zod.string()),
   targetKeywords: zod.array(zod.string()),
   overallScore: zod.number(),
-  status: zod.enum(["pending", "complete", "failed"]),
+  status: zod.enum(["pending", "complete", "failed", "draft"]),
   result: zod.object({
     titleScore: zod.object({
       score: zod.number().describe("Score from 0 to 100"),
@@ -268,7 +283,7 @@ export const PatchAuditResponse = zod.object({
   asin: zod.string().nullish(),
   category: zod.string().nullish(),
   overallScore: zod.number(),
-  status: zod.enum(["pending", "complete", "failed"]),
+  status: zod.enum(["pending", "complete", "failed", "draft"]),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
