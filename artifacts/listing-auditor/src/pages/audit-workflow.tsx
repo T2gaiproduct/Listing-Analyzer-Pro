@@ -1977,14 +1977,6 @@ export default function AuditWorkflow() {
                       </div>
                     ))}
                   </div>
-                  {aplusContent && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 space-y-2">
-                      <p className="text-sm font-semibold text-slate-800">Hero copy preview</p>
-                      <p className="text-base font-bold text-slate-900">{aplusContent.heroHeadline}</p>
-                      <p className="text-sm text-slate-600">{aplusContent.heroSubheadline}</p>
-                      <p className="text-xs text-slate-400">{aplusContent.heroTagline}</p>
-                    </div>
-                  )}
                 </div>
               )}
 
