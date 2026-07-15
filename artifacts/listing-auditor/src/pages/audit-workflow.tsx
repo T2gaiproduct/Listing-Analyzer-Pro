@@ -1823,7 +1823,7 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {APLUS_MODULE_CARDS.map((module) => {
                   const isSelected = selectedAplusModules.includes(module.id);
                   const generated = aplusModules.find((m) => m.id === module.id);
@@ -1842,32 +1842,34 @@ export default function AuditWorkflow() {
                       }}
                       disabled={aplusStatus === "generating" || generateAplus.isPending}
                       className={cn(
-                        "relative rounded-2xl border-2 p-5 text-left transition-all",
+                        "relative rounded-xl border p-3.5 text-left transition-all flex items-start gap-2.5",
                         isSelected
-                          ? "border-orange-500 bg-orange-50/40 shadow-sm"
+                          ? "border-orange-500 bg-orange-50/50 shadow-sm"
                           : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
                       )}
                     >
                       <div
                         className={cn(
-                          "w-11 h-11 rounded-xl flex items-center justify-center mb-3 transition-colors",
+                          "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors",
                           isSelected ? "bg-orange-100 text-orange-600" : "bg-slate-100 text-slate-500",
                         )}
                       >
-                        <ModuleIcon className="w-5 h-5" strokeWidth={2} />
+                        <ModuleIcon className="w-4 h-4" strokeWidth={2} />
                       </div>
-                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
-                        {module.title}
-                      </p>
-                      <p className="text-sm text-slate-400 mt-1 leading-snug">{module.desc}</p>
-                      {generated && (
-                        <p className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Already generated
+                      <div className="flex-1 min-w-0 pr-4">
+                        <p className={cn("text-sm font-semibold leading-tight", isSelected ? "text-orange-900" : "text-slate-900")}>
+                          {module.title}
                         </p>
-                      )}
+                        <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{module.desc}</p>
+                        {generated && (
+                          <p className="text-[11px] text-emerald-600 font-medium mt-1.5 flex items-center gap-1">
+                            <Check className="w-3 h-3 flex-shrink-0" /> Generated
+                          </p>
+                        )}
+                      </div>
                       {isSelected && (
-                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
-                          <Check className="w-3.5 h-3.5 text-white" />
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
+                          <Check className="w-3 h-3 text-white" />
                         </div>
                       )}
                     </button>
