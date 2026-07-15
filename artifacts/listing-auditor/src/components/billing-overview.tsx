@@ -65,13 +65,15 @@ interface TeamMember {
 
 interface MemberStat {
   memberId: number;
-  creditBalance: Credits | null;
+  creditsUsed: number;
+  remainingCredits: Credits | null;
   allocatedCredits: Credits | null;
 }
 
 interface TeamData {
   members: TeamMember[];
   memberStats: MemberStat[];
+  ownerUsedInPeriod?: number;
 }
 
 const SERVICE_CONFIG = [
@@ -255,7 +257,11 @@ export function BillingOverview({
 
   const { data: teamData } = useQuery<TeamData>({
     queryKey: ["team-overview"],
-    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => {
+      if (!r.ok) throw new Error("Failed to load team");
+      return r.json();
+    }),
+    retry: false,
   });
 
   const currentPlan = plans.find((p) => p.id === sub.planId)
@@ -293,7 +299,7 @@ export function BillingOverview({
   }, [transactions, filterStart, filterEnd, creditRules, planTotalCredits]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
-  const ownerUsed = totalSpentInRange(transactions, filterStart, filterEnd);
+  const ownerUsed = teamData?.ownerUsedInPeriod ?? totalSpentInRange(transactions, filterStart, filterEnd);
 
   const teamRows = useMemo(() => {
     const rows: { id: string; name: string; label: string; used: number; color: string }[] = [
@@ -309,15 +315,11 @@ export function BillingOverview({
     const activeMembers = (teamData?.members ?? []).filter((m) => m.status === "active");
     activeMembers.forEach((member, idx) => {
       const stat = teamData?.memberStats.find((s) => s.memberId === member.id);
-      let used = 0;
-      if (stat?.allocatedCredits && stat.creditBalance) {
-        used = Math.max(0, sumCredits(stat.allocatedCredits) - sumCredits(stat.creditBalance));
-      }
       rows.push({
         id: String(member.id),
         name: initials(member.invitedName),
         label: member.invitedName,
-        used,
+        used: stat?.creditsUsed ?? 0,
         color: AVATAR_COLORS[(idx + 1) % AVATAR_COLORS.length],
       });
     });

@@ -9,6 +9,7 @@ export interface TeamMembership {
   status: string;
   invitedName: string;
   acceptedAt: string | null;
+  workspaceName?: string;
 }
 
 export interface MemberCredits {
@@ -58,7 +59,7 @@ export function useTeam(): TeamContext {
   const isTeamMember = !!membership;
   const isOwner = !isTeamMember;
   const canEdit = role === "admin" || role === "editor" || isOwner;
-  const canManage = role === "admin" || isOwner;
+  const canManage = isOwner;
 
   return {
     membership,

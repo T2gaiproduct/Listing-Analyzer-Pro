@@ -19,8 +19,8 @@ interface InviteDetails {
 }
 
 const roleDescriptions: Record<string, string> = {
-  admin: "Full access — can manage team, billing, and all audits",
-  editor: "Can create and edit audits, cannot manage billing or team",
+  admin: "Full workspace access — can create and edit audits",
+  editor: "Can create and edit audits in the shared workspace",
   viewer: "Read-only access to audits and reports",
 };
 

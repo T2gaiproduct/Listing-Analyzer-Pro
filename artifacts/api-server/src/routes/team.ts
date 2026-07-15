@@ -1,15 +1,20 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc, count, avg } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { randomBytes } from "crypto";
 import {
   db, teamMembersTable, subscriptionsTable, plansTable,
-  auditsTable, creditsTable, creditTransactionsTable,
-  userProfilesTable, memberCreditsTable,
+  creditsTable, userProfilesTable, memberCreditsTable,
 } from "@workspace/db";
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
 import { setMemberCredits, getMemberCredits } from "../lib/credits.js";
+import {
+  countAuditActivity,
+  getLastActivityAt,
+  sumAllocatedCreditsForOwner,
+  sumCreditsUsedInPeriod,
+} from "../lib/team-stats.js";
 
 const router: IRouter = Router();
 
@@ -29,18 +34,29 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 router.get("/team", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
 
-  // Get plan seat limit
   const [sub] = await db.select({
     teamMembers: plansTable.teamMembers,
     planName: plansTable.name,
     status: subscriptionsTable.status,
+    currentPeriodStart: subscriptionsTable.currentPeriodStart,
+    currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
   }).from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
 
   const maxSeats = sub?.teamMembers ?? 1;
+  const periodStart = sub?.currentPeriodStart ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const periodEnd = sub?.currentPeriodEnd ?? new Date();
 
-  // Get team members
+  const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const totalAllocated = await sumAllocatedCreditsForOwner(userId);
+  const availableToAllocate = {
+    aiCredits: Math.max(0, ownerCredits.aiCredits - totalAllocated.aiCredits),
+    imageCredits: Math.max(0, ownerCredits.imageCredits - totalAllocated.imageCredits),
+    auditCredits: Math.max(0, ownerCredits.auditCredits - totalAllocated.auditCredits),
+  };
+
   const members = await db.select()
     .from(teamMembersTable)
     .where(and(eq(teamMembersTable.ownerUserId, userId), eq(teamMembersTable.status, "active")))
@@ -51,22 +67,36 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     .where(and(eq(teamMembersTable.ownerUserId, userId), eq(teamMembersTable.status, "pending")))
     .orderBy(desc(teamMembersTable.invitedAt));
 
-  // For active members, get their audit stats and allocated credits
+  const ownerUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+
   const memberStats = await Promise.all(members.map(async (m) => {
-    if (!m.memberUserId) return { memberId: m.id, auditCount: 0, lastAudit: null, creditBalance: null, allocatedCredits: null };
-    const [stats] = await db.select({ total: count(), avg: avg(auditsTable.overallScore) })
-      .from(auditsTable).where(eq(auditsTable.userId, m.memberUserId));
-    const [lastAuditRow] = await db.select({ createdAt: auditsTable.createdAt, productName: auditsTable.productName })
-      .from(auditsTable).where(eq(auditsTable.userId, m.memberUserId)).orderBy(desc(auditsTable.createdAt)).limit(1);
-    const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, m.memberUserId));
+    if (!m.memberUserId) {
+      return {
+        memberId: m.id,
+        auditCount: 0,
+        lastActivityAt: null,
+        creditsUsed: 0,
+        remainingCredits: null,
+        allocatedCredits: null,
+      };
+    }
+
     const [allocated] = await db.select().from(memberCreditsTable).where(eq(memberCreditsTable.memberId, m.id));
+    const creditsUsed = await sumCreditsUsedInPeriod(m.memberUserId, periodStart, periodEnd);
+    const auditCount = await countAuditActivity(m.memberUserId, periodStart, periodEnd);
+    const lastActivityAt = await getLastActivityAt(m.memberUserId);
+
     return {
       memberId: m.id,
-      auditCount: Number(stats?.total ?? 0),
-      avgScore: Math.round(Number(stats?.avg ?? 0)),
-      lastAudit: lastAuditRow ?? null,
-      creditBalance: credits ?? null,
-      allocatedCredits: allocated ?? null,
+      auditCount,
+      lastActivityAt,
+      creditsUsed,
+      remainingCredits: allocated
+        ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
+        : { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+      allocatedCredits: allocated
+        ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
+        : null,
     };
   }));
 
@@ -74,6 +104,14 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     maxSeats,
     planName: sub?.planName ?? null,
     planStatus: sub?.status ?? null,
+    ownerCredits: {
+      aiCredits: ownerCredits.aiCredits,
+      imageCredits: ownerCredits.imageCredits,
+      auditCredits: ownerCredits.auditCredits,
+    },
+    totalAllocated,
+    availableToAllocate,
+    ownerUsedInPeriod,
     members: [...members, ...pending],
     memberStats,
   });
@@ -203,11 +241,20 @@ router.get("/invite/:token", async (req, res): Promise<void> => {
 router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const token = String(req.params.token ?? "");
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
 
   const [invite] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.inviteToken, token));
   if (!invite) { res.status(404).json({ error: "Invite not found" }); return; }
   if (invite.status === "revoked") { res.status(410).json({ error: "This invite has been revoked" }); return; }
   if (invite.status === "active") { res.status(409).json({ error: "Already accepted" }); return; }
+
+  if (sessionEmail && sessionEmail.toLowerCase() !== invite.invitedEmail.toLowerCase()) {
+    res.status(403).json({
+      error: `This invite was sent to ${invite.invitedEmail}. Sign in with that email to accept.`,
+    });
+    return;
+  }
 
   // Check this user is not already a member of this workspace
   const existingMembership = await db.select().from(teamMembersTable)
@@ -248,10 +295,40 @@ router.patch("/team/:id/credits", requireAuth, async (req, res): Promise<void> =
   const img = Math.max(0, Math.floor(imageCredits ?? 0));
   const audit = Math.max(0, Math.floor(auditCredits ?? 0));
 
+  const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const otherAllocated = await sumAllocatedCreditsForOwner(userId, id);
+
+  const maxAi = ownerCredits.aiCredits - otherAllocated.aiCredits;
+  const maxImg = ownerCredits.imageCredits - otherAllocated.imageCredits;
+  const maxAudit = ownerCredits.auditCredits - otherAllocated.auditCredits;
+
+  if (ai > maxAi || img > maxImg || audit > maxAudit) {
+    res.status(400).json({
+      error: "Allocation exceeds available workspace credits.",
+      availableToAllocate: {
+        aiCredits: Math.max(0, maxAi),
+        imageCredits: Math.max(0, maxImg),
+        auditCredits: Math.max(0, maxAudit),
+      },
+    });
+    return;
+  }
+
   await setMemberCredits(id, ai, img, audit);
 
   const updated = await getMemberCredits(id);
-  res.json({ memberId: id, credits: updated });
+  const totalAllocated = await sumAllocatedCreditsForOwner(userId);
+  res.json({
+    memberId: id,
+    credits: updated,
+    totalAllocated,
+    availableToAllocate: {
+      aiCredits: Math.max(0, ownerCredits.aiCredits - totalAllocated.aiCredits),
+      imageCredits: Math.max(0, ownerCredits.imageCredits - totalAllocated.imageCredits),
+      auditCredits: Math.max(0, ownerCredits.auditCredits - totalAllocated.auditCredits),
+    },
+  });
 });
 
 // ─── Member's own workspace context ──────────────────────────────────────────
@@ -266,7 +343,63 @@ router.get("/team/membership", requireAuth, async (req, res): Promise<void> => {
     acceptedAt: teamMembersTable.acceptedAt,
   }).from(teamMembersTable)
     .where(and(eq(teamMembersTable.memberUserId, userId), eq(teamMembersTable.status, "active")));
-  res.json(memberships);
+
+  const enriched = await Promise.all(memberships.map(async (m) => {
+    const [ownerProfile] = await db
+      .select({ companyName: userProfilesTable.companyName, fullName: userProfilesTable.fullName })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, m.ownerUserId));
+    return {
+      ...m,
+      workspaceName: ownerProfile?.companyName ?? ownerProfile?.fullName ?? "Workspace",
+    };
+  }));
+
+  res.json(enriched);
+});
+
+// ─── Member usage for billing period (team members) ────────────────────────────
+router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const [membership] = await db.select({
+    id: teamMembersTable.id,
+    ownerUserId: teamMembersTable.ownerUserId,
+  }).from(teamMembersTable)
+    .where(and(eq(teamMembersTable.memberUserId, userId), eq(teamMembersTable.status, "active")));
+
+  if (!membership) { res.status(404).json({ error: "Not a team member" }); return; }
+
+  const [sub] = await db.select({
+    planName: plansTable.name,
+    currentPeriodStart: subscriptionsTable.currentPeriodStart,
+    currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+    planAiCredits: plansTable.aiCredits,
+    planImageCredits: plansTable.imageCredits,
+    planAuditCredits: plansTable.auditCredits,
+  }).from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, membership.ownerUserId));
+
+  const periodStart = sub?.currentPeriodStart ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const periodEnd = sub?.currentPeriodEnd ?? new Date();
+  const creditsUsed = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+  const allocated = await getMemberCredits(membership.id);
+  const [ownerProfile] = await db
+    .select({ companyName: userProfilesTable.companyName, fullName: userProfilesTable.fullName })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, membership.ownerUserId));
+
+  res.json({
+    workspaceName: ownerProfile?.companyName ?? ownerProfile?.fullName ?? "Workspace",
+    planName: sub?.planName ?? null,
+    periodStart,
+    periodEnd,
+    creditsUsed,
+    allocatedCredits: allocated ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+    workspacePlanTotal: sub
+      ? (sub.planAiCredits ?? 0) + (sub.planImageCredits ?? 0) + (sub.planAuditCredits ?? 0)
+      : 0,
+  });
 });
 
 // ─── Member's own credit balance ─────────────────────────────────────────────
