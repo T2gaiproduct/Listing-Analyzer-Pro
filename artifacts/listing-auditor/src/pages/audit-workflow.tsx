@@ -27,6 +27,10 @@ import {
   Eye,
   Save,
   Copy,
+  LayoutTemplate,
+  ListChecks,
+  BarChart3,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
@@ -147,10 +151,10 @@ interface AplusContent {
 }
 
 const APLUS_MODULE_CARDS = [
-  { id: "hero" as const, icon: "🖼️", title: "Hero Banner", desc: "Full-width product hero image with headline" },
-  { id: "features" as const, icon: "📋", title: "Feature Highlights", desc: "Icon + text modules showcasing key features" },
-  { id: "comparison" as const, icon: "📊", title: "Comparison Chart", desc: "Compare your product against competitors" },
-  { id: "brand_story" as const, icon: "📖", title: "Brand Story", desc: "Tell your brand story with rich imagery" },
+  { id: "hero" as const, icon: LayoutTemplate, title: "Hero Banner", desc: "Full-width product hero image with headline" },
+  { id: "features" as const, icon: ListChecks, title: "Feature Highlights", desc: "Icon + text modules showcasing key features" },
+  { id: "comparison" as const, icon: BarChart3, title: "Comparison Chart", desc: "Compare your product against competitors" },
+  { id: "brand_story" as const, icon: BookOpen, title: "Brand Story", desc: "Tell your brand story with rich imagery" },
 ];
 
 type AplusModuleId = AplusModule["id"];
@@ -1823,6 +1827,7 @@ export default function AuditWorkflow() {
                 {APLUS_MODULE_CARDS.map((module) => {
                   const isSelected = selectedAplusModules.includes(module.id);
                   const generated = aplusModules.find((m) => m.id === module.id);
+                  const ModuleIcon = module.icon;
                   return (
                     <button
                       key={module.id}
@@ -1843,7 +1848,14 @@ export default function AuditWorkflow() {
                           : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
                       )}
                     >
-                      <span className="text-3xl leading-none block mb-3">{module.icon}</span>
+                      <div
+                        className={cn(
+                          "w-11 h-11 rounded-xl flex items-center justify-center mb-3 transition-colors",
+                          isSelected ? "bg-orange-100 text-orange-600" : "bg-slate-100 text-slate-500",
+                        )}
+                      >
+                        <ModuleIcon className="w-5 h-5" strokeWidth={2} />
+                      </div>
                       <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
                         {module.title}
                       </p>
