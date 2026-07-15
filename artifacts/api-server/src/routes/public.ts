@@ -10,6 +10,7 @@ import {
   teamMembersTable,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
+import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { getGatewaySettings } from "./payment";
 
 const router: IRouter = Router();
@@ -772,12 +773,14 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
   const breakdown: Record<string, { spent: number; earned: number; count: number }> = {};
   let totalSpent = 0;
   let totalEarned = 0;
+  const refunded = refundedDebitIds(transactions as CreditUsageTx[]);
 
   for (const tx of transactions) {
     const ft = tx.featureType ?? "other";
     if (!breakdown[ft]) breakdown[ft] = { spent: 0, earned: 0, count: 0 };
     breakdown[ft].count++;
     if (tx.amount < 0) {
+      if (isRefundedDebit(tx as CreditUsageTx, refunded)) continue;
       const spent = Math.abs(tx.amount);
       breakdown[ft].spent += spent;
       if (ft !== "subscription") totalSpent += spent;

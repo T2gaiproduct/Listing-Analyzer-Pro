@@ -46,6 +46,7 @@ interface CreditRule {
 
 interface CreditUsage {
   transactions: {
+    id?: number;
     creditType: string;
     amount: number;
     reason: string | null;
@@ -172,15 +173,34 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function refundedDebitIds(transactions: CreditUsage["transactions"]): Set<number> {
+  const ids = new Set<number>();
+  for (const tx of transactions) {
+    if (tx.amount <= 0 || tx.featureType !== "adjustment") continue;
+    const refId = tx.metadata?.refundForTransactionId;
+    if (typeof refId === "number") ids.add(refId);
+  }
+  return ids;
+}
+
+function isRefundedDebit(
+  tx: CreditUsage["transactions"][number],
+  refundedIds: Set<number>,
+): boolean {
+  return tx.amount < 0 && typeof tx.id === "number" && refundedIds.has(tx.id);
+}
+
 function spentInRange(
   transactions: CreditUsage["transactions"],
   start: Date,
   end: Date,
   featureTypes: readonly string[],
 ): number {
+  const refunded = refundedDebitIds(transactions);
   return transactions
     .filter((tx) => {
       if (tx.amount >= 0) return false;
+      if (isRefundedDebit(tx, refunded)) return false;
       if (!tx.featureType || !featureTypes.includes(tx.featureType)) return false;
       const at = new Date(tx.createdAt);
       return isWithinInterval(at, { start, end });
@@ -198,8 +218,11 @@ function auditListingCreditsUsed(
   const listingsAudited = new Set<string>();
   let orphanSpend = 0;
 
+  const refunded = refundedDebitIds(transactions);
+
   for (const tx of transactions) {
     if (tx.amount >= 0) continue;
+    if (isRefundedDebit(tx, refunded)) continue;
     if (!tx.featureType || !["audit", "competitors"].includes(tx.featureType)) continue;
     const at = new Date(tx.createdAt);
     if (!isWithinInterval(at, { start, end })) continue;
@@ -223,8 +246,10 @@ function totalSpentInRange(
   start: Date,
   end: Date,
 ): number {
+  const refunded = refundedDebitIds(transactions);
   return transactions
     .filter((tx) => tx.amount < 0 && tx.featureType !== "subscription")
+    .filter((tx) => !isRefundedDebit(tx, refunded))
     .filter((tx) => isWithinInterval(new Date(tx.createdAt), { start, end }))
     .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 }
