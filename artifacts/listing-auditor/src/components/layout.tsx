@@ -1,4 +1,4 @@
-import { ReactNode, useState, useRef, useEffect } from "react";
+import { ReactNode, useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useActionDialog } from "@/components/ui/action-dialog";
 import { Link, useLocation } from "wouter";
@@ -40,6 +40,7 @@ import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { useTeam } from "@/hooks/use-team";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
+import { SidebarProjectsContext } from "@/contexts/sidebar-projects";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -386,8 +387,20 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
+  const [recentProjectsHighlight, setRecentProjectsHighlight] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const recentProjectsRef = useRef<HTMLDivElement>(null);
+
+  const focusRecentProjects = useCallback(() => {
+    setCollapsed(false);
+    setProjectsOpen(true);
+    setRecentProjectsHighlight(true);
+    window.setTimeout(() => setRecentProjectsHighlight(false), 2000);
+    requestAnimationFrame(() => {
+      recentProjectsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
 
   /* ── Ribbon actions state ── */
   const [dotsOpen, setDotsOpen] = useState(false);
@@ -643,6 +656,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const planLabel = planName ? `${planName} Plan` : "Free";
 
   return (
+    <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
     <div
       className="flex h-screen w-full bg-background overflow-hidden"
       onClick={() => { setOpenMenu(null); }}
@@ -781,7 +795,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <>
               <div className="mx-3 my-4 border-t border-sidebar-border/50" />
 
-              <div className="px-3">
+              <div
+                ref={recentProjectsRef}
+                id="recent-projects"
+                className={cn(
+                  "px-3 rounded-xl transition-shadow duration-300",
+                  recentProjectsHighlight && "ring-2 ring-orange-400 ring-offset-2 ring-offset-white",
+                )}
+              >
                 <button
                   className="flex items-center gap-2 px-3 mb-2 w-full group"
                   onClick={() => setProjectsOpen((p) => !p)}
@@ -1117,5 +1138,6 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
     </div>
+    </SidebarProjectsContext.Provider>
   );
 }

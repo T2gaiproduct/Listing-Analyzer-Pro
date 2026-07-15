@@ -22,6 +22,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSidebarProjects } from "@/contexts/sidebar-projects";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -141,6 +142,7 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 
 export default function Dashboard() {
   const { user } = useUser();
+  const { focusRecentProjects } = useSidebarProjects();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
@@ -282,9 +284,13 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <h2 className="text-lg font-bold text-slate-900">Recent Projects</h2>
-              <Link href="/projects" className="text-sm font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={focusRecentProjects}
+                className="text-sm font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1"
+              >
                 View All Projects <ChevronRight className="w-4 h-4" />
-              </Link>
+              </button>
             </div>
             {recentProjects.length === 0 ? (
               <div className="px-6 py-12 text-center text-slate-500 text-sm">
