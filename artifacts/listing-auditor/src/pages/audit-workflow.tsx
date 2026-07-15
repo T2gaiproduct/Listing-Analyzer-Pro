@@ -603,8 +603,9 @@ export default function AuditWorkflow() {
         const total = (project.lifestyleCount ?? 0) + (project.featureCount ?? 0);
         setGraphicsProgress({ generated: project.generatedCount ?? 0, total });
         if (project.imageRecords) {
+          const imageRecords = project.imageRecords;
           setGeneratedImages((prev) => {
-            const newImages = project.imageRecords
+            const newImages = imageRecords
               .filter((r) => r.currentUrl)
               .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }));
             // Merge: keep existing, add new ones keyed by url+type+index

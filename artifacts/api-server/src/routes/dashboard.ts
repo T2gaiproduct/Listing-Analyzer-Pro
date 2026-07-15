@@ -326,7 +326,14 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
     ? Math.round(((auditsWeekCount - auditsPrevWeekCount) / auditsPrevWeekCount) * 100)
     : auditsWeekCount > 0 ? 100 : 0;
 
-  let displayCredits = ownerCredits[0] ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  type CreditBalances = { aiCredits: number; imageCredits: number; auditCredits: number };
+  let displayCredits: CreditBalances = ownerCredits[0]
+    ? {
+        aiCredits: ownerCredits[0].aiCredits,
+        imageCredits: ownerCredits[0].imageCredits,
+        auditCredits: ownerCredits[0].auditCredits,
+      }
+    : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   if (team?.isTeamMember && team.memberId) {
     const memberCredits = await getMemberCredits(team.memberId);
     if (memberCredits) displayCredits = memberCredits;
