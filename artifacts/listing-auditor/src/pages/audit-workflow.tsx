@@ -509,6 +509,7 @@ export default function AuditWorkflow() {
 
   /* ── Guard: only restore from the newest data (stale → fresh still restores) ── */
   const lastRestoredAtRef = useRef<string | null>(null);
+  const stepRestoredForAuditIdRef = useRef<number | null>(null);
 
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
@@ -544,6 +545,11 @@ export default function AuditWorkflow() {
     }
   }, [resumeAuditId]);
 
+  useEffect(() => {
+    stepRestoredForAuditIdRef.current = null;
+    lastRestoredAtRef.current = null;
+  }, [currentAuditId]);
+
   /* ── Restore full state when audit data loads (resume from sidebar) ── */
   useEffect(() => {
     if (!auditData || !currentAuditId) return;
@@ -577,13 +583,17 @@ export default function AuditWorkflow() {
       setAplusProgress(savedAplus.progress);
       setIsCreating(true);
       setCreatingStep(4);
+      setActiveStep(4);
     } else {
       setAplusStatus(savedAplus.status === "failed" ? "failed" : savedAplus.modules.length ? "completed" : "idle");
       setAplusProgress(savedAplus.progress);
+      if (stepRestoredForAuditIdRef.current !== currentAuditId) {
+        const step = (auditData.currentStep || 1) as StepId;
+        if (step >= 1 && step <= 5) setActiveStep(step);
+        stepRestoredForAuditIdRef.current = currentAuditId;
+      }
     }
     setIsDirty(false);
-    const step = (auditData.currentStep || 1) as StepId;
-    if (step >= 1 && step <= 5) setActiveStep(step);
   }, [auditData, currentAuditId]);
 
   /* ── Graphics step state ── */
@@ -1080,13 +1090,15 @@ export default function AuditWorkflow() {
       return;
     }
     setCreatingStep(4);
+    setActiveStep(4);
     setIsCreating(true);
+    patchAudit.mutate({ id: currentAuditId, data: { currentStep: 4 } });
     generateAplus.mutate({
       auditId: currentAuditId,
       prompt: aplusPrompt.trim() || undefined,
       moduleIds: selectedAplusModules,
     });
-  }, [currentAuditId, productName, aplusPrompt, selectedAplusModules, generateAplus, toast]);
+  }, [currentAuditId, productName, aplusPrompt, selectedAplusModules, generateAplus, patchAudit, toast]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
