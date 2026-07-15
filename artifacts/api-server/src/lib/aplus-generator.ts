@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import pLimit from "p-limit";
 import type { EbcContent } from "./ebc-generator";
 import { generateImageBuffer, generateImageWithReferenceProxy } from "./openai-image";
 
@@ -21,6 +20,14 @@ export interface AplusModule {
 export interface AplusGenerationResult {
   content: EbcContent;
   modules: AplusModule[];
+}
+
+export interface AplusStoredState {
+  status: "generating" | "completed" | "failed";
+  progress?: { done: number; total: number };
+  content?: EbcContent;
+  modules?: AplusModule[];
+  errorMessage?: string;
 }
 
 type ModuleSpec = {
@@ -165,6 +172,7 @@ export async function generateAplusModuleImages(data: {
   category?: string | null;
   content: EbcContent;
   imageUrls: string[];
+  onModuleComplete?: (module: AplusModule, done: number, total: number) => void | Promise<void>;
 }): Promise<AplusModule[]> {
   const dir = path.join(IMAGES_DIR, String(data.auditId));
   ensureDir(dir);
@@ -173,46 +181,45 @@ export async function generateAplusModuleImages(data: {
   const sourcePath = await resolveSourceImage(data.auditId, data.imageUrls);
   const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
 
-  const limit = pLimit(2);
   const modules: AplusModule[] = [];
   const errors: string[] = [];
+  const total = MODULE_SPECS.length;
 
-  await Promise.all(
-    MODULE_SPECS.map((spec) =>
-      limit(async () => {
-        const filename = `aplus_${spec.id}_${Date.now()}.png`;
-        const filePath = path.join(dir, filename);
-        const imageUrl = urlPath(data.auditId, filename);
-        const prompt = spec.buildPrompt(productDesc, data.content);
+  for (let i = 0; i < MODULE_SPECS.length; i++) {
+    const spec = MODULE_SPECS[i];
+    const filename = `aplus_${spec.id}_${Date.now()}.png`;
+    const filePath = path.join(dir, filename);
+    const imageUrl = urlPath(data.auditId, filename);
+    const prompt = spec.buildPrompt(productDesc, data.content);
 
-        try {
-          let buffer: Buffer;
-          if (sourceValid) {
-            buffer = await generateImageWithReferenceProxy(
-              `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
-              sourcePath!,
-              spec.size,
-            );
-          } else {
-            buffer = await generateImageBuffer(prompt, spec.size);
-          }
-          if (!buffer?.length) throw new Error("No image data returned");
-          fs.writeFileSync(filePath, buffer);
+    try {
+      let buffer: Buffer;
+      if (sourceValid) {
+        buffer = await generateImageWithReferenceProxy(
+          `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
+          sourcePath!,
+          spec.size,
+        );
+      } else {
+        buffer = await generateImageBuffer(prompt, spec.size);
+      }
+      if (!buffer?.length) throw new Error("No image data returned");
+      fs.writeFileSync(filePath, buffer);
 
-          modules.push({
-            id: spec.id,
-            title: spec.title,
-            description: spec.description,
-            headline: spec.headline(data.content),
-            body: spec.body(data.content),
-            imageUrl,
-          });
-        } catch (err) {
-          errors.push(`${spec.id}: ${err instanceof Error ? err.message : String(err)}`);
-        }
-      }),
-    ),
-  );
+      const module: AplusModule = {
+        id: spec.id,
+        title: spec.title,
+        description: spec.description,
+        headline: spec.headline(data.content),
+        body: spec.body(data.content),
+        imageUrl,
+      };
+      modules.push(module);
+      await data.onModuleComplete?.(module, modules.length, total);
+    } catch (err) {
+      errors.push(`${spec.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   if (modules.length === 0) {
     throw new Error(errors[0] ?? "A+ image generation failed");

@@ -158,7 +158,52 @@ function formatAplusApiError(status: number, apiError?: string): string {
   if (status === 404) {
     return "A+ API endpoint not found. Rebuild and restart the API server on latest-code, then try again.";
   }
+  if (status === 524 || status === 504 || status === 408) {
+    return "Generation timed out at the network edge. If modules are still generating, wait for progress to update.";
+  }
   return `Failed (${status})`;
+}
+
+function readAplusFromAudit(generatedImages: unknown): {
+  status: string;
+  content: AplusContent | null;
+  modules: AplusModule[];
+  progress: { done: number; total: number };
+  errorMessage?: string;
+} {
+  const aplus = (generatedImages as { aplus?: {
+    status?: string;
+    content?: AplusContent;
+    modules?: AplusModule[];
+    progress?: { done: number; total: number };
+    errorMessage?: string;
+  } } | null)?.aplus;
+
+  if (!aplus) {
+    return { status: "idle", content: null, modules: [], progress: { done: 0, total: 4 } };
+  }
+
+  if (aplus.status) {
+    return {
+      status: aplus.status,
+      content: aplus.content ?? null,
+      modules: aplus.modules ?? [],
+      progress: aplus.progress ?? { done: aplus.modules?.length ?? 0, total: 4 },
+      errorMessage: aplus.errorMessage,
+    };
+  }
+
+  // Legacy shape: { content, modules } without status
+  if (aplus.content && aplus.modules?.length) {
+    return {
+      status: "completed",
+      content: aplus.content,
+      modules: aplus.modules,
+      progress: { done: aplus.modules.length, total: aplus.modules.length },
+    };
+  }
+
+  return { status: "idle", content: null, modules: [], progress: { done: 0, total: 4 } };
 }
 
 /* ── localStorage helpers ───────────────────────────────────────────────── */
@@ -521,10 +566,17 @@ export default function AuditWorkflow() {
         url: r.currentUrl, type: r.type || "lifestyle", index: r.index ?? 0,
       })));
     }
-    const savedAplus = (auditData.generatedImages as { aplus?: { content: AplusContent; modules: AplusModule[] } } | null)?.aplus;
-    if (savedAplus?.content && savedAplus.modules?.length) {
-      setAplusContent(savedAplus.content);
-      setAplusModules(savedAplus.modules);
+    const savedAplus = readAplusFromAudit(auditData.generatedImages);
+    if (savedAplus.content) setAplusContent(savedAplus.content);
+    if (savedAplus.modules.length) setAplusModules(savedAplus.modules);
+    if (savedAplus.status === "generating") {
+      setAplusStatus("generating");
+      setAplusProgress(savedAplus.progress);
+      setIsCreating(true);
+      setCreatingStep(4);
+    } else {
+      setAplusStatus(savedAplus.status === "failed" ? "failed" : savedAplus.modules.length ? "completed" : "idle");
+      setAplusProgress(savedAplus.progress);
     }
     setIsDirty(false);
     const step = (auditData.currentStep || 1) as StepId;
@@ -561,6 +613,9 @@ export default function AuditWorkflow() {
   const [aplusPrompt, setAplusPrompt] = useState("");
   const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
+  const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
+  const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
+  const aplusCompletionToastShownRef = useRef(false);
   const generateAplus = useMutation({
     mutationFn: async ({ auditId, prompt }: { auditId: number; prompt?: string }) => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
@@ -573,20 +628,37 @@ export default function AuditWorkflow() {
         const err = await res.json().catch(() => ({}));
         throw new Error(formatAplusApiError(res.status, (err as { error?: string }).error));
       }
+      if (res.status === 202) {
+        return { started: true as const };
+      }
       return res.json() as Promise<{ content: AplusContent; modules: AplusModule[] }>;
     },
     onSuccess: (data) => {
-      setAplusContent(data.content);
-      setAplusModules(data.modules);
-      setIsCreating(false);
-      refreshCreditBalances(queryClient);
-      toast({ title: "A+ content generated!", description: "Copy and module images are ready." });
-      if (currentAuditId) {
-        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+      if ("started" in data && data.started) {
+        setAplusStatus("generating");
+        setAplusProgress({ done: 0, total: 4 });
+        aplusCompletionToastShownRef.current = false;
+        refreshCreditBalances(queryClient);
+        if (currentAuditId) {
+          queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+        }
+        return;
+      }
+      if ("content" in data) {
+        setAplusContent(data.content);
+        setAplusModules(data.modules);
+        setAplusStatus("completed");
+        setIsCreating(false);
+        refreshCreditBalances(queryClient);
+        toast({ title: "A+ content generated!", description: "Copy and module images are ready." });
+        if (currentAuditId) {
+          queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+        }
       }
     },
     onError: (err) => {
       setIsCreating(false);
+      setAplusStatus("failed");
       toast({
         title: "A+ generation failed",
         description: err instanceof Error ? err.message : "Please try again",
@@ -594,6 +666,47 @@ export default function AuditWorkflow() {
       });
     },
   });
+
+  /* ── Poll A+ generation status via audit record ── */
+  useEffect(() => {
+    if (!currentAuditId || aplusStatus !== "generating") return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`${basePath}/api/audits/${currentAuditId}`, { credentials: "include" });
+        if (!res.ok) return;
+        const audit = await res.json() as { generatedImages?: unknown };
+        const aplus = readAplusFromAudit(audit.generatedImages);
+
+        if (aplus.content) setAplusContent(aplus.content);
+        if (aplus.modules.length) setAplusModules(aplus.modules);
+        setAplusProgress(aplus.progress);
+
+        if (aplus.status === "generating") return;
+
+        setAplusStatus(aplus.status === "failed" ? "failed" : "completed");
+        setIsCreating(false);
+
+        if (aplus.status === "completed" && !aplusCompletionToastShownRef.current) {
+          aplusCompletionToastShownRef.current = true;
+          refreshCreditBalances(queryClient);
+          toast({ title: "A+ content generated!", description: `${aplus.modules.length} module images are ready.` });
+        } else if (aplus.status === "failed") {
+          toast({
+            title: "A+ generation failed",
+            description: aplus.errorMessage ?? "Please try again",
+            variant: "destructive",
+          });
+        }
+      } catch {
+        // keep polling
+      }
+    };
+
+    void poll();
+    const interval = setInterval(() => void poll(), 2500);
+    return () => clearInterval(interval);
+  }, [currentAuditId, aplusStatus, queryClient, toast]);
 
   /* ── Fetch existing graphics project for this audit ── */
   const { data: existingGraphicsProject } = useQuery({
@@ -1686,7 +1799,7 @@ export default function AuditWorkflow() {
                   placeholder='e.g. "Target eco-conscious parents. Emphasize safety, easy cleaning, and premium materials."'
                   rows={3}
                   className="w-full resize-none text-sm border border-slate-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white"
-                  disabled={isCreating || generateAplus.isPending}
+                  disabled={isCreating || generateAplus.isPending || aplusStatus === "generating"}
                 />
                 <p className="text-xs text-slate-500">Leave blank to auto-generate from your product details and listing content.</p>
               </div>
@@ -1694,10 +1807,10 @@ export default function AuditWorkflow() {
               <Button
                 size="lg"
                 className="w-full h-14 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2.5 shadow-lg shadow-orange-500/20 text-base font-semibold"
-                disabled={isCreating || generateAplus.isPending || !currentAuditId}
+                disabled={isCreating || generateAplus.isPending || aplusStatus === "generating" || !currentAuditId}
                 onClick={handleGenerateAplus}
               >
-                {isCreating || generateAplus.isPending ? (
+                {isCreating || generateAplus.isPending || aplusStatus === "generating" ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Generating A+ Content…
@@ -1709,6 +1822,26 @@ export default function AuditWorkflow() {
                   </>
                 )}
               </Button>
+
+              {aplusStatus === "generating" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-base">
+                    <span className="text-slate-600 font-medium">
+                      Generating {aplusProgress.total} A+ module image{aplusProgress.total > 1 ? "s" : ""}…
+                    </span>
+                    <span className="text-orange-600 font-semibold">
+                      {aplusProgress.done} / {aplusProgress.total}
+                    </span>
+                  </div>
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500"
+                      style={{ width: `${aplusProgress.total > 0 ? (aplusProgress.done / aplusProgress.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500">This can take a few minutes. Keep this page open while images finish.</p>
+                </div>
+              )}
 
               {!currentAuditId && (
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">

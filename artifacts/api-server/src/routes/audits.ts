@@ -17,6 +17,7 @@ import {
   buildDefaultAplusPrompt,
   generateAplusModuleImages,
   type AplusGenerationResult,
+  type AplusStoredState,
 } from "../lib/aplus-generator";
 import {
   generateProductImages,
@@ -83,6 +84,36 @@ function getCreditCtx(req: Request): TeamAwareContext {
     ownerUserId: team?.ownerUserId,
     isTeamMember: team?.isTeamMember ?? false,
   };
+}
+
+const APLUS_IMAGE_TOTAL = 4;
+
+function readLegacyGeneratedImages(audit: typeof auditsTable.$inferSelect) {
+  return (audit.generatedImages ?? { main: [], infographic: [], lifestyle: [] }) as {
+    main?: string[];
+    infographic?: string[];
+    lifestyle?: string[];
+    aplus?: AplusStoredState;
+  };
+}
+
+async function saveAplusState(
+  auditId: number,
+  audit: typeof auditsTable.$inferSelect,
+  aplus: AplusStoredState,
+): Promise<void> {
+  const legacy = readLegacyGeneratedImages(audit);
+  await db.update(auditsTable)
+    .set({
+      generatedImages: {
+        main: legacy.main ?? [],
+        infographic: legacy.infographic ?? [],
+        lifestyle: legacy.lifestyle ?? [],
+        aplus,
+      } as unknown as typeof audit.generatedImages,
+      updatedAt: new Date(),
+    })
+    .where(eq(auditsTable.id, auditId));
 }
 
 router.get("/audits", requireAuth, resolveTeam, async (req, res): Promise<void> => {
@@ -384,6 +415,15 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
 
   const { prompt: rawPrompt } = req.body as { prompt?: string };
 
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const existingAplus = readLegacyGeneratedImages(audit).aplus;
+  if (existingAplus?.status === "generating") {
+    res.status(409).json({ error: "A+ generation is already in progress" });
+    return;
+  }
+
   const ebcCost = await getCreditCost("ebc");
   const imageCost = await getCreditCost("images");
   const creditCtx = getCreditCtx(req);
@@ -399,9 +439,6 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
-  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
-
   const prompt = rawPrompt?.trim() || buildDefaultAplusPrompt({
     productName: audit.productName,
     brandName: audit.brandName,
@@ -411,59 +448,81 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
     summary: (audit.result as { summary?: string } | null)?.summary ?? "",
   });
 
-  await deductCreditsTeamAware(creditCtx, ebcCost.creditType, ebcCost.creditsRequired, ebcCost.activityName, "ebc", { auditId: id });
+  await saveAplusState(id, audit, {
+    status: "generating",
+    progress: { done: 0, total: APLUS_IMAGE_TOTAL },
+    modules: [],
+  });
 
-  let content: EbcContent;
-  try {
-    content = await generateEbcContent({
-      prompt,
-      productName: audit.productName,
-      bulletPoints: audit.bulletPoints as string[],
-      targetKeywords: audit.targetKeywords as string[],
-      summary: (audit.result as { summary?: string } | null)?.summary ?? "",
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "A+ copy generation failed";
-    res.status(500).json({ error: message });
-    return;
-  }
+  res.status(202).json({ message: "A+ generation started", status: "generating" });
 
-  await deductCreditsTeamAware(creditCtx, imageCost.creditType, imageCost.creditsRequired, imageCost.activityName, "images", { auditId: id, feature: "aplus" });
+  (async () => {
+    try {
+      await deductCreditsTeamAware(creditCtx, ebcCost.creditType, ebcCost.creditsRequired, ebcCost.activityName, "ebc", { auditId: id });
 
-  try {
-    const modules = await generateAplusModuleImages({
-      auditId: id,
-      productName: audit.productName,
-      category: audit.category,
-      content,
-      imageUrls: audit.imageUrls as string[],
-    });
+      const content = await generateEbcContent({
+        prompt,
+        productName: audit.productName,
+        bulletPoints: audit.bulletPoints as string[],
+        targetKeywords: audit.targetKeywords as string[],
+        summary: (audit.result as { summary?: string } | null)?.summary ?? "",
+      });
 
-    const legacy = (audit.generatedImages ?? { main: [], infographic: [], lifestyle: [] }) as {
-      main?: string[];
-      infographic?: string[];
-      lifestyle?: string[];
-      aplus?: AplusGenerationResult;
-    };
-    const aplusPayload: AplusGenerationResult = { content, modules };
+      const [auditAfterCopy] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+      if (!auditAfterCopy) return;
 
-    await db.update(auditsTable)
-      .set({
-        generatedImages: {
-          main: legacy.main ?? [],
-          infographic: legacy.infographic ?? [],
-          lifestyle: legacy.lifestyle ?? [],
-          aplus: aplusPayload,
-        } as unknown as typeof audit.generatedImages,
-        updatedAt: new Date(),
-      })
-      .where(eq(auditsTable.id, id));
+      await saveAplusState(id, auditAfterCopy, {
+        status: "generating",
+        progress: { done: 0, total: APLUS_IMAGE_TOTAL },
+        content,
+        modules: [],
+      });
 
-    res.json(aplusPayload);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "A+ image generation failed";
-    res.status(500).json({ error: message });
-  }
+      await deductCreditsTeamAware(creditCtx, imageCost.creditType, imageCost.creditsRequired, imageCost.activityName, "images", { auditId: id, feature: "aplus" });
+
+      const modules: AplusGenerationResult["modules"] = [];
+      await generateAplusModuleImages({
+        auditId: id,
+        productName: audit.productName,
+        category: audit.category,
+        content,
+        imageUrls: audit.imageUrls as string[],
+        onModuleComplete: async (module, done, total) => {
+          modules.push(module);
+          const [current] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+          if (!current) return;
+          await saveAplusState(id, current, {
+            status: "generating",
+            progress: { done, total },
+            content,
+            modules: [...modules],
+          });
+        },
+      });
+
+      const [auditFinal] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+      if (!auditFinal) return;
+
+      await saveAplusState(id, auditFinal, {
+        status: "completed",
+        progress: { done: modules.length, total: APLUS_IMAGE_TOTAL },
+        content,
+        modules,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "A+ generation failed";
+      const [auditFailed] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
+      if (!auditFailed) return;
+      const prev = readLegacyGeneratedImages(auditFailed).aplus;
+      await saveAplusState(id, auditFailed, {
+        status: "failed",
+        progress: prev?.progress,
+        content: prev?.content,
+        modules: prev?.modules ?? [],
+        errorMessage: message,
+      });
+    }
+  })();
 });
 
 router.post("/generate-content", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
