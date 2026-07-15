@@ -291,6 +291,7 @@ export function BillingOverview({
     ?? plans.find((p) => p.name === sub.planName);
 
   const planTotalCredits = sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits;
+  const currentBalance = sumCredits(credits);
 
   const periodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
   const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
@@ -305,7 +306,9 @@ export function BillingOverview({
     [transactions, periodStart, periodEnd],
   );
 
-  const totalUsage = planUsageMetrics(usedInPeriod, planTotalCredits);
+  const totalCreditsPool = Math.max(planTotalCredits, currentBalance + usedInPeriod);
+
+  const totalUsage = planUsageMetrics(usedInPeriod, totalCreditsPool);
 
   const ruleCost = (featureType: string, fallback: number) =>
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
@@ -316,10 +319,10 @@ export function BillingOverview({
       const spent = svc.id === "audit"
         ? auditListingCreditsUsed(transactions, filterStart, filterEnd, cost)
         : spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
-      const metrics = planUsageMetrics(spent, planTotalCredits);
+      const metrics = planUsageMetrics(spent, totalCreditsPool);
       return { ...svc, spent, ...metrics, cost };
     });
-  }, [transactions, filterStart, filterEnd, creditRules, planTotalCredits]);
+  }, [transactions, filterStart, filterEnd, creditRules, totalCreditsPool]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
   const ownerUsed = teamData?.ownerUsedInPeriod ?? totalSpentInRange(transactions, filterStart, filterEnd);
@@ -351,7 +354,7 @@ export function BillingOverview({
   }, [teamData, displayName, ownerUsed]);
 
   const teamTotalUsed = teamRows.reduce((sum, r) => sum + r.used, 0);
-  const teamUsage = planUsageMetrics(teamTotalUsed, planTotalCredits);
+  const teamUsage = planUsageMetrics(teamTotalUsed, totalCreditsPool);
 
   const planFeatures = currentPlan?.features?.length
     ? currentPlan.features
@@ -368,8 +371,6 @@ export function BillingOverview({
     ? currentPlan.aiCredits + currentPlan.imageCredits + currentPlan.auditCredits
     : planTotalCredits;
 
-  const currentBalance = sumCredits(credits);
-
   return (
     <div className="space-y-6">
       {/* Total credit usage */}
@@ -383,7 +384,7 @@ export function BillingOverview({
             <p className="text-3xl font-bold text-slate-900 mt-4">
               {usedInPeriod.toLocaleString()}{" "}
               <span className="text-lg font-semibold text-slate-500">
-                of {planTotalCredits.toLocaleString()} credits used
+                of {totalCreditsPool.toLocaleString()} credits used
               </span>
             </p>
             <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden max-w-xl">
@@ -393,7 +394,7 @@ export function BillingOverview({
               />
             </div>
             {usedInPeriod > 0 && (
-              <p className="text-xs text-slate-500 mt-2">{totalUsage.pctLabel} of plan credits used this period</p>
+              <p className="text-xs text-slate-500 mt-2">{totalUsage.pctLabel} of total credits used this period</p>
             )}
             {sub.currentPeriodEnd && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
@@ -443,7 +444,7 @@ export function BillingOverview({
           <div>
             <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              See how your credits are being used across different services. Percentages are of your monthly plan total ({planTotalCredits.toLocaleString()} credits).
+              See how your credits are being used across different services. Percentages are of your total available credits ({totalCreditsPool.toLocaleString()} credits).
             </p>
           </div>
           <div className="relative">
@@ -537,7 +538,7 @@ export function BillingOverview({
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="font-semibold text-slate-900">Total Team Usage</span>
               <span className="text-slate-600">
-                {teamTotalUsed.toLocaleString()} / {planTotalCredits.toLocaleString()} Credits
+                {teamTotalUsed.toLocaleString()} / {totalCreditsPool.toLocaleString()} Credits
                 <span className="ml-2 font-semibold text-slate-900">{teamUsage.pctLabel}</span>
               </span>
             </div>
