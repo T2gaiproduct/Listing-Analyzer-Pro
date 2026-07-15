@@ -57,6 +57,10 @@ function isGptImageModel(model: string): boolean {
   return model.startsWith("gpt-image") || model.startsWith("chatgpt-image");
 }
 
+function isDalleModel(model: string): boolean {
+  return model.startsWith("dall-e");
+}
+
 type ImageSize = "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256";
 
 function mapSizeForGptImage(size: ImageSize): "1024x1024" | "1536x1024" | "1024x1536" | "auto" {
@@ -191,7 +195,7 @@ export async function generateImage(
     model,
     prompt,
     size: size === "1792x1024" || size === "1024x1792" || size === "1024x1024" ? size : "1024x1024",
-    response_format: "b64_json",
+    ...(isDalleModel(model) ? { response_format: "b64_json" as const } : {}),
   });
 
   const base64 = response.data?.[0]?.b64_json ?? "";
@@ -202,7 +206,7 @@ export async function generateImage(
 export async function generateImageWithReference(
   prompt: string,
   imageFilePath: string,
-  _size: "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256" = "1024x1024",
+  size: ImageSize = "1024x1024",
 ): Promise<Buffer> {
   const fs = await import("node:fs");
   const provider = await getActiveProvider();
@@ -240,11 +244,20 @@ export async function generateImageWithReference(
 
   // Replit or OpenAI path
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
-  const response = await client.images.edit({
+  const editParams: {
+    model: string;
+    image: File[];
+    prompt: string;
+    size?: "1024x1024" | "1536x1024" | "1024x1536" | "auto";
+  } = {
     model,
     image: [new File([buffer], require("node:path").basename(imageFilePath), { type: mimeType })],
     prompt,
-  });
+  };
+  if (isGptImageModel(model)) {
+    editParams.size = mapSizeForGptImage(size);
+  }
+  const response = await client.images.edit(editParams);
 
   const base64 = response.data?.[0]?.b64_json ?? "";
   if (!base64) throw new Error("No image data returned from AI image edit");

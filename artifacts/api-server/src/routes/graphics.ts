@@ -482,6 +482,27 @@ async function resolveProjectSourcePath(
   return null;
 }
 
+async function resolveRegenerateReferencePath(
+  projectId: number,
+  sourceImageUrls: string[] | null | undefined,
+  existingRecord: GraphicsImageRecord,
+): Promise<string | null> {
+  const fromProject = await resolveProjectSourcePath(projectId, sourceImageUrls);
+  if (fromProject) return fromProject;
+
+  const url = existingRecord.currentUrl;
+  const prefix = `/api/images/graphics/${projectId}/`;
+  if (url.startsWith(prefix)) {
+    const filename = url.slice(prefix.length);
+    const localPath = path.join(IMAGES_DIR, String(projectId), filename);
+    if (fs.existsSync(localPath) && fs.statSync(localPath).size >= MIN_FILE_SIZE) {
+      return localPath;
+    }
+  }
+
+  return null;
+}
+
 function buildRegeneratePrompt(
   existingRecord: GraphicsImageRecord,
   productName: string,
@@ -831,8 +852,8 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
     const dir = path.join(IMAGES_DIR, String(id));
     const prompt = buildRegeneratePrompt(existingRecord, project.productName, project.category, regenStyle);
     const size = ASPECT_SIZES[regenAspectRatio as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
-    const sourcePath = await resolveProjectSourcePath(id, project.sourceImageUrls);
-    const sourceFileIsValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+    const sourcePath = await resolveRegenerateReferencePath(id, project.sourceImageUrls, existingRecord);
+    const sourceFileIsValid = sourcePath !== null;
 
     let buffer: Buffer;
     if (sourceFileIsValid) {
