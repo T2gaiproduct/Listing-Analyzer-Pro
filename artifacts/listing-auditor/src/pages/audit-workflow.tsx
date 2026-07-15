@@ -108,6 +108,51 @@ const STEPS: { id: StepId; key: string; label: string; sub: string; icon: React.
   { id: 5, key: "export",   label: "EXPORT",     sub: "Export & publish",        icon: Download  },
 ];
 
+interface AplusModule {
+  id: "hero" | "features" | "comparison" | "brand_story";
+  title: string;
+  description: string;
+  headline: string;
+  body: string;
+  imageUrl: string;
+}
+
+interface AplusContent {
+  heroHeadline: string;
+  heroSubheadline: string;
+  heroTagline: string;
+  feature1Icon: string;
+  feature1Title: string;
+  feature1Body: string;
+  feature2Icon: string;
+  feature2Title: string;
+  feature2Body: string;
+  feature3Icon: string;
+  feature3Title: string;
+  feature3Body: string;
+  storyHeadline: string;
+  storyBody: string;
+  gridTitle: string;
+  grid1Title: string;
+  grid1Desc: string;
+  grid2Title: string;
+  grid2Desc: string;
+  grid3Title: string;
+  grid3Desc: string;
+  grid4Title: string;
+  grid4Desc: string;
+  closingHeadline: string;
+  closingBody: string;
+  closingCta: string;
+}
+
+const APLUS_MODULE_CARDS = [
+  { id: "hero" as const, icon: "🖼️", title: "Hero Banner", desc: "Full-width product hero image with headline" },
+  { id: "features" as const, icon: "📋", title: "Feature Highlights", desc: "Icon + text modules showcasing key features" },
+  { id: "comparison" as const, icon: "📊", title: "Comparison Chart", desc: "Compare your product against competitors" },
+  { id: "brand_story" as const, icon: "📖", title: "Brand Story", desc: "Tell your brand story with rich imagery" },
+];
+
 /* ── localStorage helpers ───────────────────────────────────────────────── */
 /* No client-side draft/recent storage — server-side recents via sidebar only */
 
@@ -468,6 +513,11 @@ export default function AuditWorkflow() {
         url: r.currentUrl, type: r.type || "lifestyle", index: r.index ?? 0,
       })));
     }
+    const savedAplus = (auditData.generatedImages as { aplus?: { content: AplusContent; modules: AplusModule[] } } | null)?.aplus;
+    if (savedAplus?.content && savedAplus.modules?.length) {
+      setAplusContent(savedAplus.content);
+      setAplusModules(savedAplus.modules);
+    }
     setIsDirty(false);
     const step = (auditData.currentStep || 1) as StepId;
     if (step >= 1 && step <= 5) setActiveStep(step);
@@ -498,6 +548,44 @@ export default function AuditWorkflow() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const completionToastShownRef = useRef(false);
   const hasSeenGeneratingRef = useRef(false);
+
+  /* ── A+ Content step state ── */
+  const [aplusPrompt, setAplusPrompt] = useState("");
+  const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
+  const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
+  const generateAplus = useMutation({
+    mutationFn: async ({ auditId, prompt }: { auditId: number; prompt?: string }) => {
+      const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ prompt: prompt?.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
+      }
+      return res.json() as Promise<{ content: AplusContent; modules: AplusModule[] }>;
+    },
+    onSuccess: (data) => {
+      setAplusContent(data.content);
+      setAplusModules(data.modules);
+      setIsCreating(false);
+      refreshCreditBalances(queryClient);
+      toast({ title: "A+ content generated!", description: "Copy and module images are ready." });
+      if (currentAuditId) {
+        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+      }
+    },
+    onError: (err) => {
+      setIsCreating(false);
+      toast({
+        title: "A+ generation failed",
+        description: err instanceof Error ? err.message : "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
 
   /* ── Fetch existing graphics project for this audit ── */
   const { data: existingGraphicsProject } = useQuery({
@@ -844,14 +932,31 @@ export default function AuditWorkflow() {
         });
       }
 
-    } else if (activeStep === 4 || activeStep === 5) {
-      // A+ Content / Export: simulate
+    } else if (activeStep === 5) {
+      // Export: simulate
       setTimeout(() => {
         setIsCreating(false);
-        toast({ title: activeStep === 4 ? "A+ Content ready!" : "Export ready!", description: "Coming soon — this feature is launching shortly." });
+        toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
   }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAudit, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+
+  const handleGenerateAplus = useCallback(() => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 to create your project before generating A+ content.", variant: "destructive" });
+      return;
+    }
+    if (!productName.trim()) {
+      toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
+      return;
+    }
+    setCreatingStep(4);
+    setIsCreating(true);
+    generateAplus.mutate({
+      auditId: currentAuditId,
+      prompt: aplusPrompt.trim() || undefined,
+    });
+  }, [currentAuditId, productName, aplusPrompt, generateAplus, toast]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1551,23 +1656,134 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+                <p className="text-sm font-medium text-slate-700">What will be generated</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {APLUS_MODULE_CARDS.map((module) => (
+                    <div key={module.id} className="flex items-center gap-2 text-sm text-slate-600">
+                      <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3 h-3 text-orange-500" />
+                      </div>
+                      {module.title}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-orange-200 bg-orange-50/30 p-5 space-y-3">
+                <label className="text-sm font-medium text-orange-900">Custom prompt (optional)</label>
+                <textarea
+                  value={aplusPrompt}
+                  onChange={(e) => { setAplusPrompt(e.target.value); setIsDirty(true); }}
+                  placeholder='e.g. "Target eco-conscious parents. Emphasize safety, easy cleaning, and premium materials."'
+                  rows={3}
+                  className="w-full resize-none text-sm border border-slate-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white"
+                  disabled={isCreating || generateAplus.isPending}
+                />
+                <p className="text-xs text-slate-500">Leave blank to auto-generate from your product details and listing content.</p>
+              </div>
+
+              <Button
+                size="lg"
+                className="w-full h-14 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2.5 shadow-lg shadow-orange-500/20 text-base font-semibold"
+                disabled={isCreating || generateAplus.isPending || !currentAuditId}
+                onClick={handleGenerateAplus}
+              >
+                {isCreating || generateAplus.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating A+ Content…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    {aplusModules.length > 0 ? "Regenerate A+ Content" : "Generate A+ Content"}
+                  </>
+                )}
+              </Button>
+
+              {!currentAuditId && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Complete Step 1 and save your project before generating A+ content.
+                </p>
+              )}
+
+              {aplusModules.length > 0 && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-slate-800">
+                      Generated A+ Modules ({aplusModules.length})
+                    </h3>
+                    <span className="text-sm text-orange-600 font-medium flex items-center gap-1">
+                      <Check className="w-4 h-4" /> Complete
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {aplusModules.map((module) => (
+                      <div
+                        key={module.id}
+                        className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white"
+                      >
+                        <button
+                          type="button"
+                          className="relative w-full aspect-[16/10] bg-slate-100 group"
+                          onClick={() => setLightboxImage(module.imageUrl)}
+                        >
+                          <img
+                            src={module.imageUrl}
+                            alt={module.title}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                          <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/50 text-white text-[10px] font-medium uppercase tracking-wider">
+                            {module.title}
+                          </div>
+                        </button>
+                        <div className="p-4 space-y-1">
+                          <p className="text-sm font-semibold text-slate-800">{module.headline}</p>
+                          <p className="text-xs text-slate-500 line-clamp-2">{module.body}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {aplusContent && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 space-y-2">
+                      <p className="text-sm font-semibold text-slate-800">Hero copy preview</p>
+                      <p className="text-base font-bold text-slate-900">{aplusContent.heroHeadline}</p>
+                      <p className="text-sm text-slate-600">{aplusContent.heroSubheadline}</p>
+                      <p className="text-xs text-slate-400">{aplusContent.heroTagline}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { icon: "🖼️", title: "Hero Banner",       desc: "Full-width product hero image with headline" },
-                  { icon: "📋", title: "Feature Highlights", desc: "Icon + text modules showcasing key features" },
-                  { icon: "📊", title: "Comparison Chart",  desc: "Compare your product against competitors" },
-                  { icon: "📖", title: "Brand Story",       desc: "Tell your brand story with rich imagery" },
-                ].map((module) => (
-                  <div key={module.title} className="border border-slate-200 rounded-xl p-4 hover:border-orange-300 hover:bg-orange-50/20 transition-all cursor-pointer">
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl">{module.icon}</span>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{module.title}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{module.desc}</p>
+                {APLUS_MODULE_CARDS.map((module) => {
+                  const generated = aplusModules.find((m) => m.id === module.id);
+                  return (
+                    <div
+                      key={module.title}
+                      className={cn(
+                        "border rounded-xl p-4 transition-all",
+                        generated ? "border-orange-300 bg-orange-50/20" : "border-slate-200 hover:border-orange-300 hover:bg-orange-50/20",
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl">{module.icon}</span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{module.title}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{module.desc}</p>
+                          {generated && (
+                            <p className="text-xs text-orange-600 font-medium mt-2 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Generated
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">

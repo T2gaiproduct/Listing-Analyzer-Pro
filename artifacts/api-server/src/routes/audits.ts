@@ -12,7 +12,12 @@ import { generateChatCompletion } from "../lib/ai-provider";
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
 import { generateListingContent } from "../lib/content-generator";
-import { generateEbcContent } from "../lib/ebc-generator";
+import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
+import {
+  buildDefaultAplusPrompt,
+  generateAplusModuleImages,
+  type AplusGenerationResult,
+} from "../lib/aplus-generator";
 import {
   generateProductImages,
   regenerateSingleImage,
@@ -368,6 +373,95 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAc
     res.json(content);
   } catch (err) {
     const message = err instanceof Error ? err.message : "EBC generation failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { prompt: rawPrompt } = req.body as { prompt?: string };
+
+  const ebcCost = await getCreditCost("ebc");
+  const imageCost = await getCreditCost("images");
+  const creditCtx = getCreditCtx(req);
+
+  const hasEbc = await hasCreditsTeamAware(creditCtx, ebcCost.creditType, ebcCost.creditsRequired);
+  if (!hasEbc) {
+    res.status(402).json({ error: `Insufficient ${ebcCost.creditType} credits (${ebcCost.creditsRequired} needed for A+ copy).` });
+    return;
+  }
+  const hasImages = await hasCreditsTeamAware(creditCtx, imageCost.creditType, imageCost.creditsRequired);
+  if (!hasImages) {
+    res.status(402).json({ error: `Insufficient ${imageCost.creditType} credits (${imageCost.creditsRequired} needed for A+ images).` });
+    return;
+  }
+
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const prompt = rawPrompt?.trim() || buildDefaultAplusPrompt({
+    productName: audit.productName,
+    brandName: audit.brandName,
+    category: audit.category,
+    bulletPoints: audit.bulletPoints as string[],
+    targetKeywords: audit.targetKeywords as string[],
+    summary: (audit.result as { summary?: string } | null)?.summary ?? "",
+  });
+
+  await deductCreditsTeamAware(creditCtx, ebcCost.creditType, ebcCost.creditsRequired, ebcCost.activityName, "ebc", { auditId: id });
+
+  let content: EbcContent;
+  try {
+    content = await generateEbcContent({
+      prompt,
+      productName: audit.productName,
+      bulletPoints: audit.bulletPoints as string[],
+      targetKeywords: audit.targetKeywords as string[],
+      summary: (audit.result as { summary?: string } | null)?.summary ?? "",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "A+ copy generation failed";
+    res.status(500).json({ error: message });
+    return;
+  }
+
+  await deductCreditsTeamAware(creditCtx, imageCost.creditType, imageCost.creditsRequired, imageCost.activityName, "images", { auditId: id, feature: "aplus" });
+
+  try {
+    const modules = await generateAplusModuleImages({
+      auditId: id,
+      productName: audit.productName,
+      category: audit.category,
+      content,
+      imageUrls: audit.imageUrls as string[],
+    });
+
+    const legacy = (audit.generatedImages ?? { main: [], infographic: [], lifestyle: [] }) as {
+      main?: string[];
+      infographic?: string[];
+      lifestyle?: string[];
+      aplus?: AplusGenerationResult;
+    };
+    const aplusPayload: AplusGenerationResult = { content, modules };
+
+    await db.update(auditsTable)
+      .set({
+        generatedImages: {
+          main: legacy.main ?? [],
+          infographic: legacy.infographic ?? [],
+          lifestyle: legacy.lifestyle ?? [],
+          aplus: aplusPayload,
+        } as unknown as typeof audit.generatedImages,
+        updatedAt: new Date(),
+      })
+      .where(eq(auditsTable.id, id));
+
+    res.json(aplusPayload);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "A+ image generation failed";
     res.status(500).json({ error: message });
   }
 });
