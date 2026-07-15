@@ -53,6 +53,19 @@ export function clearProviderCache(): void {
   cachedImageModels = null;
 }
 
+function isGptImageModel(model: string): boolean {
+  return model.startsWith("gpt-image") || model.startsWith("chatgpt-image");
+}
+
+type ImageSize = "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256";
+
+function mapSizeForGptImage(size: ImageSize): "1024x1024" | "1536x1024" | "1024x1536" | "auto" {
+  if (size === "1792x1024") return "1536x1024";
+  if (size === "1024x1792") return "1024x1536";
+  if (size === "1024x1024") return "1024x1024";
+  return "auto";
+}
+
 export async function getAIClient(): Promise<OpenAI | GoogleGenAI> {
   const provider = await getActiveProvider();
   if (provider === "gemini") {
@@ -138,7 +151,7 @@ export interface ImageGenerationResult {
 
 export async function generateImage(
   prompt: string,
-  _size: "1024x1024" | "1792x1024" | "1024x1792" | "512x512" | "256x256" = "1024x1024",
+  size: ImageSize = "1024x1024",
 ): Promise<Buffer> {
   const provider = await getActiveProvider();
   const model = await getImageModel(provider);
@@ -163,9 +176,21 @@ export async function generateImage(
 
   // Replit or OpenAI path
   const client = provider === "replit" ? getReplitClient() : await getOpenAIClient();
+  if (isGptImageModel(model)) {
+    const response = await client.images.generate({
+      model,
+      prompt,
+      size: mapSizeForGptImage(size),
+    });
+    const base64 = response.data?.[0]?.b64_json ?? "";
+    if (!base64) throw new Error("No image data returned from AI");
+    return Buffer.from(base64, "base64");
+  }
+
   const response = await client.images.generate({
     model,
     prompt,
+    size: size === "1792x1024" || size === "1024x1792" || size === "1024x1024" ? size : "1024x1024",
     response_format: "b64_json",
   });
 
