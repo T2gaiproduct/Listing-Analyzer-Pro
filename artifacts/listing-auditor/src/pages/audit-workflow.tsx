@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
   useCreateAudit,
   usePatchAudit,
@@ -112,14 +113,7 @@ const STEPS: { id: StepId; key: string; label: string; sub: string; icon: React.
   { id: 5, key: "export",   label: "EXPORT",     sub: "Export & publish",        icon: Download  },
 ];
 
-interface AplusModule {
-  id: "hero" | "features" | "comparison" | "brand_story";
-  title: string;
-  description: string;
-  headline: string;
-  body: string;
-  imageUrl: string;
-}
+interface AplusModule extends AplusModuleItem {}
 
 interface AplusContent {
   heroHeadline: string;
@@ -1919,46 +1913,16 @@ export default function AuditWorkflow() {
                 </p>
               )}
 
-              {aplusModules.length > 0 && (
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-slate-800">
-                      Generated A+ Modules ({aplusModules.length})
-                    </h3>
-                    <span className="text-sm text-orange-600 font-medium flex items-center gap-1">
-                      <Check className="w-4 h-4" /> Complete
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {aplusModules.map((module) => (
-                      <div
-                        key={module.id}
-                        className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white"
-                      >
-                        <button
-                          type="button"
-                          className="relative w-full aspect-[16/10] bg-slate-100 group"
-                          onClick={() => setLightboxImage(module.imageUrl)}
-                        >
-                          <img
-                            src={module.imageUrl}
-                            alt={module.title}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                          <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/50 text-white text-[10px] font-medium uppercase tracking-wider">
-                            {module.title}
-                          </div>
-                        </button>
-                        <div className="p-4 space-y-1">
-                          <p className="text-sm font-semibold text-slate-800">{module.headline}</p>
-                          <p className="text-xs text-slate-500 line-clamp-2">{module.body}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {aplusModules.length > 0 && currentAuditId && (
+                <AplusModuleGallery
+                  auditId={currentAuditId}
+                  modules={aplusModules}
+                  onModulesUpdate={(updated) => {
+                    setAplusModules(updated);
+                    void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+                  }}
+                  onLightbox={setLightboxImage}
+                />
               )}
 
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">

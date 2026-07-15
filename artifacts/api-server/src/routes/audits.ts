@@ -18,6 +18,9 @@ import {
   generateAplusModuleImages,
   parseAplusModuleIds,
   mergeAplusModules,
+  regenerateAplusModule,
+  editAplusModule,
+  normalizeAplusModule,
   type AplusGenerationResult,
   type AplusStoredState,
   type AplusModule,
@@ -115,6 +118,26 @@ async function saveAplusState(
       updatedAt: new Date(),
     })
     .where(eq(auditsTable.id, auditId));
+}
+
+async function replaceAplusModule(
+  auditId: number,
+  moduleId: AplusModule["id"],
+  updated: AplusModule,
+): Promise<AplusModule | null> {
+  const [audit] = await db.select().from(auditsTable).where(eq(auditsTable.id, auditId));
+  if (!audit) return null;
+
+  const aplus = readLegacyGeneratedImages(audit).aplus;
+  if (!aplus?.modules?.some((m) => m.id === moduleId)) return null;
+
+  const modules = aplus.modules.map((m) => (m.id === moduleId ? updated : m));
+  await saveAplusState(auditId, audit, {
+    ...aplus,
+    status: aplus.status === "generating" ? "completed" : aplus.status,
+    modules,
+  });
+  return updated;
 }
 
 router.get("/audits", requireAuth, resolveTeam, async (req, res): Promise<void> => {
@@ -827,6 +850,143 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
     res.json(updatedRecord);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Image edit failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
+  const id = parseInt(String(req.params.id ?? ""));
+  const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
+
+  if (isNaN(id) || !["hero", "features", "comparison", "brand_story"].includes(moduleId)) {
+    res.status(400).json({ error: "Invalid parameters" });
+    return;
+  }
+
+  const cost = await getCreditCost("graphics");
+  const creditCtx = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
+  if (!creditCheck) {
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed).` });
+    return;
+  }
+
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const aplus = readLegacyGeneratedImages(audit).aplus;
+  const existing = aplus?.modules?.find((m) => m.id === moduleId);
+  const content = aplus?.content;
+  if (!existing || !content) {
+    res.status(404).json({ error: "A+ module not found. Generate A+ content first." });
+    return;
+  }
+
+  if (aplus?.status === "generating") {
+    res.status(409).json({ error: "A+ generation is already in progress" });
+    return;
+  }
+
+  try {
+    const updated = await regenerateAplusModule({
+      auditId: id,
+      moduleId,
+      productName: audit.productName,
+      category: audit.category,
+      content,
+      imageUrls: audit.imageUrls as string[],
+      existing,
+    });
+
+    const saved = await replaceAplusModule(id, moduleId, updated);
+    if (!saved) {
+      res.status(404).json({ error: "Failed to save regenerated module" });
+      return;
+    }
+
+    await deductCreditsTeamAware(
+      creditCtx,
+      cost.creditType,
+      cost.creditsRequired,
+      `Regenerate A+ ${moduleId}`,
+      "graphics",
+      { auditId: id, feature: "aplus", moduleId },
+    );
+
+    res.json(normalizeAplusModule(saved));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "A+ regeneration failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
+  const id = parseInt(String(req.params.id ?? ""));
+  const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
+  const body = req.body as { prompt?: string };
+
+  if (isNaN(id) || !["hero", "features", "comparison", "brand_story"].includes(moduleId)) {
+    res.status(400).json({ error: "Invalid parameters" });
+    return;
+  }
+  if (!body?.prompt?.trim()) {
+    res.status(400).json({ error: "prompt is required" });
+    return;
+  }
+
+  const cost = await getCreditCost("graphics_edit");
+  const creditCtx = getCreditCtx(req);
+  const creditCheck = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
+  if (!creditCheck) {
+    res.status(402).json({ error: `Insufficient ${cost.creditType} credits (${cost.creditsRequired} needed).` });
+    return;
+  }
+
+  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const aplus = readLegacyGeneratedImages(audit).aplus;
+  const existing = aplus?.modules?.find((m) => m.id === moduleId);
+  const content = aplus?.content;
+  if (!existing || !content) {
+    res.status(404).json({ error: "A+ module not found. Generate A+ content first." });
+    return;
+  }
+
+  if (aplus?.status === "generating") {
+    res.status(409).json({ error: "A+ generation is already in progress" });
+    return;
+  }
+
+  try {
+    const updated = await editAplusModule({
+      auditId: id,
+      moduleId,
+      content,
+      existing,
+      editPrompt: body.prompt.trim(),
+    });
+
+    const saved = await replaceAplusModule(id, moduleId, updated);
+    if (!saved) {
+      res.status(404).json({ error: "Failed to save edited module" });
+      return;
+    }
+
+    await deductCreditsTeamAware(
+      creditCtx,
+      cost.creditType,
+      cost.creditsRequired,
+      `Edit A+ ${moduleId}`,
+      "graphics_edit",
+      { auditId: id, feature: "aplus", moduleId },
+    );
+
+    res.json(normalizeAplusModule(saved));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "A+ edit failed";
     res.status(500).json({ error: message });
   }
 });

@@ -1,12 +1,21 @@
 import * as fs from "fs";
 import * as path from "path";
 import type { EbcContent } from "./ebc-generator";
-import { generateImageBuffer, generateImageWithReferenceProxy } from "./openai-image";
+import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "./openai-image";
 
 const IMAGES_DIR = path.join(process.cwd(), "public", "images");
 const MIN_FILE_SIZE = 1024;
 const REFERENCE_IMAGE_INSTRUCTION =
   "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted.";
+
+export interface AplusModuleVersion {
+  url: string;
+  isEdit: boolean;
+  prompt?: string;
+  generatedAt: string;
+}
+
+export type AplusAspectRatio = "16:10" | "9:16" | "1:1";
 
 export interface AplusModule {
   id: "hero" | "features" | "comparison" | "brand_story";
@@ -15,6 +24,8 @@ export interface AplusModule {
   headline: string;
   body: string;
   imageUrl: string;
+  aspectRatio?: AplusAspectRatio;
+  versions?: AplusModuleVersion[];
 }
 
 export interface AplusGenerationResult {
@@ -106,6 +117,151 @@ const MODULE_SPECS: ModuleSpec[] = [
     body: (c) => c.storyBody,
   },
 ];
+
+function specToAspectRatio(size: ModuleSpec["size"]): AplusAspectRatio {
+  if (size === "1024x1792") return "9:16";
+  if (size === "1792x1024") return "16:10";
+  return "1:1";
+}
+
+export function getModuleSpec(id: AplusModule["id"]): ModuleSpec | undefined {
+  return MODULE_SPECS.find((spec) => spec.id === id);
+}
+
+export function normalizeAplusModule(module: AplusModule): AplusModule {
+  const spec = getModuleSpec(module.id);
+  return {
+    ...module,
+    aspectRatio: module.aspectRatio ?? specToAspectRatio(spec?.size ?? "1792x1024"),
+    versions: module.versions ?? [],
+  };
+}
+
+function resolveImageFilePath(auditId: number, imageUrl: string): string | null {
+  const filename = path.basename(imageUrl.split("?")[0] ?? imageUrl);
+  const filePath = path.join(IMAGES_DIR, String(auditId), filename);
+  if (fs.existsSync(filePath) && fs.statSync(filePath).size >= MIN_FILE_SIZE) return filePath;
+  return null;
+}
+
+async function generateModuleBuffer(
+  spec: ModuleSpec,
+  data: {
+    auditId: number;
+    productName: string;
+    category?: string | null;
+    content: EbcContent;
+    imageUrls: string[];
+  },
+): Promise<Buffer> {
+  const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
+  const sourcePath = await resolveSourceImage(data.auditId, data.imageUrls);
+  const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+  const prompt = spec.buildPrompt(productDesc, data.content);
+
+  if (sourceValid) {
+    return generateImageWithReferenceProxy(
+      `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
+      sourcePath!,
+      spec.size,
+    );
+  }
+  return generateImageBuffer(prompt, spec.size);
+}
+
+function buildAplusModuleFromSpec(
+  spec: ModuleSpec,
+  auditId: number,
+  content: EbcContent,
+  imageUrl: string,
+  existing?: AplusModule,
+): AplusModule {
+  return normalizeAplusModule({
+    id: spec.id,
+    title: spec.title,
+    description: spec.description,
+    headline: spec.headline(content),
+    body: spec.body(content),
+    imageUrl,
+    aspectRatio: specToAspectRatio(spec.size),
+    versions: existing?.versions ?? [],
+  });
+}
+
+export async function regenerateAplusModule(data: {
+  auditId: number;
+  moduleId: AplusModule["id"];
+  productName: string;
+  category?: string | null;
+  content: EbcContent;
+  imageUrls: string[];
+  existing: AplusModule;
+}): Promise<AplusModule> {
+  const spec = getModuleSpec(data.moduleId);
+  if (!spec) throw new Error("Invalid A+ module");
+
+  const dir = path.join(IMAGES_DIR, String(data.auditId));
+  ensureDir(dir);
+
+  const buffer = await generateModuleBuffer(spec, data);
+  if (!buffer?.length) throw new Error("No image data returned");
+
+  const filename = `aplus_${spec.id}_${Date.now()}.png`;
+  const filePath = path.join(dir, filename);
+  fs.writeFileSync(filePath, buffer);
+  const imageUrl = urlPath(data.auditId, filename);
+
+  const normalized = normalizeAplusModule(data.existing);
+  const newVersion: AplusModuleVersion = {
+    url: imageUrl,
+    isEdit: false,
+    generatedAt: new Date().toISOString(),
+  };
+
+  return {
+    ...buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl, normalized),
+    versions: [...normalized.versions, newVersion],
+  };
+}
+
+export async function editAplusModule(data: {
+  auditId: number;
+  moduleId: AplusModule["id"];
+  content: EbcContent;
+  existing: AplusModule;
+  editPrompt: string;
+}): Promise<AplusModule> {
+  const spec = getModuleSpec(data.moduleId);
+  if (!spec) throw new Error("Invalid A+ module");
+
+  const normalized = normalizeAplusModule(data.existing);
+  const sourceFilePath = resolveImageFilePath(data.auditId, normalized.imageUrl);
+  if (!sourceFilePath) {
+    throw new Error("Source image file not found. Please regenerate the image first.");
+  }
+
+  const dir = path.join(IMAGES_DIR, String(data.auditId));
+  ensureDir(dir);
+
+  const filename = `aplus_${spec.id}_edit_${Date.now()}.png`;
+  const filePath = path.join(dir, filename);
+  const buffer = await editImagesProxy([sourceFilePath], data.editPrompt.trim(), filePath);
+  if (!buffer?.length) throw new Error("No image data returned from AI edit");
+  fs.writeFileSync(filePath, buffer);
+
+  const imageUrl = urlPath(data.auditId, filename);
+  const newVersion: AplusModuleVersion = {
+    url: imageUrl,
+    isEdit: true,
+    prompt: data.editPrompt.trim(),
+    generatedAt: new Date().toISOString(),
+  };
+
+  return {
+    ...buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl, normalized),
+    versions: [...normalized.versions, newVersion],
+  };
+}
 
 function ensureDir(dir: string): void {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -231,14 +387,7 @@ export async function generateAplusModuleImages(data: {
       if (!buffer?.length) throw new Error("No image data returned");
       fs.writeFileSync(filePath, buffer);
 
-      const module: AplusModule = {
-        id: spec.id,
-        title: spec.title,
-        description: spec.description,
-        headline: spec.headline(data.content),
-        body: spec.body(data.content),
-        imageUrl,
-      };
+      const module: AplusModule = buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl);
       modules.push(module);
       await data.onModuleComplete?.(module, modules.length, total);
     } catch (err) {
