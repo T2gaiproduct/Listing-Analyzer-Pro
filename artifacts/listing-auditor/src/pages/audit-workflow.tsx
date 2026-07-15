@@ -153,6 +153,14 @@ const APLUS_MODULE_CARDS = [
   { id: "brand_story" as const, icon: "📖", title: "Brand Story", desc: "Tell your brand story with rich imagery" },
 ];
 
+function formatAplusApiError(status: number, apiError?: string): string {
+  if (apiError) return apiError;
+  if (status === 404) {
+    return "A+ API endpoint not found. Rebuild and restart the API server on latest-code, then try again.";
+  }
+  return `Failed (${status})`;
+}
+
 /* ── localStorage helpers ───────────────────────────────────────────────── */
 /* No client-side draft/recent storage — server-side recents via sidebar only */
 
@@ -563,7 +571,7 @@ export default function AuditWorkflow() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
+        throw new Error(formatAplusApiError(res.status, (err as { error?: string }).error));
       }
       return res.json() as Promise<{ content: AplusContent; modules: AplusModule[] }>;
     },
