@@ -1,5 +1,5 @@
 import { useState, useRef, useLayoutEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,7 +30,9 @@ export interface AplusModuleItem {
   versions?: AplusModuleVersion[];
 }
 
-function normalizeModule(module: AplusModuleItem): AplusModuleItem {
+type NormalizedAplusModuleItem = AplusModuleItem & { versions: AplusModuleVersion[] };
+
+function normalizeModule(module: AplusModuleItem): NormalizedAplusModuleItem {
   const aspectRatio = module.aspectRatio ?? (module.id === "brand_story" ? "9:16" : "16:10");
   return { ...module, aspectRatio, versions: module.versions ?? [] };
 }
@@ -171,6 +173,7 @@ interface AplusModuleGalleryProps {
 
 export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightbox }: AplusModuleGalleryProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { canEdit } = useTeam();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [editModule, setEditModule] = useState<AplusModuleItem | null>(null);
@@ -211,7 +214,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
     onMutate: (moduleId) => setLoading(moduleId, true),
     onSuccess: (updated) => {
       updateModuleInList(updated);
-      void refreshCreditBalances();
+      void refreshCreditBalances(queryClient);
       toast({ title: "Module regenerated", description: `${updated.title} has a new image.` });
     },
     onError: (err: Error) => {
@@ -245,7 +248,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
       updateModuleInList(updated);
       setEditModule(null);
       setEditPrompt("");
-      void refreshCreditBalances();
+      void refreshCreditBalances(queryClient);
       toast({ title: "Edit applied", description: `${updated.title} was updated.` });
     },
     onError: (err: Error) => {
@@ -388,7 +391,9 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
           </DialogHeader>
           {historyModule && (
             <div className="space-y-4">
-              {normalizeModule(historyModule).versions.length === 0 ? (
+              {(() => {
+            const history = normalizeModule(historyModule);
+            return history.versions.length === 0 ? (
                 <div className="py-12 flex flex-col items-center gap-2 text-slate-400">
                   <Clock className="h-8 w-8 opacity-30" />
                   <p className="text-sm">No version history yet.</p>
@@ -396,8 +401,8 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                  {[...normalizeModule(historyModule).versions].reverse().map((version, i) => {
-                    const versionNum = normalizeModule(historyModule).versions.length - i;
+                  {[...history.versions].reverse().map((version, i) => {
+                    const versionNum = history.versions.length - i;
                     const isCurrent = version.url === historyModule.imageUrl;
                     return (
                       <div
@@ -436,7 +441,8 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                     );
                   })}
                 </div>
-              )}
+              );
+          })()}
             </div>
           )}
         </DialogContent>

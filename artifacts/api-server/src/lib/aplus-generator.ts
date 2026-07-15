@@ -221,7 +221,7 @@ export async function regenerateAplusModule(data: {
 
   return {
     ...buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl, normalized),
-    versions: [...normalized.versions, newVersion],
+    versions: [...(normalized.versions ?? []), newVersion],
   };
 }
 
@@ -259,7 +259,7 @@ export async function editAplusModule(data: {
 
   return {
     ...buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl, normalized),
-    versions: [...normalized.versions, newVersion],
+    versions: [...(normalized.versions ?? []), newVersion],
   };
 }
 
