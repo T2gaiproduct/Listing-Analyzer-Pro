@@ -26,14 +26,18 @@ function normalizeInputUrl(raw: string): string {
 
 export function detectListingPlatform(url: string): ListingPlatform {
   let host = "";
+  let path = "";
   try {
-    host = new URL(url).hostname.toLowerCase();
+    const parsed = new URL(url);
+    host = parsed.hostname.toLowerCase();
+    path = parsed.pathname.toLowerCase();
   } catch {
     return "generic";
   }
 
   if (host.includes("amazon.")) return "amazon";
   if (host.includes("myshopify.com") || host.includes("shopify.com")) return "shopify";
+  if (path.includes("/products/")) return "shopify";
   if (host.includes("walmart.com")) return "walmart";
   if (host.includes("ebay.")) return "ebay";
   if (host.includes("etsy.com")) return "etsy";
@@ -70,9 +74,98 @@ function extractPlatformProductId(platform: ListingPlatform, url: string): strin
   return `${platform}:${Buffer.from(url).toString("base64url").slice(0, 24)}`;
 }
 
-async function fetchPageHtml(url: string): Promise<string> {
+function stripHtml(html: string): string {
+  return cheerio.load(html).text().replace(/\s+/g, " ").trim();
+}
+
+function getShopifyProductJsonUrl(pageUrl: string): string | null {
+  try {
+    const parsed = new URL(pageUrl);
+    const match = parsed.pathname.match(/^(.*\/products\/[^/?#]+)/i);
+    if (!match) return null;
+    return `${parsed.origin}${match[1]}.json`;
+  } catch {
+    return null;
+  }
+}
+
+interface ShopifyProductResponse {
+  product?: {
+    title?: string;
+    body_html?: string;
+    product_type?: string;
+    tags?: string;
+    images?: Array<{ src?: string }>;
+    variants?: Array<{ price?: string }>;
+  };
+}
+
+async function fetchShopifyProductJson(url: string): Promise<FetchedListing | null> {
+  const jsonUrl = getShopifyProductJsonUrl(url);
+  if (!jsonUrl) return null;
+
+  try {
+    const res = await fetch(jsonUrl, {
+      headers: { ...FETCH_HEADERS, Accept: "application/json" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return null;
+
+    const data = await res.json() as ShopifyProductResponse;
+    const product = data.product;
+    if (!product?.title?.trim()) return null;
+
+    const description = product.body_html ? stripHtml(product.body_html) : null;
+    const bulletPoints: string[] = [];
+
+    if (description) {
+      const sentences = description
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 20 && s.length < 300);
+      bulletPoints.push(...sentences.slice(0, 5));
+    }
+
+    if (product.tags) {
+      for (const tag of product.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3)) {
+        if (tag.length > 3) bulletPoints.push(tag);
+      }
+    }
+
+    const imageUrls = (product.images ?? [])
+      .map((img) => img.src?.trim())
+      .filter((src): src is string => !!src)
+      .slice(0, 9);
+
+    const title = product.title.trim();
+    const price = product.variants?.[0]?.price ? `$${product.variants[0].price}` : null;
+
+    return {
+      productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
+      asin: extractPlatformProductId("shopify", url),
+      category: product.product_type?.trim() || null,
+      title,
+      bulletPoints: bulletPoints.slice(0, 7),
+      imageUrls,
+      targetKeywords: extractKeywords(title, bulletPoints),
+      description,
+      price,
+      rating: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPageHtml(url: string, platform: ListingPlatform): Promise<string> {
+  const origin = new URL(url).origin;
   const res = await fetch(url, {
-    headers: FETCH_HEADERS,
+    headers: {
+      ...FETCH_HEADERS,
+      Referer: origin,
+      Origin: origin,
+    },
     redirect: "follow",
     signal: AbortSignal.timeout(15000),
   });
@@ -401,7 +494,12 @@ function mergeListing(
 }
 
 async function fetchNonAmazonListing(url: string, platform: ListingPlatform): Promise<FetchedListing> {
-  const html = await fetchPageHtml(url);
+  if (platform === "shopify" || url.includes("/products/")) {
+    const shopifyListing = await fetchShopifyProductJson(url);
+    if (shopifyListing) return shopifyListing;
+  }
+
+  const html = await fetchPageHtml(url, platform);
   const $ = cheerio.load(html);
 
   const jsonLdProducts = readJsonLdProducts(html);

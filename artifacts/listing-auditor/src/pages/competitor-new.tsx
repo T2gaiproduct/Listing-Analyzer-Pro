@@ -27,8 +27,8 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const COMPETITOR_SOURCES = [
-  { label: "Amazon ASIN", placeholder: "B0XXXXXXXXX", hint: "Enter the competitor's ASIN to auto-fetch listing details" },
-  { label: "Amazon URL", placeholder: "https://amazon.com/dp/...", hint: "Paste the full Amazon product URL" },
+  { label: "Amazon ASIN", placeholder: "B0XXXXXXXXX", hint: "Enter the competitor's Amazon ASIN to auto-fetch listing details" },
+  { label: "Product URL", placeholder: "https://store.com/products/...", hint: "Paste any product page URL — Amazon, Shopify, Walmart, eBay, Etsy, and more" },
   { label: "Manual Entry", placeholder: "", hint: "Manually enter all competitor listing details" },
 ];
 
@@ -87,22 +87,19 @@ function CompetitorForm({
     setFetchError("");
     setFetchSuccess(false);
 
-    let asin: string | undefined;
-    let url: string | undefined;
+    let body: { asin?: string; url?: string };
 
     if (fetchMode === "asin") {
-      asin = value.replace(/^(asin:?\s*)/i, "").trim().toUpperCase();
+      body = { asin: value.replace(/^(asin:?\s*)/i, "").trim().toUpperCase() };
     } else {
-      url = value;
-      const asinMatch = value.match(/\/dp\/([A-Z0-9]{10})/i);
-      if (asinMatch) asin = asinMatch[1].toUpperCase();
+      body = { url: value };
     }
 
     try {
       const resp = await fetch("/api/fetch-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asin, url }),
+        body: JSON.stringify(body),
       });
 
       if (!resp.ok) {
@@ -113,7 +110,7 @@ function CompetitorForm({
       const data = await resp.json();
 
       form.setValue("productName", data.productName || data.title?.slice(0, 60) || "");
-      form.setValue("asin", asin || data.asin || "");
+      form.setValue("asin", data.asin || "");
       form.setValue("title", data.title || "");
       form.setValue("imageCount", data.imageCount ?? data.imageUrls?.length ?? 0);
 
@@ -199,7 +196,7 @@ function CompetitorForm({
                   value={lookupInput}
                   onChange={e => { setLookupInput(e.target.value); setFetchError(""); setFetchSuccess(false); }}
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAutoFetch(); } }}
-                  placeholder={fetchMode === "asin" ? "e.g. B0ABCDE1234" : "https://amazon.com/dp/B0ABCDE1234"}
+                  placeholder={fetchMode === "asin" ? "e.g. B0ABCDE1234" : "https://store.com/products/your-product"}
                   className="flex-1 bg-background"
                   disabled={isFetching}
                 />
