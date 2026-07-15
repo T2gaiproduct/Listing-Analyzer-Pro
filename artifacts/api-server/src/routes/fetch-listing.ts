@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { fetchListing } from "../lib/amazon-fetcher";
+import { fetchListing } from "../lib/listing-fetcher";
 
 const router: IRouter = Router();
 

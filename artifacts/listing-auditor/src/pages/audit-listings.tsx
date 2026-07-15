@@ -103,12 +103,13 @@ export default function AuditListings() {
         },
         onError: (err) => {
           const msg = err instanceof Error ? err.message : "Unknown error";
-          const isBlocked = msg.toLowerCase().includes("captcha") || msg.toLowerCase().includes("blocked");
-          const isNotFound = msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("404");
+          const lower = msg.toLowerCase();
+          const isBlocked = lower.includes("captcha") || lower.includes("blocked") || lower.includes("automated");
+          const isNotFound = lower.includes("not found") || lower.includes("404");
           toast({
-            title: isBlocked ? "Amazon blocked the request" : isNotFound ? "Product not found" : "Failed to fetch listing",
+            title: isBlocked ? "Store blocked the request" : isNotFound ? "Product not found" : "Failed to fetch listing",
             description: isBlocked
-              ? "Amazon blocks automated fetches from cloud servers. Try using the New Audit page to paste your listing manually."
+              ? "Some stores block automated fetches from cloud servers. Try again later or use Build Your Brand to enter listing details manually."
               : msg,
             variant: "destructive",
           });
@@ -132,7 +133,7 @@ export default function AuditListings() {
               </h3>
               <p className="text-muted-foreground text-sm mt-1">
                 {fetchListing.isPending
-                  ? "Pulling your product data"
+                  ? "Pulling product data from the store page"
                   : "Scoring title, bullets, images, and keywords"}
               </p>
             </div>
