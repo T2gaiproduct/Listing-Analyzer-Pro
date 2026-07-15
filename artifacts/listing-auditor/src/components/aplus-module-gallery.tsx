@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,48 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
   );
 }
 
+function ModuleDescription({ body }: { body: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [showToggle, setShowToggle] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+
+    if (expanded) {
+      setShowToggle(true);
+      return;
+    }
+
+    const clamped = el.scrollHeight > el.clientHeight + 1;
+    setShowToggle(clamped || body.trim().length > 100);
+  }, [body, expanded]);
+
+  return (
+    <div className="space-y-1.5">
+      <p
+        ref={textRef}
+        className={cn(
+          "text-xs text-slate-500 leading-relaxed",
+          !expanded && "line-clamp-2",
+        )}
+      >
+        {body}
+      </p>
+      {showToggle && (
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="text-xs font-medium text-orange-600 hover:text-orange-700"
+        >
+          {expanded ? "Show less" : "Show full description"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function AplusImageCard({
   module,
   isLoading,
@@ -71,8 +113,6 @@ function AplusImageCard({
   onDownload: () => void;
 }) {
   const normalized = normalizeModule(module);
-  const [bodyExpanded, setBodyExpanded] = useState(false);
-  const bodyIsLong = normalized.body.length > 120;
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
@@ -116,18 +156,7 @@ function AplusImageCard({
       </div>
       <div className="px-4 py-3 space-y-1.5 border-t border-slate-100">
         <p className="text-sm font-semibold text-slate-800">{normalized.headline}</p>
-        <p className={cn("text-xs text-slate-500 leading-relaxed", !bodyExpanded && "line-clamp-2")}>
-          {normalized.body}
-        </p>
-        {bodyIsLong && (
-          <button
-            type="button"
-            onClick={() => setBodyExpanded((prev) => !prev)}
-            className="text-xs font-medium text-orange-600 hover:text-orange-700"
-          >
-            {bodyExpanded ? "Show less" : "Show full description"}
-          </button>
-        )}
+        <ModuleDescription body={normalized.body} />
       </div>
     </div>
   );
