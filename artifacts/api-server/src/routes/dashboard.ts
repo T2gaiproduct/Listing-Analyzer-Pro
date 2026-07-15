@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { getMemberCredits } from "../lib/credits";
+import { getMemberWorkedProjects } from "../lib/member-projects";
 
 const router: IRouter = Router();
 
@@ -239,6 +240,8 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
   const transactionUserIds = [ownerId];
   if (userId !== ownerId) transactionUserIds.push(userId);
 
+  const memberWorked = team?.isTeamMember ? await getMemberWorkedProjects(userId) : null;
+
   const [
     projectsSaved,
     projectsThisWeek,
@@ -278,45 +281,73 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
         eq(auditsTable.isDeleted, 0),
         gte(auditsTable.createdAt, weekStart),
       )),
-    db.select({
-      id: auditsTable.id,
-      name: auditsTable.projectName,
-      productName: auditsTable.productName,
-      asin: auditsTable.asin,
-      status: auditsTable.status,
-      overallScore: auditsTable.overallScore,
-      createdAt: auditsTable.createdAt,
-    }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`))
-      .orderBy(desc(auditsTable.createdAt))
-      .limit(5),
-    db.select({
-      id: graphicsProjectsTable.id,
-      name: graphicsProjectsTable.name,
-      status: graphicsProjectsTable.status,
-      createdAt: graphicsProjectsTable.createdAt,
-    }).from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, ownerId), eq(graphicsProjectsTable.isDeleted, 0), sql`${graphicsProjectsTable.status} != 'archived'`))
-      .orderBy(desc(graphicsProjectsTable.createdAt))
-      .limit(5),
-    db.select({
-      id: videosProjectsTable.id,
-      name: videosProjectsTable.name,
-      status: videosProjectsTable.status,
-      createdAt: videosProjectsTable.createdAt,
-    }).from(videosProjectsTable)
-      .where(and(eq(videosProjectsTable.userId, ownerId), eq(videosProjectsTable.isDeleted, 0), sql`${videosProjectsTable.status} != 'archived'`))
-      .orderBy(desc(videosProjectsTable.createdAt))
-      .limit(5),
-    db.select({
-      id: adsProjectsTable.id,
-      name: adsProjectsTable.name,
-      status: adsProjectsTable.status,
-      createdAt: adsProjectsTable.createdAt,
-    }).from(adsProjectsTable)
-      .where(and(eq(adsProjectsTable.userId, ownerId), eq(adsProjectsTable.isDeleted, 0), sql`${adsProjectsTable.status} != 'archived'`))
-      .orderBy(desc(adsProjectsTable.createdAt))
-      .limit(5),
+    team?.isTeamMember && (memberWorked?.auditIds.length ?? 0) === 0
+      ? Promise.resolve([])
+      : db.select({
+          id: auditsTable.id,
+          name: auditsTable.projectName,
+          productName: auditsTable.productName,
+          asin: auditsTable.asin,
+          status: auditsTable.status,
+          overallScore: auditsTable.overallScore,
+          createdAt: auditsTable.createdAt,
+        }).from(auditsTable)
+          .where(and(
+            eq(auditsTable.userId, ownerId),
+            eq(auditsTable.isDeleted, 0),
+            sql`${auditsTable.status} != 'archived'`,
+            ...(team?.isTeamMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
+          ))
+          .orderBy(desc(auditsTable.createdAt))
+          .limit(5),
+    team?.isTeamMember && (memberWorked?.graphicsIds.length ?? 0) === 0
+      ? Promise.resolve([])
+      : db.select({
+          id: graphicsProjectsTable.id,
+          name: graphicsProjectsTable.name,
+          status: graphicsProjectsTable.status,
+          createdAt: graphicsProjectsTable.createdAt,
+        }).from(graphicsProjectsTable)
+          .where(and(
+            eq(graphicsProjectsTable.userId, ownerId),
+            eq(graphicsProjectsTable.isDeleted, 0),
+            sql`${graphicsProjectsTable.status} != 'archived'`,
+            ...(team?.isTeamMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
+          ))
+          .orderBy(desc(graphicsProjectsTable.createdAt))
+          .limit(5),
+    team?.isTeamMember && (memberWorked?.videoIds.length ?? 0) === 0
+      ? Promise.resolve([])
+      : db.select({
+          id: videosProjectsTable.id,
+          name: videosProjectsTable.name,
+          status: videosProjectsTable.status,
+          createdAt: videosProjectsTable.createdAt,
+        }).from(videosProjectsTable)
+          .where(and(
+            eq(videosProjectsTable.userId, ownerId),
+            eq(videosProjectsTable.isDeleted, 0),
+            sql`${videosProjectsTable.status} != 'archived'`,
+            ...(team?.isTeamMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
+          ))
+          .orderBy(desc(videosProjectsTable.createdAt))
+          .limit(5),
+    team?.isTeamMember && (memberWorked?.adsIds.length ?? 0) === 0
+      ? Promise.resolve([])
+      : db.select({
+          id: adsProjectsTable.id,
+          name: adsProjectsTable.name,
+          status: adsProjectsTable.status,
+          createdAt: adsProjectsTable.createdAt,
+        }).from(adsProjectsTable)
+          .where(and(
+            eq(adsProjectsTable.userId, ownerId),
+            eq(adsProjectsTable.isDeleted, 0),
+            sql`${adsProjectsTable.status} != 'archived'`,
+            ...(team?.isTeamMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
+          ))
+          .orderBy(desc(adsProjectsTable.createdAt))
+          .limit(5),
   ]);
 
   const totalAudits = Number(totalAuditsRow[0]?.c ?? 0);
@@ -421,7 +452,17 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
       };
     }),
   ]
-    .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
+    .sort((a, b) => {
+      const sortTime = (type: string, id: number, createdAt: Date | null | undefined) => {
+        if (memberWorked) {
+          const dbType = type === "listing" ? "audit" : type;
+          const last = memberWorked.lastActivityAt.get(`${dbType}-${id}`);
+          if (last) return last.getTime();
+        }
+        return new Date(createdAt ?? 0).getTime();
+      };
+      return sortTime(b.type, b.id, b.createdAt) - sortTime(a.type, a.id, a.createdAt);
+    })
     .slice(0, 5);
 
   res.json({
