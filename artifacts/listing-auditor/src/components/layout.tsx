@@ -489,9 +489,18 @@ export function Layout({ children }: { children: ReactNode }) {
     },
   });
 
-  // Fetch unified recents for sidebar
-  const { data: recentsData } = useGetRecents({ limit: 200 });
+  const { isTeamMember, isLoading: teamLoading, memberCredits } = useTeam();
+
+  // Fetch unified recents for sidebar (refetch when team context is known — members use a different scope)
+  const { data: recentsData } = useGetRecents(
+    { limit: 200 },
+    { query: { staleTime: 0, refetchOnMount: "always", enabled: !teamLoading } },
+  );
   const recents = (recentsData?.items ?? []) as RecentItem[];
+
+  useEffect(() => {
+    if (!teamLoading) invalidateRecents();
+  }, [teamLoading, isTeamMember]);
 
   // Search projects
   const { data: searchData } = useQuery({
@@ -631,8 +640,6 @@ export function Layout({ children }: { children: ReactNode }) {
     staleTime: 5_000,
     refetchOnWindowFocus: true,
   });
-
-  const { isTeamMember, memberCredits } = useTeam();
 
   const ownerCredits = profileData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const displayCredits = isTeamMember && memberCredits ? memberCredits : ownerCredits;

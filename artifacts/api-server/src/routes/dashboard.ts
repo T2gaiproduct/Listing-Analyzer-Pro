@@ -312,6 +312,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
             eq(graphicsProjectsTable.userId, ownerId),
             eq(graphicsProjectsTable.isDeleted, 0),
             sql`${graphicsProjectsTable.status} != 'archived'`,
+            ...(team?.isTeamMember ? [] : [sql`${graphicsProjectsTable.auditId} IS NULL`]),
             ...(team?.isTeamMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
           ))
           .orderBy(desc(graphicsProjectsTable.createdAt))

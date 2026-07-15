@@ -115,7 +115,7 @@ async function loadScopedRecents(
               eq(graphicsProjectsTable.userId, ownerUserId),
               eq(graphicsProjectsTable.isDeleted, 0),
               sql`${graphicsProjectsTable.status} != 'archived'`,
-              sql`${graphicsProjectsTable.auditId} IS NULL`,
+              ...(isMember ? [] : [sql`${graphicsProjectsTable.auditId} IS NULL`]),
               ...(isMember ? [inArray(graphicsProjectsTable.id, graphicsIds)] : []),
             ),
           )
@@ -230,6 +230,7 @@ router.get("/recents", requireAuth, resolveTeam, async (req: Request, res: Respo
     return bTime - aTime;
   });
 
+  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({ items: items.slice(0, limit) });
 });
 
@@ -378,6 +379,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
     return bTime - aTime;
   });
 
+  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({ items: items.slice(0, limit) });
 });
 

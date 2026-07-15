@@ -21,6 +21,15 @@ const GRAPHICS_FEATURES = new Set(["graphics", "graphics_edit"]);
 const VIDEO_FEATURES = new Set(["videos", "video"]);
 const ADS_FEATURES = new Set(["ads"]);
 
+function readMetadataId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function touchActivity(
   map: Map<string, Date>,
   type: WorkedProjectType,
@@ -68,22 +77,24 @@ export async function getMemberWorkedProjects(
     const meta = (tx.metadata ?? {}) as Record<string, unknown>;
     const at = tx.createdAt ?? new Date();
 
-    if (typeof meta.auditId === "number") {
-      auditIds.add(meta.auditId);
-      touchActivity(lastActivityAt, "audit", meta.auditId, at);
+    const auditId = readMetadataId(meta.auditId);
+    if (auditId != null) {
+      auditIds.add(auditId);
+      touchActivity(lastActivityAt, "audit", auditId, at);
     }
 
-    if (typeof meta.projectId === "number") {
+    const projectId = readMetadataId(meta.projectId);
+    if (projectId != null) {
       const projectType = classifyProjectId(tx.featureType);
       if (projectType === "video") {
-        videoIds.add(meta.projectId);
-        touchActivity(lastActivityAt, "video", meta.projectId, at);
+        videoIds.add(projectId);
+        touchActivity(lastActivityAt, "video", projectId, at);
       } else if (projectType === "ads") {
-        adsIds.add(meta.projectId);
-        touchActivity(lastActivityAt, "ads", meta.projectId, at);
+        adsIds.add(projectId);
+        touchActivity(lastActivityAt, "ads", projectId, at);
       } else {
-        graphicsIds.add(meta.projectId);
-        touchActivity(lastActivityAt, "graphics", meta.projectId, at);
+        graphicsIds.add(projectId);
+        touchActivity(lastActivityAt, "graphics", projectId, at);
       }
     }
   }
