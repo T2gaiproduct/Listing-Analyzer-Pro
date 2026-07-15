@@ -623,7 +623,7 @@ export default function AuditWorkflow() {
   const hasSeenGeneratingRef = useRef(false);
 
   /* ── A+ Content step state ── */
-  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([...ALL_APLUS_MODULE_IDS]);
+  const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
   const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
