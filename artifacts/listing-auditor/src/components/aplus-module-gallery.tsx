@@ -71,6 +71,8 @@ function AplusImageCard({
   onDownload: () => void;
 }) {
   const normalized = normalizeModule(module);
+  const [bodyExpanded, setBodyExpanded] = useState(false);
+  const bodyIsLong = normalized.body.length > 120;
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
@@ -112,9 +114,20 @@ function AplusImageCard({
           <span className="text-xs text-slate-400 shrink-0">{normalized.versions.length}v</span>
         )}
       </div>
-      <div className="px-4 py-3 space-y-1 border-t border-slate-100">
+      <div className="px-4 py-3 space-y-1.5 border-t border-slate-100">
         <p className="text-sm font-semibold text-slate-800">{normalized.headline}</p>
-        <p className="text-xs text-slate-500 line-clamp-2">{normalized.body}</p>
+        <p className={cn("text-xs text-slate-500 leading-relaxed", !bodyExpanded && "line-clamp-2")}>
+          {normalized.body}
+        </p>
+        {bodyIsLong && (
+          <button
+            type="button"
+            onClick={() => setBodyExpanded((prev) => !prev)}
+            className="text-xs font-medium text-orange-600 hover:text-orange-700"
+          >
+            {bodyExpanded ? "Show less" : "Show full description"}
+          </button>
+        )}
       </div>
     </div>
   );
