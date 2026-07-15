@@ -384,6 +384,15 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
   res.json({ items: items.slice(0, limit) });
 });
 
+function routeParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? "") : String(value ?? "");
+}
+
+function toDbProjectType(type: string | string[] | undefined): string {
+  const raw = routeParam(type);
+  return raw === "listing" ? "audit" : raw;
+}
+
 async function ensureProjectMutationAccess(
   req: Request,
   res: Response,
@@ -479,9 +488,9 @@ router.post("/projects/pin", requireAuth, resolveTeam, async (req: Request, res:
 // PATCH /projects/:type/:id/rename — rename a project
 router.patch("/projects/:type/:id/rename", requireAuth, resolveTeam, requireWriteAccess, async (req: Request, res: Response) => {
   const userId = (req as AuthedRequest).userId;
-  const { type, id } = req.params;
-  const itemId = Number(id);
-  const dbType = type === "listing" ? "audit" : type;
+  const type = routeParam(req.params.type);
+  const itemId = Number(routeParam(req.params.id));
+  const dbType = toDbProjectType(type);
   const { name } = req.body as { name: string };
   if (!name?.trim()) {
     res.status(400).json({ error: "name required" });
@@ -533,9 +542,9 @@ router.patch("/projects/:type/:id/rename", requireAuth, resolveTeam, requireWrit
 // PATCH /projects/:type/:id/archive — archive a project
 router.patch("/projects/:type/:id/archive", requireAuth, resolveTeam, requireWriteAccess, async (req: Request, res: Response) => {
   const userId = (req as AuthedRequest).userId;
-  const { type, id } = req.params;
-  const itemId = Number(id);
-  const dbType = type === "listing" ? "audit" : type;
+  const type = routeParam(req.params.type);
+  const itemId = Number(routeParam(req.params.id));
+  const dbType = toDbProjectType(type);
 
   const ownerUserId = await ensureProjectMutationAccess(req, res, dbType, itemId);
   if (!ownerUserId) return;
@@ -591,9 +600,9 @@ router.patch("/projects/:type/:id/archive", requireAuth, resolveTeam, requireWri
 // DELETE /projects/:type/:id — soft delete a project
 router.delete("/projects/:type/:id", requireAuth, resolveTeam, requireWriteAccess, async (req: Request, res: Response) => {
   const userId = (req as AuthedRequest).userId;
-  const { type, id } = req.params;
-  const itemId = Number(id);
-  const dbType = type === "listing" ? "audit" : type;
+  const type = routeParam(req.params.type);
+  const itemId = Number(routeParam(req.params.id));
+  const dbType = toDbProjectType(type);
   const now = new Date();
 
   const ownerUserId = await ensureProjectMutationAccess(req, res, dbType, itemId);

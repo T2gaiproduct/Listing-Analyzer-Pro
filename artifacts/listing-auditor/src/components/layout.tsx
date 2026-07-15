@@ -496,7 +496,14 @@ export function Layout({ children }: { children: ReactNode }) {
   // Fetch unified recents for sidebar (refetch when team context is known — members use a different scope)
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
-    { query: { staleTime: 0, refetchOnMount: "always", enabled: recentsReady } },
+    {
+      query: {
+        queryKey: getGetRecentsQueryKey({ limit: 200 }),
+        staleTime: 0,
+        refetchOnMount: "always",
+        enabled: recentsReady,
+      },
+    },
   );
   const recents = (recentsData?.items ?? []) as RecentItem[];
 
