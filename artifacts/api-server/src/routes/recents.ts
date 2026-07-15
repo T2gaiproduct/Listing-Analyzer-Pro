@@ -69,10 +69,11 @@ function activitySortTime(
 async function loadScopedRecents(
   ownerUserId: string,
   memberUserId: string,
-  isMember: boolean,
+  team: TeamAuthedRequest["team"],
   limit: number,
 ) {
-  const worked = isMember ? await getMemberWorkedProjects(memberUserId) : null;
+  const isMember = team.isTeamMember;
+  const worked = isMember ? await getMemberWorkedProjects(memberUserId, team) : null;
 
   const auditIds = worked?.auditIds ?? [];
   const graphicsIds = worked?.graphicsIds ?? [];
@@ -174,7 +175,7 @@ router.get("/recents", requireAuth, resolveTeam, async (req: Request, res: Respo
   const { audits, graphics, videos, ads, worked } = await loadScopedRecents(
     ownerUserId,
     userId,
-    team.isTeamMember,
+    team,
     limit,
   );
 
@@ -247,7 +248,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
     return;
   }
 
-  const worked = team.isTeamMember ? await getMemberWorkedProjects(userId) : null;
+  const worked = team.isTeamMember ? await getMemberWorkedProjects(userId, team) : null;
   const auditIds = worked?.auditIds ?? [];
   const graphicsIds = worked?.graphicsIds ?? [];
   const videoIds = worked?.videoIds ?? [];

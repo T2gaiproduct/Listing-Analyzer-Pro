@@ -380,7 +380,7 @@ function parseProjectContext(location: string): { type: string; id: number } | n
 // --- Main Layout ------------------------------------------------------------
 export function Layout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
-  const { user } = useUser();
+  const { user, isLoaded: clerkLoaded } = useUser();
   const { toast } = useToast();
   useCreditPurchaseReturn();
   const isAdmin = user ? adminUserIds.includes(user.id) : false;
@@ -491,16 +491,18 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const { isTeamMember, isLoading: teamLoading, memberCredits } = useTeam();
 
+  const recentsReady = clerkLoaded && !!user && !teamLoading;
+
   // Fetch unified recents for sidebar (refetch when team context is known — members use a different scope)
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
-    { query: { staleTime: 0, refetchOnMount: "always", enabled: !teamLoading } },
+    { query: { staleTime: 0, refetchOnMount: "always", enabled: recentsReady } },
   );
   const recents = (recentsData?.items ?? []) as RecentItem[];
 
   useEffect(() => {
-    if (!teamLoading) invalidateRecents();
-  }, [teamLoading, isTeamMember]);
+    if (recentsReady) invalidateRecents();
+  }, [recentsReady, isTeamMember, user?.id]);
 
   // Search projects
   const { data: searchData } = useQuery({

@@ -240,7 +240,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
   const transactionUserIds = [ownerId];
   if (userId !== ownerId) transactionUserIds.push(userId);
 
-  const memberWorked = team?.isTeamMember ? await getMemberWorkedProjects(userId) : null;
+  const memberWorked = team?.isTeamMember ? await getMemberWorkedProjects(userId, team) : null;
 
   const [
     projectsSaved,

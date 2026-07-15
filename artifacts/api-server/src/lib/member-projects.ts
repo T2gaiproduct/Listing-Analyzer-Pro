@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import {
   db,
   creditTransactionsTable,
@@ -49,9 +49,27 @@ function classifyProjectId(
   return "graphics";
 }
 
+function memberTransactionFilter(memberUserId: string, team?: TeamContext) {
+  const spend = sql`${creditTransactionsTable.amount} < 0`;
+  if (team?.isTeamMember && team.memberId != null && team.ownerUserId) {
+    return and(
+      spend,
+      or(
+        eq(creditTransactionsTable.userId, memberUserId),
+        and(
+          eq(creditTransactionsTable.userId, team.ownerUserId),
+          sql`(${creditTransactionsTable.metadata}->>'memberId')::int = ${team.memberId}`,
+        ),
+      ),
+    );
+  }
+  return and(eq(creditTransactionsTable.userId, memberUserId), spend);
+}
+
 /** Collect project IDs a team member has worked on via credit spend metadata. */
 export async function getMemberWorkedProjects(
   memberUserId: string,
+  team?: TeamContext,
 ): Promise<MemberWorkedProjects> {
   const txs = await db
     .select({
@@ -60,12 +78,7 @@ export async function getMemberWorkedProjects(
       createdAt: creditTransactionsTable.createdAt,
     })
     .from(creditTransactionsTable)
-    .where(
-      and(
-        eq(creditTransactionsTable.userId, memberUserId),
-        sql`${creditTransactionsTable.amount} < 0`,
-      ),
-    );
+    .where(memberTransactionFilter(memberUserId, team));
 
   const auditIds = new Set<number>();
   const graphicsIds = new Set<number>();
@@ -153,7 +166,7 @@ export async function assertMemberProjectAccess(
   projectId: number,
 ): Promise<MemberWorkedProjects | null> {
   if (!team.isTeamMember) return null;
-  const worked = await getMemberWorkedProjects(memberUserId);
+  const worked = await getMemberWorkedProjects(memberUserId, team);
   if (!memberHasProjectAccess(worked, type, projectId)) {
     throw new ProjectAccessError();
   }

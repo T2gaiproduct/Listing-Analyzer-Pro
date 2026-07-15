@@ -141,7 +141,7 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 }
 
 export default function Dashboard() {
-  const { user } = useUser();
+  const { user, isLoaded: clerkLoaded } = useUser();
   const { focusRecentProjects } = useSidebarProjects();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
@@ -151,6 +151,7 @@ export default function Dashboard() {
       if (!r.ok) throw new Error(`Failed to load dashboard (${r.status})`);
       return r.json();
     },
+    enabled: clerkLoaded && !!user,
     staleTime: 30_000,
     retry: 2,
   });
