@@ -194,10 +194,10 @@ export function DashboardTopbar({
                 className="w-full px-3 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors"
                 onClick={() => {
                   setCreditsOpen(false);
-                  navigate("/billing?tab=credits");
+                  navigate(isTeamMember && !isOwner ? "/billing" : "/billing?tab=credits");
                 }}
               >
-                Buy more credits →
+                {isTeamMember && !isOwner ? "View usage →" : "Buy more credits →"}
               </button>
             </div>
           </div>

@@ -509,7 +509,7 @@ function billingTabPath(tab: BillingTab): string {
 export default function Billing() {
   const [location, setLocation] = useLocation();
   const search = useSearch();
-  const { isTeamMember, isOwner } = useTeam();
+  const { isTeamMember, isOwner, isLoading: teamLoading } = useTeam();
   const [tab, setTab] = useState<BillingTab>(() => parseBillingTab(window.location.search));
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -625,9 +625,20 @@ export default function Billing() {
 
   const { data: creditUsage } = useQuery<CreditUsage>({
     queryKey: ["credit-usage"],
-    queryFn: () => fetch(`${basePath}/api/credit-usage`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`${basePath}/api/credit-usage`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load credit usage");
+      const data = await res.json() as CreditUsage;
+      return {
+        transactions: data.transactions ?? [],
+        breakdown: data.breakdown ?? {},
+      };
+    },
     enabled: tab === "credits" || tab === "overview",
   });
+
+  const creditTransactions = creditUsage?.transactions ?? [];
+  const creditBreakdown = creditUsage?.breakdown ?? {};
 
   const [buyingPackId, setBuyingPackId] = useState<number | null>(null);
   const [changingPlan, setChangingPlan] = useState(false);
@@ -639,7 +650,7 @@ export default function Billing() {
     void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
   }
 
-  if (subLoading) {
+  if (subLoading || teamLoading) {
     return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
   }
 
@@ -977,9 +988,9 @@ export default function Billing() {
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="font-semibold text-slate-900">Credit Transaction History</h2>
-                <span className="text-xs text-slate-400">{creditUsage.transactions.length} entries</span>
+                <span className="text-xs text-slate-400">{creditTransactions.length} entries</span>
               </div>
-              {creditUsage.transactions.length === 0 ? (
+              {creditTransactions.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">No transactions yet</div>
               ) : (
                 <table className="w-full text-sm">
@@ -993,7 +1004,7 @@ export default function Billing() {
                     </tr>
                   </thead>
                   <tbody>
-                    {creditUsage.transactions.map((tx) => {
+                    {creditTransactions.map((tx) => {
                       const isSpend = tx.amount < 0;
                       const amountAbs = Math.abs(tx.amount);
                       const typeLabel = isSpend ? "Spent" : "Earned";
@@ -1030,7 +1041,7 @@ export default function Billing() {
               <div className="px-6 py-4 border-b border-slate-100">
                 <h2 className="font-semibold text-slate-900">Credit Usage Breakdown</h2>
               </div>
-              {Object.keys(creditUsage.breakdown).length === 0 ? (
+              {Object.keys(creditBreakdown).length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">No usage yet</div>
               ) : (
                 <table className="w-full text-sm">
@@ -1043,7 +1054,7 @@ export default function Billing() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(creditUsage.breakdown).map(([feature, data]) => (
+                    {Object.entries(creditBreakdown).map(([feature, data]) => (
                       <tr key={feature} className="border-b border-slate-50">
                         <td className="px-6 py-3 font-medium text-slate-800 capitalize">{feature.replace(/_/g, " ")}</td>
                         <td className="px-4 py-3 text-right text-red-500 font-semibold">{data.spent}</td>
