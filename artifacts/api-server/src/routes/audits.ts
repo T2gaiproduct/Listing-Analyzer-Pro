@@ -492,18 +492,10 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
   const existingContent = existingAplus?.content;
   const needsCopy = !existingContent;
 
-  const ebcCost = await getCreditCost("ebc");
   const imageCost = await getCreditCost("graphics");
   const imageCreditsNeeded = imageCost.creditsRequired * moduleIds.length;
   const creditCtx = getCreditCtx(req);
 
-  if (needsCopy) {
-    const hasEbc = await hasCreditsTeamAware(creditCtx, ebcCost.creditType, ebcCost.creditsRequired);
-    if (!hasEbc) {
-      res.status(402).json({ error: `Insufficient ${ebcCost.creditType} credits (${ebcCost.creditsRequired} needed for A+ copy).` });
-      return;
-    }
-  }
   const hasImages = await hasCreditsTeamAware(creditCtx, imageCost.creditType, imageCreditsNeeded);
   if (!hasImages) {
     res.status(402).json({ error: `Insufficient ${imageCost.creditType} credits (${imageCreditsNeeded} needed for ${moduleIds.length} A+ module image${moduleIds.length > 1 ? "s" : ""}).` });
@@ -532,7 +524,6 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
     try {
       let content = existingContent;
       if (needsCopy) {
-        await deductCreditsTeamAware(creditCtx, ebcCost.creditType, ebcCost.creditsRequired, ebcCost.activityName, "ebc", { auditId: id });
         content = await generateEbcContent({
           prompt,
           productName: audit.productName,
