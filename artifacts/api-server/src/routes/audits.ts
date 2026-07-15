@@ -17,7 +17,6 @@ import {
   buildDefaultAplusPrompt,
   generateAplusModuleImages,
   parseAplusModuleIds,
-  aplusImageCreditsForCount,
   mergeAplusModules,
   type AplusGenerationResult,
   type AplusStoredState,
@@ -439,8 +438,8 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
   const needsCopy = !existingContent;
 
   const ebcCost = await getCreditCost("ebc");
-  const imageCost = await getCreditCost("images");
-  const imageCreditsNeeded = aplusImageCreditsForCount(imageCost.creditsRequired, moduleIds.length);
+  const imageCost = await getCreditCost("graphics");
+  const imageCreditsNeeded = imageCost.creditsRequired * moduleIds.length;
   const creditCtx = getCreditCtx(req);
 
   if (needsCopy) {
@@ -506,8 +505,8 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
         creditCtx,
         imageCost.creditType,
         imageCreditsNeeded,
-        imageCost.activityName,
-        "images",
+        `A+ modules (${moduleIds.length})`,
+        "graphics",
         { auditId: id, feature: "aplus", moduleIds },
       );
 

@@ -31,7 +31,6 @@ export interface AplusStoredState {
 }
 
 export const ALL_APLUS_MODULE_IDS: AplusModule["id"][] = ["hero", "features", "comparison", "brand_story"];
-export const APLUS_MODULE_BATCH_SIZE = ALL_APLUS_MODULE_IDS.length;
 
 export function parseAplusModuleIds(moduleIds: unknown): AplusModule["id"][] {
   if (!Array.isArray(moduleIds) || moduleIds.length === 0) {
@@ -45,10 +44,6 @@ export function parseAplusModuleIds(moduleIds: unknown): AplusModule["id"][] {
     throw new Error("Select at least one A+ module");
   }
   return parsed;
-}
-
-export function aplusImageCreditsForCount(batchCredits: number, selectedCount: number): number {
-  return Math.max(1, Math.ceil((batchCredits * selectedCount) / APLUS_MODULE_BATCH_SIZE));
 }
 
 export function mergeAplusModules(existing: AplusModule[], incoming: AplusModule[]): AplusModule[] {
