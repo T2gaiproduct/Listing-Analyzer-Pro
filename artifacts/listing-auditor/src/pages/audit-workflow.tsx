@@ -623,7 +623,6 @@ export default function AuditWorkflow() {
   const hasSeenGeneratingRef = useRef(false);
 
   /* ── A+ Content step state ── */
-  const [aplusPrompt, setAplusPrompt] = useState("");
   const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([...ALL_APLUS_MODULE_IDS]);
   const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
@@ -631,12 +630,12 @@ export default function AuditWorkflow() {
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
   const aplusCompletionToastShownRef = useRef(false);
   const generateAplus = useMutation({
-    mutationFn: async ({ auditId, prompt, moduleIds }: { auditId: number; prompt?: string; moduleIds: AplusModuleId[] }) => {
+    mutationFn: async ({ auditId, moduleIds }: { auditId: number; moduleIds: AplusModuleId[] }) => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ prompt: prompt?.trim() || undefined, moduleIds }),
+        body: JSON.stringify({ moduleIds }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1095,10 +1094,9 @@ export default function AuditWorkflow() {
     patchAudit.mutate({ id: currentAuditId, data: { currentStep: 4 } });
     generateAplus.mutate({
       auditId: currentAuditId,
-      prompt: aplusPrompt.trim() || undefined,
       moduleIds: selectedAplusModules,
     });
-  }, [currentAuditId, productName, aplusPrompt, selectedAplusModules, generateAplus, patchAudit, toast]);
+  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1877,19 +1875,6 @@ export default function AuditWorkflow() {
                   </span>
                 </div>
               )}
-
-              <div className="rounded-2xl border border-orange-200 bg-orange-50/30 p-5 space-y-3">
-                <label className="text-sm font-medium text-orange-900">Custom prompt (optional)</label>
-                <textarea
-                  value={aplusPrompt}
-                  onChange={(e) => { setAplusPrompt(e.target.value); setIsDirty(true); }}
-                  placeholder='e.g. "Target eco-conscious parents. Emphasize safety, easy cleaning, and premium materials."'
-                  rows={3}
-                  className="w-full resize-none text-sm border border-slate-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white"
-                  disabled={isCreating || generateAplus.isPending || aplusStatus === "generating"}
-                />
-                <p className="text-xs text-slate-500">Leave blank to auto-generate from your product details and listing content.</p>
-              </div>
 
               <Button
                 size="lg"
