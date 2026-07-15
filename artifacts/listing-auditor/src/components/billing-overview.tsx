@@ -34,7 +34,7 @@ interface Plan {
   aiCredits: number;
   imageCredits: number;
   auditCredits: number;
-  features: string[];
+  features?: string[];
 }
 
 interface CreditRule {

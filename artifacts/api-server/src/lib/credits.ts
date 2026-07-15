@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db, creditsTable, creditTransactionsTable, creditRulesTable, notificationsTable, memberCreditsTable, teamMembersTable } from "@workspace/db";
 
-type CreditType = "ai" | "image" | "audit";
+export type CreditType = "ai" | "image" | "audit";
 
 export interface CreditCheckResult {
   hasCredits: boolean;
