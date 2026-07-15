@@ -2,13 +2,15 @@ import crypto from "crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
+  teamMembersTable,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
+import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { getGatewaySettings } from "./payment";
 
 const router: IRouter = Router();
@@ -735,24 +737,66 @@ router.post("/buy-credits/confirm", requireAuth, async (req, res): Promise<void>
 
 // ─── Credit Usage Breakdown ───────────────────────────────────────────────────
 
+async function workspaceUserIds(userId: string): Promise<string[]> {
+  const [membership] = await db
+    .select({ ownerUserId: teamMembersTable.ownerUserId })
+    .from(teamMembersTable)
+    .where(and(eq(teamMembersTable.memberUserId, userId), eq(teamMembersTable.status, "active")));
+
+  if (membership) {
+    return [userId];
+  }
+
+  const members = await db
+    .select({ memberUserId: teamMembersTable.memberUserId })
+    .from(teamMembersTable)
+    .where(and(eq(teamMembersTable.ownerUserId, userId), eq(teamMembersTable.status, "active")));
+
+  const ids = new Set<string>([userId]);
+  for (const m of members) {
+    if (m.memberUserId) ids.add(m.memberUserId);
+  }
+  return [...ids];
+}
+
 router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const userIds = await workspaceUserIds(userId);
+
   const transactions = await db
     .select()
     .from(creditTransactionsTable)
-    .where(eq(creditTransactionsTable.userId, userId))
-    .orderBy(desc(creditTransactionsTable.createdAt));
+    .where(inArray(creditTransactionsTable.userId, userIds))
+    .orderBy(desc(creditTransactionsTable.createdAt))
+    .limit(500);
 
   const breakdown: Record<string, { spent: number; earned: number; count: number }> = {};
+  let totalSpent = 0;
+  let totalEarned = 0;
+  const refunded = refundedDebitIds(transactions as CreditUsageTx[]);
+
   for (const tx of transactions) {
     const ft = tx.featureType ?? "other";
     if (!breakdown[ft]) breakdown[ft] = { spent: 0, earned: 0, count: 0 };
     breakdown[ft].count++;
-    if (tx.amount < 0) breakdown[ft].spent += Math.abs(tx.amount);
-    else breakdown[ft].earned += tx.amount;
+    if (tx.amount < 0) {
+      if (isRefundedDebit(tx as CreditUsageTx, refunded)) continue;
+      const spent = Math.abs(tx.amount);
+      breakdown[ft].spent += spent;
+      if (ft !== "subscription") totalSpent += spent;
+    } else {
+      breakdown[ft].earned += tx.amount;
+      totalEarned += tx.amount;
+    }
   }
 
-  res.json({ transactions: transactions.slice(0, 100), breakdown });
+  res.json({
+    transactions,
+    breakdown,
+    totalSpent,
+    totalEarned,
+    workspaceUserIds: userIds,
+  });
 });
 
 // ─── Customer Notifications ────────────────────────────────────────────────

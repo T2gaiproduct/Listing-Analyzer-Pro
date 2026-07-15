@@ -183,6 +183,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   });
 
   const totalImages = (project?.lifestyleCount ?? 0) + (project?.featureCount ?? 0);
+  const creditsRefreshedRef = useRef(false);
 
   useEffect(() => {
     if (!project) return;
@@ -190,12 +191,17 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       setIsGenerating(false);
       setProgress(100);
       setEtaSeconds(0);
+      if (!creditsRefreshedRef.current) {
+        creditsRefreshedRef.current = true;
+        refreshCreditBalances(queryClient);
+      }
       return;
     }
     if (project.status === "failed") {
       setIsGenerating(false);
       return;
     }
+    creditsRefreshedRef.current = false;
     if (project.status === "generating" && startTimeRef.current === 0) {
       startTimeRef.current = Date.now();
     }
@@ -204,7 +210,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     const remaining = totalImages - project.generatedCount;
     const eta = Math.ceil((remaining / MAX_CONCURRENT) * IMAGE_GENERATION_SEC);
     setEtaSeconds(eta);
-  }, [project, totalImages]);
+  }, [project, totalImages, queryClient]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -233,6 +239,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     onSuccess: (project) => {
       setProjectId(project.id);
       setIsGenerating(true);
+      creditsRefreshedRef.current = false;
       void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -241,7 +248,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           imageTypes: selectedImageTypes,
           customPrompt: customPrompt.trim() || undefined,
         }),
-      }).then(() => refreshCreditBalances(queryClient));
+      });
       startTimeRef.current = Date.now();
     },
     onError: (err) => {
@@ -314,7 +321,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       return res.json();
     },
     onSuccess: () => {
-      refreshCreditBalances(queryClient);
+      creditsRefreshedRef.current = false;
       toast({ title: "Additional generation started" });
       setIsGenerating(true);
       startTimeRef.current = Date.now();

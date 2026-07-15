@@ -462,6 +462,70 @@ async function downloadImage(url: string, destPath: string): Promise<string | nu
   }
 }
 
+async function resolveProjectSourcePath(
+  projectId: number,
+  sourceImagePaths?: string[] | null,
+): Promise<string | null> {
+  const dir = path.join(IMAGES_DIR, String(projectId));
+  const rawPath = sourceImagePaths?.[0] ?? null;
+  if (!rawPath) return null;
+
+  if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+    const destPath = path.join(dir, "source_remote.jpg");
+    return downloadImage(rawPath, destPath);
+  }
+
+  if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
+    return rawPath;
+  }
+
+  return null;
+}
+
+async function resolveRegenerateReferencePath(
+  projectId: number,
+  sourceImageUrls: string[] | null | undefined,
+  existingRecord: GraphicsImageRecord,
+): Promise<string | null> {
+  const fromProject = await resolveProjectSourcePath(projectId, sourceImageUrls);
+  if (fromProject) return fromProject;
+
+  const url = existingRecord.currentUrl;
+  const prefix = `/api/images/graphics/${projectId}/`;
+  if (url.startsWith(prefix)) {
+    const filename = url.slice(prefix.length);
+    const localPath = path.join(IMAGES_DIR, String(projectId), filename);
+    if (fs.existsSync(localPath) && fs.statSync(localPath).size >= MIN_FILE_SIZE) {
+      return localPath;
+    }
+  }
+
+  return null;
+}
+
+function buildRegeneratePrompt(
+  existingRecord: GraphicsImageRecord,
+  productName: string,
+  category: string | null,
+  regenStyle: string,
+): string {
+  const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
+  const styleSuffix = DESIGN_STYLE_PROMPTS[regenStyle] ?? DESIGN_STYLE_PROMPTS.modern;
+
+  const savedPrompt = [...existingRecord.versions]
+    .reverse()
+    .find((v) => v.prompt?.trim())?.prompt?.trim();
+  if (savedPrompt) {
+    return `${savedPrompt} ${styleSuffix}`.trim();
+  }
+
+  const base = existingRecord.type === "feature"
+    ? IMAGE_TYPE_PROMPTS.callouts(productDesc)
+    : IMAGE_TYPE_PROMPTS.lifestyle(productDesc);
+
+  return `${base} Professional commercial product photography. High-resolution. ${styleSuffix}`;
+}
+
 // ─── Create project ───────────────────────────────────────────────────────────
 router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
@@ -786,14 +850,18 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
 
   try {
     const dir = path.join(IMAGES_DIR, String(id));
-    const styleSuffix = DESIGN_STYLE_PROMPTS[regenStyle] ?? DESIGN_STYLE_PROMPTS.modern;
-    const productDesc = `${project.productName}${project.category ? `, a ${project.category} product` : ""}`;
-    const prompt = existingRecord.type === "lifestyle"
-      ? `Lifestyle product scene for ${productDesc}. Product placed prominently in a beautifully styled modern environment. No people. Product is the focal point. Professional commercial photography. ${styleSuffix}`
-      : `Feature highlight graphic for ${productDesc}. Product prominently displayed with clean callout arrows pointing to key features. Clean modern e-commerce design on white background. ${styleSuffix}`;
-
+    const prompt = buildRegeneratePrompt(existingRecord, project.productName, project.category, regenStyle);
     const size = ASPECT_SIZES[regenAspectRatio as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
-    const buffer = await generateImageBuffer(prompt, size);
+    const sourcePath = await resolveRegenerateReferencePath(id, project.sourceImageUrls, existingRecord);
+    const sourceFileIsValid = sourcePath !== null;
+
+    let buffer: Buffer;
+    if (sourceFileIsValid) {
+      const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
+      buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);
+    } else {
+      buffer = await generateImageBuffer(prompt, size);
+    }
     if (!buffer || buffer.length === 0) throw new Error("No image data returned");
 
     const filename = versionedFilename(existingRecord.type, existingRecord.index);

@@ -7,15 +7,18 @@ import {
 import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const profileMenuItems = [
-  { icon: UserCircle, label: "Edit Profile", href: "/profile" },
-  { icon: Receipt, label: "Billing", href: "/billing" },
-  { icon: Users, label: "Team", href: "/team" },
-  { icon: Settings, label: "Settings", href: "/settings" },
-];
+function profileMenuItems(isTeamMember: boolean, isOwner: boolean) {
+  return [
+    { icon: UserCircle, label: "Edit Profile", href: "/profile" },
+    { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
+    { icon: Users, label: "Team", href: "/team" },
+    { icon: Settings, label: "Settings", href: "/settings" },
+  ];
+}
 
 const helpSubmenuItems = [
   { icon: LifeBuoy, label: "Help center", href: "/help" },
@@ -50,6 +53,8 @@ export function DashboardTopbar({
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
+  const { isTeamMember, isOwner } = useTeam();
+  const menuItems = profileMenuItems(isTeamMember, isOwner);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const creditsRef = useRef<HTMLDivElement>(null);
@@ -189,10 +194,10 @@ export function DashboardTopbar({
                 className="w-full px-3 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors"
                 onClick={() => {
                   setCreditsOpen(false);
-                  navigate("/billing?tab=credits");
+                  navigate(isTeamMember && !isOwner ? "/billing" : "/billing?tab=credits");
                 }}
               >
-                Buy more credits →
+                {isTeamMember && !isOwner ? "View usage →" : "Buy more credits →"}
               </button>
             </div>
           </div>
@@ -239,7 +244,7 @@ export function DashboardTopbar({
               </button>
             </div>
             <div className="py-1.5">
-              {profileMenuItems.map(({ icon: Icon, label, href }) => (
+              {menuItems.map(({ icon: Icon, label, href }) => (
                 <Link key={label} href={href}>
                   <button
                     type="button"

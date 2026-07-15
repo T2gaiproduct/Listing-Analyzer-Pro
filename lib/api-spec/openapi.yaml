@@ -118,6 +118,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /audits/draft:
+    post:
+      operationId: createAuditDraft
+      tags: [audits]
+      summary: Create a Build Your Brand draft project without charging credits or running audit analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAuditBody"
+      responses:
+        "201":
+          description: Draft brand project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Audit"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /audits/stats:
     get:
       operationId: getAuditStats
@@ -868,7 +893,7 @@ components:
           type: integer
         status:
           type: string
-          enum: [pending, complete, failed]
+          enum: [pending, complete, failed, draft]
         createdAt:
           type: string
           format: date-time
@@ -916,7 +941,7 @@ components:
           type: integer
         status:
           type: string
-          enum: [pending, complete, failed]
+          enum: [pending, complete, failed, draft]
         result:
           $ref: "#/components/schemas/AuditResult"
         competitors:

@@ -43,9 +43,9 @@ interface TeamMember {
 interface MemberStat {
   memberId: number;
   auditCount: number;
-  avgScore: number;
-  lastAudit: { createdAt: string; productName: string } | null;
-  creditBalance: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
+  creditsUsed: number;
+  lastActivityAt: string | null;
+  remainingCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
   allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
 }
 
@@ -53,6 +53,9 @@ interface TeamData {
   maxSeats: number;
   planName: string | null;
   planStatus: string | null;
+  ownerCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+  totalAllocated?: { aiCredits: number; imageCredits: number; auditCredits: number };
+  availableToAllocate?: { aiCredits: number; imageCredits: number; auditCredits: number };
   members: TeamMember[];
   memberStats: MemberStat[];
 }
@@ -64,8 +67,8 @@ const roleColors: Record<string, string> = {
 };
 
 const roleDescriptions: Record<string, string> = {
-  admin: "Full access — can manage team, billing, and all audits",
-  editor: "Can create and edit audits, cannot manage billing or team",
+  admin: "Full workspace access — can create and edit audits",
+  editor: "Can create and edit audits in the shared workspace",
   viewer: "Read-only access to audits and reports",
 };
 
@@ -75,7 +78,7 @@ function copyToClipboard(text: string, label: string, toast: (t: object) => void
 
 export default function Team() {
   const { user } = useUser();
-  const { canManage, isTeamMember, role } = useTeam();
+  const { canManage, isTeamMember, isOwner, role, membership, memberCredits } = useTeam();
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -85,7 +88,11 @@ export default function Team() {
 
   const { data, isLoading } = useQuery<TeamData>({
     queryKey: ["team"],
-    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => {
+      if (!r.ok) throw new Error("Failed to load team");
+      return r.json();
+    }),
+    enabled: isOwner,
   });
 
   const inviteMutation = useMutation({
@@ -120,9 +127,13 @@ export default function Team() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
-      }).then((r) => r.json()),
+      }).then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Failed to update credits");
+        return data;
+      }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["team"] }); toast({ title: "Credits updated" }); },
-    onError: () => toast({ title: "Failed to update credits", variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Failed to update credits", description: e.message, variant: "destructive" }),
   });
 
   const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});
@@ -143,6 +154,38 @@ export default function Team() {
 
   function getStat(memberId: number) {
     return memberStats.find((s) => s.memberId === memberId);
+  }
+
+  if (isTeamMember && !isOwner) {
+    const allocated = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Team</h1>
+          <p className="text-slate-500 mt-1 text-sm">
+            You are a <span className="font-medium capitalize">{role}</span> on{" "}
+            <span className="font-medium text-slate-700">{membership?.workspaceName ?? "this workspace"}</span>.
+          </p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+          <p className="text-sm text-slate-600">
+            Team management is handled by the workspace owner. You can work on shared audits from the dashboard.
+          </p>
+          <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your allocated credits</p>
+            <p className="text-lg font-bold text-slate-900 mt-1">
+              {allocated.aiCredits + allocated.imageCredits + allocated.auditCredits} credits
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {allocated.auditCredits} audit · {allocated.aiCredits} text · {allocated.imageCredits} images
+            </p>
+          </div>
+          <Button className="bg-orange-500 hover:bg-orange-600" onClick={() => setLocation("/dashboard")}>
+            Go to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -189,6 +232,14 @@ export default function Team() {
             Seat limit reached.{" "}
             <button className="underline font-semibold" onClick={() => setLocation("/billing")}>Upgrade your plan</button>
             {" "}to add more members.
+          </p>
+        )}
+        {data?.availableToAllocate && (
+          <p className="text-xs text-slate-500 mt-3">
+            Unassigned workspace credits:{" "}
+            <span className="font-medium text-slate-700">
+              {data.availableToAllocate.auditCredits} audit · {data.availableToAllocate.aiCredits} text · {data.availableToAllocate.imageCredits} images
+            </span>
           </p>
         )}
       </div>
@@ -359,13 +410,11 @@ export default function Team() {
                     <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName}</p>
                     <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
                     {stat && !isEditing && (
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-xs text-slate-400 flex items-center gap-1"><BarChart3 className="w-3 h-3 text-orange-400" />{stat.auditCount} audits</span>
-                        {stat.lastAudit && (
-                          <span className="text-xs text-slate-400">last {formatDistanceToNow(new Date(stat.lastAudit.createdAt), { addSuffix: true })}</span>
-                        )}
-                        {stat.allocatedCredits && (
-                          <span className="text-xs text-slate-400 flex items-center gap-1"><Zap className="w-3 h-3 text-blue-400" />{stat.allocatedCredits.aiCredits} AI / {stat.allocatedCredits.imageCredits} Img / {stat.allocatedCredits.auditCredits} Audit</span>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        <span className="text-xs text-slate-400 flex items-center gap-1"><BarChart3 className="w-3 h-3 text-orange-400" />{stat.auditCount} audit actions</span>
+                        <span className="text-xs text-slate-400">{stat.creditsUsed} credits used</span>
+                        {stat.remainingCredits && (
+                          <span className="text-xs text-slate-400 flex items-center gap-1"><Zap className="w-3 h-3 text-blue-400" />{stat.remainingCredits.aiCredits} AI / {stat.remainingCredits.imageCredits} Img / {stat.remainingCredits.auditCredits} Audit left</span>
                         )}
                       </div>
                     )}
@@ -404,6 +453,11 @@ export default function Team() {
                       <Zap className="w-4 h-4 text-blue-500" />
                       <span className="text-sm font-medium text-slate-700">Allocate Credits</span>
                     </div>
+                    {data?.availableToAllocate && (
+                      <p className="text-xs text-slate-500 mb-3">
+                        Available to assign: up to {data.availableToAllocate.auditCredits} audit, {data.availableToAllocate.aiCredits} text, {data.availableToAllocate.imageCredits} image credits (including this member&apos;s current allocation).
+                      </p>
+                    )}
                     <div className="grid grid-cols-3 gap-3 mb-3">
                       <div>
                         <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
@@ -534,22 +588,26 @@ export default function Team() {
           <CardContent className="p-0">
             <div className="px-5 py-4 border-b border-slate-100">
               <h3 className="font-semibold text-sm text-slate-900">Member Activity</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Each member uses their own credits and audit workspace</p>
+              <p className="text-xs text-slate-400 mt-0.5">Usage tracked from credit transactions in the current billing period</p>
             </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-left px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Member</th>
                   <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase">Role</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Audits</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Avg Score</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">AI Credits</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Credits Used</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Audit Actions</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase">Budget Left</th>
                   <th className="text-right px-5 py-2.5 text-xs font-medium text-slate-500 uppercase">Last Active</th>
                 </tr>
               </thead>
               <tbody>
                 {activeMembers.map((m) => {
                   const stat = getStat(m.id);
+                  const remaining = stat?.remainingCredits;
+                  const budgetLeft = remaining
+                    ? remaining.aiCredits + remaining.imageCredits + remaining.auditCredits
+                    : 0;
                   return (
                     <tr key={m.id} className="border-b border-slate-50">
                       <td className="px-5 py-3">
@@ -561,15 +619,11 @@ export default function Team() {
                       <td className="px-3 py-3">
                         <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit text-xs`}>{m.role}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-800">{stat?.auditCount ?? 0}</td>
-                      <td className="px-4 py-3 text-right">
-                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${(stat?.avgScore ?? 0) >= 70 ? "bg-green-100 text-green-700" : (stat?.avgScore ?? 0) >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-slate-100 text-slate-500"}`}>
-                          {stat?.avgScore ?? "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm text-purple-700 font-semibold">{stat?.creditBalance?.aiCredits ?? "—"}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-800">{stat?.creditsUsed ?? 0}</td>
+                      <td className="px-4 py-3 text-right text-slate-600">{stat?.auditCount ?? 0}</td>
+                      <td className="px-4 py-3 text-right text-sm text-purple-700 font-semibold">{budgetLeft}</td>
                       <td className="px-5 py-3 text-right text-xs text-slate-400">
-                        {stat?.lastAudit ? formatDistanceToNow(new Date(stat.lastAudit.createdAt), { addSuffix: true }) : "Never"}
+                        {stat?.lastActivityAt ? formatDistanceToNow(new Date(stat.lastActivityAt), { addSuffix: true }) : "Never"}
                       </td>
                     </tr>
                   );

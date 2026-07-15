@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { BillingOverview } from "@/components/billing-overview";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -415,6 +416,82 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
   );
 }
 
+function MemberBillingView() {
+  const { membership, memberCredits, role } = useTeam();
+
+  const { data: usage, isLoading } = useQuery<{
+    workspaceName: string;
+    planName: string | null;
+    periodStart: string;
+    periodEnd: string;
+    creditsUsed: number;
+    allocatedCredits: Credits;
+    workspacePlanTotal: number;
+  }>({
+    queryKey: ["team-member-usage"],
+    queryFn: () =>
+      fetch(`${basePath}/api/team/membership/usage`, { credentials: "include" }).then((r) => {
+        if (!r.ok) throw new Error("Failed to load usage");
+        return r.json();
+      }),
+  });
+
+  const allocated = memberCredits ?? usage?.allocatedCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const allocatedTotal = allocated.aiCredits + allocated.imageCredits + allocated.auditCredits;
+  const used = usage?.creditsUsed ?? 0;
+  const usagePct = allocatedTotal > 0 ? Math.min(100, Math.round((used / allocatedTotal) * 100)) : 0;
+
+  if (isLoading) {
+    return <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">My Usage</h1>
+        <p className="text-slate-500 mt-1">
+          You are a <span className="font-medium capitalize">{role}</span> on{" "}
+          <span className="font-medium text-slate-700">{usage?.workspaceName ?? membership?.workspaceName ?? "this workspace"}</span>.
+          Credits are managed by the workspace owner.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6">
+          <h3 className="text-base font-bold text-slate-900">Your credit budget</h3>
+          <p className="text-sm text-slate-500 mt-1">Allocated credits you can spend this period.</p>
+          <p className="text-3xl font-bold text-orange-600 mt-4">
+            {allocatedTotal.toLocaleString()} <span className="text-lg font-semibold text-slate-500">credits allocated</span>
+          </p>
+          <p className="text-xs text-slate-500 mt-2">
+            {allocated.auditCredits} audit · {allocated.aiCredits} text · {allocated.imageCredits} images
+          </p>
+          <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${usagePct}%` }} />
+          </div>
+          <p className="text-sm text-slate-600 mt-2">
+            {used.toLocaleString()} used{allocatedTotal > 0 ? ` (${usagePct}%)` : ""}
+          </p>
+        </div>
+
+        <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6">
+          <h3 className="text-base font-bold text-slate-900">Workspace plan</h3>
+          <p className="text-sm font-semibold text-slate-800 mt-1">{usage?.planName ?? "—"} Plan</p>
+          <p className="text-sm text-slate-500 mt-3">
+            Billing period:{" "}
+            {usage?.periodStart && usage?.periodEnd
+              ? `${format(new Date(usage.periodStart), "MMM d, yyyy")} – ${format(new Date(usage.periodEnd), "MMM d, yyyy")}`
+              : "—"}
+          </p>
+          <p className="text-xs text-slate-400 mt-4">
+            Subscription and upgrades are managed by the workspace owner. Contact them to request more credits.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 type BillingTab = "overview" | "plans" | "credits" | "history";
@@ -432,6 +509,7 @@ function billingTabPath(tab: BillingTab): string {
 export default function Billing() {
   const [location, setLocation] = useLocation();
   const search = useSearch();
+  const { isTeamMember, isOwner, isLoading: teamLoading } = useTeam();
   const [tab, setTab] = useState<BillingTab>(() => parseBillingTab(window.location.search));
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -547,9 +625,20 @@ export default function Billing() {
 
   const { data: creditUsage } = useQuery<CreditUsage>({
     queryKey: ["credit-usage"],
-    queryFn: () => fetch(`${basePath}/api/credit-usage`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`${basePath}/api/credit-usage`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load credit usage");
+      const data = await res.json() as CreditUsage;
+      return {
+        transactions: data.transactions ?? [],
+        breakdown: data.breakdown ?? {},
+      };
+    },
     enabled: tab === "credits" || tab === "overview",
   });
+
+  const creditTransactions = creditUsage?.transactions ?? [];
+  const creditBreakdown = creditUsage?.breakdown ?? {};
 
   const [buyingPackId, setBuyingPackId] = useState<number | null>(null);
   const [changingPlan, setChangingPlan] = useState(false);
@@ -561,8 +650,12 @@ export default function Billing() {
     void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
   }
 
-  if (subLoading) {
+  if (subLoading || teamLoading) {
     return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
+  }
+
+  if (isTeamMember && !isOwner) {
+    return <MemberBillingView />;
   }
 
   if (!sub) {
@@ -895,9 +988,9 @@ export default function Billing() {
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="font-semibold text-slate-900">Credit Transaction History</h2>
-                <span className="text-xs text-slate-400">{creditUsage.transactions.length} entries</span>
+                <span className="text-xs text-slate-400">{creditTransactions.length} entries</span>
               </div>
-              {creditUsage.transactions.length === 0 ? (
+              {creditTransactions.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">No transactions yet</div>
               ) : (
                 <table className="w-full text-sm">
@@ -911,7 +1004,7 @@ export default function Billing() {
                     </tr>
                   </thead>
                   <tbody>
-                    {creditUsage.transactions.map((tx) => {
+                    {creditTransactions.map((tx) => {
                       const isSpend = tx.amount < 0;
                       const amountAbs = Math.abs(tx.amount);
                       const typeLabel = isSpend ? "Spent" : "Earned";
@@ -948,7 +1041,7 @@ export default function Billing() {
               <div className="px-6 py-4 border-b border-slate-100">
                 <h2 className="font-semibold text-slate-900">Credit Usage Breakdown</h2>
               </div>
-              {Object.keys(creditUsage.breakdown).length === 0 ? (
+              {Object.keys(creditBreakdown).length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">No usage yet</div>
               ) : (
                 <table className="w-full text-sm">
@@ -961,7 +1054,7 @@ export default function Billing() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(creditUsage.breakdown).map(([feature, data]) => (
+                    {Object.entries(creditBreakdown).map(([feature, data]) => (
                       <tr key={feature} className="border-b border-slate-50">
                         <td className="px-6 py-3 font-medium text-slate-800 capitalize">{feature.replace(/_/g, " ")}</td>
                         <td className="px-4 py-3 text-right text-red-500 font-semibold">{data.spent}</td>

@@ -192,6 +192,7 @@ export const AuditStatus = {
   pending: "pending",
   complete: "complete",
   failed: "failed",
+  draft: "draft",
 } as const;
 
 export interface Audit {
@@ -215,6 +216,7 @@ export const AuditWithResultsStatus = {
   pending: "pending",
   complete: "complete",
   failed: "failed",
+  draft: "draft",
 } as const;
 
 export interface Competitor {

@@ -46,6 +46,7 @@ interface CreditRule {
 
 interface CreditUsage {
   transactions: {
+    id?: number;
     creditType: string;
     amount: number;
     reason: string | null;
@@ -54,6 +55,7 @@ interface CreditUsage {
     metadata?: Record<string, unknown> | null;
   }[];
   breakdown: Record<string, { spent: number; earned: number; count: number }>;
+  totalSpent?: number;
 }
 
 interface TeamMember {
@@ -65,13 +67,15 @@ interface TeamMember {
 
 interface MemberStat {
   memberId: number;
-  creditBalance: Credits | null;
+  creditsUsed: number;
+  remainingCredits: Credits | null;
   allocatedCredits: Credits | null;
 }
 
 interface TeamData {
   members: TeamMember[];
   memberStats: MemberStat[];
+  ownerUsedInPeriod?: number;
 }
 
 const SERVICE_CONFIG = [
@@ -169,15 +173,34 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function refundedDebitIds(transactions: CreditUsage["transactions"]): Set<number> {
+  const ids = new Set<number>();
+  for (const tx of transactions) {
+    if (tx.amount <= 0 || tx.featureType !== "adjustment") continue;
+    const refId = tx.metadata?.refundForTransactionId;
+    if (typeof refId === "number") ids.add(refId);
+  }
+  return ids;
+}
+
+function isRefundedDebit(
+  tx: CreditUsage["transactions"][number],
+  refundedIds: Set<number>,
+): boolean {
+  return tx.amount < 0 && typeof tx.id === "number" && refundedIds.has(tx.id);
+}
+
 function spentInRange(
   transactions: CreditUsage["transactions"],
   start: Date,
   end: Date,
   featureTypes: readonly string[],
 ): number {
+  const refunded = refundedDebitIds(transactions);
   return transactions
     .filter((tx) => {
       if (tx.amount >= 0) return false;
+      if (isRefundedDebit(tx, refunded)) return false;
       if (!tx.featureType || !featureTypes.includes(tx.featureType)) return false;
       const at = new Date(tx.createdAt);
       return isWithinInterval(at, { start, end });
@@ -195,8 +218,11 @@ function auditListingCreditsUsed(
   const listingsAudited = new Set<string>();
   let orphanSpend = 0;
 
+  const refunded = refundedDebitIds(transactions);
+
   for (const tx of transactions) {
     if (tx.amount >= 0) continue;
+    if (isRefundedDebit(tx, refunded)) continue;
     if (!tx.featureType || !["audit", "competitors"].includes(tx.featureType)) continue;
     const at = new Date(tx.createdAt);
     if (!isWithinInterval(at, { start, end })) continue;
@@ -220,10 +246,34 @@ function totalSpentInRange(
   start: Date,
   end: Date,
 ): number {
+  const refunded = refundedDebitIds(transactions);
   return transactions
     .filter((tx) => tx.amount < 0 && tx.featureType !== "subscription")
+    .filter((tx) => !isRefundedDebit(tx, refunded))
     .filter((tx) => isWithinInterval(new Date(tx.createdAt), { start, end }))
     .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+}
+
+/** Percent label + bar width: small usage still shows a visible bar and non-zero label. */
+function planUsageMetrics(spent: number, planTotal: number): { pctLabel: string; barWidth: number } {
+  if (planTotal <= 0 || spent <= 0) {
+    return { pctLabel: "0%", barWidth: 0 };
+  }
+  const exactPct = (spent / planTotal) * 100;
+  const barWidth = Math.min(100, Math.max(exactPct, 1));
+  let pctLabel: string;
+  if (exactPct > 0 && exactPct < 0.05) pctLabel = "<0.1%";
+  else if (exactPct < 1) pctLabel = `${exactPct.toFixed(1)}%`;
+  else pctLabel = `${Math.round(exactPct)}%`;
+  return { pctLabel, barWidth };
+}
+
+function shareMetrics(used: number, total: number): { pctLabel: string; barWidth: number } {
+  if (total <= 0 || used <= 0) return { pctLabel: "0%", barWidth: 0 };
+  const exactPct = (used / total) * 100;
+  const barWidth = Math.min(100, Math.max(exactPct, used > 0 ? 4 : 0));
+  const pctLabel = exactPct < 1 && used > 0 ? `${exactPct.toFixed(1)}%` : `${Math.round(exactPct)}%`;
+  return { pctLabel, barWidth };
 }
 
 interface BillingOverviewProps {
@@ -255,13 +305,18 @@ export function BillingOverview({
 
   const { data: teamData } = useQuery<TeamData>({
     queryKey: ["team-overview"],
-    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => {
+      if (!r.ok) throw new Error("Failed to load team");
+      return r.json();
+    }),
+    retry: false,
   });
 
   const currentPlan = plans.find((p) => p.id === sub.planId)
     ?? plans.find((p) => p.name === sub.planName);
 
   const planTotalCredits = sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits;
+  const currentBalance = sumCredits(credits);
 
   const periodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
   const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
@@ -276,7 +331,9 @@ export function BillingOverview({
     [transactions, periodStart, periodEnd],
   );
 
-  const usagePct = planTotalCredits > 0 ? Math.min(100, Math.round((usedInPeriod / planTotalCredits) * 100)) : 0;
+  const totalCreditsPool = Math.max(planTotalCredits, currentBalance + usedInPeriod);
+
+  const totalUsage = planUsageMetrics(usedInPeriod, totalCreditsPool);
 
   const ruleCost = (featureType: string, fallback: number) =>
     creditRules.find((r) => r.featureType === featureType)?.creditsRequired ?? fallback;
@@ -287,13 +344,13 @@ export function BillingOverview({
       const spent = svc.id === "audit"
         ? auditListingCreditsUsed(transactions, filterStart, filterEnd, cost)
         : spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
-      const pct = planTotalCredits > 0 ? Math.min(100, Math.round((spent / planTotalCredits) * 100)) : 0;
-      return { ...svc, spent, pct, cost };
+      const metrics = planUsageMetrics(spent, totalCreditsPool);
+      return { ...svc, spent, ...metrics, cost };
     });
-  }, [transactions, filterStart, filterEnd, creditRules, planTotalCredits]);
+  }, [transactions, filterStart, filterEnd, creditRules, totalCreditsPool]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
-  const ownerUsed = totalSpentInRange(transactions, filterStart, filterEnd);
+  const ownerUsed = teamData?.ownerUsedInPeriod ?? totalSpentInRange(transactions, filterStart, filterEnd);
 
   const teamRows = useMemo(() => {
     const rows: { id: string; name: string; label: string; used: number; color: string }[] = [
@@ -309,15 +366,11 @@ export function BillingOverview({
     const activeMembers = (teamData?.members ?? []).filter((m) => m.status === "active");
     activeMembers.forEach((member, idx) => {
       const stat = teamData?.memberStats.find((s) => s.memberId === member.id);
-      let used = 0;
-      if (stat?.allocatedCredits && stat.creditBalance) {
-        used = Math.max(0, sumCredits(stat.allocatedCredits) - sumCredits(stat.creditBalance));
-      }
       rows.push({
         id: String(member.id),
         name: initials(member.invitedName),
         label: member.invitedName,
-        used,
+        used: stat?.creditsUsed ?? 0,
         color: AVATAR_COLORS[(idx + 1) % AVATAR_COLORS.length],
       });
     });
@@ -326,7 +379,7 @@ export function BillingOverview({
   }, [teamData, displayName, ownerUsed]);
 
   const teamTotalUsed = teamRows.reduce((sum, r) => sum + r.used, 0);
-  const teamUsagePct = planTotalCredits > 0 ? Math.min(100, Math.round((teamTotalUsed / planTotalCredits) * 100)) : 0;
+  const teamUsage = planUsageMetrics(teamTotalUsed, totalCreditsPool);
 
   const planFeatures = currentPlan?.features?.length
     ? currentPlan.features
@@ -343,8 +396,6 @@ export function BillingOverview({
     ? currentPlan.aiCredits + currentPlan.imageCredits + currentPlan.auditCredits
     : planTotalCredits;
 
-  const currentBalance = sumCredits(credits);
-
   return (
     <div className="space-y-6">
       {/* Total credit usage */}
@@ -358,15 +409,18 @@ export function BillingOverview({
             <p className="text-3xl font-bold text-slate-900 mt-4">
               {usedInPeriod.toLocaleString()}{" "}
               <span className="text-lg font-semibold text-slate-500">
-                of {planTotalCredits.toLocaleString()} credits used
+                of {totalCreditsPool.toLocaleString()} credits used
               </span>
             </p>
             <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden max-w-xl">
               <div
                 className="h-full bg-orange-500 rounded-full transition-all"
-                style={{ width: `${usagePct}%` }}
+                style={{ width: `${totalUsage.barWidth}%` }}
               />
             </div>
+            {usedInPeriod > 0 && (
+              <p className="text-xs text-slate-500 mt-2">{totalUsage.pctLabel} of total credits used this period</p>
+            )}
             {sub.currentPeriodEnd && (
               <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 flex-shrink-0" />
@@ -415,7 +469,7 @@ export function BillingOverview({
           <div>
             <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              See how your credits are being used across different services. Percentages are of your monthly plan total ({planTotalCredits.toLocaleString()} credits).
+              See how your credits are being used across different services. Percentages are of your total available credits ({totalCreditsPool.toLocaleString()} credits).
             </p>
           </div>
           <div className="relative">
@@ -450,13 +504,13 @@ export function BillingOverview({
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold text-slate-900">{svc.spent} Credits used</p>
-                    <p className="text-xs text-slate-500">{svc.pct}%</p>
+                    <p className="text-xs text-slate-500">{svc.pctLabel}</p>
                   </div>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className={cn("h-full rounded-full transition-all", svc.barColor)}
-                    style={{ width: `${svc.pct}%` }}
+                    style={{ width: `${svc.barWidth}%` }}
                   />
                 </div>
               </div>
@@ -484,7 +538,7 @@ export function BillingOverview({
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {teamRows.map((member) => {
-              const memberPct = teamTotalUsed > 0 ? Math.round((member.used / teamTotalUsed) * 100) : 0;
+              const memberShare = shareMetrics(member.used, teamTotalUsed);
               return (
                 <div key={member.id} className="text-center">
                   <div
@@ -499,7 +553,7 @@ export function BillingOverview({
                     {member.label}
                   </p>
                   <p className="text-xs text-slate-500">{member.used} Credits</p>
-                  <p className="text-xs font-medium text-slate-600">{memberPct}%</p>
+                  <p className="text-xs font-medium text-slate-600">{memberShare.pctLabel}</p>
                 </div>
               );
             })}
@@ -509,14 +563,14 @@ export function BillingOverview({
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="font-semibold text-slate-900">Total Team Usage</span>
               <span className="text-slate-600">
-                {teamTotalUsed.toLocaleString()} / {planTotalCredits.toLocaleString()} Credits
-                <span className="ml-2 font-semibold text-slate-900">{teamUsagePct}%</span>
+                {teamTotalUsed.toLocaleString()} / {totalCreditsPool.toLocaleString()} Credits
+                <span className="ml-2 font-semibold text-slate-900">{teamUsage.pctLabel}</span>
               </span>
             </div>
             <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-orange-500 rounded-full transition-all"
-                style={{ width: `${teamUsagePct}%` }}
+                style={{ width: `${teamUsage.barWidth}%` }}
               />
             </div>
           </div>
