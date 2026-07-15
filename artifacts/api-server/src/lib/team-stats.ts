@@ -40,7 +40,7 @@ export async function countAuditActivity(
   const conditions = [
     eq(creditTransactionsTable.userId, userId),
     sql`${creditTransactionsTable.amount} < 0`,
-    sql`(${creditTransactionsTable.creditType} = 'audit' OR ${creditTransactionsTable.featureType} IN ('audit', 'competitor'))`,
+    sql`(${creditTransactionsTable.creditType} = 'audit' OR ${creditTransactionsTable.featureType} IN ('audit', 'competitor', 'competitors'))`,
   ];
   if (periodStart) conditions.push(gte(creditTransactionsTable.createdAt, periodStart));
   if (periodEnd) conditions.push(lte(creditTransactionsTable.createdAt, periodEnd));

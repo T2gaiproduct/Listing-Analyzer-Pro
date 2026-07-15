@@ -258,13 +258,62 @@ export async function deductCreditsTeamAware(
   if (ctx.isTeamMember && ctx.memberId != null) {
     const memberResult = await deductMemberCredits(ctx.memberId, type, amount, reason, featureType, metadata);
     if (memberResult.success) return memberResult;
-    // Fall back to owner credits if member pool insufficient
-    if (ctx.ownerUserId) {
-      return deductCredits(ctx.ownerUserId, type, amount, reason, featureType, metadata);
+    // Fall back to owner credits if member pool insufficient — attribute spend to member
+    if (ctx.ownerUserId && ctx.userId) {
+      return deductOwnerCreditsForMember(
+        ctx.ownerUserId,
+        ctx.userId,
+        ctx.memberId,
+        type,
+        amount,
+        reason,
+        featureType,
+        metadata,
+      );
     }
     return memberResult;
   }
   return deductCredits(ctx.userId, type, amount, reason, featureType, metadata);
+}
+
+/**
+ * Deduct from the workspace owner's balance but attribute the transaction to the acting member.
+ */
+export async function deductOwnerCreditsForMember(
+  ownerUserId: string,
+  actorUserId: string,
+  memberId: number,
+  type: CreditType,
+  amount: number,
+  reason: string,
+  featureType: string,
+  metadata?: Record<string, unknown>,
+): Promise<DeductResult> {
+  const check = await checkCredits(ownerUserId, type, amount);
+  if (!check.hasCredits) {
+    return { success: false, remaining: check.currentBalance };
+  }
+
+  const now = new Date();
+  const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+
+  await db
+    .update(creditsTable)
+    .set({ [key]: check.currentBalance - amount, updatedAt: now })
+    .where(eq(creditsTable.userId, ownerUserId));
+
+  await db.insert(creditTransactionsTable).values({
+    userId: actorUserId,
+    creditType: type,
+    amount: -amount,
+    reason,
+    featureType,
+    metadata: { ...(metadata ?? {}), chargedFrom: "owner_pool", ownerUserId, memberId },
+    createdAt: now,
+  });
+
+  const remaining = check.currentBalance - amount;
+  return { success: true, remaining };
 }
 
 // ─── Member credit functions (team members use allocated credits) ─────────────
@@ -352,7 +401,7 @@ export async function deductMemberCredits(
     amount: -amount,
     reason,
     featureType,
-    metadata: metadata ?? null,
+    metadata: { ...(metadata ?? {}), chargedFrom: "member_pool", memberId },
     createdAt: now,
   });
 
