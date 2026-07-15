@@ -1823,7 +1823,7 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="flex flex-wrap gap-2">
                 {APLUS_MODULE_CARDS.map((module) => {
                   const isSelected = selectedAplusModules.includes(module.id);
                   const generated = aplusModules.find((m) => m.id === module.id);
@@ -1832,6 +1832,7 @@ export default function AuditWorkflow() {
                     <button
                       key={module.id}
                       type="button"
+                      title={module.desc}
                       onClick={() => {
                         setSelectedAplusModules((prev) =>
                           prev.includes(module.id)
@@ -1842,35 +1843,16 @@ export default function AuditWorkflow() {
                       }}
                       disabled={aplusStatus === "generating" || generateAplus.isPending}
                       className={cn(
-                        "relative rounded-xl border p-3.5 text-left transition-all flex items-start gap-2.5",
+                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all",
                         isSelected
-                          ? "border-orange-500 bg-orange-50/50 shadow-sm"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                          ? "border-orange-500 bg-orange-50 text-orange-700 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
                       )}
                     >
-                      <div
-                        className={cn(
-                          "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors",
-                          isSelected ? "bg-orange-100 text-orange-600" : "bg-slate-100 text-slate-500",
-                        )}
-                      >
-                        <ModuleIcon className="w-4 h-4" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1 min-w-0 pr-4">
-                        <p className={cn("text-sm font-semibold leading-tight", isSelected ? "text-orange-900" : "text-slate-900")}>
-                          {module.title}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{module.desc}</p>
-                        {generated && (
-                          <p className="text-[11px] text-emerald-600 font-medium mt-1.5 flex items-center gap-1">
-                            <Check className="w-3 h-3 flex-shrink-0" /> Generated
-                          </p>
-                        )}
-                      </div>
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
+                      <ModuleIcon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+                      <span>{module.title}</span>
+                      {generated && (
+                        <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" aria-label="Generated" />
                       )}
                     </button>
                   );
