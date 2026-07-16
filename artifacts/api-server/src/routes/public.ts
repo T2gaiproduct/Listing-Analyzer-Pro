@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
+import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { getGatewaySettings } from "./payment";
 
 const router: IRouter = Router();
@@ -82,7 +83,10 @@ router.post("/forms", async (req, res): Promise<void> => {
 router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const [profile] = await db
-    .select({ fullName: userProfilesTable.fullName })
+    .select({
+      fullName: userProfilesTable.fullName,
+      onboardingCompleted: userProfilesTable.onboardingCompleted,
+    })
     .from(userProfilesTable)
     .where(eq(userProfilesTable.userId, userId));
   const subRows = await db
@@ -93,11 +97,12 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     .from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
-  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const credits = await ensureSubscriptionCredits(userId);
   res.json({
     profile: profile ?? null,
+    onboardingCompleted: profile?.onboardingCompleted ?? false,
     subscription: subRows[0] ?? null,
-    credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+    credits,
   });
 });
 
@@ -266,7 +271,7 @@ router.post("/profile/avatar", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/credits", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const credits = await ensureSubscriptionCredits(userId);
   const transactions = await db.select().from(creditTransactionsTable)
     .where(eq(creditTransactionsTable.userId, userId))
     .orderBy(desc(creditTransactionsTable.createdAt))

@@ -643,6 +643,7 @@ export function Layout({ children }: { children: ReactNode }) {
   // Fetch profile summary for topbar + sidebar (lightweight — no billing history)
   const { data: profileData } = useQuery<{
     profile: { fullName: string | null } | null;
+    onboardingCompleted?: boolean;
     subscription: { planName: string | null; status: string } | null;
     credits: { aiCredits: number; imageCredits: number; auditCredits: number };
   }>({
@@ -673,7 +674,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const displayName = resolvedName;
   const planName = profileData?.subscription?.planName;
-  const planLabel = planName ? `${planName} Plan` : "Free";
+  const planLabel = planName
+    ? `${planName} Plan`
+    : profileData?.subscription?.status
+      ? "Active Plan"
+      : "No plan";
 
   return (
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>

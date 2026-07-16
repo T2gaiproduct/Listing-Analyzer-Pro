@@ -216,15 +216,30 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function useOnboardingSummary() {
+  const { user, isLoaded } = useUser();
+  return useQuery({
+    queryKey: ["user-profile-summary"],
+    queryFn: () =>
+      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then(
+        (r) => r.json() as Promise<{ onboardingCompleted?: boolean }>,
+      ),
+    enabled: isLoaded && !!user,
+    staleTime: 60_000,
+  });
+}
+
 function HomeRedirect() {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
   if (envAdmin) return <Redirect to="/admin/dashboard" />;
-  if (!adminLoaded) return <AuthLoading />;
+  if (!adminLoaded || summaryLoading) return <AuthLoading />;
   if (isAdmin) return <Redirect to="/admin/dashboard" />;
+  if (!summary?.onboardingCompleted) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
 
@@ -232,8 +247,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
-  const Shell = envAdmin || (adminLoaded && isAdmin) ? AdminLayout : Layout;
+  const isAdminUser = envAdmin || (adminLoaded && isAdmin);
+  if (user && !isAdminUser && summaryLoading) return <AuthLoading />;
+  if (user && !isAdminUser && summary && !summary.onboardingCompleted) {
+    return <Redirect to="/onboarding" />;
+  }
+  const Shell = isAdminUser ? AdminLayout : Layout;
   return (
     <>
       <Show when="signed-in">
