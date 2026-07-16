@@ -118,7 +118,7 @@ export default function AuditDetail({ id }: { id: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/";
-  const { canEdit, isTeamMember, role } = useTeam();
+  const { canEdit, isTeamMember, role, memberCredits, memberCreditsLoading } = useTeam();
 
   const { data: audit, isLoading } = useGetAudit(id, {
     query: { enabled: !!id, queryKey: getGetAuditQueryKey(id) },
@@ -131,8 +131,13 @@ export default function AuditDetail({ id }: { id: number }) {
   const { data: creditsData } = useQuery({
     queryKey: ["user-credits"],
     queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
+    enabled: !isTeamMember,
   });
-  const credits = (creditsData as { credits?: { aiCredits: number; imageCredits: number; auditCredits: number } } | undefined)?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const ownerCredits = (creditsData as { credits?: { aiCredits: number; imageCredits: number; auditCredits: number } } | undefined)?.credits
+    ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const credits = isTeamMember
+    ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
+    : ownerCredits;
 
   if (isLoading) {
     return (
@@ -187,8 +192,8 @@ export default function AuditDetail({ id }: { id: number }) {
     return raw || "Something went wrong. Please try again.";
   };
 
-  const aiLow = credits.aiCredits < 1;
-  const auditLow = credits.auditCredits < 1;
+  const aiLow = !(isTeamMember && memberCreditsLoading) && credits.aiCredits < 1;
+  const auditLow = !(isTeamMember && memberCreditsLoading) && credits.auditCredits < 1;
 
   const handleDownloadPdf = () => {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -505,9 +510,13 @@ export default function AuditDetail({ id }: { id: number }) {
                     </Button>
                   )}
                   {aiLow ? (
-                    <Link href="/billing" className="text-sm text-destructive hover:underline">1 AI credit required — buy credits</Link>
+                    isTeamMember ? (
+                      <span className="text-sm text-destructive">1 text credit required — ask your workspace owner for more</span>
+                    ) : (
+                      <Link href="/billing" className="text-sm text-destructive hover:underline">1 AI credit required — buy credits</Link>
+                    )
                   ) : (
-                    <Badge variant="secondary" className="text-xs font-normal">1 AI credit</Badge>
+                    <Badge variant="secondary" className="text-xs font-normal">1 text credit</Badge>
                   )}
                   {!canEdit && (
                     <Badge variant="outline" className="text-xs font-normal">Read-only — contact your team admin</Badge>
@@ -529,9 +538,13 @@ export default function AuditDetail({ id }: { id: number }) {
                     </Button>
                   )}
                   {aiLow ? (
-                    <Link href="/billing" className="text-xs text-destructive hover:underline">1 AI credit required — buy credits</Link>
+                    isTeamMember ? (
+                      <span className="text-xs text-destructive">1 text credit required — ask your workspace owner for more</span>
+                    ) : (
+                      <Link href="/billing" className="text-xs text-destructive hover:underline">1 AI credit required — buy credits</Link>
+                    )
                   ) : (
-                    <Badge variant="secondary" className="text-xs font-normal">1 AI credit</Badge>
+                    <Badge variant="secondary" className="text-xs font-normal">1 text credit</Badge>
                   )}
                 </div>
               </div>
@@ -654,7 +667,11 @@ export default function AuditDetail({ id }: { id: number }) {
                 </Button>
               )}
               {auditLow ? (
-                <span className="text-xs text-destructive">1 audit credit required — <Link href="/billing" className="hover:underline">buy credits</Link></span>
+                isTeamMember ? (
+                  <span className="text-xs text-destructive">1 audit credit required — ask your workspace owner for more</span>
+                ) : (
+                  <span className="text-xs text-destructive">1 audit credit required — <Link href="/billing" className="hover:underline">buy credits</Link></span>
+                )
               ) : (
                 <Badge variant="secondary" className="text-xs font-normal">1 audit credit</Badge>
               )}
