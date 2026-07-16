@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebarProjects } from "@/contexts/sidebar-projects";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -144,6 +145,7 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { focusRecentProjects } = useSidebarProjects();
+  const { isTeamMember, memberCredits } = useTeam();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
@@ -192,8 +194,28 @@ export default function Dashboard() {
     ?? user?.firstName
     ?? user?.fullName?.split(" ")[0]
     ?? "there";
-  const { stats, impact, creditBreakdown, recentProjects, quickActions } = dashboard;
+  const { stats, impact, recentProjects, quickActions } = dashboard;
   const auditsTrendPositive = stats.auditsWeekOverWeekPct >= 0;
+
+  const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const memberBalance = memberPool.auditCredits + memberPool.aiCredits + memberPool.imageCredits;
+  const showMemberCredits = isTeamMember || stats.isTeamMember;
+
+  const creditsBalance = showMemberCredits ? memberBalance : stats.creditsBalance;
+  const creditsAllowance = showMemberCredits ? memberBalance : stats.creditsAllowance;
+
+  const creditBreakdown = showMemberCredits
+    ? [
+        { key: "audit", label: "Audit Credits", balance: memberPool.auditCredits, color: "#f97316" },
+        { key: "graphic", label: "Graphic Credits", balance: memberPool.imageCredits, color: "#1e293b" },
+        { key: "brand", label: "Brand Credits", balance: memberPool.aiCredits, color: "#94a3b8" },
+      ]
+        .filter((seg) => seg.balance > 0)
+        .map((seg) => {
+          const total = memberBalance || 1;
+          return { ...seg, pct: Math.round((seg.balance / total) * 100) };
+        })
+    : dashboard.creditBreakdown;
 
   return (
     <div className={cn("space-y-6 animate-in fade-in duration-500", isFetching && "opacity-90")}>
@@ -229,13 +251,13 @@ export default function Dashboard() {
         />
         <StatCard
           title="Credits Balance"
-          value={stats.creditsBalance.toLocaleString()}
+          value={creditsBalance.toLocaleString()}
           subtext={
-            stats.isTeamMember
-              ? stats.creditsAllowance > 0
-                ? `of ${stats.creditsAllowance.toLocaleString()} allocated`
+            showMemberCredits
+              ? creditsAllowance > 0
+                ? `of ${creditsAllowance.toLocaleString()} allocated`
                 : "No credits allocated yet"
-              : `of ${stats.creditsAllowance.toLocaleString()} credits`
+              : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
         />
@@ -342,10 +364,10 @@ export default function Dashboard() {
           {/* Credits donut */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Credits Usage</h2>
-            <DonutChart data={creditBreakdown} total={stats.creditsBalance} />
+            <DonutChart data={creditBreakdown} total={creditsBalance} />
             {creditBreakdown.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500 text-center">
-                {stats.isTeamMember
+                {showMemberCredits
                   ? "No credits allocated yet. Ask your workspace owner to assign credits."
                   : "No credits available."}
               </p>
