@@ -172,7 +172,7 @@ export default function Team() {
             Team management is handled by the workspace owner. You can work on shared audits from the dashboard.
           </p>
           <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your allocated credits</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your remaining credits</p>
             <p className="text-lg font-bold text-slate-900 mt-1">
               {allocated.aiCredits + allocated.imageCredits + allocated.auditCredits} credits
             </p>

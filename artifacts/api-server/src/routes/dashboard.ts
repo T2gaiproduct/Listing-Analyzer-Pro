@@ -12,11 +12,13 @@ import {
   userProfilesTable,
   subscriptionsTable,
   plansTable,
+  teamMembersTable,
   type AuditResult,
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { getMemberCredits } from "../lib/credits";
-import { getMemberWorkedProjects } from "../lib/member-projects";
+import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
+import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod } from "../lib/team-stats";
 
 const router: IRouter = Router();
 
@@ -160,31 +162,109 @@ function statusBadgeColor(label: string): "orange" | "green" | "blue" | "red" | 
   return "gray";
 }
 
-async function countProjectsSaved(ownerId: string): Promise<number> {
+async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedProjects | null): Promise<number> {
+  const isMember = !!memberWorked;
+  const noMemberAudits = isMember && (memberWorked?.auditIds.length ?? 0) === 0;
+  const noMemberGraphics = isMember && (memberWorked?.graphicsIds.length ?? 0) === 0;
+  const noMemberVideos = isMember && (memberWorked?.videoIds.length ?? 0) === 0;
+  const noMemberAds = isMember && (memberWorked?.adsIds.length ?? 0) === 0;
+
   const [auditCount, graphicsCount, videosCount, adsCount] = await Promise.all([
-    db.select({ c: count() }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`)),
-    db.select({ c: count() }).from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, ownerId), eq(graphicsProjectsTable.isDeleted, 0), sql`${graphicsProjectsTable.status} != 'archived'`)),
-    db.select({ c: count() }).from(videosProjectsTable)
-      .where(and(eq(videosProjectsTable.userId, ownerId), eq(videosProjectsTable.isDeleted, 0), sql`${videosProjectsTable.status} != 'archived'`)),
-    db.select({ c: count() }).from(adsProjectsTable)
-      .where(and(eq(adsProjectsTable.userId, ownerId), eq(adsProjectsTable.isDeleted, 0), sql`${adsProjectsTable.status} != 'archived'`)),
+    noMemberAudits
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(auditsTable)
+          .where(and(
+            eq(auditsTable.userId, ownerId),
+            eq(auditsTable.isDeleted, 0),
+            sql`${auditsTable.status} != 'archived'`,
+            ...(isMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
+          )),
+    noMemberGraphics
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(graphicsProjectsTable)
+          .where(and(
+            eq(graphicsProjectsTable.userId, ownerId),
+            eq(graphicsProjectsTable.isDeleted, 0),
+            sql`${graphicsProjectsTable.status} != 'archived'`,
+            sql`${graphicsProjectsTable.auditId} IS NULL`,
+            ...(isMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
+          )),
+    noMemberVideos
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(videosProjectsTable)
+          .where(and(
+            eq(videosProjectsTable.userId, ownerId),
+            eq(videosProjectsTable.isDeleted, 0),
+            sql`${videosProjectsTable.status} != 'archived'`,
+            ...(isMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
+          )),
+    noMemberAds
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(adsProjectsTable)
+          .where(and(
+            eq(adsProjectsTable.userId, ownerId),
+            eq(adsProjectsTable.isDeleted, 0),
+            sql`${adsProjectsTable.status} != 'archived'`,
+            ...(isMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
+          )),
   ]);
   return Number(auditCount[0]?.c ?? 0) + Number(graphicsCount[0]?.c ?? 0)
     + Number(videosCount[0]?.c ?? 0) + Number(adsCount[0]?.c ?? 0);
 }
 
-async function countProjectsCreatedSince(ownerId: string, since: Date): Promise<number> {
+async function countProjectsCreatedSince(
+  ownerId: string,
+  since: Date,
+  memberWorked?: MemberWorkedProjects | null,
+): Promise<number> {
+  const isMember = !!memberWorked;
+  const noMemberAudits = isMember && (memberWorked?.auditIds.length ?? 0) === 0;
+  const noMemberGraphics = isMember && (memberWorked?.graphicsIds.length ?? 0) === 0;
+  const noMemberVideos = isMember && (memberWorked?.videoIds.length ?? 0) === 0;
+  const noMemberAds = isMember && (memberWorked?.adsIds.length ?? 0) === 0;
+
   const [auditCount, graphicsCount, videosCount, adsCount] = await Promise.all([
-    db.select({ c: count() }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`, gte(auditsTable.createdAt, since))),
-    db.select({ c: count() }).from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, ownerId), eq(graphicsProjectsTable.isDeleted, 0), sql`${graphicsProjectsTable.status} != 'archived'`, gte(graphicsProjectsTable.createdAt, since))),
-    db.select({ c: count() }).from(videosProjectsTable)
-      .where(and(eq(videosProjectsTable.userId, ownerId), eq(videosProjectsTable.isDeleted, 0), sql`${videosProjectsTable.status} != 'archived'`, gte(videosProjectsTable.createdAt, since))),
-    db.select({ c: count() }).from(adsProjectsTable)
-      .where(and(eq(adsProjectsTable.userId, ownerId), eq(adsProjectsTable.isDeleted, 0), sql`${adsProjectsTable.status} != 'archived'`, gte(adsProjectsTable.createdAt, since))),
+    noMemberAudits
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(auditsTable)
+          .where(and(
+            eq(auditsTable.userId, ownerId),
+            eq(auditsTable.isDeleted, 0),
+            sql`${auditsTable.status} != 'archived'`,
+            gte(auditsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
+          )),
+    noMemberGraphics
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(graphicsProjectsTable)
+          .where(and(
+            eq(graphicsProjectsTable.userId, ownerId),
+            eq(graphicsProjectsTable.isDeleted, 0),
+            sql`${graphicsProjectsTable.status} != 'archived'`,
+            sql`${graphicsProjectsTable.auditId} IS NULL`,
+            gte(graphicsProjectsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
+          )),
+    noMemberVideos
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(videosProjectsTable)
+          .where(and(
+            eq(videosProjectsTable.userId, ownerId),
+            eq(videosProjectsTable.isDeleted, 0),
+            sql`${videosProjectsTable.status} != 'archived'`,
+            gte(videosProjectsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
+          )),
+    noMemberAds
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(adsProjectsTable)
+          .where(and(
+            eq(adsProjectsTable.userId, ownerId),
+            eq(adsProjectsTable.isDeleted, 0),
+            sql`${adsProjectsTable.status} != 'archived'`,
+            gte(adsProjectsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
+          )),
   ]);
   return Number(auditCount[0]?.c ?? 0) + Number(graphicsCount[0]?.c ?? 0)
     + Number(videosCount[0]?.c ?? 0) + Number(adsCount[0]?.c ?? 0);
@@ -256,8 +336,8 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
     recentVideos,
     recentAds,
   ] = await Promise.all([
-    countProjectsSaved(ownerId),
-    countProjectsCreatedSince(ownerId, weekStart),
+    countProjectsSaved(ownerId, memberWorked),
+    countProjectsCreatedSince(ownerId, weekStart, memberWorked),
     db.select({ c: count() }).from(auditsTable)
       .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0))),
     db.select({ c: count() }).from(auditsTable)
@@ -312,7 +392,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
             eq(graphicsProjectsTable.userId, ownerId),
             eq(graphicsProjectsTable.isDeleted, 0),
             sql`${graphicsProjectsTable.status} != 'archived'`,
-            ...(team?.isTeamMember ? [] : [sql`${graphicsProjectsTable.auditId} IS NULL`]),
+            sql`${graphicsProjectsTable.auditId} IS NULL`,
             ...(team?.isTeamMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
           ))
           .orderBy(desc(graphicsProjectsTable.createdAt))
@@ -359,25 +439,56 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
     : auditsWeekCount > 0 ? 100 : 0;
 
   type CreditBalances = { aiCredits: number; imageCredits: number; auditCredits: number };
-  let displayCredits: CreditBalances = ownerCredits[0]
-    ? {
-        aiCredits: ownerCredits[0].aiCredits,
-        imageCredits: ownerCredits[0].imageCredits,
-        auditCredits: ownerCredits[0].auditCredits,
-      }
-    : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const zeroCredits: CreditBalances = { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+
+  let displayCredits: CreditBalances;
+  let creditsAllowance: number;
+
   if (team?.isTeamMember && team.memberId) {
     const memberCredits = await getMemberCredits(team.memberId);
-    if (memberCredits) displayCredits = memberCredits;
+    displayCredits = memberCredits ?? zeroCredits;
+    const memberUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+    const memberRemaining =
+      displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+    // Total assigned by owner = remaining + spent this billing period
+    creditsAllowance = memberRemaining + memberUsedInPeriod;
+  } else {
+    displayCredits = ownerCredits[0]
+      ? {
+          aiCredits: ownerCredits[0].aiCredits,
+          imageCredits: ownerCredits[0].imageCredits,
+          auditCredits: ownerCredits[0].auditCredits,
+        }
+      : zeroCredits;
+    const alloc = (subRow?.creditAllocations ?? {}) as Record<string, number>;
+    creditsAllowance = (alloc.audit ?? subRow?.planAuditCredits ?? 0)
+      + (alloc.content ?? subRow?.planAiCredits ?? 0)
+      + (alloc.images ?? subRow?.planImageCredits ?? 0)
+      + (alloc.ebc ?? 0)
+      + (alloc.competitors ?? 0);
+    if (creditsAllowance <= 0) {
+      creditsAllowance =
+        displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+    }
   }
 
   const creditsBalance = displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
-  const alloc = (subRow?.creditAllocations ?? {}) as Record<string, number>;
-  const creditsAllowance = (alloc.audit ?? subRow?.planAuditCredits ?? 0)
-    + (alloc.content ?? subRow?.planAiCredits ?? 0)
-    + (alloc.images ?? subRow?.planImageCredits ?? 0)
-    + (alloc.ebc ?? 0)
-    + (alloc.competitors ?? 0);
+
+  let teamCreditsUsedInPeriod = 0;
+  let memberCreditsAllocated = 0;
+  if (!team?.isTeamMember) {
+    const activeMembers = await db
+      .select({ memberUserId: teamMembersTable.memberUserId })
+      .from(teamMembersTable)
+      .where(and(eq(teamMembersTable.ownerUserId, userId), eq(teamMembersTable.status, "active")));
+    for (const m of activeMembers) {
+      if (m.memberUserId) {
+        teamCreditsUsedInPeriod += await sumCreditsUsedInPeriod(m.memberUserId, periodStart, periodEnd);
+      }
+    }
+    const allocated = await sumAllocatedCreditsForOwner(userId);
+    memberCreditsAllocated = allocated.aiCredits + allocated.imageCredits + allocated.auditCredits;
+  }
 
   const timeSavedHours = computeTimeSavedHours(allTransactions, filterStart, filterEnd);
   const timeSavedThisWeek = computeTimeSavedHours(allTransactions, weekStart, now);
@@ -388,12 +499,19 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
   const creditSegments = [
     { key: "audit", label: "Audit Credits", balance: displayCredits.auditCredits, color: "#f97316" },
     { key: "graphic", label: "Graphic Credits", balance: displayCredits.imageCredits, color: "#1e293b" },
-    { key: "video", label: "Video Credits", balance: 0, color: "#475569" },
-    { key: "ad", label: "Ad Credits", balance: 0, color: "#64748b" },
     { key: "brand", label: "Brand Credits", balance: displayCredits.aiCredits, color: "#94a3b8" },
   ];
-  const segmentTotal = creditSegments.reduce((s, seg) => s + seg.balance, 0) || 1;
-  const creditBreakdown = creditSegments.map((seg) => ({
+  if (!team?.isTeamMember) {
+    creditSegments.push(
+      { key: "video", label: "Video Credits", balance: 0, color: "#475569" },
+      { key: "ad", label: "Ad Credits", balance: 0, color: "#64748b" },
+    );
+  }
+  const breakdownSegments = team?.isTeamMember
+    ? creditSegments.filter((seg) => seg.balance > 0)
+    : creditSegments;
+  const segmentTotal = breakdownSegments.reduce((s, seg) => s + seg.balance, 0) || 1;
+  const creditBreakdown = breakdownSegments.map((seg) => ({
     ...seg,
     pct: Math.round((seg.balance / segmentTotal) * 100),
   }));
@@ -482,7 +600,10 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
       timeSavedHours,
       timeSavedThisWeek,
       creditsBalance,
-      creditsAllowance: creditsAllowance > 0 ? creditsAllowance : creditsBalance,
+      creditsAllowance,
+      isTeamMember: !!team?.isTeamMember,
+      teamCreditsUsedInPeriod,
+      memberCreditsAllocated,
     },
     impact: {
       listingsOptimized: impactListingsOptimized,

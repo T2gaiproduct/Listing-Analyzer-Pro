@@ -116,7 +116,7 @@ async function loadScopedRecents(
               eq(graphicsProjectsTable.userId, ownerUserId),
               eq(graphicsProjectsTable.isDeleted, 0),
               sql`${graphicsProjectsTable.status} != 'archived'`,
-              ...(isMember ? [] : [sql`${graphicsProjectsTable.auditId} IS NULL`]),
+              sql`${graphicsProjectsTable.auditId} IS NULL`,
               ...(isMember ? [inArray(graphicsProjectsTable.id, graphicsIds)] : []),
             ),
           )
@@ -291,6 +291,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
               eq(graphicsProjectsTable.userId, ownerUserId),
               eq(graphicsProjectsTable.isDeleted, 0),
               ilike(graphicsProjectsTable.name, `%${q}%`),
+              sql`${graphicsProjectsTable.auditId} IS NULL`,
               ...(team.isTeamMember ? [inArray(graphicsProjectsTable.id, graphicsIds)] : []),
             ),
           )

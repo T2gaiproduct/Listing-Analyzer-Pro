@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebarProjects } from "@/contexts/sidebar-projects";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -38,6 +39,9 @@ interface DashboardData {
     timeSavedThisWeek: number;
     creditsBalance: number;
     creditsAllowance: number;
+    isTeamMember?: boolean;
+    teamCreditsUsedInPeriod?: number;
+    memberCreditsAllocated?: number;
   };
   impact: {
     listingsOptimized: number;
@@ -143,6 +147,7 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { focusRecentProjects } = useSidebarProjects();
+  const { isTeamMember, memberCredits } = useTeam();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
@@ -191,8 +196,28 @@ export default function Dashboard() {
     ?? user?.firstName
     ?? user?.fullName?.split(" ")[0]
     ?? "there";
-  const { stats, impact, creditBreakdown, recentProjects, quickActions } = dashboard;
+  const { stats, impact, recentProjects, quickActions } = dashboard;
   const auditsTrendPositive = stats.auditsWeekOverWeekPct >= 0;
+
+  const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const memberBalance = memberPool.auditCredits + memberPool.aiCredits + memberPool.imageCredits;
+  const showMemberCredits = isTeamMember || stats.isTeamMember;
+
+  const creditsBalance = showMemberCredits ? memberBalance : stats.creditsBalance;
+  const creditsAllowance = showMemberCredits ? (stats.creditsAllowance ?? 0) : stats.creditsAllowance;
+
+  const creditBreakdown = showMemberCredits
+    ? [
+        { key: "audit", label: "Audit Credits", balance: memberPool.auditCredits, color: "#f97316" },
+        { key: "graphic", label: "Graphic Credits", balance: memberPool.imageCredits, color: "#1e293b" },
+        { key: "brand", label: "Brand Credits", balance: memberPool.aiCredits, color: "#94a3b8" },
+      ]
+        .filter((seg) => seg.balance > 0)
+        .map((seg) => {
+          const total = memberBalance || 1;
+          return { ...seg, pct: Math.round((seg.balance / total) * 100) };
+        })
+    : dashboard.creditBreakdown;
 
   return (
     <div className={cn("space-y-6 animate-in fade-in duration-500", isFetching && "opacity-90")}>
@@ -228,8 +253,16 @@ export default function Dashboard() {
         />
         <StatCard
           title="Credits Balance"
-          value={stats.creditsBalance.toLocaleString()}
-          subtext={`of ${stats.creditsAllowance.toLocaleString()} credits`}
+          value={creditsBalance.toLocaleString()}
+          subtext={
+            showMemberCredits
+              ? creditsAllowance > 0
+                ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
+                : "No credits allocated yet"
+              : (stats.teamCreditsUsedInPeriod ?? 0) > 0
+                ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
+                : `of ${creditsAllowance.toLocaleString()} credits`
+          }
           icon={Wallet}
         />
       </div>
@@ -335,20 +368,28 @@ export default function Dashboard() {
           {/* Credits donut */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Credits Usage</h2>
-            <DonutChart data={creditBreakdown} total={stats.creditsBalance} />
-            <ul className="mt-4 space-y-2.5">
-              {creditBreakdown.map((seg) => (
-                <li key={seg.key} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                    <span className="text-slate-600">{seg.label}</span>
-                  </div>
-                  <span className="text-slate-800 font-medium">
-                    {seg.balance.toLocaleString()} ({seg.pct}%)
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <DonutChart data={creditBreakdown} total={creditsBalance} />
+            {creditBreakdown.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500 text-center">
+                {showMemberCredits
+                  ? "No credits allocated yet. Ask your workspace owner to assign credits."
+                  : "No credits available."}
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-2.5">
+                {creditBreakdown.map((seg) => (
+                  <li key={seg.key} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                      <span className="text-slate-600">{seg.label}</span>
+                    </div>
+                    <span className="text-slate-800 font-medium">
+                      {seg.balance.toLocaleString()} ({seg.pct}%)
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <Link
               href="/billing"
               className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"

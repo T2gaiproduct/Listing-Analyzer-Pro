@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
   useCreateAuditDraft,
@@ -490,6 +491,13 @@ export default function AuditWorkflow() {
   const search          = useSearch();
   const { toast }       = useToast();
   const queryClient     = useQueryClient();
+  const { isTeamMember, memberCredits } = useTeam();
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const aplusImageCostPerModule = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
 
   const [activeStep, setActiveStep] = useState<StepId>(1);
   const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
@@ -1053,7 +1061,7 @@ export default function AuditWorkflow() {
         });
       } else {
         createProject.mutate({
-          name: `${productName || "Product"}`,
+          name: projectName.trim() || productName || "Product",
           productName: productName || "Product",
           category,
           sourceImageUrls: uploadedImages,
@@ -1070,7 +1078,7 @@ export default function AuditWorkflow() {
         toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -1085,6 +1093,18 @@ export default function AuditWorkflow() {
       toast({ title: "Select modules", description: "Choose at least one A+ module to generate.", variant: "destructive" });
       return;
     }
+    const imageCreditsNeeded = aplusImageCostPerModule * selectedAplusModules.length;
+    if (isTeamMember) {
+      const imageBalance = memberCredits?.imageCredits ?? 0;
+      if (imageBalance < imageCreditsNeeded) {
+        toast({
+          title: "Insufficient image credits",
+          description: `You need ${imageCreditsNeeded} image credits but only have ${imageBalance}. Ask your workspace owner to assign more.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     setCreatingStep(4);
     setActiveStep(4);
     setIsCreating(true);
@@ -1093,7 +1113,7 @@ export default function AuditWorkflow() {
       auditId: currentAuditId,
       moduleIds: selectedAplusModules,
     });
-  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast]);
+  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1868,7 +1888,14 @@ export default function AuditWorkflow() {
               <Button
                 size="lg"
                 className="w-full h-14 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2.5 shadow-lg shadow-orange-500/20 text-base font-semibold"
-                disabled={isCreating || generateAplus.isPending || aplusStatus === "generating" || !currentAuditId || selectedAplusModules.length === 0}
+                disabled={
+                  isCreating
+                  || generateAplus.isPending
+                  || aplusStatus === "generating"
+                  || !currentAuditId
+                  || selectedAplusModules.length === 0
+                  || (isTeamMember && (memberCredits?.imageCredits ?? 0) < aplusImageCostPerModule * selectedAplusModules.length)
+                }
                 onClick={handleGenerateAplus}
               >
                 {isCreating || generateAplus.isPending || aplusStatus === "generating" ? (

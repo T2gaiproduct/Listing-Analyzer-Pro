@@ -226,14 +226,7 @@ export async function checkCreditsTeamAware(
   amount: number,
 ): Promise<CreditCheckResult> {
   if (ctx.isTeamMember && ctx.memberId != null) {
-    const memberCheck = await checkMemberCredits(ctx.memberId, type, amount);
-    if (memberCheck.hasCredits) return memberCheck;
-    // Fall back to owner credits if member pool empty
-    if (ctx.ownerUserId) {
-      const ownerCheck = await checkCredits(ctx.ownerUserId, type, amount);
-      return ownerCheck;
-    }
-    return memberCheck;
+    return checkMemberCredits(ctx.memberId, type, amount);
   }
   return checkCredits(ctx.userId, type, amount);
 }
@@ -256,22 +249,7 @@ export async function deductCreditsTeamAware(
   metadata?: Record<string, unknown>,
 ): Promise<DeductResult> {
   if (ctx.isTeamMember && ctx.memberId != null) {
-    const memberResult = await deductMemberCredits(ctx.memberId, type, amount, reason, featureType, metadata);
-    if (memberResult.success) return memberResult;
-    // Fall back to owner credits if member pool insufficient — attribute spend to member
-    if (ctx.ownerUserId && ctx.userId) {
-      return deductOwnerCreditsForMember(
-        ctx.ownerUserId,
-        ctx.userId,
-        ctx.memberId,
-        type,
-        amount,
-        reason,
-        featureType,
-        metadata,
-      );
-    }
-    return memberResult;
+    return deductMemberCredits(ctx.memberId, type, amount, reason, featureType, metadata);
   }
   return deductCredits(ctx.userId, type, amount, reason, featureType, metadata);
 }
@@ -394,6 +372,17 @@ export async function deductMemberCredits(
     .from(teamMembersTable)
     .where(eq(teamMembersTable.id, memberId));
   const userId = member?.memberUserId ?? member?.ownerUserId ?? "";
+
+  // Member spend reduces the workspace pool (owner credits table) as well as the member allocation.
+  if (member?.ownerUserId) {
+    const ownerCheck = await checkCredits(member.ownerUserId, type, amount);
+    if (ownerCheck.hasCredits) {
+      await db
+        .update(creditsTable)
+        .set({ [key]: ownerCheck.currentBalance - amount, updatedAt: now })
+        .where(eq(creditsTable.userId, member.ownerUserId));
+    }
+  }
 
   await db.insert(creditTransactionsTable).values({
     userId,
