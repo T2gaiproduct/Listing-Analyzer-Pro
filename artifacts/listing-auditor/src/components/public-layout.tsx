@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -65,16 +65,15 @@ export function PublicNav() {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="right" className="w-[min(100vw-3rem,20rem)] p-0 flex flex-col md:hidden">
           <SheetTitle className="sr-only">Site navigation</SheetTitle>
-          <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200">
-            <span className="font-bold text-slate-900">Menu</span>
-            <button
-              type="button"
+          <div className="flex items-center px-4 py-4 pr-12 border-b border-slate-200">
+            <Link
+              href="/"
+              className="flex items-center gap-2 font-bold text-lg tracking-tight"
               onClick={() => setMobileOpen(false)}
-              className="touch-target flex items-center justify-center rounded-lg hover:bg-slate-100"
-              aria-label="Close menu"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <Search className="w-5 h-5 text-primary" />
+              <span>Listing<span className="text-primary">Auditor</span></span>
+            </Link>
           </div>
           <nav className="flex-1 overflow-y-auto p-3 space-y-1">
             {navLinks.map((l) => (
