@@ -1,31 +1,63 @@
+import type { ReactNode } from "react";
 import { FaAmazon } from "react-icons/fa6";
-import { SiShopify, SiWalmart, SiEbay, SiEtsy } from "react-icons/si";
+import { SiShopify, SiEbay, SiEtsy } from "react-icons/si";
 import { cn } from "@/lib/utils";
 import type { IconType } from "react-icons";
 
-const marketplaces: Array<{
-  name: string;
-  Icon: IconType;
-  className?: string;
-}> = [
-  { name: "Amazon", Icon: FaAmazon, className: "h-7 sm:h-8 w-[5.5rem] sm:w-[6.25rem] text-[#232F3E]" },
-  { name: "Shopify", Icon: SiShopify, className: "h-7 sm:h-8 w-[5.5rem] sm:w-[6rem] text-[#96BF48]" },
-  { name: "Walmart", Icon: SiWalmart, className: "h-6 sm:h-7 w-[5.75rem] sm:w-[6.5rem] text-[#0071CE]" },
-  { name: "eBay", Icon: SiEbay, className: "h-6 sm:h-7 w-[3.5rem] sm:w-16" },
-  { name: "Etsy", Icon: SiEtsy, className: "h-6 sm:h-7 w-[3.25rem] sm:w-[3.75rem] text-[#F45800]" },
+/** Walmart spark + wordmark sized to match neighboring brand icons. */
+function WalmartLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 132 36"
+      className={cn("h-8 sm:h-9 w-auto", className)}
+      role="img"
+      aria-label="Walmart"
+    >
+      <text
+        x="0"
+        y="26"
+        fill="#0071DC"
+        fontSize="22"
+        fontWeight="700"
+        fontFamily="Arial, Helvetica, sans-serif"
+      >
+        Walmart
+      </text>
+      <path
+        fill="#FFC220"
+        d="M118.5 4.5 121.2 12h7.8l-6.3 4.6 2.4 7.4-6.3-4.6-6.3 4.6 2.4-7.4-6.3-4.6h7.8z"
+      />
+    </svg>
+  );
+}
+
+type MarketplaceEntry =
+  | { name: string; kind: "icon"; Icon: IconType; className?: string }
+  | { name: string; kind: "custom"; render: (className?: string) => ReactNode };
+
+const marketplaces: MarketplaceEntry[] = [
+  { name: "Amazon", kind: "icon", Icon: FaAmazon, className: "h-7 sm:h-8 w-[5.5rem] sm:w-[6.25rem] text-[#232F3E]" },
+  { name: "Shopify", kind: "icon", Icon: SiShopify, className: "h-7 sm:h-8 w-[5.5rem] sm:w-[6rem] text-[#96BF48]" },
+  { name: "Walmart", kind: "custom", render: (c) => <WalmartLogo className={c} /> },
+  { name: "eBay", kind: "icon", Icon: SiEbay, className: "h-6 sm:h-7 w-[3.5rem] sm:w-16" },
+  { name: "Etsy", kind: "icon", Icon: SiEtsy, className: "h-6 sm:h-7 w-[3.25rem] sm:w-[3.75rem] text-[#F45800]" },
 ];
 
 export function MarketplaceLogos({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4", className)}>
-      {marketplaces.map(({ name, Icon, className: iconClass }) => (
+      {marketplaces.map((item) => (
         <div
-          key={name}
+          key={item.name}
           className="flex items-center justify-center h-12 sm:h-14 px-4 sm:px-5 bg-white rounded-xl shadow-sm min-w-[6.75rem] sm:min-w-[7.5rem]"
-          title={name}
+          title={item.name}
         >
-          <Icon className={cn("shrink-0", iconClass)} aria-hidden />
-          <span className="sr-only">{name}</span>
+          {item.kind === "icon" ? (
+            <item.Icon className={cn("shrink-0", item.className)} aria-hidden />
+          ) : (
+            item.render()
+          )}
+          <span className="sr-only">{item.name}</span>
         </div>
       ))}
     </div>
