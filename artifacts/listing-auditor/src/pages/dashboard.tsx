@@ -38,6 +38,7 @@ interface DashboardData {
     timeSavedThisWeek: number;
     creditsBalance: number;
     creditsAllowance: number;
+    isTeamMember?: boolean;
   };
   impact: {
     listingsOptimized: number;
@@ -229,7 +230,13 @@ export default function Dashboard() {
         <StatCard
           title="Credits Balance"
           value={stats.creditsBalance.toLocaleString()}
-          subtext={`of ${stats.creditsAllowance.toLocaleString()} credits`}
+          subtext={
+            stats.isTeamMember
+              ? stats.creditsAllowance > 0
+                ? `of ${stats.creditsAllowance.toLocaleString()} allocated`
+                : "No credits allocated yet"
+              : `of ${stats.creditsAllowance.toLocaleString()} credits`
+          }
           icon={Wallet}
         />
       </div>
@@ -336,19 +343,27 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Credits Usage</h2>
             <DonutChart data={creditBreakdown} total={stats.creditsBalance} />
-            <ul className="mt-4 space-y-2.5">
-              {creditBreakdown.map((seg) => (
-                <li key={seg.key} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                    <span className="text-slate-600">{seg.label}</span>
-                  </div>
-                  <span className="text-slate-800 font-medium">
-                    {seg.balance.toLocaleString()} ({seg.pct}%)
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {creditBreakdown.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500 text-center">
+                {stats.isTeamMember
+                  ? "No credits allocated yet. Ask your workspace owner to assign credits."
+                  : "No credits available."}
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-2.5">
+                {creditBreakdown.map((seg) => (
+                  <li key={seg.key} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                      <span className="text-slate-600">{seg.label}</span>
+                    </div>
+                    <span className="text-slate-800 font-medium">
+                      {seg.balance.toLocaleString()} ({seg.pct}%)
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <Link
               href="/billing"
               className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-orange-500 hover:text-orange-600"

@@ -651,7 +651,9 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const ownerCredits = profileData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const displayCredits = isTeamMember && memberCredits ? memberCredits : ownerCredits;
+  const displayCredits = isTeamMember
+    ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
+    : ownerCredits;
 
   const profileName = profileData?.profile?.fullName;
   const clerkName = user?.fullName ?? undefined;
