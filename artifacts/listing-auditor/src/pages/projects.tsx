@@ -6,9 +6,9 @@ export default function ProjectsPage() {
   const [, nav] = useLocation();
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="w-full min-w-0 max-w-5xl space-y-6 sm:space-y-8">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 rounded-3xl p-8 md:p-12 border border-amber-100 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 rounded-2xl sm:rounded-3xl p-4 sm:p-8 md:p-12 border border-amber-100 overflow-hidden">
         {/* Background decorative elements */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-orange-100/50 rounded-full -translate-y-1/2 translate-x-1/3" />
         <div className="absolute top-20 right-40 text-amber-300">
@@ -21,54 +21,52 @@ export default function ProjectsPage() {
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="16" cy="4" r="1.5" fill="currentColor"/><circle cx="28" cy="4" r="1.5" fill="currentColor"/><circle cx="40" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/><circle cx="28" cy="16" r="1.5" fill="currentColor"/><circle cx="40" cy="16" r="1.5" fill="currentColor"/><circle cx="4" cy="28" r="1.5" fill="currentColor"/><circle cx="16" cy="28" r="1.5" fill="currentColor"/><circle cx="28" cy="28" r="1.5" fill="currentColor"/><circle cx="40" cy="28" r="1.5" fill="currentColor"/></svg>
         </div>
 
-        <div className="relative flex items-start justify-between gap-8">
+        <div className="relative flex flex-col md:flex-row items-start justify-between gap-6 md:gap-8 w-full min-w-0">
           {/* Left Content */}
-          <div className="max-w-lg flex-shrink-0">
+          <div className="w-full min-w-0 max-w-lg">
             {/* AI-Powered Badge */}
-            <div className="inline-flex items-center gap-1.5 bg-white/80 backdrop-blur-sm border border-amber-200 rounded-full px-3 py-1.5 mb-6">
+            <div className="inline-flex items-center gap-1.5 bg-white/80 backdrop-blur-sm border border-amber-200 rounded-full px-3 py-1.5 mb-4 sm:mb-6">
               <Sparkles className="w-3.5 h-3.5 text-orange-500" />
               <span className="text-xs font-medium text-orange-700">AI-Powered</span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight mb-4">
-              Create Professional
-              <br />
-              <span className="text-orange-500">Product Graphics</span>
-              <br />
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight mb-3 sm:mb-4 break-words">
+              Create Professional{" "}
+              <span className="text-orange-500">Product Graphics</span>{" "}
               Using AI
             </h1>
 
             {/* Subheadline */}
-            <p className="text-slate-500 text-sm md:text-base mb-8 max-w-md">
+            <p className="text-slate-500 text-sm md:text-base mb-6 sm:mb-8 max-w-full">
               Generate stunning lifestyle images and feature graphics for your products in minutes using AI.
             </p>
 
             {/* Feature Bullets */}
-            <div className="space-y-3 mb-8">
-              <div className="flex items-center gap-3">
+            <div className="space-y-3 mb-6 sm:mb-8">
+              <div className="flex items-start gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-white border border-amber-200 flex items-center justify-center flex-shrink-0 shadow-sm">
                   <Wand2 className="w-4 h-4 text-orange-500" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-900">Generate images using AI</p>
                   <p className="text-xs text-slate-400">Create high-quality product images in seconds</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-white border border-amber-200 flex items-center justify-center flex-shrink-0 shadow-sm">
                   <ImageIcon className="w-4 h-4 text-orange-500" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-900">Lifestyle & Studio Shots</p>
                   <p className="text-xs text-slate-400">From clean backgrounds to real-life scenes</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-white border border-amber-200 flex items-center justify-center flex-shrink-0 shadow-sm">
                   <Sparkles className="w-4 h-4 text-orange-500" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-900">Feature Graphics</p>
                   <p className="text-xs text-slate-400">Highlight key benefits and product features</p>
                 </div>
@@ -77,7 +75,7 @@ export default function ProjectsPage() {
 
             {/* CTA Button */}
             <Button
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-7 py-3 h-auto text-sm font-semibold shadow-lg shadow-orange-500/20 transition-all hover:shadow-orange-500/30"
+              className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-7 py-3 h-auto min-h-11 text-sm font-semibold shadow-lg shadow-orange-500/20 transition-all hover:shadow-orange-500/30"
               onClick={() => nav("/projects/create")}
             >
               <Sparkles className="w-4 h-4 mr-2" />
@@ -85,7 +83,7 @@ export default function ProjectsPage() {
             </Button>
 
             {/* Trust Badges */}
-            <div className="flex items-center gap-4 mt-5">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 mt-4 sm:mt-5">
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <div className="w-4 h-4 rounded-full bg-amber-100 flex items-center justify-center">
                   <Shield className="w-2.5 h-2.5 text-amber-600" />
@@ -151,45 +149,44 @@ export default function ProjectsPage() {
       </div>
 
       {/* Stats Section */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <div className="flex items-center justify-between gap-6 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-6 h-6 text-orange-500" />
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-4 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
             </div>
-            <div>
-              <p className="text-sm font-bold text-slate-900">Designed for</p>
-              <p className="text-sm font-bold text-slate-900">eCommerce Success</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900">Designed for eCommerce Success</p>
               <p className="text-xs text-slate-400 mt-0.5">Boost conversions with professional product visuals that build trust and drive sales.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-8 md:gap-12">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-orange-500" />
+          <div className="grid grid-cols-3 gap-3 sm:flex sm:items-center sm:gap-6 md:gap-8 lg:gap-12">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-center sm:text-left">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-900">2x</p>
-                <p className="text-xs text-slate-400">Higher Conversion</p>
+                <p className="text-base sm:text-lg font-bold text-slate-900">2x</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 leading-tight">Higher Conversion</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-orange-500" />
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-center sm:text-left">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-900">10x</p>
-                <p className="text-xs text-slate-400">Faster Creation</p>
+                <p className="text-base sm:text-lg font-bold text-slate-900">10x</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 leading-tight">Faster Creation</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
-                <Crown className="w-5 h-5 text-orange-500" />
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-center sm:text-left">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
+                <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-900">100%</p>
-                <p className="text-xs text-slate-400">Unique & Custom</p>
+                <p className="text-base sm:text-lg font-bold text-slate-900">100%</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 leading-tight">Unique & Custom</p>
               </div>
             </div>
           </div>
