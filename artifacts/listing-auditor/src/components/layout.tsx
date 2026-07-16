@@ -924,11 +924,17 @@ export function Layout({ children }: { children: ReactNode }) {
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 flex flex-col lg:hidden">
             <SheetTitle className="sr-only">Navigation menu</SheetTitle>
-            <div className="px-4 py-4 border-b border-slate-200 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-semibold text-slate-900">ListingAuditor</span>
+            <div className="px-4 py-4 border-b border-slate-200">
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 min-w-0 hover:opacity-90 transition-opacity"
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-semibold text-slate-900">ListingAuditor</span>
+              </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
               {mainNavItems.map(({ icon: Icon, label, href }) => {
