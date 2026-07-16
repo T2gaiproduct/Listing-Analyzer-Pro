@@ -20,9 +20,27 @@ const scoreCards = [
 ];
 
 const competitors = [
-  { label: "Your Listing", score: 95, tone: "good" as const },
-  { label: "Competitor 1", score: 86, tone: "mid" as const },
-  { label: "Competitor 2", score: 85, tone: "mid" as const },
+  {
+    label: "Your Listing",
+    score: 95,
+    tone: "good" as const,
+    image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=160&h=220&fit=crop&q=80",
+    border: "border-orange-200",
+  },
+  {
+    label: "Competitor 1",
+    score: 86,
+    tone: "mid" as const,
+    image: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=160&h=220&fit=crop&q=80",
+    border: "border-slate-200",
+  },
+  {
+    label: "Competitor 2",
+    score: 85,
+    tone: "mid" as const,
+    image: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=160&h=220&fit=crop&q=80",
+    border: "border-slate-200",
+  },
 ];
 
 function ScoreRing({ value }: { value: number }) {
@@ -142,15 +160,16 @@ export function HeroDashboardMockup() {
               <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
                 <p className="text-[10px] sm:text-[11px] font-semibold text-slate-800 mb-2.5">Competitor Insights</p>
                 <div className="flex items-end justify-between gap-1.5 sm:gap-2">
-                  {competitors.map((c, i) => (
+                  {competitors.map((c) => (
                     <div key={c.label} className="flex-1 text-center min-w-0">
-                      <div
+                      <img
+                        src={c.image}
+                        alt=""
                         className={cn(
-                          "mx-auto w-full max-w-[3.5rem] aspect-[3/4] rounded-lg mb-1.5 border",
-                          i === 0
-                            ? "bg-gradient-to-b from-orange-100 to-amber-50 border-orange-200"
-                            : "bg-gradient-to-b from-slate-100 to-slate-50 border-slate-200",
+                          "mx-auto w-full max-w-[3.5rem] aspect-[3/4] rounded-lg mb-1.5 border object-cover bg-white",
+                          c.border,
                         )}
+                        loading="lazy"
                       />
                       <p className="text-[8px] sm:text-[9px] text-slate-500 truncate mb-0.5">{c.label}</p>
                       <span

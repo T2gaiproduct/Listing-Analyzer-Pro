@@ -80,11 +80,11 @@ const featureColumns = [
 ];
 
 const portfolioItems = [
-  { title: "Product Images", brand: "Electronics Brand", gradient: "from-slate-700 to-slate-900", badge: null },
-  { title: "A+ Content", brand: "Home & Kitchen", gradient: "from-amber-600 to-orange-800", badge: null },
-  { title: "Lifestyle Images", brand: "Beauty Brand", gradient: "from-rose-400 to-pink-700", badge: "NEW" },
-  { title: "Infographic", brand: "Sports Brand", gradient: "from-blue-600 to-indigo-900", badge: null },
-  { title: "Ad Creatives", brand: "Fashion Brand", gradient: "from-violet-600 to-purple-900", badge: null },
+  { title: "Product Images", brand: "Electronics Brand", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=320&fit=crop&q=80", badge: null },
+  { title: "A+ Content", brand: "Home & Kitchen", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=320&fit=crop&q=80", badge: null },
+  { title: "Lifestyle Images", brand: "Beauty Brand", image: "https://images.unsplash.com/photo-1522335786663-a1d9549b1d6f?w=400&h=320&fit=crop&q=80", badge: "NEW" },
+  { title: "Infographic", brand: "Sports Brand", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=320&fit=crop&q=80", badge: null },
+  { title: "Ad Creatives", brand: "Fashion Brand", image: "https://images.unsplash.com/photo-1483986762654-31890318800e?w=400&h=320&fit=crop&q=80", badge: null },
 ];
 
 const workflowSteps = [
@@ -104,11 +104,11 @@ const workflowMetrics = [
 ];
 
 const tutorialPreviews = [
-  { title: "Getting Started", duration: "5:32", gradient: "from-orange-400 to-red-500" },
-  { title: "Audit Your Listing", duration: "7:15", gradient: "from-blue-500 to-indigo-600" },
-  { title: "Optimize Content", duration: "6:48", gradient: "from-emerald-500 to-teal-600" },
-  { title: "Create A+ Content", duration: "8:20", gradient: "from-violet-500 to-purple-700" },
-  { title: "Manage Ads", duration: "9:05", gradient: "from-amber-500 to-orange-600" },
+  { title: "Getting Started", duration: "5:32", image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=240&fit=crop&q=80" },
+  { title: "Audit Your Listing", duration: "7:15", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=240&fit=crop&q=80" },
+  { title: "Optimize Content", duration: "6:48", image: "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=400&h=240&fit=crop&q=80" },
+  { title: "Create A+ Content", duration: "8:20", image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=240&fit=crop&q=80" },
+  { title: "Manage Ads", duration: "9:05", image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=240&fit=crop&q=80" },
 ];
 
 function PortfolioCarousel() {
@@ -141,7 +141,8 @@ function PortfolioCarousel() {
             key={item.title}
             className="snap-start shrink-0 w-56 sm:w-64 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm"
           >
-            <div className={cn("h-40 bg-gradient-to-br relative flex items-end p-3", item.gradient)}>
+            <div className="h-40 relative overflow-hidden bg-slate-100">
+              <img src={item.image} alt="" className="w-full h-full object-cover" loading="lazy" />
               {item.badge && (
                 <span className="absolute top-3 right-3 bg-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                   {item.badge}
@@ -406,7 +407,12 @@ export default function Landing() {
             <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-4 items-center">
               <div className="bg-white border border-red-100 rounded-2xl p-5 shadow-sm">
                 <p className="text-xs font-bold text-red-500 uppercase mb-3">Before</p>
-                <div className="w-full h-24 bg-slate-100 rounded-lg mb-3" />
+                <img
+                  src="https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=200&fit=crop&q=80"
+                  alt=""
+                  className="w-full h-24 rounded-lg mb-3 object-cover bg-slate-100"
+                  loading="lazy"
+                />
                 <p className="text-3xl font-extrabold text-slate-800">62<span className="text-lg text-slate-400">/100</span></p>
                 <div className="mt-2 flex items-end gap-0.5 h-8">
                   {[40, 55, 45, 50, 42, 48].map((h, i) => (
@@ -417,7 +423,12 @@ export default function Landing() {
               <div className="bg-white border-2 border-orange-200 rounded-2xl p-5 shadow-lg relative">
                 <span className="absolute -top-2.5 left-4 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">AI Optimized</span>
                 <p className="text-xs font-bold text-orange-600 uppercase mb-3 mt-1">After</p>
-                <div className="w-full h-24 bg-gradient-to-br from-orange-100 to-amber-50 rounded-lg mb-3" />
+                <img
+                  src="https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=400&h=200&fit=crop&q=80"
+                  alt=""
+                  className="w-full h-24 rounded-lg mb-3 object-cover"
+                  loading="lazy"
+                />
                 <p className="text-3xl font-extrabold text-orange-600">96<span className="text-lg text-slate-400">/100</span></p>
                 <div className="mt-2 flex items-end gap-0.5 h-8">
                   {[55, 62, 70, 78, 88, 96].map((h, i) => (
@@ -452,9 +463,13 @@ export default function Landing() {
                 href="/tutorials"
                 className="group rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className={cn("h-32 bg-gradient-to-br relative flex items-center justify-center", t.gradient)}>
-                  <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                    <Play className="w-5 h-5 text-orange-600 ml-0.5" />
+                <div className="h-32 relative overflow-hidden bg-slate-900">
+                  <img src={t.image} alt="" className="w-full h-full object-cover opacity-90" loading="lazy" />
+                  <div className="absolute inset-0 bg-black/20" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+                      <Play className="w-5 h-5 text-orange-600 ml-0.5" />
+                    </div>
                   </div>
                   <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
                     {t.duration}
