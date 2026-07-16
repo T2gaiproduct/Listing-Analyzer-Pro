@@ -1061,7 +1061,7 @@ export default function AuditWorkflow() {
         });
       } else {
         createProject.mutate({
-          name: `${productName || "Product"}`,
+          name: projectName.trim() || productName || "Product",
           productName: productName || "Product",
           category,
           sourceImageUrls: uploadedImages,
@@ -1078,7 +1078,7 @@ export default function AuditWorkflow() {
         toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, category, uploadedImages, customPrompt, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
