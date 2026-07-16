@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { parseListingFetchInput } from "@/lib/listing-input";
 import { ArrowLeft, Plus, X, Loader2, Users, Search, Sparkles, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 
 const formSchema = z.object({
@@ -92,7 +93,13 @@ function CompetitorForm({
     if (fetchMode === "asin") {
       body = { asin: value.replace(/^(asin:?\s*)/i, "").trim().toUpperCase() };
     } else {
-      body = { url: value };
+      try {
+        body = parseListingFetchInput(value);
+      } catch (err) {
+        setFetchError(err instanceof Error ? err.message : "Invalid product URL");
+        setIsFetching(false);
+        return;
+      }
     }
 
     try {

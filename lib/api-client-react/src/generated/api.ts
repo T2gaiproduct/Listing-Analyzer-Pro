@@ -220,7 +220,7 @@ export const useGenerateContentDirect = <
 };
 
 /**
- * @summary Fetch Amazon listing data by ASIN or URL
+ * @summary Fetch product listing data by URL or Amazon ASIN
  */
 export const getFetchListingUrl = () => {
   return `/api/fetch-listing`;
@@ -283,7 +283,7 @@ export type FetchListingMutationBody = BodyType<FetchListingBody>;
 export type FetchListingMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Fetch Amazon listing data by ASIN or URL
+ * @summary Fetch product listing data by URL or Amazon ASIN
  */
 export const useFetchListing = <
   TError = ErrorType<ApiError>,

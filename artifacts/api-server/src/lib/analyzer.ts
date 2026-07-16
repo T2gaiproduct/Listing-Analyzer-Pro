@@ -8,7 +8,7 @@ export async function analyzeListingWithAI(data: {
   targetKeywords: string[];
   category?: string;
 }): Promise<AuditResult> {
-  const prompt = `You are an expert Amazon listing optimizer. Analyze this Amazon product listing and provide a comprehensive audit.
+  const prompt = `You are an expert e-commerce listing optimizer. Analyze this product listing (from any marketplace or online store) and provide a comprehensive audit.
 
 Product Category: ${data.category || "General"}
 Title: ${data.title}
@@ -47,11 +47,11 @@ Evaluate each section and return a JSON object with this exact structure:
   "summary": "2-3 sentence overall assessment of the listing quality and top priorities"
 }
 
-Scoring criteria:
-- Title: 150-200 characters, starts with brand (if available), primary keyword near front, follows structure Brand | Product | Keyword | Feature | Material | Size | Color | Use Case, includes key features/benefits, no promotional phrases/ALL CAPS/emojis, not keyword-stuffed, reads naturally
-- Bullets: Exactly 5 bullet points, 180-250 characters each, format "• **FEATURE TITLE IN ALL CAPS:** Customer benefit → Supporting details → Practical value.", benefit-driven not spec-only, natural SEO keywords, unique selling points per bullet, customer-focused language, no emojis/exaggerated claims/repeated info
-- Images: 7+ images ideal (main, lifestyle, infographic, dimensions, detail shots), diverse angles
-- Keywords: Primary keyword in title, secondary in bullets, no keyword repetition, natural placement
+Scoring criteria (adapt to the marketplace when obvious from the listing; otherwise use general e-commerce best practices):
+- Title: Clear, keyword-rich, appropriate length for the channel, strong hook, readable, not stuffed with keywords or promotional spam
+- Bullets/description: Benefit-driven, scannable, covers key features and differentiators, appropriate length for the platform
+- Images: Sufficient variety (main, lifestyle, detail, infographic where relevant), professional quality
+- Keywords: Primary terms in title and body copy, natural placement, good coverage of search intent
 
 Be specific, actionable, and accurate. Return ONLY the JSON object, no markdown.`;
 

@@ -8,6 +8,7 @@
 
 export interface FetchedListing {
   productName: string;
+  /** Platform product identifier (Amazon ASIN or store-specific id such as shopify:handle, walmart:123) */
   asin: string;
   /** @nullable */
   category?: string | null;

@@ -5,6 +5,7 @@ import { useFetchListing, useCreateAudit, getGetAuditStatsQueryKey, getListAudit
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { parseListingFetchInput } from "@/lib/listing-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -66,9 +67,20 @@ export default function AuditListings() {
     const trimmed = url.trim();
     if (!trimmed || isLoading) return;
 
-    const isUrl = trimmed.startsWith("http");
+    let fetchPayload: { asin?: string; url?: string };
+    try {
+      fetchPayload = parseListingFetchInput(trimmed);
+    } catch (err) {
+      toast({
+        title: "Invalid input",
+        description: err instanceof Error ? err.message : "Enter a product URL or Amazon ASIN.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     fetchListing.mutate(
-      { data: isUrl ? { url: trimmed } : { asin: trimmed } },
+      { data: fetchPayload },
       {
         onSuccess: (listing) => {
           createAudit.mutate(
@@ -250,11 +262,11 @@ export default function AuditListings() {
         <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-5 py-4 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
           <LinkIcon className="w-5 h-5 text-orange-400 flex-shrink-0" />
           <input
-            type="url"
+            type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
-            placeholder="Paste any product page URL..."
+            placeholder="Paste any product page URL or Amazon ASIN..."
             className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-base outline-none min-w-0"
             disabled={isLoading}
           />
