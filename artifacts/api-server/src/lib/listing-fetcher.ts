@@ -36,9 +36,10 @@ export function detectListingPlatform(url: string): ListingPlatform {
   }
 
   if (host.includes("amazon.")) return "amazon";
-  if (host.includes("myshopify.com") || host.includes("shopify.com")) return "shopify";
+  if (host.includes("myshopify.com") || host.includes("shopify.com") || host.endsWith(".shop")) return "shopify";
   if (path.includes("/products/")) return "shopify";
   if (host.includes("walmart.com")) return "walmart";
+  if (host.includes("target.com")) return "generic";
   if (host.includes("ebay.")) return "ebay";
   if (host.includes("etsy.com")) return "etsy";
   return "generic";

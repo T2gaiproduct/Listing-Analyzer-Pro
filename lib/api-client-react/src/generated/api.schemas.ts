@@ -17,14 +17,15 @@ export interface ApiError {
  * Either asin or url must be provided
  */
 export interface FetchListingBody {
-  /** Amazon ASIN (e.g. B09G9FPHY6) */
+  /** Amazon ASIN (e.g. B09G9FPHY6). Use url for other marketplaces. */
   asin?: string;
-  /** Amazon product URL */
+  /** Product page URL (Amazon, Shopify, Walmart, eBay, Etsy, or any store with structured product data) */
   url?: string;
 }
 
 export interface FetchedListing {
   productName: string;
+  /** Platform product identifier (Amazon ASIN or store-specific id such as shopify:handle, walmart:123) */
   asin: string;
   /** @nullable */
   category?: string | null;

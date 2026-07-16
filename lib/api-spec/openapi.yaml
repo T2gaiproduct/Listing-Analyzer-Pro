@@ -59,7 +59,7 @@ paths:
     post:
       operationId: fetchListing
       tags: [listings]
-      summary: Fetch Amazon listing data by ASIN or URL
+      summary: Fetch product listing data by URL or Amazon ASIN
       requestBody:
         required: true
         content:
@@ -636,10 +636,10 @@ components:
       properties:
         asin:
           type: string
-          description: Amazon ASIN (e.g. B09G9FPHY6)
+          description: Amazon ASIN (e.g. B09G9FPHY6). Use url for other marketplaces.
         url:
           type: string
-          description: Amazon product URL
+          description: Product page URL (Amazon, Shopify, Walmart, eBay, Etsy, or any store with structured product data)
       description: Either asin or url must be provided
 
     FetchedListing:
@@ -649,6 +649,7 @@ components:
           type: string
         asin:
           type: string
+          description: Platform product identifier (Amazon ASIN or store-specific id such as shopify:handle, walmart:123)
         category:
           type: ["string", "null"]
         title:
