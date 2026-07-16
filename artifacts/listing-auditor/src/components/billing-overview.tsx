@@ -392,9 +392,9 @@ export function BillingOverview({
         "Priority Support",
       ];
 
-  const monthlyCredits = currentPlan
-    ? currentPlan.aiCredits + currentPlan.imageCredits + currentPlan.auditCredits
-    : planTotalCredits;
+  const monthlyCredits = planTotalCredits;
+
+  const balanceExceedsAllowance = currentBalance > monthlyCredits && monthlyCredits > 0;
 
   return (
     <div className="space-y-6">
@@ -587,7 +587,14 @@ export function BillingOverview({
           </p>
           <div className="mt-4 pt-4 border-t border-stone-200">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Current balance</p>
-            <p className="text-lg font-bold text-slate-900 mt-0.5">{currentBalance.toLocaleString()} credits</p>
+            <p className="text-lg font-bold text-slate-900 mt-0.5">
+              {currentBalance.toLocaleString()} credits remaining
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {balanceExceedsAllowance
+                ? `${monthlyCredits.toLocaleString()} included per billing period, plus rolled-over credits from earlier grants`
+                : `${currentBalance.toLocaleString()} of ${monthlyCredits.toLocaleString()} plan credits remaining this period`}
+            </p>
             <p className="text-xs text-slate-500 mt-1">
               {credits.auditCredits.toLocaleString()} audit · {credits.aiCredits.toLocaleString()} text · {credits.imageCredits.toLocaleString()} images
             </p>
