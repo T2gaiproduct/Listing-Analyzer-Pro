@@ -129,7 +129,31 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
 export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords }: GraphicsWizardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canEdit } = useTeam();
+  const { canEdit, isTeamMember, memberCredits } = useTeam();
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const imageCostPerGraphic = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
+  const memberImageBalance = memberCredits?.imageCredits ?? 0;
+
+  const canAffordImages = (count: number) => {
+    if (!isTeamMember) return true;
+    return memberImageBalance >= imageCostPerGraphic * count;
+  };
+
+  const requireImageCredits = (count: number): boolean => {
+    if (!isTeamMember) return true;
+    const needed = imageCostPerGraphic * count;
+    if (memberImageBalance >= needed) return true;
+    toast({
+      title: "Insufficient image credits",
+      description: `You need ${needed} image credits but only have ${memberImageBalance}. Ask your workspace owner to assign more.`,
+      variant: "destructive",
+    });
+    return false;
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
@@ -236,20 +260,33 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       }
       return res.json();
     },
-    onSuccess: (project) => {
+    onSuccess: async (project) => {
       setProjectId(project.id);
-      setIsGenerating(true);
       creditsRefreshedRef.current = false;
-      void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          imageTypes: selectedImageTypes,
-          customPrompt: customPrompt.trim() || undefined,
-        }),
-      });
-      startTimeRef.current = Date.now();
+      try {
+        const res = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            imageTypes: selectedImageTypes,
+            customPrompt: customPrompt.trim() || undefined,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error || `Generation failed (${res.status})`);
+        }
+        setIsGenerating(true);
+        startTimeRef.current = Date.now();
+      } catch (err) {
+        setIsGenerating(false);
+        toast({
+          title: "Generation failed",
+          description: err instanceof Error ? err.message : "Please try again",
+          variant: "destructive",
+        });
+      }
     },
     onError: (err) => {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to create", variant: "destructive" });
@@ -374,7 +411,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const handleContinue = () => {
     if (step === 2 && !selectedImageTypes.includes("custom")) {
-      // Non-custom selected: skip Step 3, generate directly
+      if (!requireImageCredits(selectedImageTypes.length)) return;
       createProject.mutate({
         name: `${productName} Project`,
         productName,
@@ -385,7 +422,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         auditId,
       });
     } else if (step === 3) {
-      // Custom selected: generate with prompt
+      if (!requireImageCredits(selectedImageTypes.length)) return;
       createProject.mutate({
         name: `${productName} Project`,
         productName,
@@ -411,6 +448,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const handleRegenerate = (record: ImageRecord) => {
     if (!activeProjectId) return;
+    if (!requireImageCredits(1)) return;
     setLoading(record.id, true);
     regenerateMutation.mutate(
       { imageId: record.id, pid: activeProjectId },
@@ -504,7 +542,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             {canEdit && (
               <Button
                 className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+                disabled={!canAffordImages(1)}
                 onClick={() => {
+                  if (!requireImageCredits(1)) return;
                   setShowMore(true);
                   setMoreStep("select");
                   setSelectedImageTypes([]);
@@ -747,8 +787,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   </Button>
                   <Button
                     className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-                    disabled={moreImageTypes.length === 0}
+                    disabled={moreImageTypes.length === 0 || !canAffordImages(moreImageTypes.length)}
                     onClick={() => {
+                      if (!requireImageCredits(moreImageTypes.length)) return;
                       if (moreImageTypes.includes("custom")) {
                         setMoreStep("custom");
                       } else {
@@ -845,8 +886,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   </Button>
                   <Button
                     className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-                    disabled={!moreCustomPrompt.trim()}
+                    disabled={!moreCustomPrompt.trim() || !canAffordImages(moreImageTypes.length)}
                     onClick={() => {
+                      if (!requireImageCredits(moreImageTypes.length)) return;
                       const pid = displayProject?.id ?? activeProjectId ?? 0;
                       if (pid) {
                         generateMoreMutation.mutate({
@@ -898,8 +940,29 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   }
 
   // Show wizard
+  const selectedImageCreditCost = selectedImageTypes.length * imageCostPerGraphic;
+  const memberBlockedFromNewImages = isTeamMember && memberImageBalance < imageCostPerGraphic;
+
   return (
     <div className="space-y-6">
+      {isTeamMember && (
+        <div className={`rounded-xl border px-4 py-3 text-sm ${memberBlockedFromNewImages ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+          <p className="font-medium">
+            {memberBlockedFromNewImages
+              ? "Not enough image credits to generate graphics"
+              : `${memberImageBalance} image credits available`}
+          </p>
+          <p className="text-xs mt-1 opacity-90">
+            Each graphic costs {imageCostPerGraphic} image credits.
+            {memberBlockedFromNewImages
+              ? " Ask your workspace owner to assign more image credits on the Team page."
+              : selectedImageTypes.length > 0
+                ? ` Selected types will use ${selectedImageCreditCost} credits.`
+                : ""}
+          </p>
+        </div>
+      )}
+
       {/* Step indicator */}
       <div className="mb-8">
         <div className="flex items-center">
@@ -1150,7 +1213,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           )}
           <Button
             className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-            disabled={!canContinue() || createProject.isPending}
+            disabled={
+              !canContinue()
+              || createProject.isPending
+              || ((step === 2 && !selectedImageTypes.includes("custom")) || step === 3)
+                && !canAffordImages(selectedImageTypes.length)
+            }
             onClick={handleContinue}
           >
             {createProject.isPending ? (
