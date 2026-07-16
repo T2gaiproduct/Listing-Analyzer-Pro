@@ -318,7 +318,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             </span>
           </Link>
         </div>
-        <div className="lg:hidden flex items-center gap-3 h-14 px-4 border-b border-slate-200 bg-white flex-shrink-0 min-w-0">
+        <div className="lg:hidden flex items-center gap-1 sm:gap-2 h-14 px-4 border-b border-slate-200 bg-white flex-shrink-0 min-w-0">
           <button
             type="button"
             onClick={() => setMobileNavOpen(true)}
@@ -327,8 +327,22 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link href="/admin/dashboard" className="font-semibold text-slate-900 truncate min-w-0 hover:text-orange-600 transition-colors">
+          <Link href="/admin/dashboard" className="flex-1 font-semibold text-slate-900 truncate min-w-0 hover:text-orange-600 transition-colors">
             Admin
+          </Link>
+          <Link
+            href="/admin/notifications"
+            aria-label="Notifications"
+            className="touch-target flex items-center justify-center w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 shrink-0"
+          >
+            <Bell className="w-5 h-5" />
+          </Link>
+          <Link
+            href="/admin/archive"
+            aria-label="Archive"
+            className="touch-target flex items-center justify-center w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 shrink-0"
+          >
+            <Archive className="w-5 h-5" />
           </Link>
         </div>
         <div className="flex-1 overflow-y-auto app-shell-padding bg-slate-50">
