@@ -81,7 +81,7 @@ const featureColumns = [
 
 const portfolioItems = [
   { title: "Product Images", brand: "Electronics Brand", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=320&fit=crop&q=80", badge: null },
-  { title: "A+ Content", brand: "Home & Kitchen", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=320&fit=crop&q=80", badge: null },
+  { title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
   { title: "Lifestyle Images", brand: "Beauty Brand", image: "https://images.unsplash.com/photo-1522335786663-a1d9549b1d6f?w=400&h=320&fit=crop&q=80", badge: "NEW" },
   { title: "Infographic", brand: "Sports Brand", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=320&fit=crop&q=80", badge: null },
   { title: "Ad Creatives", brand: "Fashion Brand", image: "https://images.unsplash.com/photo-1483986762654-31890318800e?w=400&h=320&fit=crop&q=80", badge: null },
