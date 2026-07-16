@@ -112,6 +112,47 @@ function KpiSkeleton() {
   return <div className="h-6 w-16 bg-slate-200 rounded animate-pulse mt-1" />;
 }
 
+function MiniStatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  color,
+  bg,
+  isLoading,
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+  icon: typeof Users;
+  color: string;
+  bg: string;
+  isLoading?: boolean;
+}) {
+  return (
+    <Card className="border-0 shadow-sm min-w-0">
+      <CardContent className="p-3 sm:p-5">
+        <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>
+            <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${color}`} />
+          </div>
+          <p className="text-[10px] sm:text-xs text-slate-500 font-medium leading-tight min-w-0">{label}</p>
+        </div>
+        {isLoading ? (
+          <KpiSkeleton />
+        ) : (
+          <>
+            <p className={`text-xl sm:text-3xl font-bold tracking-tight ${color.includes("text-") ? "text-slate-900" : ""}`}>
+              {value.toLocaleString()}
+            </p>
+            {sub && <p className="text-[10px] sm:text-xs text-slate-400 mt-1 line-clamp-2 leading-snug">{sub}</p>}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminDashboard() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-stats"], queryFn: fetchAdminStats, staleTime: 0, refetchInterval: 30_000 });
   const [, nav] = useLocation();
@@ -171,40 +212,35 @@ export default function AdminDashboard() {
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {kpis.map((kpi) => (
-          <Card key={kpi.label} className="border-0 shadow-sm min-w-0">
-            <CardContent className="p-3 sm:p-5">
-              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${kpi.bg} flex items-center justify-center flex-shrink-0`}>
-                  <kpi.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${kpi.color}`} />
-                </div>
-                <p className="text-[10px] sm:text-xs text-slate-500 font-medium leading-tight">{kpi.label}</p>
-              </div>
-              {isLoading ? <KpiSkeleton /> : (
-                <>
-                  <p className="text-xl sm:text-3xl font-bold text-slate-900">{kpi.value.toLocaleString()}</p>
-                  {kpi.sub && <p className="text-[10px] sm:text-xs text-slate-400 mt-1 line-clamp-2">{kpi.sub}</p>}
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <MiniStatCard
+            key={kpi.label}
+            label={kpi.label}
+            value={kpi.value}
+            sub={kpi.sub}
+            icon={kpi.icon}
+            color={kpi.color}
+            bg={kpi.bg}
+            isLoading={isLoading}
+          />
         ))}
       </div>
 
-      {/* Signup trend banner */}
+      {/* Signup trend — compact 2-col on mobile, 3-col on sm+ */}
       {!isLoading && data && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
           {[
-            { label: "Signups today", value: data.newUsersToday, icon: CalendarDays, color: "text-emerald-600 bg-emerald-50" },
-            { label: "Signups this week", value: data.newUsersThisWeek, icon: Activity, color: "text-blue-600 bg-blue-50" },
-            { label: "Signups this month", value: data.newUsersThisMonth, icon: UserPlus, color: "text-orange-600 bg-orange-50" },
+            { label: "Signups today", value: data.newUsersToday, icon: CalendarDays, color: "text-emerald-600", bg: "bg-emerald-50" },
+            { label: "Signups this week", value: data.newUsersThisWeek, icon: Activity, color: "text-blue-600", bg: "bg-blue-50" },
+            { label: "Signups this month", value: data.newUsersThisMonth, icon: UserPlus, color: "text-orange-600", bg: "bg-orange-50" },
           ].map((item) => (
-            <div key={item.label} className={`flex items-center gap-3 rounded-xl px-4 py-3 sm:px-5 ${item.color.split(" ")[1]}`}>
-              <item.icon className={`w-5 h-5 flex-shrink-0 ${item.color.split(" ")[0]}`} />
-              <div className="min-w-0">
-                <p className={`text-lg sm:text-xl font-bold ${item.color.split(" ")[0]}`}>{item.value}</p>
-                <p className="text-xs text-slate-600">{item.label}</p>
-              </div>
-            </div>
+            <MiniStatCard
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              icon={item.icon}
+              color={item.color}
+              bg={item.bg}
+            />
           ))}
         </div>
       )}
