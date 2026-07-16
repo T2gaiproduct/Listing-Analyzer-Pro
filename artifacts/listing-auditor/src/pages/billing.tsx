@@ -666,6 +666,7 @@ export default function Billing() {
   function invalidateSub() {
     void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
     void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+    void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
   }
 
   if (subLoading || teamLoading) {

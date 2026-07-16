@@ -78,6 +78,29 @@ router.post("/forms", async (req, res): Promise<void> => {
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
 
+/** Lightweight profile for shell/topbar — avoids transactions + billing history. */
+router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const [profile] = await db
+    .select({ fullName: userProfilesTable.fullName })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, userId));
+  const subRows = await db
+    .select({
+      planName: plansTable.name,
+      status: subscriptionsTable.status,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, userId));
+  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  res.json({
+    profile: profile ?? null,
+    subscription: subRows[0] ?? null,
+    credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+  });
+});
+
 router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const [profile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
