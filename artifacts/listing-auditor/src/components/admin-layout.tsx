@@ -270,9 +270,17 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 bg-slate-900 text-slate-100 border-slate-800 flex flex-col lg:hidden">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
-          <div className="h-14 flex items-center px-4 border-b border-slate-700/50 gap-2">
-            <Shield className="w-5 h-5 text-orange-400" />
-            <span className="font-bold text-white">Super<span className="text-orange-400">Admin</span></span>
+          <div className="h-14 flex items-center px-4 border-b border-slate-700/50">
+            <Link
+              href="/admin/dashboard"
+              onClick={() => setMobileNavOpen(false)}
+              className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity"
+            >
+              <Shield className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <span className="font-bold text-white truncate">
+                Super<span className="text-orange-400">Admin</span>
+              </span>
+            </Link>
           </div>
           <nav className="flex-1 py-4 overflow-y-auto px-3 space-y-5">
             <AdminNavSections
