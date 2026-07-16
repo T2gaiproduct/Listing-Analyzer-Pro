@@ -2,16 +2,18 @@ import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Search, FileSearch, Palette, Play, BarChart3, Megaphone,
+  FileSearch, Palette, Play, BarChart3, Megaphone,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   ArrowRight, Upload, Sparkles, Wand2, Image, Download, Globe,
-  TrendingUp, Users, LineChart,
+  TrendingUp, Users, Search, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
 import { PromoBanner } from "@/components/promo-banner";
 import { SeoHead } from "@/components/seo-head";
+import { MarketplaceLogos } from "@/components/marketplace-logos";
+import { HeroDashboardMockup } from "@/components/hero-dashboard-mockup";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -36,8 +38,6 @@ interface DbFaq {
   question: string;
   answer: string;
 }
-
-const marketplaces = ["Amazon", "Shopify", "Walmart", "eBay", "Etsy"];
 
 const heroStats = [
   { icon: BarChart3, value: "50M+", label: "Listings Analyzed" },
@@ -110,72 +110,6 @@ const tutorialPreviews = [
   { title: "Create A+ Content", duration: "8:20", gradient: "from-violet-500 to-purple-700" },
   { title: "Manage Ads", duration: "9:05", gradient: "from-amber-500 to-orange-600" },
 ];
-
-function HeroDashboardMockup() {
-  return (
-    <div className="relative w-full max-w-lg mx-auto lg:max-w-none">
-      <div className="absolute -inset-4 bg-gradient-to-br from-orange-100/60 to-slate-100/40 rounded-3xl blur-2xl" />
-      <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200/60 overflow-hidden">
-        <div className="bg-slate-50 border-b border-slate-100 px-4 py-2.5 flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-          <span className="text-[10px] text-slate-400 ml-1">Admin Dashboard</span>
-        </div>
-        <div className="p-4 sm:p-5 grid grid-cols-2 gap-3">
-          <div className="col-span-1 bg-orange-50 rounded-xl p-3 border border-orange-100">
-            <p className="text-[10px] text-slate-500 mb-1">Listing Score</p>
-            <div className="flex items-end gap-1">
-              <span className="text-3xl font-extrabold text-orange-600">95</span>
-              <span className="text-sm text-slate-400 mb-1">/100</span>
-            </div>
-            <div className="mt-2 h-1.5 bg-orange-100 rounded-full overflow-hidden">
-              <div className="h-full w-[95%] bg-orange-500 rounded-full" />
-            </div>
-          </div>
-          <div className="col-span-1 space-y-2">
-            {[
-              { label: "SEO", score: 92, color: "bg-blue-500" },
-              { label: "Content", score: 88, color: "bg-emerald-500" },
-              { label: "Images", score: 96, color: "bg-violet-500" },
-            ].map((s) => (
-              <div key={s.label} className="flex items-center justify-between text-[10px]">
-                <span className="text-slate-500">{s.label}</span>
-                <span className="font-bold text-slate-800">{s.score}</span>
-              </div>
-            ))}
-          </div>
-          <div className="col-span-2 bg-slate-50 rounded-xl p-3 border border-slate-100">
-            <p className="text-[10px] font-semibold text-slate-700 mb-2">Top Opportunities</p>
-            <div className="space-y-1.5">
-              {[
-                { text: "Add high-volume keywords to title", impact: "High", color: "text-red-600 bg-red-50" },
-                { text: "Upgrade main image resolution", impact: "Medium", color: "text-amber-600 bg-amber-50" },
-                { text: "Expand bullet #2 with benefits", impact: "Medium", color: "text-amber-600 bg-amber-50" },
-              ].map((o) => (
-                <div key={o.text} className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-slate-600 truncate">{o.text}</span>
-                  <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0", o.color)}>{o.impact}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="col-span-2 bg-slate-900 rounded-xl p-3 text-white">
-            <p className="text-[10px] text-slate-400 mb-2">Competitor Insights</p>
-            <div className="flex gap-2">
-              <div className="w-10 h-10 rounded-lg bg-slate-700 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-medium truncate">Rival ASIN — Score 78</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">3 keyword gaps found</p>
-              </div>
-              <LineChart className="w-4 h-4 text-orange-400 shrink-0" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function PortfolioCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -374,7 +308,8 @@ export default function Landing() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
           <div className="text-center lg:text-left">
-            <p className="inline-flex items-center text-[11px] font-bold uppercase tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-3 py-1 mb-6">
+            <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-3 py-1.5 mb-6">
+              <Zap className="w-3 h-3" />
               AI-Powered Listing Optimization
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tracking-tight text-slate-900 leading-[1.08] mb-5">
@@ -384,13 +319,7 @@ export default function Landing() {
             <p className="text-lg text-slate-500 mb-6 max-w-xl mx-auto lg:mx-0">
               Audit listings, create stunning content, manage ads and dominate every marketplace.
             </p>
-            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mb-8">
-              {marketplaces.map((m) => (
-                <span key={m} className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-                  {m}
-                </span>
-              ))}
-            </div>
+            <MarketplaceLogos className="mb-8" />
             <div className="flex flex-col sm:flex-row items-center gap-3 justify-center lg:justify-start mb-10">
               <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-8 w-full sm:w-auto" asChild>
                 <Link href="/sign-up">Get Started Free</Link>
