@@ -204,9 +204,14 @@ export default function Onboarding() {
       return fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); });
     },
     onSuccess: () => {
+      queryClient.setQueryData(["user-profile-summary"], (prev: { onboardingCompleted?: boolean } | undefined) => ({
+        ...prev,
+        onboardingCompleted: true,
+      }));
       void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
       void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
       void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
       setLocation("/dashboard");
     },

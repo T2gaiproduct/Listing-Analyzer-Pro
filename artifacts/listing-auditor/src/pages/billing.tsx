@@ -527,7 +527,7 @@ function billingTabPath(tab: BillingTab): string {
 export default function Billing() {
   const [location, setLocation] = useLocation();
   const search = useSearch();
-  const { isTeamMember, isOwner, isLoading: teamLoading } = useTeam();
+  const { isTeamMember, isOwner } = useTeam();
   const [tab, setTab] = useState<BillingTab>(() => parseBillingTab(window.location.search));
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -669,7 +669,7 @@ export default function Billing() {
     void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
   }
 
-  if (subLoading || teamLoading) {
+  if (subLoading) {
     return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
   }
 

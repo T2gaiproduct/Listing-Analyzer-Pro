@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function CheckoutSuccess() {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<"loading" | "success" | "failed">("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const activatedRef = useRef(false);
@@ -42,6 +45,12 @@ export default function CheckoutSuccess() {
         if (data.status === "paid") {
           activatedRef.current = true;
           setStatus("success");
+          queryClient.setQueryData(["user-profile-summary"], (prev: { onboardingCompleted?: boolean } | undefined) => ({
+            ...prev,
+            onboardingCompleted: true,
+          }));
+          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+          void refetchCreditQueries(queryClient);
           setTimeout(() => setLocation("/dashboard"), 2200);
           return;
         }

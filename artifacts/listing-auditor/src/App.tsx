@@ -226,6 +226,7 @@ function useOnboardingSummary() {
       ),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
+    retry: 1,
   });
 }
 
@@ -233,13 +234,13 @@ function HomeRedirect() {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
-  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
+  const { data: summary } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
   if (envAdmin) return <Redirect to="/admin/dashboard" />;
-  if (!adminLoaded || summaryLoading) return <AuthLoading />;
+  if (!adminLoaded) return <AuthLoading />;
   if (isAdmin) return <Redirect to="/admin/dashboard" />;
-  if (!summary?.onboardingCompleted) return <Redirect to="/onboarding" />;
+  if (summary && !summary.onboardingCompleted) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
 
@@ -247,10 +248,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
-  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
+  const { data: summary } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  if (user && !isAdminUser && summaryLoading) return <AuthLoading />;
   if (user && !isAdminUser && summary && !summary.onboardingCompleted) {
     return <Redirect to="/onboarding" />;
   }
