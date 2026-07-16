@@ -345,8 +345,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <Archive className="w-5 h-5" />
           </Link>
         </div>
-        <div className="flex-1 overflow-y-auto app-shell-padding bg-slate-50">
-          <div className="app-content-max max-w-7xl">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden app-shell-padding bg-slate-50">
+          <div className="app-content-max max-w-7xl w-full min-w-0">
             {children}
           </div>
         </div>

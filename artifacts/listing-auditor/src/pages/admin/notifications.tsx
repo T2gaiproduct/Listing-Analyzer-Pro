@@ -7,8 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Bell, Plus, Trash2, Check, RefreshCw } from "lucide-react";
+import { ResponsiveTable } from "@/components/responsive-table";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface Notification {
   id: number; userId: string | null; type: string; title: string; message: string;
@@ -19,7 +22,7 @@ const NOTIFICATION_TYPES = ["credit_low", "credit_expired", "payment_failed", "p
 
 function fetchNotifications(type: string): Promise<{ notifications: Notification[] }> {
   const params = type ? `?type=${type}` : "";
-  return fetch(`/api/admin/notifications${params}`).then((r) => r.json());
+  return fetch(`${basePath}/api/admin/notifications${params}`, { credentials: "include" }).then((r) => r.json());
 }
 
 export default function AdminNotifications() {
@@ -36,39 +39,44 @@ export default function AdminNotifications() {
   const unread = notifications.filter((n) => !n.read).length;
 
   const send = useMutation({
-    mutationFn: (body: object) => fetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
+    mutationFn: (body: object) => fetch(`${basePath}/api/admin/notifications`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) }).then((r) => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-notifications"] }); setOpen(false); setForm({ userId: "", type: "system", title: "", message: "" }); },
   });
 
   const markRead = useMutation({
-    mutationFn: (id: number) => fetch(`/api/admin/notifications/${id}/read`, { method: "PATCH" }).then((r) => r.json()),
+    mutationFn: (id: number) => fetch(`${basePath}/api/admin/notifications/${id}/read`, { method: "PATCH", credentials: "include" }).then((r) => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-notifications"] }),
   });
 
   const del = useMutation({
-    mutationFn: (id: number) => fetch(`/api/admin/notifications/${id}`, { method: "DELETE" }).then((r) => r.ok),
+    mutationFn: (id: number) => fetch(`${basePath}/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" }).then((r) => r.ok),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-notifications"] }),
   });
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bell className="h-6 w-6 text-orange-500" />
-            <h1 className="text-2xl font-bold">Notifications</h1>
-            {unread > 0 && <Badge>{unread} unread</Badge>}
+      <div className="w-full min-w-0 space-y-4 sm:space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500 flex-shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Notifications</h1>
+            {unread > 0 && <Badge className="flex-shrink-0">{unread} unread</Badge>}
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" />Send Alert</Button>
-            <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button size="sm" className="flex-1 sm:flex-none min-h-11" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="sm:inline">Send Alert</span>
+            </Button>
+            <Button variant="outline" size="sm" className="min-h-11 min-w-11 px-0 sm:px-3" onClick={() => refetch()} aria-label="Refresh">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        <Card className="p-4">
+        <Card className="p-3 sm:p-4 min-w-0">
           <div className="mb-4">
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[220px]">
+              <SelectTrigger className="w-full sm:w-[220px]">
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
@@ -78,8 +86,9 @@ export default function AdminNotifications() {
             </Select>
           </div>
 
-          <div className="rounded-md border">
-            <Table>
+          <div className="rounded-md border min-w-0">
+            <ResponsiveTable minWidth="44rem">
+            <table className="w-full caption-bottom text-sm">
               <TableHeader>
                 <TableRow>
                   <TableHead>Type</TableHead>
@@ -113,7 +122,8 @@ export default function AdminNotifications() {
                   ))
                 )}
               </TableBody>
-            </Table>
+            </table>
+            </ResponsiveTable>
           </div>
         </Card>
 
