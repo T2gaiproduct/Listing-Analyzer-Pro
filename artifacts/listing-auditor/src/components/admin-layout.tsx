@@ -207,39 +207,39 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             </button>
           </div>
         ) : (
-          <div className="h-16 flex items-center justify-between px-6 border-b border-slate-700/50 gap-2">
-            <Link href="/admin/dashboard" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity min-w-0">
-              <Shield className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <div className="font-bold text-lg tracking-tight truncate">
-                <span className="text-white">Super</span>
-                <span className="text-orange-400">Admin</span>
-              </div>
+          <div className="h-16 flex items-center gap-2 px-4 border-b border-slate-700/50">
+            <Link
+              href="/admin/dashboard"
+              aria-label="Admin dashboard"
+              className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 hover:bg-slate-700 transition-colors"
+            >
+              <Shield className="w-5 h-5 text-orange-400" />
             </Link>
-            <div className="flex items-center gap-0.5 flex-shrink-0">
-              <Link
-                href="/admin/notifications"
-                aria-label="Notifications"
-                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
-              >
-                <Bell className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/admin/archive"
-                aria-label="Archive"
-                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
-              >
-                <Archive className="w-4 h-4" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => setCollapsed(true)}
-                title="Collapse Sidebar"
-                aria-label="Collapse Sidebar"
-                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
-              >
-                <PanelLeftClose className="w-4 h-4" />
-              </button>
-            </div>
+            <div className="flex-1" />
+            <Link
+              href="/admin/notifications"
+              aria-label="Notifications"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/admin/archive"
+              aria-label="Archive"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Archive className="w-4 h-4" />
+            </Link>
+            <div className="w-px h-5 bg-slate-700/80" />
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              title="Collapse Sidebar"
+              aria-label="Collapse Sidebar"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
           </div>
         )}
 
@@ -305,6 +305,19 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-amber-400 flex-shrink-0" />
+        {/* Desktop top bar — brand lives here so the sidebar header stays uncluttered */}
+        <div className="hidden lg:flex items-center h-14 px-6 xl:px-8 border-b border-slate-200 bg-white flex-shrink-0 min-w-0">
+          <Link
+            href="/admin/dashboard"
+            className="flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity"
+          >
+            <Shield className="w-5 h-5 text-orange-500 flex-shrink-0" />
+            <span className="font-bold text-lg tracking-tight whitespace-nowrap">
+              <span className="text-slate-900">Super</span>
+              <span className="text-orange-500">Admin</span>
+            </span>
+          </Link>
+        </div>
         <div className="lg:hidden flex items-center gap-3 h-14 px-4 border-b border-slate-200 bg-white flex-shrink-0 min-w-0">
           <button
             type="button"
