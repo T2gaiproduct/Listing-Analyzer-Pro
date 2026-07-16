@@ -8,6 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { formatDistanceToNow, format } from "date-fns";
 
 interface ClerkUser {
@@ -111,6 +112,47 @@ function KpiSkeleton() {
   return <div className="h-6 w-16 bg-slate-200 rounded animate-pulse mt-1" />;
 }
 
+function MiniStatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  color,
+  bg,
+  isLoading,
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+  icon: typeof Users;
+  color: string;
+  bg: string;
+  isLoading?: boolean;
+}) {
+  return (
+    <Card className="border-0 shadow-sm min-w-0">
+      <CardContent className="p-3 sm:p-5">
+        <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>
+            <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${color}`} />
+          </div>
+          <p className="text-[10px] sm:text-xs text-slate-500 font-medium leading-tight min-w-0">{label}</p>
+        </div>
+        {isLoading ? (
+          <KpiSkeleton />
+        ) : (
+          <>
+            <p className={`text-xl sm:text-3xl font-bold tracking-tight ${color.includes("text-") ? "text-slate-900" : ""}`}>
+              {value.toLocaleString()}
+            </p>
+            {sub && <p className="text-[10px] sm:text-xs text-slate-400 mt-1 line-clamp-2 leading-snug">{sub}</p>}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminDashboard() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-stats"], queryFn: fetchAdminStats, staleTime: 0, refetchInterval: 30_000 });
   const [, nav] = useLocation();
@@ -151,59 +193,54 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+    <div className="w-full min-w-0 space-y-6 sm:space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Admin Dashboard</h1>
           <p className="text-slate-500 text-sm mt-1">Platform-wide overview — {format(new Date(), "MMMM d, yyyy")}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => nav("/admin/customers")}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto shrink-0">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-11" onClick={() => nav("/admin/customers")}>
             <Users className="w-4 h-4 mr-1.5" /> All Customers
           </Button>
-          <Button variant="outline" size="sm" onClick={() => nav("/admin/audits")}>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-11" onClick={() => nav("/admin/audits")}>
             <FileText className="w-4 h-4 mr-1.5" /> All Audits
           </Button>
         </div>
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {kpis.map((kpi) => (
-          <Card key={kpi.label} className="border-0 shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-lg ${kpi.bg} flex items-center justify-center flex-shrink-0`}>
-                  <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
-                </div>
-                <p className="text-xs text-slate-500 font-medium">{kpi.label}</p>
-              </div>
-              {isLoading ? <KpiSkeleton /> : (
-                <>
-                  <p className="text-3xl font-bold text-slate-900">{kpi.value.toLocaleString()}</p>
-                  {kpi.sub && <p className="text-xs text-slate-400 mt-1">{kpi.sub}</p>}
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <MiniStatCard
+            key={kpi.label}
+            label={kpi.label}
+            value={kpi.value}
+            sub={kpi.sub}
+            icon={kpi.icon}
+            color={kpi.color}
+            bg={kpi.bg}
+            isLoading={isLoading}
+          />
         ))}
       </div>
 
-      {/* Signup trend banner */}
+      {/* Signup trend — compact 2-col on mobile, 3-col on sm+ */}
       {!isLoading && data && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
           {[
-            { label: "Signups today", value: data.newUsersToday, icon: CalendarDays, color: "text-emerald-600 bg-emerald-50" },
-            { label: "Signups this week", value: data.newUsersThisWeek, icon: Activity, color: "text-blue-600 bg-blue-50" },
-            { label: "Signups this month", value: data.newUsersThisMonth, icon: UserPlus, color: "text-orange-600 bg-orange-50" },
+            { label: "Signups today", value: data.newUsersToday, icon: CalendarDays, color: "text-emerald-600", bg: "bg-emerald-50" },
+            { label: "Signups this week", value: data.newUsersThisWeek, icon: Activity, color: "text-blue-600", bg: "bg-blue-50" },
+            { label: "Signups this month", value: data.newUsersThisMonth, icon: UserPlus, color: "text-orange-600", bg: "bg-orange-50" },
           ].map((item) => (
-            <div key={item.label} className={`flex items-center gap-3 rounded-xl px-5 py-3 ${item.color.split(" ")[1]}`}>
-              <item.icon className={`w-5 h-5 flex-shrink-0 ${item.color.split(" ")[0]}`} />
-              <div>
-                <p className={`text-xl font-bold ${item.color.split(" ")[0]}`}>{item.value}</p>
-                <p className="text-xs text-slate-600">{item.label}</p>
-              </div>
-            </div>
+            <MiniStatCard
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              icon={item.icon}
+              color={item.color}
+              bg={item.bg}
+            />
           ))}
         </div>
       )}
@@ -213,11 +250,11 @@ export default function AdminDashboard() {
         {/* Recent audits */}
         <div className="lg:col-span-2">
           <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardHeader className="pb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-400" /> Recent Audits
               </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs text-slate-500" onClick={() => nav("/admin/audits")}>
+              <Button variant="ghost" size="sm" className="text-xs text-slate-500 w-full sm:w-auto justify-start sm:justify-center min-h-11" onClick={() => nav("/admin/audits")}>
                 View all <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
             </CardHeader>
@@ -229,6 +266,7 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               ) : (
+                <ResponsiveTable minWidth="36rem">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100">
@@ -263,6 +301,7 @@ export default function AdminDashboard() {
                     )}
                   </tbody>
                 </table>
+                </ResponsiveTable>
               )}
             </CardContent>
           </Card>
@@ -324,11 +363,11 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Signups */}
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardHeader className="pb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
               <UserPlus className="w-4 h-4 text-emerald-500" /> Recent Sign-ups
             </CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs text-slate-500" onClick={() => nav("/admin/customers")}>
+            <Button variant="ghost" size="sm" className="text-xs text-slate-500 w-full sm:w-auto justify-start sm:justify-center min-h-11" onClick={() => nav("/admin/customers")}>
               View all <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </CardHeader>
@@ -347,11 +386,11 @@ export default function AdminDashboard() {
 
         {/* Recent Logins */}
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardHeader className="pb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
               <LogIn className="w-4 h-4 text-blue-500" /> Recent Logins
             </CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs text-slate-500" onClick={() => nav("/admin/customers")}>
+            <Button variant="ghost" size="sm" className="text-xs text-slate-500 w-full sm:w-auto justify-start sm:justify-center min-h-11" onClick={() => nav("/admin/customers")}>
               View all <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </CardHeader>
@@ -371,7 +410,7 @@ export default function AdminDashboard() {
 
       {/* Payment status note */}
       <Card className="border-0 shadow-sm bg-orange-50/60">
-        <CardContent className="p-5 flex items-start gap-4">
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
           <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
             <Clock className="w-5 h-5 text-orange-600" />
           </div>

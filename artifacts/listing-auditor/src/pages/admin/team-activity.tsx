@@ -8,6 +8,7 @@ import {
   Zap, BarChart3, AlertTriangle, CheckCircle2, XCircle,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -154,7 +155,7 @@ export default function AdminTeamActivity() {
       </div>
 
       {/* Teams list */}
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="border-0 shadow-sm">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
           <h3 className="font-semibold text-sm text-slate-900">All Workspaces</h3>
           <p className="text-xs text-slate-400 mt-0.5">Click a workspace to view members and credits</p>
@@ -206,6 +207,7 @@ export default function AdminTeamActivity() {
 
                   {isExpanded && (
                     <div className="bg-slate-50/50 border-t border-slate-100">
+                      <ResponsiveTable minWidth="48rem">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-slate-100">
@@ -267,6 +269,7 @@ export default function AdminTeamActivity() {
                           ))}
                         </tbody>
                       </table>
+                      </ResponsiveTable>
                     </div>
                   )}
                 </div>

@@ -163,17 +163,19 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
   }
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6">
+    <div className="w-full min-w-0 bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
       <div className="flex items-center gap-2 mb-1">
-        <Coins className="w-5 h-5 text-orange-500" />
+        <Coins className="w-5 h-5 text-orange-500 shrink-0" />
         <h3 className="font-semibold text-slate-900">Buy Additional Credits</h3>
       </div>
-      <p className="text-xs text-slate-500 mb-4">Current balance: AI {balance.ai.toLocaleString()} · Images {balance.image.toLocaleString()} · Audits {balance.audit.toLocaleString()}</p>
-      <div className="flex flex-col md:flex-row gap-4 items-end">
-        <div className="flex-1">
+      <p className="text-xs text-slate-500 mb-4 break-words">
+        Current balance: AI {balance.ai.toLocaleString()} · Images {balance.image.toLocaleString()} · Audits {balance.audit.toLocaleString()}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full min-w-0">
+        <div className="w-full min-w-0 sm:col-span-2 lg:col-span-1">
           <label className="text-xs font-medium text-slate-500 mb-1.5 block">Credit Type</label>
           <select
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
+            className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
             value={creditType}
             onChange={(e) => setCreditType(e.target.value)}
           >
@@ -182,27 +184,27 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
             <option value="audit">Audit Credits</option>
           </select>
         </div>
-        <div className="flex-1">
+        <div className="w-full min-w-0">
           <label className="text-xs font-medium text-slate-500 mb-1.5 block">Credits Quantity</label>
-          <Input type="number" min={10} max={10000} value={quantity} onChange={(e) => setQuantity(Math.max(10, Number(e.target.value)))} className="h-10" />
+          <Input type="number" min={10} max={10000} value={quantity} onChange={(e) => setQuantity(Math.max(10, Number(e.target.value)))} className="h-11 w-full" />
         </div>
-        <div className="flex-1">
+        <div className="w-full min-w-0">
           <label className="text-xs font-medium text-slate-500 mb-1.5 block">Price per credit</label>
-          <div className="h-10 flex items-center px-3 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900">
-            <Calculator className="w-4 h-4 text-slate-400 mr-2" />${unitPrice.toFixed(2)}
+          <div className="h-11 flex items-center px-3 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 w-full">
+            <Calculator className="w-4 h-4 text-slate-400 mr-2 shrink-0" />${unitPrice.toFixed(2)}
           </div>
         </div>
-        <div className="flex-1">
+        <div className="w-full min-w-0">
           <label className="text-xs font-medium text-slate-500 mb-1.5 block">Total Cost</label>
-          <div className="h-10 flex items-center px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-orange-600">
+          <div className="h-11 flex items-center px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-orange-600 w-full">
             ${totalCost.toFixed(2)}
           </div>
         </div>
-        <Button className="bg-orange-500 hover:bg-orange-600 text-white h-10 px-6" disabled={buying} onClick={handleBuy}>
-          {buying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-          Buy Now
-        </Button>
       </div>
+      <Button className="w-full sm:w-auto mt-4 bg-orange-500 hover:bg-orange-600 text-white h-11 px-6 min-h-11" disabled={buying} onClick={handleBuy}>
+        {buying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+        Buy Now
+      </Button>
     </div>
   );
 }
@@ -217,7 +219,7 @@ function CreditRulesCard() {
   const typeLabels: Record<string, string> = { ai: "AI", image: "Image", audit: "Audit" };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6">
+    <div className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 w-full min-w-0">
       <h3 className="font-semibold text-slate-900 mb-4">Credit Deduction Rules</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {rules.map((r) => (
@@ -696,7 +698,7 @@ export default function Billing() {
   const config = paymentConfig ?? defaultConfig;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0 max-w-full">
       <div>
         <h1 className="page-title font-bold text-slate-900">Subscription & Billing</h1>
         <p className="text-slate-500 mt-1">Manage your plan, credits, and invoices.</p>
@@ -883,7 +885,7 @@ export default function Billing() {
       )}
 
       {tab === "credits" && (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full min-w-0">
           {(lowAi || lowImage || lowAudit) && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />

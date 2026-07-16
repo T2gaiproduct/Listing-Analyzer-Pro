@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -144,7 +145,8 @@ export default function AdminCreditRules() {
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-xl">
+        <ResponsiveTable minWidth="40rem">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b border-slate-200">
@@ -245,6 +247,7 @@ export default function AdminCreditRules() {
             )}
           </tbody>
         </table>
+        </ResponsiveTable>
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 flex items-start gap-3">

@@ -3,6 +3,7 @@ import { BarChart2, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
 import { format } from "date-fns";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -159,6 +160,7 @@ export default function AdminAnalytics() {
             <CardTitle className="text-base font-semibold">Top Users by Audit Volume</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            <ResponsiveTable minWidth="28rem">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
@@ -183,6 +185,7 @@ export default function AdminAnalytics() {
                 ))}
               </tbody>
             </table>
+            </ResponsiveTable>
           </CardContent>
         </Card>
       )}
