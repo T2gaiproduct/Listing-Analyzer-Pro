@@ -12,11 +12,13 @@ import {
   userProfilesTable,
   subscriptionsTable,
   plansTable,
+  teamMembersTable,
   type AuditResult,
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects } from "../lib/member-projects";
+import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod } from "../lib/team-stats";
 
 const router: IRouter = Router();
 
@@ -391,6 +393,22 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
 
   const creditsBalance = displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
 
+  let teamCreditsUsedInPeriod = 0;
+  let memberCreditsAllocated = 0;
+  if (!team?.isTeamMember) {
+    const activeMembers = await db
+      .select({ memberUserId: teamMembersTable.memberUserId })
+      .from(teamMembersTable)
+      .where(and(eq(teamMembersTable.ownerUserId, userId), eq(teamMembersTable.status, "active")));
+    for (const m of activeMembers) {
+      if (m.memberUserId) {
+        teamCreditsUsedInPeriod += await sumCreditsUsedInPeriod(m.memberUserId, periodStart, periodEnd);
+      }
+    }
+    const allocated = await sumAllocatedCreditsForOwner(userId);
+    memberCreditsAllocated = allocated.aiCredits + allocated.imageCredits + allocated.auditCredits;
+  }
+
   const timeSavedHours = computeTimeSavedHours(allTransactions, filterStart, filterEnd);
   const timeSavedThisWeek = computeTimeSavedHours(allTransactions, weekStart, now);
 
@@ -503,6 +521,8 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
       creditsBalance,
       creditsAllowance,
       isTeamMember: !!team?.isTeamMember,
+      teamCreditsUsedInPeriod,
+      memberCreditsAllocated,
     },
     impact: {
       listingsOptimized: impactListingsOptimized,

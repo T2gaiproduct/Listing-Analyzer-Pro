@@ -40,6 +40,8 @@ interface DashboardData {
     creditsBalance: number;
     creditsAllowance: number;
     isTeamMember?: boolean;
+    teamCreditsUsedInPeriod?: number;
+    memberCreditsAllocated?: number;
   };
   impact: {
     listingsOptimized: number;
@@ -257,7 +259,9 @@ export default function Dashboard() {
               ? creditsAllowance > 0
                 ? `of ${creditsAllowance.toLocaleString()} allocated`
                 : "No credits allocated yet"
-              : `of ${creditsAllowance.toLocaleString()} credits`
+              : (stats.teamCreditsUsedInPeriod ?? 0) > 0
+                ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
+                : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
         />

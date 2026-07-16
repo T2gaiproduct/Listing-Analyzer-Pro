@@ -373,6 +373,17 @@ export async function deductMemberCredits(
     .where(eq(teamMembersTable.id, memberId));
   const userId = member?.memberUserId ?? member?.ownerUserId ?? "";
 
+  // Member spend reduces the workspace pool (owner credits table) as well as the member allocation.
+  if (member?.ownerUserId) {
+    const ownerCheck = await checkCredits(member.ownerUserId, type, amount);
+    if (ownerCheck.hasCredits) {
+      await db
+        .update(creditsTable)
+        .set({ [key]: ownerCheck.currentBalance - amount, updatedAt: now })
+        .where(eq(creditsTable.userId, member.ownerUserId));
+    }
+  }
+
   await db.insert(creditTransactionsTable).values({
     userId,
     creditType: type,
