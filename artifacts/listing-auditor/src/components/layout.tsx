@@ -41,6 +41,7 @@ import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { useTeam } from "@/hooks/use-team";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { SidebarProjectsContext } from "@/contexts/sidebar-projects";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -386,6 +387,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const isAdmin = user ? adminUserIds.includes(user.id) : false;
 
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [recentProjectsHighlight, setRecentProjectsHighlight] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -401,6 +403,10 @@ export function Layout({ children }: { children: ReactNode }) {
       recentProjectsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }, []);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location]);
 
   /* ── Ribbon actions state ── */
   const [dotsOpen, setDotsOpen] = useState(false);
@@ -683,7 +689,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <TooltipProvider>
         <aside
           className={cn(
-            "flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex flex-col shadow-2xl z-10 transition-all duration-200 overflow-y-auto overflow-x-visible",
+            "hidden lg:flex flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex-col shadow-2xl z-10 transition-all duration-200 overflow-y-auto overflow-x-visible",
             collapsed ? "w-16" : "w-64"
           )}
           onClick={(e) => e.stopPropagation()}
@@ -914,6 +920,84 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </div>
         </aside>
+
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 flex flex-col lg:hidden">
+            <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+            <div className="px-4 py-4 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+                <Zap className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-semibold text-slate-900">ListingAuditor</span>
+            </div>
+            <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+              {mainNavItems.map(({ icon: Icon, label, href }) => {
+                const isActive =
+                  location === href ||
+                  (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search)));
+                return (
+                  <Link key={href} href={href}>
+                    <button
+                      type="button"
+                      onClick={() => setMobileNavOpen(false)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors text-left min-h-11",
+                        isActive
+                          ? "bg-orange-500 text-white font-semibold shadow-sm"
+                          : "text-slate-600 font-medium hover:bg-slate-100"
+                      )}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      {label}
+                    </button>
+                  </Link>
+                );
+              })}
+              <div className="my-3 border-t border-slate-200" />
+              <p className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                {searchQuery ? "Search Results" : "Recent Projects"}
+              </p>
+              {displayItems.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-slate-400 italic">No projects yet</p>
+              ) : (
+                displayItems.slice(0, 8).map((item) => (
+                  <Link key={`${item.type}-${item.id}`} href={item.url}>
+                    <button
+                      type="button"
+                      onClick={() => setMobileNavOpen(false)}
+                      className="w-full px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-lg truncate min-h-11"
+                    >
+                      {item.name}
+                    </button>
+                  </Link>
+                ))
+              )}
+              {isAdmin && (
+                <Link href="/admin/dashboard">
+                  <button
+                    type="button"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-3 mt-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 min-h-11"
+                  >
+                    <Shield className="w-4 h-4 text-primary" />
+                    Admin Panel
+                  </button>
+                </Link>
+              )}
+            </div>
+            <div className="p-4 border-t border-slate-200">
+              <Link href="/billing">
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="w-full text-sm font-medium border border-slate-200 rounded-full px-4 py-2.5 hover:border-primary hover:text-primary min-h-11"
+                >
+                  Upgrade
+                </button>
+              </Link>
+            </div>
+          </SheetContent>
+        </Sheet>
       </TooltipProvider>
 
       {/* Main Content */}
@@ -929,30 +1013,28 @@ export function Layout({ children }: { children: ReactNode }) {
           email={userEmail}
           planLabel={planLabel}
           credits={displayCredits}
+          onMenuClick={() => setMobileNavOpen(true)}
         />
 
         {/* ── Top ribbon (project context) ── */}
         {isRibbonVisible(location) && (
-          <div className="relative flex items-center h-[52px] px-8 bg-white border-b border-slate-200 flex-shrink-0">
-            {/* Back button */}
+          <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[52px] py-2 sm:py-0 px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200 flex-shrink-0">
             <button
               onClick={() => window.history.back()}
-              className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-1.5 transition-colors z-10"
+              className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-2 transition-colors z-10 min-h-11"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
+              <span className="hidden sm:inline">Back</span>
             </button>
 
-            {/* Project/product name — after Back with gap */}
             {projectCtx && ribbonTitle && (
-              <div className="ml-6 flex items-center min-w-0">
-                <span className="text-lg font-bold text-slate-900 truncate max-w-lg">
+              <div className="flex-1 min-w-0 sm:ml-4 lg:ml-6 flex items-center order-3 sm:order-none w-full sm:w-auto basis-full sm:basis-auto">
+                <span className="text-base sm:text-lg font-bold text-slate-900 truncate">
                   {ribbonTitle}
                 </span>
               </div>
             )}
 
-            {/* Share + three-dots — always visible */}
             <div className="flex items-center gap-1 ml-auto z-10">
               <button
                 onClick={handleShare}
@@ -1060,8 +1142,8 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         )}
 
-        <div className="flex-1 overflow-y-auto py-8 px-8">
-          <div className="max-w-6xl mx-auto">
+        <div className="flex-1 overflow-y-auto app-shell-padding">
+          <div className="app-content-max">
             {children}
           </div>
         </div>

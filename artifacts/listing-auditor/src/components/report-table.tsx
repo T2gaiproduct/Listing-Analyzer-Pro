@@ -9,6 +9,7 @@ import {
 import {
   Download, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, ArrowUpDown, Search, Inbox,
 } from "lucide-react";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export interface ReportColumn<T> {
   key: string;
@@ -136,14 +137,14 @@ export function ReportTable<T>({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+        <h1 className="page-title font-bold text-slate-900">{title}</h1>
         {description && <p className="text-slate-500 text-sm mt-1">{description}</p>}
       </div>
 
       {filters && <Card className="border-0 shadow-sm p-4">{filters}</Card>}
 
       <Card className="border-0 shadow-sm overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3 p-4 border-b border-slate-100">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700 gap-2">
@@ -156,11 +157,11 @@ export function ReportTable<T>({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             <div className="flex items-center gap-1.5 text-sm text-slate-500">
               Show
               <select
-                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                className="h-11 sm:h-8 rounded-md border border-slate-200 bg-white px-2 text-sm flex-1 sm:flex-none"
                 value={pageSize}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
               >
@@ -168,10 +169,10 @@ export function ReportTable<T>({
               </select>
               entries
             </div>
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <Input
-                className="h-8 pl-8 w-56"
+                className="h-11 sm:h-8 pl-8 w-full sm:w-56"
                 placeholder={searchPlaceholder ?? "Search…"}
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(0); }}
@@ -180,6 +181,7 @@ export function ReportTable<T>({
           </div>
         </div>
 
+        <ResponsiveTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
@@ -223,8 +225,9 @@ export function ReportTable<T>({
             )}
           </tbody>
         </table>
+        </ResponsiveTable>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-sm text-slate-500">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 text-sm text-slate-500">
           <span>
             {sorted.length === 0 ? "0" : `${currentPage * pageSize + 1}–${Math.min((currentPage + 1) * pageSize, sorted.length)}`} of {sorted.length}
           </span>

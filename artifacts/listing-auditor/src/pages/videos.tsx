@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, ChevronRight, ChevronLeft, Monitor, Sun, BookOpen, Lightbulb, Megaphone, ImagePlus, Cpu, Pencil, Download, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -80,8 +80,26 @@ const howItWorks = [
 export default function VideosPage() {
   const { toast } = useToast();
   const [carouselOffset, setCarouselOffset] = useState(0);
-  const visibleCards = 4;
-  const maxOffset = videoTypes.length - visibleCards;
+  const [visibleCards, setVisibleCards] = useState(4);
+
+  useEffect(() => {
+    function updateVisible() {
+      const w = window.innerWidth;
+      if (w < 640) setVisibleCards(1);
+      else if (w < 1024) setVisibleCards(2);
+      else if (w < 1280) setVisibleCards(3);
+      else setVisibleCards(4);
+    }
+    updateVisible();
+    window.addEventListener("resize", updateVisible);
+    return () => window.removeEventListener("resize", updateVisible);
+  }, []);
+
+  const maxOffset = Math.max(0, videoTypes.length - visibleCards);
+
+  useEffect(() => {
+    setCarouselOffset((o) => Math.min(o, maxOffset));
+  }, [maxOffset]);
 
   function handleCreate() {
     toast({
@@ -214,7 +232,7 @@ export default function VideosPage() {
       <div className="bg-white px-8 py-10 border-t border-border">
         <h2 className="text-xl font-bold text-foreground mb-8">How It Works</h2>
 
-        <div className="grid grid-cols-4 gap-0 relative">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-0 relative">
           {howItWorks.map(({ step, icon: Icon, title, description }, idx) => (
             <div key={step} className="flex flex-col items-start relative">
               {/* Arrow connector */}

@@ -1325,7 +1325,7 @@ export default function AuditWorkflow() {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {uploadedImages.slice(0, 8).map((img, idx) => (
                           <div key={idx} className="relative aspect-square rounded-xl border border-slate-200 overflow-hidden bg-white">
                             <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />

@@ -1036,7 +1036,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 <p className="text-sm font-medium text-slate-700 mb-3">Uploaded Images ({uploadedImages.length})</p>
                 <div className="flex flex-wrap gap-4">
                   {uploadedImages.map((img, idx) => (
-                    <div key={idx} className="relative w-[140px] h-[140px] rounded-lg border border-slate-100 overflow-hidden bg-white flex-shrink-0">
+                    <div key={idx} className="relative w-24 h-24 sm:w-[140px] sm:h-[140px] rounded-lg border border-slate-100 overflow-hidden bg-white flex-shrink-0">
                       <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-contain" />
                       <button
                         className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow-sm flex items-center justify-center text-red-500 hover:text-red-600"

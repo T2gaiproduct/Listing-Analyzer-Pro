@@ -354,7 +354,7 @@ export default function Profile() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label className="text-xs flex items-center gap-1.5 text-slate-500"><User className="w-3 h-3" />Full Name</Label>
               {editing ? (
@@ -411,7 +411,7 @@ export default function Profile() {
           {/* Optional fields */}
           <div className="border-t pt-4">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Additional Details</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs flex items-center gap-1.5 text-slate-500"><FileText className="w-3 h-3" />GST / Tax Number</Label>
                 {editing ? (

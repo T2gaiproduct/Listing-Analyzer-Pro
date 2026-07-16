@@ -143,7 +143,7 @@ export default function AuditDetail({ id }: { id: number }) {
     return (
       <div className="space-y-8 animate-in fade-in">
         <Skeleton className="h-10 w-80" />
-        <div className="grid grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}</div>
         <Skeleton className="h-64" /><Skeleton className="h-64" />
       </div>
     );
@@ -693,6 +693,8 @@ export default function AuditDetail({ id }: { id: number }) {
             </Card>
           ) : (
             <div className="space-y-4">
+              <div className="table-responsive">
+              <div className="min-w-[40rem]">
               <div className="grid grid-cols-5 gap-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4">
                 <span className="col-span-2">Competitor</span>
                 <span className="text-center">Score</span>
@@ -738,6 +740,8 @@ export default function AuditDetail({ id }: { id: number }) {
                   </CardContent>
                 </Card>
               ))}
+              </div>
+              </div>
             </div>
           )}
         </TabsContent>
