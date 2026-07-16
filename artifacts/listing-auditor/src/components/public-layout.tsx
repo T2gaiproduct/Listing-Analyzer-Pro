@@ -46,10 +46,14 @@ export function PublicNav() {
         <Button variant="ghost" size="sm" className="hidden sm:inline-flex min-h-11" asChild>
           <Link href="/sign-in">Sign In</Link>
         </Button>
-        <Button size="sm" className="shadow-sm min-h-11" asChild>
+        <Button
+          size="sm"
+          className="shadow-sm h-9 min-h-0 px-2.5 py-0 text-xs font-semibold sm:min-h-9 sm:px-3 sm:text-sm"
+          asChild
+        >
           <Link href="/sign-up">
+            <span className="sm:hidden">Get Started</span>
             <span className="hidden sm:inline">Get Started Free</span>
-            <span className="sm:hidden">Start</span>
           </Link>
         </Button>
         <button
