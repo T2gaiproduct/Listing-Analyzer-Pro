@@ -495,27 +495,23 @@ export function Layout({ children }: { children: ReactNode }) {
     },
   });
 
-  const { isTeamMember, isLoading: teamLoading, memberCredits } = useTeam();
+  const { isTeamMember, memberCredits } = useTeam();
 
-  const recentsReady = clerkLoaded && !!user && !teamLoading;
+  const recentsReady = clerkLoaded && !!user;
 
-  // Fetch unified recents for sidebar (refetch when team context is known — members use a different scope)
+  // Fetch unified recents for sidebar (scope changes when team membership resolves)
+  const recentsScope = isTeamMember ? "member" : "owner";
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
     {
       query: {
-        queryKey: getGetRecentsQueryKey({ limit: 200 }),
-        staleTime: 0,
-        refetchOnMount: "always",
+        queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
+        staleTime: 30_000,
         enabled: recentsReady,
       },
     },
   );
   const recents = (recentsData?.items ?? []) as RecentItem[];
-
-  useEffect(() => {
-    if (recentsReady) invalidateRecents();
-  }, [recentsReady, isTeamMember, user?.id]);
 
   // Search projects
   const { data: searchData } = useQuery({
@@ -644,16 +640,16 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Fetch profile, subscription, and credits for topbar + sidebar
+  // Fetch profile summary for topbar + sidebar (lightweight — no billing history)
   const { data: profileData } = useQuery<{
     profile: { fullName: string | null } | null;
     subscription: { planName: string | null; status: string } | null;
     credits: { aiCredits: number; imageCredits: number; auditCredits: number };
   }>({
-    queryKey: ["user-profile"],
-    queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
-    staleTime: 5_000,
-    refetchOnWindowFocus: true,
+    queryKey: ["user-profile-summary"],
+    queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 60_000,
+    enabled: clerkLoaded && !!user,
   });
 
   const ownerCredits = profileData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };

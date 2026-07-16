@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSignUp } from "@clerk/react/legacy";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -25,13 +25,14 @@ function isValid(pw: string) {
 
 export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp();
+  const [, setLocation] = useLocation();
 
   const postAuthPath = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get("redirect_url");
     if (redirect && redirect.startsWith("/")) return redirect;
     if (redirect && redirect.startsWith(basePath)) return redirect.slice(basePath.length) || "/";
-    return `${basePath}/onboarding`;
+    return "/onboarding";
   }, []);
 
   const [step, setStep] = useState<"form" | "verify">("form");
@@ -58,7 +59,7 @@ export default function SignUpPage() {
       await signUp.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: `${window.location.origin}${basePath}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}${postAuthPath}`,
+        redirectUrlComplete: `${window.location.origin}${basePath}${postAuthPath}`,
       });
     } catch (err: unknown) {
       const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };
@@ -95,7 +96,7 @@ export default function SignUpPage() {
       const result = await signUp.attemptEmailAddressVerification({ code });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        window.location.href = postAuthPath;
+        setLocation(postAuthPath, { replace: true });
       }
     } catch (err: unknown) {
       const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };

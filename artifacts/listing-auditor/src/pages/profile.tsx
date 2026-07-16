@@ -135,6 +135,7 @@ export default function Profile() {
       fetch(`${basePath}/api/profile`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ["user-profile"] });
+      qc.invalidateQueries({ queryKey: ["user-profile-summary"] });
       setEditing(false);
       toast({ title: "Profile updated" });
       // Sync fullName back to Clerk so sidebar reflects it immediately
@@ -239,6 +240,7 @@ export default function Profile() {
         const result = await res.json();
         if (res.ok) {
           qc.invalidateQueries({ queryKey: ["user-profile"] });
+      qc.invalidateQueries({ queryKey: ["user-profile-summary"] });
           toast({ title: "Profile picture updated" });
         } else {
           toast({ title: result.error || "Upload failed", variant: "destructive" });

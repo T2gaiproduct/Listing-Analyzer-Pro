@@ -4,6 +4,7 @@ import type { QueryClient } from "@tanstack/react-query";
 export async function refetchCreditQueries(queryClient: QueryClient): Promise<void> {
   await Promise.all([
     queryClient.refetchQueries({ queryKey: ["user-profile"] }),
+    queryClient.refetchQueries({ queryKey: ["user-profile-summary"] }),
     queryClient.refetchQueries({ queryKey: ["user-credits"] }),
     queryClient.refetchQueries({ queryKey: ["team-membership-credits"] }),
     queryClient.refetchQueries({ queryKey: ["credit-usage"] }),
