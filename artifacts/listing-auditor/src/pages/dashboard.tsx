@@ -98,15 +98,20 @@ function StatCard({
   icon: typeof Folder;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
-      <div className="flex items-start justify-between">
-        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-          <Icon className="w-5 h-5 text-slate-600" />
+    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-5 min-w-0">
+      <div className="flex items-center gap-2 sm:block">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
         </div>
+        <p className="text-xs sm:text-sm text-slate-500 sm:mt-4 truncate min-w-0">{title}</p>
       </div>
-      <p className="text-sm text-slate-500 mt-4">{title}</p>
-      <p className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{value}</p>
-      <p className={cn("text-xs mt-2", subtextPositive ? "text-emerald-600" : "text-slate-400")}>{subtext}</p>
+      <p className="text-xl sm:text-3xl font-bold text-slate-900 mt-1 sm:mt-1 tracking-tight">{value}</p>
+      <p className={cn(
+        "text-[10px] sm:text-xs mt-1 sm:mt-2 line-clamp-2 leading-snug",
+        subtextPositive ? "text-emerald-600" : "text-slate-400",
+      )}>
+        {subtext}
+      </p>
     </div>
   );
 }
@@ -116,7 +121,7 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
   const display = chartData.length > 0 ? chartData : data;
 
   return (
-    <div className="relative h-52">
+    <div className="relative h-40 sm:h-52">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -125,8 +130,8 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
             nameKey="label"
             cx="50%"
             cy="50%"
-            innerRadius={62}
-            outerRadius={88}
+            innerRadius="48%"
+            outerRadius="68%"
             paddingAngle={2}
             strokeWidth={0}
           >
@@ -137,8 +142,8 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
         </PieChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <p className="text-2xl font-bold text-slate-900">{total.toLocaleString()}</p>
-        <p className="text-xs text-slate-500">Total Credits</p>
+        <p className="text-xl sm:text-2xl font-bold text-slate-900">{total.toLocaleString()}</p>
+        <p className="text-[10px] sm:text-xs text-slate-500">Total Credits</p>
       </div>
     </div>
   );
@@ -163,10 +168,10 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-in fade-in">
-        <Skeleton className="h-12 w-96" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+      <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+        <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 sm:h-36 rounded-xl sm:rounded-2xl" />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Skeleton className="h-80 rounded-2xl lg:col-span-2" />
@@ -220,17 +225,17 @@ export default function Dashboard() {
     : dashboard.creditBreakdown;
 
   return (
-    <div className={cn("space-y-6 animate-in fade-in duration-500", isFetching && "opacity-90")}>
+    <div className={cn("space-y-4 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight">
           Welcome back, {name}! 👋
         </h1>
-        <p className="text-slate-500 mt-1">Here&apos;s your overview for today.</p>
+        <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">Here&apos;s your overview for today.</p>
       </div>
 
       {/* Top stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           title="Projects Saved"
           value={stats.projectsSaved}
@@ -268,36 +273,36 @@ export default function Dashboard() {
       </div>
 
       {/* Main two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Impact card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-            <div className="flex flex-col sm:flex-row gap-6">
-              <div className="flex-1">
-                <h2 className="text-lg font-bold text-slate-900">Your Impact This Week</h2>
-                <p className="text-sm text-slate-500 mt-1">You&apos;re doing great! Here&apos;s the value you&apos;ve created.</p>
-                <ul className="mt-6 space-y-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">Your Impact This Week</h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">You&apos;re doing great! Here&apos;s the value you&apos;ve created.</p>
+                <ul className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
                   <li className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">Listings Optimized</p>
                       <p className="text-xs text-slate-500">Improve visibility and ranking</p>
                     </div>
-                    <span className="text-xl font-bold text-slate-900">{impact.listingsOptimized}</span>
+                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{impact.listingsOptimized}</span>
                   </li>
                   <li className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">Key Issues Identified</p>
                       <p className="text-xs text-slate-500">Fixed or flagged for improvement</p>
                     </div>
-                    <span className="text-xl font-bold text-slate-900">{impact.issuesIdentified}</span>
+                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{impact.issuesIdentified}</span>
                   </li>
                   <li className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">Time Saved</p>
                       <p className="text-xs text-slate-500">By using Listing Auditor</p>
                     </div>
-                    <span className="text-xl font-bold text-slate-900">{formatHours(impact.timeSavedHours)}</span>
+                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{formatHours(impact.timeSavedHours)}</span>
                   </li>
                 </ul>
               </div>
@@ -315,9 +320,9 @@ export default function Dashboard() {
           </div>
 
           {/* Recent projects */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">Recent Projects</h2>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">Recent Projects</h2>
               <button
                 type="button"
                 onClick={focusRecentProjects}
@@ -327,7 +332,7 @@ export default function Dashboard() {
               </button>
             </div>
             {recentProjects.length === 0 ? (
-              <div className="px-6 py-12 text-center text-slate-500 text-sm">
+              <div className="px-4 py-10 sm:px-6 sm:py-12 text-center text-slate-500 text-sm">
                 No projects yet. Start with a quick action below.
               </div>
             ) : (
@@ -335,9 +340,9 @@ export default function Dashboard() {
                 {recentProjects.map((project) => (
                   <li key={`${project.type}-${project.id}`}>
                     <Link href={project.url}>
-                      <div className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <Folder className="w-5 h-5 text-slate-500" />
+                      <div className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <Folder className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-orange-600 transition-colors">
@@ -353,7 +358,7 @@ export default function Dashboard() {
                         )}>
                           {project.statusLabel}
                         </span>
-                        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-400 flex-shrink-0" />
+                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 group-hover:text-orange-400 flex-shrink-0" />
                       </div>
                     </Link>
                   </li>
@@ -364,10 +369,10 @@ export default function Dashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Credits donut */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Credits Usage</h2>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4">Credits Usage</h2>
             <DonutChart data={creditBreakdown} total={creditsBalance} />
             {creditBreakdown.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500 text-center">
@@ -399,19 +404,19 @@ export default function Dashboard() {
           </div>
 
           {/* Quick actions */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4">Quick Actions</h2>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {quickActions.map((action) => {
                 const Icon = QUICK_ACTION_ICONS[action.icon] ?? FilePlus2;
                 return (
                   <Link key={action.href + action.label} href={action.href}>
                     <button
                       type="button"
-                      className="w-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-orange-50 hover:border-orange-200 transition-colors text-center min-h-[88px]"
+                      className="w-full flex flex-col items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-orange-50 hover:border-orange-200 transition-colors text-center min-h-[72px] sm:min-h-[88px]"
                     >
-                      <Icon className="w-5 h-5 text-slate-600" />
-                      <span className="text-xs font-semibold text-slate-700 leading-tight">{action.label}</span>
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
+                      <span className="text-[10px] sm:text-xs font-semibold text-slate-700 leading-tight">{action.label}</span>
                     </button>
                   </Link>
                 );

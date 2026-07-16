@@ -143,7 +143,7 @@ export default function AuditDetail({ id }: { id: number }) {
     return (
       <div className="space-y-8 animate-in fade-in">
         <Skeleton className="h-10 w-80" />
-        <div className="grid grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}</div>
         <Skeleton className="h-64" /><Skeleton className="h-64" />
       </div>
     );
@@ -365,7 +365,7 @@ export default function AuditDetail({ id }: { id: number }) {
   const gc = audit.generatedContent;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 w-full min-w-0 max-w-full">
       {/* Failed banner */}
       {audit.status === "failed" && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
@@ -380,28 +380,33 @@ export default function AuditDetail({ id }: { id: number }) {
       )}
       {/* Tabs */}
       <Tabs defaultValue="audit">
-        <div className="flex items-center gap-3 mb-6">
-          <TabsList>
-            <TabsTrigger value="audit">Audit Results</TabsTrigger>
-            <TabsTrigger value="content">
-              Listing Optimization
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 w-full min-w-0">
+          <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain pb-1 -mx-1 px-1 scrollbar-hide">
+            <TabsList className="inline-flex w-max h-auto flex-nowrap">
+            <TabsTrigger value="audit" className="whitespace-nowrap">Audit Results</TabsTrigger>
+            <TabsTrigger value="content" className="whitespace-nowrap">
+              <span className="sm:hidden">Listing</span>
+              <span className="hidden sm:inline">Listing Optimization</span>
               {gc && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
             </TabsTrigger>
-            <TabsTrigger value="images">
-              Graphics Creation
+            <TabsTrigger value="images" className="whitespace-nowrap">
+              <span className="sm:hidden">Graphics</span>
+              <span className="hidden sm:inline">Graphics Creation</span>
               {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
             </TabsTrigger>
-            <TabsTrigger value="ebc">
-              A+ / EBC Content
+            <TabsTrigger value="ebc" className="whitespace-nowrap">
+              <span className="sm:hidden">A+ / EBC</span>
+              <span className="hidden sm:inline">A+ / EBC Content</span>
             </TabsTrigger>
-            <TabsTrigger value="competitors">
+            <TabsTrigger value="competitors" className="whitespace-nowrap">
               Competitors
               {audit.competitors.length > 0 && (
                 <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">{audit.competitors.length}</Badge>
               )}
             </TabsTrigger>
-          </TabsList>
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+            </TabsList>
+          </div>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
             <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
           </Button>
         </div>
@@ -626,7 +631,7 @@ export default function AuditDetail({ id }: { id: number }) {
         </TabsContent>
 
         {/* ── IMAGES TAB ── */}
-        <TabsContent value="images" className="space-y-6">
+        <TabsContent value="images" className="space-y-6 w-full min-w-0">
           <GraphicsWizard
             auditId={audit.id}
             productName={audit.productName}
@@ -637,7 +642,7 @@ export default function AuditDetail({ id }: { id: number }) {
         </TabsContent>
 
         {/* ── EBC / A+ CONTENT TAB ── */}
-        <TabsContent value="ebc" className="space-y-6">
+        <TabsContent value="ebc" className="space-y-6 w-full min-w-0 max-w-full overflow-x-hidden">
           <EbcStudio
             auditId={id}
             audit={{
@@ -693,6 +698,8 @@ export default function AuditDetail({ id }: { id: number }) {
             </Card>
           ) : (
             <div className="space-y-4">
+              <div className="table-responsive">
+              <div className="min-w-[40rem]">
               <div className="grid grid-cols-5 gap-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4">
                 <span className="col-span-2">Competitor</span>
                 <span className="text-center">Score</span>
@@ -738,6 +745,8 @@ export default function AuditDetail({ id }: { id: number }) {
                   </CardContent>
                 </Card>
               ))}
+              </div>
+              </div>
             </div>
           )}
         </TabsContent>

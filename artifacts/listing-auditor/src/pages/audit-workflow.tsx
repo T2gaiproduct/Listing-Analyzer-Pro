@@ -1198,8 +1198,8 @@ export default function AuditWorkflow() {
     <div className="flex flex-col h-full overflow-hidden bg-white">
 
       {/* ── Top Progress Stepper ─────────────────────────────────────────── */}
-      <div className="border-b border-slate-200 bg-white px-6 py-0 flex-shrink-0">
-        <div className="flex items-stretch max-w-5xl mx-auto">
+      <div className="border-b border-slate-200 bg-white px-4 sm:px-6 py-0 flex-shrink-0 overflow-x-auto">
+        <div className="flex items-stretch max-w-5xl mx-auto min-w-[20rem] w-full">
           {STEPS.map((s) => {
             const isActive    = activeStep === s.id;
             const isCompleted = activeStep > s.id;
@@ -1247,7 +1247,7 @@ export default function AuditWorkflow() {
           />
         )}
 
-        <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full min-w-0">
 
           {/* STEP 1: Upload ── */}
           {activeStep === 1 && (
@@ -1325,7 +1325,7 @@ export default function AuditWorkflow() {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {uploadedImages.slice(0, 8).map((img, idx) => (
                           <div key={idx} className="relative aspect-square rounded-xl border border-slate-200 overflow-hidden bg-white">
                             <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />

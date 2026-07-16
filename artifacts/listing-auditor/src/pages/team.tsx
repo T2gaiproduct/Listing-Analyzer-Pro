@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -458,7 +459,7 @@ export default function Team() {
                         Available to assign: up to {data.availableToAllocate.auditCredits} audit, {data.availableToAllocate.aiCredits} text, {data.availableToAllocate.imageCredits} image credits (including this member&apos;s current allocation).
                       </p>
                     )}
-                    <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                       <div>
                         <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
                         <Input
@@ -590,6 +591,7 @@ export default function Team() {
               <h3 className="font-semibold text-sm text-slate-900">Member Activity</h3>
               <p className="text-xs text-slate-400 mt-0.5">Usage tracked from credit transactions in the current billing period</p>
             </div>
+            <ResponsiveTable>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
@@ -630,6 +632,7 @@ export default function Team() {
                 })}
               </tbody>
             </table>
+            </ResponsiveTable>
           </CardContent>
         </Card>
       )}

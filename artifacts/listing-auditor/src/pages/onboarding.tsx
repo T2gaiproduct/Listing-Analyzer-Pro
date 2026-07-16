@@ -444,7 +444,7 @@ export default function Onboarding() {
 
           {/* Step 2 — Payment */}
           {step === 2 && (
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="col-span-2 space-y-5">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-5">Complete your setup</h2>

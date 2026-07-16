@@ -720,7 +720,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               <div className="space-y-4">
                 <p className="text-sm text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
                     { id: "hero", label: "Hero Shot", desc: "White background", icon: "🏆" },
                     { id: "lifestyle", label: "Lifestyle In-Use", desc: "Product in use", icon: "🌅" },
@@ -944,7 +944,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const memberBlockedFromNewImages = isTeamMember && memberImageBalance < imageCostPerGraphic;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 max-w-full space-y-6">
       {isTeamMember && (
         <div className={`rounded-xl border px-4 py-3 text-sm ${memberBlockedFromNewImages ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
           <p className="font-medium">
@@ -963,12 +963,20 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         </div>
       )}
 
-      {/* Step indicator */}
-      <div className="mb-8">
-        <div className="flex items-center">
+      {/* Step indicator — compact on mobile */}
+      <div className="mb-6 sm:mb-8 w-full min-w-0">
+        <div className="sm:hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600">
+            Step {step} of {STEPS.length}
+          </p>
+          <p className="text-sm font-semibold text-slate-900 mt-0.5">
+            {STEPS.find((s) => s.id === step)?.label}
+          </p>
+        </div>
+        <div className="hidden sm:flex items-center w-full min-w-0">
           {STEPS.map((s, idx) => (
-            <div key={s.id} className="flex items-center flex-1">
-              <div className="flex flex-col items-center">
+            <div key={s.id} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center min-w-0 px-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                   s.id < step ? "bg-purple-600 text-white" :
                   s.id === step ? "bg-purple-600 text-white" :
@@ -976,17 +984,17 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 }`}>
                   {s.id < step ? <Check className="w-4 h-4" /> : s.id}
                 </div>
-                <div className="mt-2 text-center">
+                <div className="mt-2 text-center min-w-0">
                   <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-purple-600" : "text-slate-400"}`}>
                     Step {s.id} of 3
                   </p>
-                  <p className={`text-sm font-medium ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
+                  <p className={`text-sm font-medium truncate max-w-[7rem] ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
                     {s.label}
                   </p>
                 </div>
               </div>
               {idx < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-2 mb-6 ${s.id < step ? "bg-purple-600" : "bg-slate-200"}`} />
+                <div className={`flex-1 h-0.5 mx-2 mb-6 min-w-[1rem] ${s.id < step ? "bg-purple-600" : "bg-slate-200"}`} />
               )}
             </div>
           ))}
@@ -1036,7 +1044,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 <p className="text-sm font-medium text-slate-700 mb-3">Uploaded Images ({uploadedImages.length})</p>
                 <div className="flex flex-wrap gap-4">
                   {uploadedImages.map((img, idx) => (
-                    <div key={idx} className="relative w-[140px] h-[140px] rounded-lg border border-slate-100 overflow-hidden bg-white flex-shrink-0">
+                    <div key={idx} className="relative w-24 h-24 sm:w-[140px] sm:h-[140px] rounded-lg border border-slate-100 overflow-hidden bg-white flex-shrink-0">
                       <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-contain" />
                       <button
                         className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow-sm flex items-center justify-center text-red-500 hover:text-red-600"
@@ -1106,7 +1114,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
             {IMAGE_TYPES.map((type) => {
               const isSelected = selectedImageTypes.includes(type.id);
               return (
@@ -1117,7 +1125,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                       prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
                     );
                   }}
-                  className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
+                  className={`relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all ${
                     isSelected
                       ? "border-purple-600 bg-purple-50/30"
                       : "border-slate-200 bg-white hover:border-slate-300"
@@ -1203,16 +1211,16 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-end pt-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 w-full">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {step > 1 && (
-            <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setStep((s) => (s - 1) as Step)}>
+            <Button variant="outline" className="w-full sm:w-auto text-slate-500 border-slate-200 rounded-lg min-h-11" onClick={() => setStep((s) => (s - 1) as Step)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
           )}
           <Button
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6 min-h-11"
             disabled={
               !canContinue()
               || createProject.isPending

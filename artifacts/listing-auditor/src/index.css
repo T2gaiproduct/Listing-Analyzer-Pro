@@ -169,4 +169,116 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  /* Hide scrollbar visuals on scrollable regions (scroll still works) */
+  :where(
+    .overflow-auto,
+    .overflow-x-auto,
+    .overflow-y-auto,
+    .overflow-scroll,
+    .overflow-x-scroll,
+    .overflow-y-scroll,
+    .table-responsive,
+    .scrollbar-hide
+  ) {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  :where(
+    .overflow-auto,
+    .overflow-x-auto,
+    .overflow-y-auto,
+    .overflow-scroll,
+    .overflow-x-scroll,
+    .overflow-y-scroll,
+    .table-responsive,
+    .scrollbar-hide
+  )::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
+  /* Radix ScrollArea viewports use native overflow scrolling */
+  [data-radix-scroll-area-viewport] {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
+  /* Mobile: hide all scrollbars site-wide */
+  @media (max-width: 1023px) {
+    *,
+    html,
+    body {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    *::-webkit-scrollbar,
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+      background: transparent;
+    }
+
+    [data-radix-scroll-area-scrollbar] {
+      display: none !important;
+    }
+  }
+}
+
+@layer utilities {
+  .app-shell-padding {
+    @apply px-4 py-6 sm:px-6 sm:py-8 lg:px-8;
+  }
+
+  .app-content-max {
+    @apply w-full max-w-6xl mx-auto min-w-0 xl:max-w-7xl;
+  }
+
+  .table-responsive {
+    @apply w-full overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-responsive > table {
+    @apply min-w-[36rem];
+  }
+
+  .touch-target {
+    @apply min-h-11 min-w-11;
+  }
+
+  .page-title {
+    font-size: clamp(1.25rem, 2.5vw + 0.5rem, 1.875rem);
+    line-height: 1.2;
+  }
+
+  .page-hero-title {
+    font-size: clamp(2rem, 4vw + 0.5rem, 3rem);
+    line-height: 1.1;
+  }
+
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
 }

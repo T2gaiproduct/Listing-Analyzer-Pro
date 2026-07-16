@@ -177,10 +177,10 @@ function ModulePanel({
   children: React.ReactNode;
 }) {
   return (
-    <Card className={cn("border-border/50 transition-opacity", !visible && "opacity-50")}>
-      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between cursor-pointer">
-        <CardTitle className="text-sm font-semibold text-slate-700">{title}</CardTitle>
-        <div className="flex items-center gap-1">
+    <Card className={cn("border-border/50 transition-opacity min-w-0", !visible && "opacity-50")}>
+      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between gap-2 cursor-pointer min-w-0">
+        <CardTitle className="text-sm font-semibold text-slate-700 truncate min-w-0">{title}</CardTitle>
+        <div className="flex items-center gap-1 shrink-0">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onToggleVisible} title={visible ? "Hide module" : "Show module"}>
             {visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
           </Button>
@@ -449,42 +449,47 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
   const { canEdit } = useTeam();
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">A+ / EBC Content Studio</h2>
+      <div className="flex flex-col gap-4 w-full min-w-0 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight">A+ / EBC Content Studio</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Design Amazon-style Enhanced Brand Content and export as JPG</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-wrap sm:w-auto sm:justify-end shrink-0">
           {canEdit && (
-            <Button variant="outline" size="sm" onClick={handleReset} title="Reset all content to AI defaults">
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
+            <Button variant="outline" size="sm" onClick={handleReset} title="Reset all content to AI defaults" className="w-full sm:w-auto">
+              <RefreshCw className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Reset</span>
             </Button>
           )}
           {canEdit && (
             <Button
               variant="outline" size="sm"
               onClick={() => { setShowAiPrompt(!showAiPrompt); setShowColorPicker(false); }}
-              className={cn(showAiPrompt && "border-primary text-primary bg-primary/5")}
+              className={cn("w-full sm:w-auto", showAiPrompt && "border-primary text-primary bg-primary/5")}
             >
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-              Generate with AI
+              <Sparkles className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="truncate">
+                <span className="sm:hidden">AI Generate</span>
+                <span className="hidden sm:inline">Generate with AI</span>
+              </span>
             </Button>
           )}
           <Button
-            variant="outline" size="sm"
-            className="relative"
+            variant="outline"
+            size="sm"
+            className="relative w-full sm:w-auto"
             onClick={() => { setShowColorPicker(!showColorPicker); setShowAiPrompt(false); }}
           >
-            <Palette className="w-3.5 h-3.5 mr-1.5" />
-            Brand Color
-            <span className="ml-2 w-3 h-3 rounded-full inline-block border" style={{ background: colors.primary }} />
+            <Palette className="w-3.5 h-3.5 sm:mr-1.5" />
+            <span className="truncate">Brand Color</span>
+            <span className="ml-1.5 sm:ml-2 w-3 h-3 rounded-full inline-block border shrink-0" style={{ background: colors.primary }} />
           </Button>
-          <Button onClick={handleExport} disabled={isExporting} size="sm">
+          <Button onClick={handleExport} disabled={isExporting} size="sm" className="col-span-2 sm:col-span-1 w-full sm:w-auto">
             {isExporting
-              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Exporting…</>
-              : <><Download className="w-3.5 h-3.5 mr-1.5" />Download JPG</>
+              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /><span>Exporting…</span></>
+              : <><Download className="w-3.5 h-3.5 sm:mr-1.5" /><span className="sm:hidden">Download</span><span className="hidden sm:inline">Download JPG</span></>
             }
           </Button>
         </div>
@@ -552,9 +557,9 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6 items-start w-full min-w-0">
         {/* ── Editor Panel ── */}
-        <div className="space-y-3">
+        <div className="space-y-3 w-full min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Edit Modules</p>
 
           {/* Hero */}
@@ -579,11 +584,11 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
             <Input value={features.sectionTitle} onChange={e => setFeatures(p => ({ ...p, sectionTitle: e.target.value }))} />
             {features.features.map((f, i) => (
               <div key={i} className="space-y-2 border-t pt-3 mt-2">
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center min-w-0">
                   <select
                     value={f.icon}
                     onChange={e => setFeatures(p => ({ ...p, features: p.features.map((x, j) => j === i ? { ...x, icon: e.target.value } : x) }))}
-                    className="border rounded px-2 py-1 text-sm w-16 bg-white"
+                    className="border rounded px-2 py-1 text-sm w-16 bg-white shrink-0"
                   >
                     {ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                   </select>
@@ -591,6 +596,7 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
                     placeholder="Title"
                     value={f.title}
                     maxLength={35}
+                    className="min-w-0"
                     onChange={e => setFeatures(p => ({ ...p, features: p.features.map((x, j) => j === i ? { ...x, title: e.target.value } : x) }))}
                   />
                 </div>
@@ -631,15 +637,15 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
             <Input value={grid.sectionTitle} onChange={e => setGrid(p => ({ ...p, sectionTitle: e.target.value }))} />
             {grid.items.map((item, i) => (
               <div key={i} className="space-y-2 border-t pt-3 mt-2">
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center min-w-0">
                   <select
                     value={item.emoji}
                     onChange={e => setGrid(p => ({ ...p, items: p.items.map((x, j) => j === i ? { ...x, emoji: e.target.value } : x) }))}
-                    className="border rounded px-2 py-1 text-sm w-16 bg-white"
+                    className="border rounded px-2 py-1 text-sm w-16 bg-white shrink-0"
                   >
                     {ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                   </select>
-                  <Input placeholder="Title" value={item.title} maxLength={32}
+                  <Input placeholder="Title" value={item.title} maxLength={32} className="min-w-0"
                     onChange={e => setGrid(p => ({ ...p, items: p.items.map((x, j) => j === i ? { ...x, title: e.target.value } : x) }))}
                   />
                 </div>
@@ -679,12 +685,15 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
         </div>
 
         {/* ── Canvas Preview ── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between px-0.5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Canvas Preview (970px · Amazon A+ Standard)</p>
-            <Badge variant="outline" className="text-xs font-mono">JPG export</Badge>
+        <div className="space-y-3 w-full min-w-0">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between px-0.5 min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="sm:hidden">Canvas Preview</span>
+              <span className="hidden sm:inline">Canvas Preview (970px · Amazon A+ Standard)</span>
+            </p>
+            <Badge variant="outline" className="text-xs font-mono w-fit">JPG export</Badge>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-border/60 shadow-sm bg-white">
+          <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-border/60 shadow-sm bg-white">
             <div
               ref={canvasRef}
               style={{

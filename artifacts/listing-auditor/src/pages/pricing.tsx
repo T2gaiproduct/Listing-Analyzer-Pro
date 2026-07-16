@@ -5,6 +5,7 @@ import { Check, X, Zap, ArrowRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
+import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -189,7 +190,11 @@ export default function Pricing() {
     ? dbPlans.map((p) => dbPlanToDisplay(p))
     : FALLBACK_PLANS;
 
-  const gridCols = plans.length <= 3 ? `lg:grid-cols-${plans.length}` : "lg:grid-cols-4";
+  const planGridClass =
+    plans.length <= 1 ? "lg:grid-cols-1"
+    : plans.length === 2 ? "lg:grid-cols-2"
+    : plans.length === 3 ? "lg:grid-cols-3"
+    : "lg:grid-cols-4";
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
@@ -212,7 +217,7 @@ export default function Pricing() {
 
       {/* Plans Grid */}
       <section className="px-6 pb-20 -mt-6">
-        <div className={`max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-6`}>
+        <div className={cn("max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6", planGridClass)}>
           {plans.map((plan) => {
             const a = plan.creditAllocations ?? {};
             const totalCredits = (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);

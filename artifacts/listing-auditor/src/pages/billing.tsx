@@ -15,6 +15,7 @@ import { BillingOverview } from "@/components/billing-overview";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { useTeam } from "@/hooks/use-team";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -451,7 +452,7 @@ function MemberBillingView() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">My Usage</h1>
+        <h1 className="page-title font-bold text-slate-900">My Usage</h1>
         <p className="text-slate-500 mt-1">
           You are a <span className="font-medium capitalize">{role}</span> on{" "}
           <span className="font-medium text-slate-700">{usage?.workspaceName ?? membership?.workspaceName ?? "this workspace"}</span>.
@@ -697,16 +698,16 @@ export default function Billing() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Subscription & Billing</h1>
+        <h1 className="page-title font-bold text-slate-900">Subscription & Billing</h1>
         <p className="text-slate-500 mt-1">Manage your plan, credits, and invoices.</p>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto pb-px -mx-1 px-1">
         {(["overview", "plans", "credits", "history"] as const).map((t) => (
           <button
             key={t}
             onClick={() => selectTab(t)}
-            className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all capitalize ${tab === t ? "border-orange-500 text-orange-500" : "border-transparent text-slate-500 hover:text-slate-900"}`}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all capitalize whitespace-nowrap flex-shrink-0 min-h-11 ${tab === t ? "border-orange-500 text-orange-500" : "border-transparent text-slate-500 hover:text-slate-900"}`}
           >
             {t === "history" ? "Billing History" : t === "credits" ? "Buy Credits" : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -1008,7 +1009,8 @@ export default function Billing() {
               {creditTransactions.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">No transactions yet</div>
               ) : (
-                <table className="w-full text-sm">
+                <ResponsiveTable>
+              <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr className="border-b border-slate-100">
                       <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase">Date</th>
@@ -1046,6 +1048,7 @@ export default function Billing() {
                     })}
                   </tbody>
                 </table>
+                </ResponsiveTable>
               )}
             </div>
           )}
@@ -1059,7 +1062,8 @@ export default function Billing() {
               {Object.keys(creditBreakdown).length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">No usage yet</div>
               ) : (
-                <table className="w-full text-sm">
+                <ResponsiveTable>
+              <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr className="border-b border-slate-100">
                       <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">Feature</th>
@@ -1079,6 +1083,7 @@ export default function Billing() {
                     ))}
                   </tbody>
                 </table>
+                </ResponsiveTable>
               )}
             </div>
           )}
@@ -1097,6 +1102,7 @@ export default function Billing() {
                 <p className="text-slate-400 text-sm">No payments yet</p>
               </div>
             ) : (
+              <ResponsiveTable>
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
@@ -1135,6 +1141,7 @@ export default function Billing() {
                   ))}
                 </tbody>
               </table>
+              </ResponsiveTable>
             )}
           </div>
 
@@ -1144,6 +1151,7 @@ export default function Billing() {
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
                 <h3 className="font-semibold text-slate-700 text-sm">Invoices</h3>
               </div>
+              <ResponsiveTable>
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
@@ -1176,6 +1184,7 @@ export default function Billing() {
                   ))}
                 </tbody>
               </table>
+              </ResponsiveTable>
             </div>
           )}
         </div>

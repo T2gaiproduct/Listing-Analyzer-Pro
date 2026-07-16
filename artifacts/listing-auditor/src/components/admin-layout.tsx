@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Users, FileText, BarChart2, CreditCard,
@@ -7,10 +7,11 @@ import {
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
-  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
+  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen, Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const navSections = [
   {
@@ -103,18 +104,93 @@ const navSections = [
   },
 ];
 
+function AdminNavSections({
+  location,
+  collapsed,
+  collapsedSections,
+  toggleSection,
+  onNavigate,
+}: {
+  location: string;
+  collapsed: boolean;
+  collapsedSections: Record<string, boolean>;
+  toggleSection: (label: string) => void;
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      {navSections.map((section) => {
+        const collapsible = (section as { collapsible?: boolean }).collapsible === true;
+        const isSectionCollapsed = !collapsed && collapsible && (collapsedSections[section.label] ?? false);
+        return (
+          <div key={section.label}>
+            {!collapsed && (collapsible ? (
+              <button
+                type="button"
+                onClick={() => toggleSection(section.label)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3 hover:text-slate-300 transition-colors min-h-11"
+              >
+                <span>{section.label}</span>
+                {isSectionCollapsed ? (
+                  <ChevronRight className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+            ) : (
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
+                {section.label}
+              </p>
+            ))}
+            <div className={cn("space-y-0.5", isSectionCollapsed && "hidden")}>
+              {section.items.map((item) => {
+                const itemPath = item.href.split("?")[0];
+                const isActive = location.startsWith(itemPath);
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    title={collapsed ? item.label : undefined}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center rounded-md text-sm font-medium transition-all group min-h-11",
+                      collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
+                      isActive
+                        ? "bg-orange-500 text-white shadow-sm"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                    )}
+                  >
+                    <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
+                    {!collapsed && item.label}
+                    {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const toggleSection = (label: string) =>
     setCollapsedSections((s) => ({ ...s, [label]: !s[label] }));
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location]);
+
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
-      <aside className={cn("flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
+      <aside className={cn("hidden lg:flex flex-shrink-0 bg-slate-900 text-slate-100 flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
         {collapsed ? (
           <div className="h-16 flex flex-col items-center justify-center gap-1 px-2 border-b border-slate-700/50">
             <Link href="/admin/dashboard" aria-label="Dashboard">
@@ -125,32 +201,32 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               onClick={() => setCollapsed(false)}
               title="Expand Sidebar"
               aria-label="Expand Sidebar"
-              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
             >
               <PanelLeftOpen className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <div className="h-16 flex items-center justify-between px-6 border-b border-slate-700/50 gap-2">
-            <Link href="/admin/dashboard" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-              <Shield className="w-5 h-5 text-orange-400" />
-              <div className="font-bold text-lg tracking-tight">
+            <Link href="/admin/dashboard" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity min-w-0">
+              <Shield className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <div className="font-bold text-lg tracking-tight truncate">
                 <span className="text-white">Super</span>
                 <span className="text-orange-400">Admin</span>
               </div>
             </Link>
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5 flex-shrink-0">
               <Link
                 href="/admin/notifications"
                 aria-label="Notifications"
-                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
               >
                 <Bell className="w-4 h-4" />
               </Link>
               <Link
                 href="/admin/archive"
                 aria-label="Archive"
-                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
               >
                 <Archive className="w-4 h-4" />
               </Link>
@@ -159,7 +235,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 onClick={() => setCollapsed(true)}
                 title="Collapse Sidebar"
                 aria-label="Collapse Sidebar"
-                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
               >
                 <PanelLeftClose className="w-4 h-4" />
               </button>
@@ -168,56 +244,12 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         )}
 
         <nav className={cn("flex-1 py-4 overflow-y-auto", collapsed ? "px-2 space-y-1" : "px-3 space-y-5")}>
-          {navSections.map((section) => {
-            const collapsible = (section as { collapsible?: boolean }).collapsible === true;
-            const isSectionCollapsed = !collapsed && collapsible && (collapsedSections[section.label] ?? false);
-            return (
-            <div key={section.label}>
-              {!collapsed && (collapsible ? (
-                <button
-                  type="button"
-                  onClick={() => toggleSection(section.label)}
-                  className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3 hover:text-slate-300 transition-colors"
-                >
-                  <span>{section.label}</span>
-                  {isSectionCollapsed ? (
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              ) : (
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
-                  {section.label}
-                </p>
-              ))}
-              <div className={cn("space-y-0.5", isSectionCollapsed && "hidden")}>
-                {section.items.map((item) => {
-                  const itemPath = item.href.split("?")[0];
-                  const isActive = location.startsWith(itemPath);
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={cn(
-                        "flex items-center rounded-md text-sm font-medium transition-all group",
-                        collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
-                        isActive
-                          ? "bg-orange-500 text-white shadow-sm"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                      )}
-                    >
-                      <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
-                      {!collapsed && item.label}
-                      {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-            );
-          })}
+          <AdminNavSections
+            location={location}
+            collapsed={collapsed}
+            collapsedSections={collapsedSections}
+            toggleSection={toggleSection}
+          />
         </nav>
 
         <div className="p-3 border-t border-slate-700/50 space-y-1">
@@ -225,7 +257,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             onClick={() => signOut({ redirectUrl: `${basePath}/` })}
             title={collapsed ? "Sign Out" : undefined}
             className={cn(
-              "flex items-center rounded-md text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all w-full",
+              "flex items-center rounded-md text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all w-full min-h-11",
               collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2 text-left"
             )}
           >
@@ -235,10 +267,49 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 bg-slate-900 text-slate-100 border-slate-800 flex flex-col lg:hidden">
+          <SheetTitle className="sr-only">Admin navigation</SheetTitle>
+          <div className="h-14 flex items-center px-4 border-b border-slate-700/50 gap-2">
+            <Shield className="w-5 h-5 text-orange-400" />
+            <span className="font-bold text-white">Super<span className="text-orange-400">Admin</span></span>
+          </div>
+          <nav className="flex-1 py-4 overflow-y-auto px-3 space-y-5">
+            <AdminNavSections
+              location={location}
+              collapsed={false}
+              collapsedSections={collapsedSections}
+              toggleSection={toggleSection}
+              onNavigate={() => setMobileNavOpen(false)}
+            />
+          </nav>
+          <div className="p-3 border-t border-slate-700/50">
+            <button
+              onClick={() => signOut({ redirectUrl: `${basePath}/` })}
+              className="flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 w-full min-h-11"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-amber-400 flex-shrink-0" />
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50">
-          <div className="max-w-7xl mx-auto">
+        <div className="lg:hidden flex items-center gap-3 h-14 px-4 border-b border-slate-200 bg-white flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="touch-target flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100"
+            aria-label="Open admin menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="font-semibold text-slate-900 truncate">Admin</span>
+        </div>
+        <div className="flex-1 overflow-y-auto app-shell-padding bg-slate-50">
+          <div className="app-content-max max-w-7xl">
             {children}
           </div>
         </div>
