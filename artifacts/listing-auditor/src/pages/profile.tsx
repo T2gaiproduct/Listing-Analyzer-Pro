@@ -282,17 +282,17 @@ export default function Profile() {
 
   return (
     <>
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl w-full min-w-0">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
+        <h1 className="page-title font-bold text-slate-900">My Profile</h1>
         <p className="text-slate-500 text-sm mt-1">Manage your account details and subscription</p>
       </div>
 
       {/* Profile info */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3 flex-row items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+      <Card className="border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between space-y-0">
+          <div className="flex items-center gap-3 min-w-0 w-full">
+            <div className="relative group cursor-pointer flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
               {avatarUploading && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/50">
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -322,9 +322,9 @@ export default function Profile() {
                 }}
               />
             </div>
-            <div>
-              <CardTitle className="text-lg">{form.fullName || user?.fullName || "Your Name"}</CardTitle>
-              <p className="text-sm text-slate-400">{user?.primaryEmailAddress?.emailAddress}</p>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-lg truncate">{form.fullName || user?.fullName || "Your Name"}</CardTitle>
+              <p className="text-sm text-slate-400 truncate">{user?.primaryEmailAddress?.emailAddress}</p>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {data?.profile?.id && (
                   <span className="font-mono text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
@@ -337,19 +337,24 @@ export default function Profile() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={openPwDialog}>
-              <KeyRound className="w-4 h-4 mr-1" />Change Password
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto sm:flex-shrink-0">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-11 justify-center" onClick={openPwDialog}>
+              <KeyRound className="w-4 h-4 mr-1.5 flex-shrink-0" />
+              Change Password
             </Button>
             {editing ? (
               <>
-                <Button variant="ghost" size="sm" onClick={() => setEditing(false)}><X className="w-4 h-4 mr-1" />Cancel</Button>
-                <Button size="sm" className="bg-orange-500 hover:bg-orange-600" onClick={() => updateMutation.mutate({ ...form, teamSize: form.teamSize ? Number(form.teamSize) : undefined })} disabled={updateMutation.isPending}>
-                  <Save className="w-4 h-4 mr-1" />{updateMutation.isPending ? "Saving..." : "Save"}
+                <Button variant="ghost" size="sm" className="w-full sm:w-auto min-h-11 justify-center" onClick={() => setEditing(false)}>
+                  <X className="w-4 h-4 mr-1.5" />Cancel
+                </Button>
+                <Button size="sm" className="w-full sm:w-auto min-h-11 justify-center bg-orange-500 hover:bg-orange-600" onClick={() => updateMutation.mutate({ ...form, teamSize: form.teamSize ? Number(form.teamSize) : undefined })} disabled={updateMutation.isPending}>
+                  <Save className="w-4 h-4 mr-1.5" />{updateMutation.isPending ? "Saving..." : "Save"}
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Edit2 className="w-4 h-4 mr-1" />Edit Profile</Button>
+              <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-11 justify-center" onClick={() => setEditing(true)}>
+                <Edit2 className="w-4 h-4 mr-1.5" />Edit Profile
+              </Button>
             )}
           </div>
         </CardHeader>
