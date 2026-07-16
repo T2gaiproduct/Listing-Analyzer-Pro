@@ -17,7 +17,7 @@ import {
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { getMemberCredits } from "../lib/credits";
-import { getMemberWorkedProjects } from "../lib/member-projects";
+import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod } from "../lib/team-stats";
 
 const router: IRouter = Router();
@@ -162,31 +162,109 @@ function statusBadgeColor(label: string): "orange" | "green" | "blue" | "red" | 
   return "gray";
 }
 
-async function countProjectsSaved(ownerId: string): Promise<number> {
+async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedProjects | null): Promise<number> {
+  const isMember = !!memberWorked;
+  const noMemberAudits = isMember && (memberWorked?.auditIds.length ?? 0) === 0;
+  const noMemberGraphics = isMember && (memberWorked?.graphicsIds.length ?? 0) === 0;
+  const noMemberVideos = isMember && (memberWorked?.videoIds.length ?? 0) === 0;
+  const noMemberAds = isMember && (memberWorked?.adsIds.length ?? 0) === 0;
+
   const [auditCount, graphicsCount, videosCount, adsCount] = await Promise.all([
-    db.select({ c: count() }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`)),
-    db.select({ c: count() }).from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, ownerId), eq(graphicsProjectsTable.isDeleted, 0), sql`${graphicsProjectsTable.status} != 'archived'`)),
-    db.select({ c: count() }).from(videosProjectsTable)
-      .where(and(eq(videosProjectsTable.userId, ownerId), eq(videosProjectsTable.isDeleted, 0), sql`${videosProjectsTable.status} != 'archived'`)),
-    db.select({ c: count() }).from(adsProjectsTable)
-      .where(and(eq(adsProjectsTable.userId, ownerId), eq(adsProjectsTable.isDeleted, 0), sql`${adsProjectsTable.status} != 'archived'`)),
+    noMemberAudits
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(auditsTable)
+          .where(and(
+            eq(auditsTable.userId, ownerId),
+            eq(auditsTable.isDeleted, 0),
+            sql`${auditsTable.status} != 'archived'`,
+            ...(isMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
+          )),
+    noMemberGraphics
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(graphicsProjectsTable)
+          .where(and(
+            eq(graphicsProjectsTable.userId, ownerId),
+            eq(graphicsProjectsTable.isDeleted, 0),
+            sql`${graphicsProjectsTable.status} != 'archived'`,
+            sql`${graphicsProjectsTable.auditId} IS NULL`,
+            ...(isMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
+          )),
+    noMemberVideos
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(videosProjectsTable)
+          .where(and(
+            eq(videosProjectsTable.userId, ownerId),
+            eq(videosProjectsTable.isDeleted, 0),
+            sql`${videosProjectsTable.status} != 'archived'`,
+            ...(isMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
+          )),
+    noMemberAds
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(adsProjectsTable)
+          .where(and(
+            eq(adsProjectsTable.userId, ownerId),
+            eq(adsProjectsTable.isDeleted, 0),
+            sql`${adsProjectsTable.status} != 'archived'`,
+            ...(isMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
+          )),
   ]);
   return Number(auditCount[0]?.c ?? 0) + Number(graphicsCount[0]?.c ?? 0)
     + Number(videosCount[0]?.c ?? 0) + Number(adsCount[0]?.c ?? 0);
 }
 
-async function countProjectsCreatedSince(ownerId: string, since: Date): Promise<number> {
+async function countProjectsCreatedSince(
+  ownerId: string,
+  since: Date,
+  memberWorked?: MemberWorkedProjects | null,
+): Promise<number> {
+  const isMember = !!memberWorked;
+  const noMemberAudits = isMember && (memberWorked?.auditIds.length ?? 0) === 0;
+  const noMemberGraphics = isMember && (memberWorked?.graphicsIds.length ?? 0) === 0;
+  const noMemberVideos = isMember && (memberWorked?.videoIds.length ?? 0) === 0;
+  const noMemberAds = isMember && (memberWorked?.adsIds.length ?? 0) === 0;
+
   const [auditCount, graphicsCount, videosCount, adsCount] = await Promise.all([
-    db.select({ c: count() }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.status} != 'archived'`, gte(auditsTable.createdAt, since))),
-    db.select({ c: count() }).from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, ownerId), eq(graphicsProjectsTable.isDeleted, 0), sql`${graphicsProjectsTable.status} != 'archived'`, gte(graphicsProjectsTable.createdAt, since))),
-    db.select({ c: count() }).from(videosProjectsTable)
-      .where(and(eq(videosProjectsTable.userId, ownerId), eq(videosProjectsTable.isDeleted, 0), sql`${videosProjectsTable.status} != 'archived'`, gte(videosProjectsTable.createdAt, since))),
-    db.select({ c: count() }).from(adsProjectsTable)
-      .where(and(eq(adsProjectsTable.userId, ownerId), eq(adsProjectsTable.isDeleted, 0), sql`${adsProjectsTable.status} != 'archived'`, gte(adsProjectsTable.createdAt, since))),
+    noMemberAudits
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(auditsTable)
+          .where(and(
+            eq(auditsTable.userId, ownerId),
+            eq(auditsTable.isDeleted, 0),
+            sql`${auditsTable.status} != 'archived'`,
+            gte(auditsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
+          )),
+    noMemberGraphics
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(graphicsProjectsTable)
+          .where(and(
+            eq(graphicsProjectsTable.userId, ownerId),
+            eq(graphicsProjectsTable.isDeleted, 0),
+            sql`${graphicsProjectsTable.status} != 'archived'`,
+            sql`${graphicsProjectsTable.auditId} IS NULL`,
+            gte(graphicsProjectsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
+          )),
+    noMemberVideos
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(videosProjectsTable)
+          .where(and(
+            eq(videosProjectsTable.userId, ownerId),
+            eq(videosProjectsTable.isDeleted, 0),
+            sql`${videosProjectsTable.status} != 'archived'`,
+            gte(videosProjectsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
+          )),
+    noMemberAds
+      ? Promise.resolve([{ c: 0 }])
+      : db.select({ c: count() }).from(adsProjectsTable)
+          .where(and(
+            eq(adsProjectsTable.userId, ownerId),
+            eq(adsProjectsTable.isDeleted, 0),
+            sql`${adsProjectsTable.status} != 'archived'`,
+            gte(adsProjectsTable.createdAt, since),
+            ...(isMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
+          )),
   ]);
   return Number(auditCount[0]?.c ?? 0) + Number(graphicsCount[0]?.c ?? 0)
     + Number(videosCount[0]?.c ?? 0) + Number(adsCount[0]?.c ?? 0);
@@ -258,8 +336,8 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
     recentVideos,
     recentAds,
   ] = await Promise.all([
-    countProjectsSaved(ownerId),
-    countProjectsCreatedSince(ownerId, weekStart),
+    countProjectsSaved(ownerId, memberWorked),
+    countProjectsCreatedSince(ownerId, weekStart, memberWorked),
     db.select({ c: count() }).from(auditsTable)
       .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0))),
     db.select({ c: count() }).from(auditsTable)
