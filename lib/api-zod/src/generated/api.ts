@@ -36,18 +36,32 @@ export const GenerateContentDirectResponse = zod.object({
 });
 
 /**
- * @summary Fetch Amazon listing data by ASIN or URL
+ * @summary Fetch product listing data by URL or Amazon ASIN
  */
 export const FetchListingBody = zod
   .object({
-    asin: zod.string().optional().describe("Amazon ASIN (e.g. B09G9FPHY6)"),
-    url: zod.string().optional().describe("Amazon product URL"),
+    asin: zod
+      .string()
+      .optional()
+      .describe(
+        "Amazon ASIN (e.g. B09G9FPHY6). Use url for other marketplaces.",
+      ),
+    url: zod
+      .string()
+      .optional()
+      .describe(
+        "Product page URL (Amazon, Shopify, Walmart, eBay, Etsy, or any store with structured product data)",
+      ),
   })
   .describe("Either asin or url must be provided");
 
 export const FetchListingResponse = zod.object({
   productName: zod.string(),
-  asin: zod.string(),
+  asin: zod
+    .string()
+    .describe(
+      "Platform product identifier (Amazon ASIN or store-specific id such as shopify:handle, walmart:123)",
+    ),
   category: zod.string().nullish(),
   title: zod.string(),
   bulletPoints: zod.array(zod.string()),

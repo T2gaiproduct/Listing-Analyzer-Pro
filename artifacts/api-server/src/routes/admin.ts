@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, count, avg, sql, desc, and, inArray } from "drizzle-orm";
+import { eq, count, avg, sql, desc, and, inArray, gte } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable,
@@ -71,6 +71,34 @@ async function clerkFetch(path: string, options?: RequestInit) {
   return resp.json();
 }
 
+type ClerkUserRecord = Record<string, unknown>;
+
+/** Clerk BAPI may return a raw user array or a paginated `{ data: [] }` object. */
+function parseClerkUserList(raw: unknown): ClerkUserRecord[] {
+  if (Array.isArray(raw)) return raw as ClerkUserRecord[];
+  if (raw && typeof raw === "object" && Array.isArray((raw as { data?: unknown }).data)) {
+    return (raw as { data: ClerkUserRecord[] }).data;
+  }
+  return [];
+}
+
+/** Total users matching optional Clerk filters (milliseconds since epoch). */
+async function clerkUserCount(params?: Record<string, number | string>): Promise<number> {
+  const qs = params
+    ? `?${new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))).toString()}`
+    : "";
+  const result = await clerkFetch(`/users/count${qs}`) as { total_count?: number };
+  return typeof result?.total_count === "number" ? result.total_count : 0;
+}
+
+async function countProfilesSince(since: Date): Promise<number> {
+  const [row] = await db
+    .select({ c: count() })
+    .from(userProfilesTable)
+    .where(gte(userProfilesTable.createdAt, since));
+  return Number(row?.c ?? 0);
+}
+
 router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
   const nowMs = Date.now();
   const sevenDaysAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
@@ -84,18 +112,40 @@ router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
     db.select({ c: count() }).from(auditsTable).where(sql`${auditsTable.overallScore} < 50`),
   ]);
 
-  const [clerkUsers, recentSignupsRaw, recentLoginsRaw, newTodayRaw, newWeekRaw, newMonthRaw] = await Promise.all([
-    clerkFetch("/users?limit=1") as Promise<Record<string, any>>,
-    clerkFetch(`/users?limit=10&order_by=-created_at`) as Promise<Record<string, any>>,
-    clerkFetch(`/users?limit=10&order_by=-last_sign_in_at`) as Promise<Record<string, any>>,
-    clerkFetch(`/users?limit=1&created_after=${todayStartMs}`) as Promise<Record<string, any>>,
-    clerkFetch(`/users?limit=1&created_after=${sevenDaysAgoMs}`) as Promise<Record<string, any>>,
-    clerkFetch(`/users?limit=1&created_after=${thirtyDaysAgoMs}`) as Promise<Record<string, any>>,
+  const todayStart = new Date(todayStartMs);
+  const sevenDaysAgo = new Date(sevenDaysAgoMs);
+  const thirtyDaysAgo = new Date(thirtyDaysAgoMs);
+
+  const [
+    recentSignupsRaw,
+    recentLoginsRaw,
+    clerkTotalUsers,
+    clerkNewToday,
+    clerkNewWeek,
+    clerkNewMonth,
+    dbTotalUsers,
+    dbNewToday,
+    dbNewWeek,
+    dbNewMonth,
+  ] = await Promise.all([
+    clerkFetch(`/users?limit=10&order_by=-created_at`),
+    clerkFetch(`/users?limit=10&order_by=-last_sign_in_at`),
+    clerkUserCount(),
+    clerkUserCount({ created_at_after: todayStartMs }),
+    clerkUserCount({ created_at_after: sevenDaysAgoMs }),
+    clerkUserCount({ created_at_after: thirtyDaysAgoMs }),
+    db.select({ c: count() }).from(userProfilesTable),
+    countProfilesSince(todayStart),
+    countProfilesSince(sevenDaysAgo),
+    countProfilesSince(thirtyDaysAgo),
   ]);
 
-  const totalUsers = (clerkUsers as Record<string, any>)?.total_count ?? 0;
+  const totalUsers = Math.max(clerkTotalUsers, Number(dbTotalUsers[0]?.c ?? 0));
+  const newUsersToday = Math.max(clerkNewToday, dbNewToday);
+  const newUsersThisWeek = Math.max(clerkNewWeek, dbNewWeek);
+  const newUsersThisMonth = Math.max(clerkNewMonth, dbNewMonth);
 
-  function mapClerkUser(u: Record<string, any>) {
+  function mapClerkUser(u: ClerkUserRecord) {
     return {
       id: u.id,
       firstName: u.first_name ?? "",
@@ -108,9 +158,9 @@ router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
     };
   }
 
-  const recentSignups = ((recentSignupsRaw as Record<string, any>)?.data ?? []).map(mapClerkUser);
-  const recentLogins = ((recentLoginsRaw as Record<string, any>)?.data ?? [])
-    .filter((u: Record<string, any>) => u.last_sign_in_at)
+  const recentSignups = parseClerkUserList(recentSignupsRaw).map(mapClerkUser);
+  const recentLogins = parseClerkUserList(recentLoginsRaw)
+    .filter((u) => u.last_sign_in_at)
     .map(mapClerkUser);
 
   const recentAudits = await db
@@ -133,9 +183,9 @@ router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
 
   res.json({
     totalUsers,
-    newUsersToday: (newTodayRaw as Record<string, any>)?.total_count ?? 0,
-    newUsersThisWeek: (newWeekRaw as Record<string, any>)?.total_count ?? 0,
-    newUsersThisMonth: (newMonthRaw as Record<string, any>)?.total_count ?? 0,
+    newUsersToday,
+    newUsersThisWeek,
+    newUsersThisMonth,
     totalAudits: Number(auditStats[0]?.totalAudits ?? 0),
     averageScore: Math.round(Number(auditStats[0]?.averageScore ?? 0)),
     highScoreCount: Number(highScore[0]?.c ?? 0),
