@@ -381,21 +381,24 @@ export default function AuditDetail({ id }: { id: number }) {
       {/* Tabs */}
       <Tabs defaultValue="audit">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 w-full min-w-0">
-          <div className="w-full min-w-0 overflow-x-auto pb-1 -mx-1 px-1">
-            <TabsList className="inline-flex w-max min-w-full sm:min-w-0 h-auto flex-wrap sm:flex-nowrap">
-            <TabsTrigger value="audit">Audit Results</TabsTrigger>
-            <TabsTrigger value="content">
-              Listing Optimization
+          <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain pb-1 -mx-1 px-1 scrollbar-hide">
+            <TabsList className="inline-flex w-max h-auto flex-nowrap">
+            <TabsTrigger value="audit" className="whitespace-nowrap">Audit Results</TabsTrigger>
+            <TabsTrigger value="content" className="whitespace-nowrap">
+              <span className="sm:hidden">Listing</span>
+              <span className="hidden sm:inline">Listing Optimization</span>
               {gc && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
             </TabsTrigger>
-            <TabsTrigger value="images">
-              Graphics Creation
+            <TabsTrigger value="images" className="whitespace-nowrap">
+              <span className="sm:hidden">Graphics</span>
+              <span className="hidden sm:inline">Graphics Creation</span>
               {(audit.imageRecords?.length || audit.generatedImages) && <span className="ml-2 w-2 h-2 rounded-full bg-orange-500 inline-block" />}
             </TabsTrigger>
-            <TabsTrigger value="ebc">
-              A+ / EBC Content
+            <TabsTrigger value="ebc" className="whitespace-nowrap">
+              <span className="sm:hidden">A+ / EBC</span>
+              <span className="hidden sm:inline">A+ / EBC Content</span>
             </TabsTrigger>
-            <TabsTrigger value="competitors">
+            <TabsTrigger value="competitors" className="whitespace-nowrap">
               Competitors
               {audit.competitors.length > 0 && (
                 <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">{audit.competitors.length}</Badge>
@@ -639,7 +642,7 @@ export default function AuditDetail({ id }: { id: number }) {
         </TabsContent>
 
         {/* ── EBC / A+ CONTENT TAB ── */}
-        <TabsContent value="ebc" className="space-y-6">
+        <TabsContent value="ebc" className="space-y-6 w-full min-w-0 max-w-full overflow-x-hidden">
           <EbcStudio
             auditId={id}
             audit={{
