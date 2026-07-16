@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { COUNTRIES } from "@/lib/countries";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -203,16 +203,12 @@ export default function Onboarding() {
       };
       return fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.setQueryData(["user-profile-summary"], (prev: { onboardingCompleted?: boolean } | undefined) => ({
         ...prev,
         onboardingCompleted: true,
       }));
-      void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-      void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-      void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
-      void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-      void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+      await refetchCreditQueries(queryClient);
       setLocation("/dashboard");
     },
     onError: (e: Error) => { toast({ title: "Activation failed", description: e.message, variant: "destructive" }); },

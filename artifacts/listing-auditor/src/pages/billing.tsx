@@ -664,10 +664,12 @@ export default function Billing() {
   const [changePlanCycle, setChangePlanCycle] = useState<"monthly" | "yearly">("monthly");
 
   function invalidateSub() {
-    void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-    void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-    void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
+    void refetchCreditQueries(queryClient);
   }
+
+  useEffect(() => {
+    void refetchCreditQueries(queryClient);
+  }, [queryClient]);
 
   if (subLoading) {
     return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
@@ -794,9 +796,7 @@ export default function Billing() {
                             .then((d) => {
                               if (d.success) {
                                 toast({ title: "Plan updated successfully!" });
-                                invalidateSub();
-                                void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-                                void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+                                void refetchCreditQueries(queryClient);
                               } else {
                                 toast({ title: "Could not update plan", description: d.error ?? "Please try again.", variant: "destructive" });
                               }

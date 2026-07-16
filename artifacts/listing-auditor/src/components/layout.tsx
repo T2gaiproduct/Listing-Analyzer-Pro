@@ -640,12 +640,34 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Fetch profile summary for topbar + sidebar (lightweight — no billing history)
+  // Shell/topbar: subscription + credits use the same queries as billing (single source of truth)
+  const { data: subscription } = useQuery<{
+    planName: string | null;
+    status: string;
+    planAiCredits?: number;
+    planImageCredits?: number;
+    planAuditCredits?: number;
+  } | null>({
+    queryKey: ["user-subscription"],
+    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
+    enabled: clerkLoaded && !!user,
+    staleTime: 30_000,
+    refetchOnMount: "always",
+  });
+
+  const { data: creditsData } = useQuery<{
+    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+  }>({
+    queryKey: ["user-credits"],
+    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
+    enabled: clerkLoaded && !!user,
+    staleTime: 30_000,
+    refetchOnMount: "always",
+  });
+
+  // Profile summary for display name only (lightweight)
   const { data: profileData } = useQuery<{
     profile: { fullName: string | null } | null;
-    onboardingCompleted?: boolean;
-    subscription: { planName: string | null; status: string } | null;
-    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
   }>({
     queryKey: ["user-profile-summary"],
     queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
@@ -653,7 +675,7 @@ export function Layout({ children }: { children: ReactNode }) {
     enabled: clerkLoaded && !!user,
   });
 
-  const ownerCredits = profileData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const displayCredits = isTeamMember
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : ownerCredits;
@@ -673,10 +695,10 @@ export function Layout({ children }: { children: ReactNode }) {
   })();
 
   const displayName = resolvedName;
-  const planName = profileData?.subscription?.planName;
+  const planName = subscription?.planName ?? null;
   const planLabel = planName
     ? `${planName} Plan`
-    : profileData?.subscription?.status
+    : subscription?.status
       ? "Active Plan"
       : "No plan";
 

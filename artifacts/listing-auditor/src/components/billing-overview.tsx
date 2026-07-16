@@ -587,7 +587,9 @@ export function BillingOverview({
           </p>
           <div className="mt-4 pt-4 border-t border-stone-200">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Current balance</p>
-            <p className="text-lg font-bold text-slate-900 mt-0.5">{currentBalance.toLocaleString()} credits</p>
+            <p className="text-lg font-bold text-slate-900 mt-0.5">
+              {currentBalance.toLocaleString()} of {monthlyCredits.toLocaleString()} credits remaining
+            </p>
             <p className="text-xs text-slate-500 mt-1">
               {credits.auditCredits.toLocaleString()} audit · {credits.aiCredits.toLocaleString()} text · {credits.imageCredits.toLocaleString()} images
             </p>
