@@ -204,7 +204,7 @@ export default function Dashboard() {
   const showMemberCredits = isTeamMember || stats.isTeamMember;
 
   const creditsBalance = showMemberCredits ? memberBalance : stats.creditsBalance;
-  const creditsAllowance = showMemberCredits ? memberBalance : stats.creditsAllowance;
+  const creditsAllowance = showMemberCredits ? (stats.creditsAllowance ?? 0) : stats.creditsAllowance;
 
   const creditBreakdown = showMemberCredits
     ? [
@@ -257,7 +257,7 @@ export default function Dashboard() {
           subtext={
             showMemberCredits
               ? creditsAllowance > 0
-                ? `of ${creditsAllowance.toLocaleString()} allocated`
+                ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
                 : "No credits allocated yet"
               : (stats.teamCreditsUsedInPeriod ?? 0) > 0
                 ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`

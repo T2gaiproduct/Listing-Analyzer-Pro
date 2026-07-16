@@ -369,8 +369,11 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
   if (team?.isTeamMember && team.memberId) {
     const memberCredits = await getMemberCredits(team.memberId);
     displayCredits = memberCredits ?? zeroCredits;
-    creditsAllowance =
+    const memberUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+    const memberRemaining =
       displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+    // Total assigned by owner = remaining + spent this billing period
+    creditsAllowance = memberRemaining + memberUsedInPeriod;
   } else {
     displayCredits = ownerCredits[0]
       ? {
