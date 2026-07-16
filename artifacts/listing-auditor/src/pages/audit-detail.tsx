@@ -365,7 +365,7 @@ export default function AuditDetail({ id }: { id: number }) {
   const gc = audit.generatedContent;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 w-full min-w-0 max-w-full">
       {/* Failed banner */}
       {audit.status === "failed" && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
@@ -380,8 +380,9 @@ export default function AuditDetail({ id }: { id: number }) {
       )}
       {/* Tabs */}
       <Tabs defaultValue="audit">
-        <div className="flex items-center gap-3 mb-6">
-          <TabsList>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 w-full min-w-0">
+          <div className="w-full min-w-0 overflow-x-auto pb-1 -mx-1 px-1">
+            <TabsList className="inline-flex w-max min-w-full sm:min-w-0 h-auto flex-wrap sm:flex-nowrap">
             <TabsTrigger value="audit">Audit Results</TabsTrigger>
             <TabsTrigger value="content">
               Listing Optimization
@@ -400,8 +401,9 @@ export default function AuditDetail({ id }: { id: number }) {
                 <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">{audit.competitors.length}</Badge>
               )}
             </TabsTrigger>
-          </TabsList>
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+            </TabsList>
+          </div>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0 min-h-11" onClick={handleDownloadPdf}>
             <Download className="w-3.5 h-3.5 mr-1.5" /> PDF Report
           </Button>
         </div>
@@ -626,7 +628,7 @@ export default function AuditDetail({ id }: { id: number }) {
         </TabsContent>
 
         {/* ── IMAGES TAB ── */}
-        <TabsContent value="images" className="space-y-6">
+        <TabsContent value="images" className="space-y-6 w-full min-w-0">
           <GraphicsWizard
             auditId={audit.id}
             productName={audit.productName}
