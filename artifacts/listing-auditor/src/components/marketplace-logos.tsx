@@ -43,23 +43,38 @@ const marketplaces: MarketplaceEntry[] = [
   { name: "Etsy", kind: "icon", Icon: SiEtsy, className: "h-6 sm:h-7 w-[3.25rem] sm:w-[3.75rem] text-[#F45800]" },
 ];
 
-export function MarketplaceLogos({ className }: { className?: string }) {
+function LogoCard({ item }: { item: MarketplaceEntry }) {
   return (
-    <div className={cn("flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4", className)}>
-      {marketplaces.map((item) => (
-        <div
-          key={item.name}
-          className="flex items-center justify-center h-12 sm:h-14 px-4 sm:px-5 bg-white rounded-xl shadow-sm min-w-[6.75rem] sm:min-w-[7.5rem]"
-          title={item.name}
-        >
-          {item.kind === "icon" ? (
-            <item.Icon className={cn("shrink-0", item.className)} aria-hidden />
-          ) : (
-            item.render()
-          )}
-          <span className="sr-only">{item.name}</span>
-        </div>
-      ))}
+    <div
+      className="flex items-center justify-center h-12 sm:h-14 px-4 sm:px-5 bg-white rounded-xl shadow-sm min-w-[6.75rem] sm:min-w-[7.5rem]"
+      title={item.name}
+    >
+      {item.kind === "icon" ? (
+        <item.Icon className={cn("shrink-0", item.className)} aria-hidden />
+      ) : (
+        item.render()
+      )}
+      <span className="sr-only">{item.name}</span>
+    </div>
+  );
+}
+
+export function MarketplaceLogos({ className }: { className?: string }) {
+  const row1 = marketplaces.slice(0, 3);
+  const row2 = marketplaces.slice(3);
+
+  return (
+    <div className={cn("flex flex-col gap-3 sm:gap-4 items-center lg:items-start", className)}>
+      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4">
+        {row1.map((item) => (
+          <LogoCard key={item.name} item={item} />
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4">
+        {row2.map((item) => (
+          <LogoCard key={item.name} item={item} />
+        ))}
+      </div>
     </div>
   );
 }
