@@ -383,7 +383,10 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
   const periodStart = sub?.currentPeriodStart ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const periodEnd = sub?.currentPeriodEnd ?? new Date();
   const creditsUsed = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
-  const allocated = await getMemberCredits(membership.id);
+  const remaining = await getMemberCredits(membership.id);
+  const remainingCredits = remaining ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const remainingTotal = remainingCredits.aiCredits + remainingCredits.imageCredits + remainingCredits.auditCredits;
+  const totalAllocatedCredits = remainingTotal + creditsUsed;
   const [ownerProfile] = await db
     .select({ companyName: userProfilesTable.companyName, fullName: userProfilesTable.fullName })
     .from(userProfilesTable)
@@ -395,7 +398,9 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
     periodStart,
     periodEnd,
     creditsUsed,
-    allocatedCredits: allocated ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+    remainingCredits,
+    totalAllocatedCredits,
+    allocatedCredits: remainingCredits,
     workspacePlanTotal: sub
       ? (sub.planAiCredits ?? 0) + (sub.planImageCredits ?? 0) + (sub.planAuditCredits ?? 0)
       : 0,

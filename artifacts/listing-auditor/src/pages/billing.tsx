@@ -425,6 +425,8 @@ function MemberBillingView() {
     periodStart: string;
     periodEnd: string;
     creditsUsed: number;
+    remainingCredits: Credits;
+    totalAllocatedCredits: number;
     allocatedCredits: Credits;
     workspacePlanTotal: number;
   }>({
@@ -436,10 +438,11 @@ function MemberBillingView() {
       }),
   });
 
-  const allocated = memberCredits ?? usage?.allocatedCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const allocatedTotal = allocated.aiCredits + allocated.imageCredits + allocated.auditCredits;
+  const remaining = memberCredits ?? usage?.remainingCredits ?? usage?.allocatedCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const remainingTotal = remaining.aiCredits + remaining.imageCredits + remaining.auditCredits;
   const used = usage?.creditsUsed ?? 0;
-  const usagePct = allocatedTotal > 0 ? Math.min(100, Math.round((used / allocatedTotal) * 100)) : 0;
+  const totalAllocated = usage?.totalAllocatedCredits ?? (remainingTotal + used);
+  const usagePct = totalAllocated > 0 ? Math.min(100, Math.round((used / totalAllocated) * 100)) : 0;
 
   if (isLoading) {
     return <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
@@ -459,19 +462,31 @@ function MemberBillingView() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-6">
           <h3 className="text-base font-bold text-slate-900">Your credit budget</h3>
-          <p className="text-sm text-slate-500 mt-1">Allocated credits you can spend this period.</p>
-          <p className="text-3xl font-bold text-orange-600 mt-4">
-            {allocatedTotal.toLocaleString()} <span className="text-lg font-semibold text-slate-500">credits allocated</span>
-          </p>
-          <p className="text-xs text-slate-500 mt-2">
-            {allocated.auditCredits} audit · {allocated.aiCredits} text · {allocated.imageCredits} images
-          </p>
-          <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${usagePct}%` }} />
-          </div>
-          <p className="text-sm text-slate-600 mt-2">
-            {used.toLocaleString()} used{allocatedTotal > 0 ? ` (${usagePct}%)` : ""}
-          </p>
+          <p className="text-sm text-slate-500 mt-1">Credits assigned to you by the workspace owner this billing period.</p>
+          {totalAllocated > 0 ? (
+            <>
+              <p className="text-3xl font-bold text-orange-600 mt-4">
+                {remainingTotal.toLocaleString()}{" "}
+                <span className="text-lg font-semibold text-slate-500">credits remaining</span>
+              </p>
+              <p className="text-sm text-slate-600 mt-1">
+                of {totalAllocated.toLocaleString()} allocated by owner
+              </p>
+              <p className="text-xs text-slate-500 mt-2">
+                {remaining.auditCredits} audit · {remaining.aiCredits} text · {remaining.imageCredits} images left
+              </p>
+              <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${usagePct}%` }} />
+              </div>
+              <p className="text-sm text-slate-600 mt-2">
+                {used.toLocaleString()} used · {remainingTotal.toLocaleString()} remaining ({usagePct}% of allocation)
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-600 mt-4">
+              No credits allocated yet. Ask your workspace owner to assign credits on the Team page.
+            </p>
+          )}
         </div>
 
         <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6">
