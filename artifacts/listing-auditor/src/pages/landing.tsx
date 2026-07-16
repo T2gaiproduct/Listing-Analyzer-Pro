@@ -84,7 +84,7 @@ const portfolioItems = [
   { title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
   { title: "Lifestyle Images", brand: "TIMEWEAR", image: `${basePath}/portfolio/lifestyle-timewear.png`, badge: "NEW" },
   { title: "Infographic", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null },
-  { title: "Ad Creatives", brand: "Fashion Brand", image: "https://images.unsplash.com/photo-1483986762654-31890318800e?w=400&h=320&fit=crop&q=80", badge: null },
+  { title: "Size Chart", brand: "TIMEWEAR", image: `${basePath}/portfolio/size-chart-timewear.png`, badge: null },
 ];
 
 const workflowSteps = [
