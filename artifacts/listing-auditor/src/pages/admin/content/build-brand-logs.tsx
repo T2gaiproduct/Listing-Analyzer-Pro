@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "wouter";
 import { Eye, FilePlus2, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -50,7 +51,8 @@ export default function AdminBuildBrandLogs() {
         </p>
       </div>
 
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="border-0 shadow-sm">
+        <ResponsiveTable minWidth="44rem">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
@@ -107,6 +109,7 @@ export default function AdminBuildBrandLogs() {
             )}
           </tbody>
         </table>
+        </ResponsiveTable>
       </Card>
     </div>
   );

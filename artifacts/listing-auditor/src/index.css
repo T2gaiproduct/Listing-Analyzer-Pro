@@ -250,6 +250,7 @@
   .table-responsive {
     @apply w-full overflow-x-auto overscroll-x-contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
   }
 
   .table-responsive > table {

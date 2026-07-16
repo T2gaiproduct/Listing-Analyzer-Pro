@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -251,7 +252,8 @@ export default function AdminCustomers() {
         </CardContent>
       </Card>
 
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="border-0 shadow-sm">
+        <ResponsiveTable minWidth="56rem">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
@@ -348,6 +350,7 @@ export default function AdminCustomers() {
             )}
           </tbody>
         </table>
+        </ResponsiveTable>
       </Card>
 
       {/* Double Confirmation Dialog */}

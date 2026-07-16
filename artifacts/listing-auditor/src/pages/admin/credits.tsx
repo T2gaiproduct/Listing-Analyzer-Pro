@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNow } from "date-fns";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -107,10 +108,11 @@ export default function AdminCredits() {
 
         {/* ── User Balances ── */}
         <TabsContent value="overview">
-          <Card className="border-0 shadow-sm overflow-hidden">
+          <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">User Credit Balances</CardTitle>
             </CardHeader>
+            <ResponsiveTable minWidth="36rem">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
@@ -146,6 +148,7 @@ export default function AdminCredits() {
                 )}
               </tbody>
             </table>
+            </ResponsiveTable>
           </Card>
         </TabsContent>
 
@@ -155,13 +158,14 @@ export default function AdminCredits() {
             <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-500">
               Total credits consumed across all features: <span className="font-bold text-slate-900">{totalConsumed.toLocaleString()}</span>
             </div>
-            <Card className="border-0 shadow-sm overflow-hidden">
+            <Card className="border-0 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold">Credit Usage by Feature</CardTitle>
               </CardHeader>
               {analyticsLoading ? (
                 <div className="p-6 space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}</div>
               ) : (
+                <ResponsiveTable minWidth="40rem">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50">
@@ -192,6 +196,7 @@ export default function AdminCredits() {
                     )}
                   </tbody>
                 </table>
+                </ResponsiveTable>
               )}
             </Card>
           </div>
@@ -199,7 +204,7 @@ export default function AdminCredits() {
 
         {/* ── Top Consumers ── */}
         <TabsContent value="top-users">
-          <Card className="border-0 shadow-sm overflow-hidden">
+          <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Users className="w-4 h-4 text-orange-500" />Highest Consuming Users
@@ -208,6 +213,7 @@ export default function AdminCredits() {
             {analyticsLoading ? (
               <div className="p-6 space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}</div>
             ) : (
+              <ResponsiveTable minWidth="44rem">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
@@ -241,13 +247,14 @@ export default function AdminCredits() {
                   )}
                 </tbody>
               </table>
+              </ResponsiveTable>
             )}
           </Card>
         </TabsContent>
 
         {/* ── Transaction Log ── */}
         <TabsContent value="transactions">
-          <Card className="border-0 shadow-sm overflow-hidden">
+          <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-orange-500" />Recent Transactions
@@ -257,6 +264,7 @@ export default function AdminCredits() {
             {analyticsLoading ? (
               <div className="p-6 space-y-3">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-8 bg-slate-100 rounded animate-pulse" />)}</div>
             ) : (
+              <ResponsiveTable minWidth="44rem">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
@@ -288,6 +296,7 @@ export default function AdminCredits() {
                   )}
                 </tbody>
               </table>
+              </ResponsiveTable>
             )}
           </Card>
         </TabsContent>

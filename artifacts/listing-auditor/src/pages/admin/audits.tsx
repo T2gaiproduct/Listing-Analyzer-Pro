@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const PAGE_SIZE = 50;
@@ -51,7 +52,8 @@ export default function AdminAudits() {
         <p className="text-slate-500 text-sm mt-1">{data ? `${data.total} total audits across all users` : "Loading..."}</p>
       </div>
 
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="border-0 shadow-sm">
+        <ResponsiveTable minWidth="52rem">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
@@ -129,6 +131,7 @@ export default function AdminAudits() {
             )}
           </tbody>
         </table>
+        </ResponsiveTable>
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">

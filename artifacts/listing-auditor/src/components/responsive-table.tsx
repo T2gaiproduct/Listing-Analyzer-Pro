@@ -8,16 +8,12 @@ interface ResponsiveTableProps {
 }
 
 /** Horizontal scroll wrapper for data tables on narrow viewports. */
-export function ResponsiveTable({ children, className, minWidth }: ResponsiveTableProps) {
+export function ResponsiveTable({ children, className, minWidth = "36rem" }: ResponsiveTableProps) {
   return (
-    <div className={cn("table-responsive", className)}>
-      {minWidth ? (
-        <div style={{ minWidth }} className="w-full">
-          {children}
-        </div>
-      ) : (
-        children
-      )}
+    <div className={cn("table-responsive scrollbar-hide", className)}>
+      <div style={{ minWidth }} className="w-full">
+        {children}
+      </div>
     </div>
   );
 }
