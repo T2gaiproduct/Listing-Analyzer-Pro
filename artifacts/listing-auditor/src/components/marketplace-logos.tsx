@@ -4,14 +4,19 @@ import { SiShopify, SiEbay, SiEtsy } from "react-icons/si";
 import { cn } from "@/lib/utils";
 import type { IconType } from "react-icons";
 
-/** Walmart spark + wordmark sized to match neighboring brand icons. */
+const cardClass =
+  "flex flex-1 min-w-0 sm:flex-none sm:w-28 items-center justify-center h-11 sm:h-14 px-1.5 sm:px-3 bg-white rounded-lg sm:rounded-xl shadow-sm";
+const logoBoxClass = "flex items-center justify-center w-full h-5 sm:h-7 overflow-hidden";
+
+/** Walmart spark + wordmark scaled to match neighboring brand icons. */
 function WalmartLogo({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 132 36"
-      className={cn("h-8 sm:h-9 w-auto", className)}
+      className={cn("h-full w-full", className)}
       role="img"
       aria-label="Walmart"
+      preserveAspectRatio="xMidYMid meet"
     >
       <text
         x="0"
@@ -36,45 +41,39 @@ type MarketplaceEntry =
   | { name: string; kind: "custom"; render: (className?: string) => ReactNode };
 
 const marketplaces: MarketplaceEntry[] = [
-  { name: "Amazon", kind: "icon", Icon: FaAmazon, className: "h-7 sm:h-8 w-[5.5rem] sm:w-[6.25rem] text-[#232F3E]" },
-  { name: "Shopify", kind: "icon", Icon: SiShopify, className: "h-7 sm:h-8 w-[5.5rem] sm:w-[6rem] text-[#96BF48]" },
+  { name: "Amazon", kind: "icon", Icon: FaAmazon, className: "text-[#232F3E]" },
+  { name: "Shopify", kind: "icon", Icon: SiShopify, className: "text-[#96BF48]" },
   { name: "Walmart", kind: "custom", render: (c) => <WalmartLogo className={c} /> },
-  { name: "eBay", kind: "icon", Icon: SiEbay, className: "h-6 sm:h-7 w-[3.5rem] sm:w-16" },
-  { name: "Etsy", kind: "icon", Icon: SiEtsy, className: "h-6 sm:h-7 w-[3.25rem] sm:w-[3.75rem] text-[#F45800]" },
+  { name: "eBay", kind: "icon", Icon: SiEbay, className: "text-[#232F3E]" },
+  { name: "Etsy", kind: "icon", Icon: SiEtsy, className: "text-[#F45800]" },
 ];
 
 function LogoCard({ item }: { item: MarketplaceEntry }) {
   return (
-    <div
-      className="flex items-center justify-center h-12 sm:h-14 px-4 sm:px-5 bg-white rounded-xl shadow-sm min-w-[6.75rem] sm:min-w-[7.5rem]"
-      title={item.name}
-    >
-      {item.kind === "icon" ? (
-        <item.Icon className={cn("shrink-0", item.className)} aria-hidden />
-      ) : (
-        item.render()
-      )}
+    <div className={cardClass} title={item.name}>
+      <div className={logoBoxClass}>
+        {item.kind === "icon" ? (
+          <item.Icon className={cn("h-full w-auto max-w-full", item.className)} aria-hidden />
+        ) : (
+          item.render()
+        )}
+      </div>
       <span className="sr-only">{item.name}</span>
     </div>
   );
 }
 
 export function MarketplaceLogos({ className }: { className?: string }) {
-  const row1 = marketplaces.slice(0, 3);
-  const row2 = marketplaces.slice(3);
-
   return (
-    <div className={cn("flex flex-col gap-3 sm:gap-4 items-center lg:items-start", className)}>
-      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4">
-        {row1.map((item) => (
-          <LogoCard key={item.name} item={item} />
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4">
-        {row2.map((item) => (
-          <LogoCard key={item.name} item={item} />
-        ))}
-      </div>
+    <div
+      className={cn(
+        "flex items-center justify-start gap-1.5 sm:gap-3 w-full",
+        className,
+      )}
+    >
+      {marketplaces.map((item) => (
+        <LogoCard key={item.name} item={item} />
+      ))}
     </div>
   );
 }

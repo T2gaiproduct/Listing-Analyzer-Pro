@@ -21,23 +21,28 @@ export function PromoBanner() {
   };
 
   return (
-    <div className="bg-slate-900 text-white text-sm py-2.5 px-4 text-center relative">
-      <div className="flex items-center justify-center gap-2 flex-wrap">
-        <Tag className="w-3.5 h-3.5 text-orange-400" />
-        <span>
-          <strong className="text-orange-400">Launch offer:</strong> Get 20% off any plan with code{" "}
-          <code className="bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded font-mono text-xs">LAUNCH20</code>
+    <div className="bg-slate-900 text-white text-[11px] sm:text-sm py-1.5 sm:py-2.5 px-3 sm:px-6 relative">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 pr-7 sm:pr-10 whitespace-nowrap overflow-hidden">
+        <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400 shrink-0" />
+        <span className="truncate">
+          <strong className="text-orange-400">Launch offer:</strong>{" "}
+          <span className="hidden sm:inline">Get 20% off any plan with code </span>
+          <span className="sm:hidden">20% off — </span>
+          <code className="bg-orange-500/20 text-orange-300 px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded font-mono text-[10px] sm:text-xs">
+            LAUNCH20
+          </code>
         </span>
         <Link
           href="/pricing"
-          className="underline underline-offset-2 text-orange-300 hover:text-orange-200 transition-colors ml-1"
+          className="hidden sm:inline underline underline-offset-2 text-orange-300 hover:text-orange-200 transition-colors shrink-0"
         >
           See pricing
         </Link>
       </div>
       <button
         onClick={handleDismiss}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+        className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors touch-target flex items-center justify-center"
+        aria-label="Dismiss promo"
       >
         <X className="w-4 h-4" />
       </button>
