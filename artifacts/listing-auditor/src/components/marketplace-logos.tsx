@@ -67,7 +67,7 @@ export function MarketplaceLogos({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-center lg:justify-start gap-1.5 sm:gap-3 w-full",
+        "flex items-center justify-start gap-1.5 sm:gap-3 w-full",
         className,
       )}
     >

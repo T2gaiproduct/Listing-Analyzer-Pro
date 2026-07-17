@@ -584,7 +584,7 @@ export default function Landing() {
       <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
-          <div className="text-center lg:text-left min-w-0">
+          <div className="text-left min-w-0">
             <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5 mb-4 sm:mb-6 max-w-full">
               <Zap className="w-3 h-3 shrink-0" />
               <span className="truncate">AI-Powered Listing Optimization</span>
@@ -593,11 +593,11 @@ export default function Landing() {
               <span className="block sm:inline">Optimize Listings. Increase Sales.</span>{" "}
               <span className="block sm:inline text-orange-500">Grow Faster.</span>
             </h1>
-            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl leading-relaxed">
               Audit listings, create stunning content, and dominate every marketplace.
             </p>
             <MarketplaceLogos className="mb-6 sm:mb-8" />
-            <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10">
+            <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-start mb-8 sm:mb-10">
               <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
                 <Link href="/sign-up">Get Started Free</Link>
               </Button>
@@ -611,8 +611,8 @@ export default function Landing() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {heroStats.map((s) => (
-                <div key={s.label} className="text-center lg:text-left">
-                  <s.icon className="w-4 h-4 text-orange-500 mx-auto lg:mx-0 mb-1" />
+                <div key={s.label} className="text-left">
+                  <s.icon className="w-4 h-4 text-orange-500 mb-1" />
                   <p className="text-base sm:text-lg lg:text-xl font-bold text-slate-900">{s.value}</p>
                   <p className="text-[10px] sm:text-xs text-slate-500 leading-snug">{s.label}</p>
                 </div>
