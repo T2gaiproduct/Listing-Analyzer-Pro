@@ -31,7 +31,7 @@ import {
   Target as AdsIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SiteLogo, SiteLogoMark } from "@/components/site-logo";
+import { SiteLogo, SiteLogoMark, SiteLogoIcon } from "@/components/site-logo";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -725,9 +725,13 @@ export function Layout({ children }: { children: ReactNode }) {
             collapsed ? "px-2 py-3 flex flex-col items-center gap-2" : "px-4 py-4 flex items-center"
           )}
         >
-          {/* Logo */}
+          {/* Logo — lens mark when collapsed, full wordmark when expanded */}
           <Link href="/dashboard" className="cursor-pointer hover:opacity-90 transition-opacity">
-            <SiteLogoMark variant="app" />
+            {collapsed ? (
+              <SiteLogoIcon imageClassName="h-8 w-8 object-contain" />
+            ) : (
+              <SiteLogoMark imageClassName="h-8 w-auto max-w-[9rem] object-contain" />
+            )}
           </Link>
 
           {!collapsed && (
