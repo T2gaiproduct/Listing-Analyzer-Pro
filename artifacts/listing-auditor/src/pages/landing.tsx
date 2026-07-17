@@ -581,13 +581,13 @@ export default function Landing() {
       </section>
 
       {/* Portfolio */}
-      <section className="px-4 sm:px-6 lg:px-10 py-16 sm:py-20 bg-slate-50">
+      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:py-20 bg-slate-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-8 sm:mb-10">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
             Real results we&apos;ve created for brands like yours
           </h2>
           <PortfolioCarousel />
-          <div className="text-center mt-8">
+          <div className="text-center mt-5 sm:mt-8">
             <Link href="/features" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
               View More Works <ArrowRight className="w-4 h-4" />
             </Link>
@@ -596,11 +596,11 @@ export default function Landing() {
       </section>
 
       {/* Workflow */}
-      <section className="px-4 sm:px-6 lg:px-10 py-16 sm:py-24">
+      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-12 sm:py-24">
         <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-start">
+          <div className="grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-start">
             <div className="min-w-0">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8 text-center lg:text-left">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-8 text-center lg:text-left">
                 From Upload to Publish in 6 Simple Steps
               </h2>
               <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
