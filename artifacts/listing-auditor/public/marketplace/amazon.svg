@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 28" role="img" aria-label="Amazon">
+  <text
+    x="0"
+    y="15"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="17"
+    font-weight="700"
+    fill="#131921"
+    letter-spacing="-0.2"
+  >
+    amazon
+  </text>
+  <path
+    fill="#FF9900"
+    d="M3.5 17.8c7.8 4.6 17.8 4.6 25.6 0 .35-.2.85-.08 1.05.28l1.35 2.25c.28.48-.02 1.08-.58 1.32-10.5 4.95-24.15 4.95-34.65 0-.56-.24-.86-.84-.58-1.32l1.35-2.25c.2-.36.7-.48 1.05-.28"
+  />
+</svg>

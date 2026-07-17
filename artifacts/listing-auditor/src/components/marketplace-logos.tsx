@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { FaAmazon } from "react-icons/fa6";
 import { SiShopify } from "react-icons/si";
 import { cn } from "@/lib/utils";
 import type { IconType } from "react-icons";
@@ -38,6 +37,17 @@ function WalmartLogo({ className }: { className?: string }) {
   );
 }
 
+function AmazonLogo({ className }: { className?: string }) {
+  return (
+    <img
+      src={`${basePath}/marketplace/amazon.svg`}
+      alt=""
+      className={cn("h-full w-auto max-w-full object-contain", className)}
+      aria-hidden
+    />
+  );
+}
+
 function EbayLogo({ className }: { className?: string }) {
   return (
     <img
@@ -65,7 +75,7 @@ type MarketplaceEntry =
   | { name: string; kind: "custom"; render: (className?: string) => ReactNode };
 
 const marketplaces: MarketplaceEntry[] = [
-  { name: "Amazon", kind: "icon", Icon: FaAmazon, className: "text-[#232F3E]" },
+  { name: "Amazon", kind: "custom", render: (c) => <AmazonLogo className={c} /> },
   { name: "Shopify", kind: "icon", Icon: SiShopify, className: "text-[#96BF48]" },
   { name: "Walmart", kind: "custom", render: (c) => <WalmartLogo className={c} /> },
   { name: "eBay", kind: "custom", render: (c) => <EbayLogo className={c} /> },
