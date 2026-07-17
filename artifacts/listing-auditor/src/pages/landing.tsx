@@ -164,6 +164,68 @@ function PortfolioCarousel() {
   );
 }
 
+function TutorialCard({ title, duration, image }: (typeof tutorialPreviews)[number]) {
+  return (
+    <Link
+      href="/tutorials"
+      className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full"
+    >
+      <div className="h-32 sm:h-36 relative overflow-hidden bg-slate-900">
+        <img src={image} alt="" className="w-full h-full object-cover opacity-90" loading="lazy" />
+        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+            <Play className="w-5 h-5 text-orange-600 ml-0.5" />
+          </div>
+        </div>
+        <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+          {duration}
+        </span>
+      </div>
+      <p className="p-3 text-sm font-semibold text-slate-800">{title}</p>
+    </Link>
+  );
+}
+
+function TutorialCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: -1 | 1) => {
+    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 280;
+    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative sm:hidden px-2">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="absolute left-0 top-[5.5rem] -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Previous tutorial"
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="absolute right-0 top-[5.5rem] -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Next tutorial"
+      >
+        <ChevronRight className="w-5 h-5 text-slate-600" />
+      </button>
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
+      >
+        {tutorialPreviews.map((t) => (
+          <div key={t.title} className="snap-start shrink-0 w-[min(78vw,18rem)]">
+            <TutorialCard {...t} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LandingPricingSection() {
   const { data: dbPlans = [] } = useQuery<DbPlan[]>({
     queryKey: ["public-plans"],
@@ -470,27 +532,10 @@ export default function Landing() {
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-8 sm:mb-10">
             Learn how to get the most out of Listing Auditor
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <TutorialCarousel />
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {tutorialPreviews.map((t) => (
-              <Link
-                key={t.title}
-                href="/tutorials"
-                className="group rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="h-32 relative overflow-hidden bg-slate-900">
-                  <img src={t.image} alt="" className="w-full h-full object-cover opacity-90" loading="lazy" />
-                  <div className="absolute inset-0 bg-black/20" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                      <Play className="w-5 h-5 text-orange-600 ml-0.5" />
-                    </div>
-                  </div>
-                  <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
-                    {t.duration}
-                  </span>
-                </div>
-                <p className="p-3 text-sm font-semibold text-slate-800">{t.title}</p>
-              </Link>
+              <TutorialCard key={t.title} {...t} />
             ))}
           </div>
           <div className="text-center mt-8">
