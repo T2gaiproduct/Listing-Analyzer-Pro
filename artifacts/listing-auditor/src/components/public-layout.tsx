@@ -108,7 +108,7 @@ function FooterNewsletter() {
 
   return (
     <form
-      className="flex flex-col gap-2.5 w-full sm:flex-row sm:max-w-sm"
+      className="flex flex-col gap-2.5 w-full sm:flex-row sm:max-w-md"
       onSubmit={(e) => {
         e.preventDefault();
         if (!email.trim()) return;
@@ -123,7 +123,7 @@ function FooterNewsletter() {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="your@email.com"
         required
-        className="w-full h-11 sm:h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 min-w-0"
+        className="flex-1 min-w-0 h-11 sm:h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
       />
       <Button type="submit" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 h-11 sm:h-10 px-5 shrink-0">
         {done ? "Subscribed!" : "Subscribe"}
@@ -225,7 +225,7 @@ export function PublicFooter() {
             </div>
           ))}
 
-          <div className="col-span-2 lg:col-span-1 min-w-0">
+          <div className="col-span-2 lg:col-span-6 min-w-0">
             <p className="font-semibold text-white text-sm mb-2">Stay updated</p>
             <p className="text-xs mb-4 leading-relaxed">Get tips and product updates in your inbox.</p>
             <FooterNewsletter />
