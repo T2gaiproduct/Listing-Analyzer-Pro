@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { SiShopify } from "react-icons/si";
 import { cn } from "@/lib/utils";
-import type { IconType } from "react-icons";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -48,6 +46,17 @@ function AmazonLogo({ className }: { className?: string }) {
   );
 }
 
+function ShopifyLogo({ className }: { className?: string }) {
+  return (
+    <img
+      src={`${basePath}/marketplace/shopify.svg`}
+      alt=""
+      className={cn("h-full w-auto max-w-full object-contain", className)}
+      aria-hidden
+    />
+  );
+}
+
 function EbayLogo({ className }: { className?: string }) {
   return (
     <img
@@ -70,28 +79,23 @@ function EtsyLogo({ className }: { className?: string }) {
   );
 }
 
-type MarketplaceEntry =
-  | { name: string; kind: "icon"; Icon: IconType; className?: string }
-  | { name: string; kind: "custom"; render: (className?: string) => ReactNode };
+type MarketplaceEntry = {
+  name: string;
+  render: (className?: string) => ReactNode;
+};
 
 const marketplaces: MarketplaceEntry[] = [
-  { name: "Amazon", kind: "custom", render: (c) => <AmazonLogo className={c} /> },
-  { name: "Shopify", kind: "icon", Icon: SiShopify, className: "text-[#96BF48]" },
-  { name: "Walmart", kind: "custom", render: (c) => <WalmartLogo className={c} /> },
-  { name: "eBay", kind: "custom", render: (c) => <EbayLogo className={c} /> },
-  { name: "Etsy", kind: "custom", render: (c) => <EtsyLogo className={c} /> },
+  { name: "Amazon", render: (c) => <AmazonLogo className={c} /> },
+  { name: "Shopify", render: (c) => <ShopifyLogo className={c} /> },
+  { name: "Walmart", render: (c) => <WalmartLogo className={c} /> },
+  { name: "eBay", render: (c) => <EbayLogo className={c} /> },
+  { name: "Etsy", render: (c) => <EtsyLogo className={c} /> },
 ];
 
 function LogoCard({ item }: { item: MarketplaceEntry }) {
   return (
     <div className={cardClass} title={item.name}>
-      <div className={logoBoxClass}>
-        {item.kind === "icon" ? (
-          <item.Icon className={cn("h-full w-auto max-w-full", item.className)} aria-hidden />
-        ) : (
-          item.render()
-        )}
-      </div>
+      <div className={logoBoxClass}>{item.render()}</div>
       <span className="sr-only">{item.name}</span>
     </div>
   );
