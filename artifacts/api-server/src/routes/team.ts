@@ -178,7 +178,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
   try {
     const [profile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
     const inviterName = profile?.companyName ?? "Your team owner";
-    const companyName = profile?.companyName ?? "ListingAuditor";
+    const companyName = profile?.companyName ?? "SellerLens";
     const inviteUrl = `${process.env.APP_URL ?? "https://listingauditor.com"}/accept-invite?token=${token}`;
     const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role, invitedName });
     await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
@@ -271,7 +271,7 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   // Send welcome email
   try {
     const [ownerProfile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, invite.ownerUserId));
-    const companyName = ownerProfile?.companyName ?? "ListingAuditor";
+    const companyName = ownerProfile?.companyName ?? "SellerLens";
     const html = welcomeEmailTemplate({ companyName, memberName: invite.invitedName, role: invite.role });
     await sendEmail({ to: invite.invitedEmail, subject: `Welcome to ${companyName}!`, html });
   } catch (emailErr) {

@@ -1,4 +1,4 @@
-export const DEFAULT_PLATFORM_NAME = "ListingAuditor";
+export const DEFAULT_PLATFORM_NAME = "SellerLens";
 
 export interface SiteBranding {
   platformName: string;

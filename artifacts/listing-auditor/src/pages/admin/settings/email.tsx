@@ -25,7 +25,7 @@ export default function AdminSettingsEmail() {
   const { toast } = useToast();
   const [form, setForm] = useState({
     email_provider: "resend",
-    email_from_name: "ListingAuditor",
+    email_from_name: "SellerLens",
     email_from_address: "",
     email_reply_to: "",
     resend_api_key: "",
@@ -78,7 +78,7 @@ export default function AdminSettingsEmail() {
                 <option value="smtp">SMTP</option>
               </select>
             </div>
-            {field("email_from_name", "From Name", "text", "ListingAuditor")}
+            {field("email_from_name", "From Name", "text", "SellerLens")}
             {field("email_from_address", "From Email", "email", "no-reply@yourdomain.com")}
             {field("email_reply_to", "Reply-To Email", "email", "support@yourdomain.com")}
           </CardContent>

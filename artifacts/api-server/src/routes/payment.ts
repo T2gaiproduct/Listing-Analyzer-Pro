@@ -231,7 +231,7 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
       intent: "CAPTURE",
       purchase_units: [{ amount: { currency_code: currency ?? "USD", value: amount.toFixed(2) } }],
       application_context: {
-        brand_name: "ListingAuditor",
+        brand_name: "SellerLens",
         user_action: "PAY_NOW",
         return_url: `${base}/billing?paypal_captured=1`,
         cancel_url: `${base}/billing?paypal_cancelled=1`,

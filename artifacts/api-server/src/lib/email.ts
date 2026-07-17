@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-export const emailFrom = process.env.EMAIL_FROM ?? "ListingAuditor <noreply@listingauditor.com>";
+export const emailFrom = process.env.EMAIL_FROM ?? "SellerLens <noreply@listingauditor.com>";
 
 let resend: Resend | null = null;
 function getResend(): Resend | null {

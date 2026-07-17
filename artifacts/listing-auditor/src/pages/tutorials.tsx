@@ -94,7 +94,7 @@ export default function Tutorials() {
     <div className="min-h-[100dvh] bg-white">
       <SeoHead
         title="Help Center"
-        description="Tutorials, guides, and best practices to get the most out of ListingAuditor for your Amazon listings."
+        description="Tutorials, guides, and best practices to get the most out of SellerLens for your Amazon listings."
       />
       <PublicNav />
 
@@ -104,7 +104,7 @@ export default function Tutorials() {
           <div className="max-w-4xl mx-auto px-8 text-center">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Help Center & Tutorials</h1>
             <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-10">
-              Learn how to get the most out of ListingAuditor with step-by-step guides, video tutorials, and best practices.
+              Learn how to get the most out of SellerLens with step-by-step guides, video tutorials, and best practices.
             </p>
             <div className="max-w-md mx-auto relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -185,7 +185,7 @@ export default function Tutorials() {
         <section className="py-16 bg-white">
           <div className="max-w-xl mx-auto px-8 text-center">
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Still need help?</h2>
-            <p className="text-slate-500 mb-6">Our support team is here to help you get the most out of ListingAuditor.</p>
+            <p className="text-slate-500 mb-6">Our support team is here to help you get the most out of SellerLens.</p>
             <div className="flex gap-3 justify-center">
               <Link href="/contact" className="px-5 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors">
                 Contact Support

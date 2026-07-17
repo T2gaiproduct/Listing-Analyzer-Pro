@@ -347,7 +347,7 @@ function getPageTitle(location: string): string {
   if (location === "/team") return "Team";
   if (location === "/notifications") return "Notifications";
   if (location === "/archive") return "Archive";
-  return "ListingAuditor";
+  return "SellerLens";
 }
 
 // --- Ribbon visibility -------------------------------------------------------
@@ -952,7 +952,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 onClick={() => setMobileNavOpen(false)}
                 className="flex items-center gap-3 min-w-0 hover:opacity-90 transition-opacity"
               >
-                <SiteLogo variant="app" nameClassName="font-semibold text-slate-900" />
+                <SiteLogo variant="app" />
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">

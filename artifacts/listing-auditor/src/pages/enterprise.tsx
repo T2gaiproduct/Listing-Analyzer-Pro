@@ -37,7 +37,7 @@ const features = [
   {
     icon: Code2,
     title: "Custom integrations",
-    desc: "We'll build bespoke integrations to connect ListingAuditor with your existing PIM, ERP, or agency tools.",
+    desc: "We'll build bespoke integrations to connect SellerLens with your existing PIM, ERP, or agency tools.",
   },
 ];
 
@@ -50,7 +50,7 @@ const stats = [
 
 const testimonials = [
   {
-    quote: "We manage 500+ ASINs for 12 brands. ListingAuditor's enterprise plan cut our audit time from hours to minutes and the white-label reports are a game-changer for client deliverables.",
+    quote: "We manage 500+ ASINs for 12 brands. SellerLens's enterprise plan cut our audit time from hours to minutes and the white-label reports are a game-changer for client deliverables.",
     name: "James R.",
     role: "Head of Marketplace, Clarity Agency",
   },
@@ -84,7 +84,7 @@ export default function Enterprise() {
     <div className="min-h-[100dvh] bg-white flex flex-col">
       <SeoHead
         title="Enterprise"
-        description="ListingAuditor Enterprise — custom AI solutions, dedicated support, and API access for large Amazon seller teams."
+        description="SellerLens Enterprise — custom AI solutions, dedicated support, and API access for large Amazon seller teams."
       />
       <PublicNav />
 

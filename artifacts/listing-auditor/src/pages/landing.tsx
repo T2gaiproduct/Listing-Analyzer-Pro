@@ -744,7 +744,7 @@ export default function Landing() {
       <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-20 bg-slate-50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
-            Learn how to get the most out of Listing Auditor
+            Learn how to get the most out of SellerLens
           </h2>
           <TutorialCarousel />
           <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
