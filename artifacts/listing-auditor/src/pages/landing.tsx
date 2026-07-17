@@ -52,36 +52,6 @@ const heroStats = [
   { icon: Users, value: "5000+", label: "Brands Trust Us" },
 ];
 
-function HeroOptimizationImpact() {
-  const points = [
-    { x: 4, y: 46 },
-    { x: 28, y: 38 },
-    { x: 52, y: 32 },
-    { x: 76, y: 22 },
-    { x: 100, y: 10 },
-  ];
-  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between gap-4 shadow-sm">
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 mb-2">
-          <TrendingUp className="w-3.5 h-3.5 shrink-0" />
-          Optimization Impact
-        </p>
-        <p className="text-3xl font-extrabold text-slate-900 leading-none tracking-tight">+34%</p>
-        <p className="text-xs text-slate-500 mt-1.5">Average Sales Growth</p>
-      </div>
-      <svg viewBox="0 0 104 52" className="w-28 h-14 shrink-0" aria-hidden>
-        <path d={linePath} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p) => (
-          <circle key={`${p.x}-${p.y}`} cx={p.x} cy={p.y} r="3" fill="#f97316" />
-        ))}
-      </svg>
-    </div>
-  );
-}
-
 const featureColumns = [
   {
     icon: FileSearch,
@@ -650,9 +620,6 @@ export default function Landing() {
                   <p className="text-[9px] sm:text-xs text-slate-500 leading-snug mt-0.5">{s.label}</p>
                 </div>
               ))}
-            </div>
-            <div className="mt-6 lg:hidden max-w-md mx-auto">
-              <HeroOptimizationImpact />
             </div>
           </div>
           <div className="hidden lg:block min-w-0 w-full">
