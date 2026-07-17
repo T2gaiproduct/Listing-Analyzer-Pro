@@ -13,6 +13,7 @@ import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { getGatewaySettings } from "./payment";
+import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 
 const router: IRouter = Router();
 
@@ -59,10 +60,32 @@ router.get("/branding", async (_req, res): Promise<void> => {
     .where(inArray(settingsTable.key, [...BRANDING_KEYS]));
 
   const map = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+
+  let logoUrl = map.site_logo_url?.trim() || null;
+  let faviconUrl = map.site_favicon_url?.trim() || null;
+
+  if (logoUrl && isDataUrl(logoUrl)) {
+    const stored = normalizeBrandingSettingValue("site_logo_url", logoUrl);
+    await db
+      .update(settingsTable)
+      .set({ value: stored, updatedAt: new Date() })
+      .where(eq(settingsTable.key, "site_logo_url"));
+    logoUrl = stored || null;
+  }
+
+  if (faviconUrl && isDataUrl(faviconUrl)) {
+    const stored = normalizeBrandingSettingValue("site_favicon_url", faviconUrl);
+    await db
+      .update(settingsTable)
+      .set({ value: stored, updatedAt: new Date() })
+      .where(eq(settingsTable.key, "site_favicon_url"));
+    faviconUrl = stored || null;
+  }
+
   res.json({
     platformName: map.platform_name?.trim() || "ListingAuditor",
-    logoUrl: map.site_logo_url?.trim() || null,
-    faviconUrl: map.site_favicon_url?.trim() || null,
+    logoUrl,
+    faviconUrl,
   });
 });
 

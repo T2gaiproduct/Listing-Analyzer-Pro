@@ -16,6 +16,7 @@ import { like, or, ilike } from "drizzle-orm";
 import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
+import { normalizeBrandingSettingValue } from "../lib/branding-storage";
 
 const router: IRouter = Router();
 
@@ -1078,6 +1079,21 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     const count = [stripeEnabled, razorpayEnabled, paypalEnabled].filter(Boolean).length;
     if (count > 1) {
       res.status(400).json({ error: "Only one payment gateway can be enabled at a time." });
+      return;
+    }
+  }
+
+  if (category === "platform") {
+    const s = settings as Record<string, string>;
+    try {
+      if ("site_logo_url" in s) {
+        s.site_logo_url = normalizeBrandingSettingValue("site_logo_url", s.site_logo_url);
+      }
+      if ("site_favicon_url" in s) {
+        s.site_favicon_url = normalizeBrandingSettingValue("site_favicon_url", s.site_favicon_url);
+      }
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Invalid branding image" });
       return;
     }
   }
