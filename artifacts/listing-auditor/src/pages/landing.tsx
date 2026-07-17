@@ -452,7 +452,7 @@ function LandingPricingSection() {
 
   if (plans.length === 0) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 py-16 sm:py-24">
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-12 sm:py-24">
         <div className="max-w-6xl mx-auto text-center">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Choose the plan that fits your growth</h2>
@@ -463,7 +463,7 @@ function LandingPricingSection() {
   }
 
   return (
-    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 py-16 sm:py-24">
+    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-12 sm:py-24">
       <div className="max-w-6xl mx-auto text-center">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">Choose the plan that fits your growth</h2>
@@ -690,7 +690,7 @@ export default function Landing() {
       </section>
 
       {/* Tutorials */}
-      <section className="px-4 sm:px-6 lg:px-10 py-16 sm:py-20 bg-slate-50">
+      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:py-20 bg-slate-50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-8 sm:mb-10">
             Learn how to get the most out of Listing Auditor
@@ -701,7 +701,7 @@ export default function Landing() {
               <TutorialCard key={t.title} {...t} />
             ))}
           </div>
-          <div className="text-center mt-8">
+          <div className="text-center mt-5 sm:mt-8">
             <Link href="/tutorials" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
               View All Tutorials <ArrowRight className="w-4 h-4" />
             </Link>
