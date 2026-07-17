@@ -721,47 +721,53 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* ── Header ─────────────────────────────────────────────── */}
         <div
           className={cn(
-            "border-b border-sidebar-border/50 flex-shrink-0",
-            collapsed ? "px-2 py-3 flex flex-col items-center gap-2" : "px-4 py-4 flex items-center"
+            "border-b border-sidebar-border/50 flex-shrink-0 overflow-visible",
+            collapsed ? "px-2 py-3 flex flex-col items-center gap-2" : "px-3 py-3.5 flex items-center gap-1.5 min-w-0",
           )}
         >
           {/* Logo — lens mark when collapsed, full wordmark when expanded */}
-          <Link href="/dashboard" className="cursor-pointer hover:opacity-90 transition-opacity">
+          <Link
+            href="/dashboard"
+            className="cursor-pointer hover:opacity-90 transition-opacity min-w-0 shrink"
+          >
             {collapsed ? (
               <SiteLogoIcon imageClassName="h-8 w-8 object-contain" />
             ) : (
-              <SiteLogoMark imageClassName="h-8 w-auto max-w-[9rem] object-contain" />
+              <SiteLogoMark imageClassName="h-7 w-auto max-w-[6.75rem] object-contain object-left" />
             )}
           </Link>
 
           {!collapsed && (
             <>
-              <div className="flex-1" />
+              <div className="flex-1 min-w-0" />
 
-              {/* Notifications */}
-              <NotificationIcon collapsed={false} />
+              <div className="flex items-center shrink-0">
+                {/* Notifications */}
+                <NotificationIcon collapsed={false} />
 
-              {/* Archive */}
-              <SidebarTooltip label="Archive" side="bottom">
-                <Link href="/archive">
-                  <button className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ml-1">
-                    <Archive className="w-4 h-4" />
+                {/* Archive */}
+                <SidebarTooltip label="Archive" side="bottom">
+                  <Link href="/archive">
+                    <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">
+                      <Archive className="w-4 h-4" />
+                    </button>
+                  </Link>
+                </SidebarTooltip>
+
+                {/* Divider */}
+                <div className="w-px h-5 bg-slate-200 mx-1.5" />
+
+                {/* Collapse */}
+                <SidebarTooltip label="Collapse Sidebar" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(true)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                  >
+                    <PanelLeftClose className="w-4 h-4" />
                   </button>
-                </Link>
-              </SidebarTooltip>
-
-              {/* Divider */}
-              <div className="w-px h-5 bg-sidebar-border/60 mx-2" />
-
-              {/* Collapse */}
-              <SidebarTooltip label="Collapse Sidebar" side="bottom">
-                <button
-                  onClick={() => setCollapsed(true)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-                >
-                  <PanelLeftClose className="w-4 h-4" />
-                </button>
-              </SidebarTooltip>
+                </SidebarTooltip>
+              </div>
             </>
           )}
 
