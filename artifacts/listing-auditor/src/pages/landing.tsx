@@ -79,6 +79,82 @@ const featureColumns = [
   },
 ];
 
+function FeatureCard({
+  icon: Icon,
+  title,
+  description,
+  href,
+  layout = "grid",
+}: (typeof featureColumns)[number] & { layout?: "grid" | "carousel" }) {
+  const isCarousel = layout === "carousel";
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group block h-full transition-shadow",
+        isCarousel
+          ? "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md"
+          : "text-center",
+      )}
+    >
+      <div className={cn(isCarousel ? "flex items-start gap-3.5" : "flex flex-col items-center")}>
+        <div
+          className={cn(
+            "rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-orange-50 transition-colors",
+            isCarousel ? "w-10 h-10" : "w-12 h-12 mb-4",
+          )}
+        >
+          <Icon className={cn("text-slate-700 group-hover:text-orange-600 transition-colors", isCarousel ? "w-5 h-5" : "w-6 h-6")} />
+        </div>
+        <div className={cn("min-w-0", isCarousel ? "text-left" : "")}>
+          <h3 className={cn("font-semibold text-slate-900", isCarousel ? "mb-1 text-sm" : "mb-2")}>{title}</h3>
+          <p className={cn("text-slate-500 leading-relaxed", isCarousel ? "text-xs" : "text-sm")}>{description}</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function FeatureCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: -1 | 1) => {
+    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 300;
+    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative sm:hidden px-2">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Previous feature"
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Next feature"
+      >
+        <ChevronRight className="w-5 h-5 text-slate-600" />
+      </button>
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
+      >
+        {featureColumns.map((f) => (
+          <div key={f.title} className="snap-start shrink-0 w-[min(85vw,20rem)]">
+            <FeatureCard {...f} layout="carousel" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const portfolioItems = [
   { title: "Product Images", brand: "Home & Kitchen", image: `${basePath}/portfolio/product-hydration-kit.png`, badge: null },
   { title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
@@ -417,18 +493,13 @@ export default function Landing() {
       {/* Features */}
       <section className="px-4 sm:px-6 lg:px-10 py-16 sm:py-20 border-t border-slate-100">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-8 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-12">
             Everything you need to win on marketplaces
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-8">
+          <FeatureCarousel />
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-8">
             {featureColumns.map((f) => (
-              <Link key={f.title} href={f.href} className="text-center group">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-4 group-hover:bg-orange-50 transition-colors">
-                  <f.icon className="w-6 h-6 text-slate-700 group-hover:text-orange-600 transition-colors" />
-                </div>
-                <h3 className="font-semibold text-slate-900 mb-2">{f.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{f.description}</p>
-              </Link>
+              <FeatureCard key={f.title} {...f} />
             ))}
           </div>
         </div>
