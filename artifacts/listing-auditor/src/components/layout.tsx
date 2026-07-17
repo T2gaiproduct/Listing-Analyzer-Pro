@@ -80,6 +80,36 @@ function SidebarTooltip({ label, children, side = "bottom" }: { label: string; c
   );
 }
 
+function SidebarEdgeToggle({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <SidebarTooltip label={collapsed ? "Expand Sidebar" : "Collapse Sidebar"} side="right">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        aria-label={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        className={cn(
+          "hidden lg:flex absolute z-30 top-[4.5rem] items-center justify-center",
+          "h-9 w-5 bg-white border border-slate-200 shadow-md rounded-r-md",
+          "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
+          "transition-all duration-200 ease-linear -translate-x-1/2",
+          collapsed ? "left-16" : "left-64",
+        )}
+      >
+        {collapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+      </button>
+    </SidebarTooltip>
+  );
+}
+
 // --- Notification bell in header --------------------------------------------
 interface NotificationItem {
   id: number;
@@ -706,7 +736,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
     <div
-      className="flex h-screen w-full bg-background overflow-hidden"
+      className="flex h-screen w-full bg-background overflow-hidden relative"
       onClick={() => { setOpenMenu(null); }}
     >
       {/* Sidebar */}
@@ -726,13 +756,13 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         >
           {/* Logo */}
-          <Link href="/dashboard" className="cursor-pointer hover:opacity-90 transition-opacity">
-            <SiteLogoMark variant="app" />
+          <Link href="/dashboard" className="cursor-pointer hover:opacity-90 transition-opacity min-w-0">
+            <SiteLogoMark imageClassName="h-8 w-auto max-w-[7.5rem] object-contain" />
           </Link>
 
           {!collapsed && (
             <>
-              <div className="flex-1" />
+              <div className="flex-1 min-w-0" />
 
               {/* Notifications */}
               <NotificationIcon collapsed={false} />
@@ -745,32 +775,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   </button>
                 </Link>
               </SidebarTooltip>
-
-              {/* Divider */}
-              <div className="w-px h-5 bg-sidebar-border/60 mx-2" />
-
-              {/* Collapse */}
-              <SidebarTooltip label="Collapse Sidebar" side="bottom">
-                <button
-                  onClick={() => setCollapsed(true)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-                >
-                  <PanelLeftClose className="w-4 h-4" />
-                </button>
-              </SidebarTooltip>
             </>
-          )}
-
-          {/* Expand button — sits below logo when collapsed */}
-          {collapsed && (
-            <SidebarTooltip label="Expand Sidebar" side="right">
-              <button
-                onClick={() => setCollapsed(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 border border-sidebar-border/60 transition-colors"
-              >
-                <PanelLeftOpen className="w-5 h-5" />
-              </button>
-            </SidebarTooltip>
           )}
         </div>
 
@@ -942,6 +947,8 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </div>
         </aside>
+
+        <SidebarEdgeToggle collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
 
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 flex flex-col lg:hidden">
