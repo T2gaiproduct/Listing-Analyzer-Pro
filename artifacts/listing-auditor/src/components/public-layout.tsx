@@ -233,7 +233,7 @@ export function PublicFooter() {
         </div>
 
         <div className="border-t border-slate-800 pt-6 pb-20 sm:pb-0">
-          <p className="text-xs sm:text-sm text-slate-500 text-center sm:text-left leading-relaxed max-w-full break-words pr-0 sm:pr-0">
+          <p className="text-xs sm:text-sm text-slate-500 text-center sm:text-left leading-relaxed max-w-full break-words">
             <span className="block sm:inline">© {year} {platformName}.</span>{" "}
             <span className="block sm:inline">All rights reserved.</span>
           </p>
