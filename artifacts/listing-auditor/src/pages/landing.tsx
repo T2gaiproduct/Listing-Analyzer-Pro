@@ -485,7 +485,7 @@ function LandingPricingSection() {
 
   if (isLoading) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-12 sm:py-24">
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:py-24">
         <div className="max-w-6xl mx-auto text-center">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Choose the plan that fits your growth</h2>
@@ -497,7 +497,7 @@ function LandingPricingSection() {
 
   if (plans.length === 0) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-12 sm:py-24">
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:py-24">
         <div className="max-w-6xl mx-auto text-center">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Choose the plan that fits your growth</h2>
@@ -508,7 +508,7 @@ function LandingPricingSection() {
   }
 
   return (
-    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-12 sm:py-24">
+    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:py-24">
       <div className="max-w-6xl mx-auto text-center">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">Choose the plan that fits your growth</h2>
@@ -518,7 +518,7 @@ function LandingPricingSection() {
             <PricingPlanCard key={p.id} plan={p} />
           ))}
         </div>
-        <p className="mt-8 text-sm text-slate-500">
+        <p className="mt-5 sm:mt-8 text-sm text-slate-500">
           Need a custom plan?{" "}
           <Link href="/contact" className="text-orange-600 font-medium hover:underline">Contact us →</Link>
         </p>
@@ -540,9 +540,9 @@ function LandingFaqSection() {
   if (faqs.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 py-16 sm:py-24 bg-white">
+    <section className="px-4 sm:px-6 pt-4 pb-12 sm:py-24 bg-white">
       <div className="max-w-2xl mx-auto">
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-8 sm:mb-10">Frequently Asked Questions</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">Frequently Asked Questions</h2>
         <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
           {faqs.map((faq, i) => (
             <div key={i}>
