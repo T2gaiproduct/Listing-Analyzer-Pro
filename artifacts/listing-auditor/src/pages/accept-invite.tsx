@@ -221,7 +221,7 @@ export default function AcceptInvite() {
         </div>
 
         <p className="text-center text-xs text-slate-400">
-          ListingAuditor — AI-powered Amazon listing optimization
+          SellerLens — AI-powered Amazon listing optimization
         </p>
       </div>
     </div>

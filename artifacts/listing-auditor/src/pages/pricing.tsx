@@ -358,7 +358,7 @@ export default function Pricing() {
       <section className="bg-slate-900 px-6 py-16 text-center">
         <Zap className="w-8 h-8 text-orange-400 mx-auto mb-4" />
         <h2 className="text-3xl font-bold text-white mb-3">Still deciding?</h2>
-        <p className="text-slate-400 mb-8 max-w-md mx-auto">Book a 15-minute demo and we'll show you exactly how ListingAuditor works for your catalog.</p>
+        <p className="text-slate-400 mb-8 max-w-md mx-auto">Book a 15-minute demo and we'll show you exactly how SellerLens works for your catalog.</p>
         <div className="flex items-center gap-4 justify-center flex-wrap">
           <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-8" asChild>
             <Link href="/sign-up">Get Started</Link>

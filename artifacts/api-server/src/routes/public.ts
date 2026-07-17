@@ -83,7 +83,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   }
 
   res.json({
-    platformName: map.platform_name?.trim() || "ListingAuditor",
+    platformName: map.platform_name?.trim() || "SellerLens",
     logoUrl,
     faviconUrl,
   });
@@ -658,7 +658,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
           description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
         }],
         application_context: {
-          brand_name: "ListingAuditor",
+          brand_name: "SellerLens",
           user_action: "PAY_NOW",
           return_url: `${base}/billing?paypal_captured=1`,
           cancel_url: `${base}/billing?paypal_cancelled=1`,
@@ -743,7 +743,7 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
           description: `${amount} ${creditType} credits`,
         }],
         application_context: {
-          brand_name: "ListingAuditor",
+          brand_name: "SellerLens",
           user_action: "PAY_NOW",
           return_url: `${base}/billing?paypal_captured=1`,
           cancel_url: `${base}/billing?paypal_cancelled=1`,

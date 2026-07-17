@@ -12,7 +12,7 @@ const values = [
 ];
 
 const milestones = [
-  { year: "2024", title: "Founded", desc: "ListingAuditor launched with a mission to democratize Amazon listing optimization." },
+  { year: "2024", title: "Founded", desc: "SellerLens launched with a mission to democratize Amazon listing optimization." },
   { year: "2025", title: "First 1,000 Sellers", desc: "Reached our first milestone of helping 1,000 active Amazon sellers improve their listings." },
   { year: "2025", title: "AI Expansion", desc: "Added AI content generation, image studio, and EBC module creation." },
   { year: "2026", title: "Enterprise Launch", desc: "Launched enterprise tier with team management, white-label reporting, and API access." },
@@ -23,7 +23,7 @@ export default function About() {
     <div className="min-h-[100dvh] bg-white">
       <SeoHead
         title="About Us"
-        description="Meet the team behind ListingAuditor and learn how we're helping Amazon sellers optimize listings with AI-powered audits."
+        description="Meet the team behind SellerLens and learn how we're helping Amazon sellers optimize listings with AI-powered audits."
       />
       <PublicNav />
 
@@ -39,7 +39,7 @@ export default function About() {
               Built for Amazon sellers,<br />by Amazon sellers
             </h1>
             <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              ListingAuditor was created to solve a problem every Amazon seller faces:
+              SellerLens was created to solve a problem every Amazon seller faces:
               knowing whether their listings are good enough to win the Buy Box and rank on page one.
             </p>
           </div>
@@ -119,7 +119,7 @@ export default function About() {
           <div className="max-w-4xl mx-auto px-8">
             <div className="text-center mb-14">
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-3">Our Journey</h2>
-              <p className="text-slate-500">How ListingAuditor has evolved.</p>
+              <p className="text-slate-500">How SellerLens has evolved.</p>
             </div>
             <div className="space-y-8">
               {milestones.map((m, i) => (

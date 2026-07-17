@@ -87,7 +87,7 @@ export function HeroDashboardMockup() {
           {/* Sidebar */}
           <div className="w-11 sm:w-12 shrink-0 border-r border-slate-100 bg-slate-50/80 py-3 flex flex-col items-center gap-3">
             <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
-              <span className="text-white text-[10px] font-bold">LA</span>
+              <span className="text-white text-[10px] font-bold">SL</span>
             </div>
             {sidebarIcons.map((Icon, i) => (
               <div

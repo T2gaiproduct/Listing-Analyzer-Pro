@@ -133,7 +133,7 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
           key: d.keyId,
           amount: d.amount,
           currency: d.currency,
-          name: "ListingAuditor",
+          name: "SellerLens",
           description: `${quantity} ${creditType} credits`,
           order_id: d.orderId,
           handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
@@ -307,7 +307,7 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
-        name: "ListingAuditor",
+        name: "SellerLens",
         description: "Add payment method",
         order_id: order.orderId,
         handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
@@ -961,7 +961,7 @@ export default function Billing() {
                             key: d.keyId,
                             amount: d.amount,
                             currency: d.currency,
-                            name: "ListingAuditor",
+                            name: "SellerLens",
                             description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
                             order_id: d.orderId,
                             handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {

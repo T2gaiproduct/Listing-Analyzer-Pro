@@ -6,7 +6,7 @@ export default function Privacy() {
     <div className="min-h-[100dvh] bg-white">
       <SeoHead
         title="Privacy Policy"
-        description="ListingAuditor Privacy Policy — how we collect, use, and protect your personal data."
+        description="SellerLens Privacy Policy — how we collect, use, and protect your personal data."
       />
       <PublicNav />
       <main className="max-w-3xl mx-auto px-8 py-16 md:py-24">

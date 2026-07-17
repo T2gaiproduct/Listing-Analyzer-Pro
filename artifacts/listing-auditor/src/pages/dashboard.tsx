@@ -300,7 +300,7 @@ export default function Dashboard() {
                   <li className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">Time Saved</p>
-                      <p className="text-xs text-slate-500">By using Listing Auditor</p>
+                      <p className="text-xs text-slate-500">By using SellerLens</p>
                     </div>
                     <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{formatHours(impact.timeSavedHours)}</span>
                   </li>
