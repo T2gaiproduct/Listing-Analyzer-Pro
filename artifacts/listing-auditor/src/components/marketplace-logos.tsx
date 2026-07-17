@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { FaAmazon } from "react-icons/fa6";
-import { SiShopify, SiEtsy } from "react-icons/si";
+import { SiShopify } from "react-icons/si";
 import { cn } from "@/lib/utils";
 import type { IconType } from "react-icons";
 
@@ -49,6 +49,17 @@ function EbayLogo({ className }: { className?: string }) {
   );
 }
 
+function EtsyLogo({ className }: { className?: string }) {
+  return (
+    <img
+      src={`${basePath}/marketplace/etsy.svg`}
+      alt=""
+      className={cn("h-full w-auto max-w-full object-contain", className)}
+      aria-hidden
+    />
+  );
+}
+
 type MarketplaceEntry =
   | { name: string; kind: "icon"; Icon: IconType; className?: string }
   | { name: string; kind: "custom"; render: (className?: string) => ReactNode };
@@ -58,7 +69,7 @@ const marketplaces: MarketplaceEntry[] = [
   { name: "Shopify", kind: "icon", Icon: SiShopify, className: "text-[#96BF48]" },
   { name: "Walmart", kind: "custom", render: (c) => <WalmartLogo className={c} /> },
   { name: "eBay", kind: "custom", render: (c) => <EbayLogo className={c} /> },
-  { name: "Etsy", kind: "icon", Icon: SiEtsy, className: "text-[#F45800]" },
+  { name: "Etsy", kind: "custom", render: (c) => <EtsyLogo className={c} /> },
 ];
 
 function LogoCard({ item }: { item: MarketplaceEntry }) {
