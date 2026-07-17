@@ -24,9 +24,15 @@ interface DbPlan {
   description: string | null;
   priceMonthly: number;
   priceYearly: number;
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
+  teamMembers: number;
+  creditAllocations: Record<string, number> | null;
   features: string[];
   excludedFeatures: string[];
   tag: string | null;
+  sortOrder: number;
   isHighlighted: boolean;
   ctaText: string | null;
   isTrial: boolean;
@@ -319,22 +325,44 @@ function TutorialCarousel() {
   );
 }
 
-function planDisplayFeatures(p: DbPlan) {
-  return p.features.length > 0
-    ? p.features
-    : ["Listing audits", "AI content credits", "Image generation", "Competitor analysis"];
+function planDisplayFeatures(p: DbPlan): string[] {
+  if (p.features.length > 0) return p.features;
+
+  const a = p.creditAllocations ?? {};
+  const derived = [
+    a.audit != null || p.auditCredits ? `${a.audit ?? p.auditCredits} listing audits/mo` : null,
+    a.content != null ? `${a.content} AI content credits` : p.aiCredits ? `${p.aiCredits} AI content credits` : null,
+    a.images != null || p.imageCredits ? `${a.images ?? p.imageCredits} image generation credits` : null,
+    a.ebc != null ? `${a.ebc} A+ / EBC content credits` : null,
+    a.competitors != null ? `${a.competitors} competitor analyses` : null,
+    p.teamMembers > 1 ? `${p.teamMembers} team members` : null,
+  ].filter((item): item is string => Boolean(item));
+
+  return derived;
 }
 
 function planCta(p: DbPlan) {
-  return p.ctaText ?? (p.isTrial && p.trialDays > 0 ? `Start ${p.trialDays}-Day Trial` : "Start Free Trial");
+  if (p.ctaText) return p.ctaText;
+  if (p.isTrial && p.trialDays > 0) return `Start ${p.trialDays}-Day Trial`;
+  return "Get Started";
 }
 
-function sortPlansForCarousel(plans: DbPlan[]) {
-  return [...plans].sort((a, b) => {
-    if (a.isHighlighted && !b.isHighlighted) return -1;
-    if (!a.isHighlighted && b.isHighlighted) return 1;
-    return a.priceMonthly - b.priceMonthly;
-  });
+function planCtaHref(p: DbPlan) {
+  const cta = planCta(p).toLowerCase();
+  if (cta.includes("contact")) return "/contact";
+  return "/sign-up";
+}
+
+function sortPlansFromAdmin(plans: DbPlan[]) {
+  return [...plans].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
+}
+
+function landingPlanGridClass(count: number) {
+  if (count <= 1) return "grid-cols-1 max-w-md mx-auto";
+  if (count === 2) return "grid-cols-2 max-w-3xl mx-auto";
+  if (count === 3) return "grid-cols-3";
+  if (count === 4) return "grid-cols-2 xl:grid-cols-4";
+  return "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 }
 
 function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: boolean }) {
@@ -395,7 +423,7 @@ function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: bo
         variant={highlighted ? "default" : "outline"}
         asChild
       >
-        <Link href="/sign-up">{cta}</Link>
+        <Link href={planCtaHref(plan)}>{cta}</Link>
       </Button>
     </div>
   );
@@ -403,7 +431,7 @@ function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: bo
 
 function PricingCarousel({ plans }: { plans: DbPlan[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const orderedPlans = sortPlansForCarousel(plans);
+  const orderedPlans = sortPlansFromAdmin(plans);
   const scroll = (dir: -1 | 1) => {
     const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 320;
     scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
@@ -443,12 +471,29 @@ function PricingCarousel({ plans }: { plans: DbPlan[] }) {
 }
 
 function LandingPricingSection() {
-  const { data: dbPlans = [] } = useQuery<DbPlan[]>({
+  const { data: dbPlans = [], isLoading } = useQuery<DbPlan[]>({
     queryKey: ["public-plans"],
-    queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`${basePath}/api/plans`);
+      if (!res.ok) throw new Error("Failed to load plans");
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
   });
 
-  const plans = [...dbPlans].sort((a, b) => a.priceMonthly - b.priceMonthly).slice(0, 3);
+  const plans = sortPlansFromAdmin(dbPlans);
+
+  if (isLoading) {
+    return (
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-12 sm:py-24">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Choose the plan that fits your growth</h2>
+          <p className="text-sm text-slate-500">Loading plans from Admin…</p>
+        </div>
+      </section>
+    );
+  }
 
   if (plans.length === 0) {
     return (
@@ -468,10 +513,7 @@ function LandingPricingSection() {
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">Choose the plan that fits your growth</h2>
         <PricingCarousel plans={plans} />
-        <div className={cn(
-          "hidden sm:grid gap-6 text-left",
-          plans.length === 1 ? "grid-cols-1 max-w-md mx-auto" : plans.length === 2 ? "grid-cols-2 max-w-3xl mx-auto" : "grid-cols-3",
-        )}>
+        <div className={cn("hidden sm:grid gap-6 text-left", landingPlanGridClass(plans.length))}>
           {plans.map((p) => (
             <PricingPlanCard key={p.id} plan={p} />
           ))}
