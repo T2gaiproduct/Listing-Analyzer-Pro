@@ -302,6 +302,129 @@ function TutorialCarousel() {
   );
 }
 
+function planDisplayFeatures(p: DbPlan) {
+  return p.features.length > 0
+    ? p.features
+    : ["Listing audits", "AI content credits", "Image generation", "Competitor analysis"];
+}
+
+function planCta(p: DbPlan) {
+  return p.ctaText ?? (p.isTrial && p.trialDays > 0 ? `Start ${p.trialDays}-Day Trial` : "Start Free Trial");
+}
+
+function sortPlansForCarousel(plans: DbPlan[]) {
+  return [...plans].sort((a, b) => {
+    if (a.isHighlighted && !b.isHighlighted) return -1;
+    if (!a.isHighlighted && b.isHighlighted) return 1;
+    return a.priceMonthly - b.priceMonthly;
+  });
+}
+
+function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: boolean }) {
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const highlighted = plan.isHighlighted;
+  const features = planDisplayFeatures(plan);
+  const cta = planCta(plan);
+  const featureLimit = 5;
+  const hasMoreFeatures = compact && features.length > featureLimit;
+  const visibleFeatures = hasMoreFeatures && !showAllFeatures ? features.slice(0, featureLimit) : features;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl flex flex-col bg-white border relative h-full text-left",
+        compact ? "p-5" : "p-6 sm:p-8",
+        highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
+      )}
+    >
+      {highlighted && plan.tag && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+            {plan.tag}
+          </span>
+        </div>
+      )}
+      <p className="font-bold text-lg text-slate-900">{plan.name}</p>
+      <p className={cn("text-sm text-slate-500 mt-1", compact ? "mb-3 line-clamp-2" : "mb-4")}>{plan.description}</p>
+      <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>
+        ${plan.priceMonthly}
+        <span className="text-base font-normal text-slate-400">/mo</span>
+      </p>
+      <ul className={cn("space-y-2.5 flex-1", compact ? "mb-5" : "space-y-3 mb-8")}>
+        {visibleFeatures.map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
+            <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+            {f}
+          </li>
+        ))}
+        {(plan.excludedFeatures ?? []).map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm text-slate-400 line-through">
+            <span className="w-4 shrink-0" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      {hasMoreFeatures && !showAllFeatures && (
+        <button
+          type="button"
+          onClick={() => setShowAllFeatures(true)}
+          className="text-sm font-medium text-orange-600 hover:text-orange-700 mb-4 text-left"
+        >
+          +{features.length - featureLimit} more features
+        </button>
+      )}
+      <Button
+        className={cn("w-full mt-auto", highlighted ? "bg-orange-500 hover:bg-orange-600" : "")}
+        variant={highlighted ? "default" : "outline"}
+        asChild
+      >
+        <Link href="/sign-up">{cta}</Link>
+      </Button>
+    </div>
+  );
+}
+
+function PricingCarousel({ plans }: { plans: DbPlan[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const orderedPlans = sortPlansForCarousel(plans);
+  const scroll = (dir: -1 | 1) => {
+    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 320;
+    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative sm:hidden px-2">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Previous plan"
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Next plan"
+      >
+        <ChevronRight className="w-5 h-5 text-slate-600" />
+      </button>
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain items-stretch"
+      >
+        {orderedPlans.map((p) => (
+          <div key={p.id} className="snap-center shrink-0 w-[min(88vw,22rem)] flex">
+            <PricingPlanCard plan={p} compact />
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-slate-400 text-center">Swipe to compare plans</p>
+    </div>
+  );
+}
+
 function LandingPricingSection() {
   const { data: dbPlans = [] } = useQuery<DbPlan[]>({
     queryKey: ["public-plans"],
@@ -326,63 +449,15 @@ function LandingPricingSection() {
     <section id="pricing" className="bg-slate-50 px-4 sm:px-6 py-16 sm:py-24">
       <div className="max-w-6xl mx-auto text-center">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-8 sm:mb-10">Choose the plan that fits your growth</h2>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">Choose the plan that fits your growth</h2>
+        <PricingCarousel plans={plans} />
         <div className={cn(
-          "grid gap-6 text-left",
-          plans.length === 1 ? "grid-cols-1 max-w-md mx-auto" : plans.length === 2 ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto" : "grid-cols-1 md:grid-cols-3",
+          "hidden sm:grid gap-6 text-left",
+          plans.length === 1 ? "grid-cols-1 max-w-md mx-auto" : plans.length === 2 ? "grid-cols-2 max-w-3xl mx-auto" : "grid-cols-3",
         )}>
-          {plans.map((p) => {
-            const highlighted = p.isHighlighted;
-            const features = p.features.length > 0
-              ? p.features
-              : ["Listing audits", "AI content credits", "Image generation", "Competitor analysis"];
-            const cta = p.ctaText ?? (p.isTrial && p.trialDays > 0 ? `Start ${p.trialDays}-Day Trial` : "Start Free Trial");
-
-            return (
-              <div
-                key={p.id}
-                className={cn(
-                  "rounded-2xl p-6 sm:p-8 flex flex-col bg-white border relative",
-                  highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
-                )}
-              >
-                {highlighted && p.tag && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
-                      {p.tag}
-                    </span>
-                  </div>
-                )}
-                <p className="font-bold text-lg text-slate-900">{p.name}</p>
-                <p className="text-sm text-slate-500 mt-1 mb-4">{p.description}</p>
-                <p className="text-4xl font-extrabold text-slate-900 mb-6">
-                  ${p.priceMonthly}
-                  <span className="text-base font-normal text-slate-400">/mo</span>
-                </p>
-                <ul className="space-y-3 flex-1 mb-8">
-                  {features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
-                      <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                      {f}
-                    </li>
-                  ))}
-                  {(p.excludedFeatures ?? []).map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-slate-400 line-through">
-                      <span className="w-4 shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className={cn("w-full", highlighted ? "bg-orange-500 hover:bg-orange-600" : "")}
-                  variant={highlighted ? "default" : "outline"}
-                  asChild
-                >
-                  <Link href="/sign-up">{cta}</Link>
-                </Button>
-              </div>
-            );
-          })}
+          {plans.map((p) => (
+            <PricingPlanCard key={p.id} plan={p} />
+          ))}
         </div>
         <p className="mt-8 text-sm text-slate-500">
           Need a custom plan?{" "}
