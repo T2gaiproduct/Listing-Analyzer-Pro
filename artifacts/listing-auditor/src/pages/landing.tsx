@@ -656,7 +656,7 @@ export default function Landing() {
       </section>
 
       {/* Workflow */}
-      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-12 sm:py-24">
+      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-24">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-start">
             <div className="min-w-0">
@@ -733,9 +733,9 @@ export default function Landing() {
       </section>
 
       {/* Tutorials */}
-      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:py-20 bg-slate-50">
+      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-20 bg-slate-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-8 sm:mb-10">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
             Learn how to get the most out of Listing Auditor
           </h2>
           <TutorialCarousel />
