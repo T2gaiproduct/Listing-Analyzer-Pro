@@ -585,27 +585,31 @@ export default function Landing() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
           <div className="text-left min-w-0">
-            <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5 mb-4 sm:mb-6 max-w-full">
+            <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5 mb-4 sm:mb-6">
               <Zap className="w-3 h-3 shrink-0" />
-              <span className="truncate">AI-Powered Listing Optimization</span>
+              <span className="sm:hidden">AI Listing Optimization</span>
+              <span className="hidden sm:inline">AI-Powered Listing Optimization</span>
             </p>
-            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.625rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
-              <span className="block sm:inline">Optimize Listings. Increase Sales.</span>{" "}
+            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.5rem] leading-[1.25] min-[400px]:text-[1.625rem] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
+              <span className="block sm:inline">Optimize Listings.</span>{" "}
+              <span className="block sm:inline">Increase Sales.</span>{" "}
               <span className="block sm:inline text-orange-500">Grow Faster.</span>
             </h1>
-            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl leading-relaxed">
+            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-[21rem] sm:max-w-xl leading-relaxed">
               Audit listings, create stunning content, and dominate every marketplace.
             </p>
-            <MarketplaceLogos className="mb-6 sm:mb-8" />
-            <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-start mb-8 sm:mb-10">
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href="/sign-up">Get Started Free</Link>
+            <MarketplaceLogos className="mb-5 sm:mb-8" />
+            <div className="flex flex-col min-[400px]:flex-row items-stretch gap-2.5 sm:gap-3 justify-start mb-7 sm:mb-10 max-w-md sm:max-w-none">
+              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-4 sm:px-8 w-full min-[400px]:flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
+                <Link href="/sign-up">
+                  <span className="sm:hidden">Start Free</span>
+                  <span className="hidden sm:inline">Get Started Free</span>
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+              <Button size="lg" variant="outline" className="px-4 sm:px-8 w-full min-[400px]:flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
                 <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
                   <Play className="w-4 h-4 shrink-0" />
-                  <span className="sm:hidden">How It Works</span>
-                  <span className="hidden sm:inline">See How It Works</span>
+                  How It Works
                 </Link>
               </Button>
             </div>
