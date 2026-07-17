@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText, Lock, Wallet } from "lucide-react";
+import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Globe, Users, FileText, Lock, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { BrandingHead } from "@/components/branding-head";
+import { SiteLogo } from "@/components/site-logo";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { COUNTRIES } from "@/lib/countries";
 
@@ -286,12 +288,10 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col overflow-x-hidden">
+      <BrandingHead />
       {/* Header */}
       <div className="min-h-14 sm:min-h-16 border-b bg-white/80 backdrop-blur flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-0 px-4 sm:px-8 py-3 sm:py-0">
-        <div className="flex items-center gap-2 font-bold text-lg sm:text-xl tracking-tight min-w-0">
-          <Search className="w-5 h-5 text-orange-500 flex-shrink-0" />
-          <span className="truncate">Listing<span className="text-orange-500">Auditor</span></span>
-        </div>
+        <SiteLogo />
         <div className="sm:ml-auto text-xs sm:text-sm text-slate-400 min-w-0 max-w-full">
           <span className="hidden sm:inline">Signed in as </span>
           <span className="sm:text-slate-400 text-slate-500 font-medium truncate block sm:inline">
