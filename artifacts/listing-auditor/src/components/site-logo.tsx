@@ -47,3 +47,16 @@ export function SiteLogoMark({
 
   return <img src={logoUrl} alt={platformName} className={cn(imageClassName, "shrink-0", className)} />;
 }
+
+/** Orange magnifying-glass mark for collapsed sidebar / compact slots. */
+export function SiteLogoIcon({
+  className,
+  imageClassName = "h-8 w-8 object-contain",
+}: {
+  className?: string;
+  imageClassName?: string;
+}) {
+  const { platformName, faviconUrl } = useBranding();
+
+  return <img src={faviconUrl} alt={platformName} className={cn(imageClassName, "shrink-0", className)} />;
+}
