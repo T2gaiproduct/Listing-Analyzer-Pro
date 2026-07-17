@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Settings, Save, Upload, Trash2 } from "lucide-react";
-import { defaultFaviconUrl, defaultLogoUrl } from "@/lib/branding";
+import { defaultFaviconUrl, defaultLogoUrl, resolveBrandingAsset } from "@/lib/branding";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -51,7 +51,7 @@ function BrandingUploadField({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const previewUrl = value.trim() || fallbackUrl;
+  const previewUrl = value.trim() ? resolveBrandingAsset(value, fallbackUrl) : fallbackUrl;
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -134,6 +134,7 @@ export default function AdminSettingsPlatform() {
     mutationFn: () => saveSettings("platform", form),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["branding"] });
+      qc.invalidateQueries({ queryKey: ["admin-settings-platform"] });
       toast({ title: "Settings saved" });
     },
   });
