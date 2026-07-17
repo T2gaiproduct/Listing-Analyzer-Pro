@@ -3,6 +3,8 @@ import { useSignUp } from "@clerk/react/legacy";
 import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 
+import { SiteLogoImage } from "@/components/site-logo";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface Requirement {
@@ -115,11 +117,7 @@ export default function SignUpPage() {
           {/* Header */}
           <div className="px-8 pt-8 pb-5 text-center">
             <a href={basePath || "/"}>
-              <img
-                src={`${window.location.origin}${basePath}/logo.svg`}
-                alt="ListingAuditor"
-                className="h-8 w-auto mx-auto mb-5"
-              />
+              <SiteLogoImage className="h-8 w-auto mx-auto mb-5" />
             </a>
             {step === "form" ? (
               <>
