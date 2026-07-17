@@ -52,6 +52,36 @@ const heroStats = [
   { icon: Users, value: "5000+", label: "Brands Trust Us" },
 ];
 
+function HeroOptimizationImpact() {
+  const points = [
+    { x: 4, y: 46 },
+    { x: 28, y: 38 },
+    { x: 52, y: 32 },
+    { x: 76, y: 22 },
+    { x: 100, y: 10 },
+  ];
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between gap-4 shadow-sm">
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 mb-2">
+          <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+          Optimization Impact
+        </p>
+        <p className="text-3xl font-extrabold text-slate-900 leading-none tracking-tight">+34%</p>
+        <p className="text-xs text-slate-500 mt-1.5">Average Sales Growth</p>
+      </div>
+      <svg viewBox="0 0 104 52" className="w-28 h-14 shrink-0" aria-hidden>
+        <path d={linePath} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((p) => (
+          <circle key={`${p.x}-${p.y}`} cx={p.x} cy={p.y} r="3" fill="#f97316" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 const featureColumns = [
   {
     icon: FileSearch,
@@ -584,42 +614,48 @@ export default function Landing() {
       <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
-          <div className="text-left min-w-0">
-            <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5 mb-4 sm:mb-6 max-w-full">
-              <Zap className="w-3 h-3 shrink-0" />
-              <span className="truncate">AI-Powered Listing Optimization</span>
-            </p>
-            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.625rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
+          <div className="text-center lg:text-left min-w-0">
+            <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
+              <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
+                <Zap className="w-3 h-3 shrink-0" />
+                <span>AI-Powered Listing Optimization</span>
+              </p>
+            </div>
+            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
               <span className="block sm:inline">Optimize Listings. Increase Sales.</span>{" "}
               <span className="block sm:inline text-orange-500">Grow Faster.</span>
             </h1>
-            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl leading-relaxed">
-              Audit listings, create stunning content, and dominate every marketplace.
+            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+              Audit listings, create stunning content, manage ads and dominate every marketplace.
             </p>
             <MarketplaceLogos className="mb-6 sm:mb-8" />
-            <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-start mb-8 sm:mb-10">
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
+            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10 max-w-md mx-auto lg:mx-0 lg:max-w-none">
+              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
                 <Link href="/sign-up">Get Started Free</Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+              <Button size="lg" variant="outline" className="px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+                <Link href="/features" className="flex items-center justify-center gap-2">
                   <Play className="w-4 h-4 shrink-0" />
-                  <span className="sm:hidden">How It Works</span>
-                  <span className="hidden sm:inline">See How It Works</span>
+                  See How It Works
                 </Link>
               </Button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0">
               {heroStats.map((s) => (
-                <div key={s.label} className="text-left">
-                  <s.icon className="w-4 h-4 text-orange-500 mb-1" />
-                  <p className="text-base sm:text-lg lg:text-xl font-bold text-slate-900">{s.value}</p>
-                  <p className="text-[10px] sm:text-xs text-slate-500 leading-snug">{s.label}</p>
+                <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center mb-1 shrink-0">
+                    <s.icon className="w-3.5 h-3.5 text-orange-500" />
+                  </div>
+                  <p className="text-xs sm:text-lg lg:text-xl font-bold text-slate-900 leading-tight">{s.value}</p>
+                  <p className="text-[9px] sm:text-xs text-slate-500 leading-snug mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
+            <div className="mt-6 lg:hidden max-w-md mx-auto">
+              <HeroOptimizationImpact />
+            </div>
           </div>
-          <div className="min-w-0 w-full">
+          <div className="hidden lg:block min-w-0 w-full">
             <HeroDashboardMockup />
           </div>
         </div>
