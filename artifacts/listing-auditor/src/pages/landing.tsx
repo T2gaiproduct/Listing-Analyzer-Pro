@@ -386,17 +386,30 @@ export default function Landing() {
             <p className="text-base sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0">
               Audit listings, create stunning content, manage ads and dominate every marketplace.
             </p>
-            <MarketplaceLogos className="mb-6 sm:mb-8" />
-            <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10">
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href="/sign-up">Get Started Free</Link>
-              </Button>
-              <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
-                  <Play className="w-4 h-4 shrink-0" />
-                  <span className="truncate">See How It Works</span>
-                </Link>
-              </Button>
+            <div className="mb-8 sm:mb-10">
+              <MarketplaceLogos />
+              <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-center lg:hidden mt-6">
+                <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-8 flex-1 min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
+                  <Link href="/sign-up">Get Started Free</Link>
+                </Button>
+                <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+                  <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+                    <Play className="w-4 h-4 shrink-0" />
+                    <span className="truncate">See How It Works</span>
+                  </Link>
+                </Button>
+              </div>
+              <div className="hidden lg:flex items-start justify-between gap-4 mt-6 w-[38rem] max-w-full">
+                <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-8 h-12 shrink-0" asChild>
+                  <Link href="/sign-up">Get Started Free</Link>
+                </Button>
+                <Button size="lg" variant="outline" className="px-6 gap-2 h-12 shrink-0" asChild>
+                  <Link href="/features" className="flex items-center justify-center gap-2">
+                    <Play className="w-4 h-4 shrink-0" />
+                    <span className="whitespace-nowrap">See How It Works</span>
+                  </Link>
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {heroStats.map((s) => (
