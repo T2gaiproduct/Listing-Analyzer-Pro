@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { FaAmazon } from "react-icons/fa6";
-import { SiShopify, SiEbay, SiEtsy } from "react-icons/si";
+import { SiShopify, SiEtsy } from "react-icons/si";
 import { cn } from "@/lib/utils";
 import type { IconType } from "react-icons";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const cardClass =
   "flex flex-1 min-w-0 basis-0 sm:flex-none sm:w-28 items-center justify-center h-9 sm:h-14 px-0.5 sm:px-3 bg-white rounded-lg sm:rounded-xl shadow-sm border border-slate-100/80";
@@ -36,6 +38,17 @@ function WalmartLogo({ className }: { className?: string }) {
   );
 }
 
+function EbayLogo({ className }: { className?: string }) {
+  return (
+    <img
+      src={`${basePath}/marketplace/ebay.svg`}
+      alt=""
+      className={cn("h-full w-auto max-w-full object-contain", className)}
+      aria-hidden
+    />
+  );
+}
+
 type MarketplaceEntry =
   | { name: string; kind: "icon"; Icon: IconType; className?: string }
   | { name: string; kind: "custom"; render: (className?: string) => ReactNode };
@@ -44,7 +57,7 @@ const marketplaces: MarketplaceEntry[] = [
   { name: "Amazon", kind: "icon", Icon: FaAmazon, className: "text-[#232F3E]" },
   { name: "Shopify", kind: "icon", Icon: SiShopify, className: "text-[#96BF48]" },
   { name: "Walmart", kind: "custom", render: (c) => <WalmartLogo className={c} /> },
-  { name: "eBay", kind: "icon", Icon: SiEbay, className: "text-[#232F3E]" },
+  { name: "eBay", kind: "custom", render: (c) => <EbayLogo className={c} /> },
   { name: "Etsy", kind: "icon", Icon: SiEtsy, className: "text-[#F45800]" },
 ];
 
