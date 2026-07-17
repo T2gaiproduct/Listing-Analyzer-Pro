@@ -21,8 +21,8 @@ export function PromoBanner() {
   };
 
   return (
-    <div className="bg-slate-900 text-white text-sm py-2.5 px-4 text-center relative">
-      <div className="flex items-center justify-center gap-2 flex-wrap">
+    <div className="bg-slate-900 text-white text-xs sm:text-sm py-2.5 px-4 sm:px-6 text-center relative">
+      <div className="flex items-center justify-center gap-2 flex-wrap pr-8 sm:pr-10">
         <Tag className="w-3.5 h-3.5 text-orange-400" />
         <span>
           <strong className="text-orange-400">Launch offer:</strong> Get 20% off any plan with code{" "}
@@ -37,7 +37,8 @@ export function PromoBanner() {
       </div>
       <button
         onClick={handleDismiss}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+        className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors touch-target flex items-center justify-center"
+        aria-label="Dismiss promo"
       >
         <X className="w-4 h-4" />
       </button>

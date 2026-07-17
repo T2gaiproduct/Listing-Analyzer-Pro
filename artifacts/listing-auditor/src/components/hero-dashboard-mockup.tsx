@@ -80,10 +80,10 @@ function Sparkline({ path }: { path: string }) {
 
 export function HeroDashboardMockup() {
   return (
-    <div className="relative w-full max-w-xl mx-auto lg:max-w-none">
-      <div className="absolute -inset-3 sm:-inset-4 bg-gradient-to-br from-orange-100/50 to-slate-100/30 rounded-[1.75rem] blur-2xl" />
-      <div className="relative bg-white rounded-2xl border border-slate-200/90 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.18)] overflow-hidden">
-        <div className="flex min-h-[22rem] sm:min-h-[24rem]">
+    <div className="relative w-full max-w-xl mx-auto lg:max-w-none min-w-0">
+      <div className="absolute -inset-2 sm:-inset-3 lg:-inset-4 bg-gradient-to-br from-orange-100/50 to-slate-100/30 rounded-[1.75rem] blur-2xl" />
+      <div className="relative bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.18)] overflow-hidden">
+        <div className="flex min-h-[18rem] sm:min-h-[22rem] lg:min-h-[24rem]">
           {/* Sidebar */}
           <div className="w-11 sm:w-12 shrink-0 border-r border-slate-100 bg-slate-50/80 py-3 flex flex-col items-center gap-3">
             <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">

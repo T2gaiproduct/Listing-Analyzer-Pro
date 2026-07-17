@@ -46,7 +46,7 @@ const marketplaces: MarketplaceEntry[] = [
 function LogoCard({ item }: { item: MarketplaceEntry }) {
   return (
     <div
-      className="flex items-center justify-center h-12 sm:h-14 px-4 sm:px-5 bg-white rounded-xl shadow-sm min-w-[6.75rem] sm:min-w-[7.5rem]"
+      className="flex items-center justify-center h-11 sm:h-14 px-3 sm:px-5 bg-white rounded-xl shadow-sm min-w-[5.5rem] sm:min-w-[7.5rem]"
       title={item.name}
     >
       {item.kind === "icon" ? (
@@ -64,13 +64,13 @@ export function MarketplaceLogos({ className }: { className?: string }) {
   const row2 = marketplaces.slice(3);
 
   return (
-    <div className={cn("flex flex-col gap-3 sm:gap-4 items-center lg:items-start", className)}>
-      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4">
+    <div className={cn("flex flex-col gap-2.5 sm:gap-4 items-center lg:items-start w-full", className)}>
+      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5 sm:gap-4 w-full">
         {row1.map((item) => (
           <LogoCard key={item.name} item={item} />
         ))}
       </div>
-      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4">
+      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5 sm:gap-4 w-full">
         {row2.map((item) => (
           <LogoCard key={item.name} item={item} />
         ))}

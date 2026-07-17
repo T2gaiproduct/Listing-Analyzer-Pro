@@ -28,11 +28,11 @@ export function PublicNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-4">
-      <div className="flex items-center gap-6 lg:gap-10 min-w-0">
-        <Link href="/" className="flex items-center gap-2.5 font-bold text-lg tracking-tight flex-shrink-0 text-slate-900">
+    <header className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-2 sm:gap-4 min-w-0">
+      <div className="flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
+        <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900">
           <LogoMark />
-          <span>ListingAuditor</span>
+          <span className="truncate">ListingAuditor</span>
         </Link>
         <nav className="hidden lg:flex items-center gap-0.5">
           {navLinks.map((l) => (
@@ -51,12 +51,15 @@ export function PublicNav() {
           ))}
         </nav>
       </div>
-      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
         <Button variant="ghost" size="sm" className="hidden sm:inline-flex text-slate-600 hover:text-slate-900" asChild>
           <Link href="/sign-in">Sign In</Link>
         </Button>
-        <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-4" asChild>
-          <Link href="/sign-up">Get Started Free</Link>
+        <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm" asChild>
+          <Link href="/sign-up">
+            <span className="sm:hidden">Start Free</span>
+            <span className="hidden sm:inline">Get Started Free</span>
+          </Link>
         </Button>
         <button
           type="button"
@@ -185,8 +188,8 @@ export function PublicFooter() {
   return (
     <footer className="bg-[#0B0E11] text-slate-400">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10 mb-12">
-          <div className="sm:col-span-2 lg:col-span-2">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-8 sm:gap-10 mb-10 sm:mb-12">
+          <div className="col-span-2 sm:col-span-2 lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5 font-bold text-lg text-white mb-4">
               <LogoMark />
               <span>ListingAuditor</span>
@@ -223,7 +226,7 @@ export function PublicFooter() {
             </div>
           ))}
 
-          <div className="sm:col-span-2 lg:col-span-1">
+          <div className="col-span-2 sm:col-span-2 lg:col-span-1">
             <p className="font-semibold text-white text-sm mb-2">Stay updated</p>
             <p className="text-xs mb-4 leading-relaxed">Get tips and product updates in your inbox.</p>
             <FooterNewsletter />
