@@ -1,13 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 24" role="img" aria-label="Shopify">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 24" role="img" aria-label="Shopify">
+  <defs>
+    <linearGradient id="shopify-bag-front" x1="5" y1="5.5" x2="19" y2="21" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A6D467" />
+      <stop offset="100%" stop-color="#95BF47" />
+    </linearGradient>
+  </defs>
   <g transform="translate(0, 1)">
     <path
       fill="none"
-      stroke="#5E8E3E"
-      stroke-width="1.2"
+      stroke="#B5B5B5"
+      stroke-width="1.1"
       stroke-linecap="round"
-      d="M8 3.5c0-1.5 1.8-2.5 4-2.5s4 1 4 2.5"
+      d="M8 3.4c0-1.45 1.75-2.35 4-2.35s4 .9 4 2.35"
     />
-    <path fill="#95BF47" d="M5 5.5h14l-1.1 15.5H6.1L5 5.5z" />
+    <path fill="url(#shopify-bag-front)" d="M5 5.5h14l-1.1 15.5H6.1L5 5.5z" />
     <path fill="#5E8E3E" d="M19 5.5l1.1 15.5h2.5L19 5.5z" />
     <text
       x="12"
@@ -26,7 +32,8 @@
     y="17"
     font-family="Arial, Helvetica, sans-serif"
     font-size="15"
-    font-weight="400"
+    font-weight="700"
+    font-style="italic"
     fill="#000000"
     letter-spacing="-0.3"
   >
