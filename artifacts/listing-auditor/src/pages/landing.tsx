@@ -387,14 +387,14 @@ export default function Landing() {
               Audit listings, create stunning content, manage ads and dominate every marketplace.
             </p>
             <MarketplaceLogos className="mb-6 sm:mb-8" />
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-center lg:justify-start mb-8 sm:mb-10">
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-8 w-full sm:w-auto" asChild>
+            <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10">
+              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
                 <Link href="/sign-up">Get Started Free</Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-8 w-full sm:w-auto gap-2" asChild>
-                <Link href="/features">
-                  <Play className="w-4 h-4" />
-                  See How It Works
+              <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+                <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+                  <Play className="w-4 h-4 shrink-0" />
+                  <span className="truncate">See How It Works</span>
                 </Link>
               </Button>
             </div>
@@ -558,14 +558,14 @@ export default function Landing() {
           <p className="text-slate-500 mb-8">
             Join thousands of brands already winning with AI.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto" asChild>
+          <div className="flex flex-row items-stretch justify-center gap-2 sm:gap-3">
+            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
               <Link href="/sign-up">Get Started Free</Link>
             </Button>
-            <Button size="lg" variant="outline" className="px-8 gap-2 w-full sm:w-auto" asChild>
-              <Link href="/features">
-                <Play className="w-4 h-4" />
-                See How It Works
+            <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+              <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+                <Play className="w-4 h-4 shrink-0" />
+                <span className="truncate">See How It Works</span>
               </Link>
             </Button>
           </div>
