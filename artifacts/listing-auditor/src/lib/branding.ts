@@ -16,6 +16,12 @@ export function defaultLogoUrl() {
   return `${window.location.origin}${basePath}/logo.svg`;
 }
 
+export function defaultFooterLogoUrl() {
+  const basePath = getBasePath();
+  if (typeof window === "undefined") return `${basePath}/logo-footer.svg`;
+  return `${window.location.origin}${basePath}/logo-footer.svg`;
+}
+
 export function defaultFaviconUrl() {
   const basePath = getBasePath();
   if (typeof window === "undefined") return `${basePath}/favicon.svg`;
