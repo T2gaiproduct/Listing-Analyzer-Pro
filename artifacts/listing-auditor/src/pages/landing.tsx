@@ -2,9 +2,9 @@ import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  FileSearch, Palette, Play, BarChart3, Megaphone,
+  ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-  ArrowRight, Upload, Sparkles, Wand2, Image, Download, Globe,
+  ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
   TrendingUp, Users, Search, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,33 +54,33 @@ const heroStats = [
 
 const featureColumns = [
   {
-    icon: FileSearch,
+    icon: ClipboardList,
     title: "Audit Listings",
-    description: "Score titles, bullets, images, and keywords against proven marketplace best practices.",
+    description: "AI-powered audits with actionable insights to boost your rankings.",
     href: "/audit-listings",
   },
   {
-    icon: Sparkles,
+    icon: PenLine,
     title: "Build Your Brand",
-    description: "Generate optimized copy, A+ content, and brand assets powered by AI.",
+    description: "Create powerful listings with AI-generated content that converts.",
     href: "/audits/new",
   },
   {
-    icon: Palette,
+    icon: Box,
     title: "Create Graphics",
-    description: "Produce studio-quality product images, infographics, and lifestyle shots.",
+    description: "Design stunning product images that drive clicks and conversions.",
     href: "/projects",
   },
   {
-    icon: Play,
+    icon: Video,
     title: "Create Videos",
-    description: "Turn product photos into scroll-stopping video creatives for ads and listings.",
+    description: "Produce engaging videos that build trust and increase sales.",
     href: "/videos",
   },
   {
     icon: Megaphone,
     title: "Manage Ads",
-    description: "Plan, launch, and optimize sponsored campaigns from one dashboard.",
+    description: "Optimize ad campaigns, reduce ACOS and scale profitably.",
     href: "/ads",
   },
 ];
@@ -122,41 +122,35 @@ function FeatureCard({
   );
 }
 
-function FeatureCarousel() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scroll = (dir: -1 | 1) => {
-    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 300;
-    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
-  };
-
+function FeatureListCard({
+  icon: Icon,
+  title,
+  description,
+  href,
+}: (typeof featureColumns)[number]) {
   return (
-    <div className="relative sm:hidden px-2">
-      <button
-        type="button"
-        onClick={() => scroll(-1)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Previous feature"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-600" />
-      </button>
-      <button
-        type="button"
-        onClick={() => scroll(1)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Next feature"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-600" />
-      </button>
-      <div
-        ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
-      >
-        {featureColumns.map((f) => (
-          <div key={f.title} className="snap-start shrink-0 w-[min(85vw,20rem)]">
-            <FeatureCard {...f} layout="carousel" />
-          </div>
-        ))}
+    <Link
+      href={href}
+      className="flex items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors"
+    >
+      <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 text-slate-900" strokeWidth={1.75} />
       </div>
+      <div className="flex-1 min-w-0 text-left">
+        <h3 className="font-semibold text-slate-900 text-sm leading-snug">{title}</h3>
+        <p className="text-xs text-slate-500 leading-relaxed mt-0.5">{description}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-slate-900 shrink-0" strokeWidth={2} />
+    </Link>
+  );
+}
+
+function FeatureMobileStack() {
+  return (
+    <div className="sm:hidden space-y-3">
+      {featureColumns.map((f) => (
+        <FeatureListCard key={f.title} {...f} />
+      ))}
     </div>
   );
 }
@@ -485,7 +479,7 @@ function LandingPricingSection() {
 
   if (isLoading) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:py-24">
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
         <div className="max-w-6xl mx-auto text-center">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Choose the plan that fits your growth</h2>
@@ -497,7 +491,7 @@ function LandingPricingSection() {
 
   if (plans.length === 0) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:py-24">
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
         <div className="max-w-6xl mx-auto text-center">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Choose the plan that fits your growth</h2>
@@ -508,7 +502,7 @@ function LandingPricingSection() {
   }
 
   return (
-    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:py-24">
+    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
       <div className="max-w-6xl mx-auto text-center">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">Choose the plan that fits your growth</h2>
@@ -518,7 +512,7 @@ function LandingPricingSection() {
             <PricingPlanCard key={p.id} plan={p} />
           ))}
         </div>
-        <p className="mt-5 sm:mt-8 text-sm text-slate-500">
+        <p className="mt-5 sm:mt-6 text-sm text-slate-500">
           Need a custom plan?{" "}
           <Link href="/contact" className="text-orange-600 font-medium hover:underline">Contact us →</Link>
         </p>
@@ -540,7 +534,7 @@ function LandingFaqSection() {
   if (faqs.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 pt-4 pb-12 sm:py-24 bg-white">
+    <section className="px-4 sm:px-6 pt-4 pb-12 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-24 bg-white">
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">Frequently Asked Questions</h2>
         <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
@@ -584,54 +578,68 @@ export default function Landing() {
       <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
-          <div className="text-left min-w-0">
-            <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5 mb-4 sm:mb-6 max-w-full">
-              <Zap className="w-3 h-3 shrink-0" />
-              <span className="truncate">AI-Powered Listing Optimization</span>
-            </p>
-            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.625rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
+          <div className="text-center lg:text-left min-w-0">
+            <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
+              <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
+                <Zap className="w-3 h-3 shrink-0" />
+                <span>AI-Powered Listing Optimization</span>
+              </p>
+            </div>
+            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
               <span className="block sm:inline">Optimize Listings. Increase Sales.</span>{" "}
               <span className="block sm:inline text-orange-500">Grow Faster.</span>
             </h1>
-            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl leading-relaxed">
-              Audit listings, create stunning content, and dominate every marketplace.
+            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+              Audit listings, create stunning content, manage ads and dominate every marketplace.
             </p>
             <MarketplaceLogos className="mb-6 sm:mb-8" />
-            <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-start mb-8 sm:mb-10">
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
+            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10 max-w-md mx-auto lg:mx-0 lg:max-w-none">
+              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
                 <Link href="/sign-up">Get Started Free</Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+              <Button size="lg" variant="outline" className="px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+                <Link href="/features" className="flex items-center justify-center gap-2">
                   <Play className="w-4 h-4 shrink-0" />
-                  <span className="sm:hidden">How It Works</span>
-                  <span className="hidden sm:inline">See How It Works</span>
+                  See How It Works
                 </Link>
               </Button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0">
               {heroStats.map((s) => (
-                <div key={s.label} className="text-left">
-                  <s.icon className="w-4 h-4 text-orange-500 mb-1" />
-                  <p className="text-base sm:text-lg lg:text-xl font-bold text-slate-900">{s.value}</p>
-                  <p className="text-[10px] sm:text-xs text-slate-500 leading-snug">{s.label}</p>
+                <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center mb-1 shrink-0">
+                    <s.icon className="w-3.5 h-3.5 text-orange-500" />
+                  </div>
+                  <p className="text-xs sm:text-lg lg:text-xl font-bold text-slate-900 leading-tight">{s.value}</p>
+                  <p className="text-[9px] sm:text-xs text-slate-500 leading-snug mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
           </div>
-          <div className="min-w-0 w-full">
+          <div className="hidden lg:block min-w-0 w-full">
             <HeroDashboardMockup />
           </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="px-4 sm:px-6 lg:px-10 py-16 sm:py-20 border-t border-slate-100">
+      <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-20 border-t border-slate-100">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-12">
+          <div className="sm:hidden text-center mb-8">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
+              What you can do
+            </p>
+            <h2 className="text-[1.65rem] font-bold text-slate-900 leading-tight mb-3">
+              Everything you need to win on marketplaces
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+              Powerful tools and AI insights to optimize listings, content and ads that drive results.
+            </p>
+          </div>
+          <h2 className="hidden sm:block text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-12">
             Everything you need to win on marketplaces
           </h2>
-          <FeatureCarousel />
+          <FeatureMobileStack />
           <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-8">
             {featureColumns.map((f) => (
               <FeatureCard key={f.title} {...f} />
@@ -641,13 +649,13 @@ export default function Landing() {
       </section>
 
       {/* Portfolio */}
-      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:py-20 bg-slate-50">
+      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-slate-50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
             Real results we&apos;ve created for brands like yours
           </h2>
           <PortfolioCarousel />
-          <div className="text-center mt-5 sm:mt-8">
+          <div className="text-center mt-5 sm:mt-6">
             <Link href="/features" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
               View More Works <ArrowRight className="w-4 h-4" />
             </Link>
@@ -656,11 +664,11 @@ export default function Landing() {
       </section>
 
       {/* Workflow */}
-      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-24">
+      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-start">
             <div className="min-w-0">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-8 text-center lg:text-left">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center lg:text-left">
                 From Upload to Publish in 6 Simple Steps
               </h2>
               <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">

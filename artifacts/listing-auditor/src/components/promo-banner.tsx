@@ -21,7 +21,7 @@ export function PromoBanner() {
   };
 
   return (
-    <div className="bg-slate-900 text-white text-[11px] sm:text-sm py-1.5 sm:py-2.5 px-3 sm:px-6 relative">
+    <div className="hidden sm:block bg-slate-900 text-white text-[11px] sm:text-sm py-1.5 sm:py-2.5 px-3 sm:px-6 relative">
       <div className="flex items-center justify-center gap-1.5 sm:gap-2 pr-7 sm:pr-10 whitespace-nowrap overflow-hidden">
         <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400 shrink-0" />
         <span className="truncate">

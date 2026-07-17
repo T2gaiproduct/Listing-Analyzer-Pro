@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import type { IconType } from "react-icons";
 
 const cardClass =
-  "flex flex-1 min-w-0 sm:flex-none sm:w-28 items-center justify-center h-11 sm:h-14 px-1.5 sm:px-3 bg-white rounded-lg sm:rounded-xl shadow-sm";
-const logoBoxClass = "flex items-center justify-center w-full h-5 sm:h-7 overflow-hidden";
+  "flex flex-1 min-w-0 basis-0 sm:flex-none sm:w-28 items-center justify-center h-9 sm:h-14 px-0.5 sm:px-3 bg-white rounded-lg sm:rounded-xl shadow-sm border border-slate-100/80";
+const logoBoxClass = "flex items-center justify-center w-full h-4 sm:h-7 overflow-hidden";
 
 /** Walmart spark + wordmark scaled to match neighboring brand icons. */
 function WalmartLogo({ className }: { className?: string }) {
@@ -67,7 +67,7 @@ export function MarketplaceLogos({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-start gap-1.5 sm:gap-3 w-full",
+        "flex flex-nowrap items-center justify-center sm:justify-start gap-1 sm:gap-3 w-full",
         className,
       )}
     >
