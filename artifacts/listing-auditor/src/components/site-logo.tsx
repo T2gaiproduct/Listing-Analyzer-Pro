@@ -39,7 +39,7 @@ export function SiteLogo({
 
   if (hasCustomLogo) {
     return (
-      <span className={cn("flex items-center gap-2.5 min-w-0", className)}>
+      <span className={cn("inline-flex items-center gap-2.5 min-w-0 max-w-full flex-nowrap", className)}>
         <img src={logoUrl} alt={platformName} className={cn(imageClassName, "shrink-0")} />
         {showName && <span className={cn("truncate font-bold", nameClassName)}>{platformName}</span>}
       </span>
@@ -47,7 +47,7 @@ export function SiteLogo({
   }
 
   return (
-    <span className={cn("flex items-center gap-2.5 min-w-0", className)}>
+    <span className={cn("inline-flex items-center gap-2.5 min-w-0 max-w-full flex-nowrap", className)}>
       <LogoMark variant={variant} />
       {showName && <span className={cn("truncate font-bold", nameClassName)}>{platformName}</span>}
     </span>

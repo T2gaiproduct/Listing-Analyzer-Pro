@@ -108,7 +108,7 @@ function FooterNewsletter() {
 
   return (
     <form
-      className="flex flex-col sm:flex-row gap-2 max-w-sm"
+      className="flex flex-col gap-2.5 w-full sm:flex-row sm:max-w-sm"
       onSubmit={(e) => {
         e.preventDefault();
         if (!email.trim()) return;
@@ -123,9 +123,9 @@ function FooterNewsletter() {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="your@email.com"
         required
-        className="flex-1 h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+        className="w-full h-11 sm:h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 min-w-0"
       />
-      <Button type="submit" className="bg-orange-500 hover:bg-orange-600 h-10 px-5 shrink-0">
+      <Button type="submit" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 h-11 sm:h-10 px-5 shrink-0">
         {done ? "Subscribed!" : "Subscribe"}
       </Button>
     </form>
@@ -178,19 +178,23 @@ const socialLinks = [
 
 export function PublicFooter() {
   const { platformName } = useBranding();
+  const year = new Date().getFullYear();
 
   return (
     <footer className="bg-[#0B0E11] text-slate-400">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-16">
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-8 sm:gap-10 mb-10 sm:mb-12">
-          <div className="col-span-2 sm:col-span-2 lg:col-span-2">
-            <Link href="/" className="flex items-center gap-2.5 font-bold text-lg text-white mb-4 min-w-0">
-              <SiteLogo nameClassName="text-white" />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-16 min-w-0">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-8 sm:gap-10 mb-10 sm:mb-12 min-w-0">
+          <div className="col-span-2 lg:col-span-2 min-w-0">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2.5 font-bold text-lg text-white mb-4 max-w-full flex-nowrap min-w-0"
+            >
+              <SiteLogo nameClassName="text-white text-base sm:text-lg" />
             </Link>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
               AI-powered listing optimization for sellers who want to rank higher and convert better.
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               {socialLinks.map(({ icon: Icon, href, label }) => (
                 <a
                   key={label}
@@ -198,7 +202,7 @@ export function PublicFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center hover:bg-slate-700 hover:text-white transition-colors"
+                  className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center hover:bg-slate-700 hover:text-white transition-colors shrink-0"
                 >
                   <Icon className="w-4 h-4" />
                 </a>
@@ -207,27 +211,32 @@ export function PublicFooter() {
           </div>
 
           {footerColumns.map((col) => (
-            <div key={col.title}>
-              <p className="font-semibold text-white text-sm mb-4">{col.title}</p>
-              <ul className="space-y-2.5">
+            <div key={col.title} className="min-w-0">
+              <p className="font-semibold text-white text-sm mb-3 sm:mb-4">{col.title}</p>
+              <ul className="space-y-2 sm:space-y-2.5">
                 {col.links.map(([label, href]) => (
                   <li key={label}>
-                    <Link href={href} className="text-sm hover:text-white transition-colors">{label}</Link>
+                    <Link href={href} className="text-sm hover:text-white transition-colors break-words">
+                      {label}
+                    </Link>
                   </li>
                 ))}
               </ul>
             </div>
           ))}
 
-          <div className="col-span-2 sm:col-span-2 lg:col-span-1">
+          <div className="col-span-2 lg:col-span-1 min-w-0">
             <p className="font-semibold text-white text-sm mb-2">Stay updated</p>
             <p className="text-xs mb-4 leading-relaxed">Get tips and product updates in your inbox.</p>
             <FooterNewsletter />
           </div>
         </div>
 
-        <div className="border-t border-slate-800 pt-6 text-center sm:text-left">
-          <p className="text-sm text-slate-500">© {new Date().getFullYear()} {platformName}. All rights reserved.</p>
+        <div className="border-t border-slate-800 pt-6 pb-20 sm:pb-0">
+          <p className="text-xs sm:text-sm text-slate-500 text-center sm:text-left leading-relaxed max-w-full break-words pr-0 sm:pr-0">
+            <span className="block sm:inline">© {year} {platformName}.</span>{" "}
+            <span className="block sm:inline">All rights reserved.</span>
+          </p>
         </div>
       </div>
     </footer>
