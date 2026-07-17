@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Menu, Facebook, Twitter, Linkedin, Youtube } from "lucide-react";
+import { Menu, Facebook, Twitter, Linkedin, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { SiteLogo } from "@/components/site-logo";
+import { useBranding } from "@/hooks/use-branding";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -15,14 +17,6 @@ const navLinks = [
   { href: "/contact", label: "Contact" },
 ];
 
-function LogoMark({ className }: { className?: string }) {
-  return (
-    <div className={cn("w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0", className)}>
-      <Search className="w-4 h-4 text-white" />
-    </div>
-  );
-}
-
 export function PublicNav() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -30,9 +24,8 @@ export function PublicNav() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-2 sm:gap-4 min-w-0">
       <div className="flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
-        <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900">
-          <LogoMark />
-          <span className="truncate">ListingAuditor</span>
+        <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900 min-w-0">
+          <SiteLogo nameClassName="text-base sm:text-lg" />
         </Link>
         <nav className="hidden lg:flex items-center gap-0.5">
           {navLinks.map((l) => (
@@ -75,9 +68,8 @@ export function PublicNav() {
         <SheetContent side="right" className="w-[min(100vw-3rem,20rem)] p-0 flex flex-col lg:hidden">
           <SheetTitle className="sr-only">Site navigation</SheetTitle>
           <div className="flex items-center gap-2.5 px-4 py-4 pr-12 border-b border-slate-200">
-            <Link href="/" className="flex items-center gap-2.5 font-bold text-lg" onClick={() => setMobileOpen(false)}>
-              <LogoMark />
-              <span>ListingAuditor</span>
+            <Link href="/" className="flex items-center gap-2.5 font-bold text-lg min-w-0" onClick={() => setMobileOpen(false)}>
+              <SiteLogo />
             </Link>
           </div>
           <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -185,14 +177,15 @@ const socialLinks = [
 ];
 
 export function PublicFooter() {
+  const { platformName } = useBranding();
+
   return (
     <footer className="bg-[#0B0E11] text-slate-400">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-16">
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-8 sm:gap-10 mb-10 sm:mb-12">
           <div className="col-span-2 sm:col-span-2 lg:col-span-2">
-            <Link href="/" className="flex items-center gap-2.5 font-bold text-lg text-white mb-4">
-              <LogoMark />
-              <span>ListingAuditor</span>
+            <Link href="/" className="flex items-center gap-2.5 font-bold text-lg text-white mb-4 min-w-0">
+              <SiteLogo nameClassName="text-white" />
             </Link>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
               AI-powered listing optimization for sellers who want to rank higher and convert better.
@@ -234,7 +227,7 @@ export function PublicFooter() {
         </div>
 
         <div className="border-t border-slate-800 pt-6 text-center sm:text-left">
-          <p className="text-sm text-slate-500">© {new Date().getFullYear()} ListingAuditor. All rights reserved.</p>
+          <p className="text-sm text-slate-500">© {new Date().getFullYear()} {platformName}. All rights reserved.</p>
         </div>
       </div>
     </footer>

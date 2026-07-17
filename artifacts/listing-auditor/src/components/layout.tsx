@@ -31,6 +31,7 @@ import {
   Target as AdsIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SiteLogo, SiteLogoMark } from "@/components/site-logo";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -725,10 +726,8 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         >
           {/* Logo */}
-          <Link href="/dashboard">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
+          <Link href="/dashboard" className="cursor-pointer hover:opacity-90 transition-opacity">
+            <SiteLogoMark variant="app" />
           </Link>
 
           {!collapsed && (
@@ -953,10 +952,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 onClick={() => setMobileNavOpen(false)}
                 className="flex items-center gap-3 min-w-0 hover:opacity-90 transition-opacity"
               >
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-semibold text-slate-900">ListingAuditor</span>
+                <SiteLogo variant="app" nameClassName="font-semibold text-slate-900" />
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">

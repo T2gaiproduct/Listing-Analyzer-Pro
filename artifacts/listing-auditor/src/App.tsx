@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
 import { useWsNotifications } from "@/hooks/use-ws-notifications";
@@ -9,6 +9,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LiveChatWidget } from "@/components/live-chat";
+import { BrandingHead } from "@/components/branding-head";
+import { useBranding } from "@/hooks/use-branding";
 import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
 import Dashboard from "@/pages/dashboard";
@@ -132,13 +134,12 @@ if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
 }
 
-const clerkAppearance = {
+const clerkAppearanceBase = {
   theme: shadcn,
   cssLayerName: "clerk",
   options: {
     logoPlacement: "inside" as const,
     logoLinkUrl: basePath || "/",
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
   },
   variables: {
     colorPrimary: "#ff8000",
@@ -565,19 +566,31 @@ function Router() {
 
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
+  const { logoUrl, platformName } = useBranding();
+
+  const appearance = useMemo(
+    () => ({
+      ...clerkAppearanceBase,
+      options: {
+        ...clerkAppearanceBase.options,
+        logoImageUrl: logoUrl,
+      },
+    }),
+    [logoUrl],
+  );
 
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
       proxyUrl={clerkProxyUrl}
-      appearance={clerkAppearance}
+      appearance={appearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
         signIn: {
           start: {
             title: "Welcome back",
-            subtitle: "Sign in to your ListingAuditor account",
+            subtitle: `Sign in to your ${platformName} account`,
           },
         },
         signUp: {
@@ -590,15 +603,13 @@ function ClerkProviderWithRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryClientCacheInvalidator />
-        <TooltipProvider>
-          <Router />
-          <Toaster />
-          <LiveChatWidget />
-          <WsNotificationListener />
-        </TooltipProvider>
-      </QueryClientProvider>
+      <ClerkQueryClientCacheInvalidator />
+      <TooltipProvider>
+        <Router />
+        <Toaster />
+        <LiveChatWidget />
+        <WsNotificationListener />
+      </TooltipProvider>
     </ClerkProvider>
   );
 }
@@ -612,7 +623,10 @@ function App() {
   return (
     <WouterRouter base={basePath}>
       <ThemeProvider>
-        <ClerkProviderWithRoutes />
+        <QueryClientProvider client={queryClient}>
+          <BrandingHead />
+          <ClerkProviderWithRoutes />
+        </QueryClientProvider>
       </ThemeProvider>
     </WouterRouter>
   );

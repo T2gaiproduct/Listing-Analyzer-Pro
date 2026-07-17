@@ -50,6 +50,22 @@ router.get("/faqs", async (_req, res): Promise<void> => {
   res.json(items);
 });
 
+const BRANDING_KEYS = ["platform_name", "site_logo_url", "site_favicon_url"] as const;
+
+router.get("/branding", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({ key: settingsTable.key, value: settingsTable.value })
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, [...BRANDING_KEYS]));
+
+  const map = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+  res.json({
+    platformName: map.platform_name?.trim() || "ListingAuditor",
+    logoUrl: map.site_logo_url?.trim() || null,
+    faviconUrl: map.site_favicon_url?.trim() || null,
+  });
+});
+
 router.post("/forms", async (req, res): Promise<void> => {
   const { formType, email, name, data } = req.body ?? {};
 
