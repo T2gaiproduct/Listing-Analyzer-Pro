@@ -131,7 +131,7 @@ function FeatureListCard({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors"
+      className="flex items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors w-full shadow-sm"
     >
       <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
         <Icon className="w-5 h-5 text-slate-900" strokeWidth={1.75} />
@@ -147,7 +147,7 @@ function FeatureListCard({
 
 function FeatureMobileStack() {
   return (
-    <div className="sm:hidden space-y-3">
+    <div className="block lg:hidden space-y-3 w-full">
       {featureColumns.map((f) => (
         <FeatureListCard key={f.title} {...f} />
       ))}
@@ -625,7 +625,7 @@ export default function Landing() {
       {/* Features */}
       <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-20 border-t border-slate-100">
         <div className="max-w-6xl mx-auto">
-          <div className="sm:hidden text-center mb-8">
+          <div className="lg:hidden text-center mb-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
               What you can do
             </p>
@@ -636,11 +636,11 @@ export default function Landing() {
               Powerful tools and AI insights to optimize listings, content and ads that drive results.
             </p>
           </div>
-          <h2 className="hidden sm:block text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-12">
+          <h2 className="hidden lg:block text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900 text-center mb-6 lg:mb-12">
             Everything you need to win on marketplaces
           </h2>
           <FeatureMobileStack />
-          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-8">
+          <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-8">
             {featureColumns.map((f) => (
               <FeatureCard key={f.title} {...f} />
             ))}
