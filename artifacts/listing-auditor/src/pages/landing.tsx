@@ -581,20 +581,20 @@ export default function Landing() {
       />
 
       {/* Hero */}
-      <section className="relative px-4 sm:px-6 lg:px-10 pt-8 sm:pt-12 lg:pt-16 pb-12 sm:pb-16 lg:pb-20 overflow-hidden">
+      <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
           <div className="text-center lg:text-left min-w-0">
-            <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-3 py-1.5 mb-5 sm:mb-6">
-              <Zap className="w-3 h-3" />
-              AI-Powered Listing Optimization
+            <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5 mb-4 sm:mb-6 max-w-full">
+              <Zap className="w-3 h-3 shrink-0" />
+              <span className="truncate">AI-Powered Listing Optimization</span>
             </p>
-            <h1 className="page-hero-title font-extrabold tracking-tight text-slate-900 mb-4 sm:mb-5">
-              Optimize Listings. Increase Sales.{" "}
-              <span className="text-orange-500">Grow Faster.</span>
+            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.625rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
+              <span className="block sm:inline">Optimize Listings. Increase Sales.</span>{" "}
+              <span className="block sm:inline text-orange-500">Grow Faster.</span>
             </h1>
-            <p className="text-base sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0">
-              Audit listings, create stunning content, manage ads and dominate every marketplace.
+            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+              Audit listings, create stunning content, and dominate every marketplace.
             </p>
             <MarketplaceLogos className="mb-6 sm:mb-8" />
             <div className="flex flex-row items-stretch gap-2 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10">
@@ -604,7 +604,8 @@ export default function Landing() {
               <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
                 <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
                   <Play className="w-4 h-4 shrink-0" />
-                  <span className="truncate">See How It Works</span>
+                  <span className="sm:hidden">How It Works</span>
+                  <span className="hidden sm:inline">See How It Works</span>
                 </Link>
               </Button>
             </div>
