@@ -7,7 +7,7 @@ import type { IconType } from "react-icons";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const cardClass =
-  "flex flex-1 min-w-0 basis-0 sm:flex-none sm:w-28 items-center justify-center h-9 sm:h-14 px-0.5 sm:px-3 bg-white rounded-lg sm:rounded-xl shadow-sm border border-slate-100/80";
+  "flex flex-1 min-w-0 basis-0 sm:flex-none sm:w-28 items-center justify-center h-9 sm:h-14 px-0.5 sm:px-3 bg-transparent";
 const logoBoxClass = "flex items-center justify-center w-full h-4 sm:h-7 overflow-hidden";
 
 /** Walmart spark + wordmark scaled to match neighboring brand icons. */
