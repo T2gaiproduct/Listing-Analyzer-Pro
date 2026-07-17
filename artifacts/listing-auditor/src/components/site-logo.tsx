@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
+import { defaultFooterLogoUrl, resolveBrandingAsset } from "@/lib/branding";
 
-type SiteLogoVariant = "public" | "app";
+type SiteLogoVariant = "public" | "app" | "footer";
 
 const wordmarkClass = "h-8 w-auto max-w-[11rem] sm:max-w-[14rem] object-contain object-left shrink-0";
 
@@ -16,11 +17,15 @@ export function SiteLogo({
   imageClassName = wordmarkClass,
   variant = "public",
 }: SiteLogoProps) {
-  const { platformName, logoUrl } = useBranding();
+  const { platformName, logoUrl, hasCustomLogo } = useBranding();
+  const resolvedLogoUrl =
+    variant === "footer" && !hasCustomLogo
+      ? resolveBrandingAsset(null, defaultFooterLogoUrl())
+      : logoUrl;
 
   return (
     <span className={cn("inline-flex items-center min-w-0 max-w-full", className)}>
-      <img src={logoUrl} alt={platformName} className={cn(imageClassName, variant === "app" && "max-w-[9rem]")} />
+      <img src={resolvedLogoUrl} alt={platformName} className={cn(imageClassName, variant === "app" && "max-w-[9rem]")} />
     </span>
   );
 }

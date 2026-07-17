@@ -189,7 +189,7 @@ export function PublicFooter() {
               href="/"
               className="inline-flex items-center gap-2.5 font-bold text-lg text-white mb-4 max-w-full flex-nowrap min-w-0"
             >
-              <SiteLogo />
+              <SiteLogo variant="footer" />
             </Link>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
               AI-powered listing optimization for sellers who want to rank higher and convert better.
