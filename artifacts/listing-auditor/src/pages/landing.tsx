@@ -2,9 +2,9 @@ import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  FileSearch, Palette, Play, BarChart3, Megaphone,
+  ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-  ArrowRight, Upload, Sparkles, Wand2, Image, Download, Globe,
+  ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
   TrendingUp, Users, Search, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,33 +54,33 @@ const heroStats = [
 
 const featureColumns = [
   {
-    icon: FileSearch,
+    icon: ClipboardList,
     title: "Audit Listings",
-    description: "Score titles, bullets, images, and keywords against proven marketplace best practices.",
+    description: "AI-powered audits with actionable insights to boost your rankings.",
     href: "/audit-listings",
   },
   {
-    icon: Sparkles,
+    icon: PenLine,
     title: "Build Your Brand",
-    description: "Generate optimized copy, A+ content, and brand assets powered by AI.",
+    description: "Create powerful listings with AI-generated content that converts.",
     href: "/audits/new",
   },
   {
-    icon: Palette,
+    icon: Box,
     title: "Create Graphics",
-    description: "Produce studio-quality product images, infographics, and lifestyle shots.",
+    description: "Design stunning product images that drive clicks and conversions.",
     href: "/projects",
   },
   {
-    icon: Play,
+    icon: Video,
     title: "Create Videos",
-    description: "Turn product photos into scroll-stopping video creatives for ads and listings.",
+    description: "Produce engaging videos that build trust and increase sales.",
     href: "/videos",
   },
   {
     icon: Megaphone,
     title: "Manage Ads",
-    description: "Plan, launch, and optimize sponsored campaigns from one dashboard.",
+    description: "Optimize ad campaigns, reduce ACOS and scale profitably.",
     href: "/ads",
   },
 ];
@@ -122,41 +122,35 @@ function FeatureCard({
   );
 }
 
-function FeatureCarousel() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scroll = (dir: -1 | 1) => {
-    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 300;
-    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
-  };
-
+function FeatureListCard({
+  icon: Icon,
+  title,
+  description,
+  href,
+}: (typeof featureColumns)[number]) {
   return (
-    <div className="relative sm:hidden px-2">
-      <button
-        type="button"
-        onClick={() => scroll(-1)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Previous feature"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-600" />
-      </button>
-      <button
-        type="button"
-        onClick={() => scroll(1)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Next feature"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-600" />
-      </button>
-      <div
-        ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
-      >
-        {featureColumns.map((f) => (
-          <div key={f.title} className="snap-start shrink-0 w-[min(85vw,20rem)]">
-            <FeatureCard {...f} layout="carousel" />
-          </div>
-        ))}
+    <Link
+      href={href}
+      className="flex items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors"
+    >
+      <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 text-slate-900" strokeWidth={1.75} />
       </div>
+      <div className="flex-1 min-w-0 text-left">
+        <h3 className="font-semibold text-slate-900 text-sm leading-snug">{title}</h3>
+        <p className="text-xs text-slate-500 leading-relaxed mt-0.5">{description}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-slate-900 shrink-0" strokeWidth={2} />
+    </Link>
+  );
+}
+
+function FeatureMobileStack() {
+  return (
+    <div className="sm:hidden space-y-3">
+      {featureColumns.map((f) => (
+        <FeatureListCard key={f.title} {...f} />
+      ))}
     </div>
   );
 }
@@ -629,12 +623,23 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section className="px-4 sm:px-6 lg:px-10 py-16 sm:py-20 border-t border-slate-100">
+      <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-20 border-t border-slate-100">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-12">
+          <div className="sm:hidden text-center mb-8">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
+              What you can do
+            </p>
+            <h2 className="text-[1.65rem] font-bold text-slate-900 leading-tight mb-3">
+              Everything you need to win on marketplaces
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+              Powerful tools and AI insights to optimize listings, content and ads that drive results.
+            </p>
+          </div>
+          <h2 className="hidden sm:block text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-12">
             Everything you need to win on marketplaces
           </h2>
-          <FeatureCarousel />
+          <FeatureMobileStack />
           <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 sm:gap-8">
             {featureColumns.map((f) => (
               <FeatureCard key={f.title} {...f} />
