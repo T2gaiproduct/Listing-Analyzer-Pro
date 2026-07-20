@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
-import { DEFAULT_HERO_SLIDE_IMAGE, type HeroSlide } from "@/lib/hero-slides";
+import { DEFAULT_HERO_SLIDE_IMAGE, heroSlideDesktopImage, heroSlideMobileImage, type HeroSlide } from "@/lib/hero-slides";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -21,7 +21,7 @@ interface HeroSliderProps {
   autoplayIntervalMs?: number;
 }
 
-function HeroSlideImage({ imageUrl }: { imageUrl: string }) {
+function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?: string }) {
   const fallbackSrc = resolveCmsAssetUrl(DEFAULT_HERO_SLIDE_IMAGE, basePath);
   const [src, setSrc] = useState(() =>
     resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath),
@@ -39,7 +39,10 @@ function HeroSlideImage({ imageUrl }: { imageUrl: string }) {
       onError={() => {
         if (src !== fallbackSrc) setSrc(fallbackSrc);
       }}
-      className="block w-full h-[240px] sm:h-[320px] lg:h-[480px] max-w-none object-cover object-center bg-slate-50"
+      className={cn(
+        "block w-full h-[240px] sm:h-[320px] lg:h-[480px] max-w-none object-cover object-center bg-slate-50",
+        className,
+      )}
     />
   );
 }
@@ -119,7 +122,14 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                   </div>
                 </div>
                 <div className="w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
-                  <HeroSlideImage imageUrl={slide.imageUrl} />
+                  <HeroSlideImage
+                    imageUrl={heroSlideMobileImage(slide)}
+                    className="lg:hidden"
+                  />
+                  <HeroSlideImage
+                    imageUrl={heroSlideDesktopImage(slide)}
+                    className="hidden lg:block"
+                  />
                 </div>
               </div>
             </CarouselItem>

@@ -50,16 +50,20 @@ async function uploadHeroImage(file: File): Promise<string> {
 }
 
 function HeroSlideImageField({
-  slide,
+  label,
+  hint,
+  imageUrl,
   onImageChange,
 }: {
-  slide: HeroSlide;
+  label: string;
+  hint?: string;
+  imageUrl: string;
   onImageChange: (url: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
-  const previewUrl = resolveCmsAssetUrl(slide.imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath);
+  const previewUrl = resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath);
 
   async function handleFile(file: File | undefined) {
     if (!file || !file.type.startsWith("image/")) return;
@@ -67,7 +71,7 @@ function HeroSlideImageField({
     try {
       const url = await uploadHeroImage(file);
       onImageChange(url);
-      toast({ title: "Banner image uploaded" });
+      toast({ title: "Image uploaded" });
     } catch (err) {
       toast({
         title: "Upload failed",
@@ -80,8 +84,8 @@ function HeroSlideImageField({
   }
 
   return (
-    <div className="pt-1 border-t border-slate-100 space-y-3">
-      <Label className="text-xs text-slate-500">Banner image (right side)</Label>
+    <div className="space-y-3">
+      <Label className="text-xs text-slate-500">{label}</Label>
       {previewUrl && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 max-w-xs">
           <img src={previewUrl} alt="" className="w-full h-auto rounded-md object-contain max-h-40" />
@@ -90,7 +94,7 @@ function HeroSlideImageField({
       <div className="flex flex-wrap items-center gap-2">
         <Input
           className="h-8 text-sm flex-1 min-w-[200px]"
-          value={slide.imageUrl}
+          value={imageUrl}
           onChange={(e) => onImageChange(e.target.value)}
           placeholder="/hero/dashboard-mockup.png"
         />
@@ -119,10 +123,12 @@ function HeroSlideImageField({
           )}
         </Button>
       </div>
-      <p className="text-[11px] text-slate-400 flex items-center gap-1">
-        <ImageIcon className="w-3 h-3" />
-        Leave empty to use the default dashboard preview graphic.
-      </p>
+      {hint && (
+        <p className="text-[11px] text-slate-400 flex items-center gap-1">
+          <ImageIcon className="w-3 h-3" />
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -170,7 +176,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
         <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
           <div>
             <CardTitle className="text-sm font-semibold text-slate-700">Hero slider banners</CardTitle>
-            <p className="text-xs text-slate-500 mt-1">Each slide includes headline, CTAs, and a banner image on the right.</p>
+            <p className="text-xs text-slate-500 mt-1">Each slide includes headline, CTAs, and separate desktop/mobile banner images.</p>
           </div>
           <Button size="sm" className="bg-orange-500 hover:bg-orange-600 shrink-0" onClick={addSlide}>
             <Plus className="w-4 h-4 mr-1.5" /> Add Slide
@@ -240,10 +246,20 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                     <Input className="mt-1 h-8 text-sm" value={slide.ctaSecondaryUrl} onChange={(e) => updateSlide(index, { ctaSecondaryUrl: e.target.value })} placeholder="/features" />
                   </div>
                 </div>
-                <HeroSlideImageField
-                  slide={slide}
-                  onImageChange={(imageUrl) => updateSlide(index, { imageUrl })}
-                />
+                <div className="pt-1 border-t border-slate-100 space-y-4">
+                  <HeroSlideImageField
+                    label="Desktop image"
+                    hint="Shown on large screens (right side of slide). Leave empty for the default dashboard graphic."
+                    imageUrl={slide.imageUrl}
+                    onImageChange={(imageUrl) => updateSlide(index, { imageUrl })}
+                  />
+                  <HeroSlideImageField
+                    label="Mobile image"
+                    hint="Shown on phones and tablets. Leave empty to use the desktop image."
+                    imageUrl={slide.mobileImageUrl}
+                    onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
+                  />
+                </div>
               </CardContent>
             </Card>
           ))}

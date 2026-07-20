@@ -11,7 +11,10 @@ export interface HeroSlide {
   ctaPrimaryUrl: string;
   ctaSecondaryText: string;
   ctaSecondaryUrl: string;
+  /** Desktop banner image (right side on large screens). */
   imageUrl: string;
+  /** Mobile banner image; falls back to desktop image when empty. */
+  mobileImageUrl: string;
 }
 
 export const HERO_SLIDES_JSON_KEY = "hero.slides_json";
@@ -33,7 +36,16 @@ export function createHeroSlide(partial?: Partial<HeroSlide>): HeroSlide {
     ctaSecondaryText: partial?.ctaSecondaryText ?? "See How It Works",
     ctaSecondaryUrl: partial?.ctaSecondaryUrl ?? "/features",
     imageUrl: partial?.imageUrl ?? "",
+    mobileImageUrl: partial?.mobileImageUrl ?? "",
   };
+}
+
+export function heroSlideDesktopImage(slide: HeroSlide): string {
+  return slide.imageUrl || DEFAULT_HERO_SLIDE_IMAGE;
+}
+
+export function heroSlideMobileImage(slide: HeroSlide): string {
+  return slide.mobileImageUrl || slide.imageUrl || DEFAULT_HERO_SLIDE_IMAGE;
 }
 
 export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
@@ -79,6 +91,7 @@ function normalizeSlide(raw: Partial<HeroSlide>): HeroSlide {
     ctaSecondaryText: raw.ctaSecondaryText ?? "",
     ctaSecondaryUrl: raw.ctaSecondaryUrl ?? "",
     imageUrl: raw.imageUrl ?? "",
+    mobileImageUrl: raw.mobileImageUrl ?? "",
   });
 }
 
