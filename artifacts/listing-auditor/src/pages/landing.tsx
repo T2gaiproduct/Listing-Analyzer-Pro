@@ -187,55 +187,33 @@ const tutorialPreviews = [
   { title: "Manage Ads", duration: "9:05", image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=240&fit=crop&q=80" },
 ];
 
-function PortfolioCarousel() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scroll = (dir: -1 | 1) => {
-    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 256;
-    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
-  };
-
+function PortfolioGrid() {
   return (
-    <div className="relative px-2 sm:px-10">
-      <button
-        type="button"
-        onClick={() => scroll(-1)}
-        className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-slate-200 hidden sm:flex items-center justify-center hover:bg-slate-50"
-        aria-label="Previous"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-600" />
-      </button>
-      <button
-        type="button"
-        onClick={() => scroll(1)}
-        className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-slate-200 hidden sm:flex items-center justify-center hover:bg-slate-50"
-        aria-label="Next"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-600" />
-      </button>
-      <div
-        ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 overscroll-x-contain"
-      >
-        {portfolioItems.map((item) => (
-          <div
-            key={item.title}
-            className="snap-start shrink-0 w-[min(72vw,16rem)] sm:w-64 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm"
-          >
-            <div className="h-36 sm:h-40 relative overflow-hidden bg-slate-100">
-              <img src={item.image} alt="" className="w-full h-full object-cover" loading="lazy" />
-              {item.badge && (
-                <span className="absolute top-3 right-3 bg-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
-              )}
-            </div>
-            <div className="p-4">
-              <p className="font-semibold text-slate-900 text-sm">{item.title}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{item.brand}</p>
-            </div>
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+      {portfolioItems.map((item, index) => (
+        <div
+          key={item.title}
+          className="group relative aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-white shadow-sm hover:shadow-lg transition-all duration-300"
+        >
+          <img
+            src={item.image}
+            alt={`${item.title} — ${item.brand}`}
+            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
+            loading={index < 4 ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={index < 4 ? "high" : "auto"}
+          />
+          {item.badge && (
+            <span className="absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
+              {item.badge}
+            </span>
+          )}
+          <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>
+            <p className="text-xs text-white/80 mt-0.5">{item.brand}</p>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -649,12 +627,15 @@ export default function Landing() {
       </section>
 
       {/* Portfolio */}
-      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-slate-50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
+      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-3 sm:mb-4">
             Real results we&apos;ve created for brands like yours
           </h2>
-          <PortfolioCarousel />
+          <p className="text-sm sm:text-base text-slate-500 text-center max-w-2xl mx-auto mb-8 sm:mb-12">
+            Premium listing graphics, A+ content, and lifestyle assets created with SellerLens AI.
+          </p>
+          <PortfolioGrid />
           <div className="text-center mt-5 sm:mt-6">
             <Link href="/features" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
               View More Works <ArrowRight className="w-4 h-4" />
