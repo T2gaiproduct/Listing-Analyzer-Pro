@@ -22,16 +22,25 @@ interface HeroSliderProps {
 }
 
 function HeroSlideImage({ imageUrl }: { imageUrl: string }) {
-  const src = resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath);
+  const fallbackSrc = resolveCmsAssetUrl(DEFAULT_HERO_SLIDE_IMAGE, basePath);
+  const [src, setSrc] = useState(() =>
+    resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath),
+  );
+
+  useEffect(() => {
+    setSrc(resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath));
+  }, [imageUrl]);
 
   return (
-    <div className="relative w-full min-w-0 h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]">
-      <img
-        src={src}
-        alt=""
-        className="absolute inset-0 block h-full w-full max-w-none object-cover object-center"
-      />
-    </div>
+    <img
+      src={src}
+      alt=""
+      loading="eager"
+      onError={() => {
+        if (src !== fallbackSrc) setSrc(fallbackSrc);
+      }}
+      className="block w-full h-[240px] sm:h-[320px] lg:h-[480px] max-w-none object-cover object-center bg-slate-50"
+    />
   );
 }
 
@@ -109,7 +118,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     )}
                   </div>
                 </div>
-                <div className="w-full min-w-0 lg:w-1/2 lg:max-w-[50%]">
+                <div className="w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
                   <HeroSlideImage imageUrl={slide.imageUrl} />
                 </div>
               </div>
