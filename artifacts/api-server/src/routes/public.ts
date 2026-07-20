@@ -12,6 +12,7 @@ import {
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
+import { upsertUserProfile } from "../lib/user-profile";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 
@@ -212,16 +213,15 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
-  const existing = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-  let profile;
-  if (existing.length) {
-    [profile] = await db.update(userProfilesTable)
-      .set({ fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined, updatedAt: new Date() })
-      .where(eq(userProfilesTable.userId, userId)).returning();
-  } else {
-    [profile] = await db.insert(userProfilesTable)
-      .values({ userId, fullName: fullName as string, companyName: companyName as string, phone: phone as string, country: country as string, gstNumber: gstNumber as string, websiteUrl: websiteUrl as string, teamSize: teamSize ? Number(teamSize) : undefined }).returning();
-  }
+  const profile = await upsertUserProfile(userId, {
+    ...(fullName !== undefined && { fullName: String(fullName) }),
+    ...(companyName !== undefined && { companyName: String(companyName) }),
+    ...(phone !== undefined && { phone: String(phone) }),
+    ...(country !== undefined && { country: String(country) }),
+    ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
+    ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
+    ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
+  });
   res.json(profile);
 });
 
@@ -493,14 +493,16 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const existingProfile = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-  if (existingProfile.length) {
-    await db.update(userProfilesTable)
-      .set({ fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null, onboardingCompleted: true, updatedAt: new Date() })
-      .where(eq(userProfilesTable.userId, userId));
-  } else {
-    await db.insert(userProfilesTable).values({ userId, fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null, onboardingCompleted: true });
-  }
+  await upsertUserProfile(userId, {
+    fullName,
+    companyName,
+    phone,
+    country,
+    gstNumber,
+    websiteUrl,
+    teamSize,
+    onboardingCompleted: true,
+  });
 
   let discountAmount = 0;
   if (couponCode) {

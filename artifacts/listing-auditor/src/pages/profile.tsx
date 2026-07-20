@@ -14,6 +14,11 @@ import { format } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function resolveClerkName(user: ReturnType<typeof useUser>["user"]): string {
+  if (!user) return "";
+  return user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+}
+
 interface ProfileData {
   profile: {
     id: number;
@@ -117,18 +122,19 @@ export default function Profile() {
   });
 
   useEffect(() => {
-    if (data?.profile) {
-      setForm({
-        fullName: data.profile.fullName ?? user?.fullName ?? "",
-        companyName: data.profile.companyName ?? "",
-        phone: data.profile.phone ?? "",
-        country: data.profile.country ?? "",
-        gstNumber: data.profile.gstNumber ?? "",
-        websiteUrl: data.profile.websiteUrl ?? "",
-        teamSize: data.profile.teamSize?.toString() ?? "",
-      });
-    }
-  }, [data, user]);
+    if (isLoading) return;
+    const p = data?.profile;
+    const clerkName = resolveClerkName(user);
+    setForm({
+      fullName: p?.fullName ?? clerkName ?? "",
+      companyName: p?.companyName ?? "",
+      phone: p?.phone ?? "",
+      country: p?.country ?? "",
+      gstNumber: p?.gstNumber ?? "",
+      websiteUrl: p?.websiteUrl ?? "",
+      teamSize: p?.teamSize?.toString() ?? "",
+    });
+  }, [data, user, isLoading]);
 
   const updateMutation = useMutation({
     mutationFn: (body: object) =>
@@ -325,7 +331,7 @@ export default function Profile() {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <CardTitle className="text-lg truncate">{form.fullName || user?.fullName || "Your Name"}</CardTitle>
+              <CardTitle className="text-lg truncate">{form.fullName || resolveClerkName(user) || "Your Name"}</CardTitle>
               <p className="text-sm text-slate-400 truncate">{user?.primaryEmailAddress?.emailAddress}</p>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {data?.profile?.id && (

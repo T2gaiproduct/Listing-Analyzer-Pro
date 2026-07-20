@@ -137,8 +137,8 @@ export default function Onboarding() {
         websiteUrl: prev.websiteUrl || p.websiteUrl || "",
         teamSize: prev.teamSize || (p.teamSize ? String(p.teamSize) : ""),
       }));
-      // If already completed onboarding, skip to plan selection
-      if (p.onboardingCompleted) {
+      // If already completed onboarding with a full profile, skip to plan selection
+      if (p.onboardingCompleted && p.fullName && p.companyName && p.country) {
         setStep(1);
       }
     }
@@ -188,6 +188,34 @@ export default function Onboarding() {
     onError: (e: Error) => { toast({ title: "Checkout failed", description: e.message, variant: "destructive" }); },
   });
 
+  const saveProfileMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${basePath}/api/profile`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: profile.fullName,
+          companyName: profile.companyName,
+          phone: profile.phone || undefined,
+          country: profile.country,
+          gstNumber: profile.gstNumber || undefined,
+          websiteUrl: profile.websiteUrl || undefined,
+          teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
+        }),
+      }).then(async (r) => {
+        if (!r.ok) throw new Error((await r.json()).error ?? "Failed to save profile");
+        return r.json();
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Could not save profile", description: e.message, variant: "destructive" });
+    },
+  });
+
   const freePlanMutation = useMutation({
     mutationFn: () => {
       const body = {
@@ -211,6 +239,8 @@ export default function Onboarding() {
         ...prev,
         onboardingCompleted: true,
       }));
+      await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      await queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
       await refetchCreditQueries(queryClient);
       setLocation("/dashboard");
     },
@@ -377,10 +407,18 @@ export default function Onboarding() {
               <div className="flex justify-stretch sm:justify-end pt-2">
                 <Button
                   className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto"
-                  onClick={() => setStep(1)}
-                  disabled={!profile.fullName || !profile.companyName || !profile.country}
+                  onClick={() => {
+                    saveProfileMutation.mutate(undefined, {
+                      onSuccess: () => setStep(1),
+                    });
+                  }}
+                  disabled={!profile.fullName || !profile.companyName || !profile.country || saveProfileMutation.isPending}
                 >
-                  Continue <ChevronRight className="w-4 h-4 ml-1" />
+                  {saveProfileMutation.isPending ? (
+                    <><RefreshCw className="w-4 h-4 mr-1 animate-spin" />Saving...</>
+                  ) : (
+                    <>Continue <ChevronRight className="w-4 h-4 ml-1" /></>
+                  )}
                 </Button>
               </div>
             </div>

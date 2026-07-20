@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, settingsTable, subscriptionsTable, paymentsTable, plansTable, creditsTable, creditPacksTable, creditTransactionsTable, userProfilesTable } from "@workspace/db";
 
+import { upsertUserProfile } from "../lib/user-profile";
+
 const router: IRouter = Router();
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
@@ -339,15 +341,23 @@ router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void
       ]);
     }
 
-    // Mark onboarding complete
-    const [profileRow] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-    if (profileRow) {
-      await db.update(userProfilesTable)
-        .set({ onboardingCompleted: true, updatedAt: now })
-        .where(eq(userProfilesTable.userId, userId));
-    } else {
-      await db.insert(userProfilesTable).values({ userId, onboardingCompleted: true });
-    }
+    const {
+      fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize,
+    } = req.body as {
+      fullName?: string; companyName?: string; phone?: string; country?: string;
+      gstNumber?: string; websiteUrl?: string; teamSize?: number;
+    };
+
+    await upsertUserProfile(userId, {
+      ...(fullName !== undefined && { fullName }),
+      ...(companyName !== undefined && { companyName }),
+      ...(phone !== undefined && { phone }),
+      ...(country !== undefined && { country }),
+      ...(gstNumber !== undefined && { gstNumber }),
+      ...(websiteUrl !== undefined && { websiteUrl }),
+      ...(teamSize !== undefined && { teamSize }),
+      onboardingCompleted: true,
+    });
   } else if (existing) {
     await db.update(subscriptionsTable)
       .set({ cardBrand: "PayPal", cardLast4: payerEmail.slice(-4) || "ppal", updatedAt: now })
