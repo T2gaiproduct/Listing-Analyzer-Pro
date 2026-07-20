@@ -5,17 +5,18 @@ import {
   ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
-  TrendingUp, Users, Search, Zap, Star,
+  TrendingUp, Users, Search, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
 import { PromoBanner } from "@/components/promo-banner";
 import { SeoHead } from "@/components/seo-head";
-import { MarketplaceLogos } from "@/components/marketplace-logos";
 import { HeroDashboardMockup } from "@/components/hero-dashboard-mockup";
+import { HeroSlider } from "@/components/hero-slider";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
+import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +79,8 @@ function useLandingCmsData() {
     href: cmsText(cms, `features.item${i}_href`),
   })).filter((f) => f.title);
 
+  const heroSlides = parseHeroSlides(cms);
+
   const heroStats = [1, 2, 3, 4].map((i) => ({
     icon: HERO_STAT_ICONS[i - 1],
     value: cmsText(cms, `hero.stat${i}_value`),
@@ -120,7 +123,7 @@ function useLandingCmsData() {
     }];
   });
 
-  return { cms, features, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
+  return { cms, features, heroSlides, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
 }
 
 function FeatureCard({
@@ -683,6 +686,7 @@ export default function Landing() {
   const {
     cms,
     features,
+    heroSlides,
     heroStats,
     portfolioItems,
     workflowSteps,
@@ -704,33 +708,13 @@ export default function Landing() {
       <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
-          <div className="text-center lg:text-left min-w-0">
-            <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
-              <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
-                <Zap className="w-3 h-3 shrink-0" />
-                <span>{cmsText(cms, "hero.badge_text")}</span>
-              </p>
-            </div>
-            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
-              <span className="block sm:inline">{cmsText(cms, "hero.heading_line1")}</span>{" "}
-              <span className="block sm:inline text-orange-500">{cmsText(cms, "hero.heading_highlight")}</span>
-            </h1>
-            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
-              {cmsText(cms, "hero.subheading")}
-            </p>
-            <MarketplaceLogos className="mb-6 sm:mb-8" />
-            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10 max-w-md mx-auto lg:mx-0 lg:max-w-none">
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href={cmsText(cms, "hero.cta_primary_url")}>{cmsText(cms, "hero.cta_primary_text")}</Link>
-              </Button>
-              <Button size="lg" variant="outline" className="px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href={cmsText(cms, "hero.cta_secondary_url")} className="flex items-center justify-center gap-2">
-                  <Play className="w-4 h-4 shrink-0" />
-                  {cmsText(cms, "hero.cta_secondary_text")}
-                </Link>
-              </Button>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0">
+          <div className="min-w-0">
+            <HeroSlider
+              slides={heroSlides}
+              autoplay={heroAutoplayEnabled(cms)}
+              autoplayIntervalMs={heroAutoplayIntervalMs(cms)}
+            />
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
               {heroStats.map((s) => (
                 <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
                   <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center mb-1 shrink-0">

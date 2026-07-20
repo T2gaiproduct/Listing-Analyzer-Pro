@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { mergeHomepageCms, type HomepageCmsMap } from "@/lib/homepage-cms";
 import { HOMEPAGE_CMS_SECTIONS, HOMEPAGE_CMS_TAB_LABELS, type CmsField } from "./homepage-cms-sections";
+import { HeroSlidesEditor } from "./hero-slides-editor";
+import { DEFAULT_HERO_SLIDES, HERO_AUTOPLAY_ENABLED_KEY, HERO_AUTOPLAY_INTERVAL_KEY, HERO_SLIDES_JSON_KEY, serializeHeroSlides } from "@/lib/hero-slides";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -62,7 +64,13 @@ function SectionEditor({ title, fields, data, onChange }: {
 export default function AdminMarketingHomepage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [localData, setLocalData] = useState<HomepageCmsMap>(mergeHomepageCms({}));
+  const [localData, setLocalData] = useState<HomepageCmsMap>(() =>
+    mergeHomepageCms({
+      [HERO_SLIDES_JSON_KEY]: serializeHeroSlides(DEFAULT_HERO_SLIDES),
+      [HERO_AUTOPLAY_ENABLED_KEY]: "true",
+      [HERO_AUTOPLAY_INTERVAL_KEY]: "6",
+    }),
+  );
   const [dirty, setDirty] = useState(false);
 
   const { isLoading } = useQuery({
@@ -140,6 +148,9 @@ export default function AdminMarketingHomepage() {
           </TabsList>
           {tabKeys.map((tab) => (
             <TabsContent key={tab} value={tab} className="space-y-4 mt-4">
+              {tab === "hero" && (
+                <HeroSlidesEditor data={localData} onChange={handleChange} />
+              )}
               {HOMEPAGE_CMS_SECTIONS[tab].map((section) => (
                 <SectionEditor
                   key={section.title}

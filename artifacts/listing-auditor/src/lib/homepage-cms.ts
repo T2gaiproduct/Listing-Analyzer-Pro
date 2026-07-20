@@ -8,6 +8,9 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "promo.link_url": "/pricing",
 
   "sections.hero.enabled": "true",
+  "hero.slides_json": "",
+  "hero.autoplay_enabled": "true",
+  "hero.autoplay_interval": "6",
   "hero.badge_text": "AI-Powered Listing Optimization",
   "hero.heading_line1": "Optimize Listings. Increase Sales.",
   "hero.heading_highlight": "Grow Faster.",

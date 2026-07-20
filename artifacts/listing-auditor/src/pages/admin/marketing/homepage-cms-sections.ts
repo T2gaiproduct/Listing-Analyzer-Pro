@@ -94,16 +94,8 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
   ],
   hero: [
     {
-      title: "Hero section",
+      title: "Hero stats (shown below all slides)",
       fields: [
-        { key: "hero.badge_text", label: "Badge text" },
-        { key: "hero.heading_line1", label: "Heading line 1" },
-        { key: "hero.heading_highlight", label: "Heading highlight (orange)" },
-        { key: "hero.subheading", label: "Subheading", type: "textarea", rows: 3 },
-        { key: "hero.cta_primary_text", label: "Primary CTA text" },
-        { key: "hero.cta_primary_url", label: "Primary CTA URL", type: "url" },
-        { key: "hero.cta_secondary_text", label: "Secondary CTA text" },
-        { key: "hero.cta_secondary_url", label: "Secondary CTA URL", type: "url" },
         { key: "hero.stat1_value", label: "Stat 1 value" },
         { key: "hero.stat1_label", label: "Stat 1 label" },
         { key: "hero.stat2_value", label: "Stat 2 value" },
