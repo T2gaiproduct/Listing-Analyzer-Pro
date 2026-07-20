@@ -669,6 +669,7 @@ export function Layout({ children }: { children: ReactNode }) {
   // Profile summary for display name only (lightweight)
   const { data: profileData } = useQuery<{
     profile: { fullName: string | null } | null;
+    accountRole?: { type: string; label: string };
   }>({
     queryKey: ["user-profile-summary"],
     queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
@@ -702,6 +703,7 @@ export function Layout({ children }: { children: ReactNode }) {
     : subscription?.status
       ? "Active Plan"
       : "No plan";
+  const roleLabel = profileData?.accountRole?.label ?? "User";
 
   return (
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
@@ -1047,6 +1049,7 @@ export function Layout({ children }: { children: ReactNode }) {
           initials={initials}
           email={userEmail}
           planLabel={planLabel}
+          roleLabel={roleLabel}
           credits={displayCredits}
           onMenuClick={() => setMobileNavOpen(true)}
         />
