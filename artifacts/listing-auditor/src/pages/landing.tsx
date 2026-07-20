@@ -119,13 +119,7 @@ function useLandingCmsData() {
     }];
   });
 
-  const faqItems = [1, 2, 3, 4, 5].flatMap((i) => {
-    const q = cmsText(cms, `faq.q${i}`);
-    if (!q) return [];
-    return [{ q, a: cmsText(cms, `faq.a${i}`) }];
-  });
-
-  return { cms, features, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews, faqItems };
+  return { cms, features, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
 }
 
 function FeatureCard({
@@ -520,10 +514,31 @@ function LandingPricingSection() {
   );
 }
 
-function LandingFaqSection({ faqs }: { faqs: { q: string; a: string }[] }) {
+interface DbFaq {
+  id: number;
+  question: string;
+  answer: string;
+}
+
+function LandingFaqSection() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const cms = useHomepageCmsContext();
   const heading = cmsText(cms, "faq.heading");
+
+  const cmsFaqs = [1, 2, 3, 4, 5].flatMap((i) => {
+    const q = cmsText(cms, `faq.q${i}`);
+    if (!q) return [];
+    return [{ id: i, q, a: cmsText(cms, `faq.a${i}`) }];
+  });
+
+  const { data: dbFaqs = [] } = useQuery<DbFaq[]>({
+    queryKey: ["public-faqs"],
+    queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
+  });
+
+  const faqs = dbFaqs.length > 0
+    ? dbFaqs.map((f) => ({ id: f.id, q: f.question, a: f.answer }))
+    : cmsFaqs;
 
   if (faqs.length === 0) return null;
 
@@ -533,7 +548,7 @@ function LandingFaqSection({ faqs }: { faqs: { q: string; a: string }[] }) {
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">{heading}</h2>
         <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
           {faqs.map((faq, i) => (
-            <div key={i}>
+            <div key={faq.id}>
               <button
                 type="button"
                 className="w-full flex items-center justify-between px-5 sm:px-6 py-4 text-left hover:bg-slate-50 transition-colors"
@@ -566,7 +581,6 @@ export default function Landing() {
     workflowSteps,
     workflowMetrics,
     tutorialPreviews,
-    faqItems,
   } = useLandingCmsData();
 
   return (
@@ -774,7 +788,7 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "pricing") && <LandingPricingSection />}
-      {cmsEnabled(cms, "faq") && <LandingFaqSection faqs={faqItems} />}
+      {cmsEnabled(cms, "faq") && <LandingFaqSection />}
 
       {cmsEnabled(cms, "cta") && (
       <section className="px-4 sm:px-6 py-16 sm:py-20 text-center bg-white border-t border-slate-100">

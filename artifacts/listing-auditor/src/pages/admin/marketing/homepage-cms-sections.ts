@@ -202,7 +202,7 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
   ],
   faq: [
     {
-      title: "FAQ section",
+      title: "FAQ section (heading only — Q&A items come from Website CMS → FAQ)",
       fields: [
         { key: "faq.heading", label: "Section heading" },
         ...Array.from({ length: 5 }, (_, i) => faqPairFields(i + 1)).flat(),

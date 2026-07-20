@@ -53,6 +53,7 @@ export default function AdminFaqs() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-faqs"] });
+      qc.invalidateQueries({ queryKey: ["public-faqs"] });
       toast({ title: editingId ? "FAQ updated" : "FAQ added" });
       reset();
     },
