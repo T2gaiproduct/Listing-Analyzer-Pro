@@ -1477,12 +1477,14 @@ router.post("/admin/media", requireAdmin, async (req, res): Promise<void> => {
 
 router.post("/admin/hero-image", requireAdmin, async (req, res): Promise<void> => {
   try {
-    const { dataUrl, filename } = req.body as { dataUrl?: string; filename?: string };
+    const { dataUrl, filename, folder } = req.body as { dataUrl?: string; filename?: string; folder?: string };
     if (!dataUrl) {
       res.status(400).json({ error: "No image data provided" });
       return;
     }
-    const url = saveHeroImageFromDataUrl(dataUrl, filename);
+    const url = folder === "portfolio"
+      ? savePortfolioImageFromDataUrl(dataUrl, filename)
+      : saveHeroImageFromDataUrl(dataUrl, filename);
     res.status(201).json({ url });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });

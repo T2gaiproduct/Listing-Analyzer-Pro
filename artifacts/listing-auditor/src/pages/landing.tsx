@@ -16,6 +16,7 @@ import { HeroSlider } from "@/components/hero-slider";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
+import { portfolioItemIndices } from "@/lib/portfolio-cms";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +87,7 @@ function useLandingCmsData() {
     label: cmsText(cms, `hero.stat${i}_label`),
   }));
 
-  const portfolioItems: PortfolioItem[] = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((i) => {
+  const portfolioItems: PortfolioItem[] = portfolioItemIndices().flatMap((i) => {
     const title = cmsText(cms, `portfolio.item${i}_title`);
     const imagePath = cmsText(cms, `portfolio.item${i}_image`);
     if (!title || !imagePath) return [];

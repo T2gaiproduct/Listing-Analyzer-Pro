@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Upload, ImageIcon, ImagePlus } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { Plus, Upload, ImageIcon, ImagePlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
+import { MAX_PORTFOLIO_ITEMS, visiblePortfolioItemCount } from "@/lib/portfolio-cms";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const PORTFOLIO_ITEM_COUNT = 8;
 
 const FIT_OPTIONS = [
   { value: "cover", label: "Cover (fill tile)" },
@@ -29,18 +29,36 @@ async function uploadPortfolioImage(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  const res = await fetch(`${basePath}/api/admin/portfolio-image`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      dataUrl,
-      filename: file.name,
-    }),
+
+  const payload = JSON.stringify({
+    dataUrl,
+    filename: file.name,
+    folder: "portfolio",
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || "Upload failed");
-  return json.url as string;
+
+  const endpoints = [
+    `${basePath}/api/admin/hero-image`,
+    `${basePath}/api/admin/portfolio-image`,
+  ];
+
+  let lastError = "Upload failed";
+
+  for (const endpoint of endpoints) {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    });
+
+    const json = await res.json().catch(() => ({} as { error?: string }));
+    if (res.ok && json.url) return json.url as string;
+
+    lastError = json.error || `Upload failed (HTTP ${res.status})`;
+    if (res.status !== 404) break;
+  }
+
+  throw new Error(lastError);
 }
 
 function PortfolioImageField({
@@ -186,16 +204,37 @@ function PortfolioImageField({
 }
 
 export function PortfolioCmsEditor({ data, onChange }: PortfolioCmsEditorProps) {
+  const [visibleCount, setVisibleCount] = useState(() => visiblePortfolioItemCount(data));
+
+  useEffect(() => {
+    setVisibleCount((count) => Math.max(count, visiblePortfolioItemCount(data)));
+  }, [data]);
+
+  function addPortfolioItem() {
+    if (visibleCount >= MAX_PORTFOLIO_ITEMS) return;
+    setVisibleCount((count) => count + 1);
+  }
+
   return (
     <Card className="border-0 shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold text-slate-700">Portfolio items</CardTitle>
-        <p className="text-xs text-slate-500 mt-1">
-          Upload an image for each tile. Items need both a title and image to show on the homepage.
-        </p>
+      <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle className="text-sm font-semibold text-slate-700">Portfolio items</CardTitle>
+          <p className="text-xs text-slate-500 mt-1">
+            Upload an image for each tile. Items need both a title and image to show on the homepage.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className="bg-orange-500 hover:bg-orange-600 shrink-0"
+          disabled={visibleCount >= MAX_PORTFOLIO_ITEMS}
+          onClick={addPortfolioItem}
+        >
+          <Plus className="w-4 h-4 mr-1.5" /> Add item
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        {Array.from({ length: PORTFOLIO_ITEM_COUNT }, (_, i) => i + 1).map((index) => {
+        {Array.from({ length: visibleCount }, (_, i) => i + 1).map((index) => {
           const titleKey = `portfolio.item${index}_title`;
           const brandKey = `portfolio.item${index}_brand`;
           const badgeKey = `portfolio.item${index}_badge`;
