@@ -32,18 +32,17 @@ function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?:
   }, [imageUrl]);
 
   return (
-    <img
-      src={src}
-      alt=""
-      loading="eager"
-      onError={() => {
-        if (src !== fallbackSrc) setSrc(fallbackSrc);
-      }}
-      className={cn(
-        "block w-full h-[240px] sm:h-[320px] lg:h-[480px] max-w-none object-cover object-center bg-slate-50",
-        className,
-      )}
-    />
+    <div className={cn("relative w-full min-w-0 h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]", className)}>
+      <img
+        src={src}
+        alt=""
+        loading="eager"
+        onError={() => {
+          if (src !== fallbackSrc) setSrc(fallbackSrc);
+        }}
+        className="absolute inset-0 block h-full w-full max-w-none object-cover object-center bg-slate-50"
+      />
+    </div>
   );
 }
 
