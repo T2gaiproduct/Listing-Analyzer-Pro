@@ -215,10 +215,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       title: "Testimonials section (cards come from Website CMS → Testimonials)",
       fields: [
         { key: "social.trusted_heading", label: "Section heading" },
-        { key: "social.stats_customers", label: "Stat: customers" },
-        { key: "social.stats_audits", label: "Stat: audits completed" },
-        { key: "social.stats_countries", label: "Stat: countries" },
-        { key: "social.stats_rating", label: "Stat: average rating" },
       ],
     },
   ],
