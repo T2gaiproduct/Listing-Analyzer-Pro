@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { Suspense, useEffect, useRef, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
 import { useWsNotifications } from "@/hooks/use-ws-notifications";
@@ -8,89 +8,91 @@ import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tan
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { LiveChatWidget } from "@/components/live-chat";
 import { BrandingHead } from "@/components/branding-head";
 import { useBranding } from "@/hooks/use-branding";
-import { Layout } from "@/components/layout";
-import { AdminLayout } from "@/components/admin-layout";
-import Dashboard from "@/pages/dashboard";
-import AuditNew from "@/pages/audit-new";
-import AuditDetail from "@/pages/audit-detail";
-import CompetitorNew from "@/pages/competitor-new";
-import Landing from "@/pages/landing";
-import NotFound from "@/pages/not-found";
-import AdminDashboard from "@/pages/admin/dashboard";
-import AdminCustomers from "@/pages/admin/customers";
-import AdminCustomerDetail from "@/pages/admin/customer-detail";
-import AdminAudits from "@/pages/admin/audits";
-import AdminPlans from "@/pages/admin/plans";
-import AdminCredits from "@/pages/admin/credits";
-import AdminCreditRules from "@/pages/admin/credit-rules";
-import AdminAnalytics from "@/pages/admin/analytics";
-import AdminBillingPayments from "@/pages/admin/billing/payments";
-import AdminBillingInvoices from "@/pages/admin/billing/invoices";
-import AdminBillingRefunds from "@/pages/admin/billing/refunds";
-import AdminBillingCoupons from "@/pages/admin/billing/coupons";
-import AdminContentGenerated from "@/pages/admin/content/generated";
-import AdminContentImages from "@/pages/admin/content/images";
-import AdminContentLogs from "@/pages/admin/content/logs";
-import AdminBuildBrandLogs from "@/pages/admin/content/build-brand-logs";
-import AdminContentDownloads from "@/pages/admin/content/downloads";
-import AdminGraphicsLogs from "@/pages/admin/content/graphics-logs";
-import AdminRoles from "@/pages/admin/roles";
-import AdminNotifications from "@/pages/admin/notifications";
-import AdminTeamActivity from "@/pages/admin/team-activity";
-import AdminSettingsPlatform from "@/pages/admin/settings/platform";
-import AdminSettingsAI from "@/pages/admin/settings/ai";
-import AdminSettingsAPI from "@/pages/admin/settings/api";
-import AdminSettingsSecurity from "@/pages/admin/settings/security";
-import AdminSettingsPaymentGateway from "@/pages/admin/settings/payment-gateway";
-import AdminSettingsEmail from "@/pages/admin/settings/email";
-import AdminMarketingHomepage from "@/pages/admin/marketing/homepage";
-import AdminMarketingPages from "@/pages/admin/marketing/pages";
-import AdminMarketingBlog from "@/pages/admin/marketing/blog";
-import AdminBlogEdit from "@/pages/admin/marketing/blog-edit";
-import AdminMarketingSeo from "@/pages/admin/marketing/seo";
-import AdminMarketingTestimonials from "@/pages/admin/marketing/testimonials";
-import AdminMarketingMedia from "@/pages/admin/marketing/media";
-import AdminMarketingForms from "@/pages/admin/marketing/forms";
-import AdminSupportTickets from "@/pages/admin/help/support-tickets";
-import AdminMarketingNavigation from "@/pages/admin/marketing/navigation";
-import AdminFaqs from "@/pages/admin/marketing/faqs";
-import RevenueReport from "@/pages/admin/reports/revenue";
-import CustomerReport from "@/pages/admin/reports/customer";
-import SubscriptionReport from "@/pages/admin/reports/subscription";
-import Pricing from "@/pages/pricing";
-import Features from "@/pages/features";
-import Contact from "@/pages/contact";
-import Help from "@/pages/help";
-import Enterprise from "@/pages/enterprise";
-import About from "@/pages/about";
-import Blog from "@/pages/blog";
-import Terms from "@/pages/terms";
-import Privacy from "@/pages/privacy";
-import Tutorials from "@/pages/tutorials";
-import Billing from "@/pages/billing";
-import Team from "@/pages/team";
-import AcceptInvite from "@/pages/accept-invite";
-import Onboarding from "@/pages/onboarding";
-import CheckoutSuccess from "@/pages/checkout-success";
-import CheckoutCancel from "@/pages/checkout-cancel";
-import CheckoutCardSuccess from "@/pages/checkout-card-success";
-import Profile from "@/pages/profile";
-import SignUpPage from "@/pages/sign-up";
-import ProjectsPage from "@/pages/projects";
-import CreateProject from "@/pages/projects/create";
-import ProjectDetail from "@/pages/projects/detail";
-import GeneratingPage from "@/pages/projects/generating";
-import ArchivePage from "@/pages/archive";
-import NotificationsPage from "@/pages/notifications";
-import AdminArchivePage from "@/pages/admin/archive";
-import AuditListings from "@/pages/audit-listings";
-import AuditWorkflow from "@/pages/audit-workflow";
-import VideosPage from "@/pages/videos";
-import AdsPage from "@/pages/ads";
-import SettingsPage from "@/pages/settings";
+import {
+  Layout,
+  AdminLayout,
+  LiveChatWidget,
+  Landing,
+  NotFound,
+  SignUpPage,
+  Features,
+  Pricing,
+  Contact,
+  Help,
+  Enterprise,
+  About,
+  Blog,
+  Terms,
+  Privacy,
+  Tutorials,
+  Dashboard,
+  AuditNew,
+  AuditDetail,
+  CompetitorNew,
+  AuditListings,
+  AuditWorkflow,
+  Billing,
+  Team,
+  Profile,
+  ProjectsPage,
+  CreateProject,
+  ProjectDetail,
+  GeneratingPage,
+  ArchivePage,
+  NotificationsPage,
+  VideosPage,
+  AdsPage,
+  SettingsPage,
+  AcceptInvite,
+  Onboarding,
+  CheckoutSuccess,
+  CheckoutCancel,
+  CheckoutCardSuccess,
+  AdminDashboard,
+  AdminCustomers,
+  AdminCustomerDetail,
+  AdminAudits,
+  AdminPlans,
+  AdminCredits,
+  AdminCreditRules,
+  AdminAnalytics,
+  AdminBillingPayments,
+  AdminBillingInvoices,
+  AdminBillingRefunds,
+  AdminBillingCoupons,
+  AdminContentGenerated,
+  AdminContentImages,
+  AdminContentLogs,
+  AdminBuildBrandLogs,
+  AdminContentDownloads,
+  AdminGraphicsLogs,
+  AdminRoles,
+  AdminNotifications,
+  AdminTeamActivity,
+  AdminArchivePage,
+  AdminSettingsPlatform,
+  AdminSettingsAI,
+  AdminSettingsAPI,
+  AdminSettingsSecurity,
+  AdminSettingsPaymentGateway,
+  AdminSettingsEmail,
+  AdminMarketingHomepage,
+  AdminMarketingPages,
+  AdminMarketingBlog,
+  AdminBlogEdit,
+  AdminMarketingSeo,
+  AdminMarketingTestimonials,
+  AdminMarketingMedia,
+  AdminMarketingForms,
+  AdminSupportTickets,
+  AdminMarketingNavigation,
+  AdminFaqs,
+  RevenueReport,
+  CustomerReport,
+  SubscriptionReport,
+} from "@/routes/lazy-pages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -605,9 +607,13 @@ function ClerkProviderWithRoutes() {
     >
       <ClerkQueryClientCacheInvalidator />
       <TooltipProvider>
-        <Router />
+        <Suspense fallback={<AuthLoading />}>
+          <Router />
+        </Suspense>
         <Toaster />
-        <LiveChatWidget />
+        <Suspense fallback={null}>
+          <LiveChatWidget />
+        </Suspense>
         <WsNotificationListener />
       </TooltipProvider>
     </ClerkProvider>
