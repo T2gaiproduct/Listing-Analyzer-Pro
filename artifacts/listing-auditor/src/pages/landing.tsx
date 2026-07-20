@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
-import { PromoBanner } from "@/components/promo-banner";
 import { SeoHead } from "@/components/seo-head";
 import { HeroSlider } from "@/components/hero-slider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -778,7 +777,6 @@ export default function Landing() {
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
-      <PromoBanner />
       <PublicNav />
 
       <SeoHead

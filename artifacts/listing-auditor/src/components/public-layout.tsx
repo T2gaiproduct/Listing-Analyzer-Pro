@@ -4,6 +4,7 @@ import { Menu, Facebook, Twitter, Linkedin, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SiteLogo } from "@/components/site-logo";
+import { PromoBanner } from "@/components/promo-banner";
 import { useBranding } from "@/hooks/use-branding";
 import { usePublicNav } from "@/hooks/use-public-nav";
 import { cmsText } from "@/lib/homepage-cms";
@@ -167,7 +168,9 @@ export function PublicNav() {
   const ctaUrl = cmsText(cms, "nav.cta_url");
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-2 sm:gap-4 min-w-0">
+    <>
+      <PromoBanner />
+      <header className="sticky top-0 z-50 flex w-full items-center justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-2 sm:gap-4 min-w-0">
       <div className="flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900 min-w-0">
           <SiteLogo />
@@ -250,6 +253,7 @@ export function PublicNav() {
         </SheetContent>
       </Sheet>
     </header>
+    </>
   );
 }
 
