@@ -35,7 +35,7 @@ export function parseTutorialItems(cms: HomepageCmsMap): TutorialCmsItem[] {
       title,
       duration: cmsText(cms, `tutorials.item${i}_duration`),
       image: cmsText(cms, `tutorials.item${i}_image`),
-      videoUrl: cmsText(cms, `tutorials.item${i}_video_url`),
+      videoUrl: (cms[`tutorials.item${i}_video_url`] ?? "").trim(),
     }];
   });
 }

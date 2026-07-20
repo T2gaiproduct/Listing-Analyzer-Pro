@@ -19,7 +19,7 @@ import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
 import { portfolioItemIndices } from "@/lib/portfolio-cms";
 import { parseTutorialItems } from "@/lib/tutorials-cms";
-import { youtubeEmbedUrl } from "@/lib/video-embed";
+import { youtubeEmbedUrl, youtubeThumbnailUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -116,12 +116,16 @@ function useLandingCmsData() {
     value: cmsText(cms, `workflow.metric${i}_value`),
   }));
 
-  const tutorialPreviews: TutorialItem[] = parseTutorialItems(cms).map((item) => ({
-    title: item.title,
-    duration: item.duration,
-    image: resolveCmsAssetUrl(item.image, basePath),
-    videoUrl: item.videoUrl,
-  }));
+  const tutorialPreviews: TutorialItem[] = parseTutorialItems(cms).map((item) => {
+    const customImage = item.image?.trim() ? resolveCmsAssetUrl(item.image, basePath) : "";
+    const youtubeThumb = item.videoUrl ? youtubeThumbnailUrl(item.videoUrl) : null;
+    return {
+      title: item.title,
+      duration: item.duration,
+      image: customImage || youtubeThumb || "",
+      videoUrl: item.videoUrl,
+    };
+  });
 
   return { cms, features, heroSlides, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
 }
@@ -241,6 +245,26 @@ function TutorialCard({
   const isCarousel = layout === "carousel";
   const embedUrl = videoUrl ? youtubeEmbedUrl(videoUrl) : null;
   const hasVideo = Boolean(videoUrl?.trim());
+
+  if (hasVideo && embedUrl && !isCarousel) {
+    return (
+      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm h-full flex flex-col">
+        <div className="aspect-video w-full bg-black">
+          <iframe
+            src={embedUrl}
+            title={title}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <div className="p-4">
+          <p className="font-semibold text-slate-800 text-base">{title}</p>
+          {duration && <p className="text-sm text-slate-500 mt-0.5">{duration}</p>}
+        </div>
+      </div>
+    );
+  }
 
   const thumbnail = (
     <div className={cn("relative overflow-hidden bg-slate-900", isCarousel ? "h-52 sm:h-56" : "h-44 sm:h-48 lg:h-52")}>
