@@ -15,6 +15,8 @@ export function PromoBanner() {
 
   useEffect(() => {
     try {
+      // Clear legacy dismiss key from the old Homepage CMS promo banner.
+      localStorage.removeItem("listingauditor-promo");
       setDismissed(localStorage.getItem(dismissKey) === "dismissed");
     } catch {
       setDismissed(false);
