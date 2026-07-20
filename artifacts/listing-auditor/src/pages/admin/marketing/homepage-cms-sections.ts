@@ -23,14 +23,6 @@ function featureItemFields(index: number): CmsField[] {
   ];
 }
 
-function tutorialItemFields(index: number): CmsField[] {
-  return [
-    { key: `tutorials.item${index}_title`, label: `Tutorial ${index} title` },
-    { key: `tutorials.item${index}_duration`, label: `Tutorial ${index} duration` },
-    { key: `tutorials.item${index}_image`, label: `Tutorial ${index} image URL`, type: "url" },
-  ];
-}
-
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
   sections: [
     {
@@ -151,7 +143,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
         { key: "tutorials.heading", label: "Section heading" },
         { key: "tutorials.cta_text", label: "CTA link text" },
         { key: "tutorials.cta_url", label: "CTA link URL", type: "url" },
-        ...Array.from({ length: 5 }, (_, i) => tutorialItemFields(i + 1)).flat(),
       ],
     },
   ],
