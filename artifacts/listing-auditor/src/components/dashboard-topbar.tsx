@@ -11,7 +11,13 @@ import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function profileMenuItems(isTeamMember: boolean, isOwner: boolean) {
+function profileMenuItems(isTeamMember: boolean, isOwner: boolean, variant: "customer" | "admin") {
+  if (variant === "admin") {
+    return [
+      { icon: Settings, label: "Admin Settings", href: "/admin/settings/platform" },
+      { icon: UserCircle, label: "My Profile", href: "/profile" },
+    ];
+  }
   return [
     { icon: UserCircle, label: "Edit Profile", href: "/profile" },
     { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
@@ -41,6 +47,7 @@ interface DashboardTopbarProps {
   roleLabel: string;
   credits: { aiCredits: number; imageCredits: number; auditCredits: number };
   onMenuClick?: () => void;
+  variant?: "customer" | "admin";
 }
 
 export function DashboardTopbar({
@@ -54,11 +61,12 @@ export function DashboardTopbar({
   roleLabel,
   credits,
   onMenuClick,
+  variant = "customer",
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
-  const menuItems = profileMenuItems(isTeamMember, isOwner);
+  const menuItems = profileMenuItems(isTeamMember, isOwner, variant);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const creditsRef = useRef<HTMLDivElement>(null);
@@ -239,10 +247,20 @@ export function DashboardTopbar({
                   className="w-full px-3 py-2.5 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors min-h-11"
                   onClick={() => {
                     setCreditsOpen(false);
-                    navigate(isTeamMember && !isOwner ? "/billing" : "/billing?tab=credits");
+                    navigate(
+                      variant === "admin"
+                        ? "/admin/credits"
+                        : isTeamMember && !isOwner
+                          ? "/billing"
+                          : "/billing?tab=credits",
+                    );
                   }}
                 >
-                  {isTeamMember && !isOwner ? "View usage →" : "Buy more credits →"}
+                  {variant === "admin"
+                    ? "Manage credits →"
+                    : isTeamMember && !isOwner
+                      ? "View usage →"
+                      : "Buy more credits →"}
                 </button>
               </div>
             </div>
@@ -305,6 +323,7 @@ export function DashboardTopbar({
                     </button>
                   </Link>
                 ))}
+                {variant === "customer" && (
                 <div className="relative">
                   <button
                     type="button"
@@ -333,6 +352,7 @@ export function DashboardTopbar({
                     </div>
                   )}
                 </div>
+                )}
               </div>
               <div className="border-t border-slate-100 py-1.5">
                 <button

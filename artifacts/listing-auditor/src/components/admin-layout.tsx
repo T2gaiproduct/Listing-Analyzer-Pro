@@ -1,17 +1,23 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
 import {
   Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
-  BadgePercent, ClipboardList, Download,
+  BadgePercent, ClipboardList,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
-  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen, Menu,
+  Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { DashboardTopbar } from "@/components/dashboard-topbar";
+import type { RecentItem } from "@workspace/api-client-react";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const navSections = [
   {
@@ -177,12 +183,86 @@ function AdminNavSections({
 export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { user, isLoaded: clerkLoaded } = useUser();
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const toggleSection = (label: string) =>
     setCollapsedSections((s) => ({ ...s, [label]: !s[label] }));
+
+  const { data: creditsData } = useQuery<{
+    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+  }>({
+    queryKey: ["user-credits"],
+    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
+    enabled: clerkLoaded && !!user,
+    staleTime: 30_000,
+  });
+
+  const { data: subscription } = useQuery<{
+    planName?: string | null;
+    status?: string | null;
+  }>({
+    queryKey: ["user-subscription"],
+    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
+    enabled: clerkLoaded && !!user,
+    staleTime: 30_000,
+  });
+
+  const { data: profileData } = useQuery<{
+    profile: { fullName: string | null } | null;
+    accountRole?: { type: string; label: string };
+  }>({
+    queryKey: ["user-profile-summary"],
+    queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+    enabled: clerkLoaded && !!user,
+    staleTime: 30_000,
+  });
+
+  const { data: searchData } = useQuery({
+    queryKey: ["admin-search", searchQuery],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: "20", query: searchQuery });
+      const r = await fetch(`${basePath}/api/admin/customers?${params}`, { credentials: "include" });
+      if (!r.ok) return { customers: [] as Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> };
+      return r.json() as Promise<{ customers: Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> }>;
+    },
+    enabled: searchQuery.length > 0,
+    staleTime: 0,
+  });
+
+  const searchResults: RecentItem[] = (searchData?.customers ?? []).map((customer) => {
+    const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email;
+    return {
+      type: "audit",
+      id: customer.profileId ?? 0,
+      name,
+      url: `/admin/customers/${customer.id}`,
+      pinned: false,
+    };
+  });
+
+  const credits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const profileName = profileData?.profile?.fullName?.trim();
+  const clerkName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.fullName?.trim() || undefined;
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
+  const displayName = profileName || clerkName || "Admin";
+  const initials = (() => {
+    const source = profileName || clerkName || userEmail;
+    if (source.includes(" ")) {
+      const parts = source.split(" ").filter(Boolean);
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return source?.[0]?.toUpperCase() ?? "A";
+  })();
+  const planName = subscription?.planName ?? null;
+  const planLabel = planName
+    ? `${planName} Plan`
+    : subscription?.status
+      ? "Active Plan"
+      : "No plan";
+  const roleLabel = profileData?.accountRole?.label ?? "Admin";
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -305,46 +385,19 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-amber-400 flex-shrink-0" />
-        {/* Desktop top bar — brand lives here so the sidebar header stays uncluttered */}
-        <div className="hidden lg:flex items-center h-14 px-6 xl:px-8 border-b border-slate-200 bg-white flex-shrink-0 min-w-0">
-          <Link
-            href="/admin/dashboard"
-            className="flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity"
-          >
-            <Shield className="w-5 h-5 text-orange-500 flex-shrink-0" />
-            <span className="font-bold text-lg tracking-tight whitespace-nowrap">
-              <span className="text-slate-900">Super</span>
-              <span className="text-orange-500">Admin</span>
-            </span>
-          </Link>
-        </div>
-        <div className="lg:hidden flex items-center gap-1 sm:gap-2 h-14 px-4 border-b border-slate-200 bg-white flex-shrink-0 min-w-0">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            className="touch-target flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 shrink-0"
-            aria-label="Open admin menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <Link href="/admin/dashboard" className="flex-1 font-semibold text-slate-900 truncate min-w-0 hover:text-orange-600 transition-colors">
-            Admin
-          </Link>
-          <Link
-            href="/admin/notifications"
-            aria-label="Notifications"
-            className="touch-target flex items-center justify-center w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 shrink-0"
-          >
-            <Bell className="w-5 h-5" />
-          </Link>
-          <Link
-            href="/admin/archive"
-            aria-label="Archive"
-            className="touch-target flex items-center justify-center w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 shrink-0"
-          >
-            <Archive className="w-5 h-5" />
-          </Link>
-        </div>
+        <DashboardTopbar
+          variant="admin"
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          searchResults={searchResults}
+          displayName={displayName}
+          initials={initials}
+          email={userEmail}
+          planLabel={planLabel}
+          roleLabel={roleLabel}
+          credits={credits}
+          onMenuClick={() => setMobileNavOpen(true)}
+        />
         <div className="flex-1 overflow-y-auto overflow-x-hidden app-shell-padding bg-slate-50">
           <div className="app-content-max max-w-7xl w-full min-w-0">
             {children}
