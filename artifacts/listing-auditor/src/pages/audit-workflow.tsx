@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
@@ -1189,6 +1189,14 @@ export default function AuditWorkflow() {
     c.toLowerCase().includes(catSearch.toLowerCase())
   );
 
+  const stepCompleted = useMemo((): Record<StepId, boolean> => ({
+    1: uploadedImages.length > 0,
+    2: generatedContent !== null,
+    3: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
+    4: aplusModules.length > 0 || aplusStatus === "completed",
+    5: false,
+  }), [uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
+
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="flex flex-col h-full overflow-hidden bg-white">
@@ -1198,13 +1206,13 @@ export default function AuditWorkflow() {
         <div className="flex items-stretch max-w-5xl mx-auto min-w-[20rem] w-full">
           {STEPS.map((s) => {
             const isActive    = activeStep === s.id;
-            const isCompleted = activeStep > s.id;
+            const isCompleted = !isActive && stepCompleted[s.id];
             return (
               <button
                 key={s.id}
                 onClick={() => setActiveStep(s.id)}
                 className={cn(
-                  "flex-1 flex flex-col items-center py-4 gap-1 border-b-2 transition-all text-center",
+                  "flex-1 min-w-[4.5rem] flex flex-col items-center py-4 gap-1 border-b-2 transition-all text-center px-1",
                   isActive ? "border-orange-500" : "border-transparent hover:border-slate-200"
                 )}
               >
@@ -1216,7 +1224,7 @@ export default function AuditWorkflow() {
                 )}>
                   {isCompleted ? <Check className="w-4 h-4" /> : s.id}
                 </div>
-                <p className={cn("text-[10px] font-bold uppercase tracking-wider leading-none",
+                <p className={cn("text-[10px] font-bold uppercase tracking-wide leading-none whitespace-nowrap",
                   isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-slate-400"
                 )}>
                   {s.label}
