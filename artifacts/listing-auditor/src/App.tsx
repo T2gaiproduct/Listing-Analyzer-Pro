@@ -10,7 +10,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BrandingHead } from "@/components/branding-head";
 import { HomepageCmsProvider } from "@/components/homepage-cms-context";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranding } from "@/hooks/use-branding";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import {
   Layout,
   AdminLayout,
@@ -127,6 +129,9 @@ function AuthLoading() {
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
+  .split(",").map((s) => s.trim()).filter(Boolean);
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -272,31 +277,34 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
-const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
-  .split(",").map((s) => s.trim()).filter(Boolean);
-
-function useIsAdmin() {
-  const { user, isLoaded } = useUser();
-  const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
-  const { data, isLoading } = useQuery({
-    queryKey: ["is-admin", user?.id],
-    queryFn: () =>
-      fetch(`${basePath}/api/admin/is-admin`, { credentials: "include" })
-        .then((r) => r.json() as Promise<{ isAdmin: boolean }>),
-    enabled: isLoaded && !!user && !envAdmin,
-    staleTime: 60_000,
-  });
-  const isAdmin = envAdmin || (data?.isAdmin ?? false);
-  return { isAdmin, isLoaded: isLoaded && (!user || envAdmin || !isLoading) };
-}
-
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
-  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { isAdmin, isLoaded: adminLoaded, isError } = useIsAdmin();
   if (!isLoaded || !adminLoaded) return <AuthLoading />;
   if (!user) return <Redirect to="/" />;
+  if (isError) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-3">
+          <p className="text-lg font-semibold text-slate-900">Cannot reach admin API</p>
+          <p className="text-sm text-slate-500">The API server may be restarting. Wait a moment, then reload.</p>
+          <button
+            type="button"
+            className="text-sm font-medium text-orange-600 hover:text-orange-700"
+            onClick={() => window.location.reload()}
+          >
+            Reload page
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!isAdmin) return <Redirect to="/dashboard" />;
-  return <AdminLayout>{children}</AdminLayout>;
+  return (
+    <ErrorBoundary title="Admin page failed to load">
+      <AdminLayout>{children}</AdminLayout>
+    </ErrorBoundary>
+  );
 }
 
 function Router() {
@@ -613,7 +621,9 @@ function ClerkProviderWithRoutes() {
       <ClerkQueryClientCacheInvalidator />
       <TooltipProvider>
         <Suspense fallback={<AuthLoading />}>
-          <Router />
+          <ErrorBoundary title="Application failed to load">
+            <Router />
+          </ErrorBoundary>
         </Suspense>
         <Toaster />
         <Suspense fallback={null}>

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { formatDistanceToNow, format } from "date-fns";
+import { fetchJson } from "@/lib/api-fetch";
 
 interface ClerkUser {
   id: string;
@@ -47,10 +48,7 @@ interface AdminStats {
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function fetchAdminStats(): Promise<AdminStats> {
-  return fetch(`${basePath}/api/admin/stats`, { credentials: "include" }).then((r) => {
-    if (!r.ok) throw new Error("Failed to fetch admin stats");
-    return r.json();
-  });
+  return fetchJson<AdminStats>(`${basePath}/api/admin/stats`);
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -154,8 +152,28 @@ function MiniStatCard({
 }
 
 export default function AdminDashboard() {
-  const { data, isLoading } = useQuery({ queryKey: ["admin-stats"], queryFn: fetchAdminStats, staleTime: 0, refetchInterval: 30_000 });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: fetchAdminStats,
+    staleTime: 0,
+    refetchInterval: 30_000,
+    retry: 2,
+  });
   const [, nav] = useLocation();
+
+  if (isError) {
+    return (
+      <div className="w-full min-w-0 space-y-4 text-center py-16">
+        <h1 className="text-xl font-bold text-slate-900">Admin Dashboard</h1>
+        <p className="text-sm text-slate-500 max-w-md mx-auto">
+          Could not load dashboard stats. The API server may be restarting — try again in a few seconds.
+        </p>
+        <Button className="bg-orange-500 hover:bg-orange-600" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   const kpis = [
     {

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { fetchJsonArray } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -36,7 +37,7 @@ export default function AdminMarketingNavigation() {
 
   const { data: items = [], isLoading } = useQuery<NavItem[]>({
     queryKey: ["admin-nav"],
-    queryFn: () => fetch(`${basePath}/api/admin/nav`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: () => fetchJsonArray<NavItem>(`${basePath}/api/admin/nav`),
   });
 
   const createMutation = useMutation({
