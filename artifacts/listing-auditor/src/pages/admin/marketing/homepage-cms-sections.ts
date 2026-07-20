@@ -65,7 +65,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
         { key: "sections.workflow.enabled", label: "Workflow", type: "select", options: BOOL_OPTIONS },
         { key: "sections.tutorials.enabled", label: "Tutorials", type: "select", options: BOOL_OPTIONS },
         { key: "sections.pricing.enabled", label: "Pricing", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.social.enabled", label: "Testimonials", type: "select", options: BOOL_OPTIONS },
         { key: "sections.faq.enabled", label: "FAQ", type: "select", options: BOOL_OPTIONS },
         { key: "sections.cta.enabled", label: "Pre-footer CTA", type: "select", options: BOOL_OPTIONS },
       ],
@@ -210,18 +209,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       ],
     },
   ],
-  social: [
-    {
-      title: "Testimonials section (cards come from Website CMS → Testimonials)",
-      fields: [
-        { key: "social.trusted_heading", label: "Section heading" },
-        { key: "social.stats_customers", label: "Stat: customers" },
-        { key: "social.stats_audits", label: "Stat: audits completed" },
-        { key: "social.stats_countries", label: "Stat: countries" },
-        { key: "social.stats_rating", label: "Stat: average rating" },
-      ],
-    },
-  ],
   cta: [
     {
       title: "Pre-footer CTA",
@@ -261,7 +248,6 @@ export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
   workflow: "Workflow",
   tutorials: "Tutorials",
   pricing: "Pricing",
-  social: "Testimonials",
   faq: "FAQ",
   cta: "CTA",
   footer: "Footer",
