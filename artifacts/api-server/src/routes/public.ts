@@ -16,6 +16,7 @@ import { upsertUserProfile } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
+import { getAnnouncementPromo } from "../lib/announcement-promo";
 
 const router: IRouter = Router();
 
@@ -78,6 +79,11 @@ router.get("/cms/homepage", async (_req, res): Promise<void> => {
     map[`${r.sectionKey}.${r.fieldKey}`] = r.value ?? "";
   }
   res.json(map);
+});
+
+router.get("/announcement/promo", async (_req, res): Promise<void> => {
+  const promo = await getAnnouncementPromo();
+  res.json(promo);
 });
 
 router.get("/blog", async (_req, res): Promise<void> => {

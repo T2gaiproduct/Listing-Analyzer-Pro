@@ -1,12 +1,6 @@
 export type HomepageCmsMap = Record<string, string>;
 
 export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
-  "sections.promo.enabled": "true",
-  "promo.text": "Launch offer: Get 20% off any plan with code",
-  "promo.code": "LAUNCH20",
-  "promo.link_text": "See pricing",
-  "promo.link_url": "/pricing",
-
   "sections.hero.enabled": "true",
   "hero.slides_json": "",
   "hero.autoplay_enabled": "true",

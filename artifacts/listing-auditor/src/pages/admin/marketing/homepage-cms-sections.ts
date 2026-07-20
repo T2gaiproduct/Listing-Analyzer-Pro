@@ -19,17 +19,6 @@ function featureItemFields(index: number): CmsField[] {
 }
 
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
-  promo: [
-    {
-      title: "Promo banner",
-      fields: [
-        { key: "promo.text", label: "Promo text (before code)" },
-        { key: "promo.code", label: "Promo code" },
-        { key: "promo.link_text", label: "Link text" },
-        { key: "promo.link_url", label: "Link URL", type: "url" },
-      ],
-    },
-  ],
   nav: [
     {
       title: "Navigation CTAs",
@@ -156,7 +145,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
 };
 
 export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
-  promo: "Promo",
   nav: "Navigation",
   seo: "SEO",
   hero: "Hero",

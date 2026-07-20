@@ -1,11 +1,10 @@
 import { X, Tag } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
-import { cmsEnabled, cmsText } from "@/lib/homepage-cms";
-import { useHomepageCmsContext } from "@/components/homepage-cms-context";
+import { usePromoAnnouncement } from "@/hooks/use-promo-announcement";
 
 export function PromoBanner() {
-  const cms = useHomepageCmsContext();
+  const { promo } = usePromoAnnouncement();
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem("listingauditor-promo") === "dismissed";
@@ -14,12 +13,7 @@ export function PromoBanner() {
     }
   });
 
-  if (!cmsEnabled(cms, "promo") || dismissed) return null;
-
-  const promoText = cmsText(cms, "promo.text");
-  const promoCode = cmsText(cms, "promo.code");
-  const linkText = cmsText(cms, "promo.link_text");
-  const linkUrl = cmsText(cms, "promo.link_url");
+  if (!promo.enabled || dismissed) return null;
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -33,17 +27,17 @@ export function PromoBanner() {
       <div className="flex items-center justify-center gap-1.5 sm:gap-2 pr-7 sm:pr-10 whitespace-nowrap overflow-hidden">
         <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400 shrink-0" />
         <span className="truncate">
-          <strong className="text-orange-400">{promoText}</strong>{" "}
+          <strong className="text-orange-400">{promo.text}</strong>{" "}
           <code className="bg-orange-500/20 text-orange-300 px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded font-mono text-[10px] sm:text-xs">
-            {promoCode}
+            {promo.code}
           </code>
         </span>
-        {linkText && linkUrl && (
+        {promo.linkText && promo.linkUrl && (
           <Link
-            href={linkUrl}
+            href={promo.linkUrl}
             className="hidden sm:inline underline underline-offset-2 text-orange-300 hover:text-orange-200 transition-colors shrink-0"
           >
-            {linkText}
+            {promo.linkText}
           </Link>
         )}
       </div>
