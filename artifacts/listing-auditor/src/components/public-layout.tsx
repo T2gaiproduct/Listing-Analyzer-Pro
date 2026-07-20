@@ -93,6 +93,8 @@ function NavCtaButton({
 
 function HeaderActionButtons({
   headerCtas,
+  useAdminOnly,
+  isLoading,
   signInText,
   signInUrl,
   ctaText,
@@ -101,6 +103,8 @@ function HeaderActionButtons({
   onNavigate,
 }: {
   headerCtas: NavLink[];
+  useAdminOnly: boolean;
+  isLoading: boolean;
   signInText: string;
   signInUrl: string;
   ctaText: string;
@@ -108,7 +112,11 @@ function HeaderActionButtons({
   stacked?: boolean;
   onNavigate?: () => void;
 }) {
-  if (headerCtas.length > 0) {
+  if (isLoading) return null;
+
+  if (useAdminOnly || headerCtas.length > 0) {
+    if (headerCtas.length === 0) return null;
+
     return (
       <>
         {headerCtas.map((cta, index) => (
@@ -117,7 +125,6 @@ function HeaderActionButtons({
             cta={cta}
             primary={index === headerCtas.length - 1}
             stacked={stacked}
-            className={stacked ? "w-full min-h-11" : index < headerCtas.length - 1 ? undefined : undefined}
             onClick={onNavigate}
           />
         ))}
@@ -153,7 +160,7 @@ export function PublicNav() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const cms = useHomepageCmsContext();
-  const { headerLinks, headerCtas } = usePublicNav();
+  const { headerLinks, headerCtas, hasHeaderNavConfig, isLoading } = usePublicNav();
   const signInText = cmsText(cms, "nav.sign_in_text");
   const signInUrl = cmsText(cms, "nav.sign_in_url");
   const ctaText = cmsText(cms, "nav.cta_text");
@@ -185,6 +192,8 @@ export function PublicNav() {
       <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
         <HeaderActionButtons
           headerCtas={headerCtas}
+          useAdminOnly={hasHeaderNavConfig}
+          isLoading={isLoading}
           signInText={signInText}
           signInUrl={signInUrl}
           ctaText={ctaText}
@@ -223,17 +232,21 @@ export function PublicNav() {
               />
             ))}
           </nav>
-          <div className="p-4 border-t border-slate-200 space-y-2">
-            <HeaderActionButtons
-              headerCtas={headerCtas}
-              signInText={signInText}
-              signInUrl={signInUrl}
-              ctaText={ctaText}
-              ctaUrl={ctaUrl}
-              stacked
-              onNavigate={() => setMobileOpen(false)}
-            />
-          </div>
+          {!isLoading && (hasHeaderNavConfig ? headerCtas.length > 0 : true) && (
+            <div className="p-4 border-t border-slate-200 space-y-2">
+              <HeaderActionButtons
+                headerCtas={headerCtas}
+                useAdminOnly={hasHeaderNavConfig}
+                isLoading={isLoading}
+                signInText={signInText}
+                signInUrl={signInUrl}
+                ctaText={ctaText}
+                ctaUrl={ctaUrl}
+                stacked
+                onNavigate={() => setMobileOpen(false)}
+              />
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     </header>

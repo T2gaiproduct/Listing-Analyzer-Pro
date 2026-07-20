@@ -37,18 +37,28 @@ export function usePublicNav() {
   });
 
   const items = query.data ?? [];
+  const hasHeaderNavConfig = hasLocationConfig(items, "header");
+  const hasFooterNavConfig = hasLocationConfig(items, "footer");
   const headerFromDb = mapNavLinks(items, "header");
   const footerFromDb = mapNavLinks(items, "footer");
   const headerCtas = navCtasForLocation(items, "header");
   const footerCtas = navCtasForLocation(items, "footer");
 
-  const headerLinks = hasLocationConfig(items, "header")
+  const headerLinks = hasHeaderNavConfig
     ? headerFromDb
     : DEFAULT_HEADER_NAV.map((item, index) => ({ id: index, ...item, opensNewTab: false }));
 
-  const footerLinks = hasLocationConfig(items, "footer")
+  const footerLinks = hasFooterNavConfig
     ? [...footerFromDb, ...footerCtas]
     : DEFAULT_FOOTER_NAV.map((item, index) => ({ id: index, ...item, opensNewTab: false }));
 
-  return { headerLinks, footerLinks, headerCtas, footerCtas, isLoading: query.isLoading };
+  return {
+    headerLinks,
+    footerLinks,
+    headerCtas,
+    footerCtas,
+    hasHeaderNavConfig,
+    hasFooterNavConfig,
+    isLoading: query.isLoading,
+  };
 }
