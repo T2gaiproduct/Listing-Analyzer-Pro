@@ -11,7 +11,9 @@ import {
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
+import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { getGatewaySettings } from "./payment";
+import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 
 const router: IRouter = Router();
 
@@ -49,6 +51,44 @@ router.get("/faqs", async (_req, res): Promise<void> => {
   res.json(items);
 });
 
+const BRANDING_KEYS = ["platform_name", "site_logo_url", "site_favicon_url"] as const;
+
+router.get("/branding", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({ key: settingsTable.key, value: settingsTable.value })
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, [...BRANDING_KEYS]));
+
+  const map = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+
+  let logoUrl = map.site_logo_url?.trim() || null;
+  let faviconUrl = map.site_favicon_url?.trim() || null;
+
+  if (logoUrl && isDataUrl(logoUrl)) {
+    const stored = normalizeBrandingSettingValue("site_logo_url", logoUrl);
+    await db
+      .update(settingsTable)
+      .set({ value: stored, updatedAt: new Date() })
+      .where(eq(settingsTable.key, "site_logo_url"));
+    logoUrl = stored || null;
+  }
+
+  if (faviconUrl && isDataUrl(faviconUrl)) {
+    const stored = normalizeBrandingSettingValue("site_favicon_url", faviconUrl);
+    await db
+      .update(settingsTable)
+      .set({ value: stored, updatedAt: new Date() })
+      .where(eq(settingsTable.key, "site_favicon_url"));
+    faviconUrl = stored || null;
+  }
+
+  res.json({
+    platformName: map.platform_name?.trim() || "SellerLens",
+    logoUrl,
+    faviconUrl,
+  });
+});
+
 router.post("/forms", async (req, res): Promise<void> => {
   const { formType, email, name, data } = req.body ?? {};
 
@@ -77,6 +117,33 @@ router.post("/forms", async (req, res): Promise<void> => {
 });
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
+
+/** Lightweight profile for shell/topbar — avoids transactions + billing history. */
+router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const [profile] = await db
+    .select({
+      fullName: userProfilesTable.fullName,
+      onboardingCompleted: userProfilesTable.onboardingCompleted,
+    })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, userId));
+  const subRows = await db
+    .select({
+      planName: plansTable.name,
+      status: subscriptionsTable.status,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, userId));
+  const credits = await ensureSubscriptionCredits(userId);
+  res.json({
+    profile: profile ?? null,
+    onboardingCompleted: profile?.onboardingCompleted ?? false,
+    subscription: subRows[0] ?? null,
+    credits,
+  });
+});
 
 router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
@@ -243,7 +310,7 @@ router.post("/profile/avatar", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/credits", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const credits = await ensureSubscriptionCredits(userId);
   const transactions = await db.select().from(creditTransactionsTable)
     .where(eq(creditTransactionsTable.userId, userId))
     .orderBy(desc(creditTransactionsTable.createdAt))
@@ -591,7 +658,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
           description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
         }],
         application_context: {
-          brand_name: "ListingAuditor",
+          brand_name: "SellerLens",
           user_action: "PAY_NOW",
           return_url: `${base}/billing?paypal_captured=1`,
           cancel_url: `${base}/billing?paypal_cancelled=1`,
@@ -676,7 +743,7 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
           description: `${amount} ${creditType} credits`,
         }],
         application_context: {
-          brand_name: "ListingAuditor",
+          brand_name: "SellerLens",
           user_action: "PAY_NOW",
           return_url: `${base}/billing?paypal_captured=1`,
           cancel_url: `${base}/billing?paypal_cancelled=1`,

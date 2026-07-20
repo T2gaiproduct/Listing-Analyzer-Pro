@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
 import { useSignUp } from "@clerk/react/legacy";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Check, X } from "lucide-react";
+
+import { SiteLogoImage } from "@/components/site-logo";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -25,13 +27,14 @@ function isValid(pw: string) {
 
 export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp();
+  const [, setLocation] = useLocation();
 
   const postAuthPath = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get("redirect_url");
     if (redirect && redirect.startsWith("/")) return redirect;
     if (redirect && redirect.startsWith(basePath)) return redirect.slice(basePath.length) || "/";
-    return `${basePath}/onboarding`;
+    return "/onboarding";
   }, []);
 
   const [step, setStep] = useState<"form" | "verify">("form");
@@ -58,7 +61,7 @@ export default function SignUpPage() {
       await signUp.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: `${window.location.origin}${basePath}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}${postAuthPath}`,
+        redirectUrlComplete: `${window.location.origin}${basePath}${postAuthPath}`,
       });
     } catch (err: unknown) {
       const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };
@@ -95,7 +98,7 @@ export default function SignUpPage() {
       const result = await signUp.attemptEmailAddressVerification({ code });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        window.location.href = postAuthPath;
+        setLocation(postAuthPath, { replace: true });
       }
     } catch (err: unknown) {
       const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };
@@ -114,11 +117,7 @@ export default function SignUpPage() {
           {/* Header */}
           <div className="px-8 pt-8 pb-5 text-center">
             <a href={basePath || "/"}>
-              <img
-                src={`${window.location.origin}${basePath}/logo.svg`}
-                alt="ListingAuditor"
-                className="h-8 w-auto mx-auto mb-5"
-              />
+              <SiteLogoImage className="h-8 w-auto mx-auto mb-5" />
             </a>
             {step === "form" ? (
               <>

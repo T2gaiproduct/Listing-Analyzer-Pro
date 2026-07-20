@@ -50,7 +50,7 @@ export function inviteEmailTemplate({
     </div>
     <div class="content">
       <p>Hi <strong>${invitedName}</strong>,</p>
-      <p><strong>${inviterName}</strong> has invited you to join their team workspace on <strong>ListingAuditor</strong>.</p>
+      <p><strong>${inviterName}</strong> has invited you to join their team workspace on <strong>SellerLens</strong>.</p>
       <div class="role-box">
         <div class="role-label">Your role: ${role}</div>
         <p class="role-desc">${roleDescriptions[role] ?? "Team member access"}</p>
@@ -61,7 +61,7 @@ export function inviteEmailTemplate({
       <p style="font-size: 13px; color: #94a3b8; text-align: center;">If the button above does not work, copy and paste this link into your browser:<br><a href="${inviteUrl}" style="color: #f97316; word-break: break-all;">${inviteUrl}</a></p>
     </div>
     <div class="footer">
-      <p>ListingAuditor — AI-powered Amazon listing optimization</p>
+      <p>SellerLens — AI-powered Amazon listing optimization</p>
     </div>
   </div>
 </body>
@@ -104,14 +104,14 @@ export function welcomeEmailTemplate({
     </div>
     <div class="content">
       <p>Hi <strong>${memberName}</strong>,</p>
-      <p>You have been successfully added to <strong>${companyName}</strong> on <strong>ListingAuditor</strong>.</p>
+      <p>You have been successfully added to <strong>${companyName}</strong> on <strong>SellerLens</strong>.</p>
       <p>Your assigned role is <strong>${role}</strong>. You can now access the team workspace and start collaborating.</p>
       <div class="btn-wrapper">
         <a href="${process.env.APP_URL ?? "https://listingauditor.com"}/dashboard" class="btn">Go to Dashboard</a>
       </div>
     </div>
     <div class="footer">
-      <p>ListingAuditor — AI-powered Amazon listing optimization</p>
+      <p>SellerLens — AI-powered Amazon listing optimization</p>
     </div>
   </div>
 </body>

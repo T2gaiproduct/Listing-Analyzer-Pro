@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
+import { Loader2 } from "lucide-react";
 import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
 import { useWsNotifications } from "@/hooks/use-ws-notifications";
 import { shadcn } from "@clerk/themes";
@@ -8,6 +9,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LiveChatWidget } from "@/components/live-chat";
+import { BrandingHead } from "@/components/branding-head";
+import { useBranding } from "@/hooks/use-branding";
 import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
 import Dashboard from "@/pages/dashboard";
@@ -92,12 +95,30 @@ import SettingsPage from "@/pages/settings";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 0,
+      staleTime: 30_000,
       refetchOnWindowFocus: true,
       retry: 1,
     },
   },
 });
+
+const AUTH_SCOPED_QUERY_KEYS = [
+  ["is-admin"],
+  ["user-profile"],
+  ["user-profile-summary"],
+  ["team-membership"],
+  ["team-membership-credits"],
+  ["dashboard"],
+  ["notifications"],
+] as const;
+
+function AuthLoading() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-orange-500" aria-label="Loading" />
+    </div>
+  );
+}
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
@@ -113,13 +134,12 @@ if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
 }
 
-const clerkAppearance = {
+const clerkAppearanceBase = {
   theme: shadcn,
   cssLayerName: "clerk",
   options: {
     logoPlacement: "inside" as const,
     logoLinkUrl: basePath || "/",
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
   },
   variables: {
     colorPrimary: "#ff8000",
@@ -169,7 +189,7 @@ function SignInPage() {
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
-        fallbackRedirectUrl={`${basePath}/`}
+        fallbackRedirectUrl={`${basePath}/dashboard`}
       />
     </div>
   );
@@ -185,7 +205,9 @@ function ClerkQueryClientCacheInvalidator() {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
       if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
-        qc.clear();
+        for (const queryKey of AUTH_SCOPED_QUERY_KEYS) {
+          void qc.removeQueries({ queryKey: [...queryKey] });
+        }
       }
       prevUserIdRef.current = userId;
     });
@@ -195,23 +217,49 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function useOnboardingSummary() {
+  const { user, isLoaded } = useUser();
+  return useQuery({
+    queryKey: ["user-profile-summary"],
+    queryFn: () =>
+      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then(
+        (r) => r.json() as Promise<{ onboardingCompleted?: boolean }>,
+      ),
+    enabled: isLoaded && !!user,
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
 function HomeRedirect() {
   const { user, isLoaded } = useUser();
+  const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
-  if (!isLoaded || !adminLoaded) return null;
+  const { data: summary } = useOnboardingSummary();
+  if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
+  if (envAdmin) return <Redirect to="/admin/dashboard" />;
+  if (!adminLoaded) return <AuthLoading />;
   if (isAdmin) return <Redirect to="/admin/dashboard" />;
+  if (summary && !summary.onboardingCompleted) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
-  const { isAdmin } = useIsAdmin();
-  if (!isLoaded) return null;
+  const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
+  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { data: summary } = useOnboardingSummary();
+  if (!isLoaded) return <AuthLoading />;
+  const isAdminUser = envAdmin || (adminLoaded && isAdmin);
+  if (user && !isAdminUser && summary && !summary.onboardingCompleted) {
+    return <Redirect to="/onboarding" />;
+  }
+  const Shell = isAdminUser ? AdminLayout : Layout;
   return (
     <>
       <Show when="signed-in">
-        {isAdmin ? <AdminLayout>{children}</AdminLayout> : <Layout>{children}</Layout>}
+        <Shell>{children}</Shell>
       </Show>
       <Show when="signed-out">
         <Redirect to="/" />
@@ -225,22 +273,23 @@ const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefin
 
 function useIsAdmin() {
   const { user, isLoaded } = useUser();
+  const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { data, isLoading } = useQuery({
     queryKey: ["is-admin", user?.id],
     queryFn: () =>
       fetch(`${basePath}/api/admin/is-admin`, { credentials: "include" })
         .then((r) => r.json() as Promise<{ isAdmin: boolean }>),
-    enabled: isLoaded && !!user,
-    staleTime: 30_000,
+    enabled: isLoaded && !!user && !envAdmin,
+    staleTime: 60_000,
   });
-  const isAdmin = adminUserIdsEnv.includes(user?.id ?? "") || (data?.isAdmin ?? false);
-  return { isAdmin, isLoaded: isLoaded && (!user || !isLoading) };
+  const isAdmin = envAdmin || (data?.isAdmin ?? false);
+  return { isAdmin, isLoaded: isLoaded && (!user || envAdmin || !isLoading) };
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
-  if (!isLoaded || !adminLoaded) return null;
+  if (!isLoaded || !adminLoaded) return <AuthLoading />;
   if (!user) return <Redirect to="/" />;
   if (!isAdmin) return <Redirect to="/dashboard" />;
   return <AdminLayout>{children}</AdminLayout>;
@@ -517,19 +566,31 @@ function Router() {
 
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
+  const { logoUrl, platformName } = useBranding();
+
+  const appearance = useMemo(
+    () => ({
+      ...clerkAppearanceBase,
+      options: {
+        ...clerkAppearanceBase.options,
+        logoImageUrl: logoUrl,
+      },
+    }),
+    [logoUrl],
+  );
 
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
       proxyUrl={clerkProxyUrl}
-      appearance={clerkAppearance}
+      appearance={appearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
         signIn: {
           start: {
             title: "Welcome back",
-            subtitle: "Sign in to your ListingAuditor account",
+            subtitle: `Sign in to your ${platformName} account`,
           },
         },
         signUp: {
@@ -542,15 +603,13 @@ function ClerkProviderWithRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryClientCacheInvalidator />
-        <TooltipProvider>
-          <Router />
-          <Toaster />
-          <LiveChatWidget />
-          <WsNotificationListener />
-        </TooltipProvider>
-      </QueryClientProvider>
+      <ClerkQueryClientCacheInvalidator />
+      <TooltipProvider>
+        <Router />
+        <Toaster />
+        <LiveChatWidget />
+        <WsNotificationListener />
+      </TooltipProvider>
     </ClerkProvider>
   );
 }
@@ -564,7 +623,10 @@ function App() {
   return (
     <WouterRouter base={basePath}>
       <ThemeProvider>
-        <ClerkProviderWithRoutes />
+        <QueryClientProvider client={queryClient}>
+          <BrandingHead />
+          <ClerkProviderWithRoutes />
+        </QueryClientProvider>
       </ThemeProvider>
     </WouterRouter>
   );

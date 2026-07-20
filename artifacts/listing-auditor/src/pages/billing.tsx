@@ -133,7 +133,7 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
           key: d.keyId,
           amount: d.amount,
           currency: d.currency,
-          name: "ListingAuditor",
+          name: "SellerLens",
           description: `${quantity} ${creditType} credits`,
           order_id: d.orderId,
           handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
@@ -307,7 +307,7 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
-        name: "ListingAuditor",
+        name: "SellerLens",
         description: "Add payment method",
         order_id: order.orderId,
         handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
@@ -527,7 +527,7 @@ function billingTabPath(tab: BillingTab): string {
 export default function Billing() {
   const [location, setLocation] = useLocation();
   const search = useSearch();
-  const { isTeamMember, isOwner, isLoading: teamLoading } = useTeam();
+  const { isTeamMember, isOwner } = useTeam();
   const [tab, setTab] = useState<BillingTab>(() => parseBillingTab(window.location.search));
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -664,11 +664,14 @@ export default function Billing() {
   const [changePlanCycle, setChangePlanCycle] = useState<"monthly" | "yearly">("monthly");
 
   function invalidateSub() {
-    void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-    void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+    void refetchCreditQueries(queryClient);
   }
 
-  if (subLoading || teamLoading) {
+  useEffect(() => {
+    void refetchCreditQueries(queryClient);
+  }, [queryClient]);
+
+  if (subLoading) {
     return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>;
   }
 
@@ -793,9 +796,7 @@ export default function Billing() {
                             .then((d) => {
                               if (d.success) {
                                 toast({ title: "Plan updated successfully!" });
-                                invalidateSub();
-                                void queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-                                void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+                                void refetchCreditQueries(queryClient);
                               } else {
                                 toast({ title: "Could not update plan", description: d.error ?? "Please try again.", variant: "destructive" });
                               }
@@ -960,7 +961,7 @@ export default function Billing() {
                             key: d.keyId,
                             amount: d.amount,
                             currency: d.currency,
-                            name: "ListingAuditor",
+                            name: "SellerLens",
                             description: pack.label ?? `${pack.quantity} ${pack.creditType} credits`,
                             order_id: d.orderId,
                             handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {

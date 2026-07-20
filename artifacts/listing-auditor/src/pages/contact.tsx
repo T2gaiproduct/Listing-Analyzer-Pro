@@ -49,7 +49,7 @@ export default function Contact() {
     <div className="min-h-[100dvh] bg-white flex flex-col">
       <SeoHead
         title="Contact Us"
-        description="Get in touch with the ListingAuditor team for sales, support, or partnership inquiries."
+        description="Get in touch with the SellerLens team for sales, support, or partnership inquiries."
       />
       <PublicNav />
 
@@ -91,7 +91,7 @@ export default function Contact() {
               <Calendar className="w-5 h-5 text-orange-500 mb-3" />
               <p className="font-semibold text-slate-900 text-sm mb-1">Book a live demo</p>
               <p className="text-slate-500 text-xs leading-relaxed">
-                See ListingAuditor in action with a 15-minute personalized walkthrough from our team.
+                See SellerLens in action with a 15-minute personalized walkthrough from our team.
               </p>
               <Button
                 size="sm"

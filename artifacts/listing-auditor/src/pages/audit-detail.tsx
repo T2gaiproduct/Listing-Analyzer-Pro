@@ -337,7 +337,7 @@ export default function AuditDetail({ id }: { id: number }) {
     for (let i = 1; i <= pages; i++) {
       doc.setPage(i);
       doc.setFontSize(7); doc.setTextColor(180,180,180); doc.setFont("helvetica","normal");
-      doc.text(`ListingAuditor.com · ${format(new Date(audit.createdAt), "MMMM d, yyyy")} · Page ${i} of ${pages}`, margin, doc.internal.pageSize.getHeight() - 24);
+      doc.text(`SellerLens.com · ${format(new Date(audit.createdAt), "MMMM d, yyyy")} · Page ${i} of ${pages}`, margin, doc.internal.pageSize.getHeight() - 24);
     }
 
     doc.save(`${audit.productName.replace(/[^a-z0-9]/gi,"_").toLowerCase()}_audit_report.pdf`);

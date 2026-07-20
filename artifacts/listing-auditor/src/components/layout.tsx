@@ -31,6 +31,7 @@ import {
   Target as AdsIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SiteLogo, SiteLogoMark, SiteLogoIcon } from "@/components/site-logo";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -346,7 +347,7 @@ function getPageTitle(location: string): string {
   if (location === "/team") return "Team";
   if (location === "/notifications") return "Notifications";
   if (location === "/archive") return "Archive";
-  return "ListingAuditor";
+  return "SellerLens";
 }
 
 // --- Ribbon visibility -------------------------------------------------------
@@ -495,27 +496,23 @@ export function Layout({ children }: { children: ReactNode }) {
     },
   });
 
-  const { isTeamMember, isLoading: teamLoading, memberCredits } = useTeam();
+  const { isTeamMember, memberCredits } = useTeam();
 
-  const recentsReady = clerkLoaded && !!user && !teamLoading;
+  const recentsReady = clerkLoaded && !!user;
 
-  // Fetch unified recents for sidebar (refetch when team context is known — members use a different scope)
+  // Fetch unified recents for sidebar (scope changes when team membership resolves)
+  const recentsScope = isTeamMember ? "member" : "owner";
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
     {
       query: {
-        queryKey: getGetRecentsQueryKey({ limit: 200 }),
-        staleTime: 0,
-        refetchOnMount: "always",
+        queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
+        staleTime: 30_000,
         enabled: recentsReady,
       },
     },
   );
   const recents = (recentsData?.items ?? []) as RecentItem[];
-
-  useEffect(() => {
-    if (recentsReady) invalidateRecents();
-  }, [recentsReady, isTeamMember, user?.id]);
 
   // Search projects
   const { data: searchData } = useQuery({
@@ -644,19 +641,42 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Fetch profile, subscription, and credits for topbar + sidebar
-  const { data: profileData } = useQuery<{
-    profile: { fullName: string | null } | null;
-    subscription: { planName: string | null; status: string } | null;
-    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
-  }>({
-    queryKey: ["user-profile"],
-    queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
-    staleTime: 5_000,
-    refetchOnWindowFocus: true,
+  // Shell/topbar: subscription + credits use the same queries as billing (single source of truth)
+  const { data: subscription } = useQuery<{
+    planName: string | null;
+    status: string;
+    planAiCredits?: number;
+    planImageCredits?: number;
+    planAuditCredits?: number;
+  } | null>({
+    queryKey: ["user-subscription"],
+    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
+    enabled: clerkLoaded && !!user,
+    staleTime: 30_000,
+    refetchOnMount: "always",
   });
 
-  const ownerCredits = profileData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const { data: creditsData } = useQuery<{
+    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+  }>({
+    queryKey: ["user-credits"],
+    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
+    enabled: clerkLoaded && !!user,
+    staleTime: 30_000,
+    refetchOnMount: "always",
+  });
+
+  // Profile summary for display name only (lightweight)
+  const { data: profileData } = useQuery<{
+    profile: { fullName: string | null } | null;
+  }>({
+    queryKey: ["user-profile-summary"],
+    queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 60_000,
+    enabled: clerkLoaded && !!user,
+  });
+
+  const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const displayCredits = isTeamMember
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : ownerCredits;
@@ -676,8 +696,12 @@ export function Layout({ children }: { children: ReactNode }) {
   })();
 
   const displayName = resolvedName;
-  const planName = profileData?.subscription?.planName;
-  const planLabel = planName ? `${planName} Plan` : "Free";
+  const planName = subscription?.planName ?? null;
+  const planLabel = planName
+    ? `${planName} Plan`
+    : subscription?.status
+      ? "Active Plan"
+      : "No plan";
 
   return (
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
@@ -697,45 +721,53 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* ── Header ─────────────────────────────────────────────── */}
         <div
           className={cn(
-            "border-b border-sidebar-border/50 flex-shrink-0",
-            collapsed ? "px-2 py-3 flex flex-col items-center gap-2" : "px-4 py-4 flex items-center"
+            "border-b border-sidebar-border/50 flex-shrink-0 overflow-visible",
+            collapsed ? "px-2 py-3 flex flex-col items-center gap-2" : "px-3 py-3.5 flex items-center gap-1.5 min-w-0",
           )}
         >
-          {/* Logo */}
-          <Link href="/dashboard">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
+          {/* Logo — lens mark when collapsed, full wordmark when expanded */}
+          <Link
+            href="/dashboard"
+            className="cursor-pointer hover:opacity-90 transition-opacity min-w-0 shrink"
+          >
+            {collapsed ? (
+              <SiteLogoIcon imageClassName="h-8 w-8 object-contain" />
+            ) : (
+              <SiteLogoMark imageClassName="h-7 w-auto max-w-[6.75rem] object-contain object-left" />
+            )}
           </Link>
 
           {!collapsed && (
             <>
-              <div className="flex-1" />
+              <div className="flex-1 min-w-0" />
 
-              {/* Notifications */}
-              <NotificationIcon collapsed={false} />
+              <div className="flex items-center shrink-0">
+                {/* Notifications */}
+                <NotificationIcon collapsed={false} />
 
-              {/* Archive */}
-              <SidebarTooltip label="Archive" side="bottom">
-                <Link href="/archive">
-                  <button className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ml-1">
-                    <Archive className="w-4 h-4" />
+                {/* Archive */}
+                <SidebarTooltip label="Archive" side="bottom">
+                  <Link href="/archive">
+                    <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">
+                      <Archive className="w-4 h-4" />
+                    </button>
+                  </Link>
+                </SidebarTooltip>
+
+                {/* Divider */}
+                <div className="w-px h-5 bg-slate-200 mx-1.5" />
+
+                {/* Collapse */}
+                <SidebarTooltip label="Collapse Sidebar" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(true)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                  >
+                    <PanelLeftClose className="w-4 h-4" />
                   </button>
-                </Link>
-              </SidebarTooltip>
-
-              {/* Divider */}
-              <div className="w-px h-5 bg-sidebar-border/60 mx-2" />
-
-              {/* Collapse */}
-              <SidebarTooltip label="Collapse Sidebar" side="bottom">
-                <button
-                  onClick={() => setCollapsed(true)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-                >
-                  <PanelLeftClose className="w-4 h-4" />
-                </button>
-              </SidebarTooltip>
+                </SidebarTooltip>
+              </div>
             </>
           )}
 
@@ -930,10 +962,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 onClick={() => setMobileNavOpen(false)}
                 className="flex items-center gap-3 min-w-0 hover:opacity-90 transition-opacity"
               >
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-semibold text-slate-900">ListingAuditor</span>
+                <SiteLogo variant="app" />
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">

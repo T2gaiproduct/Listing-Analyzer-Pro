@@ -197,7 +197,7 @@ export default function Features() {
       <section className="bg-slate-50 px-6 py-20">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl font-bold text-slate-900 text-center mb-3">See the difference AI makes</h2>
-          <p className="text-slate-500 text-center mb-12">Real examples of listings before and after ListingAuditor optimization.</p>
+          <p className="text-slate-500 text-center mb-12">Real examples of listings before and after SellerLens optimization.</p>
           <div className="space-y-8">
             {beforeAfter.map((ex) => (
               <div key={ex.label} className="grid grid-cols-1 md:grid-cols-2 gap-4">

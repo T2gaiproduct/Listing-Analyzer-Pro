@@ -137,7 +137,7 @@ export default function Help() {
     <div className="min-h-[100dvh] bg-white flex flex-col">
       <SeoHead
         title="Help Center"
-        description="Find answers, browse FAQs, and get support for ListingAuditor."
+        description="Find answers, browse FAQs, and get support for SellerLens."
       />
       <PublicNav />
 

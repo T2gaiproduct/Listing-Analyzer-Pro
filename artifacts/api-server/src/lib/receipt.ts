@@ -80,7 +80,7 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
 
   // ─── Header band ───────────────────────────────────────────────────────────
   doc.rect(m, m, w - m * 2, 100).fill(brand);
-  doc.fillColor("#fff").font("Helvetica-Bold").fontSize(22).text("ListingAuditor", m + 24, m + 28);
+  doc.fillColor("#fff").font("Helvetica-Bold").fontSize(22).text("SellerLens", m + 24, m + 28);
   doc.font("Helvetica").fontSize(12).text("AI-powered Amazon listing optimization", m + 24, m + 58);
   doc.font("Helvetica-Bold").fontSize(16).text("RECEIPT", w - m - 120, m + 38, { align: "right" });
 
@@ -169,7 +169,7 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
   doc.moveTo(m, w - m - 90).lineTo(w - m, w - m - 90).stroke(slate100);
   doc.fillColor(slate400).font("Helvetica").fontSize(9)
     .text("Thank you for your business. If you have questions, contact support@listingauditor.com.", m, w - m - 78, { width: w - m * 2, align: "center" });
-  doc.text("ListingAuditor · listingauditor.com", m, w - m - 62, { width: w - m * 2, align: "center" });
+  doc.text("SellerLens · listingauditor.com", m, w - m - 62, { width: w - m * 2, align: "center" });
 
   doc.end();
 

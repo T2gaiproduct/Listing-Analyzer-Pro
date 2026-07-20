@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Search, Globe, Users, FileText, Lock, Wallet } from "lucide-react";
+import { Check, ChevronRight, CreditCard, Gift, Zap, Image, BarChart3, ArrowLeft, Tag, Shield, RefreshCw, Globe, Users, FileText, Lock, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { BrandingHead } from "@/components/branding-head";
+import { SiteLogo } from "@/components/site-logo";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 import { COUNTRIES } from "@/lib/countries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -42,19 +45,39 @@ interface PaymentConfig {
 function StepIndicator({ step, total }: { step: number; total: number }) {
   const labels = ["Your Profile", "Choose Plan", "Payment"];
   return (
-    <div className="flex items-center justify-center gap-0 mb-10">
-      {Array.from({ length: total }).map((_, i) => (
-        <div key={i} className="flex items-center">
-          <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold transition-all ${i < step ? "bg-orange-500 text-white" : i === step ? "bg-orange-100 text-orange-600 ring-2 ring-orange-400" : "bg-slate-100 text-slate-400"}`}>
-            {i < step ? <Check className="w-4 h-4" /> : i + 1}
-          </div>
-          <div className="flex flex-col items-center ml-2 mr-4">
-            <span className={`text-xs font-medium ${i === step ? "text-orange-600" : i < step ? "text-slate-600" : "text-slate-400"}`}>{labels[i]}</span>
-          </div>
-          {i < total - 1 && <div className={`w-12 h-0.5 mx-2 ${i < step ? "bg-orange-400" : "bg-slate-200"}`} />}
+    <>
+      {/* Mobile: compact progress */}
+      <div className="mb-8 sm:hidden px-1">
+        <p className="text-center text-sm font-medium text-slate-500 mb-3">
+          Step {step + 1} of {total}
+          <span className="text-slate-300 mx-2">·</span>
+          <span className="text-orange-600">{labels[step]}</span>
+        </p>
+        <div className="flex gap-2 justify-center max-w-xs mx-auto">
+          {Array.from({ length: total }).map((_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? "bg-orange-500" : "bg-slate-200"}`}
+            />
+          ))}
         </div>
-      ))}
-    </div>
+      </div>
+
+      {/* Desktop: full stepper */}
+      <div className="hidden sm:flex items-center justify-center gap-0 mb-10">
+        {Array.from({ length: total }).map((_, i) => (
+          <div key={i} className="flex items-center">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold transition-all ${i < step ? "bg-orange-500 text-white" : i === step ? "bg-orange-100 text-orange-600 ring-2 ring-orange-400" : "bg-slate-100 text-slate-400"}`}>
+              {i < step ? <Check className="w-4 h-4" /> : i + 1}
+            </div>
+            <div className="flex flex-col items-center ml-2 mr-4">
+              <span className={`text-xs font-medium whitespace-nowrap ${i === step ? "text-orange-600" : i < step ? "text-slate-600" : "text-slate-400"}`}>{labels[i]}</span>
+            </div>
+            {i < total - 1 && <div className={`w-12 h-0.5 mx-2 ${i < step ? "bg-orange-400" : "bg-slate-200"}`} />}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -183,10 +206,12 @@ export default function Onboarding() {
       };
       return fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-      void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-      void queryClient.invalidateQueries({ queryKey: ["credit-usage"] });
+    onSuccess: async () => {
+      queryClient.setQueryData(["user-profile-summary"], (prev: { onboardingCompleted?: boolean } | undefined) => ({
+        ...prev,
+        onboardingCompleted: true,
+      }));
+      await refetchCreditQueries(queryClient);
       setLocation("/dashboard");
     },
     onError: (e: Error) => { toast({ title: "Activation failed", description: e.message, variant: "destructive" }); },
@@ -262,30 +287,33 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col overflow-x-hidden">
+      <BrandingHead />
       {/* Header */}
-      <div className="h-16 border-b bg-white/80 backdrop-blur flex items-center px-8">
-        <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <Search className="w-5 h-5 text-orange-500" />
-          <span>Listing<span className="text-orange-500">Auditor</span></span>
+      <div className="min-h-14 sm:min-h-16 border-b bg-white/80 backdrop-blur flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-0 px-4 sm:px-8 py-3 sm:py-0">
+        <SiteLogo />
+        <div className="sm:ml-auto text-xs sm:text-sm text-slate-400 min-w-0 max-w-full">
+          <span className="hidden sm:inline">Signed in as </span>
+          <span className="sm:text-slate-400 text-slate-500 font-medium truncate block sm:inline">
+            {user.primaryEmailAddress?.emailAddress}
+          </span>
         </div>
-        <div className="ml-auto text-sm text-slate-400">Signed in as {user.primaryEmailAddress?.emailAddress}</div>
       </div>
 
-      <div className="flex-1 flex items-start justify-center py-12 px-4">
-        <div className="w-full max-w-3xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-slate-900">Set up your account</h1>
-            <p className="text-slate-500 mt-2">Just 3 quick steps to get started</p>
+      <div className="flex-1 flex items-start justify-center py-6 sm:py-12 px-4 sm:px-6">
+        <div className="w-full max-w-3xl min-w-0">
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Set up your account</h1>
+            <p className="text-slate-500 mt-2 text-sm sm:text-base">Just 3 quick steps to get started</p>
           </div>
           <StepIndicator step={step} total={3} />
 
           {/* Step 0 — Profile */}
           {step === 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 space-y-5">
-              <h2 className="text-xl font-bold text-slate-900">Tell us about yourself</h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-8 space-y-5">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900">Tell us about yourself</h2>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Full Name *</Label>
                   <Input className="mt-1" value={profile.fullName} onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} placeholder="Jane Smith" />
@@ -296,13 +324,13 @@ export default function Onboarding() {
                 </div>
                 <div>
                   <Label>Email Address</Label>
-                  <Input className="mt-1 bg-slate-50 text-slate-400" value={user.primaryEmailAddress?.emailAddress ?? ""} disabled />
+                  <Input className="mt-1 bg-slate-50 text-slate-400 truncate" value={user.primaryEmailAddress?.emailAddress ?? ""} disabled />
                 </div>
                 <div>
                   <Label>Phone Number</Label>
                   <Input className="mt-1" value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 (555) 000-0000" type="tel" />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <Label>Country *</Label>
                   <select
                     className="mt-1 w-full h-9 border border-input rounded-md bg-background px-3 text-sm"
@@ -318,7 +346,7 @@ export default function Onboarding() {
               {/* Optional fields */}
               <div className="border-t pt-4">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Optional Information</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs flex items-center gap-1.5"><FileText className="w-3 h-3 text-slate-400" />GST / Tax Number</Label>
                     <Input className="mt-1 text-sm" value={profile.gstNumber} onChange={(e) => setProfile((p) => ({ ...p, gstNumber: e.target.value }))} placeholder="GST1234567890" />
@@ -346,9 +374,9 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-stretch sm:justify-end pt-2">
                 <Button
-                  className="bg-orange-500 hover:bg-orange-600 px-8"
+                  className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto"
                   onClick={() => setStep(1)}
                   disabled={!profile.fullName || !profile.companyName || !profile.country}
                 >
@@ -361,10 +389,10 @@ export default function Onboarding() {
           {/* Step 1 — Plan selection */}
           {step === 1 && (
             <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-slate-900">Choose your plan</h2>
-                  <div className="flex items-center gap-2 bg-slate-100 rounded-full p-1">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">Choose your plan</h2>
+                  <div className="flex items-center gap-2 bg-slate-100 rounded-full p-1 self-start sm:self-auto">
                     <button onClick={() => setYearly(false)} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${!yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>Monthly</button>
                     <button onClick={() => setYearly(true)} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5 ${yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>
                       Yearly <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full">-20%</span>
@@ -422,9 +450,9 @@ export default function Onboarding() {
                 {/* Coupon code */}
                 <div className="mt-5 pt-5 border-t border-slate-100">
                   <Label className="text-sm flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-orange-500" />Have a coupon code?</Label>
-                  <div className="flex gap-2 mt-1.5">
-                    <Input className="max-w-xs font-mono uppercase" placeholder="LAUNCH20" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(""); }} />
-                    <Button variant="outline" onClick={() => validateCouponMutation.mutate(couponCode)} disabled={!couponCode || validateCouponMutation.isPending}>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-1.5">
+                    <Input className="sm:max-w-xs font-mono uppercase" placeholder="LAUNCH20" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(""); }} />
+                    <Button variant="outline" className="sm:flex-shrink-0" onClick={() => validateCouponMutation.mutate(couponCode)} disabled={!couponCode || validateCouponMutation.isPending}>
                       {validateCouponMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Apply"}
                     </Button>
                   </div>
@@ -433,9 +461,9 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="flex justify-between">
-                <Button variant="ghost" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
-                <Button className="bg-orange-500 hover:bg-orange-600 px-8" onClick={() => setStep(2)} disabled={!selectedPlanId}>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+                <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
+                <Button className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto" onClick={() => setStep(2)} disabled={!selectedPlanId}>
                   Continue <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
@@ -446,7 +474,7 @@ export default function Onboarding() {
           {step === 2 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="col-span-2 space-y-5">
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-5">Complete your setup</h2>
 
                   {/* Free plan info */}
@@ -519,10 +547,10 @@ export default function Onboarding() {
                   )}
                 </div>
 
-                <div className="flex justify-between">
-                  <Button variant="ghost" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+                  <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
                   <Button
-                    className={finalPrice === 0 ? "bg-green-600 hover:bg-green-700 px-8" : "bg-orange-500 hover:bg-orange-600 px-8"}
+                    className={`px-8 w-full sm:w-auto ${finalPrice === 0 ? "bg-green-600 hover:bg-green-700" : "bg-orange-500 hover:bg-orange-600"}`}
                     onClick={handleSubmit}
                     disabled={checkoutMutation.isPending || freePlanMutation.isPending}
                   >
