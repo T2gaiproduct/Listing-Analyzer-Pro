@@ -42,18 +42,18 @@ export default function AdminMarketingNavigation() {
   const createMutation = useMutation({
     mutationFn: (body: object) =>
       fetch(`${basePath}/api/admin/nav`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-nav"] }); setCreating(false); setForm(emptyForm); toast({ title: "Nav item added" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-nav"] }); qc.invalidateQueries({ queryKey: ["public-nav"] }); setCreating(false); setForm(emptyForm); toast({ title: "Nav item added" }); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...body }: { id: number } & object) =>
       fetch(`${basePath}/api/admin/nav/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-nav"] }); setEditingId(null); toast({ title: "Nav item updated" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-nav"] }); qc.invalidateQueries({ queryKey: ["public-nav"] }); setEditingId(null); toast({ title: "Nav item updated" }); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => fetch(`${basePath}/api/admin/nav/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-nav"] }); toast({ title: "Nav item deleted" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-nav"] }); qc.invalidateQueries({ queryKey: ["public-nav"] }); toast({ title: "Nav item deleted" }); },
   });
 
   function NavForm({ onSave, onCancel, isPending }: { onSave: () => void; onCancel: () => void; isPending: boolean }) {

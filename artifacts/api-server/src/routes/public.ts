@@ -7,7 +7,7 @@ import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
-  teamMembersTable, cmsContent, blogPosts, testimonials,
+  teamMembersTable, cmsContent, blogPosts, testimonials, navItems,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
@@ -59,6 +59,15 @@ router.get("/testimonials", async (_req, res): Promise<void> => {
     .from(testimonials)
     .where(eq(testimonials.isPublished, true))
     .orderBy(testimonials.sortOrder, testimonials.createdAt);
+  res.json(items);
+});
+
+router.get("/nav", async (_req, res): Promise<void> => {
+  const items = await db
+    .select()
+    .from(navItems)
+    .where(eq(navItems.isActive, true))
+    .orderBy(navItems.sortOrder, navItems.id);
   res.json(items);
 });
 

@@ -5,24 +5,46 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SiteLogo } from "@/components/site-logo";
 import { useBranding } from "@/hooks/use-branding";
+import { usePublicNav } from "@/hooks/use-public-nav";
 import { cmsText } from "@/lib/homepage-cms";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cn } from "@/lib/utils";
 
-const navLinks = [
-  { href: "/features", label: "Features" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/about", label: "About" },
-  { href: "/blog", label: "Blog" },
-  { href: "/tutorials", label: "Tutorials" },
-  { href: "/ads", label: "Manage Ads" },
-  { href: "/contact", label: "Contact" },
-];
+function PublicNavLink({
+  href,
+  label,
+  opensNewTab,
+  className,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  opensNewTab?: boolean;
+  className?: string;
+  onClick?: () => void;
+}) {
+  const isExternal = opensNewTab || href.startsWith("http://") || href.startsWith("https://");
+
+  if (isExternal) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={className} onClick={onClick}>
+        {label}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={className} onClick={onClick}>
+      {label}
+    </Link>
+  );
+}
 
 export function PublicNav() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const cms = useHomepageCmsContext();
+  const { headerLinks } = usePublicNav();
   const signInText = cmsText(cms, "nav.sign_in_text");
   const signInUrl = cmsText(cms, "nav.sign_in_url");
   const ctaText = cmsText(cms, "nav.cta_text");
@@ -35,19 +57,19 @@ export function PublicNav() {
           <SiteLogo />
         </Link>
         <nav className="hidden lg:flex items-center gap-0.5">
-          {navLinks.map((l) => (
-            <Link
-              key={l.href}
+          {headerLinks.map((l) => (
+            <PublicNavLink
+              key={l.id}
               href={l.href}
+              label={l.label}
+              opensNewTab={l.opensNewTab}
               className={cn(
                 "px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 location === l.href
                   ? "text-orange-600"
                   : "text-slate-600 hover:text-slate-900",
               )}
-            >
-              {l.label}
-            </Link>
+            />
           ))}
         </nav>
       </div>
@@ -80,19 +102,18 @@ export function PublicNav() {
             </Link>
           </div>
           <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-            {navLinks.map((l) => (
-              <Link key={l.href} href={l.href}>
-                <button
-                  type="button"
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl text-sm font-medium min-h-11 transition-colors",
-                    location === l.href ? "bg-orange-50 text-orange-600" : "text-slate-700 hover:bg-slate-100",
-                  )}
-                >
-                  {l.label}
-                </button>
-              </Link>
+            {headerLinks.map((l) => (
+              <PublicNavLink
+                key={l.id}
+                href={l.href}
+                label={l.label}
+                opensNewTab={l.opensNewTab}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "block w-full text-left px-4 py-3 rounded-xl text-sm font-medium min-h-11 transition-colors",
+                  location === l.href ? "bg-orange-50 text-orange-600" : "text-slate-700 hover:bg-slate-100",
+                )}
+              />
             ))}
           </nav>
           <div className="p-4 border-t border-slate-200 space-y-2">
@@ -139,43 +160,6 @@ function FooterNewsletter() {
   );
 }
 
-const footerColumns = [
-  {
-    title: "Product",
-    links: [
-      ["Features", "/features"],
-      ["Pricing", "/pricing"],
-      ["Integrations", "/enterprise"],
-      ["Manage Ads", "/ads"],
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      ["About Us", "/about"],
-      ["Careers", "/about"],
-      ["Contact", "/contact"],
-    ],
-  },
-  {
-    title: "Resources",
-    links: [
-      ["Blog", "/blog"],
-      ["Tutorials", "/tutorials"],
-      ["Help Center", "/help"],
-      ["API Docs", "/help"],
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      ["Privacy Policy", "/privacy"],
-      ["Terms of Service", "/terms"],
-      ["Refund Policy", "/terms"],
-    ],
-  },
-];
-
 const socialIconMap = {
   facebook: Facebook,
   twitter: Twitter,
@@ -183,9 +167,30 @@ const socialIconMap = {
   youtube: Youtube,
 } as const;
 
+function FooterLinkList({ links }: { links: { id: number; label: string; href: string; opensNewTab: boolean }[] }) {
+  return (
+    <div className="col-span-2 lg:col-span-4 min-w-0">
+      <p className="font-semibold text-white text-sm mb-3 sm:mb-4">Links</p>
+      <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 sm:gap-y-2.5">
+        {links.map((link) => (
+          <li key={link.id}>
+            <PublicNavLink
+              href={link.href}
+              label={link.label}
+              opensNewTab={link.opensNewTab}
+              className="text-sm hover:text-white transition-colors break-words"
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function PublicFooter() {
   const { platformName } = useBranding();
   const cms = useHomepageCmsContext();
+  const { footerLinks } = usePublicNav();
   const year = new Date().getFullYear();
   const tagline = cmsText(cms, "footer.tagline");
   const copyright = cmsText(cms, "footer.copyright");
@@ -227,20 +232,7 @@ export function PublicFooter() {
             </div>
           </div>
 
-          {footerColumns.map((col) => (
-            <div key={col.title} className="min-w-0">
-              <p className="font-semibold text-white text-sm mb-3 sm:mb-4">{col.title}</p>
-              <ul className="space-y-2 sm:space-y-2.5">
-                {col.links.map(([label, href]) => (
-                  <li key={label}>
-                    <Link href={href} className="text-sm hover:text-white transition-colors break-words">
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <FooterLinkList links={footerLinks} />
 
           <div className="col-span-2 lg:col-span-6 min-w-0">
             <p className="font-semibold text-white text-sm mb-2">Stay updated</p>
