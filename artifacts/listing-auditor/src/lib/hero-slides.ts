@@ -11,11 +11,14 @@ export interface HeroSlide {
   ctaPrimaryUrl: string;
   ctaSecondaryText: string;
   ctaSecondaryUrl: string;
+  imageUrl: string;
 }
 
 export const HERO_SLIDES_JSON_KEY = "hero.slides_json";
 export const HERO_AUTOPLAY_ENABLED_KEY = "hero.autoplay_enabled";
 export const HERO_AUTOPLAY_INTERVAL_KEY = "hero.autoplay_interval";
+
+export const DEFAULT_HERO_SLIDE_IMAGE = "/hero/dashboard-mockup.png";
 
 export function createHeroSlide(partial?: Partial<HeroSlide>): HeroSlide {
   return {
@@ -29,6 +32,7 @@ export function createHeroSlide(partial?: Partial<HeroSlide>): HeroSlide {
     ctaPrimaryUrl: partial?.ctaPrimaryUrl ?? "/sign-up",
     ctaSecondaryText: partial?.ctaSecondaryText ?? "See How It Works",
     ctaSecondaryUrl: partial?.ctaSecondaryUrl ?? "/features",
+    imageUrl: partial?.imageUrl ?? "",
   };
 }
 
@@ -43,6 +47,7 @@ export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
     ctaPrimaryUrl: "/sign-up",
     ctaSecondaryText: "See How It Works",
     ctaSecondaryUrl: "/features",
+    imageUrl: DEFAULT_HERO_SLIDE_IMAGE,
   }),
 ];
 
@@ -57,6 +62,7 @@ function legacySlideFromCms(cms: HomepageCmsMap): HeroSlide {
     ctaPrimaryUrl: cmsText(cms, "hero.cta_primary_url"),
     ctaSecondaryText: cmsText(cms, "hero.cta_secondary_text"),
     ctaSecondaryUrl: cmsText(cms, "hero.cta_secondary_url"),
+    imageUrl: DEFAULT_HERO_SLIDE_IMAGE,
   });
 }
 
@@ -72,6 +78,7 @@ function normalizeSlide(raw: Partial<HeroSlide>): HeroSlide {
     ctaPrimaryUrl: raw.ctaPrimaryUrl ?? "",
     ctaSecondaryText: raw.ctaSecondaryText ?? "",
     ctaSecondaryUrl: raw.ctaSecondaryUrl ?? "",
+    imageUrl: raw.imageUrl ?? "",
   });
 }
 

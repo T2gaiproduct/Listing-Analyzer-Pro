@@ -12,7 +12,6 @@ import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
 import { PromoBanner } from "@/components/promo-banner";
 import { SeoHead } from "@/components/seo-head";
-import { HeroDashboardMockup } from "@/components/hero-dashboard-mockup";
 import { HeroSlider } from "@/components/hero-slider";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
@@ -707,29 +706,24 @@ export default function Landing() {
       {cmsEnabled(cms, "hero") && (
       <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
-        <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
-          <div className="min-w-0">
-            {heroSlides.length > 0 && (
-              <HeroSlider
-                slides={heroSlides}
-                autoplay={heroAutoplayEnabled(cms)}
-                autoplayIntervalMs={heroAutoplayIntervalMs(cms)}
-              />
-            )}
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
-              {heroStats.map((s) => (
-                <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
-                  <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center mb-1 shrink-0">
-                    <s.icon className="w-3.5 h-3.5 text-orange-500" />
-                  </div>
-                  <p className="text-xs sm:text-lg lg:text-xl font-bold text-slate-900 leading-tight">{s.value}</p>
-                  <p className="text-[9px] sm:text-xs text-slate-500 leading-snug mt-0.5">{s.label}</p>
+        <div className="relative max-w-6xl mx-auto">
+          {heroSlides.length > 0 && (
+            <HeroSlider
+              slides={heroSlides}
+              autoplay={heroAutoplayEnabled(cms)}
+              autoplayIntervalMs={heroAutoplayIntervalMs(cms)}
+            />
+          )}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
+            {heroStats.map((s) => (
+              <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
+                <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center mb-1 shrink-0">
+                  <s.icon className="w-3.5 h-3.5 text-orange-500" />
                 </div>
-              ))}
-            </div>
-          </div>
-          <div className="hidden lg:block min-w-0 w-full">
-            <HeroDashboardMockup />
+                <p className="text-xs sm:text-lg lg:text-xl font-bold text-slate-900 leading-tight">{s.value}</p>
+                <p className="text-[9px] sm:text-xs text-slate-500 leading-snug mt-0.5">{s.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
