@@ -23,6 +23,7 @@ export const Help = lazy(() => import("@/pages/help"));
 export const Enterprise = lazy(() => import("@/pages/enterprise"));
 export const About = lazy(() => import("@/pages/about"));
 export const Blog = lazy(() => import("@/pages/blog"));
+export const BlogPost = lazy(() => import("@/pages/blog-post"));
 export const Terms = lazy(() => import("@/pages/terms"));
 export const Privacy = lazy(() => import("@/pages/privacy"));
 export const Tutorials = lazy(() => import("@/pages/tutorials"));

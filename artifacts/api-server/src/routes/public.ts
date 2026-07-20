@@ -7,7 +7,7 @@ import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
-  teamMembersTable, cmsContent,
+  teamMembersTable, cmsContent, blogPosts,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
@@ -60,6 +60,28 @@ router.get("/cms/homepage", async (_req, res): Promise<void> => {
     map[`${r.sectionKey}.${r.fieldKey}`] = r.value ?? "";
   }
   res.json(map);
+});
+
+router.get("/blog", async (_req, res): Promise<void> => {
+  const posts = await db
+    .select()
+    .from(blogPosts)
+    .where(eq(blogPosts.status, "published"))
+    .orderBy(desc(blogPosts.publishedAt), desc(blogPosts.createdAt));
+  res.json(posts);
+});
+
+router.get("/blog/:slug", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "");
+  const [post] = await db
+    .select()
+    .from(blogPosts)
+    .where(and(eq(blogPosts.slug, slug), eq(blogPosts.status, "published")));
+  if (!post) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(post);
 });
 
 const BRANDING_KEYS = ["platform_name", "site_logo_url", "site_favicon_url"] as const;
