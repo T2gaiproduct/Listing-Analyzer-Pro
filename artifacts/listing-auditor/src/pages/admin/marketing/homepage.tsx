@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Save, RefreshCw, Home, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,14 +73,16 @@ export default function AdminMarketingHomepage() {
   );
   const [dirty, setDirty] = useState(false);
 
-  const { isLoading } = useQuery({
+  const { isLoading, data: cmsData } = useQuery({
     queryKey: ["admin-cms-homepage"],
     queryFn: () => fetchCms("homepage"),
-    onSuccess: (d: HomepageCmsMap) => {
-      setLocalData(mergeHomepageCms(d));
-      setDirty(false);
-    },
-  } as Parameters<typeof useQuery>[0]);
+  });
+
+  useEffect(() => {
+    if (cmsData && !dirty) {
+      setLocalData(mergeHomepageCms(cmsData));
+    }
+  }, [cmsData, dirty]);
 
   const saveMutation = useMutation({
     mutationFn: (data: HomepageCmsMap) =>
