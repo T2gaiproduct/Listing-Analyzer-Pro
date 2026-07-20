@@ -142,6 +142,13 @@ export default function Profile() {
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ["user-profile"] });
       qc.invalidateQueries({ queryKey: ["user-profile-summary"] });
+      qc.setQueryData(["user-profile-summary"], (prev: {
+        profile?: { fullName?: string | null };
+        accountRole?: { type: string; label: string };
+      } | undefined) => ({
+        ...prev,
+        profile: { ...(prev?.profile ?? {}), fullName: form.fullName },
+      }));
       setEditing(false);
       toast({ title: "Profile updated" });
       // Sync fullName back to Clerk so sidebar reflects it immediately
