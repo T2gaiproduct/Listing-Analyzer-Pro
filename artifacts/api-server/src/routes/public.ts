@@ -216,6 +216,7 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
+  const [existing] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   const profile = await upsertUserProfile(userId, {
     ...(fullName !== undefined && { fullName: String(fullName) }),
     ...(companyName !== undefined && { companyName: String(companyName) }),
@@ -224,6 +225,7 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
     ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
     ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
     ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
+    ...(existing?.onboardingCompleted && { onboardingCompleted: true }),
   });
   res.json(profile);
 });

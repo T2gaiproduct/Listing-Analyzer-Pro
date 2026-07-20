@@ -140,15 +140,8 @@ export default function Profile() {
     mutationFn: (body: object) =>
       fetch(`${basePath}/api/profile`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
     onSuccess: async () => {
-      qc.invalidateQueries({ queryKey: ["user-profile"] });
-      qc.invalidateQueries({ queryKey: ["user-profile-summary"] });
-      qc.setQueryData(["user-profile-summary"], (prev: {
-        profile?: { fullName?: string | null };
-        accountRole?: { type: string; label: string };
-      } | undefined) => ({
-        ...prev,
-        profile: { ...(prev?.profile ?? {}), fullName: form.fullName },
-      }));
+      await qc.invalidateQueries({ queryKey: ["user-profile"] });
+      await qc.invalidateQueries({ queryKey: ["user-profile-summary"] });
       setEditing(false);
       toast({ title: "Profile updated" });
       // Sync fullName back to Clerk so sidebar reflects it immediately

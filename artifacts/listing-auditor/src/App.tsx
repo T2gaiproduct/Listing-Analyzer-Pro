@@ -243,7 +243,7 @@ function HomeRedirect() {
   if (envAdmin) return <Redirect to="/admin/dashboard" />;
   if (!adminLoaded) return <AuthLoading />;
   if (isAdmin) return <Redirect to="/admin/dashboard" />;
-  if (summary && !summary.onboardingCompleted) return <Redirect to="/onboarding" />;
+  if (summary?.onboardingCompleted === false) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
 
@@ -254,7 +254,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { data: summary } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  if (user && !isAdminUser && summary && !summary.onboardingCompleted) {
+  if (user && !isAdminUser && summary?.onboardingCompleted === false) {
     return <Redirect to="/onboarding" />;
   }
   const Shell = isAdminUser ? AdminLayout : Layout;
