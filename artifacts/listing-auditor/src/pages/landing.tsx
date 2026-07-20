@@ -156,11 +156,14 @@ function FeatureMobileStack() {
 }
 
 const portfolioItems = [
-  { title: "Product Images", brand: "Home & Kitchen", image: `${basePath}/portfolio/product-hydration-kit.png`, badge: null },
-  { title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
-  { title: "Lifestyle Images", brand: "TIMEWEAR", image: `${basePath}/portfolio/lifestyle-timewear.png`, badge: "NEW" },
-  { title: "Infographic", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null },
-  { title: "Size Chart", brand: "TIMEWEAR", image: `${basePath}/portfolio/size-chart-timewear.png`, badge: null },
+  { id: "product", title: "Product Images", brand: "Home & Kitchen", image: `${basePath}/portfolio/product-hydration-kit.png`, badge: null },
+  { id: "aplus-hero", title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
+  { id: "lifestyle", title: "Lifestyle Images", brand: "TIMEWEAR", image: `${basePath}/portfolio/lifestyle-timewear.png`, badge: "NEW" },
+  { id: "infographic", title: "Infographic", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null },
+  { id: "size-chart", title: "Size Chart", brand: "TIMEWEAR", image: `${basePath}/portfolio/size-chart-timewear.png`, badge: null },
+  { id: "aplus-banner", title: "A+ Hero Banner", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
+  { id: "infographic-features", title: "Feature Highlights", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null },
+  { id: "aplus-story", title: "Brand Story Module", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
 ];
 
 const workflowSteps = [
@@ -192,13 +195,13 @@ function PortfolioGrid() {
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
       {portfolioItems.map((item, index) => (
         <div
-          key={item.title}
-          className="group relative aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-white shadow-sm hover:shadow-lg transition-all duration-300"
+          key={item.id}
+          className="group relative aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300"
         >
           <img
             src={item.image}
             alt={`${item.title} — ${item.brand}`}
-            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
+            className="absolute inset-0 w-full h-full object-contain object-center p-2 sm:p-3"
             loading={index < 4 ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={index < 4 ? "high" : "auto"}
