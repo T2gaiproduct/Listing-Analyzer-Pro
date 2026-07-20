@@ -10,6 +10,8 @@ import { cmsText } from "@/lib/homepage-cms";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cn } from "@/lib/utils";
 
+import type { NavLink } from "@/lib/public-nav";
+
 function PublicNavLink({
   href,
   label,
@@ -40,11 +42,118 @@ function PublicNavLink({
   );
 }
 
+function NavCtaButton({
+  cta,
+  primary,
+  stacked,
+  className,
+  onClick,
+}: {
+  cta: NavLink;
+  primary: boolean;
+  stacked?: boolean;
+  className?: string;
+  onClick?: () => void;
+}) {
+  const isExternal = cta.opensNewTab || cta.href.startsWith("http://") || cta.href.startsWith("https://");
+
+  return (
+    <Button
+      variant={primary ? "default" : stacked ? "outline" : "ghost"}
+      size="sm"
+      className={cn(
+        primary
+          ? "bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm"
+          : stacked
+            ? "w-full min-h-11"
+            : "hidden sm:inline-flex text-slate-600 hover:text-slate-900",
+        className,
+      )}
+      asChild
+    >
+      {isExternal ? (
+        <a href={cta.href} target="_blank" rel="noopener noreferrer" onClick={onClick}>
+          {cta.label}
+        </a>
+      ) : (
+        <Link href={cta.href} onClick={onClick}>
+          {primary ? (
+            <>
+              <span className="sm:hidden">{cta.label.split(" ").slice(0, 2).join(" ")}</span>
+              <span className="hidden sm:inline">{cta.label}</span>
+            </>
+          ) : (
+            cta.label
+          )}
+        </Link>
+      )}
+    </Button>
+  );
+}
+
+function HeaderActionButtons({
+  headerCtas,
+  signInText,
+  signInUrl,
+  ctaText,
+  ctaUrl,
+  stacked,
+  onNavigate,
+}: {
+  headerCtas: NavLink[];
+  signInText: string;
+  signInUrl: string;
+  ctaText: string;
+  ctaUrl: string;
+  stacked?: boolean;
+  onNavigate?: () => void;
+}) {
+  if (headerCtas.length > 0) {
+    return (
+      <>
+        {headerCtas.map((cta, index) => (
+          <NavCtaButton
+            key={cta.id}
+            cta={cta}
+            primary={index === headerCtas.length - 1}
+            stacked={stacked}
+            className={stacked ? "w-full min-h-11" : index < headerCtas.length - 1 ? undefined : undefined}
+            onClick={onNavigate}
+          />
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant={stacked ? "outline" : "ghost"}
+        size="sm"
+        className={stacked ? "w-full min-h-11" : "hidden sm:inline-flex text-slate-600 hover:text-slate-900 w-full min-h-11 sm:w-auto"}
+        asChild
+      >
+        <Link href={signInUrl} onClick={onNavigate}>{signInText}</Link>
+      </Button>
+      <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm w-full min-h-11 sm:w-auto" asChild>
+        <Link href={ctaUrl} onClick={onNavigate}>
+          {stacked ? ctaText : (
+            <>
+              <span className="sm:hidden">{ctaText.split(" ").slice(0, 2).join(" ")}</span>
+              <span className="hidden sm:inline">{ctaText}</span>
+            </>
+          )}
+        </Link>
+      </Button>
+    </>
+  );
+}
+
 export function PublicNav() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const cms = useHomepageCmsContext();
-  const { headerLinks } = usePublicNav();
+  const { headerLinks, headerCtas } = usePublicNav();
   const signInText = cmsText(cms, "nav.sign_in_text");
   const signInUrl = cmsText(cms, "nav.sign_in_url");
   const ctaText = cmsText(cms, "nav.cta_text");
@@ -74,15 +183,13 @@ export function PublicNav() {
         </nav>
       </div>
       <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-        <Button variant="ghost" size="sm" className="hidden sm:inline-flex text-slate-600 hover:text-slate-900" asChild>
-          <Link href={signInUrl}>{signInText}</Link>
-        </Button>
-        <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm" asChild>
-          <Link href={ctaUrl}>
-            <span className="sm:hidden">{ctaText.split(" ").slice(0, 2).join(" ")}</span>
-            <span className="hidden sm:inline">{ctaText}</span>
-          </Link>
-        </Button>
+        <HeaderActionButtons
+          headerCtas={headerCtas}
+          signInText={signInText}
+          signInUrl={signInUrl}
+          ctaText={ctaText}
+          ctaUrl={ctaUrl}
+        />
         <button
           type="button"
           className="lg:hidden touch-target flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 p-2"
@@ -117,12 +224,15 @@ export function PublicNav() {
             ))}
           </nav>
           <div className="p-4 border-t border-slate-200 space-y-2">
-            <Button variant="outline" className="w-full min-h-11" asChild>
-              <Link href={signInUrl} onClick={() => setMobileOpen(false)}>{signInText}</Link>
-            </Button>
-            <Button className="w-full min-h-11 bg-orange-500 hover:bg-orange-600" asChild>
-              <Link href={ctaUrl} onClick={() => setMobileOpen(false)}>{ctaText}</Link>
-            </Button>
+            <HeaderActionButtons
+              headerCtas={headerCtas}
+              signInText={signInText}
+              signInUrl={signInUrl}
+              ctaText={ctaText}
+              ctaUrl={ctaUrl}
+              stacked
+              onNavigate={() => setMobileOpen(false)}
+            />
           </div>
         </SheetContent>
       </Sheet>

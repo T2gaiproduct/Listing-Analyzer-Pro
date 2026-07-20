@@ -36,3 +36,12 @@ export function navItemsForLocation(items: PublicNavItem[], location: "header" |
     .filter((item) => item.isActive && !item.isCta && (item.location === location || item.location === "both"))
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
 }
+
+export type NavLink = { id: number; label: string; href: string; opensNewTab: boolean };
+
+export function navCtasForLocation(items: PublicNavItem[], location: "header" | "footer"): NavLink[] {
+  return items
+    .filter((item) => item.isActive && item.isCta && (item.location === location || item.location === "both"))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
+    .map((item) => ({ id: item.id, label: item.label, href: item.href, opensNewTab: item.opensNewTab }));
+}

@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { DEFAULT_FOOTER_NAV, DEFAULT_HEADER_NAV, type PublicNavItem } from "@/lib/public-nav";
+import {
+  DEFAULT_FOOTER_NAV,
+  DEFAULT_HEADER_NAV,
+  navCtasForLocation,
+  navItemsForLocation,
+  type NavLink,
+  type PublicNavItem,
+} from "@/lib/public-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -9,11 +16,17 @@ async function fetchPublicNav(): Promise<PublicNavItem[]> {
   return res.json();
 }
 
-function mapNavItems(items: PublicNavItem[], location: "header" | "footer") {
-  return items
-    .filter((item) => item.isActive && !item.isCta && (item.location === location || item.location === "both"))
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
-    .map((item) => ({ id: item.id, label: item.label, href: item.href, opensNewTab: item.opensNewTab }));
+function mapNavLinks(items: PublicNavItem[], location: "header" | "footer"): NavLink[] {
+  return navItemsForLocation(items, location).map((item) => ({
+    id: item.id,
+    label: item.label,
+    href: item.href,
+    opensNewTab: item.opensNewTab,
+  }));
+}
+
+function hasLocationConfig(items: PublicNavItem[], location: "header" | "footer") {
+  return items.some((item) => item.isActive && (item.location === location || item.location === "both"));
 }
 
 export function usePublicNav() {
@@ -24,16 +37,18 @@ export function usePublicNav() {
   });
 
   const items = query.data ?? [];
-  const headerFromDb = mapNavItems(items, "header");
-  const footerFromDb = mapNavItems(items, "footer");
+  const headerFromDb = mapNavLinks(items, "header");
+  const footerFromDb = mapNavLinks(items, "footer");
+  const headerCtas = navCtasForLocation(items, "header");
+  const footerCtas = navCtasForLocation(items, "footer");
 
-  const headerLinks = headerFromDb.length > 0
+  const headerLinks = hasLocationConfig(items, "header")
     ? headerFromDb
     : DEFAULT_HEADER_NAV.map((item, index) => ({ id: index, ...item, opensNewTab: false }));
 
-  const footerLinks = footerFromDb.length > 0
-    ? footerFromDb
+  const footerLinks = hasLocationConfig(items, "footer")
+    ? [...footerFromDb, ...footerCtas]
     : DEFAULT_FOOTER_NAV.map((item, index) => ({ id: index, ...item, opensNewTab: false }));
 
-  return { headerLinks, footerLinks, isLoading: query.isLoading };
+  return { headerLinks, footerLinks, headerCtas, footerCtas, isLoading: query.isLoading };
 }
