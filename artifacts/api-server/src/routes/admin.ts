@@ -18,6 +18,7 @@ import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
+import { savePortfolioImageFromDataUrl } from "../lib/portfolio-image-storage";
 
 const router: IRouter = Router();
 
@@ -1482,6 +1483,20 @@ router.post("/admin/hero-image", requireAdmin, async (req, res): Promise<void> =
       return;
     }
     const url = saveHeroImageFromDataUrl(dataUrl, filename);
+    res.status(201).json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });
+  }
+});
+
+router.post("/admin/portfolio-image", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const { dataUrl, filename } = req.body as { dataUrl?: string; filename?: string };
+    if (!dataUrl) {
+      res.status(400).json({ error: "No image data provided" });
+      return;
+    }
+    const url = savePortfolioImageFromDataUrl(dataUrl, filename);
     res.status(201).json({ url });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });
