@@ -82,9 +82,11 @@ export function DashboardTopbar({
   const [helpOpen, setHelpOpen] = useState(false);
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
-  const profileSubtitle = planLabel && planLabel !== "No plan"
-    ? `${roleLabel} · ${planLabel}`
-    : roleLabel;
+  const profileSubtitle = variant === "admin"
+    ? roleLabel
+    : planLabel && planLabel !== "No plan"
+      ? `${roleLabel} · ${planLabel}`
+      : roleLabel;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -298,7 +300,7 @@ export function DashboardTopbar({
                   <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
                   <p className="text-xs text-slate-500 truncate">{email}</p>
                   <p className="text-xs text-orange-600 font-medium mt-0.5">{roleLabel}</p>
-                  {planLabel && planLabel !== "No plan" && (
+                  {variant !== "admin" && planLabel && planLabel !== "No plan" && (
                     <p className="text-xs text-slate-400 mt-0.5">{planLabel}</p>
                   )}
                 </div>

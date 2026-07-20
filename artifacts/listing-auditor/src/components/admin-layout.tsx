@@ -275,16 +275,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   const { placeholder: searchPlaceholder, scope: searchScope } = getAdminSearchContext(location);
 
-  const { data: subscription } = useQuery<{
-    planName?: string | null;
-    status?: string | null;
-  }>({
-    queryKey: ["user-subscription"],
-    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
-    enabled: clerkLoaded && !!user,
-    staleTime: 30_000,
-  });
-
   const { data: profileData } = useQuery<{
     profile: { fullName: string | null } | null;
     accountRole?: { type: string; label: string };
@@ -332,12 +322,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     }
     return source?.[0]?.toUpperCase() ?? "A";
   })();
-  const planName = subscription?.planName ?? null;
-  const planLabel = planName
-    ? `${planName} Plan`
-    : subscription?.status
-      ? "Active Plan"
-      : "No plan";
   const roleLabel = profileData?.accountRole?.label ?? "Admin";
 
   useEffect(() => {
@@ -471,7 +455,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           displayName={displayName}
           initials={initials}
           email={userEmail}
-          planLabel={planLabel}
+          planLabel=""
           roleLabel={roleLabel}
           onMenuClick={() => setMobileNavOpen(true)}
         />
