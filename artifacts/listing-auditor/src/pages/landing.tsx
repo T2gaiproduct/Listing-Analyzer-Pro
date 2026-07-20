@@ -156,14 +156,14 @@ function FeatureMobileStack() {
 }
 
 const portfolioItems = [
-  { id: "product", title: "Product Images", brand: "Home & Kitchen", image: `${basePath}/portfolio/product-hydration-kit.png`, badge: null },
-  { id: "aplus-hero", title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
-  { id: "lifestyle", title: "Lifestyle Images", brand: "TIMEWEAR", image: `${basePath}/portfolio/lifestyle-timewear.png`, badge: "NEW" },
-  { id: "infographic", title: "Infographic", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null },
-  { id: "size-chart", title: "Size Chart", brand: "TIMEWEAR", image: `${basePath}/portfolio/size-chart-timewear.png`, badge: null },
-  { id: "aplus-banner", title: "A+ Hero Banner", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
-  { id: "infographic-features", title: "Feature Highlights", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null },
-  { id: "aplus-story", title: "Brand Story Module", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
+  { id: "product", title: "Product Images", brand: "Home & Kitchen", image: `${basePath}/portfolio/product-hydration-kit.png`, badge: null, square: true },
+  { id: "aplus-hero", title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null, square: false },
+  { id: "lifestyle", title: "Lifestyle Images", brand: "TIMEWEAR", image: `${basePath}/portfolio/lifestyle-timewear.png`, badge: "NEW", square: false },
+  { id: "infographic", title: "Infographic", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null, square: false },
+  { id: "size-chart", title: "Size Chart", brand: "TIMEWEAR", image: `${basePath}/portfolio/size-chart-timewear.png`, badge: null, square: false },
+  { id: "aplus-banner", title: "A+ Hero Banner", brand: "Premium Brands", image: `${basePath}/portfolio/portfolio-aplus-product-hero.jpg`, badge: null, square: true },
+  { id: "infographic-features", title: "Feature Highlights", brand: "Sports & Fitness", image: `${basePath}/portfolio/portfolio-infographic-fitness.jpg`, badge: null, square: true },
+  { id: "aplus-story", title: "Brand Story Module", brand: "Pet Essentials", image: `${basePath}/portfolio/portfolio-brand-story-pet.jpg`, badge: null, square: true },
 ];
 
 const workflowSteps = [
@@ -201,7 +201,10 @@ function PortfolioGrid() {
           <img
             src={item.image}
             alt={`${item.title} — ${item.brand}`}
-            className="absolute inset-0 w-full h-full object-contain object-center p-2 sm:p-3"
+            className={cn(
+              "absolute inset-0 w-full h-full object-center",
+              item.square ? "object-cover" : "object-contain p-2 sm:p-3",
+            )}
             loading={index < 4 ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={index < 4 ? "high" : "auto"}
