@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Upload, ImageIcon } from "lucide-react";
+import { Upload, ImageIcon, ImagePlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
+import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const PORTFOLIO_ITEM_COUNT = 8;
@@ -55,7 +56,10 @@ function PortfolioImageField({
   const previewUrl = imageUrl ? resolveCmsAssetUrl(imageUrl, basePath) : "";
 
   async function handleFile(file: File | undefined) {
-    if (!file || !file.type.startsWith("image/")) return;
+    if (!file || !file.type.startsWith("image/")) {
+      toast({ title: "Please choose an image file", variant: "destructive" });
+      return;
+    }
     setUploading(true);
     try {
       const url = await uploadPortfolioImage(file);
@@ -69,52 +73,113 @@ function PortfolioImageField({
       });
     } finally {
       setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
+  function openFilePicker() {
+    inputRef.current?.click();
+  }
+
   return (
-    <div className="space-y-2">
-      <Label className="text-xs text-slate-500">Image</Label>
-      {previewUrl && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 max-w-[200px]">
-          <img src={previewUrl} alt="" className="w-full h-auto rounded-md object-contain max-h-32" />
-        </div>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-3 pt-1 border-t border-slate-100">
+      <Label className="text-xs text-slate-500">Portfolio image</Label>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (!uploading) openFilePicker();
+          }
+        }}
+        onClick={() => {
+          if (!uploading) openFilePicker();
+        }}
+        className={cn(
+          "w-full rounded-xl border-2 border-dashed transition-colors text-left cursor-pointer",
+          "border-slate-200 bg-slate-50 hover:border-orange-300 hover:bg-orange-50/40",
+          uploading && "opacity-60 cursor-wait",
+        )}
+      >
+        {previewUrl ? (
+          <div className="p-3 space-y-3">
+            <div className="rounded-lg overflow-hidden border border-slate-200 bg-white max-h-48">
+              <img src={previewUrl} alt="" className="w-full h-auto max-h-48 object-contain" />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2" onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="button"
+                className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto"
+                size="sm"
+                disabled={uploading}
+                onClick={openFilePicker}
+              >
+                <Upload className="w-4 h-4 mr-1.5" />
+                {uploading ? "Uploading..." : "Replace image"}
+              </Button>
+              {imageUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  disabled={uploading}
+                  onClick={() => onImageChange("")}
+                >
+                  Remove image
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+              <ImagePlus className="w-6 h-6 text-orange-500" />
+            </div>
+            <p className="text-sm font-medium text-slate-700">
+              {uploading ? "Uploading..." : "Click to add portfolio image"}
+            </p>
+            <p className="text-xs text-slate-500">JPG, PNG, or WebP — max 5MB</p>
+            <Button
+              type="button"
+              className="bg-orange-500 hover:bg-orange-600 mt-1"
+              size="sm"
+              disabled={uploading}
+              onClick={(e) => {
+                e.stopPropagation();
+                openFilePicker();
+              }}
+            >
+              <Upload className="w-4 h-4 mr-1.5" />
+              Choose image
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <Label className="text-xs text-slate-500">Image URL (optional)</Label>
         <Input
-          className="h-8 text-sm flex-1 min-w-[180px]"
+          className="mt-1 h-8 text-sm w-full"
           value={imageUrl}
           onChange={(e) => onImageChange(e.target.value)}
-          placeholder="/portfolio/example.png or upload"
+          placeholder="/portfolio/example.png or /api/images/portfolio/..."
         />
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => handleFile(e.target.files?.[0])}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-        >
-          {uploading ? (
-            "Uploading..."
-          ) : (
-            <>
-              <Upload className="w-3.5 h-3.5 mr-1.5" />
-              Upload
-            </>
-          )}
-        </Button>
       </div>
-      <p className="text-[11px] text-slate-400 flex items-center gap-1">
-        <ImageIcon className="w-3 h-3" />
-        Upload a JPG, PNG, or WebP (max 5MB). Required for the tile to appear on the homepage.
+
+      <p className="text-[11px] text-slate-400 flex items-start gap-1">
+        <ImageIcon className="w-3 h-3 mt-0.5 shrink-0" />
+        Required for the tile to appear on the homepage. Save changes after uploading.
       </p>
     </div>
   );
@@ -146,6 +211,10 @@ export function PortfolioCmsEditor({ data, onChange }: PortfolioCmsEditorProps) 
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-3">
+                <PortfolioImageField
+                  imageUrl={data[imageKey] ?? ""}
+                  onImageChange={(url) => onChange(imageKey, url)}
+                />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs text-slate-500">Title</Label>
@@ -185,10 +254,6 @@ export function PortfolioCmsEditor({ data, onChange }: PortfolioCmsEditorProps) 
                     </select>
                   </div>
                 </div>
-                <PortfolioImageField
-                  imageUrl={data[imageKey] ?? ""}
-                  onImageChange={(url) => onChange(imageKey, url)}
-                />
               </CardContent>
             </Card>
           );
