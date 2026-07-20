@@ -55,24 +55,27 @@ export default function AdminMarketingTestimonials() {
   const createMutation = useMutation({
     mutationFn: (body: object) =>
       fetch(`${basePath}/api/admin/testimonials`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-testimonials"] }); setCreating(false); setForm(emptyForm); toast({ title: "Testimonial added" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-testimonials"] }); qc.invalidateQueries({ queryKey: ["public-testimonials"] }); setCreating(false); setForm(emptyForm); toast({ title: "Testimonial added" }); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...body }: { id: number; [k: string]: unknown }) =>
       fetch(`${basePath}/api/admin/testimonials/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-testimonials"] }); setEditingId(null); toast({ title: "Testimonial updated" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-testimonials"] }); qc.invalidateQueries({ queryKey: ["public-testimonials"] }); setEditingId(null); toast({ title: "Testimonial updated" }); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => fetch(`${basePath}/api/admin/testimonials/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-testimonials"] }); toast({ title: "Testimonial deleted" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-testimonials"] }); qc.invalidateQueries({ queryKey: ["public-testimonials"] }); toast({ title: "Testimonial deleted" }); },
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, isPublished }: { id: number; isPublished: boolean }) =>
       fetch(`${basePath}/api/admin/testimonials/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isPublished }) }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-testimonials"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["public-testimonials"] });
+    },
   });
 
   function f(key: keyof typeof emptyForm) {

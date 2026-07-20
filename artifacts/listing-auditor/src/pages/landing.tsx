@@ -5,7 +5,7 @@ import {
   ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
-  TrendingUp, Users, Search, Zap,
+  TrendingUp, Users, Search, Zap, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
@@ -520,6 +520,85 @@ interface DbFaq {
   answer: string;
 }
 
+interface DbTestimonial {
+  id: number;
+  name: string;
+  role: string | null;
+  company: string | null;
+  avatar: string | null;
+  content: string;
+  rating: number | null;
+  isVideo: boolean;
+  videoUrl: string | null;
+  sortOrder: number;
+}
+
+function LandingTestimonialsSection() {
+  const cms = useHomepageCmsContext();
+  const heading = cmsText(cms, "social.trusted_heading");
+
+  const { data: items = [], isLoading } = useQuery<DbTestimonial[]>({
+    queryKey: ["public-testimonials"],
+    queryFn: () => fetch(`${basePath}/api/testimonials`).then((r) => r.json()).catch(() => []),
+  });
+
+  if (isLoading || items.length === 0) return null;
+
+  const stats = [
+    { value: cmsText(cms, "social.stats_customers"), label: "Happy Customers" },
+    { value: cmsText(cms, "social.stats_audits"), label: "Audits Completed" },
+    { value: cmsText(cms, "social.stats_countries"), label: "Countries" },
+    { value: cmsText(cms, "social.stats_rating"), label: "Average Rating" },
+  ].filter((s) => s.value);
+
+  return (
+    <section className="px-4 sm:px-6 py-12 sm:py-16 lg:py-20 bg-slate-50 border-t border-slate-100">
+      <div className="max-w-6xl mx-auto">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-8 sm:mb-10">{heading}</h2>
+
+        {stats.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-10 sm:mb-12">
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center bg-white rounded-xl border border-slate-200 py-4 px-3">
+                <p className="text-2xl sm:text-3xl font-extrabold text-orange-500">{stat.value}</p>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {items.map((t) => (
+            <div key={t.id} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm h-full flex flex-col">
+              <div className="flex gap-0.5 mb-4">
+                {Array.from({ length: t.rating ?? 5 }).map((_, i) => (
+                  <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                ))}
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed mb-5 flex-1">"{t.content}"</p>
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+                {t.avatar ? (
+                  <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm shrink-0">
+                    {t.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm text-slate-900 truncate">{t.name}</p>
+                  {(t.role || t.company) && (
+                    <p className="text-xs text-slate-500 truncate">{[t.role, t.company].filter(Boolean).join(" · ")}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function LandingFaqSection() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const cms = useHomepageCmsContext();
@@ -788,6 +867,7 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "pricing") && <LandingPricingSection />}
+      {cmsEnabled(cms, "social") && <LandingTestimonialsSection />}
       {cmsEnabled(cms, "faq") && <LandingFaqSection />}
 
       {cmsEnabled(cms, "cta") && (
