@@ -71,6 +71,9 @@ export function DashboardTopbar({
   const [helpOpen, setHelpOpen] = useState(false);
 
   const totalCredits = credits.aiCredits + credits.imageCredits + credits.auditCredits;
+  const profileSubtitle = planLabel && planLabel !== "No plan"
+    ? `${roleLabel} · ${planLabel}`
+    : roleLabel;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -261,7 +264,7 @@ export function DashboardTopbar({
             </div>
             <div className="text-left hidden md:block min-w-0">
               <p className="text-sm font-semibold text-slate-900 leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{displayName}</p>
-              <p className="text-xs text-slate-500 leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{roleLabel}</p>
+              <p className="text-xs text-slate-500 leading-tight truncate max-w-[7.5rem] lg:max-w-[140px]">{profileSubtitle}</p>
             </div>
             <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform hidden sm:block", profileOpen && "rotate-180")} />
           </button>

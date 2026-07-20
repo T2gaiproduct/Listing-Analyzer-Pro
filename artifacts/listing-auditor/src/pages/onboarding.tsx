@@ -16,6 +16,22 @@ import { COUNTRIES } from "@/lib/countries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+async function syncClerkFullName(
+  user: NonNullable<ReturnType<typeof useUser>["user"]>,
+  fullName: string,
+) {
+  const trimmed = fullName.trim();
+  if (!trimmed) return;
+  const parts = trimmed.split(/\s+/);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ");
+  try {
+    await user.update({ firstName, lastName });
+  } catch {
+    // Non-fatal — profile is saved in Postgres
+  }
+}
+
 interface Plan {
   id: number;
   name: string;
@@ -207,7 +223,18 @@ export default function Onboarding() {
         if (!r.ok) throw new Error((await r.json()).error ?? "Failed to save profile");
         return r.json();
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      if (user && profile.fullName.trim()) {
+        await syncClerkFullName(user, profile.fullName);
+      }
+      queryClient.setQueryData(["user-profile-summary"], (prev: {
+        profile?: { fullName?: string | null };
+        accountRole?: { type: string; label: string };
+      } | undefined) => ({
+        ...prev,
+        profile: { ...(prev?.profile ?? {}), fullName: profile.fullName },
+        accountRole: prev?.accountRole ?? { type: "user", label: "User" },
+      }));
       void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
     },
@@ -235,9 +262,18 @@ export default function Onboarding() {
       return fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); });
     },
     onSuccess: async () => {
-      queryClient.setQueryData(["user-profile-summary"], (prev: { onboardingCompleted?: boolean } | undefined) => ({
+      if (user && profile.fullName.trim()) {
+        await syncClerkFullName(user, profile.fullName);
+      }
+      queryClient.setQueryData(["user-profile-summary"], (prev: {
+        onboardingCompleted?: boolean;
+        profile?: { fullName?: string | null };
+        accountRole?: { type: string; label: string };
+      } | undefined) => ({
         ...prev,
         onboardingCompleted: true,
+        profile: { ...(prev?.profile ?? {}), fullName: profile.fullName },
+        accountRole: prev?.accountRole ?? { type: "user", label: "User" },
       }));
       await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       await queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
@@ -259,8 +295,14 @@ export default function Onboarding() {
   const gatewayLabels: Record<string, string> = { stripe: "Stripe", razorpay: "Razorpay", paypal: "PayPal" };
   const gatewayDisplayName = gatewayLabels[gateway] ?? gatewayName;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!selectedPlan) return;
+
+    try {
+      await saveProfileMutation.mutateAsync();
+    } catch {
+      return;
+    }
 
     // Free plan — activate directly without payment gateway
     if (finalPrice === 0) {

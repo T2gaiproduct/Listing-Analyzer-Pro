@@ -120,7 +120,19 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
     mode: "subscription",
     success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: cancelUrl,
-    metadata: { userId, planId: String(planId), billingCycle, couponCode: couponCode ?? "" },
+    metadata: {
+      userId,
+      planId: String(planId),
+      billingCycle,
+      couponCode: couponCode ?? "",
+      fullName: fullName ?? "",
+      companyName: companyName ?? "",
+      phone: phone ?? "",
+      country: country ?? "",
+      gstNumber: gstNumber ?? "",
+      websiteUrl: websiteUrl ?? "",
+      teamSize: teamSize != null ? String(teamSize) : "",
+    },
     subscription_data: { metadata: { userId, planId: String(planId), billingCycle } },
   };
   if (stripeCouponId) sessionParams.discounts = [{ coupon: stripeCouponId }];
@@ -248,20 +260,28 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
     gateway: "stripe", gatewayPaymentId: sessionId,
   });
 
-  // Mark onboarding complete + persist Stripe customer ID
+  // Mark onboarding complete + persist Stripe customer ID and profile from session metadata
   const customerId = typeof session.customer === "string" ? session.customer : (session.customer as Stripe.Customer | null)?.id ?? null;
+  const meta = session.metadata ?? {};
+  const profileFromMeta = {
+    fullName: meta.fullName || undefined,
+    companyName: meta.companyName || undefined,
+    phone: meta.phone || undefined,
+    country: meta.country || undefined,
+    gstNumber: meta.gstNumber || undefined,
+    websiteUrl: meta.websiteUrl || undefined,
+    teamSize: meta.teamSize ? Number(meta.teamSize) : undefined,
+  };
+  const hasMetaProfile = hasRequiredProfileFields(profileFromMeta);
+
   const [profileRow] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-  if (profileRow) {
-    await upsertUserProfile(userId, {
-      onboardingCompleted: true,
-      stripeCustomerId: customerId ?? profileRow.stripeCustomerId,
-    });
-  } else {
-    await upsertUserProfile(userId, {
-      onboardingCompleted: true,
-      stripeCustomerId: customerId,
-    });
-  }
+  const needsProfileBackfill = !profileRow?.fullName && hasMetaProfile;
+
+  await upsertUserProfile(userId, {
+    onboardingCompleted: true,
+    stripeCustomerId: customerId ?? profileRow?.stripeCustomerId ?? null,
+    ...(needsProfileBackfill ? profileFromMeta : {}),
+  });
 
   // Consume coupon usage counter
   const cc = session.metadata?.couponCode;
