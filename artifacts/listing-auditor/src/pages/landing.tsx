@@ -16,6 +16,7 @@ import { MarketplaceLogos } from "@/components/marketplace-logos";
 import { HeroDashboardMockup } from "@/components/hero-dashboard-mockup";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
+import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -568,15 +569,41 @@ function LandingTestimonialsSection() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {items.map((t) => (
+          {items.map((t) => {
+            const embedUrl = t.isVideo && t.videoUrl ? youtubeEmbedUrl(t.videoUrl) : null;
+            return (
             <div key={t.id} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm h-full flex flex-col">
+              {t.isVideo && t.videoUrl && (
+                <div className="aspect-video rounded-xl overflow-hidden mb-4 bg-slate-900">
+                  {embedUrl ? (
+                    <iframe
+                      src={embedUrl}
+                      title={`${t.name} video testimonial`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <a
+                      href={t.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full h-full flex items-center justify-center text-sm font-medium text-white hover:bg-slate-800 transition-colors px-4 text-center"
+                    >
+                      Watch video testimonial
+                    </a>
+                  )}
+                </div>
+              )}
               <div className="flex gap-0.5 mb-4">
                 {Array.from({ length: t.rating ?? 5 }).map((_, i) => (
                   <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
                 ))}
               </div>
-              <p className="text-sm text-slate-600 leading-relaxed mb-5 flex-1">"{t.content}"</p>
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+              {t.content && (
+                <p className="text-sm text-slate-600 leading-relaxed mb-5 flex-1">"{t.content}"</p>
+              )}
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-100 mt-auto">
                 {t.avatar ? (
                   <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
                 ) : (
@@ -592,7 +619,8 @@ function LandingTestimonialsSection() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
