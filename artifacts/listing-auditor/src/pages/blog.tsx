@@ -1,68 +1,95 @@
+import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { SeoHead } from "@/components/seo-head";
 import { Clock, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { formatBlogDate, formatReadTime, type PublicBlogPost } from "@/lib/blog";
+import { cn } from "@/lib/utils";
 
-const posts = [
-  {
-    slug: "amazon-a9-algorithm-2026",
-    title: "How the Amazon A9 Algorithm Works in 2026",
-    excerpt: "Understanding the ranking signals that determine whether your product appears on page one — and how to optimize for them.",
-    category: "SEO",
-    readTime: "8 min",
-    date: "May 10, 2026",
-    featured: true,
-  },
-  {
-    slug: "title-optimization-guide",
-    title: "The Complete Guide to Amazon Title Optimization",
-    excerpt: "Your product title is the most important piece of real estate on your listing. Here is how to make every character count.",
-    category: "Optimization",
-    readTime: "12 min",
-    date: "Apr 28, 2026",
-    featured: false,
-  },
-  {
-    slug: "bullet-points-that-convert",
-    title: "Writing Bullet Points That Actually Convert",
-    excerpt: "Amazon shoppers skim. These proven frameworks will help your bullet points capture attention and drive clicks.",
-    category: "Copywriting",
-    readTime: "6 min",
-    date: "Apr 15, 2026",
-    featured: false,
-  },
-  {
-    slug: "image-optimization-tips",
-    title: "7 Image Optimization Tips Every Seller Should Know",
-    excerpt: "Images drive conversions. Learn the exact dimensions, layouts, and lifestyle shots that top sellers use.",
-    category: "Design",
-    readTime: "7 min",
-    date: "Mar 22, 2026",
-    featured: false,
-  },
-  {
-    slug: "competitor-analysis-framework",
-    title: "A Framework for Systematic Competitor Analysis",
-    excerpt: "Stop guessing. Use this repeatable process to reverse-engineer what your top competitors are doing right.",
-    category: "Strategy",
-    readTime: "10 min",
-    date: "Mar 8, 2026",
-    featured: false,
-  },
-  {
-    slug: "backend-keywords-hidden",
-    title: "Backend Keywords: The Hidden SEO Goldmine",
-    excerpt: "Most sellers waste their backend keyword slots. Here is how to use all 250 bytes strategically.",
-    category: "SEO",
-    readTime: "5 min",
-    date: "Feb 19, 2026",
-    featured: false,
-  },
-];
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function fetchPublishedPosts(): Promise<PublicBlogPost[]> {
+  return fetch(`${basePath}/api/blog`)
+    .then((r) => (r.ok ? r.json() : []))
+    .catch(() => []);
+}
+
+function PostImage({ src, alt, className }: { src: string | null; alt: string; className?: string }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={cn("w-full h-full object-cover", className)}
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className={cn("w-full h-full bg-slate-100 flex items-center justify-center", className)}>
+      <span className="text-slate-400 text-sm">Article Image</span>
+    </div>
+  );
+}
+
+function PostCard({ post, featured = false }: { post: PublicBlogPost; featured?: boolean }) {
+  const date = formatBlogDate(post.publishedAt ?? post.createdAt);
+  const readTime = formatReadTime(post.readMinutes);
+
+  if (featured) {
+    return (
+      <Link href={`/blog/${post.slug}`} className="group block">
+        <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="grid md:grid-cols-2">
+            <div className="bg-slate-800 min-h-[240px] overflow-hidden">
+              <PostImage src={post.featuredImage} alt={post.title} className="min-h-[240px]" />
+            </div>
+            <div className="p-8 md:p-10 flex flex-col justify-center">
+              {post.category && (
+                <Badge className="w-fit mb-4 bg-orange-100 text-orange-700 hover:bg-orange-100">{post.category}</Badge>
+              )}
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3 group-hover:text-orange-600 transition-colors">{post.title}</h2>
+              {post.excerpt && <p className="text-slate-500 mb-6 leading-relaxed">{post.excerpt}</p>}
+              <div className="flex items-center gap-4 text-sm text-slate-400">
+                {date && <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {date}</span>}
+                <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {readTime} read</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={`/blog/${post.slug}`} className="group block h-full">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
+        <div className="h-40 overflow-hidden">
+          <PostImage src={post.featuredImage} alt={post.title} className="h-40" />
+        </div>
+        <div className="p-6 flex-1 flex flex-col">
+          {post.category && <Badge variant="outline" className="w-fit mb-3 text-xs">{post.category}</Badge>}
+          <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">{post.title}</h3>
+          {post.excerpt && <p className="text-sm text-slate-500 mb-4 line-clamp-3 flex-1">{post.excerpt}</p>}
+          <div className="flex items-center justify-between text-xs text-slate-400 mt-auto">
+            {date ? <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {date}</span> : <span />}
+            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {readTime}</span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function Blog() {
-  const featured = posts.find((p) => p.featured);
-  const regular = posts.filter((p) => !p.featured);
+  const { data: posts = [], isLoading } = useQuery({
+    queryKey: ["public-blog"],
+    queryFn: fetchPublishedPosts,
+  });
+
+  const featured = posts[0];
+  const regular = posts.slice(1);
 
   return (
     <div className="min-h-[100dvh] bg-white">
@@ -73,7 +100,6 @@ export default function Blog() {
       <PublicNav />
 
       <main>
-        {/* Hero */}
         <section className="bg-slate-900 text-white py-20 md:py-28">
           <div className="max-w-4xl mx-auto px-8 text-center">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">SellerLens Blog</h1>
@@ -83,59 +109,41 @@ export default function Blog() {
           </div>
         </section>
 
-        {/* Featured */}
-        {featured && (
-          <section className="py-12 md:py-16 bg-slate-50">
-            <div className="max-w-6xl mx-auto px-8">
-              <div className="group block">
-                <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
-                  <div className="grid md:grid-cols-2">
-                    <div className="bg-slate-800 min-h-[240px] flex items-center justify-center">
-                      <span className="text-slate-400 text-sm">Featured Article Image</span>
-                    </div>
-                    <div className="p-8 md:p-10 flex flex-col justify-center">
-                      <Badge className="w-fit mb-4 bg-orange-100 text-orange-700 hover:bg-orange-100">{featured.category}</Badge>
-                      <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3 group-hover:text-orange-600 transition-colors">{featured.title}</h2>
-                      <p className="text-slate-500 mb-6 leading-relaxed">{featured.excerpt}</p>
-                      <div className="flex items-center gap-4 text-sm text-slate-400">
-                        <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {featured.date}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {featured.readTime} read</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        {isLoading ? (
+          <section className="py-16">
+            <div className="max-w-6xl mx-auto px-8 text-center text-slate-500">Loading posts…</div>
+          </section>
+        ) : posts.length === 0 ? (
+          <section className="py-16 md:py-24">
+            <div className="max-w-xl mx-auto px-8 text-center">
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">No posts yet</h2>
+              <p className="text-slate-500">Check back soon for new articles from our team.</p>
             </div>
           </section>
-        )}
+        ) : (
+          <>
+            {featured && (
+              <section className="py-12 md:py-16 bg-slate-50">
+                <div className="max-w-6xl mx-auto px-8">
+                  <PostCard post={featured} featured />
+                </div>
+              </section>
+            )}
 
-        {/* Grid */}
-        <section className="py-12 md:py-16 bg-white">
-          <div className="max-w-6xl mx-auto px-8">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {regular.map((post) => (
-                <div key={post.slug} className="group block">
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden h-full flex flex-col">
-                    <div className="bg-slate-100 h-40 flex items-center justify-center">
-                      <span className="text-slate-400 text-sm">Article Image</span>
-                    </div>
-                    <div className="p-6 flex-1 flex flex-col">
-                      <Badge variant="outline" className="w-fit mb-3 text-xs">{post.category}</Badge>
-                      <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2">{post.title}</h3>
-                      <p className="text-sm text-slate-500 mb-4 line-clamp-3 flex-1">{post.excerpt}</p>
-                      <div className="flex items-center justify-between text-xs text-slate-400 mt-auto">
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {post.date}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {post.readTime}</span>
-                      </div>
-                    </div>
+            {regular.length > 0 && (
+              <section className="py-12 md:py-16 bg-white">
+                <div className="max-w-6xl mx-auto px-8">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {regular.map((post) => (
+                      <PostCard key={post.id} post={post} />
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
+              </section>
+            )}
+          </>
+        )}
 
-        {/* Newsletter */}
         <section className="py-16 md:py-20 bg-slate-900 text-white">
           <div className="max-w-xl mx-auto px-8 text-center">
             <h2 className="text-2xl font-bold mb-3">Get weekly Amazon selling tips</h2>

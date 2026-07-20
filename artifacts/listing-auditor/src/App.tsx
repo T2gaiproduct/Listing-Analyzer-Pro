@@ -25,6 +25,7 @@ import {
   Enterprise,
   About,
   Blog,
+  BlogPost,
   Terms,
   Privacy,
   Tutorials,
@@ -453,6 +454,9 @@ function Router() {
       <Route path="/help" component={Help} />
       <Route path="/enterprise" component={Enterprise} />
       <Route path="/about" component={About} />
+      <Route path="/blog/:slug">
+        {params => <BlogPost slug={params.slug} />}
+      </Route>
       <Route path="/blog" component={Blog} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
