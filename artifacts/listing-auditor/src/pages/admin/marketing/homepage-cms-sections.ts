@@ -46,13 +46,6 @@ function tutorialItemFields(index: number): CmsField[] {
   ];
 }
 
-function faqPairFields(index: number): CmsField[] {
-  return [
-    { key: `faq.q${index}`, label: `Question ${index}` },
-    { key: `faq.a${index}`, label: `Answer ${index}`, type: "textarea" },
-  ];
-}
-
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
   sections: [
     {
@@ -64,7 +57,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
         { key: "sections.portfolio.enabled", label: "Portfolio", type: "select", options: BOOL_OPTIONS },
         { key: "sections.workflow.enabled", label: "Workflow", type: "select", options: BOOL_OPTIONS },
         { key: "sections.tutorials.enabled", label: "Tutorials", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.faq.enabled", label: "FAQ", type: "select", options: BOOL_OPTIONS },
         { key: "sections.cta.enabled", label: "Pre-footer CTA", type: "select", options: BOOL_OPTIONS },
       ],
     },
@@ -187,15 +179,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       ],
     },
   ],
-  faq: [
-    {
-      title: "FAQ section (heading only — Q&A items come from Website CMS → FAQ)",
-      fields: [
-        { key: "faq.heading", label: "Section heading" },
-        ...Array.from({ length: 5 }, (_, i) => faqPairFields(i + 1)).flat(),
-      ],
-    },
-  ],
   cta: [
     {
       title: "Pre-footer CTA",
@@ -234,7 +217,6 @@ export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
   portfolio: "Portfolio",
   workflow: "Workflow",
   tutorials: "Tutorials",
-  faq: "FAQ",
   cta: "CTA",
   footer: "Footer",
 };
