@@ -76,10 +76,10 @@ function normalizeSlide(raw: Partial<HeroSlide>): HeroSlide {
 }
 
 export function parseHeroSlidesJson(raw: string | undefined): HeroSlide[] | null {
-  if (!raw) return null;
+  if (!raw || raw.trim() === "") return null;
   try {
     const parsed = JSON.parse(raw) as Partial<HeroSlide>[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    if (!Array.isArray(parsed)) return null;
     return parsed.map(normalizeSlide);
   } catch {
     return null;
@@ -88,14 +88,15 @@ export function parseHeroSlidesJson(raw: string | undefined): HeroSlide[] | null
 
 export function parseHeroSlides(cms: HomepageCmsMap): HeroSlide[] {
   const fromJson = parseHeroSlidesJson(cms[HERO_SLIDES_JSON_KEY]);
-  const slides = (fromJson ?? []).filter((slide) => slide.enabled);
-  if (slides.length > 0) return slides;
+  if (fromJson !== null) {
+    return fromJson.filter((slide) => slide.enabled);
+  }
   return [legacySlideFromCms(cms)];
 }
 
 export function allHeroSlides(cms: HomepageCmsMap): HeroSlide[] {
   const fromJson = parseHeroSlidesJson(cms[HERO_SLIDES_JSON_KEY]);
-  if (fromJson && fromJson.length > 0) return fromJson;
+  if (fromJson !== null) return fromJson;
   return [legacySlideFromCms(cms)];
 }
 

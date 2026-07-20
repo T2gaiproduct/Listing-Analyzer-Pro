@@ -709,11 +709,13 @@ export default function Landing() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
           <div className="min-w-0">
-            <HeroSlider
-              slides={heroSlides}
-              autoplay={heroAutoplayEnabled(cms)}
-              autoplayIntervalMs={heroAutoplayIntervalMs(cms)}
-            />
+            {heroSlides.length > 0 && (
+              <HeroSlider
+                slides={heroSlides}
+                autoplay={heroAutoplayEnabled(cms)}
+                autoplayIntervalMs={heroAutoplayIntervalMs(cms)}
+              />
+            )}
             <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
               {heroStats.map((s) => (
                 <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
