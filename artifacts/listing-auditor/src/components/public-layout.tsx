@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SiteLogo } from "@/components/site-logo";
 import { useBranding } from "@/hooks/use-branding";
+import { cmsText } from "@/lib/homepage-cms";
+import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -20,6 +22,11 @@ const navLinks = [
 export function PublicNav() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const cms = useHomepageCmsContext();
+  const signInText = cmsText(cms, "nav.sign_in_text");
+  const signInUrl = cmsText(cms, "nav.sign_in_url");
+  const ctaText = cmsText(cms, "nav.cta_text");
+  const ctaUrl = cmsText(cms, "nav.cta_url");
 
   return (
     <header className="sticky top-0 z-50 flex w-full items-center justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-2 sm:gap-4 min-w-0">
@@ -46,12 +53,12 @@ export function PublicNav() {
       </div>
       <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
         <Button variant="ghost" size="sm" className="hidden sm:inline-flex text-slate-600 hover:text-slate-900" asChild>
-          <Link href="/sign-in">Sign In</Link>
+          <Link href={signInUrl}>{signInText}</Link>
         </Button>
         <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm" asChild>
-          <Link href="/sign-up">
-            <span className="sm:hidden">Start Free</span>
-            <span className="hidden sm:inline">Get Started Free</span>
+          <Link href={ctaUrl}>
+            <span className="sm:hidden">{ctaText.split(" ").slice(0, 2).join(" ")}</span>
+            <span className="hidden sm:inline">{ctaText}</span>
           </Link>
         </Button>
         <button
@@ -90,10 +97,10 @@ export function PublicNav() {
           </nav>
           <div className="p-4 border-t border-slate-200 space-y-2">
             <Button variant="outline" className="w-full min-h-11" asChild>
-              <Link href="/sign-in" onClick={() => setMobileOpen(false)}>Sign In</Link>
+              <Link href={signInUrl} onClick={() => setMobileOpen(false)}>{signInText}</Link>
             </Button>
             <Button className="w-full min-h-11 bg-orange-500 hover:bg-orange-600" asChild>
-              <Link href="/sign-up" onClick={() => setMobileOpen(false)}>Get Started Free</Link>
+              <Link href={ctaUrl} onClick={() => setMobileOpen(false)}>{ctaText}</Link>
             </Button>
           </div>
         </SheetContent>
@@ -169,16 +176,26 @@ const footerColumns = [
   },
 ];
 
-const socialLinks = [
-  { icon: Facebook, href: "https://facebook.com", label: "Facebook" },
-  { icon: Twitter, href: "https://twitter.com", label: "Twitter" },
-  { icon: Linkedin, href: "https://linkedin.com", label: "LinkedIn" },
-  { icon: Youtube, href: "https://youtube.com", label: "YouTube" },
-];
+const socialIconMap = {
+  facebook: Facebook,
+  twitter: Twitter,
+  linkedin: Linkedin,
+  youtube: Youtube,
+} as const;
 
 export function PublicFooter() {
   const { platformName } = useBranding();
+  const cms = useHomepageCmsContext();
   const year = new Date().getFullYear();
+  const tagline = cmsText(cms, "footer.tagline");
+  const copyright = cmsText(cms, "footer.copyright");
+
+  const socialLinks = [
+    { icon: socialIconMap.facebook, href: cmsText(cms, "footer.social_facebook"), label: "Facebook" },
+    { icon: socialIconMap.twitter, href: cmsText(cms, "footer.social_twitter"), label: "Twitter" },
+    { icon: socialIconMap.linkedin, href: cmsText(cms, "footer.social_linkedin"), label: "LinkedIn" },
+    { icon: socialIconMap.youtube, href: cmsText(cms, "footer.social_youtube"), label: "YouTube" },
+  ].filter((s) => s.href);
 
   return (
     <footer className="bg-[#0B0E11] text-slate-400">
@@ -192,7 +209,7 @@ export function PublicFooter() {
               <SiteLogo variant="footer" />
             </Link>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
-              AI-powered listing optimization for sellers who want to rank higher and convert better.
+              {tagline}
             </p>
             <div className="flex items-center gap-3 flex-wrap">
               {socialLinks.map(({ icon: Icon, href, label }) => (
@@ -235,7 +252,7 @@ export function PublicFooter() {
         <div className="border-t border-slate-800 pt-6 pb-20 sm:pb-0">
           <p className="text-xs sm:text-sm text-slate-500 text-center sm:text-left leading-relaxed max-w-full break-words">
             <span className="block sm:inline">© {year} {platformName}.</span>{" "}
-            <span className="block sm:inline">All rights reserved.</span>
+            <span className="block sm:inline">{copyright}</span>
           </p>
         </div>
       </div>

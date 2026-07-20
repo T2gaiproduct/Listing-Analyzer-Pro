@@ -8,19 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { mergeHomepageCms, type HomepageCmsMap } from "@/lib/homepage-cms";
+import { HOMEPAGE_CMS_SECTIONS, HOMEPAGE_CMS_TAB_LABELS, type CmsField } from "./homepage-cms-sections";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type CmsMap = Record<string, string>;
-
-function fetchCms(pageSlug: string): Promise<CmsMap> {
+function fetchCms(pageSlug: string): Promise<HomepageCmsMap> {
   return fetch(`${basePath}/api/admin/cms/${pageSlug}`, { credentials: "include" }).then((r) => r.json());
 }
 
 function SectionEditor({ title, fields, data, onChange }: {
   title: string;
-  fields: { key: string; label: string; type?: "text" | "textarea" | "url" }[];
-  data: CmsMap;
+  fields: CmsField[];
+  data: HomepageCmsMap;
   onChange: (key: string, val: string) => void;
 }) {
   return (
@@ -33,7 +33,22 @@ function SectionEditor({ title, fields, data, onChange }: {
           <div key={f.key}>
             <Label className="text-xs text-slate-500">{f.label}</Label>
             {f.type === "textarea" ? (
-              <Textarea className="mt-1 text-sm resize-none" rows={3} value={data[f.key] ?? ""} onChange={(e) => onChange(f.key, e.target.value)} />
+              <Textarea
+                className="mt-1 text-sm resize-none"
+                rows={f.rows ?? 3}
+                value={data[f.key] ?? ""}
+                onChange={(e) => onChange(f.key, e.target.value)}
+              />
+            ) : f.type === "select" && f.options ? (
+              <select
+                className="mt-1 flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={data[f.key] ?? f.options[0]?.value ?? ""}
+                onChange={(e) => onChange(f.key, e.target.value)}
+              >
+                {f.options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             ) : (
               <Input className="mt-1 h-8 text-sm" value={data[f.key] ?? ""} onChange={(e) => onChange(f.key, e.target.value)} />
             )}
@@ -44,97 +59,23 @@ function SectionEditor({ title, fields, data, onChange }: {
   );
 }
 
-const SECTIONS: Record<string, { title: string; fields: { key: string; label: string; type?: "text" | "textarea" | "url" }[] }[]> = {
-  hero: [
-    {
-      title: "Hero Section",
-      fields: [
-        { key: "hero.heading", label: "Main Heading" },
-        { key: "hero.subheading", label: "Subheading", type: "textarea" },
-        { key: "hero.cta_primary_text", label: "Primary CTA Text" },
-        { key: "hero.cta_primary_url", label: "Primary CTA URL" },
-        { key: "hero.cta_secondary_text", label: "Secondary CTA Text" },
-        { key: "hero.cta_secondary_url", label: "Secondary CTA URL" },
-        { key: "hero.badge_text", label: "Badge Text (optional)" },
-        { key: "hero.video_url", label: "Demo Video URL (optional)", type: "url" },
-      ],
-    },
-  ],
-  features: [
-    {
-      title: "Features Section",
-      fields: [
-        { key: "features.heading", label: "Section Heading" },
-        { key: "features.subheading", label: "Section Subheading", type: "textarea" },
-        { key: "features.item1_title", label: "Feature 1 Title" },
-        { key: "features.item1_desc", label: "Feature 1 Description", type: "textarea" },
-        { key: "features.item2_title", label: "Feature 2 Title" },
-        { key: "features.item2_desc", label: "Feature 2 Description", type: "textarea" },
-        { key: "features.item3_title", label: "Feature 3 Title" },
-        { key: "features.item3_desc", label: "Feature 3 Description", type: "textarea" },
-        { key: "features.item4_title", label: "Feature 4 Title" },
-        { key: "features.item4_desc", label: "Feature 4 Description", type: "textarea" },
-      ],
-    },
-  ],
-  social: [
-    {
-      title: "Social Proof",
-      fields: [
-        { key: "social.stats_customers", label: "Customer Count (e.g. 2,000+)" },
-        { key: "social.stats_audits", label: "Audits Completed" },
-        { key: "social.stats_countries", label: "Countries Served" },
-        { key: "social.stats_rating", label: "Average Rating (e.g. 4.9)" },
-        { key: "social.trusted_heading", label: "Trusted Brands Heading" },
-      ],
-    },
-  ],
-  faq: [
-    {
-      title: "FAQ Section",
-      fields: [
-        { key: "faq.heading", label: "Section Heading" },
-        { key: "faq.q1", label: "Question 1" },
-        { key: "faq.a1", label: "Answer 1", type: "textarea" },
-        { key: "faq.q2", label: "Question 2" },
-        { key: "faq.a2", label: "Answer 2", type: "textarea" },
-        { key: "faq.q3", label: "Question 3" },
-        { key: "faq.a3", label: "Answer 3", type: "textarea" },
-        { key: "faq.q4", label: "Question 4" },
-        { key: "faq.a4", label: "Answer 4", type: "textarea" },
-        { key: "faq.q5", label: "Question 5" },
-        { key: "faq.a5", label: "Answer 5", type: "textarea" },
-      ],
-    },
-  ],
-  footer: [
-    {
-      title: "Footer",
-      fields: [
-        { key: "footer.tagline", label: "Tagline" },
-        { key: "footer.copyright", label: "Copyright Text" },
-        { key: "footer.social_twitter", label: "Twitter URL" },
-        { key: "footer.social_linkedin", label: "LinkedIn URL" },
-        { key: "footer.social_youtube", label: "YouTube URL" },
-      ],
-    },
-  ],
-};
-
 export default function AdminMarketingHomepage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [localData, setLocalData] = useState<CmsMap>({});
+  const [localData, setLocalData] = useState<HomepageCmsMap>(mergeHomepageCms({}));
   const [dirty, setDirty] = useState(false);
 
   const { isLoading } = useQuery({
     queryKey: ["admin-cms-homepage"],
     queryFn: () => fetchCms("homepage"),
-    onSuccess: (d: CmsMap) => { setLocalData(d); setDirty(false); },
+    onSuccess: (d: HomepageCmsMap) => {
+      setLocalData(mergeHomepageCms(d));
+      setDirty(false);
+    },
   } as Parameters<typeof useQuery>[0]);
 
   const saveMutation = useMutation({
-    mutationFn: (data: CmsMap) =>
+    mutationFn: (data: HomepageCmsMap) =>
       fetch(`${basePath}/api/admin/cms/homepage`, {
         method: "PUT",
         credentials: "include",
@@ -143,6 +84,7 @@ export default function AdminMarketingHomepage() {
       }).then((r) => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-cms-homepage"] });
+      qc.invalidateQueries({ queryKey: ["homepage-cms"] });
       setDirty(false);
       toast({ title: "Homepage content saved", description: "Changes are now live on the website." });
     },
@@ -153,7 +95,7 @@ export default function AdminMarketingHomepage() {
     setDirty(true);
   }
 
-  const tabKeys = Object.keys(SECTIONS) as (keyof typeof SECTIONS)[];
+  const tabKeys = Object.keys(HOMEPAGE_CMS_SECTIONS);
 
   return (
     <div className="space-y-6">
@@ -162,7 +104,7 @@ export default function AdminMarketingHomepage() {
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Home className="w-6 h-6 text-orange-500" /> Homepage CMS
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Edit homepage content — changes go live instantly</p>
+          <p className="text-slate-500 text-sm mt-1">Edit all homepage content — changes go live instantly</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => window.open("/", "_blank")}>
@@ -191,14 +133,14 @@ export default function AdminMarketingHomepage() {
         <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}</div>
       ) : (
         <Tabs defaultValue="hero">
-          <TabsList className="flex-wrap h-auto">
+          <TabsList className="flex-wrap h-auto gap-1">
             {tabKeys.map((k) => (
-              <TabsTrigger key={k} value={k} className="capitalize">{k}</TabsTrigger>
+              <TabsTrigger key={k} value={k}>{HOMEPAGE_CMS_TAB_LABELS[k] ?? k}</TabsTrigger>
             ))}
           </TabsList>
           {tabKeys.map((tab) => (
             <TabsContent key={tab} value={tab} className="space-y-4 mt-4">
-              {SECTIONS[tab].map((section) => (
+              {HOMEPAGE_CMS_SECTIONS[tab].map((section) => (
                 <SectionEditor
                   key={section.title}
                   title={section.title}

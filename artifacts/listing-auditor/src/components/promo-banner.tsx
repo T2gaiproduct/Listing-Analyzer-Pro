@@ -1,8 +1,11 @@
 import { X, Tag } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+import { cmsEnabled, cmsText } from "@/lib/homepage-cms";
+import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 
 export function PromoBanner() {
+  const cms = useHomepageCmsContext();
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem("listingauditor-promo") === "dismissed";
@@ -11,7 +14,12 @@ export function PromoBanner() {
     }
   });
 
-  if (dismissed) return null;
+  if (!cmsEnabled(cms, "promo") || dismissed) return null;
+
+  const promoText = cmsText(cms, "promo.text");
+  const promoCode = cmsText(cms, "promo.code");
+  const linkText = cmsText(cms, "promo.link_text");
+  const linkUrl = cmsText(cms, "promo.link_url");
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -25,19 +33,19 @@ export function PromoBanner() {
       <div className="flex items-center justify-center gap-1.5 sm:gap-2 pr-7 sm:pr-10 whitespace-nowrap overflow-hidden">
         <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400 shrink-0" />
         <span className="truncate">
-          <strong className="text-orange-400">Launch offer:</strong>{" "}
-          <span className="hidden sm:inline">Get 20% off any plan with code </span>
-          <span className="sm:hidden">20% off — </span>
+          <strong className="text-orange-400">{promoText}</strong>{" "}
           <code className="bg-orange-500/20 text-orange-300 px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded font-mono text-[10px] sm:text-xs">
-            LAUNCH20
+            {promoCode}
           </code>
         </span>
-        <Link
-          href="/pricing"
-          className="hidden sm:inline underline underline-offset-2 text-orange-300 hover:text-orange-200 transition-colors shrink-0"
-        >
-          See pricing
-        </Link>
+        {linkText && linkUrl && (
+          <Link
+            href={linkUrl}
+            className="hidden sm:inline underline underline-offset-2 text-orange-300 hover:text-orange-200 transition-colors shrink-0"
+          >
+            {linkText}
+          </Link>
+        )}
       </div>
       <button
         onClick={handleDismiss}
