@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
@@ -1193,6 +1193,14 @@ export default function AuditWorkflow() {
     c.toLowerCase().includes(catSearch.toLowerCase())
   );
 
+  const stepCompleted = useMemo((): Record<StepId, boolean> => ({
+    1: uploadedImages.length > 0,
+    2: generatedContent !== null,
+    3: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
+    4: aplusModules.length > 0 || aplusStatus === "completed",
+    5: false,
+  }), [uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
+
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="flex flex-col h-full overflow-hidden bg-white">
@@ -1202,7 +1210,7 @@ export default function AuditWorkflow() {
         <div className="flex items-stretch max-w-5xl mx-auto min-w-[20rem] w-full">
           {STEPS.map((s) => {
             const isActive    = activeStep === s.id;
-            const isCompleted = activeStep > s.id;
+            const isCompleted = !isActive && stepCompleted[s.id];
             return (
               <button
                 key={s.id}
