@@ -17,6 +17,7 @@ import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
+import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
 
 const router: IRouter = Router();
 
@@ -1471,6 +1472,20 @@ router.post("/admin/media", requireAdmin, async (req, res): Promise<void> => {
   const { filename, url, mimeType, size, folder, alt } = req.body;
   const [file] = await db.insert(mediaFiles).values({ filename, url, mimeType, size, folder: folder ?? "general", alt }).returning();
   res.status(201).json(file);
+});
+
+router.post("/admin/hero-image", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const { dataUrl, filename } = req.body as { dataUrl?: string; filename?: string };
+    if (!dataUrl) {
+      res.status(400).json({ error: "No image data provided" });
+      return;
+    }
+    const url = saveHeroImageFromDataUrl(dataUrl, filename);
+    res.status(201).json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });
+  }
 });
 
 router.delete("/admin/media/:id", requireAdmin, async (req, res): Promise<void> => {

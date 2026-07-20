@@ -25,11 +25,13 @@ function HeroSlideImage({ imageUrl }: { imageUrl: string }) {
   const src = resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath);
 
   return (
-    <img
-      src={src}
-      alt=""
-      className="w-full h-auto rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.18)] object-contain bg-white"
-    />
+    <div className="w-full min-w-0">
+      <img
+        src={src}
+        alt=""
+        className="block w-full max-w-none h-auto rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.18)] bg-white"
+      />
+    </div>
   );
 }
 
@@ -66,17 +68,17 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
   if (slides.length === 0) return null;
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 w-full">
       <Carousel
         setApi={setApi}
-        opts={{ loop: multiSlide, align: "start" }}
+        opts={{ loop: multiSlide, align: "start", containScroll: "trimSnaps" }}
         className="w-full"
       >
-        <CarouselContent className="ml-0">
+        <CarouselContent className="ml-0 w-full">
           {slides.map((slide) => (
-            <CarouselItem key={slide.id} className="pl-0 basis-full">
-              <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
-                <div className="text-center lg:text-left min-w-0">
+            <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
+              <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center w-full">
+                <div className="text-center lg:text-left min-w-0 w-full">
                   <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
                     <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
                       <Zap className="w-3 h-3 shrink-0" />
@@ -107,7 +109,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     )}
                   </div>
                 </div>
-                <div className="hidden lg:block min-w-0 w-full">
+                <div className="hidden lg:flex min-w-0 w-full items-center justify-center">
                   <HeroSlideImage imageUrl={slide.imageUrl} />
                 </div>
               </div>

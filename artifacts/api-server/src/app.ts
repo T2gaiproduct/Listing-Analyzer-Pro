@@ -6,6 +6,7 @@ import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { IMAGES_DIR, GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./lib/image-storage";
+import { HERO_IMAGES_DIR } from "./lib/hero-image-storage";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -80,6 +81,7 @@ app.get("/api/images/:auditId/:filename", (req, res, next) => {
 
 app.use("/api/images", express.static(IMAGES_DIR));
 app.use("/api/images/graphics", express.static(GRAPHICS_IMAGES_DIR));
+app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api", router);
 
 export default app;

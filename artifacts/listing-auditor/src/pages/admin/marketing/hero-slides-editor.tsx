@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import {
   allHeroSlides,
   DEFAULT_HERO_SLIDE_IMAGE,
@@ -34,20 +35,17 @@ async function uploadHeroImage(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  const res = await fetch(`${basePath}/api/admin/media`, {
+  const res = await fetch(`${basePath}/api/admin/hero-image`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      dataUrl,
       filename: file.name,
-      url: dataUrl,
-      mimeType: file.type,
-      size: file.size,
-      folder: "heroes",
     }),
   });
-  if (!res.ok) throw new Error("Upload failed");
-  const json = await res.json();
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "Upload failed");
   return json.url as string;
 }
 
@@ -60,6 +58,7 @@ function HeroSlideImageField({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
   const previewUrl = resolveCmsAssetUrl(slide.imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath);
 
   async function handleFile(file: File | undefined) {
@@ -68,6 +67,13 @@ function HeroSlideImageField({
     try {
       const url = await uploadHeroImage(file);
       onImageChange(url);
+      toast({ title: "Banner image uploaded" });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Could not upload image",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }
