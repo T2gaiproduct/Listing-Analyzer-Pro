@@ -49,6 +49,8 @@ export default function CheckoutSuccess() {
             ...prev,
             onboardingCompleted: true,
           }));
+          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+          void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
           void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
           void refetchCreditQueries(queryClient);
           setTimeout(() => setLocation("/dashboard"), 2200);

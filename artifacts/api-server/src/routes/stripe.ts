@@ -6,6 +6,7 @@ import {
   userProfilesTable, subscriptionsTable, couponsTable,
 } from "@workspace/db";
 import { getUncachableStripeClient } from "../stripeClient";
+import { hasRequiredProfileFields, upsertUserProfile } from "../lib/user-profile";
 import type Stripe from "stripe";
 
 const router: IRouter = Router();
@@ -53,18 +54,20 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
     return;
   }
 
-  // Upsert profile
+  // Upsert profile (phone is optional — matches onboarding form)
   const [existingProfile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   let stripeCustomerId = existingProfile?.stripeCustomerId ?? null;
 
-  if (fullName && companyName && phone && country) {
-    if (existingProfile) {
-      await db.update(userProfilesTable)
-        .set({ fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null, updatedAt: new Date() })
-        .where(eq(userProfilesTable.userId, userId));
-    } else {
-      await db.insert(userProfilesTable).values({ userId, fullName, companyName, phone, country, gstNumber: gstNumber ?? null, websiteUrl: websiteUrl ?? null, teamSize: teamSize ?? null });
-    }
+  if (hasRequiredProfileFields({ fullName, companyName, country })) {
+    await upsertUserProfile(userId, {
+      fullName,
+      companyName,
+      phone,
+      country,
+      gstNumber,
+      websiteUrl,
+      teamSize,
+    });
   }
 
   // Validate coupon
@@ -96,9 +99,7 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
   if (!stripeCustomerId) {
     const customer = await stripe.customers.create({ metadata: { userId } });
     stripeCustomerId = customer.id;
-    await db.update(userProfilesTable)
-      .set({ stripeCustomerId, updatedAt: new Date() })
-      .where(eq(userProfilesTable.userId, userId));
+    await upsertUserProfile(userId, { stripeCustomerId });
   }
 
   // Mark subscription as pending
@@ -251,9 +252,15 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
   const customerId = typeof session.customer === "string" ? session.customer : (session.customer as Stripe.Customer | null)?.id ?? null;
   const [profileRow] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   if (profileRow) {
-    await db.update(userProfilesTable)
-      .set({ onboardingCompleted: true, stripeCustomerId: customerId ?? profileRow.stripeCustomerId, updatedAt: now })
-      .where(eq(userProfilesTable.userId, userId));
+    await upsertUserProfile(userId, {
+      onboardingCompleted: true,
+      stripeCustomerId: customerId ?? profileRow.stripeCustomerId,
+    });
+  } else {
+    await upsertUserProfile(userId, {
+      onboardingCompleted: true,
+      stripeCustomerId: customerId,
+    });
   }
 
   // Consume coupon usage counter
