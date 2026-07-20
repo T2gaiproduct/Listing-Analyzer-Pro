@@ -11,7 +11,13 @@ import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function profileMenuItems(isTeamMember: boolean, isOwner: boolean) {
+function profileMenuItems(isTeamMember: boolean, isOwner: boolean, variant: "customer" | "admin") {
+  if (variant === "admin") {
+    return [
+      { icon: Settings, label: "Admin Settings", href: "/admin/settings/platform" },
+      { icon: UserCircle, label: "My Profile", href: "/profile" },
+    ];
+  }
   return [
     { icon: UserCircle, label: "Edit Profile", href: "/profile" },
     { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
@@ -39,8 +45,10 @@ interface DashboardTopbarProps {
   email: string;
   planLabel: string;
   roleLabel: string;
-  credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+  credits?: { aiCredits: number; imageCredits: number; auditCredits: number };
   onMenuClick?: () => void;
+  variant?: "customer" | "admin";
+  searchPlaceholder?: string;
 }
 
 export function DashboardTopbar({
@@ -54,11 +62,14 @@ export function DashboardTopbar({
   roleLabel,
   credits,
   onMenuClick,
+  variant = "customer",
+  searchPlaceholder = "Search projects, listings...",
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
-  const menuItems = profileMenuItems(isTeamMember, isOwner);
+  const menuItems = profileMenuItems(isTeamMember, isOwner, variant);
+  const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const creditsRef = useRef<HTMLDivElement>(null);
@@ -70,10 +81,12 @@ export function DashboardTopbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const totalCredits = credits.aiCredits + credits.imageCredits + credits.auditCredits;
-  const profileSubtitle = planLabel && planLabel !== "No plan"
-    ? `${roleLabel} · ${planLabel}`
-    : roleLabel;
+  const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
+  const profileSubtitle = variant === "admin"
+    ? roleLabel
+    : planLabel && planLabel !== "No plan"
+      ? `${roleLabel} · ${planLabel}`
+      : roleLabel;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -126,7 +139,7 @@ export function DashboardTopbar({
           value={searchQuery}
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
-          placeholder="Search projects, listings..."
+          placeholder={searchPlaceholder}
           className="w-full h-11 pl-10 pr-3 sm:pr-24 rounded-xl text-sm bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-300"
         />
         <kbd className="absolute right-3 hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-medium text-slate-400 bg-white border border-slate-200 rounded-md">
@@ -140,7 +153,7 @@ export function DashboardTopbar({
           ) : (
             searchResults.map((item) => (
               <button
-                key={`${item.type}-${item.id}`}
+                key={item.url}
                 type="button"
                 className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors truncate min-h-11"
                 onClick={() => {
@@ -194,6 +207,7 @@ export function DashboardTopbar({
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
+        {showCredits && (
         <div ref={creditsRef} className="relative flex-shrink-0">
           <button
             type="button"
@@ -222,15 +236,15 @@ export function DashboardTopbar({
               <div className="px-4 py-2 space-y-1.5 text-sm">
                 <div className="flex justify-between text-slate-600">
                   <span>Audit</span>
-                  <span className="font-semibold text-slate-900">{credits.auditCredits}</span>
+                  <span className="font-semibold text-slate-900">{credits?.auditCredits ?? 0}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Text Content</span>
-                  <span className="font-semibold text-slate-900">{credits.aiCredits}</span>
+                  <span className="font-semibold text-slate-900">{credits?.aiCredits ?? 0}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Images</span>
-                  <span className="font-semibold text-slate-900">{credits.imageCredits}</span>
+                  <span className="font-semibold text-slate-900">{credits?.imageCredits ?? 0}</span>
                 </div>
               </div>
               <div className="px-2 pt-1 border-t border-slate-100">
@@ -239,15 +253,22 @@ export function DashboardTopbar({
                   className="w-full px-3 py-2.5 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors min-h-11"
                   onClick={() => {
                     setCreditsOpen(false);
-                    navigate(isTeamMember && !isOwner ? "/billing" : "/billing?tab=credits");
+                    navigate(
+                      isTeamMember && !isOwner
+                        ? "/billing"
+                        : "/billing?tab=credits",
+                    );
                   }}
                 >
-                  {isTeamMember && !isOwner ? "View usage →" : "Buy more credits →"}
+                  {isTeamMember && !isOwner
+                    ? "View usage →"
+                    : "Buy more credits →"}
                 </button>
               </div>
             </div>
           )}
         </div>
+        )}
 
         <div ref={profileRef} className="relative flex-shrink-0">
           <button
@@ -279,7 +300,7 @@ export function DashboardTopbar({
                   <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
                   <p className="text-xs text-slate-500 truncate">{email}</p>
                   <p className="text-xs text-orange-600 font-medium mt-0.5">{roleLabel}</p>
-                  {planLabel && planLabel !== "No plan" && (
+                  {variant !== "admin" && planLabel && planLabel !== "No plan" && (
                     <p className="text-xs text-slate-400 mt-0.5">{planLabel}</p>
                   )}
                 </div>
@@ -305,6 +326,7 @@ export function DashboardTopbar({
                     </button>
                   </Link>
                 ))}
+                {variant === "customer" && (
                 <div className="relative">
                   <button
                     type="button"
@@ -333,6 +355,7 @@ export function DashboardTopbar({
                     </div>
                   )}
                 </div>
+                )}
               </div>
               <div className="border-t border-slate-100 py-1.5">
                 <button
