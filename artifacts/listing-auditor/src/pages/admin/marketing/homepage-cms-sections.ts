@@ -64,7 +64,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
         { key: "sections.portfolio.enabled", label: "Portfolio", type: "select", options: BOOL_OPTIONS },
         { key: "sections.workflow.enabled", label: "Workflow", type: "select", options: BOOL_OPTIONS },
         { key: "sections.tutorials.enabled", label: "Tutorials", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.pricing.enabled", label: "Pricing", type: "select", options: BOOL_OPTIONS },
         { key: "sections.faq.enabled", label: "FAQ", type: "select", options: BOOL_OPTIONS },
         { key: "sections.cta.enabled", label: "Pre-footer CTA", type: "select", options: BOOL_OPTIONS },
       ],
@@ -188,18 +187,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       ],
     },
   ],
-  pricing: [
-    {
-      title: "Pricing section (headings only — plans come from Admin → Plans)",
-      fields: [
-        { key: "pricing.eyebrow", label: "Eyebrow" },
-        { key: "pricing.heading", label: "Section heading" },
-        { key: "pricing.footer_text", label: "Footer text" },
-        { key: "pricing.footer_link_text", label: "Footer link text" },
-        { key: "pricing.footer_link_url", label: "Footer link URL", type: "url" },
-      ],
-    },
-  ],
   faq: [
     {
       title: "FAQ section (heading only — Q&A items come from Website CMS → FAQ)",
@@ -247,7 +234,6 @@ export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
   portfolio: "Portfolio",
   workflow: "Workflow",
   tutorials: "Tutorials",
-  pricing: "Pricing",
   faq: "FAQ",
   cta: "CTA",
   footer: "Footer",
