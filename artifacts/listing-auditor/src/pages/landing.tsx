@@ -565,7 +565,7 @@ function LandingFaqSection() {
 
 export default function Landing() {
   return (
-    <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
       <PromoBanner />
       <PublicNav />
 
