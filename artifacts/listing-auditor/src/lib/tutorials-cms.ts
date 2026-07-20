@@ -17,9 +17,9 @@ export function tutorialItemIndices(): number[] {
 }
 
 export function visibleTutorialItemCount(cms: HomepageCmsMap): number {
-  let max = DEFAULT_TUTORIAL_VISIBLE;
-  for (let i = DEFAULT_TUTORIAL_VISIBLE + 1; i <= MAX_TUTORIAL_ITEMS; i++) {
-    if (cms[`tutorials.item${i}_title`]?.trim() || cms[`tutorials.item${i}_video_url`]?.trim()) {
+  let max = 1;
+  for (let i = 1; i <= MAX_TUTORIAL_ITEMS; i++) {
+    if (tutorialSlotHasContent(cms, i)) {
       max = i;
     }
   }
@@ -47,4 +47,14 @@ export function tutorialItemKeys(index: number) {
     image: `tutorials.item${index}_image`,
     videoUrl: `tutorials.item${index}_video_url`,
   } as const;
+}
+
+export function tutorialSlotHasContent(cms: HomepageCmsMap, index: number): boolean {
+  const keys = tutorialItemKeys(index);
+  return Boolean(
+    cms[keys.title]?.trim()
+    || cms[keys.duration]?.trim()
+    || cms[keys.image]?.trim()
+    || cms[keys.videoUrl]?.trim(),
+  );
 }

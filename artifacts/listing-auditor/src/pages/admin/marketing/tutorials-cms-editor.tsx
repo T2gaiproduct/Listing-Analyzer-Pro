@@ -36,7 +36,17 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
 
   function removeTutorialItem(index: number) {
     if (visibleCount <= 1) return;
-    clearTutorialItem(index);
+
+    for (let i = index; i < visibleCount; i++) {
+      const current = tutorialItemKeys(i);
+      const next = tutorialItemKeys(i + 1);
+      onChange(current.title, data[next.title] ?? "");
+      onChange(current.duration, data[next.duration] ?? "");
+      onChange(current.image, data[next.image] ?? "");
+      onChange(current.videoUrl, data[next.videoUrl] ?? "");
+    }
+
+    clearTutorialItem(visibleCount);
     setVisibleCount((count) => count - 1);
   }
 
