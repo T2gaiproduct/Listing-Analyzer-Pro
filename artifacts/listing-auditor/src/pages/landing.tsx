@@ -243,29 +243,29 @@ function TutorialCard({
       href="/tutorials"
       className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full"
     >
-      <div className={cn("relative overflow-hidden bg-slate-900", isCarousel ? "h-44" : "h-32 sm:h-36")}>
+      <div className={cn("relative overflow-hidden bg-slate-900", isCarousel ? "h-52 sm:h-56" : "h-44 sm:h-48 lg:h-52")}>
         <img src={image} alt="" className="w-full h-full object-cover opacity-90" loading="lazy" />
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div
             className={cn(
               "rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform",
-              isCarousel ? "w-14 h-14" : "w-12 h-12",
+              isCarousel ? "w-16 h-16" : "w-14 h-14",
             )}
           >
-            <Play className={cn("text-orange-600 ml-0.5", isCarousel ? "w-6 h-6" : "w-5 h-5")} />
+            <Play className={cn("text-orange-600 ml-0.5", isCarousel ? "w-7 h-7" : "w-6 h-6")} />
           </div>
         </div>
         <span
           className={cn(
-            "absolute bottom-2 right-2 bg-black/60 text-white font-medium px-1.5 py-0.5 rounded",
-            isCarousel ? "text-xs" : "text-[10px]",
+            "absolute bottom-3 right-3 bg-black/60 text-white font-medium px-2 py-1 rounded",
+            isCarousel ? "text-sm" : "text-xs",
           )}
         >
           {duration}
         </span>
       </div>
-      <p className={cn("font-semibold text-slate-800", isCarousel ? "p-4 text-base" : "p-3 text-sm")}>{title}</p>
+      <p className={cn("font-semibold text-slate-800", isCarousel ? "p-5 text-lg" : "p-4 text-base")}>{title}</p>
     </Link>
   );
 }
@@ -282,7 +282,7 @@ function TutorialCarousel({ tutorials }: { tutorials: TutorialItem[] }) {
       <button
         type="button"
         onClick={() => scroll(-1)}
-        className="absolute left-0 top-[5.5rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        className="absolute left-0 top-[7rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
         aria-label="Previous tutorial"
       >
         <ChevronLeft className="w-5 h-5 text-slate-600" />
@@ -290,7 +290,7 @@ function TutorialCarousel({ tutorials }: { tutorials: TutorialItem[] }) {
       <button
         type="button"
         onClick={() => scroll(1)}
-        className="absolute right-0 top-[5.5rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        className="absolute right-0 top-[7rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
         aria-label="Next tutorial"
       >
         <ChevronRight className="w-5 h-5 text-slate-600" />
@@ -300,7 +300,7 @@ function TutorialCarousel({ tutorials }: { tutorials: TutorialItem[] }) {
         className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
       >
         {tutorials.map((t) => (
-          <div key={t.title} className="snap-start shrink-0 w-[min(90vw,24rem)]">
+          <div key={t.title} className="snap-start shrink-0 w-[min(92vw,22rem)] sm:w-[24rem]">
             <TutorialCard {...t} layout="carousel" />
           </div>
         ))}
@@ -863,7 +863,7 @@ export default function Landing() {
             {cmsText(cms, "tutorials.heading")}
           </h2>
           <TutorialCarousel tutorials={tutorialPreviews} />
-          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {tutorialPreviews.map((t) => (
               <TutorialCard key={t.title} {...t} />
             ))}
