@@ -10,11 +10,6 @@ export type CmsField = {
 
 export type CmsSection = { title: string; fields: CmsField[] };
 
-const BOOL_OPTIONS = [
-  { value: "true", label: "Visible" },
-  { value: "false", label: "Hidden" },
-];
-
 function featureItemFields(index: number): CmsField[] {
   return [
     { key: `features.item${index}_title`, label: `Feature ${index} title` },
@@ -24,20 +19,6 @@ function featureItemFields(index: number): CmsField[] {
 }
 
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
-  sections: [
-    {
-      title: "Section visibility",
-      fields: [
-        { key: "sections.promo.enabled", label: "Promo banner", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.hero.enabled", label: "Hero", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.features.enabled", label: "Features", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.portfolio.enabled", label: "Portfolio", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.workflow.enabled", label: "Workflow", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.tutorials.enabled", label: "Tutorials", type: "select", options: BOOL_OPTIONS },
-        { key: "sections.cta.enabled", label: "Pre-footer CTA", type: "select", options: BOOL_OPTIONS },
-      ],
-    },
-  ],
   promo: [
     {
       title: "Promo banner",
@@ -175,7 +156,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
 };
 
 export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
-  sections: "Visibility",
   promo: "Promo",
   nav: "Navigation",
   seo: "SEO",
