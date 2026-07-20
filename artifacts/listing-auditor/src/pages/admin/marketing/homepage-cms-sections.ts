@@ -15,21 +15,6 @@ const BOOL_OPTIONS = [
   { value: "false", label: "Hidden" },
 ];
 
-const FIT_OPTIONS = [
-  { value: "cover", label: "Cover (fill tile)" },
-  { value: "contain", label: "Contain (show full image)" },
-];
-
-function portfolioItemFields(index: number): CmsField[] {
-  return [
-    { key: `portfolio.item${index}_title`, label: `Item ${index} title` },
-    { key: `portfolio.item${index}_brand`, label: `Item ${index} brand` },
-    { key: `portfolio.item${index}_badge`, label: `Item ${index} badge (optional)` },
-    { key: `portfolio.item${index}_image`, label: `Item ${index} image URL`, type: "url" },
-    { key: `portfolio.item${index}_fit`, label: `Item ${index} image fit`, type: "select", options: FIT_OPTIONS },
-  ];
-}
-
 function featureItemFields(index: number): CmsField[] {
   return [
     { key: `features.item${index}_title`, label: `Feature ${index} title` },
@@ -126,7 +111,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
         { key: "portfolio.subheading", label: "Section subheading", type: "textarea", rows: 2 },
         { key: "portfolio.cta_text", label: "CTA link text" },
         { key: "portfolio.cta_url", label: "CTA link URL", type: "url" },
-        ...Array.from({ length: 8 }, (_, i) => portfolioItemFields(i + 1)).flat(),
       ],
     },
   ],

@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { mergeHomepageCms, type HomepageCmsMap } from "@/lib/homepage-cms";
 import { HOMEPAGE_CMS_SECTIONS, HOMEPAGE_CMS_TAB_LABELS, type CmsField } from "./homepage-cms-sections";
 import { HeroSlidesEditor } from "./hero-slides-editor";
+import { PortfolioCmsEditor } from "./portfolio-cms-editor";
 import { DEFAULT_HERO_SLIDES, HERO_AUTOPLAY_ENABLED_KEY, HERO_AUTOPLAY_INTERVAL_KEY, HERO_SLIDES_JSON_KEY, serializeHeroSlides } from "@/lib/hero-slides";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -152,6 +153,9 @@ export default function AdminMarketingHomepage() {
             <TabsContent key={tab} value={tab} className="space-y-4 mt-4">
               {tab === "hero" && (
                 <HeroSlidesEditor data={localData} onChange={handleChange} />
+              )}
+              {tab === "portfolio" && (
+                <PortfolioCmsEditor data={localData} onChange={handleChange} />
               )}
               {HOMEPAGE_CMS_SECTIONS[tab].map((section) => (
                 <SectionEditor
