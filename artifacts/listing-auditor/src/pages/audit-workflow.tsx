@@ -27,10 +27,6 @@ import {
   Eye,
   Save,
   Copy,
-  LayoutTemplate,
-  ListChecks,
-  BarChart3,
-  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
@@ -146,10 +142,10 @@ interface AplusContent {
 }
 
 const APLUS_MODULE_CARDS = [
-  { id: "hero" as const, icon: LayoutTemplate, title: "Hero Banner", desc: "Full-width product hero image with headline" },
-  { id: "features" as const, icon: ListChecks, title: "Feature Highlights", desc: "Icon + text modules showcasing key features" },
-  { id: "comparison" as const, icon: BarChart3, title: "Comparison Chart", desc: "Compare your product against competitors" },
-  { id: "brand_story" as const, icon: BookOpen, title: "Brand Story", desc: "Tell your brand story with rich imagery" },
+  { id: "hero" as const, label: "Hero Banner", desc: "High-impact visual for the top of the page", icon: "🖼️" },
+  { id: "features" as const, label: "Features Highlights", desc: "Detailed breakdown of key product benefits", icon: "🔍" },
+  { id: "comparison" as const, label: "Comparison Charts", desc: "Side-by-side comparison with competitors or models", icon: "📊" },
+  { id: "brand_story" as const, label: "Brand Story", desc: "Connect with customers through your brand's mission", icon: "📖" },
 ];
 
 type AplusModuleId = AplusModule["id"];
@@ -1802,50 +1798,25 @@ export default function AuditWorkflow() {
 
           {/* STEP 4: A+ Content ── */}
           {activeStep === 4 && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-orange-500" />
+            <div className="space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                  <Sparkles className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Create A+ Content</h2>
-                  <p className="text-sm text-slate-500">Generate professional A+ content modules to boost conversions</p>
+                  <h2 className="text-2xl font-bold text-slate-900">Create A+ Content</h2>
+                  <p className="text-base text-slate-500 mt-0.5">Choose the modules you want to generate. You can select multiple.</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <p className="text-sm font-medium text-slate-700">Choose modules to generate</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-orange-600 hover:text-orange-700"
-                    onClick={() => setSelectedAplusModules([...ALL_APLUS_MODULE_IDS])}
-                    disabled={aplusStatus === "generating" || generateAplus.isPending}
-                  >
-                    Select all
-                  </button>
-                  <span className="text-slate-300">|</span>
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-slate-500 hover:text-slate-700"
-                    onClick={() => setSelectedAplusModules([])}
-                    disabled={aplusStatus === "generating" || generateAplus.isPending}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {APLUS_MODULE_CARDS.map((module) => {
                   const isSelected = selectedAplusModules.includes(module.id);
                   const generated = aplusModules.find((m) => m.id === module.id);
-                  const ModuleIcon = module.icon;
                   return (
                     <button
                       key={module.id}
                       type="button"
-                      title={module.desc}
                       onClick={() => {
                         setSelectedAplusModules((prev) =>
                           prev.includes(module.id)
@@ -1856,16 +1827,27 @@ export default function AuditWorkflow() {
                       }}
                       disabled={aplusStatus === "generating" || generateAplus.isPending}
                       className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all",
+                        "relative rounded-2xl border-2 p-5 text-left transition-all",
                         isSelected
-                          ? "border-orange-500 bg-orange-50 text-orange-700 shadow-sm"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+                          ? "border-orange-500 bg-orange-50/40 shadow-sm"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                        (aplusStatus === "generating" || generateAplus.isPending) && "opacity-60 cursor-not-allowed",
                       )}
                     >
-                      <ModuleIcon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
-                      <span>{module.title}</span>
-                      {generated && (
-                        <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" aria-label="Generated" />
+                      <span className="text-3xl leading-none block mb-3">{module.icon}</span>
+                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                        {module.label}
+                      </p>
+                      <p className="text-sm text-slate-400 mt-1 leading-snug">{module.desc}</p>
+                      {isSelected && (
+                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
+                          <Check className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      )}
+                      {generated && !isSelected && (
+                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm" aria-label="Generated">
+                          <Check className="w-3.5 h-3.5 text-white" />
+                        </div>
                       )}
                     </button>
                   );
