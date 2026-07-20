@@ -7,7 +7,7 @@ import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
-  teamMembersTable,
+  teamMembersTable, cmsContent,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
@@ -51,6 +51,15 @@ router.get("/faqs", async (_req, res): Promise<void> => {
     .where(eq(faqs.isPublished, true))
     .orderBy(faqs.sortOrder);
   res.json(items);
+});
+
+router.get("/cms/homepage", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(cmsContent).where(eq(cmsContent.pageSlug, "homepage"));
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    map[`${r.sectionKey}.${r.fieldKey}`] = r.value ?? "";
+  }
+  res.json(map);
 });
 
 const BRANDING_KEYS = ["platform_name", "site_logo_url", "site_favicon_url"] as const;

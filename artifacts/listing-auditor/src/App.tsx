@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BrandingHead } from "@/components/branding-head";
+import { HomepageCmsProvider } from "@/components/homepage-cms-context";
 import { useBranding } from "@/hooks/use-branding";
 import {
   Layout,
@@ -630,8 +631,10 @@ function App() {
     <WouterRouter base={basePath}>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <BrandingHead />
-          <ClerkProviderWithRoutes />
+          <HomepageCmsProvider>
+            <BrandingHead />
+            <ClerkProviderWithRoutes />
+          </HomepageCmsProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </WouterRouter>

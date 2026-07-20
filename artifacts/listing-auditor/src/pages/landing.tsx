@@ -14,6 +14,8 @@ import { PromoBanner } from "@/components/promo-banner";
 import { SeoHead } from "@/components/seo-head";
 import { MarketplaceLogos } from "@/components/marketplace-logos";
 import { HeroDashboardMockup } from "@/components/hero-dashboard-mockup";
+import { useHomepageCmsContext } from "@/components/homepage-cms-context";
+import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -39,51 +41,92 @@ interface DbPlan {
   trialDays: number;
 }
 
-interface DbFaq {
-  id: number;
-  question: string;
-  answer: string;
+const FEATURE_ICONS = [ClipboardList, PenLine, Box, Video, Megaphone];
+const HERO_STAT_ICONS = [BarChart3, Image, TrendingUp, Users];
+const WORKFLOW_ICONS = [Upload, Search, Wand2, Image, Download, Globe];
+
+type FeatureItem = {
+  icon: typeof ClipboardList;
+  title: string;
+  description: string;
+  href: string;
+};
+
+type PortfolioItem = {
+  id: string;
+  title: string;
+  brand: string;
+  image: string;
+  badge: string | null;
+  square: boolean;
+};
+
+type TutorialItem = {
+  title: string;
+  duration: string;
+  image: string;
+};
+
+function useLandingCmsData() {
+  const cms = useHomepageCmsContext();
+
+  const features: FeatureItem[] = [1, 2, 3, 4, 5].map((i) => ({
+    icon: FEATURE_ICONS[i - 1],
+    title: cmsText(cms, `features.item${i}_title`),
+    description: cmsText(cms, `features.item${i}_desc`),
+    href: cmsText(cms, `features.item${i}_href`),
+  })).filter((f) => f.title);
+
+  const heroStats = [1, 2, 3, 4].map((i) => ({
+    icon: HERO_STAT_ICONS[i - 1],
+    value: cmsText(cms, `hero.stat${i}_value`),
+    label: cmsText(cms, `hero.stat${i}_label`),
+  }));
+
+  const portfolioItems: PortfolioItem[] = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((i) => {
+    const title = cmsText(cms, `portfolio.item${i}_title`);
+    const imagePath = cmsText(cms, `portfolio.item${i}_image`);
+    if (!title || !imagePath) return [];
+    const fit = cmsText(cms, `portfolio.item${i}_fit`);
+    const badge = cmsText(cms, `portfolio.item${i}_badge`);
+    return [{
+      id: `portfolio-${i}`,
+      title,
+      brand: cmsText(cms, `portfolio.item${i}_brand`),
+      image: resolveCmsAssetUrl(imagePath, basePath),
+      badge: badge || null,
+      square: fit === "cover",
+    }];
+  });
+
+  const workflowSteps = [1, 2, 3, 4, 5, 6].map((i) => ({
+    icon: WORKFLOW_ICONS[i - 1],
+    label: cmsText(cms, `workflow.step${i}_label`),
+  }));
+
+  const workflowMetrics = [1, 2, 3, 4].map((i) => ({
+    label: cmsText(cms, `workflow.metric${i}_label`),
+    value: cmsText(cms, `workflow.metric${i}_value`),
+  }));
+
+  const tutorialPreviews: TutorialItem[] = [1, 2, 3, 4, 5].flatMap((i) => {
+    const title = cmsText(cms, `tutorials.item${i}_title`);
+    if (!title) return [];
+    return [{
+      title,
+      duration: cmsText(cms, `tutorials.item${i}_duration`),
+      image: resolveCmsAssetUrl(cmsText(cms, `tutorials.item${i}_image`), basePath),
+    }];
+  });
+
+  const faqItems = [1, 2, 3, 4, 5].flatMap((i) => {
+    const q = cmsText(cms, `faq.q${i}`);
+    if (!q) return [];
+    return [{ q, a: cmsText(cms, `faq.a${i}`) }];
+  });
+
+  return { cms, features, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews, faqItems };
 }
-
-const heroStats = [
-  { icon: BarChart3, value: "50M+", label: "Listings Analyzed" },
-  { icon: Image, value: "15M+", label: "Assets Generated" },
-  { icon: TrendingUp, value: "97%", label: "Optimization Score" },
-  { icon: Users, value: "5000+", label: "Brands Trust Us" },
-];
-
-const featureColumns = [
-  {
-    icon: ClipboardList,
-    title: "Audit Listings",
-    description: "AI-powered audits with actionable insights to boost your rankings.",
-    href: "/audit-listings",
-  },
-  {
-    icon: PenLine,
-    title: "Build Your Brand",
-    description: "Create powerful listings with AI-generated content that converts.",
-    href: "/audits/new",
-  },
-  {
-    icon: Box,
-    title: "Create Graphics",
-    description: "Design stunning product images that drive clicks and conversions.",
-    href: "/projects",
-  },
-  {
-    icon: Video,
-    title: "Create Videos",
-    description: "Produce engaging videos that build trust and increase sales.",
-    href: "/videos",
-  },
-  {
-    icon: Megaphone,
-    title: "Manage Ads",
-    description: "Optimize ad campaigns, reduce ACOS and scale profitably.",
-    href: "/ads",
-  },
-];
 
 function FeatureCard({
   icon: Icon,
@@ -91,7 +134,7 @@ function FeatureCard({
   description,
   href,
   layout = "grid",
-}: (typeof featureColumns)[number] & { layout?: "grid" | "carousel" }) {
+}: FeatureItem & { layout?: "grid" | "carousel" }) {
   const isCarousel = layout === "carousel";
 
   return (
@@ -127,7 +170,7 @@ function FeatureListCard({
   title,
   description,
   href,
-}: (typeof featureColumns)[number]) {
+}: FeatureItem) {
   return (
     <Link
       href={href}
@@ -145,55 +188,20 @@ function FeatureListCard({
   );
 }
 
-function FeatureMobileStack() {
+function FeatureMobileStack({ features }: { features: FeatureItem[] }) {
   return (
     <div className="block lg:hidden space-y-3 w-full">
-      {featureColumns.map((f) => (
+      {features.map((f) => (
         <FeatureListCard key={f.title} {...f} />
       ))}
     </div>
   );
 }
 
-const portfolioItems = [
-  { id: "product", title: "Product Images", brand: "Home & Kitchen", image: `${basePath}/portfolio/product-hydration-kit.png`, badge: null, square: true },
-  { id: "aplus-hero", title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null, square: false },
-  { id: "lifestyle", title: "Lifestyle Images", brand: "TIMEWEAR", image: `${basePath}/portfolio/lifestyle-timewear.png`, badge: "NEW", square: false },
-  { id: "infographic", title: "Infographic", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null, square: false },
-  { id: "size-chart", title: "Size Chart", brand: "TIMEWEAR", image: `${basePath}/portfolio/size-chart-timewear.png`, badge: null, square: false },
-  { id: "aplus-banner", title: "A+ Hero Banner", brand: "Premium Brands", image: `${basePath}/portfolio/portfolio-aplus-product-hero.jpg`, badge: null, square: true },
-  { id: "infographic-features", title: "Feature Highlights", brand: "Sports & Fitness", image: `${basePath}/portfolio/portfolio-infographic-fitness.jpg`, badge: null, square: true },
-  { id: "aplus-story", title: "Brand Story Module", brand: "Pet Essentials", image: `${basePath}/portfolio/portfolio-brand-story-pet.jpg`, badge: null, square: true },
-];
-
-const workflowSteps = [
-  { icon: Upload, label: "Upload" },
-  { icon: Search, label: "Analyze" },
-  { icon: Wand2, label: "Optimize" },
-  { icon: Image, label: "Generate Assets" },
-  { icon: Download, label: "Export" },
-  { icon: Globe, label: "Publish" },
-];
-
-const workflowMetrics = [
-  { label: "Click Through Rate", value: "+34%" },
-  { label: "Conversion Rate", value: "+27%" },
-  { label: "Organic Rank", value: "+18%" },
-  { label: "Sales Growth", value: "+40%" },
-];
-
-const tutorialPreviews = [
-  { title: "Getting Started", duration: "5:32", image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=240&fit=crop&q=80" },
-  { title: "Audit Your Listing", duration: "7:15", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=240&fit=crop&q=80" },
-  { title: "Optimize Content", duration: "6:48", image: "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=400&h=240&fit=crop&q=80" },
-  { title: "Create A+ Content", duration: "8:20", image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=240&fit=crop&q=80" },
-  { title: "Manage Ads", duration: "9:05", image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=240&fit=crop&q=80" },
-];
-
-function PortfolioGrid() {
+function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-      {portfolioItems.map((item, index) => (
+      {items.map((item, index) => (
         <div
           key={item.id}
           className="group relative aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300"
@@ -229,7 +237,7 @@ function TutorialCard({
   duration,
   image,
   layout = "grid",
-}: (typeof tutorialPreviews)[number] & { layout?: "grid" | "carousel" }) {
+}: TutorialItem & { layout?: "grid" | "carousel" }) {
   const isCarousel = layout === "carousel";
 
   return (
@@ -264,7 +272,7 @@ function TutorialCard({
   );
 }
 
-function TutorialCarousel() {
+function TutorialCarousel({ tutorials }: { tutorials: TutorialItem[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const scroll = (dir: -1 | 1) => {
     const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 280;
@@ -293,7 +301,7 @@ function TutorialCarousel() {
         ref={scrollRef}
         className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
       >
-        {tutorialPreviews.map((t) => (
+        {tutorials.map((t) => (
           <div key={t.title} className="snap-start shrink-0 w-[min(90vw,24rem)]">
             <TutorialCard {...t} layout="carousel" />
           </div>
@@ -449,6 +457,13 @@ function PricingCarousel({ plans }: { plans: DbPlan[] }) {
 }
 
 function LandingPricingSection() {
+  const cms = useHomepageCmsContext();
+  const eyebrow = cmsText(cms, "pricing.eyebrow");
+  const heading = cmsText(cms, "pricing.heading");
+  const footerText = cmsText(cms, "pricing.footer_text");
+  const footerLinkText = cmsText(cms, "pricing.footer_link_text");
+  const footerLinkUrl = cmsText(cms, "pricing.footer_link_url");
+
   const { data: dbPlans = [], isLoading } = useQuery<DbPlan[]>({
     queryKey: ["public-plans"],
     queryFn: async () => {
@@ -465,8 +480,8 @@ function LandingPricingSection() {
     return (
       <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
         <div className="max-w-6xl mx-auto text-center">
-          <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Choose the plan that fits your growth</h2>
+          <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">{heading}</h2>
           <p className="text-sm text-slate-500">Loading plans from Admin…</p>
         </div>
       </section>
@@ -477,8 +492,8 @@ function LandingPricingSection() {
     return (
       <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
         <div className="max-w-6xl mx-auto text-center">
-          <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Choose the plan that fits your growth</h2>
+          <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">{heading}</h2>
           <p className="text-slate-500">Plans are configured in Admin → Plans.</p>
         </div>
       </section>
@@ -488,8 +503,8 @@ function LandingPricingSection() {
   return (
     <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
       <div className="max-w-6xl mx-auto text-center">
-        <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">Choose the plan that fits your growth</h2>
+        <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">{heading}</h2>
         <PricingCarousel plans={plans} />
         <div className={cn("hidden sm:grid gap-6 text-left", landingPlanGridClass(plans.length))}>
           {plans.map((p) => (
@@ -497,30 +512,25 @@ function LandingPricingSection() {
           ))}
         </div>
         <p className="mt-5 sm:mt-6 text-sm text-slate-500">
-          Need a custom plan?{" "}
-          <Link href="/contact" className="text-orange-600 font-medium hover:underline">Contact us →</Link>
+          {footerText}{" "}
+          <Link href={footerLinkUrl} className="text-orange-600 font-medium hover:underline">{footerLinkText}</Link>
         </p>
       </div>
     </section>
   );
 }
 
-function LandingFaqSection() {
+function LandingFaqSection({ faqs }: { faqs: { q: string; a: string }[] }) {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  const { data: dbFaqs = [] } = useQuery<DbFaq[]>({
-    queryKey: ["public-faqs"],
-    queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
-  });
-
-  const faqs = dbFaqs.map((f) => ({ q: f.question, a: f.answer }));
+  const cms = useHomepageCmsContext();
+  const heading = cmsText(cms, "faq.heading");
 
   if (faqs.length === 0) return null;
 
   return (
     <section className="px-4 sm:px-6 pt-4 pb-12 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-24 bg-white">
       <div className="max-w-2xl mx-auto">
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">Frequently Asked Questions</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">{heading}</h2>
         <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
           {faqs.map((faq, i) => (
             <div key={i}>
@@ -548,17 +558,28 @@ function LandingFaqSection() {
 }
 
 export default function Landing() {
+  const {
+    cms,
+    features,
+    heroStats,
+    portfolioItems,
+    workflowSteps,
+    workflowMetrics,
+    tutorialPreviews,
+    faqItems,
+  } = useLandingCmsData();
+
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
       <PromoBanner />
       <PublicNav />
 
       <SeoHead
-        title="AI-Powered Listing Optimization"
-        description="Audit listings, create stunning content, manage ads and dominate every marketplace."
+        title={cmsText(cms, "seo.title")}
+        description={cmsText(cms, "seo.description")}
       />
 
-      {/* Hero */}
+      {cmsEnabled(cms, "hero") && (
       <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
@@ -566,25 +587,25 @@ export default function Landing() {
             <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
               <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
                 <Zap className="w-3 h-3 shrink-0" />
-                <span>AI-Powered Listing Optimization</span>
+                <span>{cmsText(cms, "hero.badge_text")}</span>
               </p>
             </div>
             <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
-              <span className="block sm:inline">Optimize Listings. Increase Sales.</span>{" "}
-              <span className="block sm:inline text-orange-500">Grow Faster.</span>
+              <span className="block sm:inline">{cmsText(cms, "hero.heading_line1")}</span>{" "}
+              <span className="block sm:inline text-orange-500">{cmsText(cms, "hero.heading_highlight")}</span>
             </h1>
             <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
-              Audit listings, create stunning content, manage ads and dominate every marketplace.
+              {cmsText(cms, "hero.subheading")}
             </p>
             <MarketplaceLogos className="mb-6 sm:mb-8" />
             <div className="flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10 max-w-md mx-auto lg:mx-0 lg:max-w-none">
               <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href="/sign-up">Get Started Free</Link>
+                <Link href={cmsText(cms, "hero.cta_primary_url")}>{cmsText(cms, "hero.cta_primary_text")}</Link>
               </Button>
               <Button size="lg" variant="outline" className="px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
-                <Link href="/features" className="flex items-center justify-center gap-2">
+                <Link href={cmsText(cms, "hero.cta_secondary_url")} className="flex items-center justify-center gap-2">
                   <Play className="w-4 h-4 shrink-0" />
-                  See How It Works
+                  {cmsText(cms, "hero.cta_secondary_text")}
                 </Link>
               </Button>
             </div>
@@ -605,58 +626,61 @@ export default function Landing() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* Features */}
+      {cmsEnabled(cms, "features") && features.length > 0 && (
       <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-20 border-t border-slate-100">
         <div className="max-w-6xl mx-auto">
           <div className="lg:hidden text-center mb-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
-              What you can do
+              {cmsText(cms, "features.eyebrow")}
             </p>
             <h2 className="text-[1.65rem] font-bold text-slate-900 leading-tight mb-3">
-              Everything you need to win on marketplaces
+              {cmsText(cms, "features.heading")}
             </h2>
             <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
-              Powerful tools and AI insights to optimize listings, content and ads that drive results.
+              {cmsText(cms, "features.subheading")}
             </p>
           </div>
           <h2 className="hidden lg:block text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900 text-center mb-6 lg:mb-12">
-            Everything you need to win on marketplaces
+            {cmsText(cms, "features.heading")}
           </h2>
-          <FeatureMobileStack />
+          <FeatureMobileStack features={features} />
           <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-8">
-            {featureColumns.map((f) => (
+            {features.map((f) => (
               <FeatureCard key={f.title} {...f} />
             ))}
           </div>
         </div>
       </section>
+      )}
 
-      {/* Portfolio */}
+      {cmsEnabled(cms, "portfolio") && portfolioItems.length > 0 && (
       <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-3 sm:mb-4">
-            Real results we&apos;ve created for brands like yours
+            {cmsText(cms, "portfolio.heading")}
           </h2>
           <p className="text-sm sm:text-base text-slate-500 text-center max-w-2xl mx-auto mb-8 sm:mb-12">
-            Premium listing graphics, A+ content, and lifestyle assets created with SellerLens AI.
+            {cmsText(cms, "portfolio.subheading")}
           </p>
-          <PortfolioGrid />
+          <PortfolioGrid items={portfolioItems} />
           <div className="text-center mt-5 sm:mt-6">
-            <Link href="/features" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
-              View More Works <ArrowRight className="w-4 h-4" />
+            <Link href={cmsText(cms, "portfolio.cta_url")} className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
+              {cmsText(cms, "portfolio.cta_text")} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </section>
+      )}
 
-      {/* Workflow */}
+      {cmsEnabled(cms, "workflow") && (
       <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-start">
             <div className="min-w-0">
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center lg:text-left">
-                From Upload to Publish in 6 Simple Steps
+                {cmsText(cms, "workflow.heading")}
               </h2>
               <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
                 <div className="flex sm:justify-between gap-3 sm:gap-0 min-w-max sm:min-w-0 sm:w-full relative">
@@ -680,14 +704,14 @@ export default function Landing() {
             <div className="space-y-4 min-w-0">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-white border border-red-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-                  <p className="text-xs font-bold text-red-500 uppercase mb-3">Before</p>
+                  <p className="text-xs font-bold text-red-500 uppercase mb-3">{cmsText(cms, "workflow.before_label")}</p>
                   <img
-                    src="https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=200&fit=crop&q=80"
+                    src={resolveCmsAssetUrl(cmsText(cms, "workflow.before_image"), basePath)}
                     alt=""
                     className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover bg-slate-100"
                     loading="lazy"
                   />
-                  <p className="text-3xl font-extrabold text-slate-800">62<span className="text-lg text-slate-400">/100</span></p>
+                  <p className="text-3xl font-extrabold text-slate-800">{cmsText(cms, "workflow.before_score")}<span className="text-lg text-slate-400">/100</span></p>
                   <div className="mt-2 flex items-end gap-0.5 h-8">
                     {[40, 55, 45, 50, 42, 48].map((h, i) => (
                       <div key={i} className="flex-1 bg-red-200 rounded-sm" style={{ height: `${h}%` }} />
@@ -695,15 +719,15 @@ export default function Landing() {
                   </div>
                 </div>
                 <div className="bg-white border-2 border-orange-200 rounded-2xl p-4 sm:p-5 shadow-lg relative">
-                  <span className="absolute -top-2.5 left-4 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">AI Optimized</span>
-                  <p className="text-xs font-bold text-orange-600 uppercase mb-3 mt-1">After</p>
+                  <span className="absolute -top-2.5 left-4 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{cmsText(cms, "workflow.after_badge")}</span>
+                  <p className="text-xs font-bold text-orange-600 uppercase mb-3 mt-1">{cmsText(cms, "workflow.after_label")}</p>
                   <img
-                    src="https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=400&h=200&fit=crop&q=80"
+                    src={resolveCmsAssetUrl(cmsText(cms, "workflow.after_image"), basePath)}
                     alt=""
                     className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover"
                     loading="lazy"
                   />
-                  <p className="text-3xl font-extrabold text-orange-600">96<span className="text-lg text-slate-400">/100</span></p>
+                  <p className="text-3xl font-extrabold text-orange-600">{cmsText(cms, "workflow.after_score")}<span className="text-lg text-slate-400">/100</span></p>
                   <div className="mt-2 flex items-end gap-0.5 h-8">
                     {[55, 62, 70, 78, 88, 96].map((h, i) => (
                       <div key={i} className="flex-1 bg-orange-400 rounded-sm" style={{ height: `${h}%` }} />
@@ -712,7 +736,7 @@ export default function Landing() {
                 </div>
               </div>
               <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 sm:p-5">
-                <p className="text-sm font-bold text-slate-900 mb-3 sm:mb-4 text-center sm:text-left">Better Listings. Better Results.</p>
+                <p className="text-sm font-bold text-slate-900 mb-3 sm:mb-4 text-center sm:text-left">{cmsText(cms, "workflow.metrics_heading")}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4">
                   {workflowMetrics.map((m) => (
                     <div key={m.label} className="text-center sm:text-left">
@@ -726,52 +750,55 @@ export default function Landing() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* Tutorials */}
+      {cmsEnabled(cms, "tutorials") && tutorialPreviews.length > 0 && (
       <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-20 bg-slate-50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
-            Learn how to get the most out of SellerLens
+            {cmsText(cms, "tutorials.heading")}
           </h2>
-          <TutorialCarousel />
+          <TutorialCarousel tutorials={tutorialPreviews} />
           <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {tutorialPreviews.map((t) => (
               <TutorialCard key={t.title} {...t} />
             ))}
           </div>
           <div className="text-center mt-5 sm:mt-8">
-            <Link href="/tutorials" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
-              View All Tutorials <ArrowRight className="w-4 h-4" />
+            <Link href={cmsText(cms, "tutorials.cta_url")} className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
+              {cmsText(cms, "tutorials.cta_text")} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </section>
+      )}
 
-      <LandingPricingSection />
-      <LandingFaqSection />
+      {cmsEnabled(cms, "pricing") && <LandingPricingSection />}
+      {cmsEnabled(cms, "faq") && <LandingFaqSection faqs={faqItems} />}
 
-      {/* Pre-footer CTA */}
+      {cmsEnabled(cms, "cta") && (
       <section className="px-4 sm:px-6 py-16 sm:py-20 text-center bg-white border-t border-slate-100">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
-            Ready to build better listings and grow your business?
+            {cmsText(cms, "cta.heading")}
           </h2>
           <p className="text-slate-500 mb-8">
-            Join thousands of brands already winning with AI.
+            {cmsText(cms, "cta.subheading")}
           </p>
           <div className="flex flex-row items-stretch justify-center gap-2 sm:gap-3">
             <Button size="lg" className="bg-orange-500 hover:bg-orange-600 px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
-              <Link href="/sign-up">Get Started Free</Link>
+              <Link href={cmsText(cms, "cta.primary_url")}>{cmsText(cms, "cta.primary_text")}</Link>
             </Button>
             <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
-              <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+              <Link href={cmsText(cms, "cta.secondary_url")} className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
                 <Play className="w-4 h-4 shrink-0" />
-                <span className="truncate">See How It Works</span>
+                <span className="truncate">{cmsText(cms, "cta.secondary_text")}</span>
               </Link>
             </Button>
           </div>
         </div>
       </section>
+      )}
 
       <PublicFooter />
       <ExitPopup />
