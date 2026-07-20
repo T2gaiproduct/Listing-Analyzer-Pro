@@ -1,219 +1,562 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Search, TrendingUp, Zap, ShieldCheck, BarChart3, ArrowRight,
-  CheckCircle2, Star, ChevronDown, ChevronUp, Image, Users,
-  LayoutDashboard, MousePointerClick, Sparkles, Wand2, ClipboardCheck, Globe, X,
+  ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
+  Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
+  TrendingUp, Users, Search, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
-import { NewsletterSection } from "@/components/newsletter";
 import { ExitPopup } from "@/components/exit-popup";
 import { PromoBanner } from "@/components/promo-banner";
 import { SeoHead } from "@/components/seo-head";
+import { MarketplaceLogos } from "@/components/marketplace-logos";
+import { HeroDashboardMockup } from "@/components/hero-dashboard-mockup";
+import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const features = [
-  { icon: BarChart3, title: "AI-Powered Scoring", description: "Get instant scores for your title, bullet points, images, and keywords — benchmarked against best practices." },
-  { icon: TrendingUp, title: "Competitor Comparison", description: "Analyze rival listings side-by-side and uncover gaps to outrank them in search results." },
-  { icon: Zap, title: "Content Generator", description: "Let AI rewrite your titles, bullets, and keywords with data-driven optimizations built in." },
-  { icon: ShieldCheck, title: "Image Studio", description: "Generate professional product images with style presets, aspect ratios, and AI-guided editing." },
-  { icon: Image, title: "AI Image Generation", description: "Create main images, lifestyle shots, and infographics — all Amazon-compliant and conversion-ready." },
-  { icon: Users, title: "Team Collaboration", description: "Invite your team, assign roles, and manage shared audits across your entire catalog." },
-];
-
-const benefits = [
-  "Audit unlimited listings",
-  "AI scoring across 4 key categories",
-  "Competitor analysis & comparison",
-  "AI-generated titles & bullet points",
-  "Professional image generation",
-  "Version history for images",
-];
-
-const testimonials = [
-  {
-    name: "Sarah M.",
-    role: "Amazon FBA Seller",
-    quote: "My overall listing score jumped from 48 to 87 in one afternoon. Sales increased 34% within the first month.",
-    rating: 5,
-    asin: "Electronics",
-  },
-  {
-    name: "Daniel K.",
-    role: "Brand Manager, SportsCo",
-    quote: "The competitor analysis alone is worth the subscription. I found 3 keyword gaps my competitors were exploiting and fixed them in minutes.",
-    rating: 5,
-    asin: "Sporting Goods",
-  },
-  {
-    name: "Priya R.",
-    role: "eCommerce Agency Owner",
-    quote: "We manage 200+ listings for clients. ListingAuditor cut our optimization workflow from days to hours. The white-label reports are a huge client win.",
-    rating: 5,
-    asin: "Agency",
-  },
-  {
-    name: "James T.",
-    role: "Private Label Seller",
-    quote: "The AI image studio is incredible. We replaced our $800 product shoot with AI-generated images that look just as professional.",
-    rating: 5,
-    asin: "Home & Kitchen",
-  },
-];
-
-const trustedBrands = ["TechNova", "SunriseGoods", "Clarity Agency", "ProSeller", "BrandLoft", "NexCart"];
-
-interface LandingPlan {
+interface DbPlan {
   id: number;
   name: string;
   description: string | null;
   priceMonthly: number;
   priceYearly: number;
-  creditAllocations: Record<string, number> | null;
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
   teamMembers: number;
-  tag: string | null;
-  isHighlighted: boolean;
+  creditAllocations: Record<string, number> | null;
   features: string[];
   excludedFeatures: string[];
+  tag: string | null;
+  sortOrder: number;
+  isHighlighted: boolean;
+  ctaText: string | null;
+  isTrial: boolean;
+  trialDays: number;
 }
 
-const badgeColorClass: Record<string, string> = {
-  orange: "bg-orange-50 text-orange-700",
-  blue: "bg-blue-50 text-blue-700",
-  purple: "bg-purple-50 text-purple-700",
-  emerald: "bg-emerald-50 text-emerald-700",
-  slate: "bg-slate-50 text-slate-700",
-};
+interface DbFaq {
+  id: number;
+  question: string;
+  answer: string;
+}
 
-const faqs = [
-  { q: "Is there a free plan?", a: "Yes — our Free plan lets you get started with AI optimization at no cost. You can upgrade to a paid plan anytime as your needs grow." },
-  { q: "How does scoring work?", a: "Our AI analyzes your listing across 4 dimensions (title, bullets, images, keywords) and scores each 0–100 based on Amazon best practices and competitive benchmarks." },
-  { q: "Can I audit competitor listings?", a: "Absolutely. Enter any ASIN to see a full audit and compare it side-by-side with your own listings." },
-  { q: "What are AI credits?", a: "AI credits power content generation — rewriting titles, bullet points, and keywords. Each AI credit covers one generation operation." },
-  { q: "Do I need an Amazon account to use this?", a: "No. You can paste your listing data manually or enter an ASIN. We don't require API access to your Amazon Seller Central account." },
+const heroStats = [
+  { icon: BarChart3, value: "50M+", label: "Listings Analyzed" },
+  { icon: Image, value: "15M+", label: "Assets Generated" },
+  { icon: TrendingUp, value: "97%", label: "Optimization Score" },
+  { icon: Users, value: "5000+", label: "Brands Trust Us" },
 ];
 
-function LandingPricingSection() {
-  const { data: dbPlans = [] } = useQuery<LandingPlan[]>({
-    queryKey: ["public-plans"],
-    queryFn: () => fetch(`${basePath}/api/plans`).then((r) => r.json()),
-  });
+const featureColumns = [
+  {
+    icon: ClipboardList,
+    title: "Audit Listings",
+    description: "AI-powered audits with actionable insights to boost your rankings.",
+    href: "/audit-listings",
+  },
+  {
+    icon: PenLine,
+    title: "Build Your Brand",
+    description: "Create powerful listings with AI-generated content that converts.",
+    href: "/audits/new",
+  },
+  {
+    icon: Box,
+    title: "Create Graphics",
+    description: "Design stunning product images that drive clicks and conversions.",
+    href: "/projects",
+  },
+  {
+    icon: Video,
+    title: "Create Videos",
+    description: "Produce engaging videos that build trust and increase sales.",
+    href: "/videos",
+  },
+  {
+    icon: Megaphone,
+    title: "Manage Ads",
+    description: "Optimize ad campaigns, reduce ACOS and scale profitably.",
+    href: "/ads",
+  },
+];
 
-  const plans = dbPlans
-    .sort((a, b) => a.priceMonthly - b.priceMonthly)
-    .slice(0, 4);
-
-  const gridCols = plans.length <= 3 ? `lg:grid-cols-${plans.length}` : "lg:grid-cols-4";
+function FeatureCard({
+  icon: Icon,
+  title,
+  description,
+  href,
+  layout = "grid",
+}: (typeof featureColumns)[number] & { layout?: "grid" | "carousel" }) {
+  const isCarousel = layout === "carousel";
 
   return (
-    <section className="bg-slate-50 px-6 py-20">
+    <Link
+      href={href}
+      className={cn(
+        "group block h-full transition-shadow",
+        isCarousel
+          ? "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md"
+          : "text-center",
+      )}
+    >
+      <div className={cn(isCarousel ? "flex items-start gap-3.5" : "flex flex-col items-center")}>
+        <div
+          className={cn(
+            "rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-orange-50 transition-colors",
+            isCarousel ? "w-10 h-10" : "w-12 h-12 mb-4",
+          )}
+        >
+          <Icon className={cn("text-slate-700 group-hover:text-orange-600 transition-colors", isCarousel ? "w-5 h-5" : "w-6 h-6")} />
+        </div>
+        <div className={cn("min-w-0", isCarousel ? "text-left" : "")}>
+          <h3 className={cn("font-semibold text-slate-900", isCarousel ? "mb-1 text-sm" : "mb-2")}>{title}</h3>
+          <p className={cn("text-slate-500 leading-relaxed", isCarousel ? "text-xs" : "text-sm")}>{description}</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function FeatureListCard({
+  icon: Icon,
+  title,
+  description,
+  href,
+}: (typeof featureColumns)[number]) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors w-full shadow-sm"
+    >
+      <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 text-slate-900" strokeWidth={1.75} />
+      </div>
+      <div className="flex-1 min-w-0 text-left">
+        <h3 className="font-semibold text-slate-900 text-sm leading-snug">{title}</h3>
+        <p className="text-xs text-slate-500 leading-relaxed mt-0.5">{description}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-slate-900 shrink-0" strokeWidth={2} />
+    </Link>
+  );
+}
+
+function FeatureMobileStack() {
+  return (
+    <div className="block lg:hidden space-y-3 w-full">
+      {featureColumns.map((f) => (
+        <FeatureListCard key={f.title} {...f} />
+      ))}
+    </div>
+  );
+}
+
+const portfolioItems = [
+  { title: "Product Images", brand: "Home & Kitchen", image: `${basePath}/portfolio/product-hydration-kit.png`, badge: null },
+  { title: "A+ Content", brand: "TIMEWEAR", image: `${basePath}/portfolio/aplus-timewear-hero.png`, badge: null },
+  { title: "Lifestyle Images", brand: "TIMEWEAR", image: `${basePath}/portfolio/lifestyle-timewear.png`, badge: "NEW" },
+  { title: "Infographic", brand: "Home & Kitchen", image: `${basePath}/portfolio/infographic-water-bottle.png`, badge: null },
+  { title: "Size Chart", brand: "TIMEWEAR", image: `${basePath}/portfolio/size-chart-timewear.png`, badge: null },
+];
+
+const workflowSteps = [
+  { icon: Upload, label: "Upload" },
+  { icon: Search, label: "Analyze" },
+  { icon: Wand2, label: "Optimize" },
+  { icon: Image, label: "Generate Assets" },
+  { icon: Download, label: "Export" },
+  { icon: Globe, label: "Publish" },
+];
+
+const workflowMetrics = [
+  { label: "Click Through Rate", value: "+34%" },
+  { label: "Conversion Rate", value: "+27%" },
+  { label: "Organic Rank", value: "+18%" },
+  { label: "Sales Growth", value: "+40%" },
+];
+
+const tutorialPreviews = [
+  { title: "Getting Started", duration: "5:32", image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=240&fit=crop&q=80" },
+  { title: "Audit Your Listing", duration: "7:15", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=240&fit=crop&q=80" },
+  { title: "Optimize Content", duration: "6:48", image: "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=400&h=240&fit=crop&q=80" },
+  { title: "Create A+ Content", duration: "8:20", image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=240&fit=crop&q=80" },
+  { title: "Manage Ads", duration: "9:05", image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=240&fit=crop&q=80" },
+];
+
+function PortfolioCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: -1 | 1) => {
+    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 256;
+    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative px-2 sm:px-10">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-slate-200 hidden sm:flex items-center justify-center hover:bg-slate-50"
+        aria-label="Previous"
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-slate-200 hidden sm:flex items-center justify-center hover:bg-slate-50"
+        aria-label="Next"
+      >
+        <ChevronRight className="w-5 h-5 text-slate-600" />
+      </button>
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 overscroll-x-contain"
+      >
+        {portfolioItems.map((item) => (
+          <div
+            key={item.title}
+            className="snap-start shrink-0 w-[min(72vw,16rem)] sm:w-64 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm"
+          >
+            <div className="h-36 sm:h-40 relative overflow-hidden bg-slate-100">
+              <img src={item.image} alt="" className="w-full h-full object-cover" loading="lazy" />
+              {item.badge && (
+                <span className="absolute top-3 right-3 bg-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+            <div className="p-4">
+              <p className="font-semibold text-slate-900 text-sm">{item.title}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{item.brand}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TutorialCard({
+  title,
+  duration,
+  image,
+  layout = "grid",
+}: (typeof tutorialPreviews)[number] & { layout?: "grid" | "carousel" }) {
+  const isCarousel = layout === "carousel";
+
+  return (
+    <Link
+      href="/tutorials"
+      className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full"
+    >
+      <div className={cn("relative overflow-hidden bg-slate-900", isCarousel ? "h-44" : "h-32 sm:h-36")}>
+        <img src={image} alt="" className="w-full h-full object-cover opacity-90" loading="lazy" />
+        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div
+            className={cn(
+              "rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform",
+              isCarousel ? "w-14 h-14" : "w-12 h-12",
+            )}
+          >
+            <Play className={cn("text-orange-600 ml-0.5", isCarousel ? "w-6 h-6" : "w-5 h-5")} />
+          </div>
+        </div>
+        <span
+          className={cn(
+            "absolute bottom-2 right-2 bg-black/60 text-white font-medium px-1.5 py-0.5 rounded",
+            isCarousel ? "text-xs" : "text-[10px]",
+          )}
+        >
+          {duration}
+        </span>
+      </div>
+      <p className={cn("font-semibold text-slate-800", isCarousel ? "p-4 text-base" : "p-3 text-sm")}>{title}</p>
+    </Link>
+  );
+}
+
+function TutorialCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: -1 | 1) => {
+    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 280;
+    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative sm:hidden px-2">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="absolute left-0 top-[5.5rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Previous tutorial"
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="absolute right-0 top-[5.5rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Next tutorial"
+      >
+        <ChevronRight className="w-5 h-5 text-slate-600" />
+      </button>
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
+      >
+        {tutorialPreviews.map((t) => (
+          <div key={t.title} className="snap-start shrink-0 w-[min(90vw,24rem)]">
+            <TutorialCard {...t} layout="carousel" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function planDisplayFeatures(p: DbPlan): string[] {
+  if (p.features.length > 0) return p.features;
+
+  const a = p.creditAllocations ?? {};
+  const derived = [
+    a.audit != null || p.auditCredits ? `${a.audit ?? p.auditCredits} listing audits/mo` : null,
+    a.content != null ? `${a.content} AI content credits` : p.aiCredits ? `${p.aiCredits} AI content credits` : null,
+    a.images != null || p.imageCredits ? `${a.images ?? p.imageCredits} image generation credits` : null,
+    a.ebc != null ? `${a.ebc} A+ / EBC content credits` : null,
+    a.competitors != null ? `${a.competitors} competitor analyses` : null,
+    p.teamMembers > 1 ? `${p.teamMembers} team members` : null,
+  ].filter((item): item is string => Boolean(item));
+
+  return derived;
+}
+
+function planCta(p: DbPlan) {
+  if (p.ctaText) return p.ctaText;
+  if (p.isTrial && p.trialDays > 0) return `Start ${p.trialDays}-Day Trial`;
+  return "Get Started";
+}
+
+function planCtaHref(p: DbPlan) {
+  const cta = planCta(p).toLowerCase();
+  if (cta.includes("contact")) return "/contact";
+  return "/sign-up";
+}
+
+function sortPlansFromAdmin(plans: DbPlan[]) {
+  return [...plans].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
+}
+
+function landingPlanGridClass(count: number) {
+  if (count <= 1) return "grid-cols-1 max-w-md mx-auto";
+  if (count === 2) return "grid-cols-2 max-w-3xl mx-auto";
+  if (count === 3) return "grid-cols-3";
+  if (count === 4) return "grid-cols-2 xl:grid-cols-4";
+  return "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+}
+
+function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: boolean }) {
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const highlighted = plan.isHighlighted;
+  const features = planDisplayFeatures(plan);
+  const cta = planCta(plan);
+  const featureLimit = 5;
+  const hasMoreFeatures = compact && features.length > featureLimit;
+  const visibleFeatures = hasMoreFeatures && !showAllFeatures ? features.slice(0, featureLimit) : features;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl flex flex-col bg-white border relative h-full text-left",
+        compact ? "p-5" : "p-6 sm:p-8",
+        highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
+      )}
+    >
+      {highlighted && plan.tag && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+            {plan.tag}
+          </span>
+        </div>
+      )}
+      <p className="font-bold text-lg text-slate-900">{plan.name}</p>
+      <p className={cn("text-sm text-slate-500 mt-1", compact ? "mb-3 line-clamp-2" : "mb-4")}>{plan.description}</p>
+      <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>
+        ${plan.priceMonthly}
+        <span className="text-base font-normal text-slate-400">/mo</span>
+      </p>
+      <ul className={cn("space-y-2.5 flex-1", compact ? "mb-5" : "space-y-3 mb-8")}>
+        {visibleFeatures.map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
+            <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+            {f}
+          </li>
+        ))}
+        {(plan.excludedFeatures ?? []).map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm text-slate-400 line-through">
+            <span className="w-4 shrink-0" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      {hasMoreFeatures && !showAllFeatures && (
+        <button
+          type="button"
+          onClick={() => setShowAllFeatures(true)}
+          className="text-sm font-medium text-orange-600 hover:text-orange-700 mb-4 text-left"
+        >
+          +{features.length - featureLimit} more features
+        </button>
+      )}
+      <Button
+        className={cn("w-full mt-auto", highlighted ? "bg-orange-500 hover:bg-orange-600" : "")}
+        variant={highlighted ? "default" : "outline"}
+        asChild
+      >
+        <Link href={planCtaHref(plan)}>{cta}</Link>
+      </Button>
+    </div>
+  );
+}
+
+function PricingCarousel({ plans }: { plans: DbPlan[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const orderedPlans = sortPlansFromAdmin(plans);
+  const scroll = (dir: -1 | 1) => {
+    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 320;
+    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative sm:hidden px-2">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Previous plan"
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+        aria-label="Next plan"
+      >
+        <ChevronRight className="w-5 h-5 text-slate-600" />
+      </button>
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain items-stretch"
+      >
+        {orderedPlans.map((p) => (
+          <div key={p.id} className="snap-center shrink-0 w-[min(88vw,22rem)] flex">
+            <PricingPlanCard plan={p} compact />
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-slate-400 text-center">Swipe to compare plans</p>
+    </div>
+  );
+}
+
+function LandingPricingSection() {
+  const { data: dbPlans = [], isLoading } = useQuery<DbPlan[]>({
+    queryKey: ["public-plans"],
+    queryFn: async () => {
+      const res = await fetch(`${basePath}/api/plans`);
+      if (!res.ok) throw new Error("Failed to load plans");
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const plans = sortPlansFromAdmin(dbPlans);
+
+  if (isLoading) {
+    return (
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Choose the plan that fits your growth</h2>
+          <p className="text-sm text-slate-500">Loading plans from Admin…</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (plans.length === 0) {
+    return (
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Choose the plan that fits your growth</h2>
+          <p className="text-slate-500">Plans are configured in Admin → Plans.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
       <div className="max-w-6xl mx-auto text-center">
-        <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Pricing</Badge>
-        <h2 className="text-3xl font-bold text-slate-900 mb-3">Simple, transparent pricing</h2>
-        <p className="text-slate-500 mb-10">Start free. Scale as you grow. No hidden fees.</p>
-        <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridCols} gap-6 mb-10`}>
-          {plans.map((p) => {
-            const a = p.creditAllocations ?? {};
-            const totalCredits = (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
+        <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">Simple, Transparent Pricing</p>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">Choose the plan that fits your growth</h2>
+        <PricingCarousel plans={plans} />
+        <div className={cn("hidden sm:grid gap-6 text-left", landingPlanGridClass(plans.length))}>
+          {plans.map((p) => (
+            <PricingPlanCard key={p.id} plan={p} />
+          ))}
+        </div>
+        <p className="mt-5 sm:mt-6 text-sm text-slate-500">
+          Need a custom plan?{" "}
+          <Link href="/contact" className="text-orange-600 font-medium hover:underline">Contact us →</Link>
+        </p>
+      </div>
+    </section>
+  );
+}
 
-            const activityRows = [
-              { label: "Audit", value: a.audit, color: "text-orange-700" },
-              { label: "Text Content", value: a.content, color: "text-blue-700" },
-              { label: "Images", value: a.images, color: "text-purple-700" },
-              { label: "A+ / EBC Content", value: a.ebc, color: "text-emerald-700" },
-              { label: "Competitors Analysis", value: a.competitors, color: "text-slate-700" },
-              { label: "Team Members", value: a.teamMembers, color: "text-slate-700" },
-            ];
+function LandingFaqSection() {
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-            return (
-              <div
-                key={p.id}
-                className={`rounded-2xl p-6 border text-left flex flex-col ${
-                  p.isHighlighted
-                    ? "border-orange-400 bg-white shadow-xl shadow-orange-100 relative"
-                    : "border-slate-200 bg-white shadow-sm"
-                }`}
+  const { data: dbFaqs = [] } = useQuery<DbFaq[]>({
+    queryKey: ["public-faqs"],
+    queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
+  });
+
+  const faqs = dbFaqs.map((f) => ({ q: f.question, a: f.answer }));
+
+  if (faqs.length === 0) return null;
+
+  return (
+    <section className="px-4 sm:px-6 pt-4 pb-12 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-24 bg-white">
+      <div className="max-w-2xl mx-auto">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">Frequently Asked Questions</h2>
+        <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
+          {faqs.map((faq, i) => (
+            <div key={i}>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-5 sm:px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
               >
-                {p.isHighlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">{p.tag || "Most Popular"}</span>
-                  </div>
-                )}
-                <p className="font-bold text-slate-900 mb-1">{p.name}</p>
-                <p className="text-sm text-slate-500 mb-3">{p.description}</p>
-                <p className="text-4xl font-extrabold text-slate-900 mb-4">
-                  ${p.priceMonthly}<span className="text-sm font-normal text-slate-400">/mo</span>
-                </p>
-
-                <div className="space-y-2.5 flex-1 mb-5">
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium uppercase tracking-wide border-b border-slate-100 pb-1.5">
-                    <span>Item</span>
-                    <span>Credits / Mo</span>
-                  </div>
-                  {activityRows.map((row) => (
-                    <div key={row.label} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">{row.label}</span>
-                      <span className={`font-semibold ${row.color}`}>
-                        {typeof row.value === "number" ? row.value.toLocaleString() : "\u2014"}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="border-t border-slate-200 pt-2 mt-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600 font-medium">Total Monthly Credits</span>
-                      <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  {(() => {
-                    const includedFeatures = p.features.length > 0
-                      ? p.features
-                      : [
-                          ...(a.audit ? [`${a.audit} listing audits/mo`] : []),
-                          ...(a.content ? [`${a.content} AI content credits`] : []),
-                          ...(a.images ? [`${a.images} image generation credits`] : []),
-                          ...(a.ebc ? [`${a.ebc} A+ / EBC content credits`] : []),
-                          ...(a.competitors ? [`${a.competitors} competitor analysis credits`] : []),
-                          ...(p.teamMembers ? [`${p.teamMembers} team members`] : []),
-                        ];
-                    const excludedFeatures = p.excludedFeatures ?? [];
-                    if (includedFeatures.length === 0 && excludedFeatures.length === 0) return null;
-                    return (
-                      <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
-                        {includedFeatures.map((feat) => (
-                          <div key={feat} className="flex items-start gap-2 text-sm text-slate-600">
-                            <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                            <span>{feat}</span>
-                          </div>
-                        ))}
-                        {excludedFeatures.map((feat) => (
-                          <div key={feat} className="flex items-start gap-2 text-sm text-slate-400">
-                            <X className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
-                            <span>{feat}</span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                <span className="font-medium text-slate-900 text-sm sm:text-base pr-4">{faq.q}</span>
+                {openFaq === i
+                  ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                  : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+              </button>
+              {openFaq === i && (
+                <div className="px-5 sm:px-6 pb-4 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-3 bg-slate-50/50">
+                  {faq.a}
                 </div>
-
-                <Button
-                  variant={p.isHighlighted ? "default" : "outline"}
-                  className={`w-full ${p.isHighlighted ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
-                  asChild
-                >
-                  <Link href="/pricing">
-                    Choose Plan
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </Link>
-                </Button>
-              </div>
-            );
-          })}
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -221,289 +564,225 @@ function LandingPricingSection() {
 }
 
 export default function Landing() {
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-
   return (
-    <div className="min-h-[100dvh] bg-white flex flex-col">
+    <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
       <PromoBanner />
       <PublicNav />
 
-      {/* SEO */}
       <SeoHead
-        title="AI-Powered Amazon Listing Optimization"
-        description="Audit your Amazon listings in seconds with AI. Get scores, fix issues, outrank competitors, and generate winning content."
+        title="AI-Powered Listing Optimization"
+        description="Audit listings, create stunning content, manage ads and dominate every marketplace."
       />
 
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-slate-50 via-white to-orange-50 px-6 py-24 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_0%,rgba(255,128,0,0.06),transparent_70%)]" />
-        <div className="relative max-w-4xl mx-auto">
-          <Badge variant="outline" className="mb-8 border-orange-200 text-orange-600 bg-orange-50 px-4 py-1.5">
-            <Zap className="w-3.5 h-3.5 mr-1.5" />
-            AI-powered Amazon listing optimization
-          </Badge>
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1] mb-6">
-            Turn average listings into{" "}
-            <span className="text-primary">top performers</span>
-          </h1>
-          <p className="text-xl text-slate-500 max-w-xl mx-auto mb-10 leading-relaxed">
-            Audit your Amazon listings in seconds. Get AI scores, fix issues, outrank competitors, and generate winning content — all in one place.
-          </p>
-          <div className="flex items-center gap-4 flex-wrap justify-center mb-12">
-            <Button size="lg" className="text-base px-8 shadow-md" asChild>
-              <Link href="/sign-up">
-                Start your free audit
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="text-base px-8" asChild>
-              <Link href="/features">See all features</Link>
-            </Button>
+      <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
+        <div className="relative max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center">
+          <div className="text-center lg:text-left min-w-0">
+            <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
+              <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
+                <Zap className="w-3 h-3 shrink-0" />
+                <span>AI-Powered Listing Optimization</span>
+              </p>
+            </div>
+            <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
+              <span className="block sm:inline">Optimize Listings. Increase Sales.</span>{" "}
+              <span className="block sm:inline text-orange-500">Grow Faster.</span>
+            </h1>
+            <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+              Audit listings, create stunning content, manage ads and dominate every marketplace.
+            </p>
+            <MarketplaceLogos className="mb-6 sm:mb-8" />
+            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3 justify-center lg:justify-start mb-8 sm:mb-10 max-w-md mx-auto lg:mx-0 lg:max-w-none">
+              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
+                <Link href="/sign-up">Get Started Free</Link>
+              </Button>
+              <Button size="lg" variant="outline" className="px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+                <Link href="/features" className="flex items-center justify-center gap-2">
+                  <Play className="w-4 h-4 shrink-0" />
+                  See How It Works
+                </Link>
+              </Button>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0">
+              {heroStats.map((s) => (
+                <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center mb-1 shrink-0">
+                    <s.icon className="w-3.5 h-3.5 text-orange-500" />
+                  </div>
+                  <p className="text-xs sm:text-lg lg:text-xl font-bold text-slate-900 leading-tight">{s.value}</p>
+                  <p className="text-[9px] sm:text-xs text-slate-500 leading-snug mt-0.5">{s.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            {benefits.map((b) => (
-              <span key={b} className="flex items-center gap-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded-full px-4 py-1.5 shadow-sm">
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                {b}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Trusted by */}
-      <section className="border-y border-slate-100 bg-slate-50 px-6 py-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-6">Trusted by sellers worldwide</p>
-          <div className="flex flex-wrap justify-center gap-8">
-            {trustedBrands.map((b) => (
-              <span key={b} className="text-slate-400 font-bold text-sm tracking-wide">{b}</span>
-            ))}
+          <div className="hidden lg:block min-w-0 w-full">
+            <HeroDashboardMockup />
           </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="px-6 py-24">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Features</Badge>
-            <h2 className="text-4xl font-bold text-slate-900 mb-3">Everything you need to dominate search</h2>
-            <p className="text-slate-500 max-w-lg mx-auto">One platform for auditing, optimizing, comparing, and generating — no more switching between tools.</p>
+      <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-20 border-t border-slate-100">
+        <div className="max-w-6xl mx-auto">
+          <div className="lg:hidden text-center mb-8">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
+              What you can do
+            </p>
+            <h2 className="text-[1.65rem] font-bold text-slate-900 leading-tight mb-3">
+              Everything you need to win on marketplaces
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+              Powerful tools and AI insights to optimize listings, content and ads that drive results.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((f) => (
-              <div key={f.title} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow group">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center mb-4 group-hover:bg-orange-100 transition-colors">
-                  <f.icon className="w-5 h-5 text-primary" />
-                </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-2">{f.title}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{f.description}</p>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-8">
-            <Button variant="outline" asChild>
-              <Link href="/features">See full feature breakdown <ArrowRight className="w-4 h-4 ml-2" /></Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Product Screenshot / Dashboard Mockup */}
-      <section className="px-6 pb-6 -mt-8">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
-            <div className="bg-slate-800 px-4 py-2 flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-400" />
-              <div className="w-3 h-3 rounded-full bg-yellow-400" />
-              <div className="w-3 h-3 rounded-full bg-green-400" />
-              <span className="text-xs text-slate-500 ml-2">listingauditor.com/dashboard</span>
-            </div>
-            <div className="p-6 md:p-10">
-              <div className="grid md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                  <p className="text-xs text-slate-400 mb-1">Overall Score</p>
-                  <p className="text-3xl font-bold text-green-400">87<span className="text-lg text-slate-500">/100</span></p>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                  <p className="text-xs text-slate-400 mb-1">Title Score</p>
-                  <p className="text-3xl font-bold text-orange-400">92<span className="text-lg text-slate-500">/100</span></p>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                  <p className="text-xs text-slate-400 mb-1">Keyword Score</p>
-                  <p className="text-3xl font-bold text-blue-400">78<span className="text-lg text-slate-500">/100</span></p>
-                </div>
-              </div>
-              <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-orange-400" />
-                  <span className="text-sm font-medium text-slate-200">AI Suggestions</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2 text-sm text-slate-400">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                    Add "dishwasher safe" to title — high-search keyword with low competition
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-slate-400">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                    Expand bullet point #2 with a benefit-focused opening
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-slate-400">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                    Add lifestyle image showing the product in use
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works / Workflow */}
-      <section className="px-6 py-20 bg-slate-50">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">How It Works</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">Optimize in 3 simple steps</h2>
-            <p className="text-slate-500 max-w-lg mx-auto">No complex setup. Paste a URL and let AI do the heavy lifting.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { step: "01", icon: MousePointerClick, title: "Paste Your Listing", desc: "Enter any Amazon product URL or ASIN. Our system instantly fetches the listing data." },
-              { step: "02", icon: Wand2, title: "AI Analyzes Everything", desc: "Our AI scores your title, bullets, images, and keywords against proven best practices." },
-              { step: "03", icon: ClipboardCheck, title: "Get Actionable Fixes", desc: "Receive specific suggestions, rewritten content, and a competitor gap analysis." },
-            ].map((s) => (
-              <div key={s.step} className="relative text-center">
-                <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center mx-auto mb-5">
-                  <s.icon className="w-7 h-7 text-orange-600" />
-                </div>
-                <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">Step {s.step}</span>
-                <h3 className="text-lg font-bold text-slate-900 mt-2 mb-2">{s.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
-              </div>
+          <h2 className="hidden lg:block text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900 text-center mb-6 lg:mb-12">
+            Everything you need to win on marketplaces
+          </h2>
+          <FeatureMobileStack />
+          <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-8">
+            {featureColumns.map((f) => (
+              <FeatureCard key={f.title} {...f} />
             ))}
           </div>
         </div>
       </section>
 
-      {/* Before / After demo */}
-      <section className="px-6 py-20">
-        <div className="max-w-4xl mx-auto text-center">
-          <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Results</Badge>
-          <h2 className="text-3xl font-bold text-slate-900 mb-3">See the AI difference</h2>
-          <p className="text-slate-500 mb-10">Real listing data — optimized in seconds.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left">
-            <div className="bg-white border border-red-200 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-red-500 uppercase tracking-wide">Before</span>
-                <span className="bg-red-100 text-red-600 text-sm font-bold px-2.5 py-0.5 rounded-full">Score: 34</span>
-              </div>
-              <p className="text-slate-700 font-semibold text-sm mb-2">Title</p>
-              <p className="text-slate-500 text-sm">Blue Dog Bowl Stainless Steel Non Slip</p>
-            </div>
-            <div className="bg-white border border-green-200 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-green-600 uppercase tracking-wide">After AI Optimization</span>
-                <span className="bg-green-100 text-green-700 text-sm font-bold px-2.5 py-0.5 rounded-full">Score: 89</span>
-              </div>
-              <p className="text-slate-700 font-semibold text-sm mb-2">Title</p>
-              <p className="text-slate-700 text-sm font-medium">Stainless Steel Dog Bowl — Non-Slip Base, Dishwasher Safe, 32oz for Medium & Large Dogs</p>
-            </div>
+      {/* Portfolio */}
+      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-slate-50">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
+            Real results we&apos;ve created for brands like yours
+          </h2>
+          <PortfolioCarousel />
+          <div className="text-center mt-5 sm:mt-6">
+            <Link href="/features" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
+              View More Works <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="px-6 py-24">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">Reviews</Badge>
-            <h2 className="text-3xl font-bold text-slate-900">Loved by Amazon sellers</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {testimonials.map((t) => (
-              <div key={t.name} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                <div className="flex gap-1 mb-3">
-                  {[...Array(t.rating)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-orange-400 text-orange-400" />
+      {/* Workflow */}
+      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-start">
+            <div className="min-w-0">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center lg:text-left">
+                From Upload to Publish in 6 Simple Steps
+              </h2>
+              <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
+                <div className="flex sm:justify-between gap-3 sm:gap-0 min-w-max sm:min-w-0 sm:w-full relative">
+                  {workflowSteps.map((step, i) => (
+                    <div key={step.label} className="flex flex-col items-center w-20 sm:flex-1 sm:min-w-0 relative">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center mb-2 z-10">
+                        <step.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+                      </div>
+                      <span className="text-[10px] sm:text-xs font-medium text-slate-600 text-center leading-tight max-w-[4.5rem] sm:max-w-none">
+                        {step.label}
+                      </span>
+                      {i < workflowSteps.length - 1 && (
+                        <div className="hidden sm:block absolute top-5 sm:top-[1.375rem] left-[60%] w-[80%] h-0.5 bg-orange-100" />
+                      )}
+                    </div>
                   ))}
                 </div>
-                <p className="text-slate-700 text-sm leading-relaxed mb-4">"{t.quote}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-orange-600 font-bold text-xs">{t.name[0]}</span>
+              </div>
+            </div>
+
+            <div className="space-y-4 min-w-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white border border-red-100 rounded-2xl p-4 sm:p-5 shadow-sm">
+                  <p className="text-xs font-bold text-red-500 uppercase mb-3">Before</p>
+                  <img
+                    src="https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=200&fit=crop&q=80"
+                    alt=""
+                    className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover bg-slate-100"
+                    loading="lazy"
+                  />
+                  <p className="text-3xl font-extrabold text-slate-800">62<span className="text-lg text-slate-400">/100</span></p>
+                  <div className="mt-2 flex items-end gap-0.5 h-8">
+                    {[40, 55, 45, 50, 42, 48].map((h, i) => (
+                      <div key={i} className="flex-1 bg-red-200 rounded-sm" style={{ height: `${h}%` }} />
+                    ))}
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-900 text-sm">{t.name}</p>
-                    <p className="text-slate-400 text-xs">{t.role}</p>
+                </div>
+                <div className="bg-white border-2 border-orange-200 rounded-2xl p-4 sm:p-5 shadow-lg relative">
+                  <span className="absolute -top-2.5 left-4 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">AI Optimized</span>
+                  <p className="text-xs font-bold text-orange-600 uppercase mb-3 mt-1">After</p>
+                  <img
+                    src="https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=400&h=200&fit=crop&q=80"
+                    alt=""
+                    className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover"
+                    loading="lazy"
+                  />
+                  <p className="text-3xl font-extrabold text-orange-600">96<span className="text-lg text-slate-400">/100</span></p>
+                  <div className="mt-2 flex items-end gap-0.5 h-8">
+                    {[55, 62, 70, 78, 88, 96].map((h, i) => (
+                      <div key={i} className="flex-1 bg-orange-400 rounded-sm" style={{ height: `${h}%` }} />
+                    ))}
                   </div>
-                  <Badge variant="outline" className="ml-auto text-xs">{t.asin}</Badge>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing preview */}
-      <LandingPricingSection />
-
-
-      {/* FAQ */}
-      <section className="px-6 py-20">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-10">
-            <Badge variant="outline" className="mb-4 border-orange-200 text-orange-600 bg-orange-50">FAQ</Badge>
-            <h2 className="text-3xl font-bold text-slate-900">Common questions</h2>
-          </div>
-          <div className="space-y-3">
-            {faqs.map((faq, i) => (
-              <div key={i} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                <button
-                  className="w-full flex items-center justify-between px-5 py-4 text-left"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                >
-                  <span className="font-semibold text-slate-900 text-sm pr-4">{faq.q}</span>
-                  {openFaq === i
-                    ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                  }
-                </button>
-                {openFaq === i && (
-                  <div className="px-5 pb-4 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-3">
-                    {faq.a}
-                  </div>
-                )}
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 sm:p-5">
+                <p className="text-sm font-bold text-slate-900 mb-3 sm:mb-4 text-center sm:text-left">Better Listings. Better Results.</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {workflowMetrics.map((m) => (
+                    <div key={m.label} className="text-center sm:text-left">
+                      <p className="text-lg sm:text-xl font-extrabold text-orange-600">{m.value}</p>
+                      <p className="text-xs text-slate-500">{m.label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Newsletter */}
-      <NewsletterSection />
+      {/* Tutorials */}
+      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-20 bg-slate-50">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
+            Learn how to get the most out of SellerLens
+          </h2>
+          <TutorialCarousel />
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {tutorialPreviews.map((t) => (
+              <TutorialCard key={t.title} {...t} />
+            ))}
+          </div>
+          <div className="text-center mt-5 sm:mt-8">
+            <Link href="/tutorials" className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
+              View All Tutorials <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      {/* Final CTA */}
-      <section className="bg-slate-900 px-6 py-20 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,128,0,0.1),transparent_70%)]" />
-        <div className="relative">
-          <h2 className="text-4xl font-extrabold text-white mb-4">Ready to optimize your listings?</h2>
-          <p className="text-slate-400 mb-8 max-w-md mx-auto text-lg">
-            Join sellers using AI to score, fix, and grow their Amazon presence. Start with a 14-day free trial on any paid plan.
+      <LandingPricingSection />
+      <LandingFaqSection />
+
+      {/* Pre-footer CTA */}
+      <section className="px-4 sm:px-6 py-16 sm:py-20 text-center bg-white border-t border-slate-100">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
+            Ready to build better listings and grow your business?
+          </h2>
+          <p className="text-slate-500 mb-8">
+            Join thousands of brands already winning with AI.
           </p>
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-10 shadow-lg text-base" asChild>
-              <Link href="/sign-up">
-                Create your free account
-                <ArrowRight className="w-4 h-4 ml-2" />
+          <div className="flex flex-row items-stretch justify-center gap-2 sm:gap-3">
+            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
+              <Link href="/sign-up">Get Started Free</Link>
+            </Button>
+            <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+              <Link href="/features" className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
+                <Play className="w-4 h-4 shrink-0" />
+                <span className="truncate">See How It Works</span>
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-slate-800 px-8" asChild>
-              <Link href="/contact">Book a demo</Link>
-            </Button>
           </div>
-          <p className="text-slate-500 text-sm mt-6">No credit card required · Cancel anytime</p>
         </div>
       </section>
 
