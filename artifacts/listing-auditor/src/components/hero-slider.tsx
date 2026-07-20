@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
-import { DEFAULT_HERO_SLIDE_IMAGE, type HeroSlide } from "@/lib/hero-slides";
+import { DEFAULT_HERO_SLIDE_IMAGE, heroSlideDesktopImage, heroSlideMobileImage, type HeroSlide } from "@/lib/hero-slides";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -21,17 +21,29 @@ interface HeroSliderProps {
   autoplayIntervalMs?: number;
 }
 
-function HeroSlideImage({ imageUrl }: { imageUrl: string }) {
-  const src = resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath);
+function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?: string }) {
+  const fallbackSrc = resolveCmsAssetUrl(DEFAULT_HERO_SLIDE_IMAGE, basePath);
+  const [src, setSrc] = useState(() =>
+    resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath),
+  );
+
+  useEffect(() => {
+    setSrc(resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath));
+  }, [imageUrl]);
 
   return (
-    <div className="w-full min-w-0">
-      <img
-        src={src}
-        alt=""
-        className="block w-full max-w-none h-auto rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.18)] bg-white"
-      />
-    </div>
+    <img
+      src={src}
+      alt=""
+      loading="eager"
+      onError={() => {
+        if (src !== fallbackSrc) setSrc(fallbackSrc);
+      }}
+      className={cn(
+        "block w-full h-[240px] sm:h-[320px] lg:h-[480px] max-w-none object-cover object-center bg-slate-50",
+        className,
+      )}
+    />
   );
 }
 
@@ -71,14 +83,14 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
     <div className="min-w-0 w-full">
       <Carousel
         setApi={setApi}
-        opts={{ loop: multiSlide, align: "start", containScroll: "trimSnaps" }}
+        opts={{ loop: multiSlide, align: "start", containScroll: "keepSnaps", dragFree: false }}
         className="w-full"
       >
         <CarouselContent className="ml-0 w-full">
           {slides.map((slide) => (
             <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
-              <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-14 items-center w-full">
-                <div className="text-center lg:text-left min-w-0 w-full">
+              <div className="flex w-full flex-col lg:flex-row lg:min-h-[480px]">
+                <div className="flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-10 lg:py-12 text-center lg:text-left lg:w-1/2 lg:max-w-[50%] min-w-0">
                   <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
                     <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
                       <Zap className="w-3 h-3 shrink-0" />
@@ -109,8 +121,15 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     )}
                   </div>
                 </div>
-                <div className="hidden lg:flex min-w-0 w-full items-center justify-center">
-                  <HeroSlideImage imageUrl={slide.imageUrl} />
+                <div className="w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
+                  <HeroSlideImage
+                    imageUrl={heroSlideMobileImage(slide)}
+                    className="lg:hidden"
+                  />
+                  <HeroSlideImage
+                    imageUrl={heroSlideDesktopImage(slide)}
+                    className="hidden lg:block"
+                  />
                 </div>
               </div>
             </CarouselItem>
@@ -119,7 +138,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
       </Carousel>
 
       {multiSlide && (
-        <div className="flex items-center justify-center gap-2 mt-8 sm:mt-10" role="tablist" aria-label="Hero slides">
+        <div className="flex items-center justify-center gap-2 mt-8 sm:mt-10 px-4" role="tablist" aria-label="Hero slides">
           {slides.map((slide, index) => (
             <button
               key={slide.id}

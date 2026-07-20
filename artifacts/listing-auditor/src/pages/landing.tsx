@@ -704,16 +704,18 @@ export default function Landing() {
       />
 
       {cmsEnabled(cms, "hero") && (
-      <section className="relative px-4 sm:px-6 lg:px-10 pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
+      <section className="relative w-full pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
-        <div className="relative max-w-6xl mx-auto">
-          {heroSlides.length > 0 && (
+        {heroSlides.length > 0 && (
+          <div className="relative w-full">
             <HeroSlider
               slides={heroSlides}
               autoplay={heroAutoplayEnabled(cms)}
               autoplayIntervalMs={heroAutoplayIntervalMs(cms)}
             />
-          )}
+          </div>
+        )}
+        <div className="relative px-4 sm:px-6 lg:px-10 max-w-6xl mx-auto">
           <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
             {heroStats.map((s) => (
               <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
