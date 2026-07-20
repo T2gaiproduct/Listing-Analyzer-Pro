@@ -110,6 +110,88 @@ const navSections = [
   },
 ];
 
+type AdminSearchScope = "all" | "customers" | "settings" | "billing" | "marketing" | "content" | "reports" | "support";
+
+const ADMIN_NAV_INDEX = navSections.flatMap((section) =>
+  section.items.map((item) => ({
+    name: item.label,
+    url: item.href.split("?")[0],
+    section: section.label,
+    searchText: `${section.label} ${item.label} ${item.href}`.toLowerCase(),
+  })),
+);
+
+function getAdminSearchContext(location: string): { placeholder: string; scope: AdminSearchScope } {
+  const path = location.split("?")[0];
+  if (path.startsWith("/admin/settings") || path === "/admin/team-activity") {
+    return { placeholder: "Search settings...", scope: "settings" };
+  }
+  if (path.startsWith("/admin/customers") || path === "/admin/roles") {
+    return { placeholder: "Search customers...", scope: "customers" };
+  }
+  if (
+    path.startsWith("/admin/billing")
+    || path.startsWith("/admin/plans")
+    || path.startsWith("/admin/credit-rules")
+    || path === "/admin/credits"
+  ) {
+    return { placeholder: "Search billing...", scope: "billing" };
+  }
+  if (path.startsWith("/admin/marketing") || path === "/admin/notifications") {
+    return { placeholder: "Search marketing...", scope: "marketing" };
+  }
+  if (path.startsWith("/admin/content")) {
+    return { placeholder: "Search service logs...", scope: "content" };
+  }
+  if (path.startsWith("/admin/reports")) {
+    return { placeholder: "Search reports...", scope: "reports" };
+  }
+  if (path.startsWith("/admin/help")) {
+    return { placeholder: "Search support...", scope: "support" };
+  }
+  if (path.startsWith("/admin/analytics") || path === "/admin/dashboard") {
+    return { placeholder: "Search customers, settings...", scope: "all" };
+  }
+  return { placeholder: "Search admin...", scope: "all" };
+}
+
+function matchesAdminScope(section: string, name: string, scope: AdminSearchScope): boolean {
+  switch (scope) {
+    case "customers":
+      return section === "User Management" || name.toLowerCase().includes("customer");
+    case "settings":
+      return section === "Settings";
+    case "billing":
+      return section === "Billing";
+    case "marketing":
+      return section === "Marketing" || section === "Website CMS";
+    case "content":
+      return section === "Services";
+    case "reports":
+      return section === "Reports";
+    case "support":
+      return section === "Help & Support";
+    default:
+      return true;
+  }
+}
+
+function filterAdminNavResults(query: string, scope: AdminSearchScope): RecentItem[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+
+  return ADMIN_NAV_INDEX
+    .filter((item) => matchesAdminScope(item.section, item.name, scope) && item.searchText.includes(q))
+    .slice(0, 8)
+    .map((item, idx) => ({
+      type: "audit" as const,
+      id: idx + 1,
+      name: `${item.section} · ${item.name}`,
+      url: item.url,
+      pinned: false,
+    }));
+}
+
 function AdminNavSections({
   location,
   collapsed,
@@ -191,14 +273,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const toggleSection = (label: string) =>
     setCollapsedSections((s) => ({ ...s, [label]: !s[label] }));
 
-  const { data: creditsData } = useQuery<{
-    credits: { aiCredits: number; imageCredits: number; auditCredits: number };
-  }>({
-    queryKey: ["user-credits"],
-    queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
-    enabled: clerkLoaded && !!user,
-    staleTime: 30_000,
-  });
+  const { placeholder: searchPlaceholder, scope: searchScope } = getAdminSearchContext(location);
 
   const { data: subscription } = useQuery<{
     planName?: string | null;
@@ -228,22 +303,23 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       if (!r.ok) return { customers: [] as Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> };
       return r.json() as Promise<{ customers: Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> }>;
     },
-    enabled: searchQuery.length > 0,
+    enabled: searchQuery.length > 0 && (searchScope === "all" || searchScope === "customers"),
     staleTime: 0,
   });
 
-  const searchResults: RecentItem[] = (searchData?.customers ?? []).map((customer) => {
+  const navSearchResults = filterAdminNavResults(searchQuery, searchScope);
+  const customerSearchResults: RecentItem[] = (searchData?.customers ?? []).map((customer, idx) => {
     const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email;
     return {
-      type: "audit",
-      id: customer.profileId ?? 0,
-      name,
+      type: "audit" as const,
+      id: 1000 + idx,
+      name: `Customer · ${name}`,
       url: `/admin/customers/${customer.id}`,
       pinned: false,
     };
   });
+  const searchResults = [...navSearchResults, ...customerSearchResults].slice(0, 12);
 
-  const credits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const profileName = profileData?.profile?.fullName?.trim();
   const clerkName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.fullName?.trim() || undefined;
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
@@ -266,6 +342,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMobileNavOpen(false);
+    setSearchQuery("");
   }, [location]);
 
   return (
@@ -390,12 +467,12 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
           searchResults={searchResults}
+          searchPlaceholder={searchPlaceholder}
           displayName={displayName}
           initials={initials}
           email={userEmail}
           planLabel={planLabel}
           roleLabel={roleLabel}
-          credits={credits}
           onMenuClick={() => setMobileNavOpen(true)}
         />
         <div className="flex-1 overflow-y-auto overflow-x-hidden app-shell-padding bg-slate-50">
