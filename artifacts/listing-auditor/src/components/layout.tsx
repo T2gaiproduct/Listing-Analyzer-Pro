@@ -666,14 +666,27 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchOnMount: "always",
   });
 
-  // Profile summary for display name only (lightweight)
+  // Full profile for display name (same source as /profile page)
+  const { data: fullProfileData } = useQuery<{
+    profile: { fullName: string | null } | null;
+  }>({
+    queryKey: ["user-profile"],
+    queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 30_000,
+    enabled: clerkLoaded && !!user,
+    refetchOnMount: "always",
+  });
+
+  // Profile summary for role (lightweight)
   const { data: profileData } = useQuery<{
     profile: { fullName: string | null } | null;
+    accountRole?: { type: string; label: string };
   }>({
     queryKey: ["user-profile-summary"],
     queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
-    staleTime: 60_000,
+    staleTime: 30_000,
     enabled: clerkLoaded && !!user,
+    refetchOnMount: "always",
   });
 
   const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
@@ -681,27 +694,30 @@ export function Layout({ children }: { children: ReactNode }) {
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : ownerCredits;
 
-  const profileName = profileData?.profile?.fullName;
-  const clerkName = user?.fullName ?? undefined;
-  const emailName = user?.emailAddresses?.[0]?.emailAddress ?? undefined;
-  const resolvedName = profileName || clerkName || emailName || "Account";
+  const profileName =
+    fullProfileData?.profile?.fullName?.trim() ||
+    profileData?.profile?.fullName?.trim();
+  const clerkName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.fullName?.trim() || undefined;
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
+  // Prefer saved profile / Clerk name — never use email as the display name in the topbar
+  const displayName = profileName || clerkName || "Account";
 
   const initials = (() => {
-    if (resolvedName && resolvedName.includes(" ")) {
-      const parts = resolvedName.split(" ").filter(Boolean);
+    const source = profileName || clerkName || userEmail;
+    if (source.includes(" ")) {
+      const parts = source.split(" ").filter(Boolean);
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
     }
-    return resolvedName?.[0]?.toUpperCase() ?? "?";
+    return source?.[0]?.toUpperCase() ?? "?";
   })();
 
-  const displayName = resolvedName;
   const planName = subscription?.planName ?? null;
   const planLabel = planName
     ? `${planName} Plan`
     : subscription?.status
       ? "Active Plan"
       : "No plan";
+  const roleLabel = profileData?.accountRole?.label ?? "User";
 
   return (
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
@@ -1047,6 +1063,7 @@ export function Layout({ children }: { children: ReactNode }) {
           initials={initials}
           email={userEmail}
           planLabel={planLabel}
+          roleLabel={roleLabel}
           credits={displayCredits}
           onMenuClick={() => setMobileNavOpen(true)}
         />

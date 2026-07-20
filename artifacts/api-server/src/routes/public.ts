@@ -13,6 +13,7 @@ import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { upsertUserProfile } from "../lib/user-profile";
+import { resolveUserAccountRole } from "../lib/user-role";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 
@@ -138,11 +139,13 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
   const credits = await ensureSubscriptionCredits(userId);
+  const accountRole = await resolveUserAccountRole(userId);
   res.json({
     profile: profile ?? null,
     onboardingCompleted: profile?.onboardingCompleted ?? false,
     subscription: subRows[0] ?? null,
     credits,
+    accountRole,
   });
 });
 

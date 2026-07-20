@@ -38,6 +38,7 @@ interface DashboardTopbarProps {
   initials: string;
   email: string;
   planLabel: string;
+  roleLabel: string;
   credits: { aiCredits: number; imageCredits: number; auditCredits: number };
   onMenuClick?: () => void;
 }
@@ -50,6 +51,7 @@ export function DashboardTopbar({
   initials,
   email,
   planLabel,
+  roleLabel,
   credits,
   onMenuClick,
 }: DashboardTopbarProps) {
@@ -69,6 +71,9 @@ export function DashboardTopbar({
   const [helpOpen, setHelpOpen] = useState(false);
 
   const totalCredits = credits.aiCredits + credits.imageCredits + credits.auditCredits;
+  const profileSubtitle = planLabel && planLabel !== "No plan"
+    ? `${roleLabel} · ${planLabel}`
+    : roleLabel;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -259,7 +264,7 @@ export function DashboardTopbar({
             </div>
             <div className="text-left hidden md:block min-w-0">
               <p className="text-sm font-semibold text-slate-900 leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{displayName}</p>
-              <p className="text-xs text-slate-500 leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{planLabel}</p>
+              <p className="text-xs text-slate-500 leading-tight truncate max-w-[7.5rem] lg:max-w-[140px]">{profileSubtitle}</p>
             </div>
             <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform hidden sm:block", profileOpen && "rotate-180")} />
           </button>
@@ -273,7 +278,10 @@ export function DashboardTopbar({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
                   <p className="text-xs text-slate-500 truncate">{email}</p>
-                  <p className="text-xs text-orange-600 font-medium mt-0.5">{planLabel}</p>
+                  <p className="text-xs text-orange-600 font-medium mt-0.5">{roleLabel}</p>
+                  {planLabel && planLabel !== "No plan" && (
+                    <p className="text-xs text-slate-400 mt-0.5">{planLabel}</p>
+                  )}
                 </div>
                 <button
                   type="button"

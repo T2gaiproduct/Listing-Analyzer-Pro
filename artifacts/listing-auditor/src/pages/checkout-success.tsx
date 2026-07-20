@@ -45,10 +45,6 @@ export default function CheckoutSuccess() {
         if (data.status === "paid") {
           activatedRef.current = true;
           setStatus("success");
-          queryClient.setQueryData(["user-profile-summary"], (prev: { onboardingCompleted?: boolean } | undefined) => ({
-            ...prev,
-            onboardingCompleted: true,
-          }));
           void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
           void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
           void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
