@@ -487,7 +487,34 @@ router.post("/subscription/upgrade", requireAuth, async (req, res): Promise<void
     { userId, creditType: "image", amount: plan.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
     { userId, creditType: "audit", amount: plan.auditCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
   ]);
-  res.json({ success: true });
+
+  const [updated] = await db.select({
+    id: subscriptionsTable.id,
+    userId: subscriptionsTable.userId,
+    planId: subscriptionsTable.planId,
+    billingCycle: subscriptionsTable.billingCycle,
+    status: subscriptionsTable.status,
+    trialEndsAt: subscriptionsTable.trialEndsAt,
+    currentPeriodStart: subscriptionsTable.currentPeriodStart,
+    currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+    cardLast4: subscriptionsTable.cardLast4,
+    cardBrand: subscriptionsTable.cardBrand,
+    autoRenew: subscriptionsTable.autoRenew,
+    couponCode: subscriptionsTable.couponCode,
+    discountAmount: subscriptionsTable.discountAmount,
+    stripeSubscriptionId: subscriptionsTable.stripeSubscriptionId,
+    planName: plansTable.name,
+    priceMonthly: plansTable.priceMonthly,
+    priceYearly: plansTable.priceYearly,
+    planAiCredits: plansTable.aiCredits,
+    planImageCredits: plansTable.imageCredits,
+    planAuditCredits: plansTable.auditCredits,
+    creditAllocations: plansTable.creditAllocations,
+  }).from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, userId));
+
+  res.json({ success: true, subscription: updated ?? null });
 });
 
 router.patch("/subscription/auto-renew", requireAuth, async (req, res): Promise<void> => {

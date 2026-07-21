@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { refetchCreditQueries } from "@/lib/credit-queries";
+import { refetchCreditQueries, invalidateSubscriptionQueries } from "@/lib/credit-queries";
+import { USER_SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-user-subscription";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -34,7 +35,7 @@ export default function CheckoutSuccess() {
           `${basePath}/api/stripe/session-status?session_id=${encodeURIComponent(sessionId!)}`,
           { credentials: "include" },
         );
-        const data = await res.json() as { status?: string; activated?: boolean; error?: string };
+        const data = await res.json() as { status?: string; activated?: boolean; error?: string; subscription?: unknown };
 
         if (!res.ok) {
           setStatus("failed");
@@ -45,10 +46,11 @@ export default function CheckoutSuccess() {
         if (data.status === "paid") {
           activatedRef.current = true;
           setStatus("success");
-          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-          void refetchCreditQueries(queryClient);
+          if (data.subscription) {
+            queryClient.setQueryData([...USER_SUBSCRIPTION_QUERY_KEY], data.subscription);
+          }
+          await invalidateSubscriptionQueries(queryClient);
+          await refetchCreditQueries(queryClient);
           setTimeout(() => setLocation("/dashboard"), 2200);
           return;
         }
