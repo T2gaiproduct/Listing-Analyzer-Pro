@@ -10,14 +10,6 @@ export type CmsField = {
 
 export type CmsSection = { title: string; fields: CmsField[] };
 
-function featureItemFields(index: number): CmsField[] {
-  return [
-    { key: `features.item${index}_title`, label: `Feature ${index} title` },
-    { key: `features.item${index}_desc`, label: `Feature ${index} description`, type: "textarea" },
-    { key: `features.item${index}_href`, label: `Feature ${index} link URL`, type: "url" },
-  ];
-}
-
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
   hero: [
     {
@@ -34,17 +26,7 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       ],
     },
   ],
-  features: [
-    {
-      title: "Features section",
-      fields: [
-        { key: "features.eyebrow", label: "Eyebrow (mobile)" },
-        { key: "features.heading", label: "Section heading" },
-        { key: "features.subheading", label: "Section subheading", type: "textarea", rows: 2 },
-        ...Array.from({ length: 5 }, (_, i) => featureItemFields(i + 1)).flat(),
-      ],
-    },
-  ],
+  features: [],
   portfolio: [
     {
       title: "Portfolio section",

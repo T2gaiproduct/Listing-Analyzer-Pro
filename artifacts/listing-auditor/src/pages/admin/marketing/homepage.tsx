@@ -12,6 +12,7 @@ import { mergeHomepageCms, type HomepageCmsMap } from "@/lib/homepage-cms";
 import { HOMEPAGE_CMS_SECTIONS, HOMEPAGE_CMS_TAB_LABELS, type CmsField } from "./homepage-cms-sections";
 import { HeroSlidesEditor } from "./hero-slides-editor";
 import { PortfolioCmsEditor } from "./portfolio-cms-editor";
+import { FeaturesCmsEditor } from "./features-cms-editor";
 import { TutorialsCmsEditor } from "./tutorials-cms-editor";
 import { WorkflowCmsEditor } from "./workflow-cms-editor";
 import { DEFAULT_HERO_SLIDES, HERO_AUTOPLAY_ENABLED_KEY, HERO_AUTOPLAY_INTERVAL_KEY, HERO_SLIDES_JSON_KEY, serializeHeroSlides } from "@/lib/hero-slides";
@@ -158,6 +159,9 @@ export default function AdminMarketingHomepage() {
               )}
               {tab === "portfolio" && (
                 <PortfolioCmsEditor data={localData} onChange={handleChange} />
+              )}
+              {tab === "features" && (
+                <FeaturesCmsEditor data={localData} onChange={handleChange} />
               )}
               {tab === "tutorials" && (
                 <TutorialsCmsEditor data={localData} onChange={handleChange} />

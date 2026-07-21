@@ -826,9 +826,12 @@ export default function Landing() {
               {cmsText(cms, "features.subheading")}
             </p>
           </div>
-          <h2 className="hidden lg:block text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900 text-center mb-6 lg:mb-12">
+          <h2 className="hidden lg:block text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900 text-center mb-3 lg:mb-4">
             {cmsText(cms, "features.heading")}
           </h2>
+          <p className="hidden lg:block text-base text-slate-500 text-center max-w-2xl mx-auto mb-6 lg:mb-12">
+            {cmsText(cms, "features.subheading")}
+          </p>
           <FeatureMobileStack features={features} />
           <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-8">
             {features.map((f) => (
