@@ -155,10 +155,6 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "cta.secondary_url": "/features",
 
   "sections.social.enabled": "true",
-  "social.stats_customers": "2,000+",
-  "social.stats_audits": "50,000+",
-  "social.stats_countries": "40+",
-  "social.stats_rating": "4.9",
   "social.trusted_heading": "Trusted by leading brands",
 
   "nav.sign_in_text": "Sign In",

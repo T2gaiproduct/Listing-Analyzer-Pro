@@ -629,28 +629,10 @@ function LandingTestimonialsSection() {
 
   if (isLoading || items.length === 0) return null;
 
-  const stats = [
-    { value: cmsText(cms, "social.stats_customers"), label: "Happy Customers" },
-    { value: cmsText(cms, "social.stats_audits"), label: "Audits Completed" },
-    { value: cmsText(cms, "social.stats_countries"), label: "Countries" },
-    { value: cmsText(cms, "social.stats_rating"), label: "Average Rating" },
-  ].filter((s) => s.value);
-
   return (
     <section className="px-4 sm:px-6 py-12 sm:py-16 lg:py-20 bg-slate-50 border-t border-slate-100">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-8 sm:mb-10">{heading}</h2>
-
-        {stats.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-10 sm:mb-12">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center bg-white rounded-xl border border-slate-200 py-4 px-3">
-                <p className="text-2xl sm:text-3xl font-extrabold text-orange-500">{stat.value}</p>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {items.map((t) => {
