@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import type { NavLink } from "@/lib/public-nav";
 
 const NAV_LOGO_CLASS =
-  "h-10 sm:h-11 w-auto max-w-[13rem] sm:max-w-[16rem] object-contain object-left shrink-0";
+  "h-8 sm:h-9 w-auto max-w-[11rem] sm:max-w-[13rem] object-contain object-left shrink-0";
 
 function PublicNavLink({
   href,
