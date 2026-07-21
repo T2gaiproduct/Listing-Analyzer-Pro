@@ -5,6 +5,7 @@ import {
   paymentsTable, subscriptionsTable, userProfilesTable,
 } from "@workspace/db";
 import { upsertUserProfile } from "./user-profile";
+import { logger } from "./logger";
 import { fulfillStripeCreditCheckout } from "./stripe-credit-checkout";
 import { grantPlanCreditsDelta } from "./subscription-credits";
 import { fulfillStripeSubscriptionCheckout } from "./subscription-fulfillment";
