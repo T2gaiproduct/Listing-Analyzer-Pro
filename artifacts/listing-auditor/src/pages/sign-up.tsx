@@ -37,8 +37,13 @@ export default function SignUpPage() {
     return "/onboarding";
   }, []);
 
+  const initialEmail = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("email") ?? "";
+  }, []);
+
+  const [email, setEmail] = useState(initialEmail);
   const [step, setStep] = useState<"form" | "verify">("form");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [pwTouched, setPwTouched] = useState(false);

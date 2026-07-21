@@ -19,6 +19,18 @@ export const adminUsersTable = pgTable("admin_users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+/** Pending admin access for emails that have not signed up yet. */
+export const adminInvitesTable = pgTable("admin_invites", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  roleId: integer("role_id").notNull(),
+  inviteToken: text("invite_token").unique(),
+  invitedByUserId: text("invited_by_user_id"),
+  acceptedAt: timestamp("accepted_at"),
+  acceptedUserId: text("accepted_user_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const auditLogsTable = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   adminUserId: text("admin_user_id").notNull(),
@@ -41,5 +53,6 @@ export const downloadsTable = pgTable("downloads", {
 
 export type AdminRole = typeof adminRolesTable.$inferSelect;
 export type AdminUser = typeof adminUsersTable.$inferSelect;
+export type AdminInvite = typeof adminInvitesTable.$inferSelect;
 export type AuditLog = typeof auditLogsTable.$inferSelect;
 export type Download = typeof downloadsTable.$inferSelect;

@@ -2,12 +2,13 @@ import crypto from "crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
   teamMembersTable, cmsContent, blogPosts, testimonials, navItems,
+  adminInvitesTable, adminRolesTable,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
@@ -984,6 +985,36 @@ router.post("/notifications/read-all", requireAuth, async (req, res): Promise<vo
   const userId = (req as AuthedRequest).userId;
   await db.update(notificationsTable).set({ read: true, readAt: new Date() }).where(and(eq(notificationsTable.userId, userId), eq(notificationsTable.read, false)));
   res.json({ ok: true });
+});
+
+router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
+  const token = String(req.params.token ?? "");
+  const [invite] = await db
+    .select({
+      id: adminInvitesTable.id,
+      email: adminInvitesTable.email,
+      roleId: adminInvitesTable.roleId,
+      createdAt: adminInvitesTable.createdAt,
+      acceptedAt: adminInvitesTable.acceptedAt,
+      roleName: adminRolesTable.name,
+      permissions: adminRolesTable.permissions,
+    })
+    .from(adminInvitesTable)
+    .innerJoin(adminRolesTable, eq(adminInvitesTable.roleId, adminRolesTable.id))
+    .where(and(eq(adminInvitesTable.inviteToken, token), isNull(adminInvitesTable.acceptedAt)))
+    .limit(1);
+
+  if (!invite) {
+    res.status(404).json({ error: "Invite not found or already accepted" });
+    return;
+  }
+
+  res.json({
+    email: invite.email,
+    role: invite.roleName,
+    permissions: invite.permissions ?? [],
+    invitedAt: invite.createdAt,
+  });
 });
 
 export default router;
