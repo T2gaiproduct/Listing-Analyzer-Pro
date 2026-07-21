@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2, Pencil, Shield, RefreshCw, UserPlus, ChevronDown, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { ADMIN_PERMISSION_META, type AdminPermissionGroup } from "@workspace/admin-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -25,14 +26,22 @@ interface AssignedUser {
   clerkUser: { email: string; name: string } | null;
 }
 
-const ALL_PERMISSIONS = [
-  "view_dashboard", "view_analytics",
-  "manage_customers", "ban_customers", "delete_customers",
-  "manage_audits", "delete_audits",
-  "manage_plans", "manage_credits",
-  "manage_payments", "manage_invoices", "manage_refunds", "manage_coupons",
-  "view_content", "view_logs", "view_downloads",
-  "manage_roles", "manage_settings", "manage_notifications",
+const PERMISSION_GROUPS = ADMIN_PERMISSION_META.reduce((acc, item) => {
+  if (!acc[item.group]) acc[item.group] = [];
+  acc[item.group].push(item);
+  return acc;
+}, {} as Record<AdminPermissionGroup, typeof ADMIN_PERMISSION_META>);
+
+const GROUP_ORDER: AdminPermissionGroup[] = [
+  "Overview",
+  "User Management",
+  "Services",
+  "Billing",
+  "Reports",
+  "Marketing",
+  "Website CMS",
+  "Help & Support",
+  "Settings",
 ];
 
 export default function AdminRoles() {
@@ -91,20 +100,39 @@ export default function AdminRoles() {
   const assignRole = useMutation({
     mutationFn: (body: { email: string; roleId: number }) =>
       fetch(`${basePath}/api/admin/admin-users`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => {
+        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json() as Promise<{ emailSent?: boolean; emailError?: string }>; }),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
       setAssignDialogOpen(false);
       setAssignForm({ email: "", roleId: "" });
-      toast({ title: "Role assigned successfully" });
+      if (data.emailSent) {
+        toast({ title: "Role assigned", description: "Notification email sent to the user." });
+      } else {
+        toast({
+          title: "Role assigned",
+          description: `Email not sent: ${data.emailError ?? "Configure Resend in Admin → Email Settings."}`,
+        });
+      }
     },
     onError: (e: Error) => toast({ title: "Failed to assign role", description: e.message, variant: "destructive" }),
   });
 
   const updateAssign = useMutation({
     mutationFn: ({ id, roleId }: { id: number; roleId: number }) =>
-      fetch(`${basePath}/api/admin/admin-users/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleId }) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-role-assignments"] }); setEditAssignOpen(false); toast({ title: "Role updated" }); },
+      fetch(`${basePath}/api/admin/admin-users/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleId }) })
+        .then((r) => r.json() as Promise<{ emailSent?: boolean; emailError?: string }>),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
+      setEditAssignOpen(false);
+      if (data.emailSent) {
+        toast({ title: "Role updated", description: "Notification email sent to the user." });
+      } else {
+        toast({
+          title: "Role updated",
+          description: `Email not sent: ${data.emailError ?? "Configure Resend in Admin → Email Settings."}`,
+        });
+      }
+    },
   });
 
   const removeAssign = useMutation({
@@ -322,13 +350,24 @@ export default function AdminRoles() {
             </div>
             <div>
               <Label className="text-xs mb-2 block">Permissions ({form.permissions.length} selected)</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 border rounded-lg p-3">
-                {ALL_PERMISSIONS.map((p) => (
-                  <label key={p} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-slate-50 rounded p-1">
-                    <Checkbox checked={form.permissions.includes(p)} onCheckedChange={() => togglePerm(p)} />
-                    <span className="capitalize">{p.replace(/_/g, " ")}</span>
-                  </label>
-                ))}
+              <div className="max-h-72 overflow-y-auto pr-1 border rounded-lg p-3 space-y-4">
+                {GROUP_ORDER.map((group) => {
+                  const items = PERMISSION_GROUPS[group];
+                  if (!items?.length) return null;
+                  return (
+                    <div key={group}>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{group}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {items.map((item) => (
+                          <label key={item.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-slate-50 rounded p-1">
+                            <Checkbox checked={form.permissions.includes(item.id)} onCheckedChange={() => togglePerm(item.id)} />
+                            <span>{item.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -16,96 +16,109 @@ import { useClerk } from "@clerk/react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import type { RecentItem } from "@workspace/api-client-react";
+import type { AdminPermission } from "@workspace/admin-permissions";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const navSections = [
+type AdminNavItem = {
+  href: string;
+  label: string;
+  icon: typeof BarChart2;
+  permission: AdminPermission | AdminPermission[];
+};
+
+const navSections: Array<{
+  label: string;
+  collapsible?: boolean;
+  items: AdminNavItem[];
+}> = [
   {
     label: "Overview",
     items: [
-      { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
+      { href: "/admin/analytics", label: "Analytics", icon: BarChart2, permission: "view_analytics" },
     ],
   },
   {
     label: "User Management",
     collapsible: true,
     items: [
-      { href: "/admin/customers", label: "Customers", icon: Users },
-      { href: "/admin/roles", label: "Roles", icon: Shield },
+      { href: "/admin/customers", label: "Customers", icon: Users, permission: "manage_customers" },
+      { href: "/admin/roles", label: "Roles", icon: Shield, permission: "manage_roles" },
     ],
   },
   {
     label: "Services",
     collapsible: true,
     items: [
-      { href: "/admin/content/build-brand-logs", label: "Build Your Brand", icon: ClipboardList },
-      { href: "/admin/content/logs", label: "Audit Listing", icon: FileSearch },
-      { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette },
-      { href: "/videos", label: "Create Videos", icon: Video },
-      { href: "/ads", label: "Manage Ads", icon: Megaphone },
+      { href: "/admin/content/build-brand-logs", label: "Build Your Brand", icon: ClipboardList, permission: "view_logs" },
+      { href: "/admin/content/logs", label: "Audit Listing", icon: FileSearch, permission: "view_logs" },
+      { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette, permission: "view_logs" },
+      { href: "/videos", label: "Create Videos", icon: Video, permission: "view_logs" },
+      { href: "/ads", label: "Manage Ads", icon: Megaphone, permission: "view_logs" },
     ],
   },
   {
     label: "Billing",
     collapsible: true,
     items: [
-      { href: "/admin/plans", label: "Plans & Packages", icon: Layers },
-      { href: "/admin/credit-rules", label: "Credit Rules", icon: Shield },
-      { href: "/admin/billing/payments", label: "Payments", icon: CreditCard },
-      { href: "/admin/billing/invoices", label: "Invoices", icon: FileText },
-      { href: "/admin/billing/refunds", label: "Refunds", icon: Layers },
+      { href: "/admin/plans", label: "Plans & Packages", icon: Layers, permission: "manage_plans" },
+      { href: "/admin/credit-rules", label: "Credit Rules", icon: Shield, permission: "manage_credit_rules" },
+      { href: "/admin/billing/payments", label: "Payments", icon: CreditCard, permission: "manage_payments" },
+      { href: "/admin/billing/invoices", label: "Invoices", icon: FileText, permission: "manage_invoices" },
+      { href: "/admin/billing/refunds", label: "Refunds", icon: Layers, permission: "manage_refunds" },
     ],
   },
   {
     label: "Reports",
     collapsible: true,
     items: [
-      { href: "/admin/reports/revenue", label: "Revenue Reports", icon: BarChart2 },
-      { href: "/admin/reports/customers", label: "Customer Reports", icon: Users },
-      { href: "/admin/reports/subscriptions", label: "Subscription Reports", icon: CreditCard },
+      { href: "/admin/reports/revenue", label: "Revenue Reports", icon: BarChart2, permission: "view_reports" },
+      { href: "/admin/reports/customers", label: "Customer Reports", icon: Users, permission: "view_reports" },
+      { href: "/admin/reports/subscriptions", label: "Subscription Reports", icon: CreditCard, permission: "view_reports" },
     ],
   },
   {
     label: "Marketing",
     collapsible: true,
     items: [
-      { href: "/admin/notifications", label: "Announcements", icon: Megaphone },
-      { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent },
+      { href: "/admin/notifications", label: "Announcements", icon: Megaphone, permission: "manage_notifications" },
+      { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent, permission: "manage_coupons" },
     ],
   },
   {
     label: "Website CMS",
     collapsible: true,
     items: [
-      { href: "/admin/marketing/homepage", label: "Homepage", icon: Home },
-      { href: "/admin/marketing/pages", label: "Pages", icon: Globe },
-      { href: "/admin/marketing/navigation", label: "Navigation Menu", icon: Navigation },
-      { href: "/admin/marketing/blog", label: "Blog", icon: BookOpen },
-      { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp },
-      { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare },
-      { href: "/admin/marketing/faqs", label: "FAQ", icon: HelpCircle },
-      { href: "/admin/marketing/media", label: "Media Library", icon: Image },
+      { href: "/admin/marketing/homepage", label: "Homepage", icon: Home, permission: "manage_homepage_cms" },
+      { href: "/admin/marketing/pages", label: "Pages", icon: Globe, permission: "manage_pages_cms" },
+      { href: "/admin/marketing/navigation", label: "Navigation Menu", icon: Navigation, permission: "manage_navigation" },
+      { href: "/admin/marketing/blog", label: "Blog", icon: BookOpen, permission: "manage_blog" },
+      { href: "/admin/marketing/seo", label: "SEO", icon: TrendingUp, permission: "manage_seo" },
+      { href: "/admin/marketing/testimonials", label: "Testimonials", icon: MessageSquare, permission: "manage_testimonials" },
+      { href: "/admin/marketing/faqs", label: "FAQ", icon: HelpCircle, permission: "manage_faqs" },
+      { href: "/admin/marketing/media", label: "Media Library", icon: Image, permission: "manage_media" },
     ],
   },
   {
     label: "Help & Support",
     collapsible: true,
     items: [
-      { href: "/admin/help/support-tickets", label: "Support Tickets", icon: LifeBuoy },
-      { href: "/admin/marketing/forms?type=contact", label: "Contact Messages", icon: Mail },
+      { href: "/admin/help/support-tickets", label: "Support Tickets", icon: LifeBuoy, permission: "manage_support" },
+      { href: "/admin/marketing/forms?type=contact", label: "Contact Messages", icon: Mail, permission: "manage_support" },
     ],
   },
   {
     label: "Settings",
     collapsible: true,
     items: [
-      { href: "/admin/settings/platform", label: "Company Settings", icon: Settings },
-      { href: "/admin/settings/ai", label: "AI Settings", icon: BrainCircuit },
-      { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound },
-      { href: "/admin/settings/email", label: "Email Settings", icon: Mail },
-      { href: "/admin/settings/payment-gateway", label: "Payment Settings", icon: Wallet },
-      { href: "/admin/settings/security", label: "Security Settings", icon: Lock },
-      { href: "/admin/team-activity", label: "Team Activity", icon: Users },
+      { href: "/admin/settings/platform", label: "Company Settings", icon: Settings, permission: "manage_settings" },
+      { href: "/admin/settings/ai", label: "AI Settings", icon: BrainCircuit, permission: "manage_settings" },
+      { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound, permission: "manage_settings" },
+      { href: "/admin/settings/email", label: "Email Settings", icon: Mail, permission: "manage_settings" },
+      { href: "/admin/settings/payment-gateway", label: "Payment Settings", icon: Wallet, permission: "manage_settings" },
+      { href: "/admin/settings/security", label: "Security Settings", icon: Lock, permission: "manage_settings" },
+      { href: "/admin/team-activity", label: "Team Activity", icon: Users, permission: "manage_team_activity" },
     ],
   },
 ];
@@ -117,6 +130,7 @@ const ADMIN_NAV_INDEX = navSections.flatMap((section) =>
     name: item.label,
     url: item.href.split("?")[0],
     section: section.label,
+    permission: item.permission,
     searchText: `${section.label} ${item.label} ${item.href}`.toLowerCase(),
   })),
 );
@@ -176,11 +190,16 @@ function matchesAdminScope(section: string, name: string, scope: AdminSearchScop
   }
 }
 
-function filterAdminNavResults(query: string, scope: AdminSearchScope): RecentItem[] {
+function filterAdminNavResults(
+  query: string,
+  scope: AdminSearchScope,
+  can: (required: AdminPermission | AdminPermission[]) => boolean,
+): RecentItem[] {
   const q = query.toLowerCase().trim();
   if (!q) return [];
 
   return ADMIN_NAV_INDEX
+    .filter((item) => can(item.permission))
     .filter((item) => matchesAdminScope(item.section, item.name, scope) && item.searchText.includes(q))
     .slice(0, 8)
     .map((item, idx) => ({
@@ -198,16 +217,25 @@ function AdminNavSections({
   collapsedSections,
   toggleSection,
   onNavigate,
+  can,
 }: {
   location: string;
   collapsed: boolean;
   collapsedSections: Record<string, boolean>;
   toggleSection: (label: string) => void;
   onNavigate?: () => void;
+  can: (required: AdminPermission | AdminPermission[]) => boolean;
 }) {
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => can(item.permission)),
+    }))
+    .filter((section) => section.items.length > 0);
+
   return (
     <>
-      {navSections.map((section) => {
+      {visibleSections.map((section) => {
         const collapsible = (section as { collapsible?: boolean }).collapsible === true;
         const isSectionCollapsed = !collapsed && collapsible && (collapsedSections[section.label] ?? false);
         return (
@@ -266,6 +294,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
   const { user, isLoaded: clerkLoaded } = useUser();
+  const { can } = useAdminPermissions();
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -293,21 +322,23 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       if (!r.ok) return { customers: [] as Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> };
       return r.json() as Promise<{ customers: Array<{ id: string; firstName?: string; lastName?: string; email: string; profileId: number | null }> }>;
     },
-    enabled: searchQuery.length > 0 && (searchScope === "all" || searchScope === "customers"),
+    enabled: can("manage_customers") && searchQuery.length > 0 && (searchScope === "all" || searchScope === "customers"),
     staleTime: 0,
   });
 
-  const navSearchResults = filterAdminNavResults(searchQuery, searchScope);
-  const customerSearchResults: RecentItem[] = (searchData?.customers ?? []).map((customer, idx) => {
-    const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email;
-    return {
-      type: "audit" as const,
-      id: 1000 + idx,
-      name: `Customer · ${name}`,
-      url: `/admin/customers/${customer.id}`,
-      pinned: false,
-    };
-  });
+  const navSearchResults = filterAdminNavResults(searchQuery, searchScope, can);
+  const customerSearchResults: RecentItem[] = can("manage_customers")
+    ? (searchData?.customers ?? []).map((customer, idx) => {
+      const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email;
+      return {
+        type: "audit" as const,
+        id: 1000 + idx,
+        name: `Customer · ${name}`,
+        url: `/admin/customers/${customer.id}`,
+        pinned: false,
+      };
+    })
+    : [];
   const searchResults = [...navSearchResults, ...customerSearchResults].slice(0, 12);
 
   const profileName = profileData?.profile?.fullName?.trim();
@@ -390,6 +421,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             collapsed={collapsed}
             collapsedSections={collapsedSections}
             toggleSection={toggleSection}
+            can={can}
           />
         </nav>
 
@@ -430,6 +462,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               collapsedSections={collapsedSections}
               toggleSection={toggleSection}
               onNavigate={() => setMobileNavOpen(false)}
+              can={can}
             />
           </nav>
           <div className="p-3 border-t border-slate-700/50">

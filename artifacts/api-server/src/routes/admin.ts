@@ -20,38 +20,87 @@ import { normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
 import { savePortfolioImageFromDataUrl } from "../lib/portfolio-image-storage";
 import { saveWorkflowImageFromDataUrl } from "../lib/workflow-image-storage";
+import {
+  isAdminUser,
+  requireAdmin,
+  requireAdminWithPermission,
+  type AdminRequest,
+} from "../lib/admin-auth";
+import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
+import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail } from "../lib/admin-role-email.js";
 
 const router: IRouter = Router();
 
-const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY ?? "";
+
+function sanitizeRolePermissions(req: AdminRequest, permissions: unknown): string[] {
+  const valid = new Set<string>(ADMIN_PERMISSIONS);
+  const requested = Array.isArray(permissions) ? permissions.filter((p): p is string => typeof p === "string") : [];
+  const filtered = requested.filter((p) => valid.has(p));
+  if (req.admin.isSuperAdmin) return filtered;
+  return filtered.filter((p) => req.admin.permissions.includes(p));
+}
+
+function resolveAppBaseUrl(req: Request): string | undefined {
+  const origin = req.get("origin");
+  if (origin) return origin.replace(/\/$/, "");
+  const referer = req.get("referer");
+  if (referer) {
+    try { return new URL(referer).origin; } catch { /* ignore */ }
+  }
+  return undefined;
+}
+
+async function notifyAdminRoleAssignment(
+  req: Request,
+  opts: { userId: string; email?: string; roleId: number; isUpdate?: boolean },
+): Promise<{ emailSent: boolean; emailError?: string }> {
+  const adminReq = req as AdminRequest;
+  let toEmail = opts.email?.trim().toLowerCase();
+  let recipientName = toEmail ?? "there";
+
+  const clerkProfile = await getClerkUserEmailAndName(opts.userId, clerkFetch);
+  if (clerkProfile) {
+    toEmail = clerkProfile.email;
+    recipientName = clerkProfile.name;
+  }
+
+  if (!toEmail) return { emailSent: false, emailError: "Recipient email not found" };
+
+  const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
+  const assignedByName = assignerProfile?.name ?? "An administrator";
+
+  try {
+    const result = await sendAdminRoleAssignedEmail({
+      toEmail,
+      recipientName,
+      roleId: opts.roleId,
+      assignedByName,
+      isUpdate: opts.isUpdate,
+      appBaseUrl: resolveAppBaseUrl(req),
+    });
+    if (!result.success) {
+      req.log?.warn?.({ emailError: result.error, toEmail }, "Failed to send admin role assignment email");
+      return { emailSent: false, emailError: result.error };
+    }
+    return { emailSent: true };
+  } catch (emailErr) {
+    req.log?.warn?.({ emailErr, toEmail }, "Failed to send admin role assignment email");
+    return { emailSent: false, emailError: emailErr instanceof Error ? emailErr.message : "Email send failed" };
+  }
+}
+
+/** All /admin/* routes (except public checks) require admin + route permission. */
+router.use((req, res, next) => {
+  if (!req.path.startsWith("/admin")) return next();
+  if (req.path === "/admin/is-admin" || req.path === "/admin/me") return next();
+  return requireAdminWithPermission(req, res, next);
+});
 
 function generatePassword(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
   const bytes = crypto.randomBytes(16);
   return Array.from(bytes).map((b) => chars[b % chars.length]).join("");
-}
-
-interface AdminRequest extends Request {
-  adminUserId: string;
-}
-
-async function isAdminUser(userId: string): Promise<boolean> {
-  if (ADMIN_USER_IDS.includes(userId)) return true;
-  const [row] = await db.select({ id: adminUsersTable.id })
-    .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));
-  return !!row;
-}
-
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(403).json({ error: "Forbidden" }); return; }
-  isAdminUser(userId).then((ok) => {
-    if (!ok) { res.status(403).json({ error: "Forbidden" }); return; }
-    (req as AdminRequest).adminUserId = userId;
-    next();
-  }).catch(() => { res.status(500).json({ error: "Internal server error" }); });
 }
 
 // Public (auth-only) endpoint to check admin status — used by frontend AdminRoute
@@ -61,6 +110,15 @@ router.get("/admin/is-admin", async (req, res): Promise<void> => {
   if (!userId) { res.json({ isAdmin: false }); return; }
   const ok = await isAdminUser(userId);
   res.json({ isAdmin: ok });
+});
+
+router.get("/admin/me", requireAdmin, async (req, res): Promise<void> => {
+  const ctx = (req as AdminRequest).admin;
+  res.json({
+    isSuperAdmin: ctx.isSuperAdmin,
+    role: ctx.role ? { id: ctx.role.id, name: ctx.role.name } : null,
+    permissions: ctx.permissions,
+  });
 });
 
 async function clerkFetch(path: string, options?: RequestInit) {
@@ -937,7 +995,11 @@ router.get("/admin/roles", requireAdmin, async (req, res): Promise<void> => {
 
 router.post("/admin/roles", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, permissions } = req.body;
-  const [role] = await db.insert(adminRolesTable).values({ name, description, permissions: permissions ?? [] }).returning();
+  const [role] = await db.insert(adminRolesTable).values({
+    name,
+    description,
+    permissions: sanitizeRolePermissions(req as AdminRequest, permissions ?? []),
+  }).returning();
   res.status(201).json(role);
 });
 
@@ -945,7 +1007,11 @@ router.patch("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> =
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { name, description, permissions } = req.body;
-  const [role] = await db.update(adminRolesTable).set({ name, description, permissions }).where(eq(adminRolesTable.id, id)).returning();
+  const [role] = await db.update(adminRolesTable).set({
+    name,
+    description,
+    permissions: sanitizeRolePermissions(req as AdminRequest, permissions),
+  }).where(eq(adminRolesTable.id, id)).returning();
   res.json(role);
 });
 
@@ -993,10 +1059,21 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
 
   if (!targetUserId) { res.status(400).json({ error: "Provide email or userId" }); return; }
 
+  const [existingAssignment] = await db.select({ id: adminUsersTable.id })
+    .from(adminUsersTable).where(eq(adminUsersTable.userId, targetUserId)).limit(1);
+
   const [u] = await db.insert(adminUsersTable).values({ userId: targetUserId, roleId })
     .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId } })
     .returning();
-  res.status(201).json(u);
+
+  const emailResult = await notifyAdminRoleAssignment(req, {
+    userId: targetUserId,
+    email,
+    roleId,
+    isUpdate: !!existingAssignment,
+  });
+
+  res.status(201).json({ ...u, ...emailResult });
 });
 
 router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
@@ -1004,7 +1081,15 @@ router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<v
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { roleId } = req.body;
   const [u] = await db.update(adminUsersTable).set({ roleId }).where(eq(adminUsersTable.id, id)).returning();
-  res.json(u);
+  if (!u) { res.status(404).json({ error: "Assignment not found" }); return; }
+
+  const emailResult = await notifyAdminRoleAssignment(req, {
+    userId: u.userId,
+    roleId,
+    isUpdate: true,
+  });
+
+  res.json({ ...u, ...emailResult });
 });
 
 router.delete("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {

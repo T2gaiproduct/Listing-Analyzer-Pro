@@ -26,6 +26,11 @@ tmux_cmd kill-session -t api-server-live 2>/dev/null || true
 tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export DATABASE_URL='$DATABASE_URL'
   export PORT=8080
+  export CLERK_PUBLISHABLE_KEY=\"\${VITE_CLERK_PUBLISHABLE_KEY:-\${CLERK_PUBLISHABLE_KEY:-}}\"
+  export CLERK_SECRET_KEY=\"\${CLERK_SECRET_KEY:-}\"
+  export ADMIN_USER_IDS=\"\${ADMIN_USER_IDS:-}\"
+  export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
+  export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
   pnpm --filter @workspace/api-server run dev
 "
 
@@ -35,6 +40,8 @@ rm -rf "$ROOT/artifacts/listing-auditor/node_modules/.vite"
 tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
   export PORT=19145
   export BASE_PATH=/
+  export VITE_CLERK_PUBLISHABLE_KEY=\"\${VITE_CLERK_PUBLISHABLE_KEY:-}\"
+  export VITE_ADMIN_USER_IDS=\"\${ADMIN_USER_IDS:-}\"
   pnpm --filter @workspace/listing-auditor run dev
 "
 

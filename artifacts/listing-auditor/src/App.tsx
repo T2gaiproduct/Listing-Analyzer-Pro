@@ -13,6 +13,8 @@ import { HomepageCmsProvider } from "@/components/homepage-cms-context";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranding } from "@/hooks/use-branding";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { AdminAccessDenied } from "@/components/admin-access-denied";
 import {
   Layout,
   AdminLayout,
@@ -192,13 +194,19 @@ const clerkAppearanceBase = {
 };
 
 function SignInPage() {
+  const redirectParam = new URLSearchParams(window.location.search).get("redirect_url");
+  const redirectUrl = redirectParam?.startsWith("/")
+    ? `${basePath}${redirectParam}`
+    : `${basePath}/dashboard`;
+
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
-        fallbackRedirectUrl={`${basePath}/dashboard`}
+        fallbackRedirectUrl={redirectUrl}
+        forceRedirectUrl={redirectUrl}
       />
     </div>
   );
@@ -244,12 +252,13 @@ function HomeRedirect() {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
   const { data: summary } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
   if (envAdmin) return <Redirect to="/admin/dashboard" />;
-  if (!adminLoaded) return <AuthLoading />;
-  if (isAdmin) return <Redirect to="/admin/dashboard" />;
+  if (!adminLoaded || (isAdmin && !permLoaded)) return <AuthLoading />;
+  if (isAdmin) return <Redirect to={defaultRoute} />;
   if (summary && !summary.onboardingCompleted) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
@@ -278,10 +287,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
   const { user, isLoaded } = useUser();
   const { isAdmin, isLoaded: adminLoaded, isError } = useIsAdmin();
-  if (!isLoaded || !adminLoaded) return <AuthLoading />;
-  if (!user) return <Redirect to="/" />;
+  const { canAccessRoute, isLoaded: permLoaded, defaultRoute } = useAdminPermissions();
+  if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
+  if (!user) {
+    const returnTo = encodeURIComponent(location || "/admin/dashboard");
+    return <Redirect to={`/sign-in?redirect_url=${returnTo}`} />;
+  }
   if (isError) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
@@ -300,11 +314,30 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!isAdmin) return <Redirect to="/dashboard" />;
+  if (!canAccessRoute(location)) {
+    return (
+      <ErrorBoundary title="Admin page failed to load">
+        <AdminLayout>
+          <AdminAccessDenied defaultRoute={defaultRoute} />
+        </AdminLayout>
+      </ErrorBoundary>
+    );
+  }
   return (
     <ErrorBoundary title="Admin page failed to load">
       <AdminLayout>{children}</AdminLayout>
     </ErrorBoundary>
   );
+}
+
+function AdminHomeRedirect() {
+  const { user, isLoaded } = useUser();
+  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
+  if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
+  if (!user) return <Redirect to="/sign-in?redirect_url=%2Fadmin" />;
+  if (!isAdmin) return <Redirect to="/dashboard" />;
+  return <Redirect to={defaultRoute} />;
 }
 
 function Router() {
@@ -321,7 +354,7 @@ function Router() {
 
       {/* Admin routes */}
       <Route path="/admin">
-        <Redirect to="/admin/dashboard" />
+        <AdminHomeRedirect />
       </Route>
       <Route path="/admin/dashboard">
         <AdminRoute><AdminDashboard /></AdminRoute>
