@@ -800,11 +800,11 @@ export default function Landing() {
           <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
             {heroStats.map((s) => (
               <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
-                <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center mb-1 shrink-0">
-                  <s.icon className="w-3.5 h-3.5 text-orange-500" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-50 flex items-center justify-center mb-1.5 shrink-0">
+                  <s.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
                 </div>
-                <p className="text-xs sm:text-lg lg:text-xl font-bold text-slate-900 leading-tight">{s.value}</p>
-                <p className="text-[9px] sm:text-xs text-slate-500 leading-snug mt-0.5">{s.label}</p>
+                <p className="text-base sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">{s.value}</p>
+                <p className="text-[10px] sm:text-sm text-slate-500 leading-snug mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>
