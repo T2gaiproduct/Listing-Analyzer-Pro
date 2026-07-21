@@ -48,6 +48,7 @@ export const AdsPage = lazy(() => import("@/pages/ads"));
 export const SettingsPage = lazy(() => import("@/pages/settings"));
 
 export const AcceptInvite = lazy(() => import("@/pages/accept-invite"));
+export const AcceptAdminInvite = lazy(() => import("@/pages/accept-admin-invite"));
 export const Onboarding = lazy(() => import("@/pages/onboarding"));
 export const CheckoutSuccess = lazy(() => import("@/pages/checkout-success"));
 export const CheckoutCancel = lazy(() => import("@/pages/checkout-cancel"));

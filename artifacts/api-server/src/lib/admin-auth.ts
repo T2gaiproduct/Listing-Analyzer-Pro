@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { eq } from "drizzle-orm";
 import { db, adminRolesTable, adminUsersTable } from "@workspace/db";
+import { acceptAdminInviteForUser } from "./admin-invites.js";
 import {
   ADMIN_PERMISSIONS,
   canAccessAdminApi,
@@ -26,10 +27,12 @@ export function isEnvSuperAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
-export async function loadAdminContext(userId: string): Promise<AdminContext | null> {
+export async function loadAdminContext(userId: string, email?: string | null): Promise<AdminContext | null> {
   if (isEnvSuperAdmin(userId)) {
     return { userId, isSuperAdmin: true, role: null, permissions: [...ADMIN_PERMISSIONS] };
   }
+
+  await acceptAdminInviteForUser(userId, email);
 
   const [assignment] = await db
     .select({
@@ -55,8 +58,9 @@ export async function loadAdminContext(userId: string): Promise<AdminContext | n
   };
 }
 
-export async function isAdminUser(userId: string): Promise<boolean> {
+export async function isAdminUser(userId: string, email?: string | null): Promise<boolean> {
   if (isEnvSuperAdmin(userId)) return true;
+  await acceptAdminInviteForUser(userId, email);
   const [row] = await db.select({ id: adminUsersTable.id })
     .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));
   return !!row;
@@ -65,9 +69,10 @@ export async function isAdminUser(userId: string): Promise<boolean> {
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const auth = getAuth(req);
   const userId = auth?.userId;
+  const email = auth?.sessionClaims?.email as string | undefined;
   if (!userId) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  loadAdminContext(userId).then((ctx) => {
+  loadAdminContext(userId, email).then((ctx) => {
     if (!ctx) { res.status(403).json({ error: "Forbidden" }); return; }
     (req as AdminRequest).admin = ctx;
     next();

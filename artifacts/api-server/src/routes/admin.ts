@@ -1,11 +1,11 @@
 import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, count, avg, sql, desc, and, inArray, gte } from "drizzle-orm";
+import { eq, count, avg, sql, desc, and, inArray, gte, isNull } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable,
   paymentsTable, invoicesTable, refundsTable, couponsTable,
-  adminRolesTable, adminUsersTable, auditLogsTable, downloadsTable,
+  adminRolesTable, adminUsersTable, adminInvitesTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
   cmsContent, blogPosts, testimonials, faqs, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
   userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable,
@@ -27,7 +27,9 @@ import {
   type AdminRequest,
 } from "../lib/admin-auth";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
-import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail } from "../lib/admin-role-email.js";
+import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
+import { normalizeAdminEmail, ensureAdminInviteToken } from "../lib/admin-invites.js";
+import { buildAdminInviteUrl, generateAdminInviteToken } from "../lib/admin-invite-token.js";
 
 const router: IRouter = Router();
 
@@ -92,6 +94,8 @@ async function notifyAdminRoleAssignment(
 
 /** All /admin/* routes (except public checks) require admin + route permission. */
 router.use((req, res, next) => {
+  // Public invite lookup lives in public.ts at /admin-role-invite/:token (must not match /admin guard).
+  if (req.path.startsWith("/admin-role-invite")) return next();
   if (!req.path.startsWith("/admin")) return next();
   if (req.path === "/admin/is-admin" || req.path === "/admin/me") return next();
   return requireAdminWithPermission(req, res, next);
@@ -108,7 +112,8 @@ router.get("/admin/is-admin", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) { res.json({ isAdmin: false }); return; }
-  const ok = await isAdminUser(userId);
+  const email = auth?.sessionClaims?.email as string | undefined;
+  const ok = await isAdminUser(userId, email);
   res.json({ isAdmin: ok });
 });
 
@@ -1042,19 +1047,76 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
     return { ...u, role: roleMap[u.roleId] ?? null, clerkUser };
   }));
 
-  res.json({ users: enriched });
+  const invites = await db.select().from(adminInvitesTable).where(isNull(adminInvitesTable.acceptedAt));
+
+  res.json({
+    users: enriched,
+    invites: await Promise.all(invites.map(async (invite) => {
+      const token = invite.inviteToken ?? await ensureAdminInviteToken(invite.id);
+      return {
+        ...invite,
+        inviteToken: token,
+        role: roleMap[invite.roleId] ?? null,
+        status: "pending" as const,
+      };
+    })),
+  });
 });
 
 router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
   const { email, roleId } = req.body as { email?: string; roleId: number; userId?: string };
   let targetUserId = req.body.userId as string | undefined;
+  const adminReq = req as AdminRequest;
+
+  if (!email?.trim() && !targetUserId) {
+    res.status(400).json({ error: "Provide email or userId" });
+    return;
+  }
 
   // If email provided, look up in Clerk
   if (!targetUserId && email) {
-    const result = await clerkFetch(`/users?email_address=${encodeURIComponent(email)}&limit=1`) as Record<string, unknown> | unknown[];
+    const normalizedEmail = normalizeAdminEmail(email);
+    const result = await clerkFetch(`/users?email_address=${encodeURIComponent(normalizedEmail)}&limit=1`) as Record<string, unknown> | unknown[];
     const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
-    if (!usersList.length) { res.status(404).json({ error: "No user found with that email address" }); return; }
+
+    if (!usersList.length) {
+      const [existingInvite] = await db.select().from(adminInvitesTable)
+        .where(eq(adminInvitesTable.email, normalizedEmail)).limit(1);
+      const inviteToken = existingInvite?.inviteToken ?? generateAdminInviteToken();
+
+      const [invite] = await db.insert(adminInvitesTable).values({
+        email: normalizedEmail,
+        roleId,
+        inviteToken,
+        invitedByUserId: adminReq.admin.userId,
+      }).onConflictDoUpdate({
+        target: adminInvitesTable.email,
+        set: {
+          roleId,
+          invitedByUserId: adminReq.admin.userId,
+          acceptedAt: null,
+          acceptedUserId: null,
+          inviteToken,
+        },
+      }).returning();
+
+      const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
+      const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
+      const assignedByName = assignerProfile?.name ?? "An administrator";
+      const emailResult = await sendAdminRoleInviteEmail({
+        toEmail: normalizedEmail,
+        roleId,
+        assignedByName,
+        appBaseUrl: resolveAppBaseUrl(req),
+        inviteUrl,
+      });
+
+      res.status(201).json({ pending: true, invite, inviteUrl, ...emailResult });
+      return;
+    }
+
     targetUserId = (usersList[0] as Record<string, unknown>).id as string;
+    await db.delete(adminInvitesTable).where(eq(adminInvitesTable.email, normalizedEmail));
   }
 
   if (!targetUserId) { res.status(400).json({ error: "Provide email or userId" }); return; }
@@ -1074,6 +1136,13 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
   });
 
   res.status(201).json({ ...u, ...emailResult });
+});
+
+router.delete("/admin/admin-invites/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(adminInvitesTable).where(eq(adminInvitesTable.id, id));
+  res.sendStatus(204);
 });
 
 router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
