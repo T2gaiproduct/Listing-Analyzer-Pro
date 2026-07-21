@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Facebook, Twitter, Linkedin, Youtube } from "lucide-react";
+import { Menu, Facebook, Twitter, Linkedin, Youtube, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SiteLogo } from "@/components/site-logo";
 import { PromoBanner } from "@/components/promo-banner";
 import { useBranding } from "@/hooks/use-branding";
+import { useCompanyContact } from "@/hooks/use-company-contact";
 import { usePublicNav } from "@/hooks/use-public-nav";
 import { cmsText } from "@/lib/homepage-cms";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
@@ -319,6 +320,7 @@ function FooterLinkList({ links }: { links: { id: number; label: string; href: s
 
 export function PublicFooter() {
   const { platformName } = useBranding();
+  const { contact } = useCompanyContact();
   const cms = useHomepageCmsContext();
   const { footerLinks } = usePublicNav();
   const year = new Date().getFullYear();
@@ -343,6 +345,25 @@ export function PublicFooter() {
             >
               <SiteLogo variant="footer" />
             </Link>
+            {(contact.supportEmail || contact.companyAddress) && (
+              <div className="space-y-2 mb-4 max-w-xs">
+                {contact.supportEmail && (
+                  <a
+                    href={`mailto:${contact.supportEmail}`}
+                    className="flex items-start gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+                  >
+                    <Mail className="w-4 h-4 shrink-0 mt-0.5 text-orange-500" />
+                    <span className="break-all">{contact.supportEmail}</span>
+                  </a>
+                )}
+                {contact.companyAddress && (
+                  <p className="flex items-start gap-2 text-sm text-slate-400 leading-relaxed">
+                    <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-orange-500" />
+                    <span>{contact.companyAddress}</span>
+                  </p>
+                )}
+              </div>
+            )}
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
               {tagline}
             </p>
