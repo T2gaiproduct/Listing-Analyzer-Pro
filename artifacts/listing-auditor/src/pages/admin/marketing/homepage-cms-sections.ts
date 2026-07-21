@@ -19,17 +19,6 @@ function featureItemFields(index: number): CmsField[] {
 }
 
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
-  nav: [
-    {
-      title: "Navigation CTAs",
-      fields: [
-        { key: "nav.sign_in_text", label: "Sign in button text" },
-        { key: "nav.sign_in_url", label: "Sign in URL", type: "url" },
-        { key: "nav.cta_text", label: "Primary CTA text" },
-        { key: "nav.cta_url", label: "Primary CTA URL", type: "url" },
-      ],
-    },
-  ],
   seo: [
     {
       title: "Homepage SEO",
@@ -145,7 +134,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
 };
 
 export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
-  nav: "Navigation",
   seo: "SEO",
   hero: "Hero",
   features: "Features",
