@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { refetchCreditQueries } from "@/lib/credit-queries";
@@ -23,6 +23,21 @@ async function isSubscriptionAlreadyActive(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function markCheckoutComplete(queryClient: QueryClient) {
+  queryClient.setQueryData(["user-profile-summary"], (prev: {
+    onboardingCompleted?: boolean;
+    subscription?: { status?: string; planName?: string } | null;
+  } | undefined) => ({
+    ...prev,
+    onboardingCompleted: true,
+    subscription: { ...(prev?.subscription ?? {}), status: "active" },
+  }));
+  await queryClient.refetchQueries({ queryKey: ["user-profile-summary"] });
+  await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+  await queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+  await refetchCreditQueries(queryClient);
 }
 
 export default function CheckoutSuccess() {
@@ -63,22 +78,16 @@ export default function CheckoutSuccess() {
         if (data.status === "paid") {
           activatedRef.current = true;
           setStatus("success");
-          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-          void refetchCreditQueries(queryClient);
-          setTimeout(() => setLocation("/dashboard"), 2200);
+          await markCheckoutComplete(queryClient);
+          setTimeout(() => setLocation("/dashboard"), 1200);
           return;
         }
 
         if (await isSubscriptionAlreadyActive()) {
           activatedRef.current = true;
           setStatus("success");
-          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-          void refetchCreditQueries(queryClient);
-          setTimeout(() => setLocation("/dashboard"), 2200);
+          await markCheckoutComplete(queryClient);
+          setTimeout(() => setLocation("/dashboard"), 1200);
           return;
         }
 
@@ -94,11 +103,8 @@ export default function CheckoutSuccess() {
         } else if (await isSubscriptionAlreadyActive()) {
           activatedRef.current = true;
           setStatus("success");
-          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-          void refetchCreditQueries(queryClient);
-          setTimeout(() => setLocation("/dashboard"), 2200);
+          await markCheckoutComplete(queryClient);
+          setTimeout(() => setLocation("/dashboard"), 1200);
         } else {
           setStatus("failed");
           setErrorMessage("Payment confirmation timed out. If you were charged, please contact support with your order details.");
@@ -110,11 +116,8 @@ export default function CheckoutSuccess() {
         } else if (await isSubscriptionAlreadyActive()) {
           activatedRef.current = true;
           setStatus("success");
-          void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
-          void queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-          void refetchCreditQueries(queryClient);
-          setTimeout(() => setLocation("/dashboard"), 2200);
+          await markCheckoutComplete(queryClient);
+          setTimeout(() => setLocation("/dashboard"), 1200);
         } else {
           setStatus("failed");
           setErrorMessage("Could not verify payment. Please check your email for a Stripe receipt, or contact support.");

@@ -4,7 +4,7 @@ import {
   db, plansTable, creditsTable, creditTransactionsTable,
   paymentsTable, subscriptionsTable, userProfilesTable,
 } from "@workspace/db";
-import { logger } from "./logger";
+import { upsertUserProfile } from "./user-profile";
 import { fulfillStripeCreditCheckout } from "./stripe-credit-checkout";
 import { grantPlanCreditsDelta } from "./subscription-credits";
 import { fulfillStripeSubscriptionCheckout } from "./subscription-fulfillment";
@@ -164,6 +164,10 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
       updatedAt: now,
     })
     .where(eq(subscriptionsTable.userId, userId));
+
+  if (isInitialSubscription) {
+    await upsertUserProfile(userId, { onboardingCompleted: true });
+  }
 
   logger.info({ userId, planId: plan.id, amount, billingReason }, "Invoice paid — subscription updated");
 }

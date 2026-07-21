@@ -138,6 +138,25 @@ export default function Onboarding() {
     enabled: isLoaded && !!user,
   });
 
+  const { data: profileSummary } = useQuery<{
+    onboardingCompleted?: boolean;
+    subscription?: { status?: string; planName?: string } | null;
+  }>({
+    queryKey: ["user-profile-summary"],
+    queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isLoaded && !!user,
+  });
+
+  // Paid users who already completed checkout should not land back on plan selection
+  useEffect(() => {
+    if (!profileSummary) return;
+    const subStatus = profileSummary.subscription?.status;
+    const hasActivePlan = subStatus === "active" || subStatus === "trial";
+    if (profileSummary.onboardingCompleted && hasActivePlan) {
+      setLocation("/dashboard");
+    }
+  }, [profileSummary, setLocation]);
+
   const displayPlans = Array.isArray(plans) ? plans : [];
 
   // Pre-fill profile from existing data for returning customers

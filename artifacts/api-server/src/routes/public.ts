@@ -226,12 +226,22 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     .from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
+  const sub = subRows[0] ?? null;
+  const hasActiveSubscription = sub != null && ["active", "trial"].includes(sub.status);
+  let onboardingCompleted = profile?.onboardingCompleted ?? false;
+
+  // Self-heal: paid users should never be sent back to onboarding
+  if (!onboardingCompleted && hasActiveSubscription) {
+    await upsertUserProfile(userId, { onboardingCompleted: true });
+    onboardingCompleted = true;
+  }
+
   const credits = await ensureSubscriptionCredits(userId);
   const accountRole = await resolveUserAccountRole(userId);
   res.json({
     profile: profile ?? null,
-    onboardingCompleted: profile?.onboardingCompleted ?? false,
-    subscription: subRows[0] ?? null,
+    onboardingCompleted,
+    subscription: sub,
     credits,
     accountRole,
   });
