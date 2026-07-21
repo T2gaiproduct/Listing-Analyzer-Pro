@@ -20,38 +20,37 @@ import { normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
 import { savePortfolioImageFromDataUrl } from "../lib/portfolio-image-storage";
 import { saveWorkflowImageFromDataUrl } from "../lib/workflow-image-storage";
+import {
+  isAdminUser,
+  requireAdmin,
+  requireAdminWithPermission,
+  type AdminRequest,
+} from "../lib/admin-auth";
+import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 
 const router: IRouter = Router();
 
-const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY ?? "";
+
+function sanitizeRolePermissions(req: AdminRequest, permissions: unknown): string[] {
+  const valid = new Set<string>(ADMIN_PERMISSIONS);
+  const requested = Array.isArray(permissions) ? permissions.filter((p): p is string => typeof p === "string") : [];
+  const filtered = requested.filter((p) => valid.has(p));
+  if (req.admin.isSuperAdmin) return filtered;
+  return filtered.filter((p) => req.admin.permissions.includes(p));
+}
+
+/** All /admin/* routes (except public checks) require admin + route permission. */
+router.use((req, res, next) => {
+  if (!req.path.startsWith("/admin")) return next();
+  if (req.path === "/admin/is-admin" || req.path === "/admin/me") return next();
+  return requireAdminWithPermission(req, res, next);
+});
 
 function generatePassword(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
   const bytes = crypto.randomBytes(16);
   return Array.from(bytes).map((b) => chars[b % chars.length]).join("");
-}
-
-interface AdminRequest extends Request {
-  adminUserId: string;
-}
-
-async function isAdminUser(userId: string): Promise<boolean> {
-  if (ADMIN_USER_IDS.includes(userId)) return true;
-  const [row] = await db.select({ id: adminUsersTable.id })
-    .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));
-  return !!row;
-}
-
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(403).json({ error: "Forbidden" }); return; }
-  isAdminUser(userId).then((ok) => {
-    if (!ok) { res.status(403).json({ error: "Forbidden" }); return; }
-    (req as AdminRequest).adminUserId = userId;
-    next();
-  }).catch(() => { res.status(500).json({ error: "Internal server error" }); });
 }
 
 // Public (auth-only) endpoint to check admin status — used by frontend AdminRoute
@@ -61,6 +60,15 @@ router.get("/admin/is-admin", async (req, res): Promise<void> => {
   if (!userId) { res.json({ isAdmin: false }); return; }
   const ok = await isAdminUser(userId);
   res.json({ isAdmin: ok });
+});
+
+router.get("/admin/me", requireAdmin, async (req, res): Promise<void> => {
+  const ctx = (req as AdminRequest).admin;
+  res.json({
+    isSuperAdmin: ctx.isSuperAdmin,
+    role: ctx.role ? { id: ctx.role.id, name: ctx.role.name } : null,
+    permissions: ctx.permissions,
+  });
 });
 
 async function clerkFetch(path: string, options?: RequestInit) {
@@ -937,7 +945,11 @@ router.get("/admin/roles", requireAdmin, async (req, res): Promise<void> => {
 
 router.post("/admin/roles", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, permissions } = req.body;
-  const [role] = await db.insert(adminRolesTable).values({ name, description, permissions: permissions ?? [] }).returning();
+  const [role] = await db.insert(adminRolesTable).values({
+    name,
+    description,
+    permissions: sanitizeRolePermissions(req as AdminRequest, permissions ?? []),
+  }).returning();
   res.status(201).json(role);
 });
 
@@ -945,7 +957,11 @@ router.patch("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> =
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { name, description, permissions } = req.body;
-  const [role] = await db.update(adminRolesTable).set({ name, description, permissions }).where(eq(adminRolesTable.id, id)).returning();
+  const [role] = await db.update(adminRolesTable).set({
+    name,
+    description,
+    permissions: sanitizeRolePermissions(req as AdminRequest, permissions),
+  }).where(eq(adminRolesTable.id, id)).returning();
   res.json(role);
 });
 

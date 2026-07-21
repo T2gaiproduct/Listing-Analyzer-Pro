@@ -13,6 +13,8 @@ import { HomepageCmsProvider } from "@/components/homepage-cms-context";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranding } from "@/hooks/use-branding";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { AdminAccessDenied } from "@/components/admin-access-denied";
 import {
   Layout,
   AdminLayout,
@@ -244,12 +246,13 @@ function HomeRedirect() {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
   const { data: summary } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
   if (envAdmin) return <Redirect to="/admin/dashboard" />;
-  if (!adminLoaded) return <AuthLoading />;
-  if (isAdmin) return <Redirect to="/admin/dashboard" />;
+  if (!adminLoaded || (isAdmin && !permLoaded)) return <AuthLoading />;
+  if (isAdmin) return <Redirect to={defaultRoute} />;
   if (summary && !summary.onboardingCompleted) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
@@ -278,9 +281,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
   const { user, isLoaded } = useUser();
   const { isAdmin, isLoaded: adminLoaded, isError } = useIsAdmin();
-  if (!isLoaded || !adminLoaded) return <AuthLoading />;
+  const { canAccessRoute, isLoaded: permLoaded, defaultRoute } = useAdminPermissions();
+  if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
   if (!user) return <Redirect to="/" />;
   if (isError) {
     return (
@@ -300,11 +305,30 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!isAdmin) return <Redirect to="/dashboard" />;
+  if (!canAccessRoute(location)) {
+    return (
+      <ErrorBoundary title="Admin page failed to load">
+        <AdminLayout>
+          <AdminAccessDenied defaultRoute={defaultRoute} />
+        </AdminLayout>
+      </ErrorBoundary>
+    );
+  }
   return (
     <ErrorBoundary title="Admin page failed to load">
       <AdminLayout>{children}</AdminLayout>
     </ErrorBoundary>
   );
+}
+
+function AdminHomeRedirect() {
+  const { user, isLoaded } = useUser();
+  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
+  if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
+  if (!user) return <Redirect to="/" />;
+  if (!isAdmin) return <Redirect to="/dashboard" />;
+  return <Redirect to={defaultRoute} />;
 }
 
 function Router() {
@@ -321,7 +345,7 @@ function Router() {
 
       {/* Admin routes */}
       <Route path="/admin">
-        <Redirect to="/admin/dashboard" />
+        <AdminHomeRedirect />
       </Route>
       <Route path="/admin/dashboard">
         <AdminRoute><AdminDashboard /></AdminRoute>
