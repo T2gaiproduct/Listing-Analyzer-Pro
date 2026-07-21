@@ -252,6 +252,7 @@ const API_PERMISSION_RULES: ApiPermissionRule[] = [
   { match: /^\/admin\/downloads/, permissions: "view_downloads" },
   { match: /^\/admin\/roles/, permissions: "manage_roles" },
   { match: /^\/admin\/admin-users/, permissions: "manage_roles" },
+  { match: /^\/admin\/admin-invites/, permissions: "manage_roles" },
   { match: /^\/admin\/notifications/, permissions: "manage_notifications" },
   { match: /^\/admin\/settings/, permissions: "manage_settings" },
   { match: /^\/admin\/test-openai-key$/, permissions: "manage_settings" },

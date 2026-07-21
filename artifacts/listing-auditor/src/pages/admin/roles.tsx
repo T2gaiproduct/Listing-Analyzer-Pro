@@ -26,6 +26,15 @@ interface AssignedUser {
   clerkUser: { email: string; name: string } | null;
 }
 
+interface PendingInvite {
+  id: number;
+  email: string;
+  roleId: number;
+  createdAt: string;
+  status: "pending";
+  role: AdminRole | null;
+}
+
 const PERMISSION_GROUPS = ADMIN_PERMISSION_META.reduce((acc, item) => {
   if (!acc[item.group]) acc[item.group] = [];
   acc[item.group].push(item);
@@ -66,11 +75,13 @@ export default function AdminRoles() {
   });
   const roles = rolesData?.roles ?? [];
 
-  const { data: assignedData, isLoading: assignedLoading, refetch: refetchAssigned } = useQuery<{ users: AssignedUser[] }>({
+  const { data: assignedData, isLoading: assignedLoading, refetch: refetchAssigned } = useQuery<{ users: AssignedUser[]; invites?: PendingInvite[] }>({
     queryKey: ["admin-role-assignments"],
     queryFn: () => fetch(`${basePath}/api/admin/admin-users`, { credentials: "include" }).then((r) => r.json()),
   });
   const assignedUsers = assignedData?.users ?? [];
+  const pendingInvites = assignedData?.invites ?? [];
+  const hasAssignments = assignedUsers.length > 0 || pendingInvites.length > 0;
 
   // ── Role CRUD ────────────────────────────────────────────────────────────────
   const openCreate = () => { setEditing(null); setForm({ name: "", description: "", permissions: [] }); setRoleDialogOpen(true); };
@@ -100,11 +111,20 @@ export default function AdminRoles() {
   const assignRole = useMutation({
     mutationFn: (body: { email: string; roleId: number }) =>
       fetch(`${basePath}/api/admin/admin-users`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json() as Promise<{ emailSent?: boolean; emailError?: string }>; }),
+        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json() as Promise<{ pending?: boolean; emailSent?: boolean; emailError?: string }>; }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
       setAssignDialogOpen(false);
       setAssignForm({ email: "", roleId: "" });
+      if (data.pending) {
+        toast({
+          title: "Invite saved",
+          description: data.emailSent
+            ? "User has no account yet — invitation email sent. Role applies when they sign up."
+            : `Invite saved. Email not sent: ${data.emailError ?? "Configure Resend in Admin → Email Settings."}`,
+        });
+        return;
+      }
       if (data.emailSent) {
         toast({ title: "Role assigned", description: "Notification email sent to the user." });
       } else {
@@ -138,6 +158,11 @@ export default function AdminRoles() {
   const removeAssign = useMutation({
     mutationFn: (id: number) => fetch(`${basePath}/api/admin/admin-users/${id}`, { method: "DELETE", credentials: "include" }).then((r) => r.ok),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-role-assignments"] }); toast({ title: "Assignment removed" }); },
+  });
+
+  const removeInvite = useMutation({
+    mutationFn: (id: number) => fetch(`${basePath}/api/admin/admin-invites/${id}`, { method: "DELETE", credentials: "include" }).then((r) => r.ok),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-role-assignments"] }); toast({ title: "Invite removed" }); },
   });
 
   return (
@@ -253,7 +278,7 @@ export default function AdminRoles() {
           <CardContent className="p-0">
             {assignedLoading ? (
               <div className="py-10 flex justify-center"><div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
-            ) : assignedUsers.length === 0 ? (
+            ) : !hasAssignments ? (
               <div className="py-12 text-center">
                 <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 text-sm font-medium">No roles assigned yet</p>
@@ -278,6 +303,44 @@ export default function AdminRoles() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {pendingInvites.map((invite) => (
+                    <TableRow key={`invite-${invite.id}`} className="bg-amber-50/40">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 font-bold text-amber-700 text-sm">
+                            {invite.email[0]?.toUpperCase() ?? "?"}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-800 text-sm">{invite.email}</p>
+                            <Badge variant="outline" className="text-xs mt-1 border-amber-300 text-amber-700 bg-amber-50">Pending sign-up</Badge>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {invite.role ? (
+                          <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
+                            <Shield className="w-3 h-3 mr-1" />{invite.role.name}
+                          </Badge>
+                        ) : <span className="text-xs text-slate-400">Unknown role</span>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {(invite.role?.permissions ?? []).slice(0, 3).map((p) => <Badge key={p} variant="secondary" className="text-xs">{p.replace(/_/g, " ")}</Badge>)}
+                          {(invite.role?.permissions?.length ?? 0) > 3 && <Badge variant="outline" className="text-xs">+{(invite.role?.permissions.length ?? 0) - 3}</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-400">{format(new Date(invite.createdAt), "MMM d, yyyy")}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost" size="sm" className="text-destructive hover:text-destructive"
+                          title="Cancel invite"
+                          onClick={() => confirm(`Cancel invite for ${invite.email}?`) && removeInvite.mutate(invite.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                   {assignedUsers.map((u) => (
                     <TableRow key={u.id}>
                       <TableCell>
@@ -401,7 +464,7 @@ export default function AdminRoles() {
                 value={assignForm.email}
                 onChange={(e) => setAssignForm((p) => ({ ...p, email: e.target.value }))}
               />
-              <p className="text-xs text-slate-400 mt-1">Enter the email of a registered user to grant them a role</p>
+              <p className="text-xs text-slate-400 mt-1">Enter any email — existing users get the role immediately; new users receive an invite and get access after sign-up</p>
             </div>
             <div>
               <Label className="text-xs mb-1.5 block">Role *</Label>

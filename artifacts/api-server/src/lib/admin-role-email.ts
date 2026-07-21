@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { ADMIN_PERMISSION_META } from "@workspace/admin-permissions";
 import { db, adminRolesTable } from "@workspace/db";
-import { adminRoleAssignedEmailTemplate } from "./email-templates.js";
+import { adminRoleAssignedEmailTemplate, adminRoleInviteEmailTemplate } from "./email-templates.js";
 import { sendEmail } from "./email.js";
 
 const PERMISSION_LABELS = Object.fromEntries(
@@ -50,6 +50,37 @@ export async function sendAdminRoleAssignedEmail(opts: {
   });
 
   return sendEmail({ to: opts.toEmail, subject, html });
+}
+
+export async function sendAdminRoleInviteEmail(opts: {
+  toEmail: string;
+  roleId: number;
+  assignedByName: string;
+  appBaseUrl?: string;
+}): Promise<{ success: boolean; error?: string; emailSent?: boolean }> {
+  const [role] = await db
+    .select({ name: adminRolesTable.name, permissions: adminRolesTable.permissions })
+    .from(adminRolesTable)
+    .where(eq(adminRolesTable.id, opts.roleId))
+    .limit(1);
+
+  if (!role) return { success: false, emailSent: false, error: "Role not found" };
+
+  const base = getAppBaseUrl(opts.appBaseUrl);
+  const signUpUrl = `${base}/sign-up?redirect_url=${encodeURIComponent("/admin")}&email=${encodeURIComponent(opts.toEmail)}`;
+  const permissionLabels = formatPermissionLabels(role.permissions ?? []);
+  const subject = `You're invited to SellerLens admin (${role.name})`;
+
+  const html = adminRoleInviteEmailTemplate({
+    roleName: role.name,
+    permissionLabels,
+    signUpUrl,
+    assignedByName: opts.assignedByName,
+    invitedEmail: opts.toEmail,
+  });
+
+  const result = await sendEmail({ to: opts.toEmail, subject, html });
+  return { ...result, emailSent: result.success };
 }
 
 export async function getClerkUserEmailAndName(userId: string, clerkFetch: (path: string) => Promise<unknown>): Promise<{ email: string; name: string } | null> {

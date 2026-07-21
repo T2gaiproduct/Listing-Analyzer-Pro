@@ -193,3 +193,72 @@ export function adminRoleAssignedEmailTemplate({
 </body>
 </html>`;
 }
+
+export function adminRoleInviteEmailTemplate({
+  roleName,
+  permissionLabels,
+  signUpUrl,
+  assignedByName,
+  invitedEmail,
+}: {
+  roleName: string;
+  permissionLabels: string[];
+  signUpUrl: string;
+  assignedByName: string;
+  invitedEmail: string;
+}): string {
+  const permissionList = permissionLabels.length
+    ? permissionLabels.map((label) => `<li>${label}</li>`).join("")
+    : "<li>Limited admin access (see your administrator for details)</li>";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Invitation</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+    .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: #f97316; padding: 32px 24px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; }
+    .header p { color: #ffedd5; margin: 8px 0 0; font-size: 14px; }
+    .content { padding: 32px 24px; }
+    .content p { color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .content strong { color: #0f172a; }
+    .role-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 16px; margin: 20px 0; }
+    .role-box .role-label { color: #f97316; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .perms { margin: 12px 0 0; padding-left: 18px; color: #475569; font-size: 14px; line-height: 1.5; }
+    .btn-wrapper { text-align: center; margin: 28px 0 16px; }
+    .btn { display: inline-block; background: #f97316; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px; }
+    .footer { background: #f8fafc; padding: 20px 24px; text-align: center; }
+    .footer p { color: #94a3b8; font-size: 12px; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>You're invited to SellerLens Admin</h1>
+      <p>Create your account to get started</p>
+    </div>
+    <div class="content">
+      <p><strong>${assignedByName}</strong> invited you to join <strong>SellerLens</strong> as an admin user.</p>
+      <div class="role-box">
+        <div class="role-label">Role: ${roleName}</div>
+        <p style="margin: 8px 0 4px; color: #475569; font-size: 14px;">After sign-up you can access:</p>
+        <ul class="perms">${permissionList}</ul>
+      </div>
+      <p>Create an account using this email address:</p>
+      <p style="text-align:center;"><strong>${invitedEmail}</strong></p>
+      <div class="btn-wrapper">
+        <a href="${signUpUrl}" class="btn">Create Account</a>
+      </div>
+      <p style="font-size: 13px; color: #94a3b8; text-align: center;">If the button does not work, copy this link:<br><a href="${signUpUrl}" style="color: #f97316; word-break: break-all;">${signUpUrl}</a></p>
+    </div>
+    <div class="footer">
+      <p>SellerLens — AI-powered Amazon listing optimization</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
