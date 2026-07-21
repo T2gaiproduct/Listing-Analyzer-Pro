@@ -24,6 +24,7 @@ export const adminInvitesTable = pgTable("admin_invites", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   roleId: integer("role_id").notNull(),
+  inviteToken: text("invite_token").unique(),
   invitedByUserId: text("invited_by_user_id"),
   acceptedAt: timestamp("accepted_at"),
   acceptedUserId: text("accepted_user_id"),

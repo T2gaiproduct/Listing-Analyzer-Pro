@@ -52,6 +52,7 @@ import {
   AdsPage,
   SettingsPage,
   AcceptInvite,
+  AcceptAdminInvite,
   Onboarding,
   CheckoutSuccess,
   CheckoutCancel,
@@ -506,6 +507,9 @@ function Router() {
       {/* Accept invite — full-page, works signed in or out */}
       <Route path="/accept-invite">
         <AcceptInvite />
+      </Route>
+      <Route path="/accept-admin-invite">
+        <AcceptAdminInvite />
       </Route>
 
       {/* Onboarding — full-page, no Layout wrapper */}

@@ -251,7 +251,7 @@ export function adminRoleInviteEmailTemplate({
       <p>Create an account using this email address:</p>
       <p style="text-align:center;"><strong>${invitedEmail}</strong></p>
       <div class="btn-wrapper">
-        <a href="${signUpUrl}" class="btn">Create Account</a>
+        <a href="${signUpUrl}" class="btn">Accept Invitation</a>
       </div>
       <p style="font-size: 13px; color: #94a3b8; text-align: center;">If the button does not work, copy this link:<br><a href="${signUpUrl}" style="color: #f97316; word-break: break-all;">${signUpUrl}</a></p>
     </div>

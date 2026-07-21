@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Pencil, Shield, RefreshCw, UserPlus, ChevronDown, Users } from "lucide-react";
+import { Plus, Trash2, Pencil, Shield, RefreshCw, UserPlus, ChevronDown, Users, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ADMIN_PERMISSION_META, type AdminPermissionGroup } from "@workspace/admin-permissions";
@@ -33,6 +33,12 @@ interface PendingInvite {
   createdAt: string;
   status: "pending";
   role: AdminRole | null;
+  inviteToken?: string | null;
+}
+
+function adminInviteLink(token: string | null | undefined): string {
+  if (!token) return "";
+  return `${window.location.origin}${basePath}/accept-admin-invite?token=${token}`;
 }
 
 const PERMISSION_GROUPS = ADMIN_PERMISSION_META.reduce((acc, item) => {
@@ -111,17 +117,18 @@ export default function AdminRoles() {
   const assignRole = useMutation({
     mutationFn: (body: { email: string; roleId: number }) =>
       fetch(`${basePath}/api/admin/admin-users`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json() as Promise<{ pending?: boolean; emailSent?: boolean; emailError?: string }>; }),
+        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json() as Promise<{ pending?: boolean; emailSent?: boolean; emailError?: string; inviteUrl?: string }>; }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
       setAssignDialogOpen(false);
       setAssignForm({ email: "", roleId: "" });
       if (data.pending) {
+        const linkNote = data.inviteUrl ? ` Invite link: ${data.inviteUrl}` : "";
         toast({
           title: "Invite saved",
           description: data.emailSent
-            ? "User has no account yet — invitation email sent. Role applies when they sign up."
-            : `Invite saved. Email not sent: ${data.emailError ?? "Configure Resend in Admin → Email Settings."}`,
+            ? `Invitation email sent.${linkNote}`
+            : `Invite saved.${data.inviteUrl ? ` Share this link: ${data.inviteUrl}` : data.emailError ? ` Email not sent: ${data.emailError}` : ""}`,
         });
         return;
       }
@@ -331,6 +338,19 @@ export default function AdminRoles() {
                       </TableCell>
                       <TableCell className="text-sm text-slate-400">{format(new Date(invite.createdAt), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
+                        {invite.inviteToken && (
+                          <Button
+                            variant="ghost" size="sm"
+                            title="Copy invite link"
+                            onClick={() => {
+                              const url = adminInviteLink(invite.inviteToken);
+                              void navigator.clipboard.writeText(url);
+                              toast({ title: "Invite link copied", description: url });
+                            }}
+                          >
+                            <Copy className="h-4 w-4 mr-1" />Copy Link
+                          </Button>
+                        )}
                         <Button
                           variant="ghost" size="sm" className="text-destructive hover:text-destructive"
                           title="Cancel invite"

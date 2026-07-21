@@ -28,7 +28,8 @@ import {
 } from "../lib/admin-auth";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
-import { normalizeAdminEmail } from "../lib/admin-invites.js";
+import { normalizeAdminEmail, ensureAdminInviteToken } from "../lib/admin-invites.js";
+import { buildAdminInviteUrl, generateAdminInviteToken } from "../lib/admin-invite-token.js";
 
 const router: IRouter = Router();
 
@@ -1048,10 +1049,14 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
 
   res.json({
     users: enriched,
-    invites: invites.map((invite) => ({
-      ...invite,
-      role: roleMap[invite.roleId] ?? null,
-      status: "pending" as const,
+    invites: await Promise.all(invites.map(async (invite) => {
+      const token = invite.inviteToken ?? await ensureAdminInviteToken(invite.id);
+      return {
+        ...invite,
+        inviteToken: token,
+        role: roleMap[invite.roleId] ?? null,
+        status: "pending" as const,
+      };
     })),
   });
 });
@@ -1073,15 +1078,27 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
     const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
 
     if (!usersList.length) {
+      const [existingInvite] = await db.select().from(adminInvitesTable)
+        .where(eq(adminInvitesTable.email, normalizedEmail)).limit(1);
+      const inviteToken = existingInvite?.inviteToken ?? generateAdminInviteToken();
+
       const [invite] = await db.insert(adminInvitesTable).values({
         email: normalizedEmail,
         roleId,
+        inviteToken,
         invitedByUserId: adminReq.admin.userId,
       }).onConflictDoUpdate({
         target: adminInvitesTable.email,
-        set: { roleId, invitedByUserId: adminReq.admin.userId, acceptedAt: null, acceptedUserId: null },
+        set: {
+          roleId,
+          invitedByUserId: adminReq.admin.userId,
+          acceptedAt: null,
+          acceptedUserId: null,
+          inviteToken,
+        },
       }).returning();
 
+      const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
       const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
       const assignedByName = assignerProfile?.name ?? "An administrator";
       const emailResult = await sendAdminRoleInviteEmail({
@@ -1089,9 +1106,10 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
         roleId,
         assignedByName,
         appBaseUrl: resolveAppBaseUrl(req),
+        inviteUrl,
       });
 
-      res.status(201).json({ pending: true, invite, ...emailResult });
+      res.status(201).json({ pending: true, invite, inviteUrl, ...emailResult });
       return;
     }
 

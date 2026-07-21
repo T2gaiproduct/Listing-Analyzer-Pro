@@ -57,6 +57,7 @@ export async function sendAdminRoleInviteEmail(opts: {
   roleId: number;
   assignedByName: string;
   appBaseUrl?: string;
+  inviteUrl?: string;
 }): Promise<{ success: boolean; error?: string; emailSent?: boolean }> {
   const [role] = await db
     .select({ name: adminRolesTable.name, permissions: adminRolesTable.permissions })
@@ -67,7 +68,8 @@ export async function sendAdminRoleInviteEmail(opts: {
   if (!role) return { success: false, emailSent: false, error: "Role not found" };
 
   const base = getAppBaseUrl(opts.appBaseUrl);
-  const signUpUrl = `${base}/sign-up?redirect_url=${encodeURIComponent("/admin")}&email=${encodeURIComponent(opts.toEmail)}`;
+  const signUpUrl = opts.inviteUrl
+    ?? `${base}/sign-up?redirect_url=${encodeURIComponent("/admin")}&email=${encodeURIComponent(opts.toEmail)}`;
   const permissionLabels = formatPermissionLabels(role.permissions ?? []);
   const subject = `You're invited to SellerLens admin (${role.name})`;
 
