@@ -17,9 +17,9 @@ export function SiteLogo({
   imageClassName = wordmarkClass,
   variant = "public",
 }: SiteLogoProps) {
-  const { platformName, logoUrl, hasCustomLogo } = useBranding();
+  const { platformName, logoUrl } = useBranding();
   const resolvedLogoUrl =
-    variant === "footer" && !hasCustomLogo
+    variant === "footer"
       ? resolveBrandingAsset(null, defaultFooterLogoUrl())
       : logoUrl;
 
