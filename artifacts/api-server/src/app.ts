@@ -8,6 +8,7 @@ import { logger } from "./lib/logger";
 import { IMAGES_DIR, GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./lib/image-storage";
 import { HERO_IMAGES_DIR } from "./lib/hero-image-storage";
 import { PORTFOLIO_IMAGES_DIR } from "./lib/portfolio-image-storage";
+import { WORKFLOW_IMAGES_DIR } from "./lib/workflow-image-storage";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -84,6 +85,7 @@ app.use("/api/images", express.static(IMAGES_DIR));
 app.use("/api/images/graphics", express.static(GRAPHICS_IMAGES_DIR));
 app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api/images/portfolio", express.static(PORTFOLIO_IMAGES_DIR));
+app.use("/api/images/workflow", express.static(WORKFLOW_IMAGES_DIR));
 app.use("/api", router);
 
 export default app;

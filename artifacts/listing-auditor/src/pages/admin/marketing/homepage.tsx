@@ -13,6 +13,7 @@ import { HOMEPAGE_CMS_SECTIONS, HOMEPAGE_CMS_TAB_LABELS, type CmsField } from ".
 import { HeroSlidesEditor } from "./hero-slides-editor";
 import { PortfolioCmsEditor } from "./portfolio-cms-editor";
 import { TutorialsCmsEditor } from "./tutorials-cms-editor";
+import { WorkflowCmsEditor } from "./workflow-cms-editor";
 import { DEFAULT_HERO_SLIDES, HERO_AUTOPLAY_ENABLED_KEY, HERO_AUTOPLAY_INTERVAL_KEY, HERO_SLIDES_JSON_KEY, serializeHeroSlides } from "@/lib/hero-slides";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -160,6 +161,9 @@ export default function AdminMarketingHomepage() {
               )}
               {tab === "tutorials" && (
                 <TutorialsCmsEditor data={localData} onChange={handleChange} />
+              )}
+              {tab === "workflow" && (
+                <WorkflowCmsEditor data={localData} onChange={handleChange} />
               )}
               {HOMEPAGE_CMS_SECTIONS[tab].map((section) => (
                 <SectionEditor
