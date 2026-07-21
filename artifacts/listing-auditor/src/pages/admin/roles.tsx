@@ -100,20 +100,41 @@ export default function AdminRoles() {
   const assignRole = useMutation({
     mutationFn: (body: { email: string; roleId: number }) =>
       fetch(`${basePath}/api/admin/admin-users`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => {
+        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json() as Promise<{ emailSent?: boolean; emailError?: string }>; }),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
       setAssignDialogOpen(false);
       setAssignForm({ email: "", roleId: "" });
-      toast({ title: "Role assigned successfully" });
+      if (data.emailSent) {
+        toast({ title: "Role assigned", description: "Notification email sent to the user." });
+      } else {
+        toast({
+          title: "Role assigned",
+          description: data.emailError ?? "Email could not be sent. Check Admin → Email Settings.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (e: Error) => toast({ title: "Failed to assign role", description: e.message, variant: "destructive" }),
   });
 
   const updateAssign = useMutation({
     mutationFn: ({ id, roleId }: { id: number; roleId: number }) =>
-      fetch(`${basePath}/api/admin/admin-users/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleId }) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-role-assignments"] }); setEditAssignOpen(false); toast({ title: "Role updated" }); },
+      fetch(`${basePath}/api/admin/admin-users/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleId }) })
+        .then((r) => r.json() as Promise<{ emailSent?: boolean; emailError?: string }>),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
+      setEditAssignOpen(false);
+      if (data.emailSent) {
+        toast({ title: "Role updated", description: "Notification email sent to the user." });
+      } else {
+        toast({
+          title: "Role updated",
+          description: data.emailError ?? "Email could not be sent. Check Admin → Email Settings.",
+          variant: "destructive",
+        });
+      }
+    },
   });
 
   const removeAssign = useMutation({

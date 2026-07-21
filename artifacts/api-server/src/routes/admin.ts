@@ -27,6 +27,7 @@ import {
   type AdminRequest,
 } from "../lib/admin-auth";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
+import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail } from "../lib/admin-role-email.js";
 
 const router: IRouter = Router();
 
@@ -38,6 +39,55 @@ function sanitizeRolePermissions(req: AdminRequest, permissions: unknown): strin
   const filtered = requested.filter((p) => valid.has(p));
   if (req.admin.isSuperAdmin) return filtered;
   return filtered.filter((p) => req.admin.permissions.includes(p));
+}
+
+function resolveAppBaseUrl(req: Request): string | undefined {
+  const origin = req.get("origin");
+  if (origin) return origin.replace(/\/$/, "");
+  const referer = req.get("referer");
+  if (referer) {
+    try { return new URL(referer).origin; } catch { /* ignore */ }
+  }
+  return undefined;
+}
+
+async function notifyAdminRoleAssignment(
+  req: Request,
+  opts: { userId: string; email?: string; roleId: number; isUpdate?: boolean },
+): Promise<{ emailSent: boolean; emailError?: string }> {
+  const adminReq = req as AdminRequest;
+  let toEmail = opts.email?.trim().toLowerCase();
+  let recipientName = toEmail ?? "there";
+
+  const clerkProfile = await getClerkUserEmailAndName(opts.userId, clerkFetch);
+  if (clerkProfile) {
+    toEmail = clerkProfile.email;
+    recipientName = clerkProfile.name;
+  }
+
+  if (!toEmail) return { emailSent: false, emailError: "Recipient email not found" };
+
+  const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
+  const assignedByName = assignerProfile?.name ?? "An administrator";
+
+  try {
+    const result = await sendAdminRoleAssignedEmail({
+      toEmail,
+      recipientName,
+      roleId: opts.roleId,
+      assignedByName,
+      isUpdate: opts.isUpdate,
+      appBaseUrl: resolveAppBaseUrl(req),
+    });
+    if (!result.success) {
+      req.log?.warn?.({ emailError: result.error, toEmail }, "Failed to send admin role assignment email");
+      return { emailSent: false, emailError: result.error };
+    }
+    return { emailSent: true };
+  } catch (emailErr) {
+    req.log?.warn?.({ emailErr, toEmail }, "Failed to send admin role assignment email");
+    return { emailSent: false, emailError: emailErr instanceof Error ? emailErr.message : "Email send failed" };
+  }
 }
 
 /** All /admin/* routes (except public checks) require admin + route permission. */
@@ -1009,10 +1059,21 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
 
   if (!targetUserId) { res.status(400).json({ error: "Provide email or userId" }); return; }
 
+  const [existingAssignment] = await db.select({ id: adminUsersTable.id })
+    .from(adminUsersTable).where(eq(adminUsersTable.userId, targetUserId)).limit(1);
+
   const [u] = await db.insert(adminUsersTable).values({ userId: targetUserId, roleId })
     .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId } })
     .returning();
-  res.status(201).json(u);
+
+  const emailResult = await notifyAdminRoleAssignment(req, {
+    userId: targetUserId,
+    email,
+    roleId,
+    isUpdate: !!existingAssignment,
+  });
+
+  res.status(201).json({ ...u, ...emailResult });
 });
 
 router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
@@ -1020,7 +1081,15 @@ router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<v
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { roleId } = req.body;
   const [u] = await db.update(adminUsersTable).set({ roleId }).where(eq(adminUsersTable.id, id)).returning();
-  res.json(u);
+  if (!u) { res.status(404).json({ error: "Assignment not found" }); return; }
+
+  const emailResult = await notifyAdminRoleAssignment(req, {
+    userId: u.userId,
+    roleId,
+    isUpdate: true,
+  });
+
+  res.json({ ...u, ...emailResult });
 });
 
 router.delete("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
