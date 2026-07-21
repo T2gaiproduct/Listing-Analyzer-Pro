@@ -1485,7 +1485,9 @@ router.post("/admin/hero-image", requireAdmin, async (req, res): Promise<void> =
     }
     const url = folder === "portfolio"
       ? savePortfolioImageFromDataUrl(dataUrl, filename)
-      : saveHeroImageFromDataUrl(dataUrl, filename);
+      : folder === "workflow"
+        ? saveWorkflowImageFromDataUrl(dataUrl, filename)
+        : saveHeroImageFromDataUrl(dataUrl, filename);
     res.status(201).json({ url });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });

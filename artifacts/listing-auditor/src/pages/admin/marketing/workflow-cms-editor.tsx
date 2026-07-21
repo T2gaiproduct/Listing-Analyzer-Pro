@@ -24,22 +24,35 @@ async function uploadWorkflowImage(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 
-  const res = await fetch(`${basePath}/api/admin/workflow-image`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      dataUrl,
-      filename: file.name,
-    }),
+  const payload = JSON.stringify({
+    dataUrl,
+    filename: file.name,
+    folder: "workflow",
   });
 
-  const json = await res.json().catch(() => ({} as { error?: string }));
-  if (!res.ok || !json.url) {
-    throw new Error(json.error || `Upload failed (HTTP ${res.status})`);
+  const endpoints = [
+    `${basePath}/api/admin/workflow-image`,
+    `${basePath}/api/admin/hero-image`,
+  ];
+
+  let lastError = "Upload failed";
+
+  for (const endpoint of endpoints) {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    });
+
+    const json = await res.json().catch(() => ({} as { error?: string; url?: string }));
+    if (res.ok && json.url) return json.url as string;
+
+    lastError = json.error || `Upload failed (HTTP ${res.status})`;
+    if (res.status !== 404) break;
   }
 
-  return json.url as string;
+  throw new Error(lastError);
 }
 
 function WorkflowImageField({
