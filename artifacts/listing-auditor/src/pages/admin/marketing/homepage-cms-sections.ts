@@ -19,15 +19,6 @@ function featureItemFields(index: number): CmsField[] {
 }
 
 export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
-  seo: [
-    {
-      title: "Homepage SEO",
-      fields: [
-        { key: "seo.title", label: "Page title" },
-        { key: "seo.description", label: "Meta description", type: "textarea" },
-      ],
-    },
-  ],
   hero: [
     {
       title: "Hero stats (shown below all slides)",
@@ -134,7 +125,6 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
 };
 
 export const HOMEPAGE_CMS_TAB_LABELS: Record<string, string> = {
-  seo: "SEO",
   hero: "Hero",
   features: "Features",
   portfolio: "Portfolio",
