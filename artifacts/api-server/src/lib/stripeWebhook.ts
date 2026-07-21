@@ -4,8 +4,10 @@ import {
   db, plansTable, creditsTable, creditTransactionsTable,
   paymentsTable, subscriptionsTable, userProfilesTable,
 } from "@workspace/db";
-import { logger } from "./logger";
+import { upsertUserProfile } from "./user-profile";
 import { fulfillStripeCreditCheckout } from "./stripe-credit-checkout";
+import { grantPlanCreditsDelta } from "./subscription-credits";
+import { fulfillStripeSubscriptionCheckout } from "./subscription-fulfillment";
 
 /**
  * App-specific Stripe webhook handling.
@@ -40,7 +42,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   }
 }
 
-async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string; customer: string | unknown; subscription?: string | unknown; amount_paid?: number; period_start?: number; period_end?: number }): Promise<void> {
+async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string; customer: string | unknown; subscription?: string | unknown; amount_paid?: number; period_start?: number; period_end?: number; billing_reason?: string }): Promise<void> {
   // Skip if not a subscription invoice or already recorded
   if (!invoice.subscription) return;
 
@@ -89,6 +91,8 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
   }
 
   const amount = (invoice.amount_paid ?? 0) / 100;
+  const billingReason = invoice.billing_reason ?? "subscription_cycle";
+  const isInitialSubscription = billingReason === "subscription_create";
 
   // Persist coupon info from subscription record
   const couponCode = appSub.couponCode ?? null;
@@ -104,55 +108,68 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
     gatewayPaymentId: invoice.id,
     couponCode,
     discountAmount,
+    metadata: { type: isInitialSubscription ? "subscription_initial" : "subscription_renewal", billingReason },
   });
 
-  // Top up credits for the new period
-  const [existingCredits] = await db
-    .select()
-    .from(creditsTable)
-    .where(eq(creditsTable.userId, userId));
-
   const now = new Date();
-  if (existingCredits) {
-    await db.update(creditsTable)
-      .set({
-        aiCredits: existingCredits.aiCredits + plan.aiCredits,
-        imageCredits: existingCredits.imageCredits + plan.imageCredits,
-        auditCredits: existingCredits.auditCredits + plan.auditCredits,
-        updatedAt: now,
-      })
-      .where(eq(creditsTable.userId, userId));
+  if (isInitialSubscription) {
+    await grantPlanCreditsDelta(userId, plan, `${plan.name} plan — initial subscription`);
   } else {
-    await db.insert(creditsTable).values({
-      userId,
-      aiCredits: plan.aiCredits,
-      imageCredits: plan.imageCredits,
-      auditCredits: plan.auditCredits,
-    });
-  }
+    const [existingCredits] = await db
+      .select()
+      .from(creditsTable)
+      .where(eq(creditsTable.userId, userId));
 
-  await db.insert(creditTransactionsTable).values([
-    { userId, creditType: "ai", amount: plan.aiCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-    { userId, creditType: "image", amount: plan.imageCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-    { userId, creditType: "audit", amount: plan.auditCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-  ]);
+    if (existingCredits) {
+      await db.update(creditsTable)
+        .set({
+          aiCredits: existingCredits.aiCredits + plan.aiCredits,
+          imageCredits: existingCredits.imageCredits + plan.imageCredits,
+          auditCredits: existingCredits.auditCredits + plan.auditCredits,
+          updatedAt: now,
+        })
+        .where(eq(creditsTable.userId, userId));
+    } else {
+      await db.insert(creditsTable).values({
+        userId,
+        aiCredits: plan.aiCredits,
+        imageCredits: plan.imageCredits,
+        auditCredits: plan.auditCredits,
+      });
+    }
+
+    await db.insert(creditTransactionsTable).values([
+      { userId, creditType: "ai", amount: plan.aiCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "image", amount: plan.imageCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "audit", amount: plan.auditCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+    ]);
+  }
 
   // Update subscription period dates from the invoice
   const periodStart = invoice.period_start ? new Date(invoice.period_start * 1000) : now;
   const periodEnd = invoice.period_end ? new Date(invoice.period_end * 1000) : new Date(now);
-  if (appSub.billingCycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-  else periodEnd.setMonth(periodEnd.getMonth() + 1);
+  if (!invoice.period_end) {
+    if (appSub.billingCycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    else periodEnd.setMonth(periodEnd.getMonth() + 1);
+  }
+
+  const stripeSubId = typeof invoice.subscription === "string" ? invoice.subscription : null;
 
   await db.update(subscriptionsTable)
     .set({
       status: "active",
       currentPeriodStart: periodStart,
       currentPeriodEnd: periodEnd,
+      ...(stripeSubId ? { stripeSubscriptionId: stripeSubId } : {}),
       updatedAt: now,
     })
     .where(eq(subscriptionsTable.userId, userId));
 
-  logger.info({ userId, planId: plan.id, amount }, "Invoice paid — credits renewed");
+  if (isInitialSubscription) {
+    await upsertUserProfile(userId, { onboardingCompleted: true });
+  }
+
+  logger.info({ userId, planId: plan.id, amount, billingReason }, "Invoice paid — subscription updated");
 }
 
 async function handleSubscriptionDeleted(sub: Record<string, unknown> & { id: string; customer: string | unknown; status: string }): Promise<void> {
@@ -233,6 +250,17 @@ async function handleSubscriptionUpdated(sub: Record<string, unknown> & { id: st
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  if (session.mode === "subscription") {
+    const result = await fulfillStripeSubscriptionCheckout(session);
+    if (result) {
+      logger.info(
+        { userId: result.userId, sessionId: session.id, alreadyProcessed: result.alreadyProcessed },
+        "Subscription checkout fulfilled via checkout.session.completed",
+      );
+    }
+    return;
+  }
+
   if (session.mode !== "payment") return;
 
   const result = await fulfillStripeCreditCheckout(session);

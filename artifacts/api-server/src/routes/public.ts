@@ -226,12 +226,22 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     .from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
+  const sub = subRows[0] ?? null;
+  const hasActiveSubscription = sub != null && ["active", "trial"].includes(sub.status);
+  let onboardingCompleted = profile?.onboardingCompleted ?? false;
+
+  // Self-heal: paid users should never be sent back to onboarding
+  if (!onboardingCompleted && hasActiveSubscription) {
+    await upsertUserProfile(userId, { onboardingCompleted: true });
+    onboardingCompleted = true;
+  }
+
   const credits = await ensureSubscriptionCredits(userId);
   const accountRole = await resolveUserAccountRole(userId);
   res.json({
     profile: profile ?? null,
-    onboardingCompleted: profile?.onboardingCompleted ?? false,
-    subscription: subRows[0] ?? null,
+    onboardingCompleted,
+    subscription: sub,
     credits,
     accountRole,
   });
@@ -639,21 +649,13 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
     await db.insert(subscriptionsTable).values({ userId, ...subData });
   }
 
-  const existingCredits = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
-  if (existingCredits.length) {
-    const ec = existingCredits[0];
-    await db.update(creditsTable)
-      .set({ aiCredits: ec.aiCredits + plan.aiCredits, imageCredits: ec.imageCredits + plan.imageCredits, auditCredits: ec.auditCredits + plan.auditCredits, updatedAt: new Date() })
-      .where(eq(creditsTable.userId, userId));
-  } else {
-    await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
-  }
-
-  await db.insert(creditTransactionsTable).values([
-    { userId, creditType: "ai", amount: plan.aiCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
-    { userId, creditType: "image", amount: plan.imageCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
-    { userId, creditType: "audit", amount: plan.auditCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
-  ]);
+  const { fulfillOnboardingPlan } = await import("../lib/subscription-fulfillment");
+  await fulfillOnboardingPlan({
+    userId,
+    plan,
+    idempotencyKey: `onboarding:${userId}:${plan.id}`,
+    reason: `${plan.name} plan — onboarding`,
+  });
 
   res.json({ ok: true });
 });
