@@ -2,11 +2,12 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
-  db, plansTable, creditsTable, creditTransactionsTable, paymentsTable,
-  userProfilesTable, subscriptionsTable, couponsTable,
+  db, plansTable, couponsTable,
+  userProfilesTable, subscriptionsTable,
 } from "@workspace/db";
 import { getUncachableStripeClient } from "../stripeClient";
 import { hasRequiredProfileFields, upsertUserProfile } from "../lib/user-profile";
+import { fulfillStripeSubscriptionCheckout } from "../lib/subscription-fulfillment";
 import type Stripe from "stripe";
 
 const router: IRouter = Router();
@@ -102,8 +103,13 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
     await upsertUserProfile(userId, { stripeCustomerId });
   }
 
-  // Mark subscription as pending
+  // Mark subscription as pending (skip if already active on this plan)
   const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
+  if (existingSub?.status === "active" && existingSub.planId === plan.id) {
+    res.status(409).json({ error: "You already have an active subscription for this plan." });
+    return;
+  }
+
   if (existingSub) {
     await db.update(subscriptionsTable)
       .set({ planId: plan.id, billingCycle, status: "pending_payment", couponCode: couponCode ?? null, discountAmount, autoRenew: autoRenew ?? true, updatedAt: new Date() })
@@ -172,7 +178,6 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  // Security: ensure session belongs to this user
   if (session.metadata?.userId && session.metadata.userId !== userId) {
     res.status(403).json({ error: "Session does not belong to this user" });
     return;
@@ -183,115 +188,13 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  // Idempotency: already activated?
-  const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId));
-  if (existingSub?.status === "active" && existingSub?.stripeCheckoutSessionId === sessionId) {
-    res.json({ status: "paid", activated: true });
+  const result = await fulfillStripeSubscriptionCheckout(session);
+  if (!result) {
+    res.status(400).json({ error: "Unable to activate subscription for this checkout session" });
     return;
   }
 
-  const planId = Number(session.metadata?.planId);
-  const billingCycle = (session.metadata?.billingCycle ?? "monthly") as "monthly" | "yearly";
-  if (!planId) { res.status(400).json({ error: "Missing plan in checkout session metadata" }); return; }
-
-  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
-  if (!plan) { res.status(400).json({ error: "Plan not found" }); return; }
-
-  const now = new Date();
-  const periodEnd = new Date(now);
-  if (billingCycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-  else periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  // Try to get card details from the Stripe subscription
-  let cardLast4: string | null = null;
-  let cardBrand: string | null = null;
-  const stripeSub = session.subscription as Stripe.Subscription | null;
-  if (stripeSub && typeof stripeSub === "object" && stripeSub.default_payment_method) {
-    try {
-      const pm = await stripe.paymentMethods.retrieve(stripeSub.default_payment_method as string);
-      cardLast4 = pm.card?.last4 ?? null;
-      cardBrand = pm.card?.brand ? pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1) : null;
-    } catch { /* best effort */ }
-  }
-
-  const stripeSubId = stripeSub && typeof stripeSub === "object" ? stripeSub.id : null;
-
-  // Activate subscription
-  const subData = {
-    planId: plan.id, billingCycle, status: "active" as const,
-    trialEndsAt: null, currentPeriodStart: now, currentPeriodEnd: periodEnd,
-    cardLast4, cardBrand,
-    stripeCheckoutSessionId: sessionId,
-    stripeSubscriptionId: stripeSubId,
-    updatedAt: now,
-  };
-
-  if (existingSub) {
-    await db.update(subscriptionsTable).set(subData).where(eq(subscriptionsTable.userId, userId));
-  } else {
-    await db.insert(subscriptionsTable).values({ userId, ...subData });
-  }
-
-  // Set credits
-  const [existingCredits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
-  if (existingCredits) {
-    await db.update(creditsTable)
-      .set({
-        aiCredits: existingCredits.aiCredits + plan.aiCredits,
-        imageCredits: existingCredits.imageCredits + plan.imageCredits,
-        auditCredits: existingCredits.auditCredits + plan.auditCredits,
-        updatedAt: now,
-      })
-      .where(eq(creditsTable.userId, userId));
-  } else {
-    await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
-  }
-
-  await db.insert(creditTransactionsTable).values([
-    { userId, creditType: "ai", amount: plan.aiCredits, reason: `${plan.name} plan — payment confirmed`, featureType: "subscription" },
-    { userId, creditType: "image", amount: plan.imageCredits, reason: `${plan.name} plan — payment confirmed`, featureType: "subscription" },
-    { userId, creditType: "audit", amount: plan.auditCredits, reason: `${plan.name} plan — payment confirmed`, featureType: "subscription" },
-  ]);
-
-  // Record verified payment
-  const amount = session.amount_total != null ? session.amount_total / 100 : (billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly);
-  await db.insert(paymentsTable).values({
-    userId, planId: plan.id, amount, status: "completed",
-    gateway: "stripe", gatewayPaymentId: sessionId,
-  });
-
-  // Mark onboarding complete + persist Stripe customer ID and profile from session metadata
-  const customerId = typeof session.customer === "string" ? session.customer : (session.customer as Stripe.Customer | null)?.id ?? null;
-  const meta = session.metadata ?? {};
-  const profileFromMeta = {
-    fullName: meta.fullName || undefined,
-    companyName: meta.companyName || undefined,
-    phone: meta.phone || undefined,
-    country: meta.country || undefined,
-    gstNumber: meta.gstNumber || undefined,
-    websiteUrl: meta.websiteUrl || undefined,
-    teamSize: meta.teamSize ? Number(meta.teamSize) : undefined,
-  };
-  const hasMetaProfile = hasRequiredProfileFields(profileFromMeta);
-
-  const [profileRow] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-  const needsProfileBackfill = !profileRow?.fullName && hasMetaProfile;
-
-  await upsertUserProfile(userId, {
-    onboardingCompleted: true,
-    stripeCustomerId: customerId ?? profileRow?.stripeCustomerId ?? null,
-    ...(needsProfileBackfill ? profileFromMeta : {}),
-  });
-
-  // Consume coupon usage counter
-  const cc = session.metadata?.couponCode;
-  if (cc) {
-    const [coupon] = await db.select().from(couponsTable)
-      .where(and(eq(couponsTable.code, cc.toUpperCase()), eq(couponsTable.isActive, true)));
-    if (coupon) await db.update(couponsTable).set({ usedCount: coupon.usedCount + 1 }).where(eq(couponsTable.id, coupon.id));
-  }
-
-  res.json({ status: "paid", activated: true });
+  res.json({ status: "paid", activated: result.activated, alreadyProcessed: result.alreadyProcessed });
 });
 
 // ─── POST /stripe/portal ──────────────────────────────────────────────────────

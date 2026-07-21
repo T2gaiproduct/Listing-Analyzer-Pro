@@ -13,13 +13,21 @@ export interface CreditBalances {
   auditCredits: number;
 }
 
+export interface PlanCredits {
+  id: number;
+  name: string;
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
+}
+
 const EMPTY_CREDITS: CreditBalances = { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
 
 function sumCredits(c: CreditBalances): number {
   return c.aiCredits + c.imageCredits + c.auditCredits;
 }
 
-async function subscriptionGrantsTotal(userId: string): Promise<CreditBalances> {
+export async function subscriptionGrantsTotal(userId: string): Promise<CreditBalances> {
   const grants = await db
     .select({
       creditType: creditTransactionsTable.creditType,
@@ -41,6 +49,59 @@ async function subscriptionGrantsTotal(userId: string): Promise<CreditBalances> 
     else if (g.creditType === "audit") totals.auditCredits += g.amount;
   }
   return totals;
+}
+
+/**
+ * Grant only the plan credits the user has not already received via subscription grants.
+ * Returns true when any credits were added.
+ */
+export async function grantPlanCreditsDelta(
+  userId: string,
+  plan: PlanCredits,
+  reason: string,
+): Promise<boolean> {
+  const granted = await subscriptionGrantsTotal(userId);
+  const toAdd = {
+    aiCredits: Math.max(0, plan.aiCredits - granted.aiCredits),
+    imageCredits: Math.max(0, plan.imageCredits - granted.imageCredits),
+    auditCredits: Math.max(0, plan.auditCredits - granted.auditCredits),
+  };
+
+  if (toAdd.aiCredits + toAdd.imageCredits + toAdd.auditCredits <= 0) {
+    return false;
+  }
+
+  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const current = credits ?? EMPTY_CREDITS;
+  const now = new Date();
+  const next = {
+    aiCredits: current.aiCredits + toAdd.aiCredits,
+    imageCredits: current.imageCredits + toAdd.imageCredits,
+    auditCredits: current.auditCredits + toAdd.auditCredits,
+  };
+
+  if (credits) {
+    await db
+      .update(creditsTable)
+      .set({ ...next, updatedAt: now })
+      .where(eq(creditsTable.userId, userId));
+  } else {
+    await db.insert(creditsTable).values({ userId, ...next });
+  }
+
+  await db.insert(creditTransactionsTable).values([
+    ...(toAdd.aiCredits > 0
+      ? [{ userId, creditType: "ai" as const, amount: toAdd.aiCredits, reason, featureType: "subscription" }]
+      : []),
+    ...(toAdd.imageCredits > 0
+      ? [{ userId, creditType: "image" as const, amount: toAdd.imageCredits, reason, featureType: "subscription" }]
+      : []),
+    ...(toAdd.auditCredits > 0
+      ? [{ userId, creditType: "audit" as const, amount: toAdd.auditCredits, reason, featureType: "subscription" }]
+      : []),
+  ]);
+
+  return true;
 }
 
 /**
@@ -71,45 +132,19 @@ export async function ensureSubscriptionCredits(userId: string): Promise<CreditB
   const planAudit = sub.planAuditCredits ?? 0;
   if (planAi + planImage + planAudit <= 0) return current;
 
-  const granted = await subscriptionGrantsTotal(userId);
-  const toAdd = {
-    aiCredits: Math.max(0, planAi - granted.aiCredits),
-    imageCredits: Math.max(0, planImage - granted.imageCredits),
-    auditCredits: Math.max(0, planAudit - granted.auditCredits),
-  };
-
-  if (toAdd.aiCredits + toAdd.imageCredits + toAdd.auditCredits <= 0) {
-    return current;
-  }
-
-  const now = new Date();
   const planLabel = sub.planName ?? "plan";
-  const next = {
-    aiCredits: current.aiCredits + toAdd.aiCredits,
-    imageCredits: current.imageCredits + toAdd.imageCredits,
-    auditCredits: current.auditCredits + toAdd.auditCredits,
-  };
+  await grantPlanCreditsDelta(
+    userId,
+    {
+      id: 0,
+      name: planLabel,
+      aiCredits: planAi,
+      imageCredits: planImage,
+      auditCredits: planAudit,
+    },
+    `${planLabel} — subscription credits synced`,
+  );
 
-  if (credits) {
-    await db
-      .update(creditsTable)
-      .set({ ...next, updatedAt: now })
-      .where(eq(creditsTable.userId, userId));
-  } else {
-    await db.insert(creditsTable).values({ userId, ...next });
-  }
-
-  await db.insert(creditTransactionsTable).values([
-    ...(toAdd.aiCredits > 0
-      ? [{ userId, creditType: "ai" as const, amount: toAdd.aiCredits, reason: `${planLabel} — subscription credits synced`, featureType: "subscription" }]
-      : []),
-    ...(toAdd.imageCredits > 0
-      ? [{ userId, creditType: "image" as const, amount: toAdd.imageCredits, reason: `${planLabel} — subscription credits synced`, featureType: "subscription" }]
-      : []),
-    ...(toAdd.auditCredits > 0
-      ? [{ userId, creditType: "audit" as const, amount: toAdd.auditCredits, reason: `${planLabel} — subscription credits synced`, featureType: "subscription" }]
-      : []),
-  ]);
-
-  return next;
+  const [updated] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  return updated ?? current;
 }
