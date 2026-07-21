@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 
 import type { NavLink } from "@/lib/public-nav";
 
+const NAV_LOGO_CLASS =
+  "h-10 sm:h-11 w-auto max-w-[13rem] sm:max-w-[16rem] object-contain object-left shrink-0";
+
 function PublicNavLink({
   href,
   label,
@@ -173,7 +176,7 @@ export function PublicNav() {
       <header className="sticky top-0 z-50 flex w-full items-center justify-between px-4 sm:px-6 lg:px-10 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm gap-2 sm:gap-4 min-w-0">
       <div className="flex items-center gap-3 sm:gap-6 lg:gap-10 min-w-0 flex-1">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 font-bold text-base sm:text-lg tracking-tight flex-shrink-0 text-slate-900 min-w-0">
-          <SiteLogo />
+          <SiteLogo imageClassName={NAV_LOGO_CLASS} />
         </Link>
         <nav className="hidden lg:flex items-center gap-0.5">
           {headerLinks.map((l) => (
@@ -217,7 +220,7 @@ export function PublicNav() {
           <SheetTitle className="sr-only">Site navigation</SheetTitle>
           <div className="flex items-center gap-2.5 px-4 py-4 pr-12 border-b border-slate-200">
             <Link href="/" className="flex items-center gap-2.5 font-bold text-lg min-w-0" onClick={() => setMobileOpen(false)}>
-              <SiteLogo />
+              <SiteLogo imageClassName={NAV_LOGO_CLASS} />
             </Link>
           </div>
           <nav className="flex-1 overflow-y-auto p-3 space-y-1">
