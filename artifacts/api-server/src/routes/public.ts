@@ -116,6 +116,8 @@ const COMPANY_CONTACT_KEYS = [
   "company_address",
 ] as const;
 
+const PUBLIC_BRANDING_KEYS = [...BRANDING_KEYS, ...COMPANY_CONTACT_KEYS] as const;
+
 export type CompanyContact = {
   supportEmail: string;
   supportPhone: string;
@@ -141,7 +143,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   const rows = await db
     .select({ key: settingsTable.key, value: settingsTable.value })
     .from(settingsTable)
-    .where(inArray(settingsTable.key, [...BRANDING_KEYS]));
+    .where(inArray(settingsTable.key, [...PUBLIC_BRANDING_KEYS]));
 
   const map = Object.fromEntries(rows.map((row) => [row.key, row.value]));
 
@@ -170,6 +172,9 @@ router.get("/branding", async (_req, res): Promise<void> => {
     platformName: map.platform_name?.trim() || "SellerLens",
     logoUrl,
     faviconUrl,
+    supportEmail: map.support_email?.trim() ?? "",
+    supportPhone: map.support_phone?.trim() ?? "",
+    companyAddress: map.company_address?.trim() ?? "",
   });
 });
 

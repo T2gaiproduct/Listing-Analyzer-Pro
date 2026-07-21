@@ -27,6 +27,9 @@ export function useBranding() {
     faviconUrl,
     hasCustomLogo,
     hasCustomFavicon,
+    supportEmail: data?.supportEmail?.trim() ?? "",
+    supportPhone: data?.supportPhone?.trim() ?? "",
+    companyAddress: data?.companyAddress?.trim() ?? "",
     isLoading,
   };
 }

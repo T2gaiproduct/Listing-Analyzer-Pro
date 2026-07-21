@@ -4,6 +4,9 @@ export interface SiteBranding {
   platformName: string;
   logoUrl: string | null;
   faviconUrl: string | null;
+  supportEmail?: string;
+  supportPhone?: string;
+  companyAddress?: string;
 }
 
 export function getBasePath() {

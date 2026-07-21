@@ -4,9 +4,14 @@ import { DEFAULT_COMPANY_CONTACT, type CompanyContact } from "@/lib/company-cont
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 async function fetchCompanyContact(): Promise<CompanyContact> {
-  const res = await fetch(`${basePath}/api/company`);
+  const res = await fetch(`${basePath}/api/branding`);
   if (!res.ok) return DEFAULT_COMPANY_CONTACT;
-  return res.json() as Promise<CompanyContact>;
+  const data = await res.json() as CompanyContact & { platformName?: string };
+  return {
+    supportEmail: data.supportEmail?.trim() ?? "",
+    supportPhone: data.supportPhone?.trim() ?? "",
+    companyAddress: data.companyAddress?.trim() ?? "",
+  };
 }
 
 export function useCompanyContact() {
@@ -14,6 +19,7 @@ export function useCompanyContact() {
     queryKey: ["company-contact"],
     queryFn: fetchCompanyContact,
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   return {
