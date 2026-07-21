@@ -102,6 +102,7 @@ export function hasAdminPermission(
 ): boolean {
   if (opts?.isSuperAdmin || isSuperAdminRoleName(opts?.roleName)) return true;
   const granted = permissions ?? [];
+  if (granted.includes("*")) return true;
   const needed = Array.isArray(required) ? required : [required];
   return needed.some((p) => granted.includes(p));
 }
@@ -113,6 +114,7 @@ export function hasAllAdminPermissions(
 ): boolean {
   if (opts?.isSuperAdmin || isSuperAdminRoleName(opts?.roleName)) return true;
   const granted = permissions ?? [];
+  if (granted.includes("*")) return true;
   return required.every((p) => granted.includes(p));
 }
 

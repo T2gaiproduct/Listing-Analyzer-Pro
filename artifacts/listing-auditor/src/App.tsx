@@ -194,13 +194,19 @@ const clerkAppearanceBase = {
 };
 
 function SignInPage() {
+  const redirectParam = new URLSearchParams(window.location.search).get("redirect_url");
+  const redirectUrl = redirectParam?.startsWith("/")
+    ? `${basePath}${redirectParam}`
+    : `${basePath}/dashboard`;
+
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
-        fallbackRedirectUrl={`${basePath}/dashboard`}
+        fallbackRedirectUrl={redirectUrl}
+        forceRedirectUrl={redirectUrl}
       />
     </div>
   );
@@ -286,7 +292,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin, isLoaded: adminLoaded, isError } = useIsAdmin();
   const { canAccessRoute, isLoaded: permLoaded, defaultRoute } = useAdminPermissions();
   if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
-  if (!user) return <Redirect to="/" />;
+  if (!user) {
+    const returnTo = encodeURIComponent(location || "/admin/dashboard");
+    return <Redirect to={`/sign-in?redirect_url=${returnTo}`} />;
+  }
   if (isError) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
@@ -326,7 +335,7 @@ function AdminHomeRedirect() {
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
   const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
   if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
-  if (!user) return <Redirect to="/" />;
+  if (!user) return <Redirect to="/sign-in?redirect_url=%2Fadmin" />;
   if (!isAdmin) return <Redirect to="/dashboard" />;
   return <Redirect to={defaultRoute} />;
 }
