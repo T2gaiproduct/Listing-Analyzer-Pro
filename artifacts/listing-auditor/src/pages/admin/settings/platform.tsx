@@ -134,6 +134,7 @@ export default function AdminSettingsPlatform() {
     mutationFn: () => saveSettings("platform", form),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["branding"] });
+      qc.invalidateQueries({ queryKey: ["company-contact"] });
       qc.invalidateQueries({ queryKey: ["admin-settings-platform"] });
       toast({ title: "Settings saved" });
     },

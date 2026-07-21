@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SeoHead } from "@/components/seo-head";
 import { Mail, Phone, MapPin, Clock, Calendar, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,20 +7,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
+import { useCompanyContact } from "@/hooks/use-company-contact";
+import { DEFAULT_SUPPORT_HOURS } from "@/lib/company-contact";
 
 type FormType = "contact" | "demo" | "enterprise";
 
-const contactInfo = [
-  { icon: Mail, label: "Email", value: "hello@listingauditor.com" },
-  { icon: Phone, label: "Phone", value: "+1 (800) 555-0193" },
-  { icon: MapPin, label: "Address", value: "San Francisco, CA 94105" },
-  { icon: Clock, label: "Support Hours", value: "Mon–Fri, 9am–6pm PST" },
-];
-
 export default function Contact() {
+  const { contact } = useCompanyContact();
   const [formType, setFormType] = useState<FormType>("contact");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const contactInfo = useMemo(() => [
+    { icon: Mail, label: "Email", value: contact.supportEmail, href: `mailto:${contact.supportEmail}` },
+    { icon: Phone, label: "Phone", value: contact.supportPhone, href: contact.supportPhone ? `tel:${contact.supportPhone.replace(/\s/g, "")}` : undefined },
+    { icon: MapPin, label: "Address", value: contact.companyAddress },
+    { icon: Clock, label: "Support Hours", value: DEFAULT_SUPPORT_HOURS },
+  ].filter((item) => item.value?.trim()), [contact]);
 
   const [form, setForm] = useState({
     name: "", email: "", company: "", phone: "",
@@ -80,7 +83,13 @@ export default function Contact() {
                     </div>
                     <div>
                       <p className="text-xs text-slate-400 font-medium">{c.label}</p>
-                      <p className="text-slate-700 text-sm font-medium">{c.value}</p>
+                      {c.href ? (
+                        <a href={c.href} className="text-slate-700 text-sm font-medium hover:text-orange-600 transition-colors">
+                          {c.value}
+                        </a>
+                      ) : (
+                        <p className="text-slate-700 text-sm font-medium">{c.value}</p>
+                      )}
                     </div>
                   </div>
                 ))}

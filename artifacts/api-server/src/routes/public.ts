@@ -110,6 +110,33 @@ router.get("/blog/:slug", async (req, res): Promise<void> => {
 
 const BRANDING_KEYS = ["platform_name", "site_logo_url", "site_favicon_url"] as const;
 
+const COMPANY_CONTACT_KEYS = [
+  "support_email",
+  "support_phone",
+  "company_address",
+] as const;
+
+export type CompanyContact = {
+  supportEmail: string;
+  supportPhone: string;
+  companyAddress: string;
+};
+
+router.get("/company", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({ key: settingsTable.key, value: settingsTable.value })
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, [...COMPANY_CONTACT_KEYS]));
+
+  const map = Object.fromEntries(rows.map((row) => [row.key, row.value?.trim() ?? ""]));
+
+  res.json({
+    supportEmail: map.support_email ?? "",
+    supportPhone: map.support_phone ?? "",
+    companyAddress: map.company_address ?? "",
+  } satisfies CompanyContact);
+});
+
 router.get("/branding", async (_req, res): Promise<void> => {
   const rows = await db
     .select({ key: settingsTable.key, value: settingsTable.value })
