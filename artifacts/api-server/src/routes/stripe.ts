@@ -27,35 +27,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-async function loadSubscriptionForUser(userId: string) {
-  const [row] = await db.select({
-    id: subscriptionsTable.id,
-    userId: subscriptionsTable.userId,
-    planId: subscriptionsTable.planId,
-    billingCycle: subscriptionsTable.billingCycle,
-    status: subscriptionsTable.status,
-    trialEndsAt: subscriptionsTable.trialEndsAt,
-    currentPeriodStart: subscriptionsTable.currentPeriodStart,
-    currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
-    cardLast4: subscriptionsTable.cardLast4,
-    cardBrand: subscriptionsTable.cardBrand,
-    autoRenew: subscriptionsTable.autoRenew,
-    couponCode: subscriptionsTable.couponCode,
-    discountAmount: subscriptionsTable.discountAmount,
-    stripeSubscriptionId: subscriptionsTable.stripeSubscriptionId,
-    planName: plansTable.name,
-    priceMonthly: plansTable.priceMonthly,
-    priceYearly: plansTable.priceYearly,
-    planAiCredits: plansTable.aiCredits,
-    planImageCredits: plansTable.imageCredits,
-    planAuditCredits: plansTable.auditCredits,
-    creditAllocations: plansTable.creditAllocations,
-  }).from(subscriptionsTable)
-    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
-    .where(eq(subscriptionsTable.userId, userId));
-  return row ?? null;
-}
-
 // ─── POST /stripe/create-checkout ─────────────────────────────────────────────
 // Creates a Stripe Checkout Session for a paid plan.
 // The frontend redirects the user to the returned URL.
@@ -238,13 +209,7 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  const subscription = await loadSubscriptionForUser(userId);
-  res.json({
-    status: "paid",
-    activated: result.activated,
-    alreadyProcessed: result.alreadyProcessed,
-    subscription,
-  });
+  res.json({ status: "paid", activated: result.activated, alreadyProcessed: result.alreadyProcessed });
 });
 
 // ─── POST /stripe/portal ──────────────────────────────────────────────────────
