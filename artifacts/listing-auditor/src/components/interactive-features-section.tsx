@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import { Link } from "wouter";
 import type { LucideIcon } from "lucide-react";
 import { ArrowRight, Check } from "lucide-react";
@@ -35,13 +35,16 @@ function FeaturePreview({ feature }: { feature: FeatureItem }) {
   );
 }
 
-function FeatureDetailPanel({ feature }: { feature: FeatureItem }) {
+function FeatureDetailPanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const Icon = feature.icon;
 
   return (
     <div
       key={feature.index}
-      className="flex flex-col h-full animate-in fade-in duration-300"
+      className={cn(
+        "flex flex-col animate-in fade-in duration-300",
+        fitHeight && "h-full min-h-0",
+      )}
       role="tabpanel"
       id={`feature-panel-${feature.index}`}
       aria-labelledby={`feature-tab-${feature.index}`}
@@ -73,12 +76,17 @@ function FeatureDetailPanel({ feature }: { feature: FeatureItem }) {
         </ul>
       )}
 
-      <div className="flex items-center justify-center rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 sm:p-5 mb-4 min-h-[120px] sm:min-h-[140px]">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 sm:p-5 mb-4",
+          fitHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-[120px] sm:min-h-[140px]",
+        )}
+      >
         <FeaturePreview feature={feature} />
       </div>
 
       {feature.href && (
-        <Button asChild className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white">
+        <Button asChild className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white shrink-0">
           <Link href={feature.href}>
             Learn more
             <ArrowRight className="w-4 h-4 ml-1.5" />
@@ -149,6 +157,25 @@ function ServiceTab({
 export function InteractiveFeaturesSection({ features }: { features: FeatureItem[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeFeature = features[activeIndex] ?? features[0];
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const [sidebarHeight, setSidebarHeight] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+
+    const update = () => setSidebarHeight(el.offsetHeight);
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    window.addEventListener("resize", update);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [features.length, activeIndex]);
 
   if (!activeFeature) return null;
 
@@ -176,9 +203,9 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
         </div>
       </div>
 
-      {/* Desktop: sidebar + detail panel */}
+      {/* Desktop: sidebar + detail panel — right height matches left tabs */}
       <div className="hidden lg:grid lg:grid-cols-[minmax(240px,280px)_1fr] gap-6 xl:gap-8 items-start">
-        <div role="tablist" aria-label="Services" className="flex flex-col gap-3.5">
+        <div ref={sidebarRef} role="tablist" aria-label="Services" className="flex flex-col gap-3.5">
           {features.map((feature, i) => (
             <ServiceTab
               key={feature.title}
@@ -189,8 +216,11 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
             />
           ))}
         </div>
-        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-sm p-6 xl:p-7">
-          <FeatureDetailPanel feature={activeFeature} />
+        <div
+          className="rounded-2xl border border-slate-200/90 bg-white shadow-sm p-6 xl:p-7 flex flex-col min-h-0 overflow-hidden"
+          style={sidebarHeight ? { height: sidebarHeight } : undefined}
+        >
+          <FeatureDetailPanel feature={activeFeature} fitHeight />
         </div>
       </div>
     </div>
