@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
+import { parseHeroVideoSource } from "@/lib/hero-video-url";
 import {
   DEFAULT_HERO_SLIDE_IMAGE,
   heroSlideDesktopImage,
@@ -55,21 +56,47 @@ function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?:
   );
 }
 
-function HeroSlideVideo({ slide, className, mobile }: { slide: HeroSlide; className?: string; mobile?: boolean }) {
+function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSlide; className?: string; mobile?: boolean; fullBleed?: boolean }) {
   const videoUrl = mobile ? heroSlideMobileVideo(slide) : heroSlideDesktopVideo(slide);
   const posterUrl = resolveCmsAssetUrl(heroSlideVideoPoster(slide), basePath);
-  const src = resolveCmsAssetUrl(videoUrl, basePath);
+  const source = videoUrl ? parseHeroVideoSource(videoUrl) : null;
 
-  if (!videoUrl) {
+  if (!source) {
     return <HeroSlideImage imageUrl={mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide)} className={className} />;
   }
 
+  const frameClass = cn(
+    "relative w-full min-w-0 bg-slate-900",
+    fullBleed ? "h-full min-h-[420px] sm:min-h-[520px] lg:min-h-[560px]" : "h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
+    className,
+  );
+
+  if (source.kind === "youtube" || source.kind === "vimeo") {
+    return (
+      <div className={frameClass}>
+        <div className="absolute inset-0 overflow-hidden">
+          <iframe
+            key={source.embedUrl}
+            src={source.embedUrl}
+            title="Hero video"
+            allow="autoplay; fullscreen; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-h-full min-w-full w-auto h-auto aspect-video"
+            style={{ width: "300%", height: "300%", maxWidth: "none" }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const src = resolveCmsAssetUrl(source.url, basePath);
+
   return (
-    <div className={cn("relative w-full min-w-0 h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px] bg-slate-900", className)}>
+    <div className={frameClass}>
       <video
         key={src}
         src={src}
-        poster={posterUrl}
+        poster={posterUrl || undefined}
         autoPlay
         muted
         loop
@@ -81,15 +108,52 @@ function HeroSlideVideo({ slide, className, mobile }: { slide: HeroSlide; classN
   );
 }
 
-function HeroSlideMedia({ slide, className, mobile }: { slide: HeroSlide; className?: string; mobile?: boolean }) {
+function HeroSlideMedia({ slide, className, mobile, fullBleed }: { slide: HeroSlide; className?: string; mobile?: boolean; fullBleed?: boolean }) {
   if (heroSlideIsVideo(slide)) {
-    return <HeroSlideVideo slide={slide} className={className} mobile={mobile} />;
+    return <HeroSlideVideo slide={slide} className={className} mobile={mobile} fullBleed={fullBleed} />;
   }
   return (
     <HeroSlideImage
       imageUrl={mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide)}
       className={className}
     />
+  );
+}
+
+function HeroSlideCtas({ slide, overlay }: { slide: HeroSlide; overlay?: boolean }) {
+  if (!slide.ctaPrimaryText && !slide.ctaSecondaryText) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3",
+        overlay
+          ? "justify-center max-w-md mx-auto"
+          : "justify-center lg:justify-start max-w-md mx-auto lg:mx-0 lg:max-w-none",
+      )}
+    >
+      {slide.ctaPrimaryText && (
+        <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
+          <Link href={slide.ctaPrimaryUrl || "#"}>{slide.ctaPrimaryText}</Link>
+        </Button>
+      )}
+      {slide.ctaSecondaryText && (
+        <Button
+          size="lg"
+          variant={overlay ? "secondary" : "outline"}
+          className={cn(
+            "px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12",
+            overlay && "bg-white/95 hover:bg-white text-slate-900 border-0",
+          )}
+          asChild
+        >
+          <Link href={slide.ctaSecondaryUrl || "#"} className="flex items-center justify-center gap-2">
+            <Play className="w-4 h-4 shrink-0" />
+            {slide.ctaSecondaryText}
+          </Link>
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -133,7 +197,24 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
         className="w-full"
       >
         <CarouselContent className="ml-0 w-full">
-          {slides.map((slide) => (
+          {slides.map((slide) => {
+            const isVideoBanner = heroSlideIsVideo(slide);
+
+            if (isVideoBanner) {
+              return (
+                <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
+                  <div className="relative w-full min-h-[420px] sm:min-h-[520px] lg:min-h-[560px] overflow-hidden">
+                    <HeroSlideMedia slide={slide} className="absolute inset-0" fullBleed />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/20" />
+                    <div className="relative z-10 flex h-full min-h-[420px] sm:min-h-[520px] lg:min-h-[560px] flex-col justify-end px-4 sm:px-6 lg:px-10 xl:px-16 py-10 sm:py-12">
+                      <HeroSlideCtas slide={slide} overlay />
+                    </div>
+                  </div>
+                </CarouselItem>
+              );
+            }
+
+            return (
             <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
               <div className="flex w-full flex-col lg:flex-row lg:min-h-[480px]">
                 <div className="flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-10 lg:py-12 text-center lg:text-left lg:w-1/2 lg:max-w-[50%] min-w-0">
@@ -151,21 +232,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     {slide.subheading}
                   </p>
                   <MarketplaceLogos className="mb-6 sm:mb-8" />
-                  <div className="flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3 justify-center lg:justify-start max-w-md mx-auto lg:mx-0 lg:max-w-none">
-                    {slide.ctaPrimaryText && (
-                      <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
-                        <Link href={slide.ctaPrimaryUrl || "#"}>{slide.ctaPrimaryText}</Link>
-                      </Button>
-                    )}
-                    {slide.ctaSecondaryText && (
-                      <Button size="lg" variant="outline" className="px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
-                        <Link href={slide.ctaSecondaryUrl || "#"} className="flex items-center justify-center gap-2">
-                          <Play className="w-4 h-4 shrink-0" />
-                          {slide.ctaSecondaryText}
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
+                  <HeroSlideCtas slide={slide} />
                 </div>
                 <div className="w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
                   <HeroSlideMedia slide={slide} className="lg:hidden" mobile />
@@ -173,7 +240,8 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                 </div>
               </div>
             </CarouselItem>
-          ))}
+            );
+          })}
         </CarouselContent>
       </Carousel>
 
