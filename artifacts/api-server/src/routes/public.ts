@@ -13,6 +13,7 @@ import {
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
+import { planRowToGrantCredits } from "../lib/plan-credits";
 import { upsertUserProfile } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
 import { getGatewaySettings } from "./payment";
@@ -506,18 +507,19 @@ router.post("/subscription/upgrade", requireAuth, async (req, res): Promise<void
   } else {
     await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
   }
+  const grantCredits = await planRowToGrantCredits(plan);
   const [existingCredits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
   if (existingCredits) {
     await db.update(creditsTable)
-      .set({ aiCredits: existingCredits.aiCredits + plan.aiCredits, imageCredits: existingCredits.imageCredits + plan.imageCredits, auditCredits: existingCredits.auditCredits + plan.auditCredits, updatedAt: now })
+      .set({ aiCredits: existingCredits.aiCredits + grantCredits.aiCredits, imageCredits: existingCredits.imageCredits + grantCredits.imageCredits, auditCredits: existingCredits.auditCredits + grantCredits.auditCredits, updatedAt: now })
       .where(eq(creditsTable.userId, userId));
   } else {
-    await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
+    await db.insert(creditsTable).values({ userId, aiCredits: grantCredits.aiCredits, imageCredits: grantCredits.imageCredits, auditCredits: grantCredits.auditCredits });
   }
   await db.insert(creditTransactionsTable).values([
-    { userId, creditType: "ai", amount: plan.aiCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
-    { userId, creditType: "image", amount: plan.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
-    { userId, creditType: "audit", amount: plan.auditCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "ai", amount: grantCredits.aiCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "image", amount: grantCredits.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "audit", amount: grantCredits.auditCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
   ]);
   res.json({ success: true });
 });

@@ -30,6 +30,7 @@ import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import { normalizeAdminEmail, ensureAdminInviteToken } from "../lib/admin-invites.js";
 import { buildAdminInviteUrl, generateAdminInviteToken } from "../lib/admin-invite-token.js";
+import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 
 const router: IRouter = Router();
 
@@ -498,18 +499,19 @@ router.patch("/admin/customers/:userId/package", requireAdmin, async (req, res):
     await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle: cycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
   }
   if (addCredits !== false) {
+    const grantCredits = await planRowToGrantCredits(plan);
     const [existing] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
     if (existing) {
       await db.update(creditsTable)
-        .set({ aiCredits: existing.aiCredits + plan.aiCredits, imageCredits: existing.imageCredits + plan.imageCredits, auditCredits: existing.auditCredits + plan.auditCredits, updatedAt: now })
+        .set({ aiCredits: existing.aiCredits + grantCredits.aiCredits, imageCredits: existing.imageCredits + grantCredits.imageCredits, auditCredits: existing.auditCredits + grantCredits.auditCredits, updatedAt: now })
         .where(eq(creditsTable.userId, userId));
     } else {
-      await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
+      await db.insert(creditsTable).values({ userId, aiCredits: grantCredits.aiCredits, imageCredits: grantCredits.imageCredits, auditCredits: grantCredits.auditCredits });
     }
     await db.insert(creditTransactionsTable).values([
-      { userId, creditType: "ai", amount: plan.aiCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "image", amount: plan.imageCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "audit", amount: plan.auditCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "ai", amount: grantCredits.aiCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "image", amount: grantCredits.imageCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "audit", amount: grantCredits.auditCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
     ]);
   }
   res.json({ ok: true, plan });
@@ -580,13 +582,14 @@ router.get("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
   const allocations = creditAllocations ?? {};
+  const pools = await computePlanPoolsFromAllocations(allocations);
   const [plan] = await db
     .insert(plansTable)
     .values({
       name, description, priceMonthly, priceYearly,
-      aiCredits: allocations.content ?? allocations.ai ?? 0,
-      imageCredits: allocations.images ?? allocations.image ?? 0,
-      auditCredits: allocations.audit ?? 0,
+      aiCredits: pools.aiCredits,
+      imageCredits: pools.imageCredits,
+      auditCredits: pools.auditCredits,
       teamMembers: teamMembers ?? 1,
       creditAllocations: allocations,
       features: features ?? [],
@@ -609,9 +612,10 @@ router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> =
   const setObj: Record<string, unknown> = { name, description, priceMonthly, priceYearly, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() };
   if (creditAllocations !== undefined) {
     setObj.creditAllocations = creditAllocations;
-    setObj.aiCredits = creditAllocations.content ?? creditAllocations.ai ?? 0;
-    setObj.imageCredits = creditAllocations.images ?? creditAllocations.image ?? 0;
-    setObj.auditCredits = creditAllocations.audit ?? 0;
+    const pools = await computePlanPoolsFromAllocations(creditAllocations);
+    setObj.aiCredits = pools.aiCredits;
+    setObj.imageCredits = pools.imageCredits;
+    setObj.auditCredits = pools.auditCredits;
   }
   const [plan] = await db
     .update(plansTable)

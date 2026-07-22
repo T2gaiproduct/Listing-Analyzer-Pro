@@ -6,6 +6,7 @@ import {
   subscriptionsTable,
   plansTable,
 } from "@workspace/db";
+import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "./plan-credits";
 
 export interface CreditBalances {
   aiCredits: number;
@@ -119,6 +120,7 @@ export async function ensureSubscriptionCredits(userId: string): Promise<CreditB
       planAiCredits: plansTable.aiCredits,
       planImageCredits: plansTable.imageCredits,
       planAuditCredits: plansTable.auditCredits,
+      creditAllocations: plansTable.creditAllocations,
       planName: plansTable.name,
     })
     .from(subscriptionsTable)
@@ -127,9 +129,20 @@ export async function ensureSubscriptionCredits(userId: string): Promise<CreditB
 
   if (!sub || !["active", "trial"].includes(sub.status)) return current;
 
-  const planAi = sub.planAiCredits ?? 0;
-  const planImage = sub.planImageCredits ?? 0;
-  const planAudit = sub.planAuditCredits ?? 0;
+  const alloc = (sub.creditAllocations ?? {}) as Record<string, number>;
+  const hasAllocations = Object.keys(alloc).length > 0;
+  const pools = hasAllocations
+    ? await computePlanPoolsFromAllocations(alloc)
+    : await planRowToGrantCredits({
+        id: 0,
+        name: sub.planName ?? "plan",
+        aiCredits: sub.planAiCredits ?? 0,
+        imageCredits: sub.planImageCredits ?? 0,
+        auditCredits: sub.planAuditCredits ?? 0,
+      });
+  const planAi = pools.aiCredits;
+  const planImage = pools.imageCredits;
+  const planAudit = pools.auditCredits;
   if (planAi + planImage + planAudit <= 0) return current;
 
   const planLabel = sub.planName ?? "plan";

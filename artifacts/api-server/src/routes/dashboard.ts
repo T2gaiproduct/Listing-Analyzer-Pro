@@ -19,6 +19,7 @@ import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod } from "../lib/team-stats";
+import { resolvePlanCreditPools } from "../lib/plan-credits";
 
 const router: IRouter = Router();
 
@@ -461,11 +462,19 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
         }
       : zeroCredits;
     const alloc = (subRow?.creditAllocations ?? {}) as Record<string, number>;
-    creditsAllowance = (alloc.audit ?? subRow?.planAuditCredits ?? 0)
-      + (alloc.content ?? subRow?.planAiCredits ?? 0)
-      + (alloc.images ?? subRow?.planImageCredits ?? 0)
-      + (alloc.ebc ?? 0)
-      + (alloc.competitors ?? 0);
+    if (Object.keys(alloc).length > 0) {
+      const pools = await resolvePlanCreditPools({
+        aiCredits: subRow?.planAiCredits ?? 0,
+        imageCredits: subRow?.planImageCredits ?? 0,
+        auditCredits: subRow?.planAuditCredits ?? 0,
+        creditAllocations: alloc,
+      });
+      creditsAllowance = pools.auditCredits + pools.aiCredits + pools.imageCredits;
+    } else {
+      creditsAllowance = (subRow?.planAuditCredits ?? 0)
+        + (subRow?.planAiCredits ?? 0)
+        + (subRow?.planImageCredits ?? 0);
+    }
     if (creditsAllowance <= 0) {
       creditsAllowance =
         displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
