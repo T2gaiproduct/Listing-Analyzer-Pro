@@ -199,41 +199,28 @@ router.get("/branding", async (_req, res): Promise<void> => {
   });
 });
 
-router.post("/forms", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const { formType, name, data } = req.body ?? {};
+router.post("/forms", async (req, res): Promise<void> => {
+  const { formType, email, name, data } = req.body ?? {};
 
   if (formType !== "support") {
     res.status(400).json({ error: "Unsupported form type" });
     return;
   }
 
-  const auth = getAuth(req);
-  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
-  const trimmedEmail = sessionEmail?.trim() ?? "";
+  const trimmedEmail = typeof email === "string" ? email.trim() : "";
   const subject = typeof data?.subject === "string" ? data.subject.trim() : "";
   const message = typeof data?.message === "string" ? data.message.trim() : "";
 
-  if (!trimmedEmail) {
-    res.status(400).json({ error: "Signed-in account email is required to submit a ticket" });
+  if (!trimmedEmail || !subject || !message) {
+    res.status(400).json({ error: "Email, subject, and message are required" });
     return;
   }
-
-  if (!subject || !message) {
-    res.status(400).json({ error: "Subject and message are required" });
-    return;
-  }
-
-  const [profile] = await db
-    .select({ fullName: userProfilesTable.fullName })
-    .from(userProfilesTable)
-    .where(eq(userProfilesTable.userId, userId));
 
   const [item] = await db.insert(formSubmissions).values({
     formType: "support",
     email: trimmedEmail,
-    name: (typeof name === "string" && name.trim() ? name.trim() : null) ?? profile?.fullName?.trim() ?? null,
-    data: { subject, message, userId },
+    name: typeof name === "string" && name.trim() ? name.trim() : null,
+    data: { subject, message },
   }).returning();
 
   res.status(201).json(item);

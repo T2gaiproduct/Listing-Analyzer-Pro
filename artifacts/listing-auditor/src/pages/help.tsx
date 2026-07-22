@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useUser } from "@clerk/react";
 import { PageSeo } from "@/components/page-seo";
-import { Search, BookOpen, Video, MessageCircle, ChevronDown, ChevronUp, Ticket, ArrowRight, LogIn } from "lucide-react";
+import { Search, BookOpen, Video, MessageCircle, ChevronDown, ChevronUp, Ticket, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,16 +94,14 @@ const faqs = [
 ];
 
 export default function Help() {
-  const { user, isLoaded } = useUser();
   const [search, setSearch] = useState("");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [ticketForm, setTicketForm] = useState({ subject: "", message: "" });
+  const [ticketForm, setTicketForm] = useState({ email: "", subject: "", message: "" });
   const [ticketSent, setTicketSent] = useState(false);
   const [ticketError, setTicketError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const userEmail = user?.primaryEmailAddress?.emailAddress ?? "";
 
   const filteredFaqs = faqs.filter(
     f => f.q.toLowerCase().includes(search.toLowerCase()) || f.a.toLowerCase().includes(search.toLowerCase())
@@ -112,16 +109,15 @@ export default function Help() {
 
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) return;
     setTicketError("");
     setSubmitting(true);
     try {
       const res = await fetch(`${basePath}/api/forms`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           formType: "support",
+          email: ticketForm.email,
           data: { subject: ticketForm.subject, message: ticketForm.message },
         }),
       });
@@ -227,27 +223,9 @@ export default function Help() {
             <Ticket className="w-5 h-5 text-orange-500" />
             <h2 className="text-2xl font-bold text-slate-900">Submit a support ticket</h2>
           </div>
-          <p className="text-slate-500 text-center mb-8">Can't find your answer? Sign in to submit a ticket — we'll get back to you within 1 business day.</p>
+          <p className="text-slate-500 text-center mb-8">Can't find your answer? We'll get back to you within 1 business day.</p>
 
-          {!isLoaded ? (
-            <div className="text-center py-8 text-slate-400">Loading…</div>
-          ) : !user ? (
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center space-y-4">
-              <p className="text-slate-600">Support tickets are available for registered users only.</p>
-              <p className="text-sm text-slate-500">Sign in or create an account to contact our support team.</p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Link href={`/sign-in?redirect_url=${encodeURIComponent("/help")}`}>
-                  <Button className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600">
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Sign in to submit a ticket
-                  </Button>
-                </Link>
-                <Link href={`/sign-up?redirect_url=${encodeURIComponent("/help")}`}>
-                  <Button variant="outline" className="w-full sm:w-auto">Create account</Button>
-                </Link>
-              </div>
-            </div>
-          ) : ticketSent ? (
+          {ticketSent ? (
             <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center">
               <Badge className="bg-green-100 text-green-700 mb-3">Ticket submitted</Badge>
               <p className="text-slate-700 font-semibold">We've received your request.</p>
@@ -256,8 +234,14 @@ export default function Help() {
           ) : (
             <form onSubmit={submitTicket} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Your account</label>
-                <Input type="email" value={userEmail} readOnly disabled className="bg-slate-50 text-slate-600" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Your email *</label>
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  required
+                  value={ticketForm.email}
+                  onChange={e => setTicketForm(f => ({ ...f, email: e.target.value }))}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Subject *</label>
