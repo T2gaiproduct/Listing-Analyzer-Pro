@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranding } from "@/hooks/use-branding";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { useTeam } from "@/hooks/use-team";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import {
   Layout,
@@ -266,13 +267,14 @@ function HomeRedirect() {
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
   const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
   const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
+  const { isTeamMember, isLoading: teamLoading } = useTeam();
   if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
   if (envAdmin) return <Redirect to="/admin/dashboard" />;
   if (!adminLoaded || (isAdmin && !permLoaded)) return <AuthLoading />;
   if (isAdmin) return <Redirect to={defaultRoute} />;
-  if (summaryLoading) return <AuthLoading />;
-  if (requiresOnboarding(summary)) return <Redirect to="/onboarding" />;
+  if (summaryLoading || teamLoading) return <AuthLoading />;
+  if (requiresOnboarding(summary) && !isTeamMember) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
 
@@ -281,10 +283,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
   const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
+  const { isTeamMember, isLoading: teamLoading } = useTeam();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  if (user && !isAdminUser && summaryLoading) return <AuthLoading />;
-  if (user && !isAdminUser && requiresOnboarding(summary)) {
+  if (user && !isAdminUser && (summaryLoading || teamLoading)) return <AuthLoading />;
+  if (user && !isAdminUser && requiresOnboarding(summary) && !isTeamMember) {
     return <Redirect to="/onboarding" />;
   }
   const Shell = isAdminUser ? AdminLayout : Layout;

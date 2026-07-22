@@ -72,13 +72,15 @@ export default function AcceptInvite() {
         if (!r.ok) throw new Error(data.error ?? "Failed to accept invite");
         return data;
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setAccepted(true);
-      void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
-      void queryClient.invalidateQueries({ queryKey: ["team-membership"] });
-      void queryClient.invalidateQueries({ queryKey: ["team-membership-credits"] });
       toast({ title: "Welcome to the team!", description: "You now have access to your team workspace." });
-      setTimeout(() => setLocation("/dashboard", { replace: true }), 2000);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["user-profile-summary"] }),
+        queryClient.refetchQueries({ queryKey: ["team-membership"] }),
+        queryClient.refetchQueries({ queryKey: ["team-membership-credits"] }),
+      ]);
+      setTimeout(() => setLocation("/dashboard", { replace: true }), 800);
     },
     onError: (e: Error) => toast({ title: "Failed to accept invite", description: e.message, variant: "destructive" }),
   });
