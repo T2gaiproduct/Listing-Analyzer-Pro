@@ -717,7 +717,10 @@ export function Layout({ children }: { children: ReactNode }) {
     : subscription?.status
       ? "Active Plan"
       : "No plan";
-  const roleLabel = profileData?.accountRole?.label ?? "User";
+  const roleLabel =
+    isTeamMember || profileData?.accountRole?.type === "team_member"
+      ? "Member"
+      : (profileData?.accountRole?.label ?? "User");
 
   return (
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
