@@ -154,30 +154,30 @@ function FeatureCard({
     <Link
       href={href}
       className={cn(
-        "group flex flex-col h-full bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden",
+        "group flex flex-col h-full items-stretch justify-between bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden",
         className,
       )}
     >
-      <div className="flex flex-col flex-1 p-4 sm:p-5">
+      <div className="flex flex-col flex-1 items-start justify-start p-4 sm:p-5 text-left">
         <span className="text-[11px] font-bold text-orange-500 tracking-wide">{number}</span>
 
-        <div className="flex justify-center my-3 sm:my-4">
+        <div className="flex justify-start my-3 sm:my-4">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
             <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
           </div>
         </div>
 
-        <h3 className="text-center font-bold text-slate-900 text-sm sm:text-[15px] leading-snug mb-2">
+        <h3 className="text-left font-bold text-slate-900 text-sm sm:text-[15px] leading-snug mb-2">
           {title}
         </h3>
-        <p className="text-center text-xs sm:text-sm text-slate-500 leading-relaxed mb-4">
+        <p className="text-left text-xs sm:text-sm text-slate-500 leading-relaxed mb-4">
           {description}
         </p>
 
         {bullets.length > 0 && (
-          <ul className="space-y-2 mb-4">
+          <ul className="w-full space-y-2 mb-4">
             {bullets.map((bullet) => (
-              <li key={bullet} className="flex items-start gap-2 text-xs text-slate-600 leading-snug">
+              <li key={bullet} className="flex items-start justify-start gap-2 text-left text-xs text-slate-600 leading-snug">
                 <Check className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
                 <span>{bullet}</span>
               </li>
