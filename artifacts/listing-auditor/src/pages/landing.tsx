@@ -221,36 +221,66 @@ function FeatureCardsRow({ features }: { features: FeatureItem[] }) {
 }
 
 function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
+  const [selected, setSelected] = useState<PortfolioItem | null>(null);
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-      {items.map((item, index) => (
-        <div
-          key={item.id}
-          className="group relative aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300"
-        >
-          <img
-            src={item.image}
-            alt={`${item.title} — ${item.brand}`}
-            className={cn(
-              "absolute inset-0 w-full h-full object-center",
-              item.square ? "object-cover" : "object-contain p-2 sm:p-3",
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+        {items.map((item, index) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setSelected(item)}
+            className="group relative aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300 cursor-zoom-in text-left"
+            aria-label={`View ${item.title} — ${item.brand}`}
+          >
+            <img
+              src={item.image}
+              alt={`${item.title} — ${item.brand}`}
+              className={cn(
+                "absolute inset-0 w-full h-full object-center pointer-events-none",
+                item.square ? "object-cover" : "object-contain p-2 sm:p-3",
+              )}
+              loading={index < 4 ? "eager" : "lazy"}
+              decoding="async"
+              fetchPriority={index < 4 ? "high" : "auto"}
+            />
+            {item.badge && (
+              <span className="absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
+                {item.badge}
+              </span>
             )}
-            loading={index < 4 ? "eager" : "lazy"}
-            decoding="async"
-            fetchPriority={index < 4 ? "high" : "auto"}
-          />
-          {item.badge && (
-            <span className="absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
-              {item.badge}
-            </span>
+            <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+              <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>
+              <p className="text-xs text-white/80 mt-0.5">{item.brand}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-w-5xl w-[calc(100vw-2rem)] p-0 gap-0 overflow-hidden">
+          <DialogTitle className="sr-only">
+            {selected ? `${selected.title} — ${selected.brand}` : "Portfolio image"}
+          </DialogTitle>
+          {selected && (
+            <>
+              <div className="relative bg-slate-100 flex items-center justify-center max-h-[80vh]">
+                <img
+                  src={selected.image}
+                  alt={`${selected.title} — ${selected.brand}`}
+                  className="max-h-[80vh] w-full object-contain"
+                />
+              </div>
+              <div className="px-4 py-3 border-t border-slate-200 bg-white">
+                <p className="font-semibold text-slate-900">{selected.title}</p>
+                <p className="text-sm text-slate-500 mt-0.5">{selected.brand}</p>
+              </div>
+            </>
           )}
-          <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>
-            <p className="text-xs text-white/80 mt-0.5">{item.brand}</p>
-          </div>
-        </div>
-      ))}
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
