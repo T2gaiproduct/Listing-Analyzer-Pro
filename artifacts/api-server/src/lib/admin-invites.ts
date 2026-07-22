@@ -12,23 +12,28 @@ export async function acceptAdminInviteForUser(userId: string, email?: string | 
   const normalized = email ? normalizeAdminEmail(email) : "";
   if (!normalized) return false;
 
-  const [invite] = await db
-    .select()
-    .from(adminInvitesTable)
-    .where(and(eq(adminInvitesTable.email, normalized), isNull(adminInvitesTable.acceptedAt)))
-    .limit(1);
+  try {
+    const [invite] = await db
+      .select()
+      .from(adminInvitesTable)
+      .where(and(eq(adminInvitesTable.email, normalized), isNull(adminInvitesTable.acceptedAt)))
+      .limit(1);
 
-  if (!invite) return false;
+    if (!invite) return false;
 
-  await db.insert(adminUsersTable)
-    .values({ userId, roleId: invite.roleId })
-    .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId: invite.roleId } });
+    await db.insert(adminUsersTable)
+      .values({ userId, roleId: invite.roleId })
+      .onConflictDoUpdate({ target: adminUsersTable.userId, set: { roleId: invite.roleId } });
 
-  await db.update(adminInvitesTable)
-    .set({ acceptedAt: new Date(), acceptedUserId: userId })
-    .where(eq(adminInvitesTable.id, invite.id));
+    await db.update(adminInvitesTable)
+      .set({ acceptedAt: new Date(), acceptedUserId: userId })
+      .where(eq(adminInvitesTable.id, invite.id));
 
-  return true;
+    return true;
+  } catch {
+    // Schema not migrated yet or transient DB error — don't block auth/dashboard routes.
+    return false;
+  }
 }
 
 export interface AdminInviteAcceptResult {

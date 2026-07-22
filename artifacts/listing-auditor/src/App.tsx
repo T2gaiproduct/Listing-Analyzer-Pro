@@ -17,6 +17,7 @@ import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useTeam } from "@/hooks/use-team";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
+import { fetchJson } from "@/lib/api-fetch";
 import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
@@ -243,16 +244,13 @@ function useOnboardingSummary() {
   return useQuery({
     queryKey: ["user-profile-summary"],
     queryFn: () =>
-      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then(
-        (r) =>
-          r.json() as Promise<{
-            onboardingCompleted?: boolean;
-            accountRole?: { type?: string };
-          }>,
-      ),
+      fetchJson<{
+        onboardingCompleted?: boolean;
+        accountRole?: { type?: string };
+      }>(`${basePath}/api/profile/summary`),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
-    retry: 1,
+    retry: 3,
   });
 }
 

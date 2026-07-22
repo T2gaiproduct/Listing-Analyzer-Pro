@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { useSidebarProjects } from "@/contexts/sidebar-projects";
 import { useTeam } from "@/hooks/use-team";
 
+import { fetchJson } from "@/lib/api-fetch";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface DashboardData {
@@ -156,14 +158,10 @@ export default function Dashboard() {
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
-    queryFn: async () => {
-      const r = await fetch(`${basePath}/api/dashboard`, { credentials: "include" });
-      if (!r.ok) throw new Error(`Failed to load dashboard (${r.status})`);
-      return r.json();
-    },
+    queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
     enabled: clerkLoaded && !!user,
     staleTime: 30_000,
-    retry: 2,
+    retry: 3,
   });
 
   if (isLoading) {
