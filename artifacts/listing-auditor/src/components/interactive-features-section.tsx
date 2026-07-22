@@ -16,27 +16,86 @@ export type FeatureItem = {
   image: string;
 };
 
-function FeaturePreview({ feature }: { feature: FeatureItem }) {
+function FeaturePreview({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   if (feature.image) {
     return (
       <img
         src={feature.image}
         alt={`${feature.title} preview`}
-        className="w-full max-h-40 sm:max-h-44 object-contain rounded-xl"
+        className={cn(
+          "object-contain rounded-lg",
+          fitHeight
+            ? "max-h-full max-w-full h-full w-auto"
+            : "w-full max-h-40 sm:max-h-44",
+        )}
         loading="lazy"
       />
     );
   }
 
   return (
-    <div className="w-full max-w-sm mx-auto scale-[1.2] sm:scale-[1.25] origin-center pointer-events-none select-none">
-      <FeatureCardMockup index={feature.index} />
+    <div
+      className={cn(
+        "flex items-center justify-center w-full",
+        fitHeight ? "h-full min-h-0" : "max-w-sm mx-auto scale-[1.2] sm:scale-[1.25] origin-center",
+      )}
+    >
+      <div className={cn(fitHeight && "w-full max-w-[220px] origin-center")}>
+        <FeatureCardMockup index={feature.index} />
+      </div>
     </div>
   );
 }
 
 function FeatureDetailPanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const Icon = feature.icon;
+
+  const header = (
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
+      </div>
+      <span className="text-xs font-bold text-orange-500 tracking-wide">
+        {String(feature.index).padStart(2, "0")}
+      </span>
+    </div>
+  );
+
+  const titleBlock = (
+    <>
+      <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight mb-2">
+        {feature.title}
+      </h3>
+      <p className="text-sm text-slate-600 leading-relaxed mb-3">
+        {feature.description}
+      </p>
+      {feature.bullets.length > 0 && (
+        <ul className="space-y-1.5 mb-0">
+          {feature.bullets.map((bullet) => (
+            <li key={bullet} className="flex items-start gap-2 text-sm text-slate-700">
+              <Check className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
+              <span>{bullet}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+
+  const previewFrame = (
+    <div
+      className={cn(
+        "rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white",
+        fitHeight
+          ? "h-full min-h-0 flex items-center justify-center overflow-hidden p-3"
+          : "flex items-center justify-center p-4 sm:p-5 mb-4 min-h-[120px] sm:min-h-[140px]",
+      )}
+    >
+      <div className="w-full h-full min-h-0 flex items-center justify-center pointer-events-none select-none">
+        <FeaturePreview feature={feature} fitHeight={fitHeight} />
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -49,44 +108,24 @@ function FeatureDetailPanel({ feature, fitHeight }: { feature: FeatureItem; fitH
       id={`feature-panel-${feature.index}`}
       aria-labelledby={`feature-tab-${feature.index}`}
     >
-      <div className="flex items-center gap-3 mb-3 sm:mb-4">
-        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center shrink-0">
-          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
-        </div>
-        <span className="text-xs font-bold text-orange-500 tracking-wide">
-          {String(feature.index).padStart(2, "0")}
-        </span>
-      </div>
-
-      <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight mb-2">
-        {feature.title}
-      </h3>
-      <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-4 max-w-xl">
-        {feature.description}
-      </p>
-
-      {feature.bullets.length > 0 && (
-        <ul className="space-y-2 mb-4">
-          {feature.bullets.map((bullet) => (
-            <li key={bullet} className="flex items-start gap-2.5 text-sm text-slate-700">
-              <Check className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
-              <span>{bullet}</span>
-            </li>
-          ))}
-        </ul>
+      {fitHeight ? (
+        <>
+          {header}
+          <div className="flex-1 min-h-0 grid grid-cols-[1fr_minmax(140px,42%)] gap-4 mb-3">
+            <div className="min-h-0 overflow-hidden">{titleBlock}</div>
+            {previewFrame}
+          </div>
+        </>
+      ) : (
+        <>
+          {header}
+          {titleBlock}
+          {previewFrame}
+        </>
       )}
 
-      <div
-        className={cn(
-          "flex items-center justify-center rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 sm:p-5 mb-4",
-          fitHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-[120px] sm:min-h-[140px]",
-        )}
-      >
-        <FeaturePreview feature={feature} />
-      </div>
-
       {feature.href && (
-        <Button asChild className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white shrink-0">
+        <Button asChild className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white shrink-0 mt-auto">
           <Link href={feature.href}>
             Learn more
             <ArrowRight className="w-4 h-4 ml-1.5" />
