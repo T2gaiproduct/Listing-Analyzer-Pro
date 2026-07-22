@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import { Clock, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatBlogDate, formatReadTime, type PublicBlogPost } from "@/lib/blog";
@@ -93,7 +93,8 @@ export default function Blog() {
 
   return (
     <div className="min-h-[100dvh] bg-white">
-      <SeoHead
+      <PageSeo
+        pageSlug="blog"
         title="Blog"
         description="Expert tips, strategies, and insights to help you dominate Amazon search results and grow your sales with SellerLens."
       />

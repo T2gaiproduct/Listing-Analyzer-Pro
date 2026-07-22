@@ -5,6 +5,7 @@ import { Check, X, Zap, ArrowRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
+import { PageSeo } from "@/components/page-seo";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -199,6 +200,11 @@ export default function Pricing() {
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
       <PublicNav />
+      <PageSeo
+        pageSlug="pricing"
+        title="Pricing"
+        description="Simple, transparent pricing for Amazon listing audits, AI content, and image generation. Start free and scale as you grow."
+      />
 
       {/* Hero */}
       <section className="bg-gradient-to-b from-slate-50 to-white px-6 py-20 text-center">

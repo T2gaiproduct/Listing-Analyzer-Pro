@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import {
   BarChart3, TrendingUp, Zap, Image, Edit3, Search, Users, Shield,
   ArrowRight, CheckCircle2, Star, ChevronRight
@@ -134,7 +134,8 @@ const beforeAfter = [
 export default function Features() {
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
-      <SeoHead
+      <PageSeo
+        pageSlug="features"
         title="Features"
         description="AI-powered Amazon listing audits, competitor analysis, content generation, image studio, and more."
       />
