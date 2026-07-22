@@ -16,12 +16,14 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <img
-      src={feature.image}
-      alt={feature.title}
-      className="w-full h-full object-cover"
-      loading="lazy"
-    />
+    <div className="flex items-center justify-center w-full h-full bg-slate-50 p-2 sm:p-3">
+      <img
+        src={feature.image}
+        alt={feature.title}
+        className="max-w-full max-h-full w-auto h-auto object-contain"
+        loading="lazy"
+      />
+    </div>
   ) : (
     <div
       className={cn(
