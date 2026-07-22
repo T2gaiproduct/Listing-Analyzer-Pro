@@ -12,8 +12,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { BillingOverview } from "@/components/billing-overview";
-import { refetchCreditQueries, invalidateSubscriptionQueries } from "@/lib/credit-queries";
-import { useUserSubscription, USER_SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-user-subscription";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { useTeam } from "@/hooks/use-team";
 import { ResponsiveTable } from "@/components/responsive-table";
@@ -546,7 +545,10 @@ export default function Billing() {
     setTab(parseBillingTab(search));
   }, [location, search]);
 
-  const { data: sub, isLoading: subLoading } = useUserSubscription();
+  const { data: sub, isLoading: subLoading } = useQuery<Subscription | null>({
+    queryKey: ["user-subscription"],
+    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
+  });
 
   const { data: creditsData } = useQuery<{ credits: Credits }>({
     queryKey: ["user-credits"],
@@ -684,14 +686,6 @@ export default function Billing() {
     void refetchCreditQueries(queryClient);
   }
 
-  async function applySubscriptionUpdate(subscription: Subscription | null | undefined) {
-    if (subscription) {
-      queryClient.setQueryData([...USER_SUBSCRIPTION_QUERY_KEY], subscription);
-    }
-    await invalidateSubscriptionQueries(queryClient);
-    await refetchCreditQueries(queryClient);
-  }
-
   useEffect(() => {
     void refetchCreditQueries(queryClient);
   }, [queryClient]);
@@ -817,11 +811,11 @@ export default function Billing() {
                             method: "POST", headers: { "Content-Type": "application/json" },
                             credentials: "include", body: JSON.stringify({ planId: changePlanId, billingCycle: changePlanCycle }),
                           })
-                            .then((r) => r.json() as Promise<{ success?: boolean; error?: string; subscription?: Subscription | null }>)
-                            .then(async (d) => {
+                            .then((r) => r.json() as Promise<{ success?: boolean; error?: string }>)
+                            .then((d) => {
                               if (d.success) {
-                                await applySubscriptionUpdate(d.subscription ?? null);
                                 toast({ title: "Plan updated successfully!" });
+                                void refetchCreditQueries(queryClient);
                               } else {
                                 toast({ title: "Could not update plan", description: d.error ?? "Please try again.", variant: "destructive" });
                               }
