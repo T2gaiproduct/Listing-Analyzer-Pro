@@ -55,11 +55,19 @@ export function createHeroSlide(partial?: Partial<HeroSlide>): HeroSlide {
 }
 
 export function heroSlideDesktopImage(slide: HeroSlide): string {
-  return slide.imageUrl || DEFAULT_HERO_SLIDE_IMAGE;
+  return slide.imageUrl?.trim() ?? "";
 }
 
 export function heroSlideMobileImage(slide: HeroSlide): string {
-  return slide.mobileImageUrl || slide.imageUrl || DEFAULT_HERO_SLIDE_IMAGE;
+  return slide.mobileImageUrl?.trim() || slide.imageUrl?.trim() || "";
+}
+
+export function heroSlideHasDesktopImage(slide: HeroSlide): boolean {
+  return Boolean(slide.imageUrl?.trim());
+}
+
+export function heroSlideHasMobileImage(slide: HeroSlide): boolean {
+  return Boolean(slide.mobileImageUrl?.trim() || slide.imageUrl?.trim());
 }
 
 export function heroSlideIsVideo(slide: HeroSlide): boolean {
@@ -75,8 +83,7 @@ export function heroSlideMobileVideo(slide: HeroSlide): string {
 }
 
 export function heroSlideVideoPoster(slide: HeroSlide): string {
-  if (slide.videoPosterUrl?.trim()) return slide.videoPosterUrl;
-  return heroSlideDesktopImage(slide);
+  return slide.videoPosterUrl?.trim() ?? "";
 }
 
 export const DEFAULT_HERO_SLIDES: HeroSlide[] = [

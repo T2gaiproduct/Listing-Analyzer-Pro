@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import {
   allHeroSlides,
-  DEFAULT_HERO_SLIDE_IMAGE,
   createHeroSlide,
   HERO_AUTOPLAY_ENABLED_KEY,
   HERO_AUTOPLAY_INTERVAL_KEY,
@@ -71,23 +70,17 @@ function HeroSlideImageField({
   hint,
   imageUrl,
   onImageChange,
-  showDefaultPreview = false,
 }: {
   label: string;
   hint?: string;
   imageUrl: string;
   onImageChange: (url: string) => void;
-  showDefaultPreview?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const hasImage = Boolean(imageUrl.trim());
-  const previewUrl = hasImage
-    ? resolveCmsAssetUrl(imageUrl, basePath)
-    : showDefaultPreview
-      ? resolveCmsAssetUrl(DEFAULT_HERO_SLIDE_IMAGE, basePath)
-      : "";
+  const previewUrl = hasImage ? resolveCmsAssetUrl(imageUrl, basePath) : "";
 
   async function handleFile(file: File | undefined) {
     if (!file || !file.type.startsWith("image/")) return;
@@ -120,7 +113,7 @@ function HeroSlideImageField({
           className="h-8 text-sm flex-1 min-w-[200px]"
           value={imageUrl}
           onChange={(e) => onImageChange(e.target.value)}
-          placeholder="/hero/dashboard-mockup.png"
+          placeholder="Leave empty for no image"
         />
         <input
           ref={inputRef}
@@ -441,14 +434,13 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                     <>
                       <HeroSlideImageField
                         label="Desktop image"
-                        hint="Shown on large screens (right side of slide). Leave empty for the default dashboard graphic."
+                        hint="Shown on large screens. Leave empty for no banner image on desktop."
                         imageUrl={slide.imageUrl}
                         onImageChange={(imageUrl) => updateSlide(index, { imageUrl })}
-                        showDefaultPreview
                       />
                       <HeroSlideImageField
                         label="Mobile image"
-                        hint="Shown on phones and tablets. Leave empty to use the desktop image."
+                        hint="Shown on phones and tablets. Leave empty to use the desktop image, or keep both empty."
                         imageUrl={slide.mobileImageUrl}
                         onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
                       />
