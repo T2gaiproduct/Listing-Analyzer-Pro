@@ -29,6 +29,7 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export CLERK_PUBLISHABLE_KEY=\"\${VITE_CLERK_PUBLISHABLE_KEY:-\${CLERK_PUBLISHABLE_KEY:-}}\"
   export CLERK_SECRET_KEY=\"\${CLERK_SECRET_KEY:-}\"
   export ADMIN_USER_IDS=\"\${ADMIN_USER_IDS:-}\"
+  export ENABLE_CLERK_PROXY=true
   export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
   export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
   pnpm --filter @workspace/api-server run dev

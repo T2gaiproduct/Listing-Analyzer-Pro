@@ -12,7 +12,14 @@ function targetFor(req) {
 
 function proxyRequest(req, res) {
   const target = new URL(targetFor(req));
-  const headers = { ...req.headers, host: target.host };
+  const clientHost = req.headers.host;
+  const headers = {
+    ...req.headers,
+    host: target.host,
+    "x-forwarded-host": clientHost ?? req.headers["x-forwarded-host"],
+    "x-forwarded-proto": req.headers["x-forwarded-proto"] ?? "http",
+    "x-forwarded-for": req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "",
+  };
 
   const proxyReq = http.request(
     {
@@ -42,12 +49,19 @@ function proxyRequest(req, res) {
 
 function proxyUpgrade(req, socket, head) {
   const target = new URL(targetFor(req));
+  const clientHost = req.headers.host;
   const proxyReq = http.request({
     hostname: target.hostname,
     port: target.port,
     path: req.url,
     method: req.method,
-    headers: { ...req.headers, host: target.host },
+    headers: {
+      ...req.headers,
+      host: target.host,
+      "x-forwarded-host": clientHost ?? req.headers["x-forwarded-host"],
+      "x-forwarded-proto": req.headers["x-forwarded-proto"] ?? "http",
+      "x-forwarded-for": req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "",
+    },
   });
 
   proxyReq.on("upgrade", (proxyRes, proxySocket, proxyHead) => {

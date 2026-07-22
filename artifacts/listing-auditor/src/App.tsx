@@ -16,6 +16,7 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useTeam } from "@/hooks/use-team";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
+import { ApiTokenBridge } from "@/components/api-token-bridge";
 import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
@@ -132,8 +133,16 @@ function AuthLoading() {
 }
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
+const clerkProxyUrlEnv = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function resolveClerkProxyUrl(): string | undefined {
+  if (clerkProxyUrlEnv) return clerkProxyUrlEnv;
+  if (typeof window === "undefined") return undefined;
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return undefined;
+  return `${window.location.origin}${basePath}/api/__clerk`;
+}
 
 const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -342,7 +351,23 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!isAdmin) return <Redirect to="/dashboard" />;
+  if (!isAdmin) {
+    const email = user.emailAddresses?.[0]?.emailAddress ?? "your account";
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-4">
+          <p className="text-lg font-semibold text-slate-900">No admin access</p>
+          <p className="text-sm text-slate-500">
+            You&apos;re signed in as <span className="font-medium text-slate-700">{email}</span>, but this account
+            doesn&apos;t have an admin role yet. Ask a super admin to assign you in Admin → Roles.
+          </p>
+          <a href={`${basePath}/dashboard`} className="text-sm font-medium text-orange-600 hover:text-orange-700">
+            Go to dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
   if (!canAccessRoute(location)) {
     const current = normalizeAdminPath(location);
     const fallback = normalizeAdminPath(defaultRoute);
@@ -652,6 +677,7 @@ function Router() {
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
   const { logoUrl, platformName } = useBranding();
+  const clerkProxyUrl = resolveClerkProxyUrl();
 
   const appearance = useMemo(
     () => ({
@@ -689,6 +715,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <ClerkQueryClientCacheInvalidator />
+      <ApiTokenBridge />
       <TooltipProvider>
         <Suspense fallback={<AuthLoading />}>
           <ErrorBoundary title="Application failed to load">
