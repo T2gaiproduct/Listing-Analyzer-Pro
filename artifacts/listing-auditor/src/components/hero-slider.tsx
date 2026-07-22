@@ -13,9 +13,10 @@ import { cn } from "@/lib/utils";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { parseHeroVideoSource } from "@/lib/hero-video-url";
 import {
-  DEFAULT_HERO_SLIDE_IMAGE,
   heroSlideDesktopImage,
   heroSlideDesktopVideo,
+  heroSlideHasDesktopImage,
+  heroSlideHasMobileImage,
   heroSlideIsVideo,
   heroSlideMobileImage,
   heroSlideMobileVideo,
@@ -32,14 +33,14 @@ interface HeroSliderProps {
 }
 
 function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?: string }) {
-  const fallbackSrc = resolveCmsAssetUrl(DEFAULT_HERO_SLIDE_IMAGE, basePath);
-  const [src, setSrc] = useState(() =>
-    resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath),
-  );
+  const trimmed = imageUrl.trim();
+  if (!trimmed) return null;
+
+  const [src, setSrc] = useState(() => resolveCmsAssetUrl(trimmed, basePath));
 
   useEffect(() => {
-    setSrc(resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath));
-  }, [imageUrl]);
+    setSrc(resolveCmsAssetUrl(trimmed, basePath));
+  }, [trimmed]);
 
   return (
     <div className={cn("relative w-full min-w-0 h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]", className)}>
@@ -47,10 +48,23 @@ function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?:
         src={src}
         alt=""
         loading="eager"
-        onError={() => {
-          if (src !== fallbackSrc) setSrc(fallbackSrc);
-        }}
-        className="absolute inset-0 block h-full w-full max-w-none object-cover object-center bg-slate-50"
+        className="absolute inset-0 block h-full w-full max-w-none object-contain object-center bg-slate-50"
+      />
+    </div>
+  );
+}
+
+function HeroVideoEmbed({ embedUrl, className }: { embedUrl: string; className?: string }) {
+  return (
+    <div className={cn("absolute inset-0 flex items-center justify-center bg-slate-900", className)}>
+      <iframe
+        key={embedUrl}
+        src={embedUrl}
+        title="Hero video"
+        allow="autoplay; fullscreen; picture-in-picture"
+        referrerPolicy="strict-origin-when-cross-origin"
+        className="pointer-events-none border-0 h-full w-auto max-w-full aspect-video"
+        style={{ maxHeight: "100%" }}
       />
     </div>
   );
@@ -58,51 +72,40 @@ function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?:
 
 function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSlide; className?: string; mobile?: boolean; fullBleed?: boolean }) {
   const videoUrl = mobile ? heroSlideMobileVideo(slide) : heroSlideDesktopVideo(slide);
-  const posterUrl = resolveCmsAssetUrl(heroSlideVideoPoster(slide), basePath);
+  const posterUrl = heroSlideVideoPoster(slide);
   const source = videoUrl ? parseHeroVideoSource(videoUrl) : null;
 
-  if (!source) {
-    return <HeroSlideImage imageUrl={mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide)} className={className} />;
-  }
+  if (!source) return null;
 
   const frameClass = cn(
     "relative w-full min-w-0 bg-slate-900",
-    fullBleed ? "h-full min-h-[420px] sm:min-h-[520px] lg:min-h-[560px]" : "h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
+    fullBleed ? "h-full min-h-[50vw] sm:min-h-[42vw] lg:min-h-[38vw] max-h-[85vh]" : "h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
     className,
   );
 
   if (source.kind === "youtube" || source.kind === "vimeo") {
     return (
       <div className={frameClass}>
-        <div className="absolute inset-0 overflow-hidden">
-          <iframe
-            key={source.embedUrl}
-            src={source.embedUrl}
-            title="Hero video"
-            allow="autoplay; fullscreen; picture-in-picture"
-            referrerPolicy="strict-origin-when-cross-origin"
-            className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-h-full min-w-full w-auto h-auto aspect-video"
-            style={{ width: "300%", height: "300%", maxWidth: "none" }}
-          />
-        </div>
+        <HeroVideoEmbed embedUrl={source.embedUrl} />
       </div>
     );
   }
 
   const src = resolveCmsAssetUrl(source.url, basePath);
+  const poster = posterUrl ? resolveCmsAssetUrl(posterUrl, basePath) : undefined;
 
   return (
     <div className={frameClass}>
       <video
         key={src}
         src={src}
-        poster={posterUrl || undefined}
+        poster={poster}
         autoPlay
         muted
         loop
         playsInline
         preload="metadata"
-        className="absolute inset-0 block h-full w-full max-w-none object-cover object-center"
+        className="absolute inset-0 block h-full w-full max-w-none object-contain object-center"
       />
     </div>
   );
@@ -112,12 +115,11 @@ function HeroSlideMedia({ slide, className, mobile, fullBleed }: { slide: HeroSl
   if (heroSlideIsVideo(slide)) {
     return <HeroSlideVideo slide={slide} className={className} mobile={mobile} fullBleed={fullBleed} />;
   }
-  return (
-    <HeroSlideImage
-      imageUrl={mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide)}
-      className={className}
-    />
-  );
+
+  const imageUrl = mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide);
+  if (!imageUrl) return null;
+
+  return <HeroSlideImage imageUrl={imageUrl} className={className} />;
 }
 
 function HeroSlideCtas({ slide, overlay }: { slide: HeroSlide; overlay?: boolean }) {
@@ -128,7 +130,7 @@ function HeroSlideCtas({ slide, overlay }: { slide: HeroSlide; overlay?: boolean
       className={cn(
         "flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3",
         overlay
-          ? "justify-center max-w-md mx-auto"
+          ? "justify-center max-w-md mx-auto sm:max-w-none"
           : "justify-center lg:justify-start max-w-md mx-auto lg:mx-0 lg:max-w-none",
       )}
     >
@@ -203,10 +205,10 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
             if (isVideoBanner) {
               return (
                 <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
-                  <div className="relative w-full min-h-[420px] sm:min-h-[520px] lg:min-h-[560px] overflow-hidden">
+                  <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[2.4/1] min-h-[280px] max-h-[85vh] overflow-hidden">
                     <HeroSlideMedia slide={slide} className="absolute inset-0" fullBleed />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/20" />
-                    <div className="relative z-10 flex h-full min-h-[420px] sm:min-h-[520px] lg:min-h-[560px] flex-col justify-end px-4 sm:px-6 lg:px-10 xl:px-16 py-10 sm:py-12">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-10 lg:py-12">
                       <HeroSlideCtas slide={slide} overlay />
                     </div>
                   </div>
@@ -214,32 +216,46 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
               );
             }
 
+            const hasDesktopImage = heroSlideHasDesktopImage(slide);
+            const hasMobileImage = heroSlideHasMobileImage(slide);
+
             return (
-            <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
-              <div className="flex w-full flex-col lg:flex-row lg:min-h-[480px]">
-                <div className="flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-10 lg:py-12 text-center lg:text-left lg:w-1/2 lg:max-w-[50%] min-w-0">
-                  <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
-                    <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
-                      <Zap className="w-3 h-3 shrink-0" />
-                      <span>{slide.badgeText}</span>
+              <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
+                <div className={cn("flex w-full flex-col", hasDesktopImage && "lg:flex-row lg:min-h-[480px]")}>
+                  <div
+                    className={cn(
+                      "flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-10 lg:py-12 text-center lg:text-left min-w-0",
+                      hasDesktopImage ? "lg:w-1/2 lg:max-w-[50%]" : "max-w-4xl mx-auto",
+                    )}
+                  >
+                    <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
+                      <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
+                        <Zap className="w-3 h-3 shrink-0" />
+                        <span>{slide.badgeText}</span>
+                      </p>
+                    </div>
+                    <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
+                      <span className="block sm:inline">{slide.headingLine1}</span>{" "}
+                      <span className="block sm:inline text-orange-500">{slide.headingHighlight}</span>
+                    </h1>
+                    <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                      {slide.subheading}
                     </p>
+                    <MarketplaceLogos className="mb-6 sm:mb-8" />
+                    <HeroSlideCtas slide={slide} />
                   </div>
-                  <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
-                    <span className="block sm:inline">{slide.headingLine1}</span>{" "}
-                    <span className="block sm:inline text-orange-500">{slide.headingHighlight}</span>
-                  </h1>
-                  <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
-                    {slide.subheading}
-                  </p>
-                  <MarketplaceLogos className="mb-6 sm:mb-8" />
-                  <HeroSlideCtas slide={slide} />
+                  {hasMobileImage && (
+                    <div className="w-full min-w-0 lg:hidden">
+                      <HeroSlideMedia slide={slide} mobile />
+                    </div>
+                  )}
+                  {hasDesktopImage && (
+                    <div className="hidden lg:block w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
+                      <HeroSlideMedia slide={slide} />
+                    </div>
+                  )}
                 </div>
-                <div className="w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
-                  <HeroSlideMedia slide={slide} className="lg:hidden" mobile />
-                  <HeroSlideMedia slide={slide} className="hidden lg:block" />
-                </div>
-              </div>
-            </CarouselItem>
+              </CarouselItem>
             );
           })}
         </CarouselContent>
