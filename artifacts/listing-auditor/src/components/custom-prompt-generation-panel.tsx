@@ -1,7 +1,16 @@
-import { useRef, useState } from "react";
-import { ImagePlus, X, Loader2 } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import {
+  Plus,
+  X,
+  Loader2,
+  Paperclip,
+  Check,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export type GraphicsAspectRatio = "1:1" | "3:2" | "2:3";
 export type GraphicsQuality = "standard" | "hd";
@@ -41,6 +50,44 @@ export interface CustomPromptGenerationPanelProps {
   className?: string;
 }
 
+function MenuRow({
+  icon,
+  title,
+  description,
+  onClick,
+  selected,
+  disabled,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+  selected?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+        "hover:bg-slate-100 disabled:opacity-50 disabled:pointer-events-none",
+        selected && "bg-orange-50 hover:bg-orange-50",
+      )}
+    >
+      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-base">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-slate-900">{title}</p>
+        <p className="text-xs text-slate-500 truncate">{description}</p>
+      </div>
+      {selected && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+    </button>
+  );
+}
+
 export function CustomPromptGenerationPanel({
   customPrompt,
   onCustomPromptChange,
@@ -56,8 +103,10 @@ export function CustomPromptGenerationPanel({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
+  const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -112,6 +161,7 @@ export function CustomPromptGenerationPanel({
               onReferenceImagesChange([...referenceImages, ...results].slice(0, MAX_REFERENCE_IMAGES));
             }
             setIsUploading(false);
+            setMenuOpen(false);
           }
         };
         img.onerror = () => {
@@ -138,38 +188,28 @@ export function CustomPromptGenerationPanel({
     onReferenceImagesChange(referenceImages.filter((_, i) => i !== index));
   };
 
+  const canAddMore = referenceImages.length < MAX_REFERENCE_IMAGES;
+
   return (
-    <div className={cn("rounded-2xl border border-orange-200 bg-orange-50/30 p-5 space-y-4", className)}>
-      <div className="space-y-2">
-        <label className="text-base font-medium text-orange-900">Custom Prompt</label>
-        <textarea
-          value={customPrompt}
-          onChange={(e) => onCustomPromptChange(e.target.value)}
-          placeholder="Describe exactly what you want the AI to create..."
-          rows={4}
-          maxLength={promptMaxChars}
-          className="w-full resize-none text-base border border-slate-200 rounded-xl p-4 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200"
-        />
-        {customPrompt.length > 0 && (
-          <p className={cn("text-xs text-right", customPrompt.length > promptMaxChars ? "text-red-500" : "text-slate-400")}>
-            {customPrompt.length} / {promptMaxChars}
-          </p>
-        )}
-      </div>
+    <div className={cn("rounded-2xl border border-orange-200 bg-orange-50/30 p-4 space-y-3", className)}>
+      <label className="text-base font-medium text-orange-900 block">Custom Prompt</label>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <label className="text-sm font-medium text-orange-900">Reference images</label>
-          <span className="text-xs text-slate-500">Optional · like ChatGPT</span>
-        </div>
-        <p className="text-xs text-slate-500">
-          Upload photos for style, layout, or product reference. The AI uses them to guide the result.
-        </p>
-
+      {/* ChatGPT-style composer */}
+      <div
+        className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          handleFiles(e.dataTransfer.files);
+        }}
+      >
         {referenceImages.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 px-3 pt-3">
             {referenceImages.map((img, idx) => (
-              <div key={`${idx}-${img.slice(0, 24)}`} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-white">
+              <div
+                key={`${idx}-${img.slice(0, 24)}`}
+                className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
+              >
                 <img src={img} alt={`Reference ${idx + 1}`} className="w-full h-full object-cover" />
                 <button
                   type="button"
@@ -184,31 +224,92 @@ export function CustomPromptGenerationPanel({
           </div>
         )}
 
-        {referenceImages.length < MAX_REFERENCE_IMAGES && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              handleFiles(e.dataTransfer.files);
-            }}
-            disabled={isUploading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-orange-300 bg-white/80 px-4 py-3 text-sm font-medium text-orange-700 hover:bg-orange-50 transition-colors disabled:opacity-60"
-          >
-            {isUploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Uploading…
-              </>
-            ) : (
-              <>
-                <ImagePlus className="w-4 h-4" />
-                Add reference images ({referenceImages.length}/{MAX_REFERENCE_IMAGES})
-              </>
-            )}
-          </button>
-        )}
+        <div className="flex items-end gap-1 p-2">
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+                  menuOpen
+                    ? "bg-slate-200 text-slate-900"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-800",
+                )}
+                aria-label="Add options"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Plus className="w-5 h-5" />
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="start"
+              sideOffset={8}
+              className="w-[min(100vw-2rem,22rem)] p-2 rounded-2xl border border-slate-200 shadow-xl bg-white"
+            >
+              <div className="space-y-0.5">
+                <MenuRow
+                  icon={<Paperclip className="w-4 h-4 text-slate-600" />}
+                  title="Add photos & files"
+                  description={canAddMore ? "Upload from computer" : `Limit reached (${MAX_REFERENCE_IMAGES})`}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!canAddMore || isUploading}
+                />
+
+                <div className="my-1 border-t border-slate-100" />
+                <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Aspect ratio & size
+                </p>
+                {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
+                  <MenuRow
+                    key={ratio.value}
+                    icon={<span className="text-sm leading-none">{ratio.symbol}</span>}
+                    title={`${ratio.label} (${ratio.value})`}
+                    description={ratio.size}
+                    onClick={() => {
+                      onAspectRatioChange(ratio.value);
+                      setMenuOpen(false);
+                    }}
+                    selected={aspectRatio === ratio.value}
+                  />
+                ))}
+
+                <div className="my-1 border-t border-slate-100" />
+                <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Quality
+                </p>
+                {GRAPHICS_QUALITY_OPTIONS.map((opt) => (
+                  <MenuRow
+                    key={opt.value}
+                    icon={opt.value === "hd"
+                      ? <Sparkles className="w-4 h-4 text-orange-500" />
+                      : <Zap className="w-4 h-4 text-slate-500" />}
+                    title={opt.label}
+                    description={opt.desc}
+                    onClick={() => {
+                      onQualityChange(opt.value);
+                      setMenuOpen(false);
+                    }}
+                    selected={quality === opt.value}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <textarea
+            value={customPrompt}
+            onChange={(e) => onCustomPromptChange(e.target.value)}
+            placeholder="Describe what you want the AI to create..."
+            rows={3}
+            maxLength={promptMaxChars}
+            className="flex-1 resize-none text-sm sm:text-base bg-transparent border-0 p-2 min-h-[4.5rem] focus:outline-none focus:ring-0 placeholder:text-slate-400"
+          />
+        </div>
+
         <input
           ref={fileInputRef}
           type="file"
@@ -222,60 +323,25 @@ export function CustomPromptGenerationPanel({
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 border-t border-orange-200/80">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Aspect ratio</p>
-          <div className="flex flex-wrap gap-1.5">
-            {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
-              <button
-                key={ratio.value}
-                type="button"
-                onClick={() => onAspectRatioChange(ratio.value)}
-                className={cn(
-                  "px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                  aspectRatio === ratio.value
-                    ? "bg-orange-500 text-white border-orange-500"
-                    : "bg-white border-slate-200 text-slate-700 hover:border-orange-300",
-                )}
-              >
-                <span className="mr-1">{ratio.symbol}</span>
-                {ratio.value}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Size</p>
-          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-            <p className="text-sm font-semibold text-slate-900">{selectedRatio.size}</p>
-            <p className="text-xs text-slate-500">{selectedRatio.label}</p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Quality</p>
-          <div className="flex gap-1.5">
-            {GRAPHICS_QUALITY_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onQualityChange(opt.value)}
-                className={cn(
-                  "flex-1 px-2 py-1.5 rounded-lg text-xs font-medium border transition-all text-left",
-                  quality === opt.value
-                    ? "bg-orange-500 text-white border-orange-500"
-                    : "bg-white border-slate-200 text-slate-700 hover:border-orange-300",
-                )}
-              >
-                <span className="block font-semibold">{opt.label}</span>
-                <span className={cn("block text-[10px]", quality === opt.value ? "text-orange-100" : "text-slate-400")}>
-                  {opt.desc}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Active settings summary */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {referenceImages.length > 0 && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
+            <Paperclip className="w-3 h-3" />
+            {referenceImages.length} file{referenceImages.length !== 1 ? "s" : ""}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
+          {selectedRatio.symbol} {selectedRatio.value} · {selectedRatio.size}
+        </span>
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
+          {selectedQuality.label} quality
+        </span>
+        {customPrompt.length > 0 && (
+          <span className={cn("ml-auto", customPrompt.length > promptMaxChars ? "text-red-500" : "text-slate-400")}>
+            {customPrompt.length} / {promptMaxChars}
+          </span>
+        )}
       </div>
     </div>
   );
