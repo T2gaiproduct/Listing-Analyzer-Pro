@@ -13,6 +13,7 @@ import { BrandingHead } from "@/components/branding-head";
 import { SiteLogo } from "@/components/site-logo";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { COUNTRIES } from "@/lib/countries";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -141,11 +142,22 @@ export default function Onboarding() {
   const { data: profileSummary } = useQuery<{
     onboardingCompleted?: boolean;
     subscription?: { status?: string; planName?: string } | null;
+    accountRole?: { type?: string };
   }>({
     queryKey: ["user-profile-summary"],
     queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
     enabled: isLoaded && !!user,
   });
+
+  const { isTeamMember, isLoading: teamLoading } = useTeam();
+
+  // Team members use the owner workspace — credits come from admin allocation, not plan checkout
+  useEffect(() => {
+    if (teamLoading) return;
+    if (isTeamMember || profileSummary?.accountRole?.type === "team_member") {
+      setLocation("/dashboard", { replace: true });
+    }
+  }, [isTeamMember, teamLoading, profileSummary, setLocation]);
 
   // Paid users who already completed checkout should not land back on plan selection
   useEffect(() => {
