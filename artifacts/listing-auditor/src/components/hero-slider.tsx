@@ -32,7 +32,15 @@ interface HeroSliderProps {
   autoplayIntervalMs?: number;
 }
 
-function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?: string }) {
+function HeroSlideImage({
+  imageUrl,
+  className,
+  objectFit = "contain",
+}: {
+  imageUrl: string;
+  className?: string;
+  objectFit?: "contain" | "cover";
+}) {
   const trimmed = imageUrl.trim();
   if (!trimmed) return null;
 
@@ -43,12 +51,21 @@ function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?:
   }, [trimmed]);
 
   return (
-    <div className={cn("relative w-full min-w-0 h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]", className)}>
+    <div
+      className={cn(
+        "relative w-full min-w-0 h-full",
+        objectFit === "contain" && "min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
+        className,
+      )}
+    >
       <img
         src={src}
         alt=""
         loading="eager"
-        className="absolute inset-0 block h-full w-full max-w-none object-contain object-center bg-slate-50"
+        className={cn(
+          "absolute inset-0 block h-full w-full max-w-none object-center",
+          objectFit === "cover" ? "object-cover bg-slate-100" : "object-contain bg-slate-50",
+        )}
       />
     </div>
   );
@@ -119,7 +136,13 @@ function HeroSlideMedia({ slide, className, mobile, fullBleed }: { slide: HeroSl
   const imageUrl = mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide);
   if (!imageUrl) return null;
 
-  return <HeroSlideImage imageUrl={imageUrl} className={className} />;
+  return (
+    <HeroSlideImage
+      imageUrl={imageUrl}
+      className={className}
+      objectFit={mobile || fullBleed ? "cover" : "contain"}
+    />
+  );
 }
 
 function HeroSlideCtas({ slide, overlay }: { slide: HeroSlide; overlay?: boolean }) {
@@ -222,33 +245,33 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
             return (
               <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
                 <div className={cn("flex w-full flex-col", hasDesktopImage && "lg:flex-row lg:min-h-[480px]")}>
+                  {hasMobileImage && (
+                    <div className="lg:hidden w-full aspect-[5/4] sm:aspect-[16/10] min-h-[200px] max-h-[46vh] overflow-hidden bg-slate-100 shrink-0">
+                      <HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />
+                    </div>
+                  )}
                   <div
                     className={cn(
-                      "flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-10 lg:py-12 text-center lg:text-left min-w-0",
+                      "flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12 text-center lg:text-left min-w-0",
                       hasDesktopImage ? "lg:w-1/2 lg:max-w-[50%]" : "max-w-4xl mx-auto",
                     )}
                   >
-                    <div className="flex justify-center lg:justify-start mb-4 sm:mb-6">
+                    <div className="flex justify-center lg:justify-start mb-3 sm:mb-6">
                       <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
                         <Zap className="w-3 h-3 shrink-0" />
                         <span>{slide.badgeText}</span>
                       </p>
                     </div>
-                    <h1 className="font-extrabold tracking-tight text-slate-900 mb-3 sm:mb-5 text-[1.75rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
+                    <h1 className="font-extrabold tracking-tight text-slate-900 mb-2.5 sm:mb-5 text-[1.65rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
                       <span className="block sm:inline">{slide.headingLine1}</span>{" "}
                       <span className="block sm:inline text-orange-500">{slide.headingHighlight}</span>
                     </h1>
-                    <p className="text-sm sm:text-lg text-slate-500 mb-5 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                    <p className="text-sm sm:text-lg text-slate-500 mb-4 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
                       {slide.subheading}
                     </p>
-                    <MarketplaceLogos className="mb-6 sm:mb-8" />
+                    <MarketplaceLogos className="mb-4 sm:mb-8" />
                     <HeroSlideCtas slide={slide} />
                   </div>
-                  {hasMobileImage && (
-                    <div className="w-full min-w-0 lg:hidden">
-                      <HeroSlideMedia slide={slide} mobile />
-                    </div>
-                  )}
                   {hasDesktopImage && (
                     <div className="hidden lg:block w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
                       <HeroSlideMedia slide={slide} />
@@ -262,7 +285,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
       </Carousel>
 
       {multiSlide && (
-        <div className="flex items-center justify-center gap-2 mt-8 sm:mt-10 px-4" role="tablist" aria-label="Hero slides">
+        <div className="flex items-center justify-center gap-2 mt-5 sm:mt-10 px-4" role="tablist" aria-label="Hero slides">
           {slides.map((slide, index) => (
             <button
               key={slide.id}

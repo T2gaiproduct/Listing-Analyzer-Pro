@@ -770,7 +770,7 @@ export default function Landing() {
       <section
         className={cn(
           "relative w-full overflow-hidden pb-10 sm:pb-16 lg:pb-20",
-          hasVideoHero ? "pt-0" : "pt-6 sm:pt-12 lg:pt-16",
+          hasVideoHero ? "pt-0" : "pt-3 sm:pt-12 lg:pt-16",
         )}
       >
         {!hasVideoHero && (
