@@ -1028,6 +1028,7 @@ router.delete("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> 
 });
 
 router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
+  try {
   const users = await db.select().from(adminUsersTable);
 
   // Enrich with role name
@@ -1061,9 +1062,14 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
       };
     })),
   });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to list admin role assignments");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load role assignments" });
+  }
 });
 
 router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
+  try {
   const { email, roleId } = req.body as { email?: string; roleId: number; userId?: string };
   let targetUserId = req.body.userId as string | undefined;
   const adminReq = req as AdminRequest;
@@ -1136,6 +1142,15 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
   });
 
   res.status(201).json({ ...u, ...emailResult });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to assign admin role");
+    const message = err instanceof Error ? err.message : "Failed to assign role";
+    if (message.includes("admin_invites") && message.includes("does not exist")) {
+      res.status(503).json({ error: "Database is missing admin_invites table. Run pnpm --filter @workspace/db run push." });
+      return;
+    }
+    res.status(500).json({ error: message });
+  }
 });
 
 router.delete("/admin/admin-invites/:id", requireAdmin, async (req, res): Promise<void> => {
