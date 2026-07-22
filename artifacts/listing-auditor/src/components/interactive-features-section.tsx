@@ -16,11 +16,11 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <div className="relative w-full h-full bg-white">
+    <div className="relative w-full h-full bg-white overflow-hidden">
       <img
         src={feature.image}
         alt={feature.title}
-        className="absolute inset-0 w-full h-full object-contain object-center"
+        className="absolute inset-0 w-full h-full object-cover object-center"
         loading="lazy"
       />
     </div>
