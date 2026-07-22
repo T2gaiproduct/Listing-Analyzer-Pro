@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { parseFeatureBullets } from "@/lib/features-cms";
-import { FeatureCardMockup } from "@/components/feature-card-mockups";
+import { InteractiveFeaturesSection, type FeatureItem } from "@/components/interactive-features-section";
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, heroSlideIsVideo, parseHeroSlides } from "@/lib/hero-slides";
 import { portfolioItemIndices } from "@/lib/portfolio-cms";
 import { parseTutorialItems } from "@/lib/tutorials-cms";
@@ -50,16 +50,6 @@ interface DbPlan {
 const FEATURE_ICONS = [ClipboardList, PenLine, Box, Video, Megaphone];
 const HERO_STAT_ICONS = [BarChart3, Image, TrendingUp, Users];
 const WORKFLOW_ICONS = [Upload, Search, Wand2, Image, Download, Globe];
-
-type FeatureItem = {
-  index: number;
-  icon: typeof ClipboardList;
-  title: string;
-  description: string;
-  href: string;
-  bullets: string[];
-  image: string;
-};
 
 type PortfolioItem = {
   id: string;
@@ -136,89 +126,6 @@ function useLandingCmsData() {
   });
 
   return { cms, features, heroSlides, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
-}
-
-function FeatureCard({
-  index,
-  icon: Icon,
-  title,
-  description,
-  href,
-  bullets,
-  image,
-  className,
-}: FeatureItem & { className?: string }) {
-  const number = String(index).padStart(2, "0");
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex flex-col h-full items-stretch justify-between bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden",
-        className,
-      )}
-    >
-      <div className="flex flex-col flex-1 items-start justify-start p-4 sm:p-5 text-left">
-        <span className="text-[11px] font-bold text-orange-500 tracking-wide">{number}</span>
-
-        <div className="flex justify-start my-3 sm:my-4">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
-            <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
-          </div>
-        </div>
-
-        <h3 className="text-left font-bold text-slate-900 text-sm sm:text-[15px] leading-snug mb-2">
-          {title}
-        </h3>
-        <p className="text-left text-xs sm:text-sm text-slate-500 leading-relaxed mb-4">
-          {description}
-        </p>
-
-        {bullets.length > 0 && (
-          <ul className="w-full space-y-2 mb-4">
-            {bullets.map((bullet) => (
-              <li key={bullet} className="flex items-start justify-start gap-2 text-left text-xs text-slate-600 leading-snug">
-                <Check className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
-                <span>{bullet}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="mt-auto border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white p-3 sm:p-4">
-        {image ? (
-          <img
-            src={image}
-            alt={`${title} preview`}
-            className="w-full rounded-lg object-contain max-h-36 sm:max-h-40"
-            loading="lazy"
-          />
-        ) : (
-          <FeatureCardMockup index={index} />
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function FeatureCardsRow({ features }: { features: FeatureItem[] }) {
-  return (
-    <>
-      <div className="lg:hidden -mx-4 px-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-        <div className="flex gap-4 w-max pb-2">
-          {features.map((f) => (
-            <FeatureCard key={f.title} {...f} className="w-[min(82vw,280px)] snap-center shrink-0" />
-          ))}
-        </div>
-      </div>
-      <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-5">
-        {features.map((f) => (
-          <FeatureCard key={f.title} {...f} />
-        ))}
-      </div>
-    </>
-  );
 }
 
 function PortfolioLightbox({
@@ -909,7 +816,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <FeatureCardsRow features={features} />
+          <InteractiveFeaturesSection features={features} />
 
           {cmsText(cms, "features.footer_text") && (
             <p className="mt-8 sm:mt-10 text-center text-sm text-slate-600 flex items-center justify-center gap-2">
