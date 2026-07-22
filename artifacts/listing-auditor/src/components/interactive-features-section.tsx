@@ -28,10 +28,10 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
     <div
       className={cn(
         "flex items-center justify-center w-full h-full bg-gradient-to-br from-slate-50 to-white",
-        !fitHeight && "p-4",
+        !fitHeight && "p-3",
       )}
     >
-      <div className={cn(fitHeight ? "w-full h-full max-w-none scale-[1.35] xl:scale-[1.5] origin-center" : "max-w-sm scale-110 sm:scale-125 origin-center")}>
+      <div className={cn(fitHeight ? "w-full scale-[1.15] origin-center" : "max-w-xs scale-105 origin-center")}>
         <FeatureCardMockup index={feature.index} />
       </div>
     </div>
@@ -42,7 +42,7 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
       key={feature.index}
       className={cn(
         "animate-in fade-in duration-300 overflow-hidden",
-        fitHeight ? "h-full w-full" : cn("rounded-2xl border border-slate-200/90", feature.image ? "h-56 sm:h-64 md:h-72" : "min-h-[160px]"),
+        fitHeight ? "h-full w-full" : cn("rounded-xl border border-slate-200/90", feature.image ? "h-44 sm:h-48" : "min-h-[140px]"),
         !feature.image && !fitHeight && "bg-white shadow-sm",
       )}
       role="tabpanel"
@@ -87,32 +87,32 @@ function ServiceTab({
       aria-controls={`feature-panel-${feature.index}`}
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-3 text-left transition-all duration-200 w-full",
+        "flex items-center gap-2.5 text-left transition-all duration-200 w-full",
         layout === "sidebar"
-          ? "px-4 py-4 rounded-xl border"
-          : "px-3 py-3 rounded-lg border shrink-0 snap-start",
+          ? "px-3 py-2.5 rounded-lg border"
+          : "px-3 py-2.5 rounded-lg border shrink-0 snap-start",
         isActive
           ? "bg-orange-50 border-orange-200 shadow-sm"
           : "bg-white border-slate-200/90 hover:bg-slate-50 hover:border-slate-200",
-        layout === "sidebar" && isActive && "border-l-4 border-l-orange-500 rounded-l-md",
+        layout === "sidebar" && isActive && "border-l-[3px] border-l-orange-500 rounded-l-md",
       )}
     >
       <div
         className={cn(
-          "w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 border",
+          "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
           isActive
             ? "bg-orange-100 border-orange-200"
             : "bg-slate-50 border-slate-200",
         )}
       >
         <Icon
-          className={cn("w-4 h-4 sm:w-[18px] sm:h-[18px]", isActive ? "text-orange-500" : "text-slate-500")}
+          className={cn("w-4 h-4", isActive ? "text-orange-500" : "text-slate-500")}
           strokeWidth={1.75}
         />
       </div>
       <span
         className={cn(
-          "font-semibold text-sm sm:text-[15px] leading-snug",
+          "font-semibold text-sm leading-snug",
           isActive ? "text-slate-900" : "text-slate-600",
         )}
       >
@@ -149,8 +149,8 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
 
   return (
     <div className="w-full">
-      {/* Mobile / tablet: stacked tabs + image */}
-      <div className="lg:hidden space-y-4">
+      {/* Mobile / tablet */}
+      <div className="lg:hidden space-y-3">
         <div
           role="tablist"
           aria-label="Services"
@@ -169,9 +169,9 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
         <FeatureImagePanel feature={activeFeature} />
       </div>
 
-      {/* Desktop: sidebar + image panel */}
-      <div className="hidden lg:grid lg:grid-cols-[minmax(240px,280px)_1fr] gap-6 xl:gap-8 items-start">
-        <div ref={sidebarRef} role="tablist" aria-label="Services" className="flex flex-col gap-3.5">
+      {/* Desktop — compact block, image height matches tabs */}
+      <div className="hidden lg:flex lg:gap-5 xl:gap-6 items-start justify-center max-w-3xl mx-auto w-full">
+        <div ref={sidebarRef} role="tablist" aria-label="Services" className="flex flex-col gap-2 w-[220px] shrink-0">
           {features.map((feature, i) => (
             <ServiceTab
               key={feature.title}
@@ -183,7 +183,7 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
           ))}
         </div>
         <div
-          className="rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-h-0"
+          className="rounded-xl border border-slate-200/90 shadow-sm overflow-hidden min-h-0 flex-1 max-w-[420px]"
           style={sidebarHeight ? { height: sidebarHeight } : undefined}
         >
           <FeatureImagePanel feature={activeFeature} fitHeight />
