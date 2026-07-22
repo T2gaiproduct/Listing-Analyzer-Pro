@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
-  TrendingUp, Users, Search, Star,
+  TrendingUp, Users, Search, Star, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
@@ -220,6 +221,65 @@ function FeatureCardsRow({ features }: { features: FeatureItem[] }) {
   );
 }
 
+function PortfolioLightbox({
+  item,
+  onClose,
+}: {
+  item: PortfolioItem;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] bg-black/85 flex items-center justify-center p-4 sm:p-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${item.title} — ${item.brand}`}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl overflow-hidden bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+          aria-label="Close preview"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <div className="flex-1 min-h-0 bg-slate-100 flex items-center justify-center">
+          <img
+            src={item.image}
+            alt={`${item.title} — ${item.brand}`}
+            className="max-h-[calc(92vh-5rem)] w-full object-contain"
+          />
+        </div>
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-t border-slate-200 bg-white shrink-0">
+          <p className="font-semibold text-slate-900">{item.title}</p>
+          <p className="text-sm text-slate-500 mt-0.5">{item.brand}</p>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
   const [selected, setSelected] = useState<PortfolioItem | null>(null);
 
@@ -231,7 +291,7 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
             key={item.id}
             type="button"
             onClick={() => setSelected(item)}
-            className="group relative aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300 cursor-zoom-in text-left"
+            className="group relative w-full aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300 cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
             aria-label={`View ${item.title} — ${item.brand}`}
           >
             <img
@@ -246,11 +306,11 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
               fetchPriority={index < 4 ? "high" : "auto"}
             />
             {item.badge && (
-              <span className="absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
+              <span className="pointer-events-none absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
                 {item.badge}
               </span>
             )}
-            <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
               <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>
               <p className="text-xs text-white/80 mt-0.5">{item.brand}</p>
             </div>
@@ -258,28 +318,7 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
         ))}
       </div>
 
-      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-5xl w-[calc(100vw-2rem)] p-0 gap-0 overflow-hidden">
-          <DialogTitle className="sr-only">
-            {selected ? `${selected.title} — ${selected.brand}` : "Portfolio image"}
-          </DialogTitle>
-          {selected && (
-            <>
-              <div className="relative bg-slate-100 flex items-center justify-center max-h-[80vh]">
-                <img
-                  src={selected.image}
-                  alt={`${selected.title} — ${selected.brand}`}
-                  className="max-h-[80vh] w-full object-contain"
-                />
-              </div>
-              <div className="px-4 py-3 border-t border-slate-200 bg-white">
-                <p className="font-semibold text-slate-900">{selected.title}</p>
-                <p className="text-sm text-slate-500 mt-0.5">{selected.brand}</p>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {selected && <PortfolioLightbox item={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }
