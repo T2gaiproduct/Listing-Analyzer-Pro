@@ -17,7 +17,7 @@ export interface HeroSlide {
   bannerType: HeroBannerType;
   /** Desktop banner image (right side on large screens). */
   imageUrl: string;
-  /** Mobile banner image; falls back to desktop image when empty. */
+  /** Mobile-only banner image; leave empty for text-only hero on phones. */
   mobileImageUrl: string;
   /** Desktop hero video URL when bannerType is video. */
   videoUrl: string;
@@ -59,7 +59,7 @@ export function heroSlideDesktopImage(slide: HeroSlide): string {
 }
 
 export function heroSlideMobileImage(slide: HeroSlide): string {
-  return slide.mobileImageUrl?.trim() || slide.imageUrl?.trim() || "";
+  return slide.mobileImageUrl?.trim() ?? "";
 }
 
 export function heroSlideHasDesktopImage(slide: HeroSlide): boolean {
@@ -67,7 +67,7 @@ export function heroSlideHasDesktopImage(slide: HeroSlide): boolean {
 }
 
 export function heroSlideHasMobileImage(slide: HeroSlide): boolean {
-  return Boolean(slide.mobileImageUrl?.trim() || slide.imageUrl?.trim());
+  return Boolean(slide.mobileImageUrl?.trim());
 }
 
 export function heroSlideIsVideo(slide: HeroSlide): boolean {

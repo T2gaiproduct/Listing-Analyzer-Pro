@@ -425,7 +425,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                       />
                       <HeroSlideImageField
                         label="Mobile image"
-                        hint="Shown on phones instead of video when set and no mobile video is provided. Save the page after uploading."
+                        hint="Shown on phones instead of video when set and no mobile video is provided. Leave empty for video-only on mobile. Save after uploading."
                         imageUrl={slide.mobileImageUrl}
                         onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
                       />
@@ -446,7 +446,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                       />
                       <HeroSlideImageField
                         label="Mobile image"
-                        hint="Shown on phones and tablets. Leave empty to use the desktop image. Click Save at the top after uploading."
+                        hint="Shown on phones and tablets only. Leave empty for text-only hero on mobile (desktop image is not used on phones). Click Save after uploading."
                         imageUrl={slide.mobileImageUrl}
                         onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
                       />
