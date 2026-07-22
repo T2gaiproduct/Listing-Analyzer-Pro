@@ -16,64 +16,54 @@ export type FeatureItem = {
   image: string;
 };
 
-function FeaturePreview({ feature, large }: { feature: FeatureItem; large?: boolean }) {
+function FeaturePreview({ feature }: { feature: FeatureItem }) {
   if (feature.image) {
     return (
       <img
         src={feature.image}
         alt={`${feature.title} preview`}
-        className={cn(
-          "w-full object-contain rounded-xl",
-          large ? "max-h-72 xl:max-h-80" : "max-h-64 sm:max-h-72",
-        )}
+        className="w-full max-h-64 sm:max-h-72 object-contain rounded-xl"
         loading="lazy"
       />
     );
   }
 
   return (
-    <div
-      className={cn(
-        "w-full max-w-md mx-auto origin-center pointer-events-none select-none",
-        large ? "scale-[1.55] xl:scale-[1.7]" : "scale-[1.35] sm:scale-[1.5]",
-      )}
-    >
+    <div className="w-full max-w-md mx-auto scale-[1.35] sm:scale-[1.5] origin-center pointer-events-none select-none">
       <FeatureCardMockup index={feature.index} />
     </div>
   );
 }
 
-function FeatureDetailPanel({ feature, large }: { feature: FeatureItem; large?: boolean }) {
+function FeatureDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   return (
     <div
       key={feature.index}
-      className="flex flex-col h-full min-h-0 animate-in fade-in duration-300"
+      className="flex flex-col h-full animate-in fade-in duration-300"
       role="tabpanel"
       id={`feature-panel-${feature.index}`}
       aria-labelledby={`feature-tab-${feature.index}`}
     >
-      <div className="flex items-start gap-4 mb-5 sm:mb-6">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-orange-100 border border-orange-200 flex items-center justify-center shrink-0 shadow-sm">
-          <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-orange-500" strokeWidth={1.75} />
+      <div className="flex items-center gap-3 mb-4 sm:mb-5">
+        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center shrink-0">
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
         </div>
-        <div className="min-w-0 pt-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500">
-            Service {String(feature.index).padStart(2, "0")}
-          </span>
-          <h3 className="text-xl sm:text-2xl lg:text-[1.75rem] xl:text-3xl font-bold text-slate-900 leading-tight mt-1">
-            {feature.title}
-          </h3>
-        </div>
+        <span className="text-xs font-bold text-orange-500 tracking-wide">
+          {String(feature.index).padStart(2, "0")}
+        </span>
       </div>
 
-      <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-5 sm:mb-6 max-w-2xl">
+      <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight mb-3">
+        {feature.title}
+      </h3>
+      <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-5 sm:mb-6 max-w-xl">
         {feature.description}
       </p>
 
       {feature.bullets.length > 0 && (
-        <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5 mb-6 sm:mb-8">
+        <ul className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8">
           {feature.bullets.map((bullet) => (
             <li key={bullet} className="flex items-start gap-2.5 text-sm text-slate-700">
               <Check className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
@@ -83,25 +73,17 @@ function FeatureDetailPanel({ feature, large }: { feature: FeatureItem; large?: 
         </ul>
       )}
 
-      <div
-        className={cn(
-          "flex-1 flex items-center justify-center rounded-2xl border border-slate-200/80",
-          "bg-gradient-to-br from-slate-50 via-white to-orange-50/30 p-6 sm:p-8 mb-6 min-h-[200px]",
-          large && "min-h-[240px] xl:min-h-[280px]",
-        )}
-      >
-        <FeaturePreview feature={feature} large={large} />
+      <div className="flex-1 flex items-center justify-center rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-6 sm:p-8 mb-6 sm:mb-8 min-h-[180px] sm:min-h-[220px]">
+        <FeaturePreview feature={feature} />
       </div>
 
       {feature.href && (
-        <div className="mt-auto pt-1">
-          <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm">
-            <Link href={feature.href}>
-              Learn more
-              <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Link>
-          </Button>
-        </div>
+        <Button asChild className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white">
+          <Link href={feature.href}>
+            Learn more
+            <ArrowRight className="w-4 h-4 ml-1.5" />
+          </Link>
+        </Button>
       )}
     </div>
   );
@@ -119,7 +101,6 @@ function ServiceTab({
   layout: "sidebar" | "stack";
 }) {
   const Icon = feature.icon;
-  const number = String(feature.index).padStart(2, "0");
 
   return (
     <button
@@ -130,48 +111,37 @@ function ServiceTab({
       aria-controls={`feature-panel-${feature.index}`}
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-3 text-left transition-all duration-200 w-full group",
+        "flex items-center gap-3 text-left transition-all duration-200 w-full",
         layout === "sidebar"
-          ? "flex-1 min-h-[72px] px-4 xl:px-5 rounded-xl"
-          : "px-3 py-3 rounded-lg border shrink-0 snap-start min-w-[148px]",
-        layout === "sidebar"
-          ? isActive
-            ? "bg-white shadow-md ring-1 ring-orange-200/80"
-            : "bg-transparent hover:bg-white/70"
-          : isActive
-            ? "bg-orange-50 border-orange-200 shadow-sm border"
-            : "bg-white border-slate-200/90 hover:bg-slate-50 hover:border-slate-200 border",
-        layout === "sidebar" && isActive && "relative before:absolute before:left-0 before:top-3 before:bottom-3 before:w-1 before:rounded-full before:bg-orange-500",
+          ? "px-4 py-3.5 sm:py-4 rounded-lg border border-transparent"
+          : "px-3 py-3 rounded-lg border shrink-0 snap-start",
+        isActive
+          ? "bg-orange-50 border-orange-200 shadow-sm"
+          : "bg-white border-slate-200/90 hover:bg-slate-50 hover:border-slate-200",
+        layout === "sidebar" && isActive && "border-l-4 border-l-orange-500 rounded-l-md",
       )}
     >
       <div
         className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+          "w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 border",
           isActive
             ? "bg-orange-100 border-orange-200"
-            : "bg-white/80 border-slate-200 group-hover:border-slate-300",
+            : "bg-slate-50 border-slate-200",
         )}
       >
         <Icon
-          className={cn("w-[18px] h-[18px]", isActive ? "text-orange-500" : "text-slate-500")}
+          className={cn("w-4 h-4 sm:w-[18px] sm:h-[18px]", isActive ? "text-orange-500" : "text-slate-500")}
           strokeWidth={1.75}
         />
       </div>
-      <div className="min-w-0 flex-1">
-        {layout === "sidebar" && (
-          <span className={cn("text-[10px] font-bold tracking-wide", isActive ? "text-orange-500" : "text-slate-400")}>
-            {number}
-          </span>
+      <span
+        className={cn(
+          "font-semibold text-sm sm:text-[15px] leading-snug",
+          isActive ? "text-slate-900" : "text-slate-600",
         )}
-        <span
-          className={cn(
-            "block font-semibold text-sm sm:text-[15px] leading-snug",
-            isActive ? "text-slate-900" : "text-slate-600",
-          )}
-        >
-          {feature.title}
-        </span>
-      </div>
+      >
+        {feature.title}
+      </span>
     </button>
   );
 }
@@ -206,27 +176,21 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
         </div>
       </div>
 
-      {/* Desktop: unified card — equal-height sidebar + detail */}
-      <div className="hidden lg:block rounded-2xl border border-slate-200/90 bg-white shadow-sm overflow-hidden min-h-[580px] xl:min-h-[620px]">
-        <div className="grid grid-cols-[minmax(260px,300px)_1fr] h-full min-h-[inherit]">
-          <div
-            role="tablist"
-            aria-label="Services"
-            className="flex flex-col gap-1.5 p-3 xl:p-4 bg-gradient-to-b from-slate-100/90 to-slate-50/60 border-r border-slate-200/90 h-full min-h-[inherit]"
-          >
-            {features.map((feature, i) => (
-              <ServiceTab
-                key={feature.title}
-                feature={feature}
-                isActive={i === activeIndex}
-                onSelect={() => setActiveIndex(i)}
-                layout="sidebar"
-              />
-            ))}
-          </div>
-          <div className="p-8 xl:p-10 flex flex-col min-h-[inherit] bg-white">
-            <FeatureDetailPanel feature={activeFeature} large />
-          </div>
+      {/* Desktop: sidebar + detail panel */}
+      <div className="hidden lg:grid lg:grid-cols-[minmax(240px,300px)_1fr] gap-6 xl:gap-8 items-stretch">
+        <div role="tablist" aria-label="Services" className="flex flex-col gap-2">
+          {features.map((feature, i) => (
+            <ServiceTab
+              key={feature.title}
+              feature={feature}
+              isActive={i === activeIndex}
+              onSelect={() => setActiveIndex(i)}
+              layout="sidebar"
+            />
+          ))}
+        </div>
+        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-sm p-8 xl:p-10 min-h-[520px]">
+          <FeatureDetailPanel feature={activeFeature} />
         </div>
       </div>
     </div>
