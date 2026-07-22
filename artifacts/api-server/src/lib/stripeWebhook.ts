@@ -8,6 +8,7 @@ import { upsertUserProfile } from "./user-profile";
 import { logger } from "./logger";
 import { fulfillStripeCreditCheckout } from "./stripe-credit-checkout";
 import { grantPlanCreditsDelta } from "./subscription-credits";
+import { planRowToGrantCredits } from "./plan-credits";
 import { fulfillStripeSubscriptionCheckout } from "./subscription-fulfillment";
 
 /**
@@ -112,9 +113,10 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
     metadata: { type: isInitialSubscription ? "subscription_initial" : "subscription_renewal", billingReason },
   });
 
+  const grantCredits = await planRowToGrantCredits(plan);
   const now = new Date();
   if (isInitialSubscription) {
-    await grantPlanCreditsDelta(userId, plan, `${plan.name} plan — initial subscription`);
+    await grantPlanCreditsDelta(userId, grantCredits, `${plan.name} plan — initial subscription`);
   } else {
     const [existingCredits] = await db
       .select()
@@ -124,25 +126,25 @@ async function handleInvoicePaid(invoice: Record<string, unknown> & { id: string
     if (existingCredits) {
       await db.update(creditsTable)
         .set({
-          aiCredits: existingCredits.aiCredits + plan.aiCredits,
-          imageCredits: existingCredits.imageCredits + plan.imageCredits,
-          auditCredits: existingCredits.auditCredits + plan.auditCredits,
+          aiCredits: existingCredits.aiCredits + grantCredits.aiCredits,
+          imageCredits: existingCredits.imageCredits + grantCredits.imageCredits,
+          auditCredits: existingCredits.auditCredits + grantCredits.auditCredits,
           updatedAt: now,
         })
         .where(eq(creditsTable.userId, userId));
     } else {
       await db.insert(creditsTable).values({
         userId,
-        aiCredits: plan.aiCredits,
-        imageCredits: plan.imageCredits,
-        auditCredits: plan.auditCredits,
+        aiCredits: grantCredits.aiCredits,
+        imageCredits: grantCredits.imageCredits,
+        auditCredits: grantCredits.auditCredits,
       });
     }
 
     await db.insert(creditTransactionsTable).values([
-      { userId, creditType: "ai", amount: plan.aiCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "image", amount: plan.imageCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "audit", amount: plan.auditCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "ai", amount: grantCredits.aiCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "image", amount: grantCredits.imageCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "audit", amount: grantCredits.auditCredits, reason: `Renewal — ${plan.name}`, featureType: "subscription" },
     ]);
   }
 

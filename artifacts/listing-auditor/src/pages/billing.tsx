@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import {
@@ -16,6 +16,7 @@ import { refetchCreditQueries } from "@/lib/credit-queries";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { useTeam } from "@/hooks/use-team";
 import { ResponsiveTable } from "@/components/responsive-table";
+import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -39,11 +40,12 @@ interface Subscription {
   planAiCredits: number;
   planImageCredits: number;
   planAuditCredits: number;
+  creditAllocations?: Record<string, number> | null;
   stripeSubscriptionId: string | null;
 }
 
 interface Credits { aiCredits: number; imageCredits: number; auditCredits: number; }
-interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; isHighlighted: boolean; tag: string | null; features?: string[]; }
+interface Plan { id: number; name: string; priceMonthly: number; priceYearly: number; aiCredits: number; imageCredits: number; auditCredits: number; creditAllocations?: Record<string, number> | null; isHighlighted: boolean; tag: string | null; features?: string[]; }
 interface Payment { id: number; amount: number; status: string; gateway: string; createdAt: string; planId: number | null; invoiceId?: number | null; couponCode?: string | null; discountAmount?: number | null; }
 interface Invoice { id: number; amount: number; status: string; currency: string; items: Array<{ description: string; amount: number; quantity: number }>; paidAt: string | null; createdAt: string; }
 
@@ -572,6 +574,11 @@ export default function Billing() {
     staleTime: 60_000,
   });
 
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
+  });
+
   // Handle PayPal return redirect (?paypal_captured=1 or ?paypal_cancelled=1)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -629,9 +636,21 @@ export default function Billing() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const credits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const totalAi = sub?.planAiCredits ?? 0;
-  const totalImage = sub?.planImageCredits ?? 0;
-  const totalAudit = sub?.planAuditCredits ?? 0;
+  const planPools = useMemo(() => {
+    if (!sub) return null;
+    const computed = computePlanCreditsFromAllocations(sub.creditAllocations, creditRules);
+    if (computed.totalCredits > 0) return computed;
+    return {
+      auditCredits: sub.planAuditCredits,
+      aiCredits: sub.planAiCredits,
+      imageCredits: sub.planImageCredits,
+      totalCredits: sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits,
+      allocations: { audit: 0, content: 0, images: 0, ebc: 0, competitors: 0 },
+    };
+  }, [sub, creditRules]);
+  const totalAi = planPools?.aiCredits ?? 0;
+  const totalImage = planPools?.imageCredits ?? 0;
+  const totalAudit = planPools?.auditCredits ?? 0;
   const lowAi = totalAi > 0 && credits.aiCredits <= Math.max(1, totalAi * 0.15);
   const lowImage = totalImage > 0 && credits.imageCredits <= Math.max(1, totalImage * 0.15);
   const lowAudit = totalAudit > 0 && credits.auditCredits <= Math.max(1, totalAudit * 0.15);

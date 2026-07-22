@@ -10,6 +10,7 @@ import {
   couponsTable,
 } from "@workspace/db";
 import { grantPlanCreditsDelta, subscriptionGrantsTotal, type PlanCredits } from "./subscription-credits";
+import { planRowToGrantCredits } from "./plan-credits";
 import { hasRequiredProfileFields, upsertUserProfile } from "./user-profile";
 
 export interface SubscriptionFulfillmentResult {
@@ -52,7 +53,7 @@ export async function fulfillOnboardingPlan(params: {
 
   const creditsGranted = await grantPlanCreditsDelta(
     params.userId,
-    params.plan,
+    await planRowToGrantCredits(params.plan),
     params.reason,
   );
 
@@ -103,7 +104,7 @@ export async function fulfillStripeSubscriptionCheckout(
   if (
     existingSub?.status === "active"
     && existingSub.planId === plan.id
-    && (existingSub.stripeCheckoutSessionId === sessionId || await hasPlanCreditsGranted(userId, plan))
+    && (existingSub.stripeCheckoutSessionId === sessionId || await hasPlanCreditsGranted(userId, await planRowToGrantCredits(plan)))
   ) {
     const customerId = typeof session.customer === "string"
       ? session.customer
@@ -181,7 +182,7 @@ export async function fulfillStripeSubscriptionCheckout(
     await db.insert(subscriptionsTable).values({ userId, ...subData });
   }
 
-  await grantPlanCreditsDelta(userId, plan, `${plan.name} plan — payment confirmed`);
+  await grantPlanCreditsDelta(userId, await planRowToGrantCredits(plan), `${plan.name} plan — payment confirmed`);
 
   const amount = session.amount_total != null
     ? session.amount_total / 100

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { PageSeo } from "@/components/page-seo";
 import { cn } from "@/lib/utils";
+import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -185,6 +186,10 @@ export default function Pricing() {
     queryKey: ["public-faqs"],
     queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
   });
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
+  });
   const faqs = dbFaqs.length > 0 ? dbFaqs.map((f) => ({ q: f.question, a: f.answer })) : defaultFaqs;
 
   const plans: DisplayPlan[] = dbPlans.length > 0
@@ -226,7 +231,7 @@ export default function Pricing() {
         <div className={cn("max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6", planGridClass)}>
           {plans.map((plan) => {
             const a = plan.creditAllocations ?? {};
-            const totalCredits = (a.audit ?? 0) + (a.content ?? 0) + (a.images ?? 0) + (a.ebc ?? 0) + (a.competitors ?? 0);
+            const totalCredits = computePlanCreditsFromAllocations(a, creditRules).totalCredits;
 
             const activityRows = [
               { label: "Audit", value: a.audit, color: "text-orange-700" },

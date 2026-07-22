@@ -9,6 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import {
+  computePlanCreditsFromAllocations,
+  formatPlanAllocationsSummary,
+} from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,6 +30,7 @@ interface Subscription {
   planAiCredits: number;
   planImageCredits: number;
   planAuditCredits: number;
+  creditAllocations?: Record<string, number> | null;
 }
 
 interface Plan {
@@ -34,6 +39,7 @@ interface Plan {
   aiCredits: number;
   imageCredits: number;
   auditCredits: number;
+  creditAllocations?: Record<string, number> | null;
   features?: string[];
 }
 
@@ -315,7 +321,26 @@ export function BillingOverview({
   const currentPlan = plans.find((p) => p.id === sub.planId)
     ?? plans.find((p) => p.name === sub.planName);
 
-  const planTotalCredits = sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits;
+  const planAllocations = sub.creditAllocations ?? currentPlan?.creditAllocations ?? null;
+  const planCredits = useMemo(() => {
+    const fromAllocations = computePlanCreditsFromAllocations(planAllocations, creditRules);
+    if (fromAllocations.totalCredits > 0) return fromAllocations;
+    return {
+      auditCredits: sub.planAuditCredits,
+      aiCredits: sub.planAiCredits,
+      imageCredits: sub.planImageCredits,
+      totalCredits: sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits,
+      allocations: {
+        audit: sub.planAuditCredits,
+        content: sub.planAiCredits,
+        images: sub.planImageCredits,
+        ebc: 0,
+        competitors: 0,
+      },
+    };
+  }, [planAllocations, creditRules, sub.planAiCredits, sub.planImageCredits, sub.planAuditCredits]);
+
+  const planTotalCredits = planCredits.totalCredits;
   const currentBalance = sumCredits(credits);
 
   const periodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
@@ -583,7 +608,9 @@ export function BillingOverview({
             {monthlyCredits.toLocaleString()} Credits / Month
           </p>
           <p className="text-xs text-slate-500 mt-1 leading-snug">
-            Included each billing period ({sub.planAuditCredits} audit · {sub.planAiCredits} text · {sub.planImageCredits} images). Unused credits roll over.
+            {formatPlanAllocationsSummary(planCredits.allocations)
+              ? `Includes each billing period: ${formatPlanAllocationsSummary(planCredits.allocations)}. Unused credits roll over.`
+              : "Included each billing period. Unused credits roll over."}
           </p>
           <div className="mt-4 pt-4 border-t border-stone-200">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Current balance</p>
@@ -596,7 +623,7 @@ export function BillingOverview({
                 : `${currentBalance.toLocaleString()} of ${monthlyCredits.toLocaleString()} plan credits remaining this period`}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              {credits.auditCredits.toLocaleString()} audit · {credits.aiCredits.toLocaleString()} text · {credits.imageCredits.toLocaleString()} images
+              {credits.auditCredits.toLocaleString()} audit credits · {credits.aiCredits.toLocaleString()} text credits · {credits.imageCredits.toLocaleString()} image credits
             </p>
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-5 flex-1">
