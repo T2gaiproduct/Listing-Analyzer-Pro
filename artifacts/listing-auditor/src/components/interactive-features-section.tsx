@@ -22,14 +22,14 @@ function FeaturePreview({ feature }: { feature: FeatureItem }) {
       <img
         src={feature.image}
         alt={`${feature.title} preview`}
-        className="w-full max-h-64 sm:max-h-72 object-contain rounded-xl"
+        className="w-full max-h-40 sm:max-h-44 object-contain rounded-xl"
         loading="lazy"
       />
     );
   }
 
   return (
-    <div className="w-full max-w-md mx-auto scale-[1.35] sm:scale-[1.5] origin-center pointer-events-none select-none">
+    <div className="w-full max-w-sm mx-auto scale-[1.2] sm:scale-[1.25] origin-center pointer-events-none select-none">
       <FeatureCardMockup index={feature.index} />
     </div>
   );
@@ -46,7 +46,7 @@ function FeatureDetailPanel({ feature }: { feature: FeatureItem }) {
       id={`feature-panel-${feature.index}`}
       aria-labelledby={`feature-tab-${feature.index}`}
     >
-      <div className="flex items-center gap-3 mb-4 sm:mb-5">
+      <div className="flex items-center gap-3 mb-3 sm:mb-4">
         <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center shrink-0">
           <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
         </div>
@@ -55,15 +55,15 @@ function FeatureDetailPanel({ feature }: { feature: FeatureItem }) {
         </span>
       </div>
 
-      <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight mb-3">
+      <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight mb-2">
         {feature.title}
       </h3>
-      <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-5 sm:mb-6 max-w-xl">
+      <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-4 max-w-xl">
         {feature.description}
       </p>
 
       {feature.bullets.length > 0 && (
-        <ul className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8">
+        <ul className="space-y-2 mb-4">
           {feature.bullets.map((bullet) => (
             <li key={bullet} className="flex items-start gap-2.5 text-sm text-slate-700">
               <Check className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
@@ -73,7 +73,7 @@ function FeatureDetailPanel({ feature }: { feature: FeatureItem }) {
         </ul>
       )}
 
-      <div className="flex-1 flex items-center justify-center rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-6 sm:p-8 mb-6 sm:mb-8 min-h-[180px] sm:min-h-[220px]">
+      <div className="flex items-center justify-center rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 sm:p-5 mb-4 min-h-[120px] sm:min-h-[140px]">
         <FeaturePreview feature={feature} />
       </div>
 
@@ -113,7 +113,7 @@ function ServiceTab({
       className={cn(
         "flex items-center gap-3 text-left transition-all duration-200 w-full",
         layout === "sidebar"
-          ? "px-4 py-3.5 sm:py-4 rounded-lg border border-transparent"
+          ? "px-4 py-4 rounded-xl border"
           : "px-3 py-3 rounded-lg border shrink-0 snap-start",
         isActive
           ? "bg-orange-50 border-orange-200 shadow-sm"
@@ -177,8 +177,8 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
       </div>
 
       {/* Desktop: sidebar + detail panel */}
-      <div className="hidden lg:grid lg:grid-cols-[minmax(240px,300px)_1fr] gap-6 xl:gap-8 items-stretch">
-        <div role="tablist" aria-label="Services" className="flex flex-col gap-2">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(240px,280px)_1fr] gap-6 xl:gap-8 items-start">
+        <div role="tablist" aria-label="Services" className="flex flex-col gap-3.5">
           {features.map((feature, i) => (
             <ServiceTab
               key={feature.title}
@@ -189,7 +189,7 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
             />
           ))}
         </div>
-        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-sm p-8 xl:p-10 min-h-[520px]">
+        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-sm p-6 xl:p-7">
           <FeatureDetailPanel feature={activeFeature} />
         </div>
       </div>
