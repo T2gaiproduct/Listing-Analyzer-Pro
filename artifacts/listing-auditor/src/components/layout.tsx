@@ -40,6 +40,7 @@ import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey 
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { useTeam } from "@/hooks/use-team";
+import { useUserSubscription, planLabelFromSubscription } from "@/hooks/use-user-subscription";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { SidebarProjectsContext } from "@/contexts/sidebar-projects";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -642,19 +643,7 @@ export function Layout({ children }: { children: ReactNode }) {
   }
 
   // Shell/topbar: subscription + credits use the same queries as billing (single source of truth)
-  const { data: subscription } = useQuery<{
-    planName: string | null;
-    status: string;
-    planAiCredits?: number;
-    planImageCredits?: number;
-    planAuditCredits?: number;
-  } | null>({
-    queryKey: ["user-subscription"],
-    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
-    enabled: clerkLoaded && !!user,
-    staleTime: 30_000,
-    refetchOnMount: "always",
-  });
+  const { data: subscription } = useUserSubscription();
 
   const { data: creditsData } = useQuery<{
     credits: { aiCredits: number; imageCredits: number; auditCredits: number };
@@ -711,12 +700,7 @@ export function Layout({ children }: { children: ReactNode }) {
     return source?.[0]?.toUpperCase() ?? "?";
   })();
 
-  const planName = subscription?.planName ?? null;
-  const planLabel = planName
-    ? `${planName} Plan`
-    : subscription?.status
-      ? "Active Plan"
-      : "No plan";
+  const planLabel = planLabelFromSubscription(subscription);
   const roleLabel =
     isTeamMember || profileData?.accountRole?.type === "team_member"
       ? "Member"

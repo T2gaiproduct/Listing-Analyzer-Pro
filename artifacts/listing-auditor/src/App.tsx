@@ -116,6 +116,8 @@ const AUTH_SCOPED_QUERY_KEYS = [
   ["is-admin"],
   ["user-profile"],
   ["user-profile-summary"],
+  ["user-subscription"],
+  ["user-credits"],
   ["team-membership"],
   ["team-membership-credits"],
   ["dashboard"],
