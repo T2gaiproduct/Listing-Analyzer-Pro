@@ -424,6 +424,12 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                         onVideoChange={(mobileVideoUrl) => updateSlide(index, { mobileVideoUrl })}
                       />
                       <HeroSlideImageField
+                        label="Mobile image"
+                        hint="Shown on phones instead of video when set and no mobile video is provided. Save the page after uploading."
+                        imageUrl={slide.mobileImageUrl}
+                        onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
+                      />
+                      <HeroSlideImageField
                         label="Video poster image"
                         hint="Optional thumbnail before a file video loads. Not used for YouTube/Vimeo embeds."
                         imageUrl={slide.videoPosterUrl}
@@ -440,7 +446,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                       />
                       <HeroSlideImageField
                         label="Mobile image"
-                        hint="Shown on phones and tablets. Leave empty to use the desktop image, or keep both empty."
+                        hint="Shown on phones and tablets. Leave empty to use the desktop image. Click Save at the top after uploading."
                         imageUrl={slide.mobileImageUrl}
                         onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
                       />

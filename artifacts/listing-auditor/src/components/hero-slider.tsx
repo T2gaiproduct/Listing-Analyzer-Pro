@@ -36,10 +36,12 @@ function HeroSlideImage({
   imageUrl,
   className,
   objectFit = "contain",
+  fillContainer = false,
 }: {
   imageUrl: string;
   className?: string;
   objectFit?: "contain" | "cover";
+  fillContainer?: boolean;
 }) {
   const trimmed = imageUrl.trim();
   if (!trimmed) return null;
@@ -53,8 +55,9 @@ function HeroSlideImage({
   return (
     <div
       className={cn(
-        "relative w-full min-w-0 h-full",
-        objectFit === "contain" && "min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
+        "w-full min-w-0",
+        fillContainer ? "absolute inset-0 h-full" : "relative h-full",
+        objectFit === "contain" && !fillContainer && "min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
         className,
       )}
     >
@@ -128,19 +131,43 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
   );
 }
 
-function HeroSlideMedia({ slide, className, mobile, fullBleed }: { slide: HeroSlide; className?: string; mobile?: boolean; fullBleed?: boolean }) {
+function HeroSlideMedia({
+  slide,
+  className,
+  mobile,
+  fullBleed,
+}: {
+  slide: HeroSlide;
+  className?: string;
+  mobile?: boolean;
+  fullBleed?: boolean;
+}) {
   if (heroSlideIsVideo(slide)) {
+    const mobileImage = mobile ? heroSlideMobileImage(slide) : "";
+    if (mobile && mobileImage && !heroSlideMobileVideo(slide)) {
+      return (
+        <HeroSlideImage
+          imageUrl={mobileImage}
+          className={className}
+          objectFit="cover"
+          fillContainer={fullBleed}
+        />
+      );
+    }
     return <HeroSlideVideo slide={slide} className={className} mobile={mobile} fullBleed={fullBleed} />;
   }
 
   const imageUrl = mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide);
   if (!imageUrl) return null;
 
+  const useCover = Boolean(mobile || fullBleed);
+
   return (
     <HeroSlideImage
       imageUrl={imageUrl}
       className={className}
-      objectFit={mobile || fullBleed ? "cover" : "contain"}
+      objectFit={useCover ? "cover" : "contain"}
+      fillContainer={useCover}
     />
   );
 }
@@ -237,10 +264,10 @@ function HeroMobileOverlaySlide({
   media: ReactNode;
 }) {
   return (
-    <div className="lg:hidden relative w-full aspect-[3/4] sm:aspect-[4/5] min-h-[380px] max-h-[min(78vh,680px)] overflow-hidden bg-slate-900 shrink-0">
+    <div className="lg:hidden relative w-full aspect-[3/4] sm:aspect-[4/5] min-h-[380px] max-h-[min(78vh,680px)] overflow-hidden bg-slate-100 shrink-0">
       <div className="absolute inset-0">{media}</div>
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/45 to-slate-900/10 pointer-events-none" />
-      <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5 pt-20 text-center">
+      <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-slate-950/92 via-slate-950/55 to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5 pt-16 text-center">
         <HeroSlideCopy slide={slide} overlay />
       </div>
     </div>
@@ -296,7 +323,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                   <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] lg:aspect-[2.4/1] min-h-[380px] max-h-[min(78vh,680px)] lg:max-h-[85vh] overflow-hidden bg-slate-900">
                     <HeroSlideMedia slide={slide} mobile className="absolute inset-0 h-full w-full lg:hidden" fullBleed />
                     <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full hidden lg:block" fullBleed />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 h-[55%] lg:inset-0 lg:h-full bg-gradient-to-t from-black/80 via-black/35 lg:via-black/25 to-transparent pointer-events-none" />
                     <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12">
                       <HeroSlideCtas slide={slide} overlay />
                     </div>
