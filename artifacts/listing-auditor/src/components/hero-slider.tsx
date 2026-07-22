@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { Play, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -295,7 +295,7 @@ function HeroSlideCopy({
       >
         {slide.subheading}
       </p>
-      {!overlay && <MarketplaceLogos className="mb-4 sm:mb-8" />}
+      {!overlay && <MarketplaceLogos className="mb-3 sm:mb-8" />}
       <HeroSlideCtas slide={slide} overlay={overlay} mobileOverlay={mobileOverlay} />
     </>
   );
@@ -324,7 +324,14 @@ function HeroMobileOverlaySlide({
 export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 }: HeroSliderProps) {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState<number | undefined>(undefined);
+  const slideMeasureRefs = useRef<(HTMLDivElement | null)[]>([]);
   const multiSlide = slides.length > 1;
+
+  const measureActiveSlide = useCallback(() => {
+    const el = slideMeasureRefs.current[current];
+    if (el) setViewportHeight(el.offsetHeight);
+  }, [current]);
 
   const onSelect = useCallback(() => {
     if (!api) return;
@@ -343,6 +350,19 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
   }, [api, onSelect]);
 
   useEffect(() => {
+    measureActiveSlide();
+    const observer = new ResizeObserver(measureActiveSlide);
+    slideMeasureRefs.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
+    window.addEventListener("resize", measureActiveSlide);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measureActiveSlide);
+    };
+  }, [measureActiveSlide, slides.length]);
+
+  useEffect(() => {
     if (!api || !autoplay || !multiSlide) return;
     const timer = window.setInterval(() => {
       if (api.canScrollNext()) api.scrollNext();
@@ -355,19 +375,31 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
 
   return (
     <div className="min-w-0 w-full">
-      <Carousel
-        setApi={setApi}
-        opts={{ loop: multiSlide, align: "start", containScroll: "keepSnaps", dragFree: false }}
-        className="w-full"
+      <div
+        className={cn(
+          "overflow-hidden",
+          multiSlide && viewportHeight !== undefined && "transition-[height] duration-200 ease-out",
+        )}
+        style={multiSlide && viewportHeight !== undefined ? { height: viewportHeight } : undefined}
       >
-        <CarouselContent className="ml-0 w-full items-start">
-          {slides.map((slide) => {
-            const isVideoBanner = heroSlideIsVideo(slide);
+        <Carousel
+          setApi={setApi}
+          opts={{ loop: multiSlide, align: "start", containScroll: "keepSnaps", dragFree: false }}
+          className="w-full"
+        >
+          <CarouselContent className="ml-0 w-full items-start">
+            {slides.map((slide, slideIndex) => {
+              const isVideoBanner = heroSlideIsVideo(slide);
 
-            if (isVideoBanner) {
-              return (
-                <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
-                  <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] lg:aspect-[2.4/1] min-h-[380px] max-h-[min(78vh,680px)] lg:max-h-[85vh] overflow-hidden bg-slate-900">
+              if (isVideoBanner) {
+                return (
+                  <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
+                    <div
+                      ref={(el) => {
+                        slideMeasureRefs.current[slideIndex] = el;
+                      }}
+                      className="relative w-full aspect-[3/4] sm:aspect-[4/5] lg:aspect-[2.4/1] min-h-[380px] max-h-[min(78vh,680px)] lg:max-h-[85vh] overflow-hidden bg-slate-900"
+                    >
                     <HeroSlideMedia slide={slide} mobile className="absolute inset-0 h-full w-full lg:hidden" fullBleed />
                     <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full hidden lg:block" fullBleed />
                     <div className="absolute inset-x-0 bottom-0 h-[55%] lg:inset-0 lg:h-full bg-gradient-to-t from-black/80 via-black/35 lg:via-black/25 to-transparent pointer-events-none" />
@@ -382,19 +414,24 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
             const hasDesktopImage = heroSlideHasDesktopImage(slide);
             const hasMobileImage = heroSlideHasMobileImage(slide);
 
-            return (
-              <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
-                <div className={cn("flex w-full flex-col", hasDesktopImage && "lg:flex-row lg:min-h-[480px]")}>
-                  {hasMobileImage ? (
-                    <HeroMobileOverlaySlide
-                      slide={slide}
-                      media={<HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />}
-                    />
-                  ) : (
-                    <div className="lg:hidden px-4 sm:px-6 pt-4 pb-2 text-center">
-                      <HeroSlideCopy slide={slide} />
-                    </div>
-                  )}
+              return (
+                <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
+                  <div
+                    ref={(el) => {
+                      slideMeasureRefs.current[slideIndex] = el;
+                    }}
+                    className={cn("flex w-full flex-col", hasDesktopImage && "lg:flex-row lg:min-h-[480px]")}
+                  >
+                    {hasMobileImage ? (
+                      <HeroMobileOverlaySlide
+                        slide={slide}
+                        media={<HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />}
+                      />
+                    ) : (
+                      <div className="lg:hidden px-4 sm:px-6 pt-4 pb-0 text-center">
+                        <HeroSlideCopy slide={slide} />
+                      </div>
+                    )}
                   <div
                     className={cn(
                       "hidden lg:flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12 text-center lg:text-left min-w-0",
@@ -411,12 +448,13 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                 </div>
               </CarouselItem>
             );
-          })}
-        </CarouselContent>
-      </Carousel>
+            })}
+          </CarouselContent>
+        </Carousel>
+      </div>
 
       {multiSlide && (
-        <div className="flex items-center justify-center gap-2 mt-5 sm:mt-10 px-4" role="tablist" aria-label="Hero slides">
+        <div className="flex items-center justify-center gap-2 mt-4 sm:mt-10 px-4" role="tablist" aria-label="Hero slides">
           {slides.map((slide, index) => (
             <button
               key={slide.id}
