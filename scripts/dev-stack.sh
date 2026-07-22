@@ -58,10 +58,35 @@ for i in {1..20}; do
   sleep 2
 done
 
+echo "==> Starting dev proxy (port 3000)"
+tmux_cmd kill-session -t dev-proxy 2>/dev/null || true
+fuser -k 3000/tcp 2>/dev/null || true
+sleep 1
+tmux_cmd new-session -d -s dev-proxy -c "$ROOT" -- bash -lc "
+  node scripts/dev-proxy.mjs
+"
+
+echo "==> Waiting for dev proxy"
+for i in {1..10}; do
+  curl -sf http://127.0.0.1:3000/api/healthz >/dev/null && break
+  sleep 1
+done
+
 if ! tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null; then
   echo "==> Starting Cloudflare tunnel"
   tmux_cmd new-session -d -s cloudflare-tunnel -c "$ROOT" -- bash -lc "
-    cloudflared tunnel --url http://127.0.0.1:19145 2>&1 | tee /tmp/cloudflared-url.log
+    CLOUDFLARED=\"\${CLOUDFLARED:-\$(command -v cloudflared || echo /tmp/cloudflared)}\"
+    \"\$CLOUDFLARED\" tunnel --url http://127.0.0.1:3000 2>&1 | tee /tmp/cloudflared-url.log
+  "
+  sleep 4
+else
+  echo "==> Restarting Cloudflare tunnel (point at dev proxy)"
+  tmux_cmd kill-session -t cloudflare-tunnel 2>/dev/null || true
+  tmux_cmd kill-session -t cf-tunnel 2>/dev/null || true
+  sleep 1
+  tmux_cmd new-session -d -s cloudflare-tunnel -c "$ROOT" -- bash -lc "
+    CLOUDFLARED=\"\${CLOUDFLARED:-\$(command -v cloudflared || echo /tmp/cloudflared)}\"
+    \"\$CLOUDFLARED\" tunnel --url http://127.0.0.1:3000 2>&1 | tee /tmp/cloudflared-url.log
   "
   sleep 4
 fi
@@ -73,4 +98,4 @@ if [[ -f /tmp/cloudflared-url.log ]]; then
   fi
 fi
 
-echo "Done. Admin: http://127.0.0.1:19145/admin/dashboard"
+echo "Done. Local admin: http://127.0.0.1:3000/admin/dashboard"

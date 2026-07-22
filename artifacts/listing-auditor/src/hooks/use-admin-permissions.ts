@@ -29,12 +29,13 @@ export function useAdminPermissions() {
   const envSuperAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin-me", user?.id],
     queryFn: () => fetchJson<AdminMeResponse>(`${basePath}/api/admin/me`),
     enabled: isLoaded && !!user && isAdmin && !envSuperAdmin,
     staleTime: 60_000,
-    retry: 2,
+    retry: 4,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
   const isSuperAdmin = envSuperAdmin || (data?.isSuperAdmin ?? false) || isSuperAdminRoleName(data?.role?.name);
@@ -43,6 +44,7 @@ export function useAdminPermissions() {
     : (data?.permissions ?? []);
 
   const resolved = isLoaded && adminLoaded && (!isAdmin || envSuperAdmin || !isLoading || isError);
+  const fatalError = isError && data === undefined;
 
   const can = (required: AdminPermission | AdminPermission[]) =>
     hasAdminPermission(permissions, required, { isSuperAdmin, roleName: data?.role?.name });
@@ -58,7 +60,7 @@ export function useAdminPermissions() {
     role: data?.role ?? null,
     permissions,
     isLoaded: resolved,
-    isError,
+    isError: fatalError,
     can,
     canAccessRoute,
     defaultRoute,

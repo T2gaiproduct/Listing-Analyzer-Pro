@@ -306,7 +306,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, isLoaded } = useUser();
-  const { isAdmin, isLoaded: adminLoaded, isError } = useIsAdmin();
+  const { isAdmin, isLoaded: adminLoaded, isError, refetch } = useIsAdmin();
   const { canAccessRoute, isLoaded: permLoaded, defaultRoute } = useAdminPermissions();
   if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
   if (!user) {
@@ -318,14 +318,26 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
       <div className="min-h-[60vh] flex items-center justify-center p-6">
         <div className="max-w-md text-center space-y-3">
           <p className="text-lg font-semibold text-slate-900">Cannot reach admin API</p>
-          <p className="text-sm text-slate-500">The API server may be restarting. Wait a moment, then reload.</p>
-          <button
-            type="button"
-            className="text-sm font-medium text-orange-600 hover:text-orange-700"
-            onClick={() => window.location.reload()}
-          >
-            Reload page
-          </button>
+          <p className="text-sm text-slate-500">
+            The API server may be offline or the preview tunnel lost its connection to the backend.
+            If you are using a Cloudflare preview link, restart the dev stack so the tunnel routes through the API proxy.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              className="text-sm font-medium text-orange-600 hover:text-orange-700"
+              onClick={() => void refetch()}
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-orange-600 hover:text-orange-700"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </button>
+          </div>
         </div>
       </div>
     );
