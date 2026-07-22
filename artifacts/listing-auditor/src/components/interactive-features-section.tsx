@@ -22,12 +22,7 @@ function FeaturePreview({ feature, fitHeight }: { feature: FeatureItem; fitHeigh
       <img
         src={feature.image}
         alt={`${feature.title} preview`}
-        className={cn(
-          "object-contain rounded-lg",
-          fitHeight
-            ? "max-h-full max-w-full h-full w-auto"
-            : "w-full max-h-40 sm:max-h-44",
-        )}
+        className="w-full h-full object-cover"
         loading="lazy"
       />
     );
@@ -36,8 +31,8 @@ function FeaturePreview({ feature, fitHeight }: { feature: FeatureItem; fitHeigh
   return (
     <div
       className={cn(
-        "flex items-center justify-center w-full",
-        fitHeight ? "h-full min-h-0" : "max-w-sm mx-auto scale-[1.2] sm:scale-[1.25] origin-center",
+        "flex items-center justify-center w-full h-full",
+        !fitHeight && "max-w-sm mx-auto scale-[1.2] sm:scale-[1.25] origin-center",
       )}
     >
       <div className={cn(fitHeight && "w-full max-w-[220px] origin-center")}>
@@ -85,13 +80,21 @@ function FeatureDetailPanel({ feature, fitHeight }: { feature: FeatureItem; fitH
   const previewFrame = (
     <div
       className={cn(
-        "rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white",
+        "rounded-xl border border-slate-200/80 overflow-hidden",
+        feature.image ? "bg-slate-100" : "bg-gradient-to-br from-slate-50 to-white",
         fitHeight
-          ? "h-full min-h-0 flex items-center justify-center overflow-hidden p-3"
-          : "flex items-center justify-center p-4 sm:p-5 mb-4 min-h-[120px] sm:min-h-[140px]",
+          ? "h-full min-h-0"
+          : cn("mb-4", feature.image ? "h-36 sm:h-40" : "min-h-[120px] sm:min-h-[140px]"),
+        !feature.image && "flex items-center justify-center p-4 sm:p-5",
+        feature.image && "p-0",
       )}
     >
-      <div className="w-full h-full min-h-0 flex items-center justify-center pointer-events-none select-none">
+      <div
+        className={cn(
+          "w-full h-full",
+          !feature.image && "min-h-0 flex items-center justify-center pointer-events-none select-none",
+        )}
+      >
         <FeaturePreview feature={feature} fitHeight={fitHeight} />
       </div>
     </div>
