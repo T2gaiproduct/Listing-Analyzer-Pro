@@ -27,12 +27,27 @@ export function isEnvSuperAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
+async function resolveAuthEmail(userId: string, sessionEmail?: string | null): Promise<string | null> {
+  if (sessionEmail?.trim()) return sessionEmail.trim().toLowerCase();
+  try {
+    const cu = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+      headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY ?? ""}` },
+    }).then((r) => r.json()) as Record<string, unknown>;
+    const emails = cu.email_addresses as Array<{ email_address: string }> | undefined;
+    const email = emails?.[0]?.email_address;
+    return email ? email.trim().toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadAdminContext(userId: string, email?: string | null): Promise<AdminContext | null> {
   if (isEnvSuperAdmin(userId)) {
     return { userId, isSuperAdmin: true, role: null, permissions: [...ADMIN_PERMISSIONS] };
   }
 
-  await acceptAdminInviteForUser(userId, email);
+  const resolvedEmail = await resolveAuthEmail(userId, email);
+  await acceptAdminInviteForUser(userId, resolvedEmail);
 
   const [assignment] = await db
     .select({
@@ -60,7 +75,8 @@ export async function loadAdminContext(userId: string, email?: string | null): P
 
 export async function isAdminUser(userId: string, email?: string | null): Promise<boolean> {
   if (isEnvSuperAdmin(userId)) return true;
-  await acceptAdminInviteForUser(userId, email);
+  const resolvedEmail = await resolveAuthEmail(userId, email);
+  await acceptAdminInviteForUser(userId, resolvedEmail);
   const [row] = await db.select({ id: adminUsersTable.id })
     .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));
   return !!row;

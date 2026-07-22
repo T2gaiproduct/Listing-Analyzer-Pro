@@ -18,6 +18,8 @@ import { resolveUserAccountRole } from "../lib/user-role";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
+import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
+import { isAdminUser } from "../lib/admin-auth.js";
 
 const router: IRouter = Router();
 
@@ -230,8 +232,11 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const hasActiveSubscription = sub != null && ["active", "trial"].includes(sub.status);
   let onboardingCompleted = profile?.onboardingCompleted ?? false;
 
-  // Self-heal: paid users should never be sent back to onboarding
-  if (!onboardingCompleted && hasActiveSubscription) {
+  // Self-heal: paid users and admin users should never be sent back to onboarding
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  const isAdmin = await isAdminUser(userId, sessionEmail);
+  if (!onboardingCompleted && (hasActiveSubscription || isAdmin)) {
     await upsertUserProfile(userId, { onboardingCompleted: true });
     onboardingCompleted = true;
   }
@@ -1017,6 +1022,42 @@ router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
     permissions: invite.permissions ?? [],
     invitedAt: invite.createdAt,
   });
+});
+
+router.post("/admin-role-invite/:token/accept", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const token = String(req.params.token ?? "");
+  const auth = getAuth(req);
+  let sessionEmail = auth?.sessionClaims?.email as string | undefined;
+
+  if (!sessionEmail) {
+    try {
+      const cu = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+        headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY ?? ""}` },
+      }).then((r) => r.json()) as Record<string, unknown>;
+      const emails = cu.email_addresses as Array<{ email_address: string }> | undefined;
+      sessionEmail = emails?.[0]?.email_address;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  try {
+    const result = await acceptAdminInviteByToken(userId, token, { verifyEmail: sessionEmail });
+    if (!result.accepted) {
+      res.status(404).json({ error: "Invite not found or already accepted" });
+      return;
+    }
+    res.json({
+      ok: true,
+      alreadyAccepted: result.alreadyAccepted ?? false,
+      role: result.roleName,
+      permissions: result.permissions ?? [],
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to accept invite";
+    res.status(403).json({ error: message });
+  }
 });
 
 export default router;
