@@ -133,16 +133,8 @@ function AuthLoading() {
 }
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
-const clerkProxyUrlEnv = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function resolveClerkProxyUrl(): string | undefined {
-  if (clerkProxyUrlEnv) return clerkProxyUrlEnv;
-  if (typeof window === "undefined") return undefined;
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") return undefined;
-  return `${window.location.origin}${basePath}/api/__clerk`;
-}
 
 const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -677,7 +669,6 @@ function Router() {
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
   const { logoUrl, platformName } = useBranding();
-  const clerkProxyUrl = resolveClerkProxyUrl();
 
   const appearance = useMemo(
     () => ({
