@@ -15,7 +15,7 @@ import { HeroSlider } from "@/components/hero-slider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
-import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
+import { heroAutoplayEnabled, heroAutoplayIntervalMs, heroSlideIsVideo, parseHeroSlides } from "@/lib/hero-slides";
 import { portfolioItemIndices } from "@/lib/portfolio-cms";
 import { parseTutorialItems } from "@/lib/tutorials-cms";
 import { youtubeEmbedUrl, youtubeThumbnailUrl } from "@/lib/video-embed";
@@ -757,6 +757,8 @@ export default function Landing() {
     tutorialPreviews,
   } = useLandingCmsData();
 
+  const hasVideoHero = heroSlides.some(heroSlideIsVideo);
+
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
       <PublicNav />
@@ -768,8 +770,15 @@ export default function Landing() {
       />
 
       {cmsEnabled(cms, "hero") && (
-      <section className="relative w-full pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
+      <section
+        className={cn(
+          "relative w-full overflow-hidden pb-10 sm:pb-16 lg:pb-20",
+          hasVideoHero ? "pt-0" : "pt-6 sm:pt-12 lg:pt-16",
+        )}
+      >
+        {!hasVideoHero && (
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
+        )}
         {heroSlides.length > 0 && (
           <div className="relative w-full">
             <HeroSlider
