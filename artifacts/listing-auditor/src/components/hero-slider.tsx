@@ -186,25 +186,22 @@ function HeroSlideCtas({
   return (
     <div
       className={cn(
-        "flex items-stretch gap-2.5 sm:gap-3",
+        "flex flex-row items-stretch gap-2 sm:gap-3 w-full",
         mobileOverlay
-          ? "flex-col max-w-sm mx-auto w-full"
-          : "flex-col sm:flex-row",
-        overlay && !mobileOverlay
-          ? "justify-center max-w-md mx-auto sm:max-w-none"
-          : !mobileOverlay && "justify-center lg:justify-start max-w-md mx-auto lg:mx-0 lg:max-w-none",
+          ? "max-w-sm mx-auto"
+          : "justify-center max-w-lg mx-auto lg:justify-start lg:mx-0 lg:max-w-none",
       )}
     >
       {slide.ctaPrimaryText && (
         <Button
           size={mobileOverlay ? "default" : "lg"}
           className={cn(
-            "bg-orange-500 hover:bg-orange-600 text-white px-5 w-full sm:w-auto sm:flex-none",
-            mobileOverlay ? "h-10 text-sm font-semibold shadow-sm" : "text-sm sm:text-base h-11 sm:h-12 px-6",
+            "bg-orange-500 hover:bg-orange-600 text-white flex-1 min-w-0 px-3 sm:px-6",
+            mobileOverlay ? "h-10 text-xs sm:text-sm font-semibold shadow-sm" : "text-xs sm:text-base h-11 sm:h-12",
           )}
           asChild
         >
-          <Link href={slide.ctaPrimaryUrl || "#"}>{slide.ctaPrimaryText}</Link>
+          <Link href={slide.ctaPrimaryUrl || "#"} className="truncate">{slide.ctaPrimaryText}</Link>
         </Button>
       )}
       {slide.ctaSecondaryText && (
@@ -212,17 +209,17 @@ function HeroSlideCtas({
           size={mobileOverlay ? "default" : "lg"}
           variant={overlay ? "secondary" : "outline"}
           className={cn(
-            "px-5 w-full sm:w-auto sm:flex-none gap-2",
+            "flex-1 min-w-0 px-3 sm:px-6 gap-1.5 sm:gap-2",
             mobileOverlay
-              ? "h-10 text-sm font-medium bg-white/10 hover:bg-white/15 text-white border border-white/25"
-              : "text-sm sm:text-base h-11 sm:h-12 px-6",
+              ? "h-10 text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/15 text-white border border-white/25"
+              : "text-xs sm:text-base h-11 sm:h-12",
             overlay && !mobileOverlay && "bg-white/95 hover:bg-white text-slate-900 border-0",
           )}
           asChild
         >
-          <Link href={slide.ctaSecondaryUrl || "#"} className="flex items-center justify-center gap-2">
+          <Link href={slide.ctaSecondaryUrl || "#"} className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
             <Play className="w-3.5 h-3.5 shrink-0" />
-            {slide.ctaSecondaryText}
+            <span className="truncate">{slide.ctaSecondaryText}</span>
           </Link>
         </Button>
       )}
