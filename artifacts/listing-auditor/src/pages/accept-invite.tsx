@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useUser, SignIn } from "@clerk/react";
+import { useUser } from "@clerk/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, Mail, Shield, User, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,13 +82,6 @@ export default function AcceptInvite() {
     },
     onError: (e: Error) => toast({ title: "Failed to accept invite", description: e.message, variant: "destructive" }),
   });
-
-  // Auto-accept if signed in and invite is valid
-  useEffect(() => {
-    if (isLoaded && user && invite && invite.status === "pending" && !accepted && !acceptMutation.isPending) {
-      acceptMutation.mutate();
-    }
-  }, [isLoaded, user, invite]);
 
   if (!token || inviteError) {
     return (
