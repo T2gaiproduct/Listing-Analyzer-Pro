@@ -7,6 +7,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { IMAGES_DIR, GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./lib/image-storage";
 import { HERO_IMAGES_DIR } from "./lib/hero-image-storage";
+import { handleHeroVideoUpload } from "./lib/hero-video-upload";
 import { PORTFOLIO_IMAGES_DIR } from "./lib/portfolio-image-storage";
 import { WORKFLOW_IMAGES_DIR } from "./lib/workflow-image-storage";
 import {
@@ -57,6 +58,17 @@ app.post(
 
 // ─── General middleware (after webhook) ──────────────────────────────────────
 app.use(cors({ credentials: true, origin: true, exposedHeaders: ["Upgrade"] }));
+
+// Hero video upload uses raw body (before JSON parser) — up to 50MB
+app.post(
+  "/api/admin/hero-video",
+  express.raw({ type: ["video/*", "application/octet-stream"], limit: "50mb" }),
+  clerkMiddleware({
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+  }),
+  (req, res) => { void handleHeroVideoUpload(req, res); },
+);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 

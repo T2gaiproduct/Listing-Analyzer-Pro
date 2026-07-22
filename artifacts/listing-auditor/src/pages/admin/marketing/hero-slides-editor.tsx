@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown, Upload, ImageIcon } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, Upload, ImageIcon, Video } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   allHeroSlides,
@@ -43,6 +44,21 @@ async function uploadHeroImage(file: File): Promise<string> {
       dataUrl,
       filename: file.name,
     }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "Upload failed");
+  return json.url as string;
+}
+
+async function uploadHeroVideo(file: File): Promise<string> {
+  const res = await fetch(`${basePath}/api/admin/hero-video`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "X-Filename": file.name,
+    },
+    body: file,
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error || "Upload failed");
@@ -133,6 +149,93 @@ function HeroSlideImageField({
   );
 }
 
+function HeroSlideVideoField({
+  label,
+  hint,
+  videoUrl,
+  onVideoChange,
+}: {
+  label: string;
+  hint?: string;
+  videoUrl: string;
+  onVideoChange: (url: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+  const previewUrl = videoUrl ? resolveCmsAssetUrl(videoUrl, basePath) : "";
+
+  async function handleFile(file: File | undefined) {
+    if (!file || !file.type.startsWith("video/")) {
+      toast({ title: "Please choose an MP4, WebM, or MOV file", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadHeroVideo(file);
+      onVideoChange(url);
+      toast({ title: "Video uploaded" });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Could not upload video",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <Label className="text-xs text-slate-500">{label}</Label>
+      {previewUrl && (
+        <div className="rounded-lg border border-slate-200 bg-slate-900 p-2 max-w-md">
+          <video src={previewUrl} controls muted className="w-full h-auto rounded-md max-h-48" />
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          className="h-8 text-sm flex-1 min-w-[200px]"
+          value={videoUrl}
+          onChange={(e) => onVideoChange(e.target.value)}
+          placeholder="/api/images/heroes/videos/..."
+        />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0])}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? (
+            "Uploading..."
+          ) : (
+            <>
+              <Upload className="w-3.5 h-3.5 mr-1.5" />
+              Upload video
+            </>
+          )}
+        </Button>
+      </div>
+      {hint && (
+        <p className="text-[11px] text-slate-400 flex items-center gap-1">
+          <Video className="w-3 h-3" />
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
   const slides = allHeroSlides(data);
 
@@ -176,7 +279,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
         <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
           <div>
             <CardTitle className="text-sm font-semibold text-slate-700">Hero slider banners</CardTitle>
-            <p className="text-xs text-slate-500 mt-1">Each slide includes headline, CTAs, and separate desktop/mobile banner images.</p>
+            <p className="text-xs text-slate-500 mt-1">Each slide includes headline, CTAs, and an image or video banner for desktop and mobile.</p>
           </div>
           <Button size="sm" className="bg-orange-500 hover:bg-orange-600 shrink-0" onClick={addSlide}>
             <Plus className="w-4 h-4 mr-1.5" /> Add Slide
@@ -247,18 +350,59 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                   </div>
                 </div>
                 <div className="pt-1 border-t border-slate-100 space-y-4">
-                  <HeroSlideImageField
-                    label="Desktop image"
-                    hint="Shown on large screens (right side of slide). Leave empty for the default dashboard graphic."
-                    imageUrl={slide.imageUrl}
-                    onImageChange={(imageUrl) => updateSlide(index, { imageUrl })}
-                  />
-                  <HeroSlideImageField
-                    label="Mobile image"
-                    hint="Shown on phones and tablets. Leave empty to use the desktop image."
-                    imageUrl={slide.mobileImageUrl}
-                    onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
-                  />
+                  <div>
+                    <Label className="text-xs text-slate-500">Banner type</Label>
+                    <Select
+                      value={slide.bannerType}
+                      onValueChange={(v: "image" | "video") => updateSlide(index, { bannerType: v })}
+                    >
+                      <SelectTrigger className="mt-1 h-8 text-sm w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="image">Image banner</SelectItem>
+                        <SelectItem value="video">Video banner</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {slide.bannerType === "video" ? (
+                    <>
+                      <HeroSlideVideoField
+                        label="Desktop video"
+                        hint="MP4, WebM, or MOV up to 50MB. Autoplays muted on the homepage."
+                        videoUrl={slide.videoUrl}
+                        onVideoChange={(videoUrl) => updateSlide(index, { videoUrl })}
+                      />
+                      <HeroSlideVideoField
+                        label="Mobile video"
+                        hint="Optional separate video for phones. Leave empty to use the desktop video."
+                        videoUrl={slide.mobileVideoUrl}
+                        onVideoChange={(mobileVideoUrl) => updateSlide(index, { mobileVideoUrl })}
+                      />
+                      <HeroSlideImageField
+                        label="Video poster image"
+                        hint="Shown before the video loads. Leave empty to use the desktop image or default graphic."
+                        imageUrl={slide.videoPosterUrl}
+                        onImageChange={(videoPosterUrl) => updateSlide(index, { videoPosterUrl })}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <HeroSlideImageField
+                        label="Desktop image"
+                        hint="Shown on large screens (right side of slide). Leave empty for the default dashboard graphic."
+                        imageUrl={slide.imageUrl}
+                        onImageChange={(imageUrl) => updateSlide(index, { imageUrl })}
+                      />
+                      <HeroSlideImageField
+                        label="Mobile image"
+                        hint="Shown on phones and tablets. Leave empty to use the desktop image."
+                        imageUrl={slide.mobileImageUrl}
+                        onImageChange={(mobileImageUrl) => updateSlide(index, { mobileImageUrl })}
+                      />
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

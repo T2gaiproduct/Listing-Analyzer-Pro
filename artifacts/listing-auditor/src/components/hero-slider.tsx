@@ -11,7 +11,16 @@ import {
 } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
-import { DEFAULT_HERO_SLIDE_IMAGE, heroSlideDesktopImage, heroSlideMobileImage, type HeroSlide } from "@/lib/hero-slides";
+import {
+  DEFAULT_HERO_SLIDE_IMAGE,
+  heroSlideDesktopImage,
+  heroSlideDesktopVideo,
+  heroSlideIsVideo,
+  heroSlideMobileImage,
+  heroSlideMobileVideo,
+  heroSlideVideoPoster,
+  type HeroSlide,
+} from "@/lib/hero-slides";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -43,6 +52,44 @@ function HeroSlideImage({ imageUrl, className }: { imageUrl: string; className?:
         className="absolute inset-0 block h-full w-full max-w-none object-cover object-center bg-slate-50"
       />
     </div>
+  );
+}
+
+function HeroSlideVideo({ slide, className, mobile }: { slide: HeroSlide; className?: string; mobile?: boolean }) {
+  const videoUrl = mobile ? heroSlideMobileVideo(slide) : heroSlideDesktopVideo(slide);
+  const posterUrl = resolveCmsAssetUrl(heroSlideVideoPoster(slide), basePath);
+  const src = resolveCmsAssetUrl(videoUrl, basePath);
+
+  if (!videoUrl) {
+    return <HeroSlideImage imageUrl={mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide)} className={className} />;
+  }
+
+  return (
+    <div className={cn("relative w-full min-w-0 h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px] bg-slate-900", className)}>
+      <video
+        key={src}
+        src={src}
+        poster={posterUrl}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="absolute inset-0 block h-full w-full max-w-none object-cover object-center"
+      />
+    </div>
+  );
+}
+
+function HeroSlideMedia({ slide, className, mobile }: { slide: HeroSlide; className?: string; mobile?: boolean }) {
+  if (heroSlideIsVideo(slide)) {
+    return <HeroSlideVideo slide={slide} className={className} mobile={mobile} />;
+  }
+  return (
+    <HeroSlideImage
+      imageUrl={mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide)}
+      className={className}
+    />
   );
 }
 
@@ -121,14 +168,8 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                   </div>
                 </div>
                 <div className="w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
-                  <HeroSlideImage
-                    imageUrl={heroSlideMobileImage(slide)}
-                    className="lg:hidden"
-                  />
-                  <HeroSlideImage
-                    imageUrl={heroSlideDesktopImage(slide)}
-                    className="hidden lg:block"
-                  />
+                  <HeroSlideMedia slide={slide} className="lg:hidden" mobile />
+                  <HeroSlideMedia slide={slide} className="hidden lg:block" />
                 </div>
               </div>
             </CarouselItem>

@@ -1,5 +1,7 @@
 import { cmsText, type HomepageCmsMap } from "@/lib/homepage-cms";
 
+export type HeroBannerType = "image" | "video";
+
 export interface HeroSlide {
   id: string;
   enabled: boolean;
@@ -11,10 +13,18 @@ export interface HeroSlide {
   ctaPrimaryUrl: string;
   ctaSecondaryText: string;
   ctaSecondaryUrl: string;
+  /** Desktop/mobile banner mode for the right panel. */
+  bannerType: HeroBannerType;
   /** Desktop banner image (right side on large screens). */
   imageUrl: string;
   /** Mobile banner image; falls back to desktop image when empty. */
   mobileImageUrl: string;
+  /** Desktop hero video URL when bannerType is video. */
+  videoUrl: string;
+  /** Mobile hero video; falls back to desktop video when empty. */
+  mobileVideoUrl: string;
+  /** Optional poster image shown before video plays. */
+  videoPosterUrl: string;
 }
 
 export const HERO_SLIDES_JSON_KEY = "hero.slides_json";
@@ -35,8 +45,12 @@ export function createHeroSlide(partial?: Partial<HeroSlide>): HeroSlide {
     ctaPrimaryUrl: partial?.ctaPrimaryUrl ?? "/sign-up",
     ctaSecondaryText: partial?.ctaSecondaryText ?? "See How It Works",
     ctaSecondaryUrl: partial?.ctaSecondaryUrl ?? "/features",
+    bannerType: partial?.bannerType ?? "image",
     imageUrl: partial?.imageUrl ?? "",
     mobileImageUrl: partial?.mobileImageUrl ?? "",
+    videoUrl: partial?.videoUrl ?? "",
+    mobileVideoUrl: partial?.mobileVideoUrl ?? "",
+    videoPosterUrl: partial?.videoPosterUrl ?? "",
   };
 }
 
@@ -46,6 +60,23 @@ export function heroSlideDesktopImage(slide: HeroSlide): string {
 
 export function heroSlideMobileImage(slide: HeroSlide): string {
   return slide.mobileImageUrl || slide.imageUrl || DEFAULT_HERO_SLIDE_IMAGE;
+}
+
+export function heroSlideIsVideo(slide: HeroSlide): boolean {
+  return slide.bannerType === "video" && Boolean(slide.videoUrl?.trim());
+}
+
+export function heroSlideDesktopVideo(slide: HeroSlide): string {
+  return slide.videoUrl?.trim() ?? "";
+}
+
+export function heroSlideMobileVideo(slide: HeroSlide): string {
+  return slide.mobileVideoUrl?.trim() || slide.videoUrl?.trim() || "";
+}
+
+export function heroSlideVideoPoster(slide: HeroSlide): string {
+  if (slide.videoPosterUrl?.trim()) return slide.videoPosterUrl;
+  return heroSlideDesktopImage(slide);
 }
 
 export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
@@ -90,8 +121,12 @@ function normalizeSlide(raw: Partial<HeroSlide>): HeroSlide {
     ctaPrimaryUrl: raw.ctaPrimaryUrl ?? "",
     ctaSecondaryText: raw.ctaSecondaryText ?? "",
     ctaSecondaryUrl: raw.ctaSecondaryUrl ?? "",
+    bannerType: raw.bannerType === "video" ? "video" : "image",
     imageUrl: raw.imageUrl ?? "",
     mobileImageUrl: raw.mobileImageUrl ?? "",
+    videoUrl: raw.videoUrl ?? "",
+    mobileVideoUrl: raw.mobileVideoUrl ?? "",
+    videoPosterUrl: raw.videoPosterUrl ?? "",
   });
 }
 
