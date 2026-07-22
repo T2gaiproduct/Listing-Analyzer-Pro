@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { Shield, Mail, AlertTriangle, ArrowRight } from "lucide-react";
@@ -18,15 +18,13 @@ interface AdminInviteDetails {
 export default function AcceptAdminInvite() {
   const [, setLocation] = useLocation();
   const { user, isLoaded } = useUser();
-  const [token, setToken] = useState<string | null>(null);
+  const token = useMemo(
+    () => new URLSearchParams(window.location.search).get("token"),
+    [],
+  );
   const [invite, setInvite] = useState<AdminInviteDetails | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(true);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setToken(params.get("token"));
-  }, []);
 
   useEffect(() => {
     if (!token) {
@@ -34,15 +32,31 @@ export default function AcceptAdminInvite() {
       setInviteLoading(false);
       return;
     }
+
+    let cancelled = false;
+    setInviteError(null);
     setInviteLoading(true);
-    fetch(`${basePath}/api/admin-role-invite/${token}`)
+
+    fetch(`${basePath}/api/admin-role-invite/${encodeURIComponent(token)}`)
       .then(async (r) => {
-        const data = await r.json();
+        const text = await r.text();
+        let data: AdminInviteDetails & { error?: string };
+        try {
+          data = JSON.parse(text) as AdminInviteDetails & { error?: string };
+        } catch {
+          throw new Error(r.ok ? "Invalid server response" : `Invite lookup failed (${r.status})`);
+        }
         if (!r.ok) throw new Error(data.error ?? "Invite not found");
-        setInvite(data);
+        if (!cancelled) setInvite(data);
       })
-      .catch((e: Error) => setInviteError(e.message))
-      .finally(() => setInviteLoading(false));
+      .catch((e: Error) => {
+        if (!cancelled) setInviteError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setInviteLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [token]);
 
   useEffect(() => {
