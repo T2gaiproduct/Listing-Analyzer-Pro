@@ -7,6 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface Coupon {
   id: number; code: string; description: string | null; discountPercent: number | null;
@@ -15,11 +18,15 @@ interface Coupon {
 }
 
 function fetchCoupons(): Promise<{ coupons: Coupon[] }> {
-  return fetch("/api/admin/coupons").then((r) => r.json());
+  return fetch(`${basePath}/api/admin/coupons`, { credentials: "include" }).then(async (r) => {
+    if (!r.ok) throw new Error("Failed to load coupons");
+    return r.json();
+  });
 }
 
 export default function AdminBillingCoupons() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: "", description: "", discountPercent: "", discountAmount: "", maxUses: "1", expiryDate: "" });
 
@@ -27,18 +34,50 @@ export default function AdminBillingCoupons() {
   const coupons = data?.coupons ?? [];
 
   const create = useMutation({
-    mutationFn: (body: object) => fetch("/api/admin/coupons", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-coupons"] }); setOpen(false); setForm({ code: "", description: "", discountPercent: "", discountAmount: "", maxUses: "1", expiryDate: "" }); },
+    mutationFn: (body: object) =>
+      fetch(`${basePath}/api/admin/coupons`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? "Failed to create coupon");
+        return json;
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-coupons"] });
+      setOpen(false);
+      setForm({ code: "", description: "", discountPercent: "", discountAmount: "", maxUses: "1", expiryDate: "" });
+      toast({ title: "Coupon created" });
+    },
+    onError: (e: Error) => toast({ title: "Could not create coupon", description: e.message, variant: "destructive" }),
   });
 
   const del = useMutation({
-    mutationFn: (id: number) => fetch(`/api/admin/coupons/${id}`, { method: "DELETE" }).then((r) => r.ok),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-coupons"] }),
+    mutationFn: (id: number) =>
+      fetch(`${basePath}/api/admin/coupons/${id}`, { method: "DELETE", credentials: "include" }).then((r) => {
+        if (!r.ok) throw new Error("Failed to delete coupon");
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-coupons"] });
+      toast({ title: "Coupon deleted" });
+    },
+    onError: (e: Error) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
   });
 
   const toggle = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      fetch(`/api/admin/coupons/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) }).then((r) => r.json()),
+      fetch(`${basePath}/api/admin/coupons/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive }),
+      }).then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? "Failed to update coupon");
+        return json;
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-coupons"] }),
   });
 
@@ -99,7 +138,7 @@ export default function AdminBillingCoupons() {
           <DialogContent>
             <DialogHeader><DialogTitle>Create Coupon</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <Input placeholder="Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+              <Input placeholder="Code" className="uppercase" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} />
               <Input placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               <Input type="number" placeholder="Discount %" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} />
               <Input type="number" placeholder="Discount $" value={form.discountAmount} onChange={(e) => setForm({ ...form, discountAmount: e.target.value })} />
@@ -108,7 +147,19 @@ export default function AdminBillingCoupons() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={() => create.mutate({ code: form.code, description: form.description, discountPercent: form.discountPercent ? Number(form.discountPercent) : undefined, discountAmount: form.discountAmount ? Number(form.discountAmount) : undefined, maxUses: Number(form.maxUses), expiryDate: form.expiryDate || undefined })}>Create</Button>
+              <Button
+                disabled={create.isPending}
+                onClick={() => create.mutate({
+                  code: form.code,
+                  description: form.description,
+                  discountPercent: form.discountPercent ? Number(form.discountPercent) : undefined,
+                  discountAmount: form.discountAmount ? Number(form.discountAmount) : undefined,
+                  maxUses: Number(form.maxUses),
+                  expiryDate: form.expiryDate || undefined,
+                })}
+              >
+                {create.isPending ? "Creating…" : "Create"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
