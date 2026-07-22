@@ -1,10 +1,11 @@
 import { PublicNav, PublicFooter } from "@/components/public-layout";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 
 export default function Privacy() {
   return (
     <div className="min-h-[100dvh] bg-white">
-      <SeoHead
+      <PageSeo
+        pageSlug="privacy"
         title="Privacy Policy"
         description="SellerLens Privacy Policy — how we collect, use, and protect your personal data."
       />

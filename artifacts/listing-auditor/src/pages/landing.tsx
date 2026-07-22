@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import { HeroSlider } from "@/components/hero-slider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
@@ -761,7 +761,8 @@ export default function Landing() {
     <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
       <PublicNav />
 
-      <SeoHead
+      <PageSeo
+        pageSlug="home"
         title={cmsText(cms, "seo.title")}
         description={cmsText(cms, "seo.description")}
       />

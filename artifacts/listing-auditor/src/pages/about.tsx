@@ -1,5 +1,5 @@
 import { PublicNav, PublicFooter } from "@/components/public-layout";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import { Zap, Target, Users, Globe, Award, Heart } from "lucide-react";
 
 const values = [
@@ -21,7 +21,8 @@ const milestones = [
 export default function About() {
   return (
     <div className="min-h-[100dvh] bg-white">
-      <SeoHead
+      <PageSeo
+        pageSlug="about"
         title="About Us"
         description="Meet the team behind SellerLens and learn how we're helping Amazon sellers optimize listings with AI-powered audits."
       />

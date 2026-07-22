@@ -8,7 +8,7 @@ import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
   teamMembersTable, cmsContent, blogPosts, testimonials, navItems,
-  adminInvitesTable, adminRolesTable,
+  adminInvitesTable, adminRolesTable, seoSettings,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
@@ -82,6 +82,23 @@ router.get("/cms/homepage", async (_req, res): Promise<void> => {
     map[`${r.sectionKey}.${r.fieldKey}`] = r.value ?? "";
   }
   res.json(map);
+});
+
+router.get("/seo/:pageSlug", async (req, res): Promise<void> => {
+  const pageSlug = String(req.params.pageSlug ?? "");
+  const [setting] = await db.select().from(seoSettings).where(eq(seoSettings.pageSlug, pageSlug));
+  res.json(
+    setting ?? {
+      pageSlug,
+      metaTitle: null,
+      metaDescription: null,
+      keywords: null,
+      ogTitle: null,
+      ogDescription: null,
+      ogImage: null,
+      schemaMarkup: null,
+    },
+  );
 });
 
 router.get("/announcement/promo", async (_req, res): Promise<void> => {

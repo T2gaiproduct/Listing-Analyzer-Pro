@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import { CheckCircle2, Building2, Users, Zap, Shield, Globe, Code2, ArrowRight, Star, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,7 +82,8 @@ export default function Enterprise() {
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
-      <SeoHead
+      <PageSeo
+        pageSlug="enterprise"
         title="Enterprise"
         description="SellerLens Enterprise — custom AI solutions, dedicated support, and API access for large Amazon seller teams."
       />

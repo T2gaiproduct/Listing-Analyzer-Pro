@@ -60,7 +60,12 @@ export default function AdminMarketingSeo() {
   const saveMutation = useMutation({
     mutationFn: () =>
       fetch(`${basePath}/api/admin/seo/${selectedPage}`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pageSlug: selectedPage, ...form }) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-seo", selectedPage] }); setDirty(false); toast({ title: "SEO settings saved" }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-seo", selectedPage] });
+      qc.invalidateQueries({ queryKey: ["page-seo", selectedPage] });
+      setDirty(false);
+      toast({ title: "SEO settings saved" });
+    },
   });
 
   function f(key: keyof typeof emptyForm) {
