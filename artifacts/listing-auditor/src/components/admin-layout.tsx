@@ -5,7 +5,7 @@ import { useUser } from "@clerk/react";
 import {
   Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
-  BadgePercent, ClipboardList,
+  BadgePercent, ClipboardList, LayoutDashboard,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
@@ -36,6 +36,7 @@ const navSections: Array<{
   {
     label: "Overview",
     items: [
+      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "view_dashboard" },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart2, permission: "view_analytics" },
     ],
   },
@@ -294,7 +295,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
   const { user, isLoaded: clerkLoaded } = useUser();
-  const { can } = useAdminPermissions();
+  const { can, defaultRoute } = useAdminPermissions();
+  const adminHome = defaultRoute || "/admin/dashboard";
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -365,7 +367,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       <aside className={cn("hidden lg:flex flex-shrink-0 bg-slate-900 text-slate-100 flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
         {collapsed ? (
           <div className="h-16 flex flex-col items-center justify-center gap-1 px-2 border-b border-slate-700/50">
-            <Link href="/admin/dashboard" aria-label="Dashboard">
+            <Link href={adminHome} aria-label="Dashboard">
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
             <button
@@ -381,7 +383,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         ) : (
           <div className="h-16 flex items-center gap-2 px-4 border-b border-slate-700/50">
             <Link
-              href="/admin/dashboard"
+              href={adminHome}
               aria-label="Admin dashboard"
               className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 hover:bg-slate-700 transition-colors"
             >
@@ -445,7 +447,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
           <div className="h-14 flex items-center px-4 border-b border-slate-700/50">
             <Link
-              href="/admin/dashboard"
+              href={adminHome}
               onClick={() => setMobileNavOpen(false)}
               className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity"
             >

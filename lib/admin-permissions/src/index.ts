@@ -185,6 +185,10 @@ export function canAccessAdminRoute(
   return hasAdminPermission(permissions, required, opts);
 }
 
+export function normalizeAdminPath(pathname: string): string {
+  return pathname.split("?")[0].replace(/\/$/, "") || "/admin/dashboard";
+}
+
 /** First admin route the user may open (for default redirect). */
 export function getDefaultAdminRoute(
   permissions: readonly string[] | null | undefined,
@@ -209,6 +213,15 @@ export function getDefaultAdminRoute(
   ];
   for (const route of ordered) {
     if (canAccessAdminRoute(route, permissions, opts)) return route;
+  }
+  const extras = Object.keys(ADMIN_ROUTE_PERMISSIONS)
+    .filter((route) => !ordered.includes(route))
+    .sort((a, b) => b.length - a.length);
+  for (const route of extras) {
+    if (canAccessAdminRoute(route, permissions, opts)) return route;
+  }
+  if (opts?.isSuperAdmin || isSuperAdminRoleName(opts?.roleName)) {
+    return "/admin/dashboard";
   }
   return "/admin/dashboard";
 }

@@ -7,6 +7,7 @@ import { getStripeSync } from "./stripeClient";
 import { handleStripeEvent } from "./lib/stripeWebhook";
 import { wsHandler } from "./routes/ws";
 import { ensureDefaultPromoCoupons } from "./lib/promo-coupon-sync";
+import { ensureAdminRolePermissions } from "./lib/ensure-admin-role-permissions";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -80,6 +81,10 @@ await initStripe();
 ensureDefaultPromoCoupons()
   .then(() => logger.info("Default promo coupons ready"))
   .catch((err) => logger.error({ err }, "Default promo coupon seed failed"));
+
+ensureAdminRolePermissions()
+  .then(() => logger.info("Admin role permissions ready"))
+  .catch((err) => logger.error({ err }, "Admin role permission seed failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);

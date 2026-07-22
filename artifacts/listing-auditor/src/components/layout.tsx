@@ -40,12 +40,11 @@ import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey 
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { useTeam } from "@/hooks/use-team";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { SidebarProjectsContext } from "@/contexts/sidebar-projects";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-
-const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
-  .split(",").map((s) => s.trim()).filter(Boolean);
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -385,7 +384,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { toast } = useToast();
   useCreditPurchaseReturn();
-  const isAdmin = user ? adminUserIds.includes(user.id) : false;
+  const { isAdmin } = useIsAdmin();
+  const { defaultRoute } = useAdminPermissions();
+  const adminHome = defaultRoute || "/admin";
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -929,14 +930,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className={cn("mt-2", collapsed ? "px-2" : "px-3")}>
               {collapsed ? (
                 <SidebarTooltip label="Admin Panel" side="right">
-                  <Link href="/admin/dashboard">
+                  <Link href={adminHome}>
                     <button className="w-full flex items-center justify-center w-10 h-10 rounded-xl text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-primary transition-colors">
                       <Shield className="w-4 h-4 text-primary" />
                     </button>
                   </Link>
                 </SidebarTooltip>
               ) : (
-                <Link href="/admin/dashboard">
+                <Link href={adminHome}>
                   <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
                     <Shield className="w-4 h-4 text-primary flex-shrink-0" />
                     Admin Panel
@@ -1027,7 +1028,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 ))
               )}
               {isAdmin && (
-                <Link href="/admin/dashboard">
+                <Link href={adminHome}>
                   <button
                     type="button"
                     onClick={() => setMobileNavOpen(false)}

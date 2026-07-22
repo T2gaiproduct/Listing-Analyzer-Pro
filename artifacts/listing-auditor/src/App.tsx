@@ -16,6 +16,7 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useTeam } from "@/hooks/use-team";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
+import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
   AdminLayout,
@@ -270,9 +271,8 @@ function HomeRedirect() {
   const { isTeamMember, isLoading: teamLoading } = useTeam();
   if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
-  if (envAdmin) return <Redirect to="/admin/dashboard" />;
-  if (!adminLoaded || (isAdmin && !permLoaded)) return <AuthLoading />;
-  if (isAdmin) return <Redirect to={defaultRoute} />;
+  if (!adminLoaded || ((envAdmin || isAdmin) && !permLoaded)) return <AuthLoading />;
+  if (envAdmin || isAdmin) return <Redirect to={defaultRoute} />;
   if (summaryLoading || teamLoading) return <AuthLoading />;
   if (requiresOnboarding(summary) && !isTeamMember) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
@@ -332,6 +332,11 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
   if (!isAdmin) return <Redirect to="/dashboard" />;
   if (!canAccessRoute(location)) {
+    const current = normalizeAdminPath(location);
+    const fallback = normalizeAdminPath(defaultRoute);
+    if (fallback !== current) {
+      return <Redirect to={defaultRoute} />;
+    }
     return (
       <ErrorBoundary title="Admin page failed to load">
         <AdminLayout>
