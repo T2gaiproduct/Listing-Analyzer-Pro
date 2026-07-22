@@ -172,35 +172,56 @@ function HeroSlideMedia({
   );
 }
 
-function HeroSlideCtas({ slide, overlay }: { slide: HeroSlide; overlay?: boolean }) {
+function HeroSlideCtas({
+  slide,
+  overlay,
+  mobileOverlay,
+}: {
+  slide: HeroSlide;
+  overlay?: boolean;
+  mobileOverlay?: boolean;
+}) {
   if (!slide.ctaPrimaryText && !slide.ctaSecondaryText) return null;
 
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-3",
-        overlay
+        "flex items-stretch gap-2.5 sm:gap-3",
+        mobileOverlay
+          ? "flex-col max-w-sm mx-auto w-full"
+          : "flex-col sm:flex-row",
+        overlay && !mobileOverlay
           ? "justify-center max-w-md mx-auto sm:max-w-none"
-          : "justify-center lg:justify-start max-w-md mx-auto lg:mx-0 lg:max-w-none",
+          : !mobileOverlay && "justify-center lg:justify-start max-w-md mx-auto lg:mx-0 lg:max-w-none",
       )}
     >
       {slide.ctaPrimaryText && (
-        <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white px-6 w-full sm:w-auto sm:flex-none text-sm sm:text-base h-11 sm:h-12" asChild>
+        <Button
+          size={mobileOverlay ? "default" : "lg"}
+          className={cn(
+            "bg-orange-500 hover:bg-orange-600 text-white px-5 w-full sm:w-auto sm:flex-none",
+            mobileOverlay ? "h-10 text-sm font-semibold shadow-sm" : "text-sm sm:text-base h-11 sm:h-12 px-6",
+          )}
+          asChild
+        >
           <Link href={slide.ctaPrimaryUrl || "#"}>{slide.ctaPrimaryText}</Link>
         </Button>
       )}
       {slide.ctaSecondaryText && (
         <Button
-          size="lg"
+          size={mobileOverlay ? "default" : "lg"}
           variant={overlay ? "secondary" : "outline"}
           className={cn(
-            "px-6 w-full sm:w-auto sm:flex-none gap-2 text-sm sm:text-base h-11 sm:h-12",
-            overlay && "bg-white/95 hover:bg-white text-slate-900 border-0",
+            "px-5 w-full sm:w-auto sm:flex-none gap-2",
+            mobileOverlay
+              ? "h-10 text-sm font-medium bg-white/10 hover:bg-white/15 text-white border border-white/25"
+              : "text-sm sm:text-base h-11 sm:h-12 px-6",
+            overlay && !mobileOverlay && "bg-white/95 hover:bg-white text-slate-900 border-0",
           )}
           asChild
         >
           <Link href={slide.ctaSecondaryUrl || "#"} className="flex items-center justify-center gap-2">
-            <Play className="w-4 h-4 shrink-0" />
+            <Play className="w-3.5 h-3.5 shrink-0" />
             {slide.ctaSecondaryText}
           </Link>
         </Button>
@@ -212,46 +233,70 @@ function HeroSlideCtas({ slide, overlay }: { slide: HeroSlide; overlay?: boolean
 function HeroSlideCopy({
   slide,
   overlay,
+  mobileOverlay,
 }: {
   slide: HeroSlide;
   overlay?: boolean;
+  mobileOverlay?: boolean;
 }) {
   return (
     <>
-      <div className={cn("flex mb-3 sm:mb-6", overlay ? "justify-center" : "justify-center lg:justify-start")}>
+      <div
+        className={cn(
+          "flex",
+          mobileOverlay ? "mb-2.5 justify-center" : "mb-3 sm:mb-6",
+          !mobileOverlay && (overlay ? "justify-center" : "justify-center lg:justify-start"),
+        )}
+      >
         <p
           className={cn(
-            "inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest rounded-full px-2.5 sm:px-3 py-1.5",
-            overlay
+            "inline-flex items-center gap-1.5 font-bold uppercase rounded-full",
+            mobileOverlay
+              ? "text-[9px] tracking-[0.14em] px-2.5 py-1 text-orange-300 bg-orange-500/15 border border-orange-400/30"
+              : "text-[10px] sm:text-[11px] tracking-wider sm:tracking-widest px-2.5 sm:px-3 py-1.5",
+            !mobileOverlay && overlay
               ? "text-orange-200 bg-white/10 border border-white/20"
-              : "text-orange-600 bg-orange-50 border border-orange-100",
+              : !mobileOverlay && "text-orange-600 bg-orange-50 border border-orange-100",
           )}
         >
-          <Zap className="w-3 h-3 shrink-0" />
+          <Zap className={cn("shrink-0", mobileOverlay ? "w-2.5 h-2.5" : "w-3 h-3")} />
           <span>{slide.badgeText}</span>
         </p>
       </div>
       <h1
         className={cn(
-          "font-extrabold tracking-tight mb-2.5 sm:mb-5 text-[1.65rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]",
-          overlay ? "text-white" : "text-slate-900",
+          "font-extrabold tracking-tight",
+          mobileOverlay
+            ? "mb-2 text-[1.375rem] leading-[1.22] text-white"
+            : "mb-2.5 sm:mb-5 text-[1.65rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]",
+          !mobileOverlay && (overlay ? "text-white" : "text-slate-900"),
         )}
       >
-        <span className="block sm:inline">{slide.headingLine1}</span>{" "}
-        <span className={cn("block sm:inline", overlay ? "text-orange-300" : "text-orange-500")}>
+        <span className={mobileOverlay ? "block" : "block sm:inline"}>{slide.headingLine1}</span>{" "}
+        <span
+          className={cn(
+            mobileOverlay ? "block text-orange-400" : "block sm:inline",
+            !mobileOverlay && (overlay ? "text-orange-300" : "text-orange-500"),
+          )}
+        >
           {slide.headingHighlight}
         </span>
       </h1>
       <p
         className={cn(
-          "text-sm sm:text-lg mb-4 sm:mb-6 max-w-xl leading-relaxed",
-          overlay ? "text-white/85 mx-auto line-clamp-3" : "text-slate-500 mx-auto lg:mx-0",
+          "leading-relaxed",
+          mobileOverlay
+            ? "text-[13px] text-slate-300 mb-3.5 mx-auto line-clamp-2 max-w-[20rem]"
+            : "text-sm sm:text-lg mb-4 sm:mb-6 max-w-xl",
+          !mobileOverlay && overlay
+            ? "text-white/85 mx-auto line-clamp-3"
+            : !mobileOverlay && "text-slate-500 mx-auto lg:mx-0",
         )}
       >
         {slide.subheading}
       </p>
       {!overlay && <MarketplaceLogos className="mb-4 sm:mb-8" />}
-      <HeroSlideCtas slide={slide} overlay={overlay} />
+      <HeroSlideCtas slide={slide} overlay={overlay} mobileOverlay={mobileOverlay} />
     </>
   );
 }
@@ -264,11 +309,13 @@ function HeroMobileOverlaySlide({
   media: ReactNode;
 }) {
   return (
-    <div className="lg:hidden relative w-full aspect-[3/4] sm:aspect-[4/5] min-h-[380px] max-h-[min(78vh,680px)] overflow-hidden bg-slate-100 shrink-0">
-      <div className="absolute inset-0">{media}</div>
-      <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-slate-950/92 via-slate-950/55 to-transparent pointer-events-none" />
-      <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5 pt-16 text-center">
-        <HeroSlideCopy slide={slide} overlay />
+    <div className="lg:hidden w-full shrink-0 overflow-hidden bg-slate-950">
+      <div className="relative w-full aspect-[5/4] min-h-[200px] max-h-[min(38vh,320px)] overflow-hidden bg-slate-100">
+        <div className="absolute inset-0">{media}</div>
+        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none" />
+      </div>
+      <div className="px-4 pt-4 pb-5 sm:px-6 text-center">
+        <HeroSlideCopy slide={slide} overlay mobileOverlay />
       </div>
     </div>
   );
