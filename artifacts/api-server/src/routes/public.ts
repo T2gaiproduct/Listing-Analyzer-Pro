@@ -250,17 +250,18 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const hasActiveSubscription = sub != null && ["active", "trial"].includes(sub.status);
   let onboardingCompleted = profile?.onboardingCompleted ?? false;
 
-  // Self-heal: paid users and admin users should never be sent back to onboarding
   const auth = getAuth(req);
   const sessionEmail = auth?.sessionClaims?.email as string | undefined;
   const isAdmin = await isAdminUser(userId, sessionEmail);
-  if (!onboardingCompleted && (hasActiveSubscription || isAdmin)) {
+  const accountRole = await resolveUserAccountRole(userId);
+
+  // Self-heal: paid users, admins, and team members should never be sent back to onboarding
+  if (!onboardingCompleted && (hasActiveSubscription || isAdmin || accountRole.type === "team_member")) {
     await upsertUserProfile(userId, { onboardingCompleted: true });
     onboardingCompleted = true;
   }
 
   const credits = await ensureSubscriptionCredits(userId);
-  const accountRole = await resolveUserAccountRole(userId);
   res.json({
     profile: profile ?? null,
     onboardingCompleted,

@@ -241,7 +241,11 @@ function useOnboardingSummary() {
     queryKey: ["user-profile-summary"],
     queryFn: () =>
       fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then(
-        (r) => r.json() as Promise<{ onboardingCompleted?: boolean }>,
+        (r) =>
+          r.json() as Promise<{
+            onboardingCompleted?: boolean;
+            accountRole?: { type?: string };
+          }>,
       ),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
@@ -249,18 +253,26 @@ function useOnboardingSummary() {
   });
 }
 
+function requiresOnboarding(summary: { onboardingCompleted?: boolean; accountRole?: { type?: string } } | undefined) {
+  if (!summary) return false;
+  if (summary.onboardingCompleted) return false;
+  if (summary.accountRole?.type === "team_member") return false;
+  return true;
+}
+
 function HomeRedirect() {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
   const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
-  const { data: summary } = useOnboardingSummary();
+  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   if (!user) return <Landing />;
   if (envAdmin) return <Redirect to="/admin/dashboard" />;
   if (!adminLoaded || (isAdmin && !permLoaded)) return <AuthLoading />;
   if (isAdmin) return <Redirect to={defaultRoute} />;
-  if (summary && !summary.onboardingCompleted) return <Redirect to="/onboarding" />;
+  if (summaryLoading) return <AuthLoading />;
+  if (requiresOnboarding(summary)) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
 
@@ -268,10 +280,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
-  const { data: summary } = useOnboardingSummary();
+  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  if (user && !isAdminUser && summary && !summary.onboardingCompleted) {
+  if (user && !isAdminUser && summaryLoading) return <AuthLoading />;
+  if (user && !isAdminUser && requiresOnboarding(summary)) {
     return <Redirect to="/onboarding" />;
   }
   const Shell = isAdminUser ? AdminLayout : Layout;
