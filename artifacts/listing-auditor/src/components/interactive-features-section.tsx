@@ -16,7 +16,7 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <div className="relative w-full h-full bg-white overflow-hidden">
+    <div className="relative w-full h-full bg-[#faf8f5] overflow-hidden">
       <img
         src={feature.image}
         alt={feature.title}
@@ -65,6 +65,72 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
   return panel;
 }
 
+function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
+  const Icon = feature.icon;
+
+  const imageBlock = feature.image ? (
+    <div className="relative w-full aspect-[4/3] min-h-[200px] bg-[#faf8f5]">
+      <img
+        src={feature.image}
+        alt={feature.title}
+        className="absolute inset-0 w-full h-full object-cover object-center"
+        loading="lazy"
+      />
+    </div>
+  ) : (
+    <div className="flex items-center justify-center w-full min-h-[180px] bg-gradient-to-br from-slate-50 to-white p-4">
+      <div className="w-full max-w-xs scale-105 origin-center">
+        <FeatureCardMockup index={feature.index} />
+      </div>
+    </div>
+  );
+
+  const card = (
+    <div
+      key={feature.index}
+      className="animate-in fade-in duration-300 rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-sm"
+      role="tabpanel"
+      id={`feature-panel-${feature.index}`}
+      aria-labelledby={`feature-tab-${feature.index}`}
+      aria-label={feature.title}
+    >
+      <div className="p-5">
+        <h3 className="text-[1.35rem] font-bold text-slate-900 leading-[1.25] mb-2.5">
+          <span className="text-orange-500">{feature.title}</span>
+        </h3>
+        {feature.description && (
+          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+            {feature.description}
+          </p>
+        )}
+        {feature.bullets.length > 0 && (
+          <ul className="space-y-3">
+            {feature.bullets.map((bullet) => (
+              <li key={bullet} className="flex gap-3 items-start">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <Icon className="w-4 h-4 text-orange-500" strokeWidth={1.75} />
+                </div>
+                <p className="text-sm font-semibold text-slate-800 leading-snug pt-1">{bullet}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="border-t border-slate-100">{imageBlock}</div>
+    </div>
+  );
+
+  if (feature.href) {
+    return (
+      <Link href={feature.href} className="block w-full">
+        {card}
+      </Link>
+    );
+  }
+
+  return card;
+}
+
 function ServiceTab({
   feature,
   isActive,
@@ -74,9 +140,41 @@ function ServiceTab({
   feature: FeatureItem;
   isActive: boolean;
   onSelect: () => void;
-  layout: "sidebar" | "stack";
+  layout: "sidebar" | "mobile-vertical";
 }) {
   const Icon = feature.icon;
+
+  if (layout === "mobile-vertical") {
+    return (
+      <button
+        type="button"
+        role="tab"
+        id={`feature-tab-${feature.index}`}
+        aria-selected={isActive}
+        aria-controls={`feature-panel-${feature.index}`}
+        onClick={onSelect}
+        className={cn(
+          "flex items-center gap-3 w-full px-4 py-3.5 rounded-lg text-left transition-all duration-200 border border-l-[4px]",
+          isActive
+            ? "bg-orange-50 border-orange-200 border-l-orange-500 shadow-sm"
+            : "bg-slate-50/90 border-slate-200/80 border-l-transparent hover:bg-slate-100",
+        )}
+      >
+        <Icon
+          className={cn("w-[18px] h-[18px] shrink-0", isActive ? "text-orange-600" : "text-slate-600")}
+          strokeWidth={1.75}
+        />
+        <span
+          className={cn(
+            "font-semibold text-[15px] leading-snug",
+            isActive ? "text-slate-900" : "text-slate-700",
+          )}
+        >
+          {feature.title}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <button
@@ -87,14 +185,10 @@ function ServiceTab({
       aria-controls={`feature-panel-${feature.index}`}
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-3 text-left transition-all duration-200 w-full",
-        layout === "sidebar"
-          ? "px-4 py-3 rounded-xl border"
-          : "px-3 py-2.5 rounded-lg border shrink-0 snap-start",
+        "flex items-center gap-3 text-left transition-all duration-200 w-full px-4 py-3 rounded-xl border",
         isActive
-          ? "bg-orange-50 border-orange-200 shadow-sm"
+          ? "bg-orange-50 border-orange-200 shadow-sm border-l-4 border-l-orange-500 rounded-l-md"
           : "bg-white border-slate-200/90 hover:bg-slate-50 hover:border-slate-200",
-        layout === "sidebar" && isActive && "border-l-4 border-l-orange-500 rounded-l-md",
       )}
     >
       <div
@@ -149,24 +243,20 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
 
   return (
     <div className="w-full">
-      {/* Mobile / tablet */}
-      <div className="lg:hidden space-y-3">
-        <div
-          role="tablist"
-          aria-label="Services"
-          className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1 -mx-1 px-1"
-        >
+      {/* Mobile — vertical tabs + detail card */}
+      <div className="lg:hidden space-y-4">
+        <div role="tablist" aria-label="Services" className="flex flex-col gap-2">
           {features.map((feature, i) => (
             <ServiceTab
               key={feature.title}
               feature={feature}
               isActive={i === activeIndex}
               onSelect={() => setActiveIndex(i)}
-              layout="stack"
+              layout="mobile-vertical"
             />
           ))}
         </div>
-        <FeatureImagePanel feature={activeFeature} />
+        <FeatureMobileDetailPanel feature={activeFeature} />
       </div>
 
       {/* Desktop — balanced size, image height matches tabs */}
