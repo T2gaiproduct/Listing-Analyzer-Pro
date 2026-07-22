@@ -13,6 +13,11 @@ import {
   Wand2, Sparkles, Search, RefreshCw, Clock, Download,
   ArrowLeft, Maximize2, AlertTriangle,
 } from "lucide-react";
+import {
+  CustomPromptGenerationPanel,
+  type GraphicsAspectRatio,
+  type GraphicsQuality,
+} from "@/components/custom-prompt-generation-panel";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -166,6 +171,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [promptReferenceImages, setPromptReferenceImages] = useState<string[]>([]);
+  const [graphicsAspectRatio, setGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
+  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>("standard");
   const [projectId, setProjectId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
@@ -180,6 +188,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [moreStep, setMoreStep] = useState<"select" | "custom" | "generating">("select");
   const [moreImageTypes, setMoreImageTypes] = useState<string[]>([]);
   const [moreCustomPrompt, setMoreCustomPrompt] = useState("");
+  const [morePromptReferenceImages, setMorePromptReferenceImages] = useState<string[]>([]);
+  const [moreGraphicsAspectRatio, setMoreGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
+  const [moreGraphicsQuality, setMoreGraphicsQuality] = useState<GraphicsQuality>("standard");
   const [moreEtaSeconds, setMoreEtaSeconds] = useState(0);
   const [moreProgress, setMoreProgress] = useState(0);
 
@@ -271,6 +282,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           body: JSON.stringify({
             imageTypes: selectedImageTypes,
             customPrompt: customPrompt.trim() || undefined,
+            aspectRatio: graphicsAspectRatio,
+            quality: graphicsQuality,
+            promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
           }),
         });
         if (!res.ok) {
@@ -344,7 +358,13 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   });
 
   const generateMoreMutation = useMutation({
-    mutationFn: async ({ pid, payload }: { pid: number; payload: { imageTypes?: string[]; customPrompt?: string } }) => {
+    mutationFn: async ({ pid, payload }: { pid: number; payload: {
+      imageTypes?: string[];
+      customPrompt?: string;
+      aspectRatio?: GraphicsAspectRatio;
+      quality?: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    } }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${pid}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -708,6 +728,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             setMoreStep("select");
             setMoreImageTypes([]);
             setMoreCustomPrompt("");
+            setMorePromptReferenceImages([]);
+            setMoreGraphicsAspectRatio("1:1");
+            setMoreGraphicsQuality("standard");
           }
         }}>
           <DialogContent className="max-w-lg">
@@ -822,38 +845,18 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   </span>
                   <span className="font-medium text-slate-900">Custom Image</span>
                 </div>
-                <p className="text-sm text-slate-500">Describe exactly what you want your custom image to look like.</p>
 
-                <Textarea
-                  value={moreCustomPrompt}
-                  onChange={(e) => setMoreCustomPrompt(e.target.value)}
-                  placeholder="Describe your scene, lighting, composition, and background. Be specific and detailed."
-                  rows={4}
-                  className="resize-none text-sm"
+                <CustomPromptGenerationPanel
+                  customPrompt={moreCustomPrompt}
+                  onCustomPromptChange={setMoreCustomPrompt}
+                  referenceImages={morePromptReferenceImages}
+                  onReferenceImagesChange={setMorePromptReferenceImages}
+                  aspectRatio={moreGraphicsAspectRatio}
+                  onAspectRatioChange={setMoreGraphicsAspectRatio}
+                  quality={moreGraphicsQuality}
+                  onQualityChange={setMoreGraphicsQuality}
+                  promptMaxChars={PROMPT_MAX_CHARS}
                 />
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">{moreCustomPrompt.length} characters</span>
-                  <span className={moreCustomPrompt.trim().length > 0 ? "text-purple-600" : "text-slate-400"}>
-                    {moreCustomPrompt.trim().length > 0 ? "Ready to generate" : "Add a prompt to continue"}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Need inspiration? Try these:</p>
-                  {[
-                    "A sleek coffee mug on a marble countertop with morning sunlight streaming through a window",
-                    "My product floating on a cloud against a pastel gradient background with soft shadows",
-                    "A 3D render of my product on a rotating pedestal with dramatic rim lighting",
-                  ].map((ex, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setMoreCustomPrompt(ex)}
-                      className="w-full text-left p-3 rounded-lg border border-slate-200 bg-slate-50/50 text-sm text-slate-600 hover:border-purple-300 hover:bg-purple-50/30 transition-all"
-                    >
-                      <span className="text-purple-400">&ldquo;</span>{ex}<span className="text-purple-400">&rdquo;</span>
-                    </button>
-                  ))}
-                </div>
 
                 {moreImageTypes.filter(s => s !== "custom").length > 0 && (
                   <div className="pt-3 border-t border-slate-100">
@@ -896,6 +899,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                           payload: {
                             imageTypes: moreImageTypes,
                             customPrompt: moreCustomPrompt.trim(),
+                            aspectRatio: moreGraphicsAspectRatio,
+                            quality: moreGraphicsQuality,
+                            promptReferenceImageUrls: morePromptReferenceImages.length > 0 ? morePromptReferenceImages : undefined,
                           },
                         });
                       }
@@ -1167,47 +1173,17 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
       {/* Step 3: Custom Prompt (only if custom selected) */}
       {step === 3 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-purple-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Custom Prompt</h2>
-              <p className="text-xs text-slate-500">Describe exactly what you want the AI to create.</p>
-            </div>
-          </div>
-
-          <div className="space-y-2 rounded-xl border border-purple-200 bg-purple-50/30 p-3">
-            <label className="text-xs font-medium text-purple-900">
-              Custom Prompt
-              {customPrompt.length > 0 && (
-                <span className={`ml-2 text-xs font-medium ${customPrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : "text-slate-400"}`}>
-                  {customPrompt.length} / {PROMPT_MAX_CHARS}
-                </span>
-              )}
-            </label>
-            <Textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder="Describe exactly what you want the AI to create. Be specific about the scene, lighting, composition, and mood."
-              rows={3}
-              className="resize-none text-xs bg-white"
-            />
-            <div className="space-y-1">
-              <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Example prompts</p>
-              {CUSTOM_EXAMPLES.map((ex) => (
-                <button
-                  key={ex}
-                  className="block text-left text-[11px] text-purple-600 hover:text-purple-700 hover:underline w-full"
-                  onClick={() => setCustomPrompt(ex)}
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <CustomPromptGenerationPanel
+          customPrompt={customPrompt}
+          onCustomPromptChange={setCustomPrompt}
+          referenceImages={promptReferenceImages}
+          onReferenceImagesChange={setPromptReferenceImages}
+          aspectRatio={graphicsAspectRatio}
+          onAspectRatioChange={setGraphicsAspectRatio}
+          quality={graphicsQuality}
+          onQualityChange={setGraphicsQuality}
+          promptMaxChars={PROMPT_MAX_CHARS}
+        />
       )}
 
       {/* Actions */}
