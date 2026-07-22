@@ -17,6 +17,8 @@ import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
+import { ANNOUNCEMENT_PROMO_CATEGORY, ANNOUNCEMENT_PROMO_KEYS } from "../lib/announcement-promo.js";
+import { ensurePromoCoupon } from "../lib/promo-coupon-sync.js";
 import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
 import { savePortfolioImageFromDataUrl } from "../lib/portfolio-image-storage";
 import { saveWorkflowImageFromDataUrl } from "../lib/workflow-image-storage";
@@ -913,8 +915,25 @@ router.get("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
 
 router.post("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
   const { code, description, discountPercent, discountAmount, maxUses, expiryDate, appliesTo } = req.body;
+  const normalizedCode = typeof code === "string" ? code.trim().toUpperCase() : "";
+  if (!normalizedCode) {
+    res.status(400).json({ error: "Coupon code is required" });
+    return;
+  }
+  const percent = discountPercent != null && discountPercent !== "" ? Number(discountPercent) : null;
+  const amount = discountAmount != null && discountAmount !== "" ? Number(discountAmount) : null;
+  if ((percent == null || Number.isNaN(percent)) && (amount == null || Number.isNaN(amount))) {
+    res.status(400).json({ error: "Set either a discount percent or a fixed discount amount" });
+    return;
+  }
   const [c] = await db.insert(couponsTable).values({
-    code, description, discountPercent, discountAmount, maxUses, expiryDate: expiryDate ? new Date(expiryDate) : null, appliesTo,
+    code: normalizedCode,
+    description,
+    discountPercent: percent,
+    discountAmount: amount,
+    maxUses: maxUses != null && maxUses !== "" ? Number(maxUses) : 1,
+    expiryDate: expiryDate ? new Date(expiryDate) : null,
+    appliesTo,
   }).returning();
   res.status(201).json(c);
 });
@@ -1291,6 +1310,14 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   clearProviderCache();
   clearOpenAICache();
   clearGeminiCache();
+
+  if (category === ANNOUNCEMENT_PROMO_CATEGORY) {
+    const promoSettings = settings as Record<string, string>;
+    const promoCode = promoSettings[ANNOUNCEMENT_PROMO_KEYS.code]?.trim();
+    if (promoCode) {
+      await ensurePromoCoupon(promoCode, 20);
+    }
+  }
 
   res.json({ success: true });
 });

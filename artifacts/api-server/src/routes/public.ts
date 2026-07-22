@@ -21,6 +21,12 @@ import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storag
 import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
+import {
+  resolveCoupon,
+  couponErrorMessage,
+  computeCouponDiscountAmount,
+  incrementCouponUsage,
+} from "../lib/coupon-validation.js";
 
 const router: IRouter = Router();
 
@@ -569,16 +575,13 @@ router.get("/receipts/:paymentId", requireAuth, async (req, res): Promise<void> 
 
 router.post("/coupon/validate", requireAuth, async (req, res): Promise<void> => {
   const { code } = req.body as { code: string };
-  if (!code) { res.status(400).json({ error: "No coupon code provided" }); return; }
-  const [coupon] = await db.select().from(couponsTable)
-    .where(and(eq(couponsTable.code, code.toUpperCase()), eq(couponsTable.isActive, true)));
-  if (!coupon) { res.status(404).json({ error: "Coupon not found or expired" }); return; }
-  if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
-    res.status(400).json({ error: "Coupon has reached its usage limit" }); return;
+  const result = await resolveCoupon(code ?? "");
+  if (!result.ok) {
+    const status = result.error === "missing" ? 400 : result.error === "not_found" ? 404 : 400;
+    res.status(status).json({ error: couponErrorMessage(result.error) });
+    return;
   }
-  if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) {
-    res.status(400).json({ error: "Coupon has expired" }); return;
-  }
+  const { coupon } = result;
   res.json({
     code: coupon.code,
     discountPercent: coupon.discountPercent,
@@ -631,15 +634,17 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   });
 
   let discountAmount = 0;
+  let appliedCouponCode: string | null = null;
   if (couponCode) {
-    const [coupon] = await db.select().from(couponsTable)
-      .where(and(eq(couponsTable.code, couponCode.toUpperCase()), eq(couponsTable.isActive, true)));
-    if (coupon) {
-      const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly;
-      if (coupon.discountPercent) discountAmount = Math.round(price * coupon.discountPercent / 100);
-      else if (coupon.discountAmount) discountAmount = coupon.discountAmount;
-      await db.update(couponsTable).set({ usedCount: coupon.usedCount + 1 }).where(eq(couponsTable.id, coupon.id));
+    const couponResult = await resolveCoupon(couponCode);
+    if (!couponResult.ok) {
+      res.status(400).json({ error: couponErrorMessage(couponResult.error) });
+      return;
     }
+    const basePrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
+    discountAmount = computeCouponDiscountAmount(couponResult.coupon, basePrice);
+    appliedCouponCode = couponResult.coupon.code;
+    await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.usedCount);
   }
 
   const now = new Date();
@@ -664,7 +669,7 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
     cardLast4: null,
     cardBrand: null,
     autoRenew: autoRenew ?? true,
-    couponCode: couponCode ?? null,
+    couponCode: appliedCouponCode,
     discountAmount,
   };
 

@@ -6,6 +6,7 @@ import { logger } from "./lib/logger";
 import { getStripeSync } from "./stripeClient";
 import { handleStripeEvent } from "./lib/stripeWebhook";
 import { wsHandler } from "./routes/ws";
+import { ensureDefaultPromoCoupons } from "./lib/promo-coupon-sync";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -75,6 +76,10 @@ async function initStripe(): Promise<void> {
 }
 
 await initStripe();
+
+ensureDefaultPromoCoupons()
+  .then(() => logger.info("Default promo coupons ready"))
+  .catch((err) => logger.error({ err }, "Default promo coupon seed failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);

@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   db,
   plansTable,
@@ -7,11 +7,11 @@ import {
   paymentsTable,
   subscriptionsTable,
   userProfilesTable,
-  couponsTable,
 } from "@workspace/db";
 import { grantPlanCreditsDelta, subscriptionGrantsTotal, type PlanCredits } from "./subscription-credits";
 import { planRowToGrantCredits } from "./plan-credits";
 import { hasRequiredProfileFields, upsertUserProfile } from "./user-profile";
+import { incrementCouponUsage, loadActiveCoupon } from "./coupon-validation.js";
 
 export interface SubscriptionFulfillmentResult {
   activated: boolean;
@@ -224,14 +224,9 @@ export async function fulfillStripeSubscriptionCheckout(
 
   const cc = session.metadata?.couponCode;
   if (cc) {
-    const [coupon] = await db
-      .select()
-      .from(couponsTable)
-      .where(and(eq(couponsTable.code, cc.toUpperCase()), eq(couponsTable.isActive, true)));
+    const coupon = await loadActiveCoupon(cc);
     if (coupon) {
-      await db.update(couponsTable)
-        .set({ usedCount: coupon.usedCount + 1 })
-        .where(eq(couponsTable.id, coupon.id));
+      await incrementCouponUsage(coupon.id, coupon.usedCount);
     }
   }
 

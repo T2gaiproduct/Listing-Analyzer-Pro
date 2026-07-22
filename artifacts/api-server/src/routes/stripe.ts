@@ -1,13 +1,18 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
-  db, plansTable, couponsTable,
+  db, plansTable,
   userProfilesTable, subscriptionsTable,
 } from "@workspace/db";
 import { getUncachableStripeClient } from "../stripeClient";
 import { hasRequiredProfileFields, upsertUserProfile } from "../lib/user-profile";
 import { fulfillStripeSubscriptionCheckout } from "../lib/subscription-fulfillment";
+import {
+  resolveCoupon,
+  couponErrorMessage,
+  computeCouponDiscountAmount,
+} from "../lib/coupon-validation.js";
 import type Stripe from "stripe";
 
 const router: IRouter = Router();
@@ -74,24 +79,34 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
   // Validate coupon
   let discountAmount = 0;
   let stripeCouponId: string | null = null;
+  let appliedCouponCode: string | null = null;
   if (couponCode) {
-    const [coupon] = await db.select().from(couponsTable)
-      .where(and(eq(couponsTable.code, couponCode.toUpperCase()), eq(couponsTable.isActive, true)));
-    if (coupon && (!coupon.maxUses || coupon.usedCount < coupon.maxUses) && (!coupon.expiryDate || new Date(coupon.expiryDate) >= new Date())) {
-      const basePrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
-      if (coupon.discountPercent) discountAmount = Math.round(basePrice * coupon.discountPercent / 100);
-      else if (coupon.discountAmount) discountAmount = coupon.discountAmount;
-      try {
-        const stripe = await getUncachableStripeClient();
-        const sc = await stripe.coupons.create({
-          ...(coupon.discountPercent
-            ? { percent_off: coupon.discountPercent }
-            : { amount_off: Math.round(discountAmount * 100), currency: "usd" }),
-          duration: "once",
-          name: coupon.code,
-        });
-        stripeCouponId = sc.id;
-      } catch { /* proceed without discount if coupon creation fails */ }
+    const couponResult = await resolveCoupon(couponCode);
+    if (!couponResult.ok) {
+      res.status(400).json({ error: couponErrorMessage(couponResult.error) });
+      return;
+    }
+    const { coupon } = couponResult;
+    appliedCouponCode = coupon.code;
+    const basePrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
+    discountAmount = computeCouponDiscountAmount(coupon, basePrice);
+    try {
+      const stripeClient = await getUncachableStripeClient();
+      const sc = await stripeClient.coupons.create({
+        ...(coupon.discountPercent
+          ? { percent_off: coupon.discountPercent, duration: "once", name: coupon.code }
+          : {
+            amount_off: Math.round((coupon.discountAmount ?? 0) * 100),
+            currency: "usd",
+            duration: "once",
+            name: coupon.code,
+          }),
+      });
+      stripeCouponId = sc.id;
+    } catch (stripeCouponErr) {
+      req.log?.error?.({ stripeCouponErr, couponCode: coupon.code }, "Stripe coupon creation failed");
+      res.status(502).json({ error: "Could not apply this coupon to checkout. Please try again or contact support." });
+      return;
     }
   }
 
@@ -112,10 +127,10 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
 
   if (existingSub) {
     await db.update(subscriptionsTable)
-      .set({ planId: plan.id, billingCycle, status: "pending_payment", couponCode: couponCode ?? null, discountAmount, autoRenew: autoRenew ?? true, updatedAt: new Date() })
+      .set({ planId: plan.id, billingCycle, status: "pending_payment", couponCode: appliedCouponCode, discountAmount, autoRenew: autoRenew ?? true, updatedAt: new Date() })
       .where(eq(subscriptionsTable.userId, userId));
   } else {
-    await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle, status: "pending_payment", couponCode: couponCode ?? null, discountAmount, autoRenew: autoRenew ?? true });
+    await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle, status: "pending_payment", couponCode: appliedCouponCode, discountAmount, autoRenew: autoRenew ?? true });
   }
 
   // Build session params
@@ -130,7 +145,7 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
       userId,
       planId: String(planId),
       billingCycle,
-      couponCode: couponCode ?? "",
+      couponCode: appliedCouponCode ?? "",
       fullName: fullName ?? "",
       companyName: companyName ?? "",
       phone: phone ?? "",
