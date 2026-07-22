@@ -17,6 +17,8 @@ import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
+import { ANNOUNCEMENT_PROMO_CATEGORY, ANNOUNCEMENT_PROMO_KEYS } from "../lib/announcement-promo.js";
+import { ensurePromoCoupon } from "../lib/promo-coupon-sync.js";
 import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
 import { savePortfolioImageFromDataUrl } from "../lib/portfolio-image-storage";
 import { saveWorkflowImageFromDataUrl } from "../lib/workflow-image-storage";
@@ -1308,6 +1310,14 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   clearProviderCache();
   clearOpenAICache();
   clearGeminiCache();
+
+  if (category === ANNOUNCEMENT_PROMO_CATEGORY) {
+    const promoSettings = settings as Record<string, string>;
+    const promoCode = promoSettings[ANNOUNCEMENT_PROMO_KEYS.code]?.trim();
+    if (promoCode) {
+      await ensurePromoCoupon(promoCode, 20);
+    }
+  }
 
   res.json({ success: true });
 });
