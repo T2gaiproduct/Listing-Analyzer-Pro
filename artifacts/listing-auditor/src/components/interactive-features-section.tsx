@@ -1,8 +1,6 @@
 import { useState, useRef, useLayoutEffect } from "react";
 import { Link } from "wouter";
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { FeatureCardMockup } from "@/components/feature-card-mockups";
 import { cn } from "@/lib/utils";
 
@@ -16,127 +14,53 @@ export type FeatureItem = {
   image: string;
 };
 
-function FeaturePreview({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
-  if (feature.image) {
-    return (
-      <img
-        src={feature.image}
-        alt={`${feature.title} preview`}
-        className="w-full h-full object-cover"
-        loading="lazy"
-      />
-    );
-  }
-
-  return (
+function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
+  const content = feature.image ? (
+    <img
+      src={feature.image}
+      alt={feature.title}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
+  ) : (
     <div
       className={cn(
-        "flex items-center justify-center w-full h-full",
-        !fitHeight && "max-w-sm mx-auto scale-[1.2] sm:scale-[1.25] origin-center",
+        "flex items-center justify-center w-full h-full bg-gradient-to-br from-slate-50 to-white",
+        !fitHeight && "p-6",
       )}
     >
-      <div className={cn(fitHeight && "w-full max-w-[220px] origin-center")}>
+      <div className={cn(fitHeight ? "w-full max-w-[240px]" : "max-w-sm scale-110 sm:scale-125 origin-center")}>
         <FeatureCardMockup index={feature.index} />
       </div>
     </div>
   );
-}
 
-function FeatureDetailPanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
-  const Icon = feature.icon;
-
-  const header = (
-    <div className="flex items-center gap-3 mb-3">
-      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center shrink-0">
-        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
-      </div>
-      <span className="text-xs font-bold text-orange-500 tracking-wide">
-        {String(feature.index).padStart(2, "0")}
-      </span>
-    </div>
-  );
-
-  const titleBlock = (
-    <>
-      <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight mb-2">
-        {feature.title}
-      </h3>
-      <p className="text-sm text-slate-600 leading-relaxed mb-3">
-        {feature.description}
-      </p>
-      {feature.bullets.length > 0 && (
-        <ul className="space-y-1.5 mb-0">
-          {feature.bullets.map((bullet) => (
-            <li key={bullet} className="flex items-start gap-2 text-sm text-slate-700">
-              <Check className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
-              <span>{bullet}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
-  );
-
-  const previewFrame = (
-    <div
-      className={cn(
-        "rounded-xl border border-slate-200/80 overflow-hidden",
-        feature.image ? "bg-slate-100" : "bg-gradient-to-br from-slate-50 to-white",
-        fitHeight
-          ? "h-full min-h-0"
-          : cn("mb-4", feature.image ? "h-36 sm:h-40" : "min-h-[120px] sm:min-h-[140px]"),
-        !feature.image && "flex items-center justify-center p-4 sm:p-5",
-        feature.image && "p-0",
-      )}
-    >
-      <div
-        className={cn(
-          "w-full h-full",
-          !feature.image && "min-h-0 flex items-center justify-center pointer-events-none select-none",
-        )}
-      >
-        <FeaturePreview feature={feature} fitHeight={fitHeight} />
-      </div>
-    </div>
-  );
-
-  return (
+  const panel = (
     <div
       key={feature.index}
       className={cn(
-        "flex flex-col animate-in fade-in duration-300",
-        fitHeight && "h-full min-h-0",
+        "animate-in fade-in duration-300 overflow-hidden",
+        fitHeight ? "h-full w-full" : cn("rounded-2xl border border-slate-200/90", feature.image ? "h-48 sm:h-56" : "min-h-[160px]"),
+        !feature.image && !fitHeight && "bg-white shadow-sm",
       )}
       role="tabpanel"
       id={`feature-panel-${feature.index}`}
       aria-labelledby={`feature-tab-${feature.index}`}
+      aria-label={feature.title}
     >
-      {fitHeight ? (
-        <>
-          {header}
-          <div className="flex-1 min-h-0 grid grid-cols-[1fr_minmax(140px,42%)] gap-4 mb-3">
-            <div className="min-h-0 overflow-hidden">{titleBlock}</div>
-            {previewFrame}
-          </div>
-        </>
-      ) : (
-        <>
-          {header}
-          {titleBlock}
-          {previewFrame}
-        </>
-      )}
-
-      {feature.href && (
-        <Button asChild className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white shrink-0 mt-auto">
-          <Link href={feature.href}>
-            Learn more
-            <ArrowRight className="w-4 h-4 ml-1.5" />
-          </Link>
-        </Button>
-      )}
+      {content}
     </div>
   );
+
+  if (feature.href) {
+    return (
+      <Link href={feature.href} className={cn("block", fitHeight ? "h-full w-full" : "w-full")}>
+        {panel}
+      </Link>
+    );
+  }
+
+  return panel;
 }
 
 function ServiceTab({
@@ -223,7 +147,7 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
 
   return (
     <div className="w-full">
-      {/* Mobile / tablet: stacked tabs + detail */}
+      {/* Mobile / tablet: stacked tabs + image */}
       <div className="lg:hidden space-y-4">
         <div
           role="tablist"
@@ -240,12 +164,10 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
             />
           ))}
         </div>
-        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-sm p-5 sm:p-6">
-          <FeatureDetailPanel feature={activeFeature} />
-        </div>
+        <FeatureImagePanel feature={activeFeature} />
       </div>
 
-      {/* Desktop: sidebar + detail panel — right height matches left tabs */}
+      {/* Desktop: sidebar + image panel */}
       <div className="hidden lg:grid lg:grid-cols-[minmax(240px,280px)_1fr] gap-6 xl:gap-8 items-start">
         <div ref={sidebarRef} role="tablist" aria-label="Services" className="flex flex-col gap-3.5">
           {features.map((feature, i) => (
@@ -259,10 +181,10 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
           ))}
         </div>
         <div
-          className="rounded-2xl border border-slate-200/90 bg-white shadow-sm p-6 xl:p-7 flex flex-col min-h-0 overflow-hidden"
+          className="rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-h-0"
           style={sidebarHeight ? { height: sidebarHeight } : undefined}
         >
-          <FeatureDetailPanel feature={activeFeature} fitHeight />
+          <FeatureImagePanel feature={activeFeature} fitHeight />
         </div>
       </div>
     </div>
