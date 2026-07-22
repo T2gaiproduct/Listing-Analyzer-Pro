@@ -13,6 +13,7 @@ import { BrandingHead } from "@/components/branding-head";
 import { SiteLogo } from "@/components/site-logo";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { COUNTRIES } from "@/lib/countries";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -111,7 +112,7 @@ export default function Onboarding() {
   });
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [couponCode, setCouponCode] = useState("");
-  const [couponResult, setCouponResult] = useState<{ discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
+  const [couponResult, setCouponResult] = useState<{ code: string; discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
   const [couponError, setCouponError] = useState("");
   const [autoRenew, setAutoRenew] = useState(true);
 
@@ -137,6 +138,36 @@ export default function Onboarding() {
     queryFn: () => fetch(`${basePath}/api/profile`, { credentials: "include" }).then((r) => r.json()),
     enabled: isLoaded && !!user,
   });
+
+  const { data: profileSummary } = useQuery<{
+    onboardingCompleted?: boolean;
+    subscription?: { status?: string; planName?: string } | null;
+    accountRole?: { type?: string };
+  }>({
+    queryKey: ["user-profile-summary"],
+    queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isLoaded && !!user,
+  });
+
+  const { isTeamMember, isLoading: teamLoading } = useTeam();
+
+  // Team members use the owner workspace — credits come from admin allocation, not plan checkout
+  useEffect(() => {
+    if (teamLoading) return;
+    if (isTeamMember || profileSummary?.accountRole?.type === "team_member") {
+      setLocation("/dashboard", { replace: true });
+    }
+  }, [isTeamMember, teamLoading, profileSummary, setLocation]);
+
+  // Paid users who already completed checkout should not land back on plan selection
+  useEffect(() => {
+    if (!profileSummary) return;
+    const subStatus = profileSummary.subscription?.status;
+    const hasActivePlan = subStatus === "active" || subStatus === "trial";
+    if (profileSummary.onboardingCompleted && hasActivePlan) {
+      setLocation("/dashboard");
+    }
+  }, [profileSummary, setLocation]);
 
   const displayPlans = Array.isArray(plans) ? plans : [];
 
@@ -175,9 +206,15 @@ export default function Onboarding() {
   const validateCouponMutation = useMutation({
     mutationFn: (code: string) =>
       fetch(`${basePath}/api/coupon/validate`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: (data) => { setCouponResult(data); setCouponError(""); },
+    onSuccess: (data: { code: string; discountPercent?: number; discountAmount?: number; description?: string }) => {
+      setCouponCode(data.code);
+      setCouponResult(data);
+      setCouponError("");
+    },
     onError: (e: Error) => { setCouponError(e.message); setCouponResult(null); },
   });
+
+  const appliedCouponCode = couponResult?.code ?? null;
 
   const checkoutMutation = useMutation({
     mutationFn: (body: { gateway: string; [key: string]: unknown }) => {
@@ -257,7 +294,7 @@ export default function Onboarding() {
         billingCycle: yearly ? "yearly" : "monthly",
         autoRenew,
         useTrial: false,
-        couponCode: couponCode || undefined,
+        couponCode: appliedCouponCode || undefined,
       };
       return fetch(`${basePath}/api/onboarding`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); });
     },
@@ -287,8 +324,13 @@ export default function Onboarding() {
   if (!user) { setLocation("/sign-in"); return null; }
 
   const price = yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly;
-  const discount = couponResult ? (couponResult.discountPercent ? Math.round((price ?? 0) * couponResult.discountPercent / 100) : (couponResult.discountAmount ?? 0)) : 0;
-  const finalPrice = Math.max(0, (price ?? 0) - discount);
+  const chargeBase = yearly ? (price ?? 0) * 12 : (price ?? 0);
+  const discount = couponResult
+    ? (couponResult.discountPercent
+      ? Math.round(chargeBase * couponResult.discountPercent / 100)
+      : (couponResult.discountAmount ?? 0))
+    : 0;
+  const finalPrice = Math.max(0, chargeBase - discount);
 
   const gateway = paymentConfig?.defaultGateway ?? "stripe";
   const gatewayName = gateway.charAt(0).toUpperCase() + gateway.slice(1);
@@ -297,6 +339,11 @@ export default function Onboarding() {
 
   async function handleSubmit() {
     if (!selectedPlan) return;
+
+    if (couponCode.trim() && !appliedCouponCode) {
+      toast({ title: "Apply your coupon first", description: "Click Apply to validate your coupon code before continuing.", variant: "destructive" });
+      return;
+    }
 
     try {
       await saveProfileMutation.mutateAsync();
@@ -321,7 +368,7 @@ export default function Onboarding() {
       planId: selectedPlan.id,
       billingCycle: yearly ? "yearly" : "monthly",
       autoRenew,
-      couponCode: couponCode || undefined,
+      couponCode: appliedCouponCode || undefined,
     };
 
     const finalAmount = Math.max(0, finalPrice);
@@ -531,7 +578,18 @@ export default function Onboarding() {
                 <div className="mt-5 pt-5 border-t border-slate-100">
                   <Label className="text-sm flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-orange-500" />Have a coupon code?</Label>
                   <div className="flex flex-col sm:flex-row gap-2 mt-1.5">
-                    <Input className="sm:max-w-xs font-mono uppercase" placeholder="LAUNCH20" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(""); }} />
+                    <Input
+                      className="sm:max-w-xs font-mono uppercase"
+                      placeholder="LAUNCH20"
+                      value={couponCode}
+                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(""); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (couponCode.trim()) validateCouponMutation.mutate(couponCode);
+                        }
+                      }}
+                    />
                     <Button variant="outline" className="sm:flex-shrink-0" onClick={() => validateCouponMutation.mutate(couponCode)} disabled={!couponCode || validateCouponMutation.isPending}>
                       {validateCouponMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Apply"}
                     </Button>
@@ -594,7 +652,7 @@ export default function Onboarding() {
                         )}
                         {couponResult && finalPrice > 0 && (
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-500">Coupon ({couponCode})</span>
+                            <span className="text-slate-500">Coupon ({appliedCouponCode})</span>
                             <span className="text-green-600 font-medium">–${discount}</span>
                           </div>
                         )}

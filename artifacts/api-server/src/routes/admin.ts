@@ -17,6 +17,8 @@ import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
+import { ANNOUNCEMENT_PROMO_CATEGORY, ANNOUNCEMENT_PROMO_KEYS } from "../lib/announcement-promo.js";
+import { ensurePromoCoupon } from "../lib/promo-coupon-sync.js";
 import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
 import { savePortfolioImageFromDataUrl } from "../lib/portfolio-image-storage";
 import { saveWorkflowImageFromDataUrl } from "../lib/workflow-image-storage";
@@ -30,6 +32,7 @@ import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import { normalizeAdminEmail, ensureAdminInviteToken } from "../lib/admin-invites.js";
 import { buildAdminInviteUrl, generateAdminInviteToken } from "../lib/admin-invite-token.js";
+import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 
 const router: IRouter = Router();
 
@@ -498,18 +501,19 @@ router.patch("/admin/customers/:userId/package", requireAdmin, async (req, res):
     await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle: cycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
   }
   if (addCredits !== false) {
+    const grantCredits = await planRowToGrantCredits(plan);
     const [existing] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
     if (existing) {
       await db.update(creditsTable)
-        .set({ aiCredits: existing.aiCredits + plan.aiCredits, imageCredits: existing.imageCredits + plan.imageCredits, auditCredits: existing.auditCredits + plan.auditCredits, updatedAt: now })
+        .set({ aiCredits: existing.aiCredits + grantCredits.aiCredits, imageCredits: existing.imageCredits + grantCredits.imageCredits, auditCredits: existing.auditCredits + grantCredits.auditCredits, updatedAt: now })
         .where(eq(creditsTable.userId, userId));
     } else {
-      await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
+      await db.insert(creditsTable).values({ userId, aiCredits: grantCredits.aiCredits, imageCredits: grantCredits.imageCredits, auditCredits: grantCredits.auditCredits });
     }
     await db.insert(creditTransactionsTable).values([
-      { userId, creditType: "ai", amount: plan.aiCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "image", amount: plan.imageCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
-      { userId, creditType: "audit", amount: plan.auditCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "ai", amount: grantCredits.aiCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "image", amount: grantCredits.imageCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
+      { userId, creditType: "audit", amount: grantCredits.auditCredits, reason: `Admin: package changed to ${plan.name}`, featureType: "subscription" },
     ]);
   }
   res.json({ ok: true, plan });
@@ -580,13 +584,14 @@ router.get("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
   const allocations = creditAllocations ?? {};
+  const pools = await computePlanPoolsFromAllocations(allocations);
   const [plan] = await db
     .insert(plansTable)
     .values({
       name, description, priceMonthly, priceYearly,
-      aiCredits: allocations.content ?? allocations.ai ?? 0,
-      imageCredits: allocations.images ?? allocations.image ?? 0,
-      auditCredits: allocations.audit ?? 0,
+      aiCredits: pools.aiCredits,
+      imageCredits: pools.imageCredits,
+      auditCredits: pools.auditCredits,
       teamMembers: teamMembers ?? 1,
       creditAllocations: allocations,
       features: features ?? [],
@@ -609,9 +614,10 @@ router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> =
   const setObj: Record<string, unknown> = { name, description, priceMonthly, priceYearly, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() };
   if (creditAllocations !== undefined) {
     setObj.creditAllocations = creditAllocations;
-    setObj.aiCredits = creditAllocations.content ?? creditAllocations.ai ?? 0;
-    setObj.imageCredits = creditAllocations.images ?? creditAllocations.image ?? 0;
-    setObj.auditCredits = creditAllocations.audit ?? 0;
+    const pools = await computePlanPoolsFromAllocations(creditAllocations);
+    setObj.aiCredits = pools.aiCredits;
+    setObj.imageCredits = pools.imageCredits;
+    setObj.auditCredits = pools.auditCredits;
   }
   const [plan] = await db
     .update(plansTable)
@@ -909,8 +915,25 @@ router.get("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
 
 router.post("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
   const { code, description, discountPercent, discountAmount, maxUses, expiryDate, appliesTo } = req.body;
+  const normalizedCode = typeof code === "string" ? code.trim().toUpperCase() : "";
+  if (!normalizedCode) {
+    res.status(400).json({ error: "Coupon code is required" });
+    return;
+  }
+  const percent = discountPercent != null && discountPercent !== "" ? Number(discountPercent) : null;
+  const amount = discountAmount != null && discountAmount !== "" ? Number(discountAmount) : null;
+  if ((percent == null || Number.isNaN(percent)) && (amount == null || Number.isNaN(amount))) {
+    res.status(400).json({ error: "Set either a discount percent or a fixed discount amount" });
+    return;
+  }
   const [c] = await db.insert(couponsTable).values({
-    code, description, discountPercent, discountAmount, maxUses, expiryDate: expiryDate ? new Date(expiryDate) : null, appliesTo,
+    code: normalizedCode,
+    description,
+    discountPercent: percent,
+    discountAmount: amount,
+    maxUses: maxUses != null && maxUses !== "" ? Number(maxUses) : 1,
+    expiryDate: expiryDate ? new Date(expiryDate) : null,
+    appliesTo,
   }).returning();
   res.status(201).json(c);
 });
@@ -1028,6 +1051,7 @@ router.delete("/admin/roles/:id", requireAdmin, async (req, res): Promise<void> 
 });
 
 router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
+  try {
   const users = await db.select().from(adminUsersTable);
 
   // Enrich with role name
@@ -1061,9 +1085,14 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
       };
     })),
   });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to list admin role assignments");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load role assignments" });
+  }
 });
 
 router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> => {
+  try {
   const { email, roleId } = req.body as { email?: string; roleId: number; userId?: string };
   let targetUserId = req.body.userId as string | undefined;
   const adminReq = req as AdminRequest;
@@ -1136,6 +1165,15 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
   });
 
   res.status(201).json({ ...u, ...emailResult });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to assign admin role");
+    const message = err instanceof Error ? err.message : "Failed to assign role";
+    if (message.includes("admin_invites") && message.includes("does not exist")) {
+      res.status(503).json({ error: "Database is missing admin_invites table. Run pnpm --filter @workspace/db run push." });
+      return;
+    }
+    res.status(500).json({ error: message });
+  }
 });
 
 router.delete("/admin/admin-invites/:id", requireAdmin, async (req, res): Promise<void> => {
@@ -1272,6 +1310,14 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   clearProviderCache();
   clearOpenAICache();
   clearGeminiCache();
+
+  if (category === ANNOUNCEMENT_PROMO_CATEGORY) {
+    const promoSettings = settings as Record<string, string>;
+    const promoCode = promoSettings[ANNOUNCEMENT_PROMO_KEYS.code]?.trim();
+    if (promoCode) {
+      await ensurePromoCoupon(promoCode, 20);
+    }
+  }
 
   res.json({ success: true });
 });

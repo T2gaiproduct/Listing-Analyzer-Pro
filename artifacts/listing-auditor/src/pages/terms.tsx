@@ -1,10 +1,11 @@
 import { PublicNav, PublicFooter } from "@/components/public-layout";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 
 export default function Terms() {
   return (
     <div className="min-h-[100dvh] bg-white">
-      <SeoHead
+      <PageSeo
+        pageSlug="terms"
         title="Terms of Service"
         description="SellerLens Terms of Service — agreement for use of the SellerLens platform and services."
       />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useUser, SignIn } from "@clerk/react";
-import { useMutation } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, Mail, Shield, User, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ export default function AcceptInvite() {
   const [, setLocation] = useLocation();
   const { user, isLoaded } = useUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [token, setToken] = useState<string | null>(null);
   const [invite, setInvite] = useState<InviteDetails | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -71,20 +72,18 @@ export default function AcceptInvite() {
         if (!r.ok) throw new Error(data.error ?? "Failed to accept invite");
         return data;
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setAccepted(true);
       toast({ title: "Welcome to the team!", description: "You now have access to your team workspace." });
-      setTimeout(() => setLocation("/dashboard"), 2000);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["user-profile-summary"] }),
+        queryClient.refetchQueries({ queryKey: ["team-membership"] }),
+        queryClient.refetchQueries({ queryKey: ["team-membership-credits"] }),
+      ]);
+      setTimeout(() => setLocation("/dashboard", { replace: true }), 800);
     },
     onError: (e: Error) => toast({ title: "Failed to accept invite", description: e.message, variant: "destructive" }),
   });
-
-  // Auto-accept if signed in and invite is valid
-  useEffect(() => {
-    if (isLoaded && user && invite && invite.status === "pending" && !accepted && !acceptMutation.isPending) {
-      acceptMutation.mutate();
-    }
-  }, [isLoaded, user, invite]);
 
   if (!token || inviteError) {
     return (

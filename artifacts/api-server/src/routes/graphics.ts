@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
-import { generateImageBuffer, generateImageWithReferenceProxy } from "../lib/openai-image";
+import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import * as fs from "fs";
@@ -304,6 +304,8 @@ async function generateNewImageTypes(
   aspectRatio?: string,
   existingRecords?: GraphicsImageRecord[],
   startIndex?: number,
+  promptReferencePaths?: string[] | null,
+  quality?: string,
 ): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
@@ -317,23 +319,7 @@ async function generateNewImageTypes(
 
   let generatedCount = startIndex ?? 0;
 
-  // Resolve source image path: download remote URLs to local file
-  let sourcePath: string | null = null;
-  const rawPath = sourceImagePaths?.[0] ?? null;
-  if (rawPath) {
-    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
-      const destPath = path.join(dir, "source_remote.jpg");
-      const downloaded = await downloadImage(rawPath, destPath);
-      if (downloaded) {
-        sourcePath = downloaded;
-        console.log(`[generateNewImageTypes] Downloaded source image from ${rawPath} to ${downloaded}`);
-      } else {
-        console.log(`[generateNewImageTypes] Failed to download source image from ${rawPath}`);
-      }
-    } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
-      sourcePath = rawPath;
-    }
-  }
+  const referencePaths = await resolveReferencePaths(projectId, dir, promptReferencePaths ?? undefined, sourceImagePaths);
 
   async function generateOne(spec: GraphicsSpec): Promise<void> {
     const filename = versionedFilename(spec.type, spec.index);
@@ -343,18 +329,25 @@ async function generateNewImageTypes(
     try {
       const arKey = aspectRatio ?? "1:1";
       const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
+      const prompt = applyQualityToPrompt(spec.prompt, quality);
       let buffer: Buffer;
-      const sourceFileIsValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
-      if (sourceFileIsValid) {
-        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${spec.prompt}`;
-        console.log(`[generateNewImageTypes] Using reference image for ${spec.id}: ${sourcePath}`);
-        buffer = await generateImageWithReferenceProxy(referencePrompt, sourcePath!, size);
+
+      if (referencePaths.length > 1) {
+        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
+        console.log(`[generateNewImageTypes] Using ${referencePaths.length} reference images for ${spec.id}`);
+        buffer = await editImagesProxy(referencePaths, referencePrompt, filePath);
+      } else if (referencePaths.length === 1) {
+        const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
+        console.log(`[generateNewImageTypes] Using reference image for ${spec.id}: ${referencePaths[0]}`);
+        buffer = await generateImageWithReferenceProxy(referencePrompt, referencePaths[0]!, size);
+        fs.writeFileSync(filePath, buffer);
       } else {
         console.log(`[generateNewImageTypes] No valid source image, generating without reference for ${spec.id}`);
-        buffer = await generateImageBuffer(spec.prompt, size);
+        buffer = await generateImageBuffer(prompt, size);
+        fs.writeFileSync(filePath, buffer);
       }
+
       if (!buffer || buffer.length === 0) throw new Error("No image data returned");
-      fs.writeFileSync(filePath, buffer);
 
       const version = {
         url: imgUrl,
@@ -427,6 +420,61 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
     currentUrl: imgUrl,
     versions: [...existingRecord.versions, newVersion],
   };
+}
+
+const QUALITY_PROMPT_SUFFIX: Record<string, string> = {
+  hd: " Ultra high resolution, maximum sharp detail, professional commercial photography quality.",
+  standard: "",
+};
+
+function applyQualityToPrompt(prompt: string, quality?: string): string {
+  const suffix = QUALITY_PROMPT_SUFFIX[quality ?? "standard"] ?? "";
+  return suffix ? `${prompt.trim()}${suffix}` : prompt;
+}
+
+function savePromptReferenceImages(projectId: number, urls: string[] | undefined): string[] {
+  if (!urls?.length) return [];
+  const dir = path.join(IMAGES_DIR, String(projectId), "prompt_refs");
+  ensureDir(dir);
+  const saved: string[] = [];
+  urls.forEach((img, idx) => {
+    const ext = img.startsWith("data:image/png") ? "png" : "jpg";
+    const filePath = saveBase64Image(img, dir, `ref_${Date.now()}_${idx}.${ext}`);
+    if (filePath) saved.push(filePath);
+  });
+  return saved;
+}
+
+async function resolveReferencePaths(
+  projectId: number,
+  dir: string,
+  promptReferencePaths: string[] | undefined,
+  sourceImagePaths: string[] | null | undefined,
+): Promise<string[]> {
+  const resolved: string[] = [];
+
+  for (const rawPath of promptReferencePaths ?? []) {
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      const destPath = path.join(dir, `prompt_ref_remote_${resolved.length}.jpg`);
+      const downloaded = await downloadImage(rawPath, destPath);
+      if (downloaded) resolved.push(downloaded);
+    } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
+      resolved.push(rawPath);
+    }
+  }
+
+  const rawPath = sourceImagePaths?.[0] ?? null;
+  if (rawPath) {
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      const destPath = path.join(dir, "source_remote.jpg");
+      const downloaded = await downloadImage(rawPath, destPath);
+      if (downloaded) resolved.push(downloaded);
+    } else if (fs.existsSync(rawPath) && fs.statSync(rawPath).size >= MIN_FILE_SIZE) {
+      resolved.push(rawPath);
+    }
+  }
+
+  return resolved;
 }
 
 const MIN_FILE_SIZE = 1024; // 1 KB
@@ -650,7 +698,18 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const body = req.body as { style?: string; aspectRatio?: string; imageTypes?: string[]; customPrompt?: string; additionalLifestyleCount?: number; additionalFeatureCount?: number; customLifestylePrompt?: string; customFeaturePrompt?: string };
+  const body = req.body as {
+    style?: string;
+    aspectRatio?: string;
+    quality?: "standard" | "hd";
+    imageTypes?: string[];
+    customPrompt?: string;
+    promptReferenceImageUrls?: string[];
+    additionalLifestyleCount?: number;
+    additionalFeatureCount?: number;
+    customLifestylePrompt?: string;
+    customFeaturePrompt?: string;
+  };
 
   // Support both old payload (additionalLifestyleCount/additionalFeatureCount) and new payload (imageTypes)
   const isNewFlow = Array.isArray(body.imageTypes) && body.imageTypes.length > 0;
@@ -711,6 +770,8 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
     try {
       const generateStyle = body.style ?? "custom";
       const generateAspectRatio = body.aspectRatio ?? "1:1";
+      const generateQuality = body.quality ?? "standard";
+      const promptReferencePaths = savePromptReferenceImages(id, body.promptReferenceImageUrls);
       const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
       const existingCount = existingRecords.length;
       let newRecords: GraphicsImageRecord[];
@@ -725,6 +786,8 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
           generateAspectRatio,
           existingRecords,
           existingCount,
+          promptReferencePaths,
+          generateQuality,
         );
       } else {
         const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;

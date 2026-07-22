@@ -6,8 +6,17 @@ import {
   subscriptionsTable,
   plansTable,
 } from "@workspace/db";
+import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "./plan-credits";
 
 export interface CreditBalances {
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
+}
+
+export interface PlanCredits {
+  id: number;
+  name: string;
   aiCredits: number;
   imageCredits: number;
   auditCredits: number;
@@ -19,7 +28,7 @@ function sumCredits(c: CreditBalances): number {
   return c.aiCredits + c.imageCredits + c.auditCredits;
 }
 
-async function subscriptionGrantsTotal(userId: string): Promise<CreditBalances> {
+export async function subscriptionGrantsTotal(userId: string): Promise<CreditBalances> {
   const grants = await db
     .select({
       creditType: creditTransactionsTable.creditType,
@@ -44,46 +53,28 @@ async function subscriptionGrantsTotal(userId: string): Promise<CreditBalances> 
 }
 
 /**
- * If a user has an active subscription but is missing plan credits
- * (never granted, or grant total below current plan allocation), top up once.
- * Does not re-grant credits the user already received and spent.
+ * Grant only the plan credits the user has not already received via subscription grants.
+ * Returns true when any credits were added.
  */
-export async function ensureSubscriptionCredits(userId: string): Promise<CreditBalances> {
-  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
-  const current = credits ?? EMPTY_CREDITS;
-
-  const [sub] = await db
-    .select({
-      status: subscriptionsTable.status,
-      planAiCredits: plansTable.aiCredits,
-      planImageCredits: plansTable.imageCredits,
-      planAuditCredits: plansTable.auditCredits,
-      planName: plansTable.name,
-    })
-    .from(subscriptionsTable)
-    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
-    .where(eq(subscriptionsTable.userId, userId));
-
-  if (!sub || !["active", "trial"].includes(sub.status)) return current;
-
-  const planAi = sub.planAiCredits ?? 0;
-  const planImage = sub.planImageCredits ?? 0;
-  const planAudit = sub.planAuditCredits ?? 0;
-  if (planAi + planImage + planAudit <= 0) return current;
-
+export async function grantPlanCreditsDelta(
+  userId: string,
+  plan: PlanCredits,
+  reason: string,
+): Promise<boolean> {
   const granted = await subscriptionGrantsTotal(userId);
   const toAdd = {
-    aiCredits: Math.max(0, planAi - granted.aiCredits),
-    imageCredits: Math.max(0, planImage - granted.imageCredits),
-    auditCredits: Math.max(0, planAudit - granted.auditCredits),
+    aiCredits: Math.max(0, plan.aiCredits - granted.aiCredits),
+    imageCredits: Math.max(0, plan.imageCredits - granted.imageCredits),
+    auditCredits: Math.max(0, plan.auditCredits - granted.auditCredits),
   };
 
   if (toAdd.aiCredits + toAdd.imageCredits + toAdd.auditCredits <= 0) {
-    return current;
+    return false;
   }
 
+  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const current = credits ?? EMPTY_CREDITS;
   const now = new Date();
-  const planLabel = sub.planName ?? "plan";
   const next = {
     aiCredits: current.aiCredits + toAdd.aiCredits,
     imageCredits: current.imageCredits + toAdd.imageCredits,
@@ -101,15 +92,72 @@ export async function ensureSubscriptionCredits(userId: string): Promise<CreditB
 
   await db.insert(creditTransactionsTable).values([
     ...(toAdd.aiCredits > 0
-      ? [{ userId, creditType: "ai" as const, amount: toAdd.aiCredits, reason: `${planLabel} — subscription credits synced`, featureType: "subscription" }]
+      ? [{ userId, creditType: "ai" as const, amount: toAdd.aiCredits, reason, featureType: "subscription" }]
       : []),
     ...(toAdd.imageCredits > 0
-      ? [{ userId, creditType: "image" as const, amount: toAdd.imageCredits, reason: `${planLabel} — subscription credits synced`, featureType: "subscription" }]
+      ? [{ userId, creditType: "image" as const, amount: toAdd.imageCredits, reason, featureType: "subscription" }]
       : []),
     ...(toAdd.auditCredits > 0
-      ? [{ userId, creditType: "audit" as const, amount: toAdd.auditCredits, reason: `${planLabel} — subscription credits synced`, featureType: "subscription" }]
+      ? [{ userId, creditType: "audit" as const, amount: toAdd.auditCredits, reason, featureType: "subscription" }]
       : []),
   ]);
 
-  return next;
+  return true;
+}
+
+/**
+ * If a user has an active subscription but is missing plan credits
+ * (never granted, or grant total below current plan allocation), top up once.
+ * Does not re-grant credits the user already received and spent.
+ */
+export async function ensureSubscriptionCredits(userId: string): Promise<CreditBalances> {
+  const [credits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  const current = credits ?? EMPTY_CREDITS;
+
+  const [sub] = await db
+    .select({
+      status: subscriptionsTable.status,
+      planAiCredits: plansTable.aiCredits,
+      planImageCredits: plansTable.imageCredits,
+      planAuditCredits: plansTable.auditCredits,
+      creditAllocations: plansTable.creditAllocations,
+      planName: plansTable.name,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, userId));
+
+  if (!sub || !["active", "trial"].includes(sub.status)) return current;
+
+  const alloc = (sub.creditAllocations ?? {}) as Record<string, number>;
+  const hasAllocations = Object.keys(alloc).length > 0;
+  const pools = hasAllocations
+    ? await computePlanPoolsFromAllocations(alloc)
+    : await planRowToGrantCredits({
+        id: 0,
+        name: sub.planName ?? "plan",
+        aiCredits: sub.planAiCredits ?? 0,
+        imageCredits: sub.planImageCredits ?? 0,
+        auditCredits: sub.planAuditCredits ?? 0,
+      });
+  const planAi = pools.aiCredits;
+  const planImage = pools.imageCredits;
+  const planAudit = pools.auditCredits;
+  if (planAi + planImage + planAudit <= 0) return current;
+
+  const planLabel = sub.planName ?? "plan";
+  await grantPlanCreditsDelta(
+    userId,
+    {
+      id: 0,
+      name: planLabel,
+      aiCredits: planAi,
+      imageCredits: planImage,
+      auditCredits: planAudit,
+    },
+    `${planLabel} — subscription credits synced`,
+  );
+
+  const [updated] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
+  return updated ?? current;
 }

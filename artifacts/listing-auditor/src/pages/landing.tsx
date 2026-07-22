@@ -10,12 +10,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import { HeroSlider } from "@/components/hero-slider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
-import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
+import { parseFeatureBullets } from "@/lib/features-cms";
+import { FeatureCardMockup } from "@/components/feature-card-mockups";
+import { heroAutoplayEnabled, heroAutoplayIntervalMs, heroSlideIsVideo, parseHeroSlides } from "@/lib/hero-slides";
 import { portfolioItemIndices } from "@/lib/portfolio-cms";
 import { parseTutorialItems } from "@/lib/tutorials-cms";
 import { youtubeEmbedUrl, youtubeThumbnailUrl } from "@/lib/video-embed";
@@ -49,10 +51,13 @@ const HERO_STAT_ICONS = [BarChart3, Image, TrendingUp, Users];
 const WORKFLOW_ICONS = [Upload, Search, Wand2, Image, Download, Globe];
 
 type FeatureItem = {
+  index: number;
   icon: typeof ClipboardList;
   title: string;
   description: string;
   href: string;
+  bullets: string[];
+  image: string;
 };
 
 type PortfolioItem = {
@@ -75,10 +80,13 @@ function useLandingCmsData() {
   const cms = useHomepageCmsContext();
 
   const features: FeatureItem[] = [1, 2, 3, 4, 5].map((i) => ({
+    index: i,
     icon: FEATURE_ICONS[i - 1],
     title: cmsText(cms, `features.item${i}_title`),
     description: cmsText(cms, `features.item${i}_desc`),
     href: cmsText(cms, `features.item${i}_href`),
+    bullets: parseFeatureBullets(cms, i),
+    image: resolveCmsAssetUrl(cmsText(cms, `features.item${i}_image`), basePath),
   })).filter((f) => f.title);
 
   const heroSlides = parseHeroSlides(cms);
@@ -130,72 +138,85 @@ function useLandingCmsData() {
 }
 
 function FeatureCard({
+  index,
   icon: Icon,
   title,
   description,
   href,
-  layout = "grid",
-}: FeatureItem & { layout?: "grid" | "carousel" }) {
-  const isCarousel = layout === "carousel";
+  bullets,
+  image,
+  className,
+}: FeatureItem & { className?: string }) {
+  const number = String(index).padStart(2, "0");
 
   return (
     <Link
       href={href}
       className={cn(
-        "group block h-full transition-shadow",
-        isCarousel
-          ? "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md"
-          : "text-center",
+        "group flex flex-col h-full bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden",
+        className,
       )}
     >
-      <div className={cn(isCarousel ? "flex items-start gap-3.5" : "flex flex-col items-center")}>
-        <div
-          className={cn(
-            "rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-orange-50 transition-colors",
-            isCarousel ? "w-10 h-10" : "w-12 h-12 mb-4",
-          )}
-        >
-          <Icon className={cn("text-slate-700 group-hover:text-orange-600 transition-colors", isCarousel ? "w-5 h-5" : "w-6 h-6")} />
+      <div className="flex flex-col flex-1 p-4 sm:p-5">
+        <span className="text-[11px] font-bold text-orange-500 tracking-wide">{number}</span>
+
+        <div className="flex justify-center my-3 sm:my-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
+            <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
+          </div>
         </div>
-        <div className={cn("min-w-0", isCarousel ? "text-left" : "")}>
-          <h3 className={cn("font-semibold text-slate-900", isCarousel ? "mb-1 text-sm" : "mb-2")}>{title}</h3>
-          <p className={cn("text-slate-500 leading-relaxed", isCarousel ? "text-xs" : "text-sm")}>{description}</p>
-        </div>
+
+        <h3 className="text-center font-bold text-slate-900 text-sm sm:text-[15px] leading-snug mb-2">
+          {title}
+        </h3>
+        <p className="text-center text-xs sm:text-sm text-slate-500 leading-relaxed mb-4">
+          {description}
+        </p>
+
+        {bullets.length > 0 && (
+          <ul className="space-y-2 mb-4">
+            {bullets.map((bullet) => (
+              <li key={bullet} className="flex items-start gap-2 text-xs text-slate-600 leading-snug">
+                <Check className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
+                <span>{bullet}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="mt-auto border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white p-3 sm:p-4">
+        {image ? (
+          <img
+            src={image}
+            alt={`${title} preview`}
+            className="w-full rounded-lg object-contain max-h-36 sm:max-h-40"
+            loading="lazy"
+          />
+        ) : (
+          <FeatureCardMockup index={index} />
+        )}
       </div>
     </Link>
   );
 }
 
-function FeatureListCard({
-  icon: Icon,
-  title,
-  description,
-  href,
-}: FeatureItem) {
+function FeatureCardsRow({ features }: { features: FeatureItem[] }) {
   return (
-    <Link
-      href={href}
-      className="flex items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors w-full shadow-sm"
-    >
-      <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-        <Icon className="w-5 h-5 text-slate-900" strokeWidth={1.75} />
+    <>
+      <div className="lg:hidden -mx-4 px-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+        <div className="flex gap-4 w-max pb-2">
+          {features.map((f) => (
+            <FeatureCard key={f.title} {...f} className="w-[min(82vw,280px)] snap-center shrink-0" />
+          ))}
+        </div>
       </div>
-      <div className="flex-1 min-w-0 text-left">
-        <h3 className="font-semibold text-slate-900 text-sm leading-snug">{title}</h3>
-        <p className="text-xs text-slate-500 leading-relaxed mt-0.5">{description}</p>
+      <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-5">
+        {features.map((f) => (
+          <FeatureCard key={f.title} {...f} />
+        ))}
       </div>
-      <ChevronRight className="w-4 h-4 text-slate-900 shrink-0" strokeWidth={2} />
-    </Link>
-  );
-}
-
-function FeatureMobileStack({ features }: { features: FeatureItem[] }) {
-  return (
-    <div className="block lg:hidden space-y-3 w-full">
-      {features.map((f) => (
-        <FeatureListCard key={f.title} {...f} />
-      ))}
-    </div>
+    </>
   );
 }
 
@@ -757,18 +778,28 @@ export default function Landing() {
     tutorialPreviews,
   } = useLandingCmsData();
 
+  const hasVideoHero = heroSlides.some(heroSlideIsVideo);
+
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
       <PublicNav />
 
-      <SeoHead
+      <PageSeo
+        pageSlug="home"
         title={cmsText(cms, "seo.title")}
         description={cmsText(cms, "seo.description")}
       />
 
       {cmsEnabled(cms, "hero") && (
-      <section className="relative w-full pt-6 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
+      <section
+        className={cn(
+          "relative w-full overflow-hidden pb-10 sm:pb-16 lg:pb-20",
+          hasVideoHero ? "pt-0" : "pt-6 sm:pt-12 lg:pt-16",
+        )}
+      >
+        {!hasVideoHero && (
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
+        )}
         {heroSlides.length > 0 && (
           <div className="relative w-full">
             <HeroSlider
@@ -795,31 +826,28 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "features") && features.length > 0 && (
-      <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-20 border-t border-slate-100">
-        <div className="max-w-6xl mx-auto">
-          <div className="lg:hidden text-center mb-8">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
+      <section className="px-4 sm:px-6 lg:px-10 py-12 sm:py-16 lg:py-20 border-t border-slate-100 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8 sm:mb-10 lg:mb-12">
+            <p className="lg:hidden text-[11px] font-bold uppercase tracking-[0.14em] text-orange-500 mb-3">
               {cmsText(cms, "features.eyebrow")}
             </p>
-            <h2 className="text-[1.65rem] font-bold text-slate-900 leading-tight mb-3">
+            <h2 className="text-[1.65rem] sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900 leading-tight mb-3 max-w-4xl mx-auto">
               {cmsText(cms, "features.heading")}
             </h2>
-            <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+            <p className="text-sm sm:text-base text-slate-500 leading-relaxed max-w-2xl mx-auto">
               {cmsText(cms, "features.subheading")}
             </p>
           </div>
-          <h2 className="hidden lg:block text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900 text-center mb-3 lg:mb-4">
-            {cmsText(cms, "features.heading")}
-          </h2>
-          <p className="hidden lg:block text-base text-slate-500 text-center max-w-2xl mx-auto mb-6 lg:mb-12">
-            {cmsText(cms, "features.subheading")}
-          </p>
-          <FeatureMobileStack features={features} />
-          <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-8">
-            {features.map((f) => (
-              <FeatureCard key={f.title} {...f} />
-            ))}
-          </div>
+
+          <FeatureCardsRow features={features} />
+
+          {cmsText(cms, "features.footer_text") && (
+            <p className="mt-8 sm:mt-10 text-center text-sm text-slate-600 flex items-center justify-center gap-2">
+              <Check className="w-4 h-4 text-orange-500 shrink-0" strokeWidth={2.5} />
+              <span>{cmsText(cms, "features.footer_text")}</span>
+            </p>
+          )}
         </div>
       </section>
       )}

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import { Mail, Phone, MapPin, Clock, Calendar, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,8 @@ export default function Contact() {
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
-      <SeoHead
+      <PageSeo
+        pageSlug="contact"
         title="Contact Us"
         description="Get in touch with the SellerLens team for sales, support, or partnership inquiries."
       />

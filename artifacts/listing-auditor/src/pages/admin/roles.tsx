@@ -41,6 +41,19 @@ function adminInviteLink(token: string | null | undefined): string {
   return `${window.location.origin}${basePath}/accept-admin-invite?token=${token}`;
 }
 
+async function readApiJson<T>(r: Response): Promise<T> {
+  const text = await r.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      r.ok
+        ? "Invalid server response"
+        : `Server error (${r.status}). The API may be unavailable or the database needs updating.`,
+    );
+  }
+}
+
 const PERMISSION_GROUPS = ADMIN_PERMISSION_META.reduce((acc, item) => {
   if (!acc[item.group]) acc[item.group] = [];
   acc[item.group].push(item);
@@ -83,7 +96,12 @@ export default function AdminRoles() {
 
   const { data: assignedData, isLoading: assignedLoading, refetch: refetchAssigned } = useQuery<{ users: AssignedUser[]; invites?: PendingInvite[] }>({
     queryKey: ["admin-role-assignments"],
-    queryFn: () => fetch(`${basePath}/api/admin/admin-users`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`${basePath}/api/admin/admin-users`, { credentials: "include" });
+      const data = await readApiJson<{ users: AssignedUser[]; invites?: PendingInvite[]; error?: string }>(r);
+      if (!r.ok) throw new Error(data.error ?? "Failed to load assignments");
+      return data;
+    },
   });
   const assignedUsers = assignedData?.users ?? [];
   const pendingInvites = assignedData?.invites ?? [];
@@ -115,9 +133,12 @@ export default function AdminRoles() {
 
   // ── Assign role ──────────────────────────────────────────────────────────────
   const assignRole = useMutation({
-    mutationFn: (body: { email: string; roleId: number }) =>
-      fetch(`${basePath}/api/admin/admin-users`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json() as Promise<{ pending?: boolean; emailSent?: boolean; emailError?: string; inviteUrl?: string }>; }),
+    mutationFn: async (body: { email: string; roleId: number }) => {
+      const r = await fetch(`${basePath}/api/admin/admin-users`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await readApiJson<{ pending?: boolean; emailSent?: boolean; emailError?: string; inviteUrl?: string; error?: string }>(r);
+      if (!r.ok) throw new Error(data.error ?? "Failed to assign role");
+      return data;
+    },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
       setAssignDialogOpen(false);

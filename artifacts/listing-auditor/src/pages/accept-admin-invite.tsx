@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
-import { Shield, Mail, AlertTriangle, ArrowRight } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Shield, Mail, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SiteLogoImage } from "@/components/site-logo";
+import { getDefaultAdminRoute } from "@workspace/admin-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -18,15 +20,15 @@ interface AdminInviteDetails {
 export default function AcceptAdminInvite() {
   const [, setLocation] = useLocation();
   const { user, isLoaded } = useUser();
-  const [token, setToken] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const token = useMemo(
+    () => new URLSearchParams(window.location.search).get("token"),
+    [],
+  );
   const [invite, setInvite] = useState<AdminInviteDetails | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(true);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setToken(params.get("token"));
-  }, []);
+  const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -34,30 +36,97 @@ export default function AcceptAdminInvite() {
       setInviteLoading(false);
       return;
     }
+
+    let cancelled = false;
+    setInviteError(null);
     setInviteLoading(true);
-    fetch(`${basePath}/api/admin-role-invite/${token}`)
+
+    fetch(`${basePath}/api/admin-role-invite/${encodeURIComponent(token)}`)
       .then(async (r) => {
-        const data = await r.json();
+        const text = await r.text();
+        let data: AdminInviteDetails & { error?: string };
+        try {
+          data = JSON.parse(text) as AdminInviteDetails & { error?: string };
+        } catch {
+          throw new Error(r.ok ? "Invalid server response" : `Invite lookup failed (${r.status})`);
+        }
         if (!r.ok) throw new Error(data.error ?? "Invite not found");
-        setInvite(data);
+        if (!cancelled) setInvite(data);
       })
-      .catch((e: Error) => setInviteError(e.message))
-      .finally(() => setInviteLoading(false));
+      .catch((e: Error) => {
+        if (!cancelled) setInviteError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setInviteLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [token]);
 
+  const acceptMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${basePath}/api/admin-role-invite/${encodeURIComponent(token ?? "")}/accept`, {
+        method: "POST",
+        credentials: "include",
+      }).then(async (r) => {
+        const text = await r.text();
+        let data: { error?: string; permissions?: string[]; role?: string };
+        try {
+          data = JSON.parse(text) as typeof data;
+        } catch {
+          throw new Error(r.ok ? "Invalid server response" : `Accept failed (${r.status})`);
+        }
+        if (!r.ok) throw new Error(data.error ?? "Failed to accept invite");
+        return data;
+      }),
+    onSuccess: (data) => {
+      setAccepted(true);
+      void queryClient.invalidateQueries({ queryKey: ["is-admin"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-me"] });
+      void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
+      const route = getDefaultAdminRoute(data.permissions ?? [], { roleName: data.role });
+      setTimeout(() => setLocation(route, { replace: true }), 800);
+    },
+    onError: (e: Error) => setInviteError(e.message),
+  });
+
   useEffect(() => {
-    if (!isLoaded || !user || !invite) return;
-    setLocation("/admin", { replace: true });
-  }, [isLoaded, user, invite, setLocation]);
+    if (!isLoaded || !user || !token || accepted || acceptMutation.isPending || acceptMutation.isSuccess) return;
+    if (invite) {
+      acceptMutation.mutate();
+      return;
+    }
+    if (!inviteLoading && inviteError) {
+      fetch(`${basePath}/api/admin/is-admin`, { credentials: "include" })
+        .then((r) => r.json() as Promise<{ isAdmin?: boolean }>)
+        .then((data) => {
+          if (data.isAdmin) setLocation("/admin", { replace: true });
+        })
+        .catch(() => { /* ignore */ });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-accept once when signed in with a valid invite
+  }, [isLoaded, user, invite, inviteLoading, inviteError, token, accepted]);
 
   const authRedirect = token
     ? encodeURIComponent(`${basePath}/accept-admin-invite?token=${token}`)
     : encodeURIComponent("/admin");
 
-  if (inviteLoading) {
+  if (inviteLoading || (user && acceptMutation.isPending)) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (accepted) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border p-8 text-center space-y-4">
+          <CheckCircle className="w-10 h-10 text-green-500 mx-auto" />
+          <h1 className="text-xl font-bold text-slate-900">Admin access granted</h1>
+          <p className="text-sm text-slate-500">Redirecting to your admin dashboard…</p>
+        </div>
       </div>
     );
   }

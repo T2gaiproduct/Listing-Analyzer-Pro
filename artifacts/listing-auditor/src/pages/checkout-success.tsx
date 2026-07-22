@@ -1,12 +1,45 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { refetchCreditQueries, invalidateSubscriptionQueries } from "@/lib/credit-queries";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 import { USER_SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-user-subscription";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function isSubscriptionAlreadyActive(): Promise<boolean> {
+  try {
+    const res = await fetch(`${basePath}/api/profile/summary`, { credentials: "include" });
+    if (!res.ok) return false;
+    const data = await res.json() as {
+      onboardingCompleted?: boolean;
+      subscription?: { status?: string } | null;
+    };
+    return Boolean(
+      data.onboardingCompleted
+      && data.subscription
+      && ["active", "trial"].includes(data.subscription.status ?? ""),
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function markCheckoutComplete(queryClient: QueryClient) {
+  queryClient.setQueryData(["user-profile-summary"], (prev: {
+    onboardingCompleted?: boolean;
+    subscription?: { status?: string; planName?: string } | null;
+  } | undefined) => ({
+    ...prev,
+    onboardingCompleted: true,
+    subscription: { ...(prev?.subscription ?? {}), status: "active" },
+  }));
+  await queryClient.refetchQueries({ queryKey: ["user-profile-summary"] });
+  await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+  await queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+  await refetchCreditQueries(queryClient);
+}
 
 export default function CheckoutSuccess() {
   const [, setLocation] = useLocation();
@@ -49,9 +82,16 @@ export default function CheckoutSuccess() {
           if (data.subscription) {
             queryClient.setQueryData([...USER_SUBSCRIPTION_QUERY_KEY], data.subscription);
           }
-          await invalidateSubscriptionQueries(queryClient);
-          await refetchCreditQueries(queryClient);
+          await markCheckoutComplete(queryClient);
           setTimeout(() => setLocation("/dashboard"), 2200);
+          return;
+        }
+
+        if (await isSubscriptionAlreadyActive()) {
+          activatedRef.current = true;
+          setStatus("success");
+          await markCheckoutComplete(queryClient);
+          setTimeout(() => setLocation("/dashboard"), 1200);
           return;
         }
 
@@ -64,6 +104,11 @@ export default function CheckoutSuccess() {
         if (attempts < maxAttempts) {
           attempts++;
           setTimeout(poll, 1500);
+        } else if (await isSubscriptionAlreadyActive()) {
+          activatedRef.current = true;
+          setStatus("success");
+          await markCheckoutComplete(queryClient);
+          setTimeout(() => setLocation("/dashboard"), 1200);
         } else {
           setStatus("failed");
           setErrorMessage("Payment confirmation timed out. If you were charged, please contact support with your order details.");
@@ -72,6 +117,11 @@ export default function CheckoutSuccess() {
         if (attempts < maxAttempts) {
           attempts++;
           setTimeout(poll, 2000);
+        } else if (await isSubscriptionAlreadyActive()) {
+          activatedRef.current = true;
+          setStatus("success");
+          await markCheckoutComplete(queryClient);
+          setTimeout(() => setLocation("/dashboard"), 1200);
         } else {
           setStatus("failed");
           setErrorMessage("Could not verify payment. Please check your email for a Stripe receipt, or contact support.");

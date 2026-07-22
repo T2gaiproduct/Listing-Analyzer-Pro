@@ -9,6 +9,7 @@ import {
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
 import { setMemberCredits, getMemberCredits } from "../lib/credits.js";
+import { upsertUserProfile } from "../lib/user-profile.js";
 import {
   countAuditActivity,
   getLastActivityAt,
@@ -267,6 +268,9 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   await db.update(teamMembersTable)
     .set({ status: "active", memberUserId: userId, acceptedAt: new Date() })
     .where(eq(teamMembersTable.inviteToken, token));
+
+  // Team members join an existing workspace — skip owner onboarding/plan selection
+  await upsertUserProfile(userId, { onboardingCompleted: true });
 
   // Send welcome email
   try {

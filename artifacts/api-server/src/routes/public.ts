@@ -8,16 +8,25 @@ import {
   db, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable, paymentsTable, invoicesTable, couponsTable,
   userProfilesTable, subscriptionsTable, notificationsTable, settingsTable, faqs, formSubmissions,
   teamMembersTable, cmsContent, blogPosts, testimonials, navItems,
-  adminInvitesTable, adminRolesTable,
+  adminInvitesTable, adminRolesTable, seoSettings,
 } from "@workspace/db";
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
+import { planRowToGrantCredits } from "../lib/plan-credits";
 import { upsertUserProfile } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
+import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
+import { isAdminUser } from "../lib/admin-auth.js";
+import {
+  resolveCoupon,
+  couponErrorMessage,
+  computeCouponDiscountAmount,
+  incrementCouponUsage,
+} from "../lib/coupon-validation.js";
 
 const router: IRouter = Router();
 
@@ -80,6 +89,23 @@ router.get("/cms/homepage", async (_req, res): Promise<void> => {
     map[`${r.sectionKey}.${r.fieldKey}`] = r.value ?? "";
   }
   res.json(map);
+});
+
+router.get("/seo/:pageSlug", async (req, res): Promise<void> => {
+  const pageSlug = String(req.params.pageSlug ?? "");
+  const [setting] = await db.select().from(seoSettings).where(eq(seoSettings.pageSlug, pageSlug));
+  res.json(
+    setting ?? {
+      pageSlug,
+      metaTitle: null,
+      metaDescription: null,
+      keywords: null,
+      ogTitle: null,
+      ogDescription: null,
+      ogImage: null,
+      schemaMarkup: null,
+    },
+  );
 });
 
 router.get("/announcement/promo", async (_req, res): Promise<void> => {
@@ -226,12 +252,26 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     .from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
-  const credits = await ensureSubscriptionCredits(userId);
+  const sub = subRows[0] ?? null;
+  const hasActiveSubscription = sub != null && ["active", "trial"].includes(sub.status);
+  let onboardingCompleted = profile?.onboardingCompleted ?? false;
+
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  const isAdmin = await isAdminUser(userId, sessionEmail);
   const accountRole = await resolveUserAccountRole(userId);
+
+  // Self-heal: paid users, admins, and team members should never be sent back to onboarding
+  if (!onboardingCompleted && (hasActiveSubscription || isAdmin || accountRole.type === "team_member")) {
+    await upsertUserProfile(userId, { onboardingCompleted: true });
+    onboardingCompleted = true;
+  }
+
+  const credits = await ensureSubscriptionCredits(userId);
   res.json({
     profile: profile ?? null,
-    onboardingCompleted: profile?.onboardingCompleted ?? false,
-    subscription: subRows[0] ?? null,
+    onboardingCompleted,
+    subscription: sub,
     credits,
     accountRole,
   });
@@ -474,18 +514,19 @@ router.post("/subscription/upgrade", requireAuth, async (req, res): Promise<void
   } else {
     await db.insert(subscriptionsTable).values({ userId, planId: plan.id, billingCycle, status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd });
   }
+  const grantCredits = await planRowToGrantCredits(plan);
   const [existingCredits] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
   if (existingCredits) {
     await db.update(creditsTable)
-      .set({ aiCredits: existingCredits.aiCredits + plan.aiCredits, imageCredits: existingCredits.imageCredits + plan.imageCredits, auditCredits: existingCredits.auditCredits + plan.auditCredits, updatedAt: now })
+      .set({ aiCredits: existingCredits.aiCredits + grantCredits.aiCredits, imageCredits: existingCredits.imageCredits + grantCredits.imageCredits, auditCredits: existingCredits.auditCredits + grantCredits.auditCredits, updatedAt: now })
       .where(eq(creditsTable.userId, userId));
   } else {
-    await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
+    await db.insert(creditsTable).values({ userId, aiCredits: grantCredits.aiCredits, imageCredits: grantCredits.imageCredits, auditCredits: grantCredits.auditCredits });
   }
   await db.insert(creditTransactionsTable).values([
-    { userId, creditType: "ai", amount: plan.aiCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
-    { userId, creditType: "image", amount: plan.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
-    { userId, creditType: "audit", amount: plan.auditCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "ai", amount: grantCredits.aiCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "image", amount: grantCredits.imageCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
+    { userId, creditType: "audit", amount: grantCredits.auditCredits, reason: `Upgraded to ${plan.name}`, featureType: "subscription" },
   ]);
 
   const [updated] = await db.select({
@@ -561,16 +602,13 @@ router.get("/receipts/:paymentId", requireAuth, async (req, res): Promise<void> 
 
 router.post("/coupon/validate", requireAuth, async (req, res): Promise<void> => {
   const { code } = req.body as { code: string };
-  if (!code) { res.status(400).json({ error: "No coupon code provided" }); return; }
-  const [coupon] = await db.select().from(couponsTable)
-    .where(and(eq(couponsTable.code, code.toUpperCase()), eq(couponsTable.isActive, true)));
-  if (!coupon) { res.status(404).json({ error: "Coupon not found or expired" }); return; }
-  if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
-    res.status(400).json({ error: "Coupon has reached its usage limit" }); return;
+  const result = await resolveCoupon(code ?? "");
+  if (!result.ok) {
+    const status = result.error === "missing" ? 400 : result.error === "not_found" ? 404 : 400;
+    res.status(status).json({ error: couponErrorMessage(result.error) });
+    return;
   }
-  if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) {
-    res.status(400).json({ error: "Coupon has expired" }); return;
-  }
+  const { coupon } = result;
   res.json({
     code: coupon.code,
     discountPercent: coupon.discountPercent,
@@ -623,15 +661,17 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
   });
 
   let discountAmount = 0;
+  let appliedCouponCode: string | null = null;
   if (couponCode) {
-    const [coupon] = await db.select().from(couponsTable)
-      .where(and(eq(couponsTable.code, couponCode.toUpperCase()), eq(couponsTable.isActive, true)));
-    if (coupon) {
-      const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly;
-      if (coupon.discountPercent) discountAmount = Math.round(price * coupon.discountPercent / 100);
-      else if (coupon.discountAmount) discountAmount = coupon.discountAmount;
-      await db.update(couponsTable).set({ usedCount: coupon.usedCount + 1 }).where(eq(couponsTable.id, coupon.id));
+    const couponResult = await resolveCoupon(couponCode);
+    if (!couponResult.ok) {
+      res.status(400).json({ error: couponErrorMessage(couponResult.error) });
+      return;
     }
+    const basePrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
+    discountAmount = computeCouponDiscountAmount(couponResult.coupon, basePrice);
+    appliedCouponCode = couponResult.coupon.code;
+    await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.usedCount);
   }
 
   const now = new Date();
@@ -656,7 +696,7 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
     cardLast4: null,
     cardBrand: null,
     autoRenew: autoRenew ?? true,
-    couponCode: couponCode ?? null,
+    couponCode: appliedCouponCode,
     discountAmount,
   };
 
@@ -666,21 +706,13 @@ router.post("/onboarding", requireAuth, async (req, res): Promise<void> => {
     await db.insert(subscriptionsTable).values({ userId, ...subData });
   }
 
-  const existingCredits = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
-  if (existingCredits.length) {
-    const ec = existingCredits[0];
-    await db.update(creditsTable)
-      .set({ aiCredits: ec.aiCredits + plan.aiCredits, imageCredits: ec.imageCredits + plan.imageCredits, auditCredits: ec.auditCredits + plan.auditCredits, updatedAt: new Date() })
-      .where(eq(creditsTable.userId, userId));
-  } else {
-    await db.insert(creditsTable).values({ userId, aiCredits: plan.aiCredits, imageCredits: plan.imageCredits, auditCredits: plan.auditCredits });
-  }
-
-  await db.insert(creditTransactionsTable).values([
-    { userId, creditType: "ai", amount: plan.aiCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
-    { userId, creditType: "image", amount: plan.imageCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
-    { userId, creditType: "audit", amount: plan.auditCredits, reason: `${plan.name} plan — onboarding`, featureType: "subscription" },
-  ]);
+  const { fulfillOnboardingPlan } = await import("../lib/subscription-fulfillment");
+  await fulfillOnboardingPlan({
+    userId,
+    plan,
+    idempotencyKey: `onboarding:${userId}:${plan.id}`,
+    reason: `${plan.name} plan — onboarding`,
+  });
 
   res.json({ ok: true });
 });
@@ -1042,6 +1074,42 @@ router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
     permissions: invite.permissions ?? [],
     invitedAt: invite.createdAt,
   });
+});
+
+router.post("/admin-role-invite/:token/accept", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const token = String(req.params.token ?? "");
+  const auth = getAuth(req);
+  let sessionEmail = auth?.sessionClaims?.email as string | undefined;
+
+  if (!sessionEmail) {
+    try {
+      const cu = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+        headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY ?? ""}` },
+      }).then((r) => r.json()) as Record<string, unknown>;
+      const emails = cu.email_addresses as Array<{ email_address: string }> | undefined;
+      sessionEmail = emails?.[0]?.email_address;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  try {
+    const result = await acceptAdminInviteByToken(userId, token, { verifyEmail: sessionEmail });
+    if (!result.accepted) {
+      res.status(404).json({ error: "Invite not found or already accepted" });
+      return;
+    }
+    res.json({
+      ok: true,
+      alreadyAccepted: result.alreadyAccepted ?? false,
+      role: result.roleName,
+      permissions: result.permissions ?? [],
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to accept invite";
+    res.status(403).json({ error: message });
+  }
 });
 
 export default router;

@@ -33,6 +33,11 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
+  CustomPromptGenerationPanel,
+  type GraphicsAspectRatio,
+  type GraphicsQuality,
+} from "@/components/custom-prompt-generation-panel";
+import {
   useCreateAuditDraft,
   usePatchAudit,
   useGenerateContent,
@@ -601,6 +606,9 @@ export default function AuditWorkflow() {
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt]             = useState("");
+  const [promptReferenceImages, setPromptReferenceImages] = useState<string[]>([]);
+  const [graphicsAspectRatio, setGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
+  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>("standard");
 
 
   /* ── Close category dropdown on outside click ── */
@@ -737,14 +745,40 @@ export default function AuditWorkflow() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const graphicsGenerateOptions = useMemo(() => ({
+    aspectRatio: graphicsAspectRatio,
+    quality: graphicsQuality,
+    promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
+  }), [graphicsAspectRatio, graphicsQuality, promptReferenceImages]);
+
   /* ── Generate on existing project ── */
   const generateExisting = useMutation({
-    mutationFn: async ({ projectId, imageTypes, customPrompt }: { projectId: number; imageTypes: string[]; customPrompt?: string }) => {
+    mutationFn: async ({
+      projectId,
+      imageTypes,
+      customPrompt,
+      aspectRatio,
+      quality,
+      promptReferenceImageUrls,
+    }: {
+      projectId: number;
+      imageTypes: string[];
+      customPrompt?: string;
+      aspectRatio?: GraphicsAspectRatio;
+      quality?: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ imageTypes, customPrompt: customPrompt?.trim() || undefined }),
+        body: JSON.stringify({
+          imageTypes,
+          customPrompt: customPrompt?.trim() || undefined,
+          aspectRatio,
+          quality,
+          promptReferenceImageUrls,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -787,7 +821,13 @@ export default function AuditWorkflow() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ imageTypes: selectedImageTypes, customPrompt: customPrompt.trim() || undefined }),
+        body: JSON.stringify({
+          imageTypes: selectedImageTypes,
+          customPrompt: customPrompt.trim() || undefined,
+          aspectRatio: graphicsAspectRatio,
+          quality: graphicsQuality,
+          promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
+        }),
       }).then(() => refreshCreditBalances(queryClient));
       setGraphicsProjectId(project.id);
       setGraphicsStatus("generating");
@@ -1054,6 +1094,7 @@ export default function AuditWorkflow() {
           projectId: existingGraphicsProject.id,
           imageTypes: selectedImageTypes,
           customPrompt: customPrompt.trim() || undefined,
+          ...graphicsGenerateOptions,
         });
       } else {
         createProject.mutate({
@@ -1074,7 +1115,7 @@ export default function AuditWorkflow() {
         toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, promptReferenceImages, graphicsAspectRatio, graphicsQuality, graphicsGenerateOptions, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -1709,16 +1750,16 @@ export default function AuditWorkflow() {
               )}
 
               {selectedImageTypes.includes("custom") && (
-                <div className="rounded-2xl border border-orange-200 bg-orange-50/30 p-5 space-y-3">
-                  <label className="text-base font-medium text-orange-900">Custom Prompt</label>
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => { setCustomPrompt(e.target.value); setIsDirty(true); }}
-                    placeholder="Describe exactly what you want the AI to create..."
-                    rows={4}
-                    className="w-full resize-none text-base border border-slate-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-200"
-                  />
-                </div>
+                <CustomPromptGenerationPanel
+                  customPrompt={customPrompt}
+                  onCustomPromptChange={(value) => { setCustomPrompt(value); setIsDirty(true); }}
+                  referenceImages={promptReferenceImages}
+                  onReferenceImagesChange={(images) => { setPromptReferenceImages(images); setIsDirty(true); }}
+                  aspectRatio={graphicsAspectRatio}
+                  onAspectRatioChange={(ratio) => { setGraphicsAspectRatio(ratio); setIsDirty(true); }}
+                  quality={graphicsQuality}
+                  onQualityChange={(q) => { setGraphicsQuality(q); setIsDirty(true); }}
+                />
               )}
 
               {/* Generate Graphics button */}

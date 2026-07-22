@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SeoHead } from "@/components/seo-head";
+import { PageSeo } from "@/components/page-seo";
 import { Search, BookOpen, Video, MessageCircle, ChevronDown, ChevronUp, Ticket, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -135,7 +135,8 @@ export default function Help() {
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col">
-      <SeoHead
+      <PageSeo
+        pageSlug="help"
         title="Help Center"
         description="Find answers, browse FAQs, and get support for SellerLens."
       />

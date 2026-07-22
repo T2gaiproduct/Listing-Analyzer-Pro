@@ -19,9 +19,9 @@ export interface UserAccountRole {
 }
 
 const TEAM_ROLE_LABELS: Record<string, string> = {
-  admin: "Team Admin",
-  editor: "Team Editor",
-  viewer: "Team Viewer",
+  admin: "Member",
+  editor: "Member",
+  viewer: "Member",
 };
 
 export async function resolveUserAccountRole(userId: string): Promise<UserAccountRole> {
@@ -59,7 +59,7 @@ export async function resolveUserAccountRole(userId: string): Promise<UserAccoun
     const teamRole = membership.role as "admin" | "editor" | "viewer";
     return {
       type: "team_member",
-      label: TEAM_ROLE_LABELS[membership.role] ?? "Team Member",
+      label: TEAM_ROLE_LABELS[membership.role] ?? "Member",
       teamRole,
     };
   }

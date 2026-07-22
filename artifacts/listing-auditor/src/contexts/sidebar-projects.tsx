@@ -6,12 +6,13 @@ type SidebarProjectsContextValue = {
 
 const SidebarProjectsContext = createContext<SidebarProjectsContextValue | null>(null);
 
+const fallbackSidebarProjects: SidebarProjectsContextValue = {
+  focusRecentProjects: () => {},
+};
+
 export function useSidebarProjects() {
   const ctx = useContext(SidebarProjectsContext);
-  if (!ctx) {
-    throw new Error("useSidebarProjects must be used within Layout");
-  }
-  return ctx;
+  return ctx ?? fallbackSidebarProjects;
 }
 
 export { SidebarProjectsContext };
