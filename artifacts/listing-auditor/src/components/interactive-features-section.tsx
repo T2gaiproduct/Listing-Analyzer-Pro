@@ -16,11 +16,11 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <div className="flex items-center justify-center w-full h-full bg-slate-50 p-2 sm:p-3">
+    <div className="relative w-full h-full bg-white">
       <img
         src={feature.image}
         alt={feature.title}
-        className="max-w-full max-h-full w-auto h-auto object-contain"
+        className="absolute inset-0 w-full h-full object-contain object-center"
         loading="lazy"
       />
     </div>
@@ -28,10 +28,10 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
     <div
       className={cn(
         "flex items-center justify-center w-full h-full bg-gradient-to-br from-slate-50 to-white",
-        !fitHeight && "p-6",
+        !fitHeight && "p-4",
       )}
     >
-      <div className={cn(fitHeight ? "w-full max-w-[240px]" : "max-w-sm scale-110 sm:scale-125 origin-center")}>
+      <div className={cn(fitHeight ? "w-full h-full max-w-none scale-[1.35] xl:scale-[1.5] origin-center" : "max-w-sm scale-110 sm:scale-125 origin-center")}>
         <FeatureCardMockup index={feature.index} />
       </div>
     </div>
@@ -42,7 +42,7 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
       key={feature.index}
       className={cn(
         "animate-in fade-in duration-300 overflow-hidden",
-        fitHeight ? "h-full w-full" : cn("rounded-2xl border border-slate-200/90", feature.image ? "h-48 sm:h-56" : "min-h-[160px]"),
+        fitHeight ? "h-full w-full" : cn("rounded-2xl border border-slate-200/90", feature.image ? "h-56 sm:h-64 md:h-72" : "min-h-[160px]"),
         !feature.image && !fitHeight && "bg-white shadow-sm",
       )}
       role="tabpanel"
