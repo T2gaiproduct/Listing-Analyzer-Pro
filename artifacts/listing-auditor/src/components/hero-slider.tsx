@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { Play, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -182,6 +182,71 @@ function HeroSlideCtas({ slide, overlay }: { slide: HeroSlide; overlay?: boolean
   );
 }
 
+function HeroSlideCopy({
+  slide,
+  overlay,
+}: {
+  slide: HeroSlide;
+  overlay?: boolean;
+}) {
+  return (
+    <>
+      <div className={cn("flex mb-3 sm:mb-6", overlay ? "justify-center" : "justify-center lg:justify-start")}>
+        <p
+          className={cn(
+            "inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest rounded-full px-2.5 sm:px-3 py-1.5",
+            overlay
+              ? "text-orange-200 bg-white/10 border border-white/20"
+              : "text-orange-600 bg-orange-50 border border-orange-100",
+          )}
+        >
+          <Zap className="w-3 h-3 shrink-0" />
+          <span>{slide.badgeText}</span>
+        </p>
+      </div>
+      <h1
+        className={cn(
+          "font-extrabold tracking-tight mb-2.5 sm:mb-5 text-[1.65rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]",
+          overlay ? "text-white" : "text-slate-900",
+        )}
+      >
+        <span className="block sm:inline">{slide.headingLine1}</span>{" "}
+        <span className={cn("block sm:inline", overlay ? "text-orange-300" : "text-orange-500")}>
+          {slide.headingHighlight}
+        </span>
+      </h1>
+      <p
+        className={cn(
+          "text-sm sm:text-lg mb-4 sm:mb-6 max-w-xl leading-relaxed",
+          overlay ? "text-white/85 mx-auto line-clamp-3" : "text-slate-500 mx-auto lg:mx-0",
+        )}
+      >
+        {slide.subheading}
+      </p>
+      {!overlay && <MarketplaceLogos className="mb-4 sm:mb-8" />}
+      <HeroSlideCtas slide={slide} overlay={overlay} />
+    </>
+  );
+}
+
+function HeroMobileOverlaySlide({
+  slide,
+  media,
+}: {
+  slide: HeroSlide;
+  media: ReactNode;
+}) {
+  return (
+    <div className="lg:hidden relative w-full aspect-[3/4] sm:aspect-[4/5] min-h-[380px] max-h-[min(78vh,680px)] overflow-hidden bg-slate-900 shrink-0">
+      <div className="absolute inset-0">{media}</div>
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/45 to-slate-900/10 pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5 pt-20 text-center">
+        <HeroSlideCopy slide={slide} overlay />
+      </div>
+    </div>
+  );
+}
+
 export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 }: HeroSliderProps) {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
@@ -221,17 +286,18 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
         opts={{ loop: multiSlide, align: "start", containScroll: "keepSnaps", dragFree: false }}
         className="w-full"
       >
-        <CarouselContent className="ml-0 w-full">
+        <CarouselContent className="ml-0 w-full items-start">
           {slides.map((slide) => {
             const isVideoBanner = heroSlideIsVideo(slide);
 
             if (isVideoBanner) {
               return (
                 <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
-                  <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[2.4/1] min-h-[280px] max-h-[85vh] overflow-hidden bg-slate-900">
-                    <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full" fullBleed />
+                  <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] lg:aspect-[2.4/1] min-h-[380px] max-h-[min(78vh,680px)] lg:max-h-[85vh] overflow-hidden bg-slate-900">
+                    <HeroSlideMedia slide={slide} mobile className="absolute inset-0 h-full w-full lg:hidden" fullBleed />
+                    <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full hidden lg:block" fullBleed />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
-                    <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-10 lg:py-12">
+                    <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12">
                       <HeroSlideCtas slide={slide} overlay />
                     </div>
                   </div>
@@ -245,32 +311,23 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
             return (
               <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
                 <div className={cn("flex w-full flex-col", hasDesktopImage && "lg:flex-row lg:min-h-[480px]")}>
-                  {hasMobileImage && (
-                    <div className="lg:hidden w-full aspect-[5/4] sm:aspect-[16/10] min-h-[200px] max-h-[46vh] overflow-hidden bg-slate-100 shrink-0">
-                      <HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />
+                  {hasMobileImage ? (
+                    <HeroMobileOverlaySlide
+                      slide={slide}
+                      media={<HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />}
+                    />
+                  ) : (
+                    <div className="lg:hidden px-4 sm:px-6 pt-4 pb-2 text-center">
+                      <HeroSlideCopy slide={slide} />
                     </div>
                   )}
                   <div
                     className={cn(
-                      "flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12 text-center lg:text-left min-w-0",
+                      "hidden lg:flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12 text-center lg:text-left min-w-0",
                       hasDesktopImage ? "lg:w-1/2 lg:max-w-[50%]" : "max-w-4xl mx-auto",
                     )}
                   >
-                    <div className="flex justify-center lg:justify-start mb-3 sm:mb-6">
-                      <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider sm:tracking-widest text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2.5 sm:px-3 py-1.5">
-                        <Zap className="w-3 h-3 shrink-0" />
-                        <span>{slide.badgeText}</span>
-                      </p>
-                    </div>
-                    <h1 className="font-extrabold tracking-tight text-slate-900 mb-2.5 sm:mb-5 text-[1.65rem] leading-[1.2] sm:text-4xl lg:text-[3.25rem] sm:leading-[1.1]">
-                      <span className="block sm:inline">{slide.headingLine1}</span>{" "}
-                      <span className="block sm:inline text-orange-500">{slide.headingHighlight}</span>
-                    </h1>
-                    <p className="text-sm sm:text-lg text-slate-500 mb-4 sm:mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
-                      {slide.subheading}
-                    </p>
-                    <MarketplaceLogos className="mb-4 sm:mb-8" />
-                    <HeroSlideCtas slide={slide} />
+                    <HeroSlideCopy slide={slide} />
                   </div>
                   {hasDesktopImage && (
                     <div className="hidden lg:block w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
