@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown, Upload, ImageIcon, Video } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, Upload, ImageIcon, Video, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/hero-slides";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
+import { parseHeroVideoSource } from "@/lib/hero-video-url";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -70,16 +71,23 @@ function HeroSlideImageField({
   hint,
   imageUrl,
   onImageChange,
+  showDefaultPreview = false,
 }: {
   label: string;
   hint?: string;
   imageUrl: string;
   onImageChange: (url: string) => void;
+  showDefaultPreview?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
-  const previewUrl = resolveCmsAssetUrl(imageUrl || DEFAULT_HERO_SLIDE_IMAGE, basePath);
+  const hasImage = Boolean(imageUrl.trim());
+  const previewUrl = hasImage
+    ? resolveCmsAssetUrl(imageUrl, basePath)
+    : showDefaultPreview
+      ? resolveCmsAssetUrl(DEFAULT_HERO_SLIDE_IMAGE, basePath)
+      : "";
 
   async function handleFile(file: File | undefined) {
     if (!file || !file.type.startsWith("image/")) return;
@@ -138,6 +146,18 @@ function HeroSlideImageField({
             </>
           )}
         </Button>
+        {hasImage && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-red-600 hover:text-red-700"
+            onClick={() => onImageChange("")}
+          >
+            <X className="w-3.5 h-3.5 mr-1" />
+            Remove
+          </Button>
+        )}
       </div>
       {hint && (
         <p className="text-[11px] text-slate-400 flex items-center gap-1">
@@ -163,7 +183,9 @@ function HeroSlideVideoField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
-  const previewUrl = videoUrl ? resolveCmsAssetUrl(videoUrl, basePath) : "";
+  const hasVideo = Boolean(videoUrl.trim());
+  const source = hasVideo ? parseHeroVideoSource(videoUrl) : null;
+  const filePreviewUrl = source?.kind === "file" ? resolveCmsAssetUrl(source.url, basePath) : "";
 
   async function handleFile(file: File | undefined) {
     if (!file || !file.type.startsWith("video/")) {
@@ -189,17 +211,21 @@ function HeroSlideVideoField({
   return (
     <div className="space-y-3">
       <Label className="text-xs text-slate-500">{label}</Label>
-      {previewUrl && (
-        <div className="rounded-lg border border-slate-200 bg-slate-900 p-2 max-w-md">
-          <video src={previewUrl} controls muted className="w-full h-auto rounded-md max-h-48" />
+      {source?.kind === "youtube" || source?.kind === "vimeo" ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-900 p-2 max-w-md aspect-video">
+          <iframe src={source.embedUrl} title="Video preview" className="w-full h-full rounded-md" />
         </div>
-      )}
+      ) : filePreviewUrl ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-900 p-2 max-w-md">
+          <video src={filePreviewUrl} controls muted className="w-full h-auto rounded-md max-h-48" />
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <Input
           className="h-8 text-sm flex-1 min-w-[200px]"
           value={videoUrl}
           onChange={(e) => onVideoChange(e.target.value)}
-          placeholder="/api/images/heroes/videos/..."
+          placeholder="YouTube/Vimeo URL or /api/images/heroes/videos/..."
         />
         <input
           ref={inputRef}
@@ -225,6 +251,18 @@ function HeroSlideVideoField({
             </>
           )}
         </Button>
+        {hasVideo && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-red-600 hover:text-red-700"
+            onClick={() => onVideoChange("")}
+          >
+            <X className="w-3.5 h-3.5 mr-1" />
+            Remove
+          </Button>
+        )}
       </div>
       {hint && (
         <p className="text-[11px] text-slate-400 flex items-center gap-1">
@@ -313,24 +351,36 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                   <Switch checked={slide.enabled} onCheckedChange={(v) => updateSlide(index, { enabled: v })} />
                   <span className="text-xs text-slate-600">Show this slide on homepage</span>
                 </label>
-                <div>
-                  <Label className="text-xs text-slate-500">Badge text</Label>
-                  <Input className="mt-1 h-8 text-sm" value={slide.badgeText} onChange={(e) => updateSlide(index, { badgeText: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-slate-500">Heading line 1</Label>
-                    <Input className="mt-1 h-8 text-sm" value={slide.headingLine1} onChange={(e) => updateSlide(index, { headingLine1: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-slate-500">Heading highlight (orange)</Label>
-                    <Input className="mt-1 h-8 text-sm" value={slide.headingHighlight} onChange={(e) => updateSlide(index, { headingHighlight: e.target.value })} />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Subheading</Label>
-                  <Textarea className="mt-1 text-sm resize-none" rows={2} value={slide.subheading} onChange={(e) => updateSlide(index, { subheading: e.target.value })} />
-                </div>
+
+                {slide.bannerType !== "video" && (
+                  <>
+                    <div>
+                      <Label className="text-xs text-slate-500">Badge text</Label>
+                      <Input className="mt-1 h-8 text-sm" value={slide.badgeText} onChange={(e) => updateSlide(index, { badgeText: e.target.value })} />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-slate-500">Heading line 1</Label>
+                        <Input className="mt-1 h-8 text-sm" value={slide.headingLine1} onChange={(e) => updateSlide(index, { headingLine1: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-500">Heading highlight (orange)</Label>
+                        <Input className="mt-1 h-8 text-sm" value={slide.headingHighlight} onChange={(e) => updateSlide(index, { headingHighlight: e.target.value })} />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">Subheading</Label>
+                      <Textarea className="mt-1 text-sm resize-none" rows={2} value={slide.subheading} onChange={(e) => updateSlide(index, { subheading: e.target.value })} />
+                    </div>
+                  </>
+                )}
+
+                {slide.bannerType === "video" && (
+                  <p className="text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                    Video banners use a full-width background. Only the CTA buttons appear on the homepage — headings are hidden.
+                  </p>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
                   <div>
                     <Label className="text-xs text-slate-500">Primary CTA text</Label>
@@ -370,7 +420,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                     <>
                       <HeroSlideVideoField
                         label="Desktop video"
-                        hint="MP4, WebM, or MOV up to 50MB. Autoplays muted on the homepage."
+                        hint="YouTube/Vimeo link, uploaded MP4/WebM/MOV (50MB max), or direct file URL. Autoplays muted on the homepage."
                         videoUrl={slide.videoUrl}
                         onVideoChange={(videoUrl) => updateSlide(index, { videoUrl })}
                       />
@@ -382,7 +432,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                       />
                       <HeroSlideImageField
                         label="Video poster image"
-                        hint="Shown before the video loads. Leave empty to use the desktop image or default graphic."
+                        hint="Optional thumbnail before a file video loads. Not used for YouTube/Vimeo embeds."
                         imageUrl={slide.videoPosterUrl}
                         onImageChange={(videoPosterUrl) => updateSlide(index, { videoPosterUrl })}
                       />
@@ -394,6 +444,7 @@ export function HeroSlidesEditor({ data, onChange }: HeroSlidesEditorProps) {
                         hint="Shown on large screens (right side of slide). Leave empty for the default dashboard graphic."
                         imageUrl={slide.imageUrl}
                         onImageChange={(imageUrl) => updateSlide(index, { imageUrl })}
+                        showDefaultPreview
                       />
                       <HeroSlideImageField
                         label="Mobile image"
