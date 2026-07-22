@@ -52,12 +52,17 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
 
 echo "==> Starting frontend (port 19145)"
 tmux_cmd kill-session -t frontend-live 2>/dev/null || true
+tmux_cmd kill-session -t vite-test 2>/dev/null || true
 tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
   export PORT=19145
   export BASE_PATH=/
   export VITE_CLERK_PUBLISHABLE_KEY=\"\${VITE_CLERK_PUBLISHABLE_KEY:-}\"
   export VITE_ADMIN_USER_IDS=\"\${ADMIN_USER_IDS:-}\"
-  pnpm --filter @workspace/listing-auditor run dev
+  while true; do
+    pnpm --filter @workspace/listing-auditor run dev || true
+    echo 'Frontend exited — restarting in 3s...'
+    sleep 3
+  done
 "
 
 wait_for_url "http://127.0.0.1:8080/api/healthz" "API server" 30
