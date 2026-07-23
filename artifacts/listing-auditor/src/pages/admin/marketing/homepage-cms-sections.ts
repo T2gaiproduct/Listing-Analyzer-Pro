@@ -68,11 +68,25 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
   ],
   tutorials: [
     {
-      title: "Tutorials section",
+      title: "Tutorials section (homepage)",
       fields: [
         { key: "tutorials.heading", label: "Section heading" },
-        { key: "tutorials.cta_text", label: "CTA link text" },
-        { key: "tutorials.cta_url", label: "CTA link URL", type: "url" },
+        { key: "tutorials.cta_text", label: "View all link text" },
+        { key: "tutorials.cta_url", label: "View all link URL", type: "url" },
+      ],
+    },
+    {
+      title: "Tutorials page (/tutorials)",
+      fields: [
+        { key: "tutorials_page.heading", label: "Page heading" },
+        { key: "tutorials_page.subheading", label: "Page subheading", type: "textarea", rows: 2 },
+        { key: "tutorials_page.search_placeholder", label: "Search placeholder" },
+        { key: "tutorials_page.cta_heading", label: "Bottom CTA heading" },
+        { key: "tutorials_page.cta_subheading", label: "Bottom CTA subheading", type: "textarea", rows: 2 },
+        { key: "tutorials_page.cta_primary_text", label: "Primary button text" },
+        { key: "tutorials_page.cta_primary_url", label: "Primary button URL", type: "url" },
+        { key: "tutorials_page.cta_secondary_text", label: "Secondary button text" },
+        { key: "tutorials_page.cta_secondary_url", label: "Secondary button URL", type: "url" },
       ],
     },
   ],
