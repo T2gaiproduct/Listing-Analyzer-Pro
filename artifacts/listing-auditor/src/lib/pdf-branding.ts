@@ -3,14 +3,18 @@ import type { jsPDF } from "jspdf";
 type Rgb = [number, number, number];
 
 const BRAND_RED: Rgb = [192, 0, 0];
-const BRAND_GREY: Rgb = [51, 51, 51];
+const BRAND_BLACK: Rgb = [0, 0, 0];
+const LOGO_TAGLINE = "you authorize, we improvise!!";
 
-/** Draw Tech2Globe logo with vector text so colors are always correct in PDF. */
-export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, width = 130) {
-  const scale = width / 130;
-  const fontSize = 16 * scale;
+/** Total vertical space the logo block occupies (pt). */
+export const PDF_LOGO_HEIGHT = 46;
+
+/** Draw Tech2Globe logo with tagline — vector text for reliable PDF colors. */
+export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, width = 168) {
+  const scale = width / 168;
+  const fontSize = 14.5 * scale;
   const x = rightX - width;
-  const baselineY = topY + fontSize * 0.9;
+  const baselineY = topY + fontSize * 0.88;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(fontSize);
@@ -19,30 +23,33 @@ export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, wid
   doc.text("Tech", x, baselineY);
   const techW = doc.getTextWidth("Tech");
 
-  doc.setTextColor(...BRAND_GREY);
+  doc.setTextColor(...BRAND_BLACK);
   doc.text("2Globe", x + techW, baselineY);
-  const globeTextW = doc.getTextWidth("2Globe");
-  const textW = techW + globeTextW;
+  const textW = techW + doc.getTextWidth("2Globe");
 
-  const lineY = baselineY + 2.8 * scale;
-  doc.setDrawColor(...BRAND_GREY);
-  doc.setLineWidth(0.7 * scale);
+  const lineY = baselineY + 2.6 * scale;
+  doc.setDrawColor(...BRAND_BLACK);
+  doc.setLineWidth(0.65 * scale);
   doc.line(x, lineY, x + textW, lineY);
 
-  const globeCX = x + textW + 11 * scale;
-  const globeCY = baselineY - fontSize * 0.32;
-  const globeR = 11.5 * scale;
+  const globeCX = x + textW + 9 * scale;
+  const globeCY = baselineY - fontSize * 0.28;
+  const globeR = 10 * scale;
 
   doc.setFillColor(...BRAND_RED);
   doc.circle(globeCX, globeCY, globeR, "F");
-  doc.setFillColor(255, 255, 255);
-  doc.circle(globeCX, globeCY, globeR * 0.88, "F");
 
-  doc.setFillColor(...BRAND_RED);
-  doc.ellipse(globeCX - 3.5 * scale, globeCY - 2.5 * scale, 4.2 * scale, 5.5 * scale, "F");
-  doc.ellipse(globeCX + 4.5 * scale, globeCY + 1.5 * scale, 3.8 * scale, 4.5 * scale, "F");
-  doc.ellipse(globeCX - 1 * scale, globeCY + 4.5 * scale, 3.2 * scale, 2.8 * scale, "F");
-  doc.ellipse(globeCX + 1 * scale, globeCY - 5 * scale, 2.5 * scale, 2 * scale, "F");
+  doc.setFillColor(255, 255, 255);
+  doc.ellipse(globeCX - 2.8 * scale, globeCY - 1.2 * scale, 3.2 * scale, 4.8 * scale, "F");
+  doc.ellipse(globeCX + 4.2 * scale, globeCY + 1.8 * scale, 3 * scale, 4.2 * scale, "F");
+  doc.ellipse(globeCX - 1.2 * scale, globeCY + 5 * scale, 2.8 * scale, 2.4 * scale, "F");
+  doc.ellipse(globeCX + 1.5 * scale, globeCY - 5.5 * scale, 2.2 * scale, 1.8 * scale, "F");
+
+  const tagSize = 5.2 * scale;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(tagSize);
+  doc.setTextColor(...BRAND_BLACK);
+  doc.text(LOGO_TAGLINE, x, lineY + 7.5 * scale);
 }
 
 /** @deprecated Logo is drawn natively; kept for API compatibility. */
@@ -76,7 +83,7 @@ export function drawPdfPageChrome(
   doc.setFillColor(255, 107, 0);
   doc.rect(0, 0, pageW, 4, "F");
 
-  drawTech2GlobeLogo(doc, pageW - margin, 12, 130);
+  drawTech2GlobeLogo(doc, pageW - margin, 10, 168);
 
   const footerY = pageH - 20;
   doc.setFont("helvetica", "normal");
@@ -94,5 +101,5 @@ export function defaultLineHeight(fontSize: number, custom?: number): number {
   return custom ?? Math.ceil(fontSize * 1.5);
 }
 
-export const PDF_HEADER_RESERVE = 52;
+export const PDF_HEADER_RESERVE = 58;
 export const PDF_FOOTER_RESERVE = 32;

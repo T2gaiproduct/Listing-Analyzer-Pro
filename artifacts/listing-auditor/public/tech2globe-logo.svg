@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 72" role="img" aria-label="Tech2Globe">
-  <text x="0" y="46" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700" fill="#C00000">Tech</text>
-  <text x="98" y="46" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700" fill="#333333">2Globe</text>
-  <line x1="0" y1="56" x2="252" y2="56" stroke="#333333" stroke-width="2"/>
-  <g transform="translate(300, 36)">
-    <circle cx="0" cy="0" r="30" fill="#C00000"/>
-    <circle cx="0" cy="0" r="26.5" fill="#ffffff"/>
-    <ellipse cx="-3" cy="-2" rx="5" ry="6.5" fill="#C00000"/>
-    <ellipse cx="5" cy="2" rx="4.5" ry="5.5" fill="#C00000"/>
-    <ellipse cx="-1" cy="5" rx="3.5" ry="3" fill="#C00000"/>
-    <ellipse cx="1" cy="-6" rx="3" ry="2.5" fill="#C00000"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 78" role="img" aria-label="Tech2Globe">
+  <text x="0" y="38" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#C00000">Tech</text>
+  <text x="84" y="38" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#000000">2Globe</text>
+  <line x1="0" y1="46" x2="248" y2="46" stroke="#000000" stroke-width="1.8"/>
+  <g transform="translate(292, 30)">
+    <circle cx="0" cy="0" r="26" fill="#C00000"/>
+    <ellipse cx="-4" cy="-2" rx="6" ry="8" fill="#ffffff"/>
+    <ellipse cx="7" cy="3" rx="5" ry="7" fill="#ffffff"/>
+    <ellipse cx="-2" cy="8" rx="4.5" ry="3.5" fill="#ffffff"/>
+    <ellipse cx="2" cy="-10" rx="3.5" ry="2.5" fill="#ffffff"/>
   </g>
+  <text x="0" y="66" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#000000">you authorize, we improvise!!</text>
 </svg>
