@@ -50,6 +50,86 @@ function ruleCostFromList(
   return DEFAULT_FEATURE_COSTS[featureType] ?? fallback;
 }
 
+export interface PlanAllocationCounts {
+  audit: number;
+  content: number;
+  images: number;
+  ebc: number;
+  competitors: number;
+  teamMembers: number;
+}
+
+export interface PlanRowForAllocations {
+  auditCredits: number;
+  aiCredits: number;
+  imageCredits: number;
+  teamMembers: number;
+  creditAllocations?: PlanAllocations | Record<string, number> | null;
+}
+
+export interface PlanActivityRow {
+  label: string;
+  value: number;
+  color: string;
+}
+
+const PLAN_ACTIVITY_ROW_META: { key: keyof PlanAllocationCounts; label: string; color: string }[] = [
+  { key: "audit", label: "Audit", color: "text-orange-700" },
+  { key: "content", label: "Text Content", color: "text-blue-700" },
+  { key: "images", label: "Images", color: "text-purple-700" },
+  { key: "ebc", label: "A+ / EBC Content", color: "text-emerald-700" },
+  { key: "competitors", label: "Competitors Analysis", color: "text-slate-700" },
+  { key: "teamMembers", label: "Team Members", color: "text-slate-700" },
+];
+
+/** Monthly activity counts from admin creditAllocations, with legacy column fallback. */
+export function resolvePlanAllocationCounts(plan: PlanRowForAllocations): PlanAllocationCounts {
+  const a = plan.creditAllocations ?? {};
+  const hasStoredAllocations = Object.keys(a).length > 0;
+
+  if (hasStoredAllocations) {
+    return {
+      audit: a.audit ?? 0,
+      content: a.content ?? a.ai ?? 0,
+      images: a.images ?? a.image ?? 0,
+      ebc: a.ebc ?? 0,
+      competitors: a.competitors ?? 0,
+      teamMembers: a.teamMembers ?? plan.teamMembers ?? 0,
+    };
+  }
+
+  return {
+    audit: plan.auditCredits,
+    content: plan.aiCredits,
+    images: plan.imageCredits,
+    ebc: 0,
+    competitors: 0,
+    teamMembers: plan.teamMembers,
+  };
+}
+
+export function buildPlanActivityRows(plan: PlanRowForAllocations): PlanActivityRow[] {
+  const counts = resolvePlanAllocationCounts(plan);
+  return PLAN_ACTIVITY_ROW_META.map(({ key, label, color }) => ({
+    label,
+    color,
+    value: counts[key],
+  }));
+}
+
+export function formatPlanAllocationDisplayValue(value: number): string {
+  if (value >= 999) return "∞";
+  return value.toLocaleString();
+}
+
+export function computePlanCreditsFromPlan(
+  plan: PlanRowForAllocations,
+  rules: CreditRuleLike[] = [],
+): PlanCreditsComputed {
+  const counts = resolvePlanAllocationCounts(plan);
+  return computePlanCreditsFromAllocations(counts, rules);
+}
+
 export function computePlanCreditsFromAllocations(
   allocations: PlanAllocations | Record<string, number> | null | undefined,
   rules: CreditRuleLike[] = [],
