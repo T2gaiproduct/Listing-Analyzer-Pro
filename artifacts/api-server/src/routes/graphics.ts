@@ -870,7 +870,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
           lifestyleCount,
           featureCount,
           project.sourceImageUrls,
-          generateAspectRatio,
+          legacyConfig.aspectRatio ?? "1:1",
           existingRecords,
           existingCount,
           body.customLifestylePrompt,

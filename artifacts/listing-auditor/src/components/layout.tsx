@@ -385,8 +385,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   useCreditPurchaseReturn();
   const { isAdmin } = useIsAdmin();
-  const { defaultRoute } = useAdminPermissions();
-  const adminHome = defaultRoute || "/admin";
+  const { defaultRoute, can } = useAdminPermissions();
+  const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin");
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
