@@ -1,18 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 82" role="img" aria-label="Tech2Globe">
-  <text x="0" y="36" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="#C00000">Tech</text>
-  <text x="80" y="36" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="#000000">2Globe</text>
-  <line x1="0" y1="44" x2="238" y2="44" stroke="#000000" stroke-width="2"/>
-  <g transform="translate(278, 28)">
-    <circle cx="0" cy="0" r="24" fill="#C00000"/>
-    <clipPath id="globeClip">
-      <circle cx="0" cy="0" r="24"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 50" role="img" aria-label="Tech2Globe">
+  <text x="0" y="34" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#C00000">Tech2</text>
+  <text x="88" y="34" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#3D3D3D">Globe</text>
+  <line x1="0" y1="42" x2="228" y2="42" stroke="#666666" stroke-width="1.8"/>
+  <g transform="translate(262, 24)">
+    <circle cx="0" cy="0" r="22" fill="#A00000"/>
+    <clipPath id="g">
+      <circle cx="0" cy="0" r="22"/>
     </clipPath>
-    <g clip-path="url(#globeClip)" fill="#ffffff">
-      <path d="M -9,-18 C -14,-8 -13,4 -8,14 C -6,18 -3,20 0,17 C 3,10 2,-4 -2,-12 C -5,-16 -7,-17 -9,-18 Z"/>
-      <path d="M 2,-10 C 8,-14 15,-10 16,-2 C 17,6 14,14 9,18 C 5,20 2,16 3,8 C 4,0 3,-6 2,-10 Z"/>
-      <path d="M -3,6 C 0,8 4,12 3,17 C 1,21 -4,20 -6,15 C -7,10 -5,6 -3,6 Z"/>
-      <path d="M 10,-4 C 16,-6 19,0 17,8 C 15,14 11,16 10,10 C 9,4 9,-1 10,-4 Z"/>
+    <g clip-path="url(#g)" fill="#1A1A1A">
+      <path d="M -8,-16 C -12,-6 -11,5 -7,13 C -5,17 -2,18 0,15 C 2,8 1,-3 -2,-11 C -4,-14 -6,-15 -8,-16 Z"/>
+      <path d="M 2,-9 C 7,-12 13,-8 14,-1 C 15,5 12,12 8,15 C 4,17 2,13 3,6 C 4,0 3,-5 2,-9 Z"/>
+      <path d="M -2,5 C 1,7 4,11 3,15 C 1,18 -3,17 -5,13 C -6,9 -4,5 -2,5 Z"/>
+      <path d="M 9,-3 C 14,-5 17,1 15,7 C 13,12 9,14 9,9 C 8,4 8,0 9,-3 Z"/>
     </g>
   </g>
-  <text x="0" y="68" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#000000">you authorize, we improvise!!</text>
 </svg>
