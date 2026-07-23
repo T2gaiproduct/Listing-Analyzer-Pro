@@ -15,7 +15,10 @@ export function ApiTokenBridge() {
       setApiAuthReady(false);
       return;
     }
-    setApiTokenGetter(() => getTokenRef.current());
+    setApiTokenGetter(async () => {
+      const getToken = getTokenRef.current;
+      return getToken ? await getToken() : null;
+    });
     setApiAuthReady(true);
     return () => {
       setApiTokenGetter(null);

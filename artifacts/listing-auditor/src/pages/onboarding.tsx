@@ -17,6 +17,25 @@ import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+async function readApiError(res: Response, fallback: string): Promise<string> {
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    if (res.status === 401) {
+      return "Unauthorized — the server could not verify your session. Check that CLERK_SECRET_KEY matches your Clerk app.";
+    }
+    if (res.status === 503) {
+      return "API server is not reachable. Restart the dev stack and try again.";
+    }
+    return `${fallback} (server returned HTML, HTTP ${res.status})`;
+  }
+  try {
+    const body = (await res.json()) as { error?: string };
+    return body.error ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 async function syncClerkFullName(
   user: NonNullable<ReturnType<typeof useUser>["user"]>,
   fullName: string,
@@ -257,7 +276,7 @@ export default function Onboarding() {
           teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
         }),
       }).then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error ?? "Failed to save profile");
+        if (!r.ok) throw new Error(await readApiError(r, "Failed to save profile"));
         return r.json();
       }),
     onSuccess: async () => {
