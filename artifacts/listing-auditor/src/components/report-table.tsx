@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { jsPDF } from "jspdf";
-import { drawPdfPageChrome, loadTech2GlobeLogoDataUrl } from "@/lib/pdf-branding";
+import { drawPdfPageChrome, loadTech2GlobeLogoDataUrl, sanitizePdfText } from "@/lib/pdf-branding";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 import { Card } from "@/components/ui/card";
@@ -98,7 +98,7 @@ export function ReportTable<T>({
     const marginX = 48;
     let y = 56;
     doc.setFontSize(16);
-    doc.text(title, marginX, y);
+    doc.text(sanitizePdfText(title), marginX, y);
     doc.setFontSize(9);
     y += 8;
     doc.setTextColor(120);
@@ -127,7 +127,7 @@ export function ReportTable<T>({
     sorted.forEach((r) => {
       if (y > pageHeight - 40) { doc.addPage(); y = 56; drawHeader(); doc.setFontSize(8); }
       columns.forEach((c, i) => {
-        let text = String(c.value(r) ?? "");
+        let text = sanitizePdfText(String(c.value(r) ?? ""));
         const maxChars = Math.floor(colWidth / 4.2);
         if (text.length > maxChars) text = text.slice(0, maxChars - 1) + "…";
         doc.text(text, marginX + i * colWidth + 2, y);
