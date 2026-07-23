@@ -39,6 +39,13 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import {
+  ProjectShareMenu,
+  shareProjectToInstagram,
+  shareProjectToWhatsApp,
+  copyProjectShareLink,
+} from "@/components/project-share-menu";
+import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
@@ -58,6 +65,8 @@ const mainNavItems = [
 
 const contextMenuOptions = [
   { icon: FilePlus2, label: "Open" },
+  { icon: Share2, label: "Share on WhatsApp" },
+  { icon: Share2, label: "Share on Instagram" },
   { icon: Share2, label: "Share" },
   { icon: PenLine, label: "Rename" },
   { icon: Pin, label: "Pin project" },
@@ -170,6 +179,7 @@ function RecentProjectItem({
   const isActive = fullLocation === item.url;
   const TypeIcon = typeIconMap[item.type] || AuditIcon;
   const { trigger, dialog } = useActionDialog();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -197,6 +207,25 @@ function RecentProjectItem({
   function handleMenuAction(label: string) {
     setOpenMenu(null);
     if (label === "Open") { navigateTo(item.url); return; }
+    if (label === "Share") {
+      const shareUrl = `${window.location.origin}${basePath.replace(/\/$/, "")}${item.url.startsWith("/") ? item.url : `/${item.url}`}`;
+      void copyProjectShareLink({
+        projectTitle: item.name,
+        shareUrl,
+        toast,
+      });
+      return;
+    }
+    if (label === "Share on WhatsApp") {
+      const shareUrl = `${window.location.origin}${basePath.replace(/\/$/, "")}${item.url.startsWith("/") ? item.url : `/${item.url}`}`;
+      void shareProjectToWhatsApp({ projectTitle: item.name, shareUrl });
+      return;
+    }
+    if (label === "Share on Instagram") {
+      const shareUrl = `${window.location.origin}${basePath.replace(/\/$/, "")}${item.url.startsWith("/") ? item.url : `/${item.url}`}`;
+      void shareProjectToInstagram({ projectTitle: item.name, shareUrl, toast });
+      return;
+    }
     if (label === "Pin project") { onPin(); return; }
     if (label === "Rename") {
       trigger(
@@ -368,11 +397,14 @@ function isRibbonVisible(location: string): boolean {
 
 // --- Project context from URL -----------------------------------------------
 function parseProjectContext(location: string): { type: string; id: number } | null {
-  const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
-  if (auditMatch) return { type: "audit", id: parseInt(auditMatch[1]) };
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const resumeId = searchParams.get("resume");
-  if (location === "/audits/workflow" && resumeId) return { type: "listing", id: parseInt(resumeId, 10) };
+  if (location === "/audits/workflow" && resumeId) {
+    const id = parseInt(resumeId, 10);
+    if (!isNaN(id)) return { type: "listing", id };
+  }
+  const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
+  if (auditMatch) return { type: "audit", id: parseInt(auditMatch[1]) };
   const projectMatch = location.match(/^\/projects\/(\d+)(?:\/|$)/);
   if (projectMatch) return { type: "graphics", id: parseInt(projectMatch[1]) };
   return null;
@@ -559,11 +591,40 @@ export function Layout({ children }: { children: ReactNode }) {
     : (recents.find((r) => r.id === projectCtx?.id && r.type === projectCtx?.type)?.name ?? "");
 
   function handleShare() {
-    const url = window.location.href;
-    void navigator.clipboard.writeText(url).then(() => {
-      toast({ title: "Link copied", description: "Page URL copied to clipboard." });
-    }).catch(() => {
-      toast({ title: "Copy failed", description: "Could not copy — please copy the URL manually.", variant: "destructive" });
+    const url = buildProjectShareUrl(
+      window.location.origin,
+      basePath,
+      projectCtx,
+      window.location.href,
+    );
+    void copyProjectShareLink({
+      projectTitle: ribbonTitle || undefined,
+      shareUrl: url,
+      toast,
+    });
+  }
+
+  function handleShareWhatsApp() {
+    const url = buildProjectShareUrl(
+      window.location.origin,
+      basePath,
+      projectCtx,
+      window.location.href,
+    );
+    shareProjectToWhatsApp({ projectTitle: ribbonTitle || undefined, shareUrl: url });
+  }
+
+  async function handleShareInstagram() {
+    const url = buildProjectShareUrl(
+      window.location.origin,
+      basePath,
+      projectCtx,
+      window.location.href,
+    );
+    await shareProjectToInstagram({
+      projectTitle: ribbonTitle || undefined,
+      shareUrl: url,
+      toast,
     });
   }
 
@@ -1092,13 +1153,11 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
 
             <div className="flex items-center gap-1 ml-auto z-10">
-              <button
-                onClick={handleShare}
-                title="Share"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
+              <ProjectShareMenu
+                projectCtx={projectCtx}
+                projectTitle={ribbonTitle || undefined}
+                onShared={() => setDotsOpen(false)}
+              />
 
             {/* Three-dots */}
             <div className="relative" ref={ribbonDotsRef}>
@@ -1117,13 +1176,26 @@ export function Layout({ children }: { children: ReactNode }) {
 
               {dotsOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
-                  {/* Share (also in dropdown) */}
+                  <button
+                    onClick={() => { setDotsOpen(false); void handleShareWhatsApp(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                  >
+                    <Share2 className="w-4 h-4 text-[#25D366] flex-shrink-0" />
+                    Share on WhatsApp
+                  </button>
+                  <button
+                    onClick={() => { setDotsOpen(false); void handleShareInstagram(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                  >
+                    <Share2 className="w-4 h-4 text-[#E4405F] flex-shrink-0" />
+                    Share on Instagram
+                  </button>
                   <button
                     onClick={() => { setDotsOpen(false); handleShare(); }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
                   >
                     <Share2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    Share
+                    Copy link
                   </button>
 
                   {/* Rename */}

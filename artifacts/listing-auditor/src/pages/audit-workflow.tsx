@@ -557,6 +557,16 @@ export default function AuditWorkflow() {
   }, [resumeAuditId]);
 
   useEffect(() => {
+    if (!currentAuditId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("resume") === String(currentAuditId)) return;
+    params.set("resume", String(currentAuditId));
+    const query = params.toString();
+    const next = `${window.location.pathname}${query ? `?${query}` : ""}`;
+    window.history.replaceState({}, "", next);
+  }, [currentAuditId]);
+
+  useEffect(() => {
     stepRestoredForAuditIdRef.current = null;
     lastRestoredAtRef.current = null;
   }, [currentAuditId]);
