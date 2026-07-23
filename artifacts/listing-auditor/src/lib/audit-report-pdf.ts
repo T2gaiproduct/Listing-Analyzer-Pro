@@ -101,15 +101,22 @@ class AuditReportPdf {
     this.y += 6;
   }
 
-  /** Large score number — advances y using full glyph height, not just baseline. */
-  private addLargeScore(score: number) {
+  /** Large score below a section label — positions baseline using full glyph ascent. */
+  private addOverallScoreBlock(score: number) {
+    const labelSize = 9;
     const fontSize = 40;
-    const blockHeight = Math.ceil(fontSize * 1.05);
-    this.ensureSpace(blockHeight + 12);
-    this.y += 14;
+    const ascender = fontSize * 0.78;
+    const gapBelowLabel = 14;
+
+    this.y += 4;
+    this.ensureSpace(gapBelowLabel + ascender + fontSize * 0.3 + 12);
+    this.setStyle(labelSize, true, [100, 116, 139]);
+    this.doc.text("OVERALL SCORE", MARGIN, this.y);
+
+    const scoreBaseline = this.y + gapBelowLabel + ascender;
     this.setStyle(fontSize, true, scoreColor(score));
-    this.doc.text(String(score), MARGIN, this.y);
-    this.y += blockHeight + 10;
+    this.doc.text(String(score), MARGIN, scoreBaseline);
+    this.y = scoreBaseline + fontSize * 0.28 + 12;
   }
 
   private addScoreRow(label: string, score: number) {
@@ -162,9 +169,7 @@ class AuditReportPdf {
       afterGap: 10,
     });
     this.addRule([255, 107, 0], 26);
-
-    this.addSectionTitle("OVERALL SCORE", 4);
-    this.addLargeScore(audit.overallScore);
+    this.addOverallScoreBlock(audit.overallScore);
     this.addText(result.summary, { size: 10, color: [71, 85, 105], lineH: 15, afterGap: 10 });
     this.addRule();
 
