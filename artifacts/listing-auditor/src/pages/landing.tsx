@@ -13,15 +13,16 @@ import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
 import { PageSeo } from "@/components/page-seo";
 import { HeroSlider } from "@/components/hero-slider";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { parseFeatureBullets } from "@/lib/features-cms";
 import { InteractiveFeaturesSection, type FeatureItem } from "@/components/interactive-features-section";
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, heroSlideIsVideo, parseHeroSlides } from "@/lib/hero-slides";
 import { portfolioItemIndices } from "@/lib/portfolio-cms";
-import { parseTutorialItems } from "@/lib/tutorials-cms";
-import { youtubeEmbedUrl, youtubeThumbnailUrl } from "@/lib/video-embed";
+import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
+import { youtubeEmbedUrl } from "@/lib/video-embed";
+import { TutorialCarousel } from "@/components/tutorial-carousel";
+import { TutorialCard } from "@/components/tutorial-card";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -60,12 +61,6 @@ type PortfolioItem = {
   square: boolean;
 };
 
-type TutorialItem = {
-  title: string;
-  duration: string;
-  image: string;
-  videoUrl: string;
-};
 
 function useLandingCmsData() {
   const cms = useHomepageCmsContext();
@@ -114,16 +109,7 @@ function useLandingCmsData() {
     value: cmsText(cms, `workflow.metric${i}_value`),
   }));
 
-  const tutorialPreviews: TutorialItem[] = parseTutorialItems(cms).map((item) => {
-    const customImage = item.image?.trim() ? resolveCmsAssetUrl(item.image, basePath) : "";
-    const youtubeThumb = item.videoUrl ? youtubeThumbnailUrl(item.videoUrl) : null;
-    return {
-      title: item.title,
-      duration: item.duration,
-      image: customImage || youtubeThumb || "",
-      videoUrl: item.videoUrl,
-    };
-  });
+  const tutorialPreviews = buildTutorialPreviewItems(cms, basePath);
 
   return { cms, features, heroSlides, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
 }
@@ -227,163 +213,6 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
 
       {selected && <PortfolioLightbox item={selected} onClose={() => setSelected(null)} />}
     </>
-  );
-}
-
-function TutorialCard({
-  title,
-  duration,
-  image,
-  videoUrl,
-  layout = "grid",
-}: TutorialItem & { layout?: "grid" | "carousel" }) {
-  const [open, setOpen] = useState(false);
-  const isCarousel = layout === "carousel";
-  const embedUrl = videoUrl ? youtubeEmbedUrl(videoUrl) : null;
-  const hasVideo = Boolean(videoUrl?.trim());
-
-  if (hasVideo && embedUrl && !isCarousel) {
-    return (
-      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm h-full flex flex-col">
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            src={embedUrl}
-            title={title}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-        <div className="p-4">
-          <p className="font-semibold text-slate-800 text-base">{title}</p>
-          {duration && <p className="text-sm text-slate-500 mt-0.5">{duration}</p>}
-        </div>
-      </div>
-    );
-  }
-
-  const thumbnail = (
-    <div className={cn("relative overflow-hidden bg-slate-900", isCarousel ? "h-52 sm:h-56" : "h-44 sm:h-48 lg:h-52")}>
-      {image ? (
-        <img src={image} alt="" className="w-full h-full object-cover opacity-90" loading="lazy" />
-      ) : (
-        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />
-      )}
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div
-          className={cn(
-            "rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform",
-            isCarousel ? "w-16 h-16" : "w-14 h-14",
-          )}
-        >
-          <Play className={cn("text-orange-600 ml-0.5", isCarousel ? "w-7 h-7" : "w-6 h-6")} />
-        </div>
-      </div>
-      {duration && (
-        <span
-          className={cn(
-            "absolute bottom-3 right-3 bg-black/60 text-white font-medium px-2 py-1 rounded",
-            isCarousel ? "text-sm" : "text-xs",
-          )}
-        >
-          {duration}
-        </span>
-      )}
-    </div>
-  );
-
-  if (hasVideo) {
-    return (
-      <>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full w-full text-left"
-        >
-          {thumbnail}
-          <p className={cn("font-semibold text-slate-800", isCarousel ? "p-5 text-lg" : "p-4 text-base")}>{title}</p>
-        </button>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="max-w-4xl w-[calc(100vw-2rem)] p-0 gap-0 overflow-hidden">
-            <DialogTitle className="sr-only">{title}</DialogTitle>
-            <div className="aspect-video w-full bg-black">
-              {embedUrl ? (
-                <iframe
-                  src={embedUrl}
-                  title={title}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full h-full flex items-center justify-center text-sm font-medium text-white hover:bg-slate-900 transition-colors px-4 text-center"
-                >
-                  Open video in new tab
-                </a>
-              )}
-            </div>
-            <div className="px-4 py-3 border-t border-slate-200">
-              <p className="font-semibold text-slate-900">{title}</p>
-              {duration && <p className="text-sm text-slate-500 mt-0.5">{duration}</p>}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </>
-    );
-  }
-
-  return (
-    <Link
-      href="/tutorials"
-      className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full"
-    >
-      {thumbnail}
-      <p className={cn("font-semibold text-slate-800", isCarousel ? "p-5 text-lg" : "p-4 text-base")}>{title}</p>
-    </Link>
-  );
-}
-
-function TutorialCarousel({ tutorials }: { tutorials: TutorialItem[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scroll = (dir: -1 | 1) => {
-    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 280;
-    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
-  };
-
-  return (
-    <div className="relative sm:hidden px-2">
-      <button
-        type="button"
-        onClick={() => scroll(-1)}
-        className="absolute left-0 top-[7rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Previous tutorial"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-600" />
-      </button>
-      <button
-        type="button"
-        onClick={() => scroll(1)}
-        className="absolute right-0 top-[7rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Next tutorial"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-600" />
-      </button>
-      <div
-        ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
-      >
-        {tutorials.map((t) => (
-          <div key={t.title} className="snap-start shrink-0 w-[min(92vw,22rem)] sm:w-[24rem]">
-            <TutorialCard {...t} layout="carousel" />
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
