@@ -40,7 +40,6 @@ import {
 import {
   useCreateAuditDraft,
   usePatchAudit,
-  useGenerateContent,
   useGenerateContentDirect,
   useGetAudit,
   getGetAuditStatsQueryKey,
@@ -538,9 +537,12 @@ export default function AuditWorkflow() {
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
   const [isDirty, setIsDirty] = useState(false);
+  const [listingCustomPrompt, setListingCustomPrompt] = useState("");
+  const [listingReferenceImages, setListingReferenceImages] = useState<string[]>([]);
+  const [listingAspectRatio, setListingAspectRatio] = useState<GraphicsAspectRatio>("1:1");
+  const [listingQuality, setListingQuality] = useState<GraphicsQuality>("standard");
   const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
-  const generateContent = useGenerateContent();
   const generateContentDirect = useGenerateContentDirect();
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
     query: { enabled: currentAuditId !== null, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
@@ -634,18 +636,42 @@ export default function AuditWorkflow() {
 
   /* ── A+ Content step state ── */
   const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
+  const [aplusCustomPrompt, setAplusCustomPrompt] = useState("");
+  const [aplusReferenceImages, setAplusReferenceImages] = useState<string[]>([]);
+  const [aplusAspectRatio, setAplusAspectRatio] = useState<GraphicsAspectRatio>("1:1");
+  const [aplusQuality, setAplusQuality] = useState<GraphicsQuality>("standard");
   const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
   const aplusCompletionToastShownRef = useRef(false);
   const generateAplus = useMutation({
-    mutationFn: async ({ auditId, moduleIds }: { auditId: number; moduleIds: AplusModuleId[] }) => {
+    mutationFn: async ({
+      auditId,
+      moduleIds,
+      prompt,
+      imageCustomPrompt,
+      promptReferenceImageUrls,
+      quality,
+    }: {
+      auditId: number;
+      moduleIds: AplusModuleId[];
+      prompt?: string;
+      imageCustomPrompt?: string;
+      promptReferenceImageUrls?: string[];
+      quality?: GraphicsQuality;
+    }) => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ moduleIds }),
+        body: JSON.stringify({
+          moduleIds,
+          prompt,
+          imageCustomPrompt,
+          promptReferenceImageUrls,
+          quality,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -744,6 +770,18 @@ export default function AuditWorkflow() {
     enabled: !!currentAuditId,
     staleTime: 5 * 60 * 1000,
   });
+
+  const listingContentOptions = useMemo(() => ({
+    customPrompt: listingCustomPrompt.trim() || undefined,
+    promptReferenceImageUrls: listingReferenceImages.length > 0 ? listingReferenceImages : undefined,
+  }), [listingCustomPrompt, listingReferenceImages]);
+
+  const aplusGenerateOptions = useMemo(() => ({
+    prompt: aplusCustomPrompt.trim() || undefined,
+    imageCustomPrompt: aplusCustomPrompt.trim() || undefined,
+    promptReferenceImageUrls: aplusReferenceImages.length > 0 ? aplusReferenceImages : undefined,
+    quality: aplusQuality,
+  }), [aplusCustomPrompt, aplusReferenceImages, aplusQuality]);
 
   const graphicsGenerateOptions = useMemo(() => ({
     aspectRatio: graphicsAspectRatio,
@@ -1065,6 +1103,7 @@ export default function AuditWorkflow() {
             bulletPoints: syntheticBullets,
             targetKeywords: syntheticKeywords.slice(0, 10),
             imageUrls: uploadedImages,
+            ...listingContentOptions,
           },
         },
         {
@@ -1115,7 +1154,7 @@ export default function AuditWorkflow() {
         toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, promptReferenceImages, graphicsAspectRatio, graphicsQuality, graphicsGenerateOptions, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, promptReferenceImages, graphicsAspectRatio, graphicsQuality, graphicsGenerateOptions, listingContentOptions, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -1149,8 +1188,9 @@ export default function AuditWorkflow() {
     generateAplus.mutate({
       auditId: currentAuditId,
       moduleIds: selectedAplusModules,
+      ...aplusGenerateOptions,
     });
-  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule]);
+  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule, aplusGenerateOptions]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1517,6 +1557,17 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
+              <CustomPromptGenerationPanel
+                customPrompt={listingCustomPrompt}
+                onCustomPromptChange={(value) => { setListingCustomPrompt(value); setIsDirty(true); }}
+                referenceImages={listingReferenceImages}
+                onReferenceImagesChange={(images) => { setListingReferenceImages(images); setIsDirty(true); }}
+                aspectRatio={listingAspectRatio}
+                onAspectRatioChange={(ratio) => { setListingAspectRatio(ratio); setIsDirty(true); }}
+                quality={listingQuality}
+                onQualityChange={(q) => { setListingQuality(q); setIsDirty(true); }}
+              />
+
               {/* Generate button — no ASIN required */}
               <button
                 type="button"
@@ -1533,22 +1584,32 @@ export default function AuditWorkflow() {
                   setIsCreating(true);
 
                   if (currentAuditId) {
-                    // Already have an audit: just regenerate content
-                    generateContent.mutate(
-                      { id: currentAuditId },
-                      {
-                        onSuccess: (data) => {
-                          setIsCreating(false);
-                          setGeneratedContent(data);
-                          toast({ title: "Listing content regenerated!", description: "Your optimized content is ready." });
-                          refreshCreditBalances(queryClient);
-                        },
-                        onError: (err) => {
-                          setIsCreating(false);
-                          toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
-                        },
-                      }
-                    );
+                    // Already have an audit: regenerate content with optional custom prompt
+                    fetch(`${basePath}/api/audits/${currentAuditId}/generate-content`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify(listingContentOptions),
+                    })
+                      .then(async (res) => {
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({}));
+                          throw new Error((err as { error?: string }).error || "Content generation failed");
+                        }
+                        return res.json() as Promise<typeof generatedContent>;
+                      })
+                      .then((data) => {
+                        if (!data) return;
+                        setIsCreating(false);
+                        setGeneratedContent(data);
+                        toast({ title: "Listing content regenerated!", description: "Your optimized content is ready." });
+                        refreshCreditBalances(queryClient);
+                        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+                      })
+                      .catch((err) => {
+                        setIsCreating(false);
+                        toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
+                      });
                     return;
                   }
 
@@ -1586,6 +1647,7 @@ export default function AuditWorkflow() {
                         bulletPoints: syntheticBullets,
                         targetKeywords: syntheticKeywords.slice(0, 10),
                         imageUrls: uploadedImages,
+                        ...listingContentOptions,
                       },
                     },
                     {
@@ -1749,7 +1811,7 @@ export default function AuditWorkflow() {
                 </div>
               )}
 
-              {selectedImageTypes.includes("custom") && (
+              {selectedImageTypes.length > 0 && (
                 <CustomPromptGenerationPanel
                   customPrompt={customPrompt}
                   onCustomPromptChange={(value) => { setCustomPrompt(value); setIsDirty(true); }}
@@ -1914,6 +1976,19 @@ export default function AuditWorkflow() {
                       : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
                   </span>
                 </div>
+              )}
+
+              {selectedAplusModules.length > 0 && (
+                <CustomPromptGenerationPanel
+                  customPrompt={aplusCustomPrompt}
+                  onCustomPromptChange={(value) => { setAplusCustomPrompt(value); setIsDirty(true); }}
+                  referenceImages={aplusReferenceImages}
+                  onReferenceImagesChange={(images) => { setAplusReferenceImages(images); setIsDirty(true); }}
+                  aspectRatio={aplusAspectRatio}
+                  onAspectRatioChange={(ratio) => { setAplusAspectRatio(ratio); setIsDirty(true); }}
+                  quality={aplusQuality}
+                  onQualityChange={(q) => { setAplusQuality(q); setIsDirty(true); }}
+                />
               )}
 
               <Button

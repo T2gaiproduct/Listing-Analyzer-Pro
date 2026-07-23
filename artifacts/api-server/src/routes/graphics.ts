@@ -168,7 +168,10 @@ function buildNewImageSpecs(
     }
     const promptBuilder = IMAGE_TYPE_PROMPTS[type];
     if (!promptBuilder) continue;
-    const prompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution.`;
+    const basePrompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution.`;
+    const prompt = customPrompt?.trim()
+      ? `${basePrompt} Additional creative direction: ${customPrompt.trim()}`
+      : basePrompt;
     const isFeature = type === "callouts" || type === "social" || type === "size" || type === "beforeafter";
     if (isFeature) {
       const idx = featureIndex;

@@ -49,6 +49,8 @@ export interface GenerateContentDirectBody {
   bulletPoints: string[];
   targetKeywords: string[];
   imageUrls?: string[];
+  customPrompt?: string;
+  promptReferenceImageUrls?: string[];
 }
 
 export interface GeneratedContent {
