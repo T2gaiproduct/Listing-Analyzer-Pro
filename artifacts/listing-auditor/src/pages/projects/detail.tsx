@@ -13,6 +13,11 @@ import {
   Download, RefreshCw, Wand2, ImageIcon, Loader2, ArrowLeft,
   Trash2, Clock, Sparkles, Maximize2, Plus, Check, ArrowRight,
 } from "lucide-react";
+import {
+  CustomPromptGenerationPanel,
+  type GraphicsAspectRatio,
+  type GraphicsQuality,
+} from "@/components/custom-prompt-generation-panel";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -81,6 +86,9 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const [moreStep, setMoreStep] = useState<"select" | "custom">("select");
   const [moreImageTypes, setMoreImageTypes] = useState<string[]>([]);
   const [moreCustomPrompt, setMoreCustomPrompt] = useState("");
+  const [morePromptReferenceImages, setMorePromptReferenceImages] = useState<string[]>([]);
+  const [moreGraphicsAspectRatio, setMoreGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
+  const [moreGraphicsQuality, setMoreGraphicsQuality] = useState<GraphicsQuality>("standard");
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["graphics-project", id],
@@ -102,7 +110,13 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   };
 
   const generateMutation = useMutation({
-    mutationFn: async (payload: { imageTypes?: string[]; customPrompt?: string } | undefined) => {
+    mutationFn: async (payload: {
+      imageTypes?: string[];
+      customPrompt?: string;
+      aspectRatio?: GraphicsAspectRatio;
+      quality?: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    } | undefined) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -634,38 +648,22 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                 </span>
                 <span className="font-medium text-slate-900">Custom Image</span>
               </div>
-              <p className="text-sm text-slate-500">Describe exactly what you want your custom image to look like.</p>
 
-              <Textarea
-                value={moreCustomPrompt}
-                onChange={(e) => setMoreCustomPrompt(e.target.value)}
-                placeholder="Describe your scene, lighting, composition, and background. Be specific and detailed."
-                rows={4}
-                className="resize-none text-sm"
-              />
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">{moreCustomPrompt.length} characters</span>
-                <span className={moreCustomPrompt.trim().length > 0 ? "text-purple-600" : "text-slate-400"}>
-                  {moreCustomPrompt.trim().length > 0 ? "Ready to generate" : "Add a prompt to continue"}
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Need inspiration? Try these:</p>
-                {[
+              <CustomPromptGenerationPanel
+                customPrompt={moreCustomPrompt}
+                onCustomPromptChange={setMoreCustomPrompt}
+                referenceImages={morePromptReferenceImages}
+                onReferenceImagesChange={setMorePromptReferenceImages}
+                aspectRatio={moreGraphicsAspectRatio}
+                onAspectRatioChange={setMoreGraphicsAspectRatio}
+                quality={moreGraphicsQuality}
+                onQualityChange={setMoreGraphicsQuality}
+                examplePrompts={[
                   "A sleek coffee mug on a marble countertop with morning sunlight streaming through a window",
                   "My product floating on a cloud against a pastel gradient background with soft shadows",
                   "A 3D render of my product on a rotating pedestal with dramatic rim lighting",
-                ].map((ex, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setMoreCustomPrompt(ex)}
-                    className="w-full text-left p-3 rounded-lg border border-slate-200 bg-slate-50/50 text-sm text-slate-600 hover:border-purple-300 hover:bg-purple-50/30 transition-all"
-                  >
-                    <span className="text-purple-400">&ldquo;</span>{ex}<span className="text-purple-400">&rdquo;</span>
-                  </button>
-                ))}
-              </div>
+                ]}
+              />
 
               {moreImageTypes.filter(s => s !== "custom").length > 0 && (
                 <div className="pt-3 border-t border-slate-100">
@@ -703,6 +701,9 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                     generateMutation.mutate({
                       imageTypes: moreImageTypes,
                       customPrompt: moreCustomPrompt.trim(),
+                      aspectRatio: moreGraphicsAspectRatio,
+                      quality: moreGraphicsQuality,
+                      promptReferenceImageUrls: morePromptReferenceImages.length > 0 ? morePromptReferenceImages : undefined,
                     });
                     setShowGenerateMore(false);
                   }}

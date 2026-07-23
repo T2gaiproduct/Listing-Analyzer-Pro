@@ -7,6 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Sparkles, Search, Camera, Monitor, Lightbulb } from "lucide-react";
+import {
+  CustomPromptGenerationPanel,
+  type GraphicsAspectRatio,
+  type GraphicsQuality,
+} from "@/components/custom-prompt-generation-panel";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -114,6 +119,9 @@ export default function CreateProject() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [promptReferenceImages, setPromptReferenceImages] = useState<string[]>([]);
+  const [graphicsAspectRatio, setGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
+  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>("standard");
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -151,6 +159,9 @@ export default function CreateProject() {
         body: JSON.stringify({
           imageTypes: selectedImageTypes,
           customPrompt: customPrompt.trim() || undefined,
+          aspectRatio: graphicsAspectRatio,
+          quality: graphicsQuality,
+          promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
         }),
       }).then(() => refreshCreditBalances(queryClient));
       nav(`/projects/${project.id}/generating`);
@@ -539,35 +550,18 @@ export default function CreateProject() {
           </div>
 
           {selectedImageTypes.includes("custom") && (
-            <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50/30 p-3">
-              <label className="text-xs font-medium text-orange-900">
-                Custom Prompt
-                {customPrompt.length > 0 && (
-                  <span className={`ml-2 text-xs font-medium ${customPrompt.length > PROMPT_MAX_CHARS ? "text-red-500" : "text-slate-400"}`}>
-                    {customPrompt.length} / {PROMPT_MAX_CHARS}
-                  </span>
-                )}
-              </label>
-              <Textarea
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="Describe exactly what you want the AI to create. Be specific about the scene, lighting, composition, and mood."
-                rows={3}
-                className="resize-none text-xs bg-white"
-              />
-              <div className="space-y-1">
-                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Example prompts</p>
-                {CUSTOM_EXAMPLES.map((ex) => (
-                  <button
-                    key={ex}
-                    className="block text-left text-[11px] text-orange-600 hover:text-orange-700 hover:underline w-full"
-                    onClick={() => setCustomPrompt(ex)}
-                  >
-                    {ex}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <CustomPromptGenerationPanel
+              customPrompt={customPrompt}
+              onCustomPromptChange={setCustomPrompt}
+              referenceImages={promptReferenceImages}
+              onReferenceImagesChange={setPromptReferenceImages}
+              aspectRatio={graphicsAspectRatio}
+              onAspectRatioChange={setGraphicsAspectRatio}
+              quality={graphicsQuality}
+              onQualityChange={setGraphicsQuality}
+              promptMaxChars={PROMPT_MAX_CHARS}
+              examplePrompts={CUSTOM_EXAMPLES}
+            />
           )}
 
         </div>

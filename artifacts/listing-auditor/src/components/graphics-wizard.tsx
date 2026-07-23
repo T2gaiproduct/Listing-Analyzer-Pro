@@ -856,6 +856,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   quality={moreGraphicsQuality}
                   onQualityChange={setMoreGraphicsQuality}
                   promptMaxChars={PROMPT_MAX_CHARS}
+                  examplePrompts={CUSTOM_EXAMPLES}
                 />
 
                 {moreImageTypes.filter(s => s !== "custom").length > 0 && (
@@ -1173,17 +1174,30 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
       {/* Step 3: Custom Prompt (only if custom selected) */}
       {step === 3 && (
-        <CustomPromptGenerationPanel
-          customPrompt={customPrompt}
-          onCustomPromptChange={setCustomPrompt}
-          referenceImages={promptReferenceImages}
-          onReferenceImagesChange={setPromptReferenceImages}
-          aspectRatio={graphicsAspectRatio}
-          onAspectRatioChange={setGraphicsAspectRatio}
-          quality={graphicsQuality}
-          onQualityChange={setGraphicsQuality}
-          promptMaxChars={PROMPT_MAX_CHARS}
-        />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-purple-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
+              <p className="text-xs text-slate-500">Select a style and add a custom prompt if desired.</p>
+            </div>
+          </div>
+
+          <CustomPromptGenerationPanel
+            customPrompt={customPrompt}
+            onCustomPromptChange={setCustomPrompt}
+            referenceImages={promptReferenceImages}
+            onReferenceImagesChange={setPromptReferenceImages}
+            aspectRatio={graphicsAspectRatio}
+            onAspectRatioChange={setGraphicsAspectRatio}
+            quality={graphicsQuality}
+            onQualityChange={setGraphicsQuality}
+            promptMaxChars={PROMPT_MAX_CHARS}
+            examplePrompts={CUSTOM_EXAMPLES}
+          />
+        </div>
       )}
 
       {/* Actions */}
