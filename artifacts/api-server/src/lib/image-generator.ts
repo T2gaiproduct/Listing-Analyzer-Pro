@@ -2,7 +2,7 @@ import { generateImageBuffer, editImagesProxy } from "./openai-image";
 import * as fs from "fs";
 import * as path from "path";
 import type { ImageRecord, ImageVersion, ImageStyle, AspectRatio } from "@workspace/db";
-import { auditImageDir, ensureAuditImageDir, imageUrlPath, resolveAuditImagePath } from "./image-storage";
+import { ensureAuditImageDir, imageUrlPath, resolveAuditImagePath, saveReferenceImageUrls } from "./image-storage";
 
 export const STYLE_LABELS: Record<ImageStyle, string> = {
   premium: "Premium",
@@ -58,12 +58,11 @@ async function generateAndSave(
 }
 
 async function editAndSave(
-  sourceFilePath: string,
+  sourceFilePaths: string[],
   prompt: string,
   filePath: string,
-  aspectRatio: AspectRatio,
 ): Promise<void> {
-  const buffer = await editImagesProxy([sourceFilePath], prompt);
+  const buffer = await editImagesProxy(sourceFilePaths, prompt);
   if (!buffer || buffer.length === 0) throw new Error("No image data returned from AI edit");
   fs.writeFileSync(filePath, buffer);
 }
@@ -227,6 +226,7 @@ export async function editSingleImage(data: {
   category?: string | null;
   existingRecord: ImageRecord;
   editPrompt: string;
+  referenceImageUrls?: string[];
   style?: ImageStyle;
   aspectRatio?: AspectRatio;
 }): Promise<ImageRecord> {
@@ -245,8 +245,9 @@ export async function editSingleImage(data: {
   const destFilePath = path.join(dir, filename);
   const imgUrl = urlPath(data.auditId, filename);
 
+  const refPaths = saveReferenceImageUrls(dir, data.referenceImageUrls);
   const fullPrompt = `${data.editPrompt} ${STYLE_SUFFIXES[style]}`;
-  await editAndSave(sourceFilePath, fullPrompt, destFilePath, aspectRatio);
+  await editAndSave([sourceFilePath, ...refPaths], fullPrompt, destFilePath);
 
   const newVersion: ImageVersion = {
     url: imgUrl,

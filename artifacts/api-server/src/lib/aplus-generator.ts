@@ -5,6 +5,7 @@ import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy }
 import {
   auditImageDir,
   ensureAuditImageDir,
+  saveReferenceImageUrls,
   imageUrlPath,
   resolveAuditImagePath,
 } from "./image-storage";
@@ -231,6 +232,7 @@ export async function editAplusModule(data: {
   content: EbcContent;
   existing: AplusModule;
   editPrompt: string;
+  referenceImageUrls?: string[];
 }): Promise<AplusModule> {
   const spec = getModuleSpec(data.moduleId);
   if (!spec) throw new Error("Invalid A+ module");
@@ -243,9 +245,10 @@ export async function editAplusModule(data: {
 
   const dir = ensureAuditImageDir(data.auditId);
 
+  const refPaths = saveReferenceImageUrls(dir, data.referenceImageUrls);
   const filename = `aplus_${spec.id}_edit_${Date.now()}.png`;
   const filePath = path.join(dir, filename);
-  const buffer = await editImagesProxy([sourceFilePath], data.editPrompt.trim(), filePath);
+  const buffer = await editImagesProxy([sourceFilePath, ...refPaths], data.editPrompt.trim(), filePath);
   if (!buffer?.length) throw new Error("No image data returned from AI edit");
   fs.writeFileSync(filePath, buffer);
 

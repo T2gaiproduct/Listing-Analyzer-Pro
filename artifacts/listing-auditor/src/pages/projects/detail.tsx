@@ -18,6 +18,7 @@ import {
   type GraphicsAspectRatio,
   type GraphicsQuality,
 } from "@/components/custom-prompt-generation-panel";
+import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -77,6 +78,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
 
   const [editRecord, setEditRecord] = useState<ImageRecord | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
+  const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
 
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
   const [showDelete, setShowDelete] = useState(false);
@@ -168,12 +170,23 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   });
 
   const editMutation = useMutation({
-    mutationFn: async ({ imageId, prompt }: { imageId: string; prompt: string }) => {
+    mutationFn: async ({
+      imageId,
+      prompt,
+      referenceImageUrls,
+    }: {
+      imageId: string;
+      prompt: string;
+      referenceImageUrls?: string[];
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${id}/images/${imageId}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ editPrompt: prompt }),
+        body: JSON.stringify({
+          editPrompt: prompt,
+          referenceImageUrls: referenceImageUrls?.length ? referenceImageUrls : undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -186,6 +199,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       refreshCreditBalances(qc);
       setEditRecord(null);
       setEditPrompt("");
+      setEditReferenceImages([]);
       toast({ title: "Image edited" });
     },
     onError: (err) => {
@@ -243,13 +257,18 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const handleOpenEdit = (record: ImageRecord) => {
     setEditRecord(record);
     setEditPrompt("");
+    setEditReferenceImages([]);
   };
 
   const handleEditSubmit = () => {
     if (!editRecord || !editPrompt.trim()) return;
     setLoading(editRecord.id, true);
     editMutation.mutate(
-      { imageId: editRecord.id, prompt: editPrompt },
+      {
+        imageId: editRecord.id,
+        prompt: editPrompt,
+        referenceImageUrls: editReferenceImages.length > 0 ? editReferenceImages : undefined,
+      },
       { onSettled: () => setLoading(editRecord.id, false) },
     );
   };
@@ -349,7 +368,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); } }}>
+      <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); setEditReferenceImages([]); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -402,6 +421,13 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   className="resize-none"
                 />
               </div>
+
+              <ReferenceImageUploadField
+                images={editReferenceImages}
+                onImagesChange={setEditReferenceImages}
+                label="Reference images (optional)"
+                hint="Upload style or content references to guide the edit."
+              />
 
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button variant="outline" onClick={() => setEditRecord(null)} disabled={loadingIds.has(editRecord.id)} className="cursor-pointer">

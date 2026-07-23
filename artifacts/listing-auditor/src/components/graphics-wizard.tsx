@@ -18,6 +18,7 @@ import {
   type GraphicsAspectRatio,
   type GraphicsQuality,
 } from "@/components/custom-prompt-generation-panel";
+import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -180,6 +181,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [editRecord, setEditRecord] = useState<ImageRecord | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
+  const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
   const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
 
@@ -332,12 +334,25 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   });
 
   const editMutation = useMutation({
-    mutationFn: async ({ imageId, pid, prompt }: { imageId: string; pid: number; prompt: string }) => {
+    mutationFn: async ({
+      imageId,
+      pid,
+      prompt,
+      referenceImageUrls,
+    }: {
+      imageId: string;
+      pid: number;
+      prompt: string;
+      referenceImageUrls?: string[];
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${pid}/images/${imageId}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          editPrompt: prompt,
+          referenceImageUrls: referenceImageUrls?.length ? referenceImageUrls : undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -350,6 +365,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       toast({ title: "Image edited" });
       setEditRecord(null);
       setEditPrompt("");
+      setEditReferenceImages([]);
       refetch();
     },
     onError: (err) => {
@@ -479,13 +495,19 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const handleEdit = (record: ImageRecord) => {
     setEditRecord(record);
     setEditPrompt("");
+    setEditReferenceImages([]);
   };
 
   const handleEditSubmit = () => {
     if (!editRecord || !editPrompt.trim() || !activeProjectId) return;
     setLoading(editRecord.id, true);
     editMutation.mutate(
-      { imageId: editRecord.id, pid: activeProjectId, prompt: editPrompt },
+      {
+        imageId: editRecord.id,
+        pid: activeProjectId,
+        prompt: editPrompt,
+        referenceImageUrls: editReferenceImages.length > 0 ? editReferenceImages : undefined,
+      },
       { onSettled: () => setLoading(editRecord.id, false) },
     );
   };
@@ -602,7 +624,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         )}
 
         {/* Edit Dialog */}
-        <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); } }}>
+        <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); setEditReferenceImages([]); } }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -652,6 +674,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     className="resize-none"
                   />
                 </div>
+                <ReferenceImageUploadField
+                  images={editReferenceImages}
+                  onImagesChange={setEditReferenceImages}
+                  label="Reference images (optional)"
+                  hint="Upload style or content references to guide the edit."
+                />
                 <div className="flex justify-end gap-2 pt-2 border-t">
                   <Button variant="outline" onClick={() => setEditRecord(null)} disabled={loadingIds.has(editRecord.id)}>
                     Cancel

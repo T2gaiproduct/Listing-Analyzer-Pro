@@ -846,7 +846,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
     return;
   }
 
-  const body = req.body as { prompt: string; style?: ImageStyle; aspectRatio?: AspectRatio };
+  const body = req.body as { prompt: string; referenceImageUrls?: string[]; style?: ImageStyle; aspectRatio?: AspectRatio };
   if (!body?.prompt?.trim()) {
     res.status(400).json({ error: "prompt is required" });
     return;
@@ -861,6 +861,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
       category: audit.category,
       existingRecord,
       editPrompt: body.prompt,
+      referenceImageUrls: body.referenceImageUrls,
       style: body.style,
       aspectRatio: body.aspectRatio,
     });
@@ -948,7 +949,7 @@ router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeam, requir
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
-  const body = req.body as { prompt?: string };
+  const body = req.body as { prompt?: string; referenceImageUrls?: string[] };
 
   if (isNaN(id) || !["hero", "features", "comparison", "brand_story"].includes(moduleId)) {
     res.status(400).json({ error: "Invalid parameters" });
@@ -990,6 +991,7 @@ router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeam, requir
       content,
       existing,
       editPrompt: body.prompt.trim(),
+      referenceImageUrls: body.referenceImageUrls,
     });
 
     const saved = await replaceAplusModule(id, moduleId, updated);

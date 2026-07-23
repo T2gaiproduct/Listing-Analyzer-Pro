@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { toast } from "sonner";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
@@ -242,6 +243,7 @@ export function ImageGallery({
 
   const [editRecord, setEditRecord] = useState<ImageRecord | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
+  const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
 
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
 
@@ -318,6 +320,7 @@ export function ImageGallery({
   const handleOpenEdit = (record: ImageRecord) => {
     setEditRecord(record);
     setEditPrompt("");
+    setEditReferenceImages([]);
   };
 
   const handleEditSubmit = async () => {
@@ -329,11 +332,16 @@ export function ImageGallery({
         id: auditId,
         type: editRecord.type as "main" | "infographic" | "lifestyle",
         index: editRecord.index,
-        data: { prompt: editPrompt },
+        data: {
+          prompt: editPrompt,
+          referenceImageUrls: editReferenceImages.length > 0 ? editReferenceImages : undefined,
+        } as { prompt: string; referenceImageUrls?: string[] },
       });
       invalidate();
       refreshCreditBalances(queryClient);
       setEditRecord(null);
+      setEditPrompt("");
+      setEditReferenceImages([]);
       toast.success("Image edited successfully!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Edit failed";
@@ -446,7 +454,11 @@ export function ImageGallery({
       <Dialog
         open={!!editRecord}
         onOpenChange={(open) => {
-          if (!open && !loadingIds.has(editRecord?.id ?? "")) setEditRecord(null);
+          if (!open && !loadingIds.has(editRecord?.id ?? "")) {
+            setEditRecord(null);
+            setEditPrompt("");
+            setEditReferenceImages([]);
+          }
         }}
       >
         <DialogContent className="max-w-2xl">
@@ -509,6 +521,13 @@ export function ImageGallery({
                   className="resize-none"
                 />
               </div>
+
+              <ReferenceImageUploadField
+                images={editReferenceImages}
+                onImagesChange={setEditReferenceImages}
+                label="Reference images (optional)"
+                hint="Upload style or content references to guide the edit."
+              />
 
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button

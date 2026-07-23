@@ -386,7 +386,12 @@ async function generateNewImageTypes(
   return records;
 }
 
-async function editGraphicsImage(projectId: number, existingRecord: GraphicsImageRecord, editPrompt: string): Promise<GraphicsImageRecord> {
+async function editGraphicsImage(
+  projectId: number,
+  existingRecord: GraphicsImageRecord,
+  editPrompt: string,
+  referenceImageUrls?: string[],
+): Promise<GraphicsImageRecord> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   const currentFilename = path.basename(existingRecord.currentUrl);
   const sourceFilePath = path.join(dir, currentFilename);
@@ -400,9 +405,10 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
   const destFilePath = path.join(dir, filename);
   const imgUrl = urlPath(projectId, filename);
 
+  const refPaths = savePromptReferenceImages(projectId, referenceImageUrls);
   const styleSuffix = DESIGN_STYLE_PROMPTS[existingRecord.style] ?? "";
   const fullPrompt = `${editPrompt} ${styleSuffix}`;
-  const buffer = await editImagesProxy([sourceFilePath], fullPrompt);
+  const buffer = await editImagesProxy([sourceFilePath, ...refPaths], fullPrompt);
   if (!buffer || buffer.length === 0) throw new Error("No image data returned from AI edit");
   fs.writeFileSync(destFilePath, buffer);
 
@@ -853,7 +859,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const existingRecord = records.find(r => r.id === imageId);
   if (!existingRecord) { res.status(404).json({ error: "Image not found" }); return; }
 
-  const body = req.body as { editPrompt: string };
+  const body = req.body as { editPrompt: string; referenceImageUrls?: string[] };
   if (!body.editPrompt?.trim()) { res.status(400).json({ error: "Edit prompt is required" }); return; }
 
   const cost = await getCreditCost("graphics_edit");
@@ -865,7 +871,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   }
 
   try {
-    const updatedRecord = await editGraphicsImage(id, existingRecord, body.editPrompt);
+    const updatedRecord = await editGraphicsImage(id, existingRecord, body.editPrompt, body.referenceImageUrls);
     await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, `Edit ${imageId}`, "graphics_edit", { projectId: id, imageId });
 
     const updatedRecords = records.map(r => r.id === imageId ? updatedRecord : r);
