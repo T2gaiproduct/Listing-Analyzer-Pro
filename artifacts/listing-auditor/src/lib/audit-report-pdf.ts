@@ -97,7 +97,19 @@ class AuditReportPdf {
 
   private addSectionTitle(title: string, topGap = 6) {
     this.y += topGap;
-    this.addText(title, { size: 9, bold: true, color: [100, 116, 139], afterGap: 8 });
+    this.addText(title, { size: 9, bold: true, color: [100, 116, 139], wrap: false, lineH: 11, afterGap: 0 });
+    this.y += 6;
+  }
+
+  /** Large score number — advances y using full glyph height, not just baseline. */
+  private addLargeScore(score: number) {
+    const fontSize = 40;
+    const blockHeight = Math.ceil(fontSize * 1.05);
+    this.ensureSpace(blockHeight + 12);
+    this.y += 14;
+    this.setStyle(fontSize, true, scoreColor(score));
+    this.doc.text(String(score), MARGIN, this.y);
+    this.y += blockHeight + 10;
   }
 
   private addScoreRow(label: string, score: number) {
@@ -152,14 +164,7 @@ class AuditReportPdf {
     this.addRule([255, 107, 0], 26);
 
     this.addSectionTitle("OVERALL SCORE", 4);
-    this.addText(String(audit.overallScore), {
-      size: 40,
-      bold: true,
-      color: scoreColor(audit.overallScore),
-      wrap: false,
-      lineH: 46,
-      afterGap: 8,
-    });
+    this.addLargeScore(audit.overallScore);
     this.addText(result.summary, { size: 10, color: [71, 85, 105], lineH: 15, afterGap: 10 });
     this.addRule();
 

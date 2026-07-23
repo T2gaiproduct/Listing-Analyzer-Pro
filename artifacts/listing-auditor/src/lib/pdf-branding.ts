@@ -6,11 +6,11 @@ const BRAND_RED: Rgb = [192, 0, 0];
 const BRAND_GREY: Rgb = [51, 51, 51];
 
 /** Draw Tech2Globe logo with vector text so colors are always correct in PDF. */
-export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, width = 118) {
-  const scale = width / 118;
-  const fontSize = 15.5 * scale;
+export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, width = 130) {
+  const scale = width / 130;
+  const fontSize = 16 * scale;
   const x = rightX - width;
-  const baselineY = topY + fontSize * 0.82;
+  const baselineY = topY + fontSize * 0.9;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(fontSize);
@@ -76,7 +76,7 @@ export function drawPdfPageChrome(
   doc.setFillColor(255, 107, 0);
   doc.rect(0, 0, pageW, 4, "F");
 
-  drawTech2GlobeLogo(doc, pageW - margin, 14, 118);
+  drawTech2GlobeLogo(doc, pageW - margin, 12, 130);
 
   const footerY = pageH - 20;
   doc.setFont("helvetica", "normal");
@@ -94,5 +94,5 @@ export function defaultLineHeight(fontSize: number, custom?: number): number {
   return custom ?? Math.ceil(fontSize * 1.5);
 }
 
-export const PDF_HEADER_RESERVE = 48;
+export const PDF_HEADER_RESERVE = 52;
 export const PDF_FOOTER_RESERVE = 32;
