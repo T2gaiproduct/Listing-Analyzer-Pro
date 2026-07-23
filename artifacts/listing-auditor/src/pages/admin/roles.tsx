@@ -62,13 +62,37 @@ function adminInviteLink(token: string | null | undefined): string {
 
 async function readApiJson<T>(r: Response): Promise<T> {
   const text = await r.text();
+  if (!text.trim()) {
+    if (!r.ok) {
+      throw new Error(
+        r.status === 404
+          ? "This action is not available on the running API yet. Deploy the latest backend update, then try again."
+          : `Server error (${r.status}). The API may be unavailable or the database needs updating.`,
+      );
+    }
+    return {} as T;
+  }
   try {
-    return JSON.parse(text) as T;
-  } catch {
+    const data = JSON.parse(text) as T & { error?: string };
+    if (!r.ok) {
+      throw new Error(
+        data.error
+          ?? (r.status === 404
+            ? "This action is not available on the running API yet. Deploy the latest backend update, then try again."
+            : `Server error (${r.status}). The API may be unavailable or the database needs updating.`),
+      );
+    }
+    return data;
+  } catch (err) {
+    if (err instanceof Error && err.message !== "Unexpected token" && !err.message.startsWith("Unexpected token")) {
+      throw err;
+    }
     throw new Error(
       r.ok
         ? "Invalid server response"
-        : `Server error (${r.status}). The API may be unavailable or the database needs updating.`,
+        : r.status === 404
+          ? "This action is not available on the running API yet. Deploy the latest backend update, then try again."
+          : `Server error (${r.status}). The API may be unavailable or the database needs updating.`,
     );
   }
 }
@@ -221,24 +245,24 @@ export default function AdminRoles() {
   });
 
   const generateInviteLink = useMutation({
-    mutationFn: async (assignmentId: number) => {
-      const r = await fetch(`${basePath}/api/admin/admin-users/${assignmentId}/invite-link`, {
+    mutationFn: async ({ email, roleId }: { email: string; roleId: number }) => {
+      const r = await fetch(`${basePath}/api/admin/admin-users`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, roleId }),
       });
-      const data = await readApiJson<{ inviteUrl?: string; error?: string }>(r);
-      if (!r.ok) throw new Error(data.error ?? "Failed to generate invite link");
-      return data;
-    },
-    onSuccess: (data, assignmentId) => {
-      qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
-      const user = assignedUsers.find((u) => u.id === assignmentId);
-      if (data.inviteUrl) {
-        setInviteLinkDialog({
-          email: user?.clerkUser?.email ?? user?.userId ?? "User",
-          url: data.inviteUrl,
-        });
+      const data = await readApiJson<{ pending?: boolean; inviteUrl?: string; error?: string }>(r);
+      if (!data.inviteUrl) {
+        throw new Error(
+          "The server did not return an invite link. Deploy the latest API update (PR #108), then try again.",
+        );
       }
+      return { ...data, email };
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
+      setInviteLinkDialog({ email: data.email, url: data.inviteUrl! });
       toast({
         title: "Access link generated",
         description: "Share the link — the user signs in and accepts to activate their role.",
@@ -481,8 +505,15 @@ export default function AdminRoles() {
                           variant="outline"
                           size="sm"
                           className="h-7"
-                          disabled={generateInviteLink.isPending}
-                          onClick={() => generateInviteLink.mutate(u.id)}
+                          disabled={generateInviteLink.isPending || !u.clerkUser?.email}
+                          onClick={() => {
+                            const email = u.clerkUser?.email;
+                            if (!email) {
+                              toast({ title: "No email on file", description: "Re-assign this role by email to generate a link.", variant: "destructive" });
+                              return;
+                            }
+                            generateInviteLink.mutate({ email, roleId: u.roleId });
+                          }}
                         >
                           <Copy className="h-3.5 w-3.5 mr-1" />
                           {generateInviteLink.isPending ? "Generating…" : "Get access link"}
