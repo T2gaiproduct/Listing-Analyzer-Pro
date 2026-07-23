@@ -6,6 +6,7 @@ export interface PlanAllocations {
   image?: number;
   ebc?: number;
   competitors?: number;
+  teamMembers?: number;
 }
 
 export interface PlanCreditPools {
