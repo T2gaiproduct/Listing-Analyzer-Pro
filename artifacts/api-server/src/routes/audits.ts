@@ -469,7 +469,25 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { prompt: rawPrompt, moduleIds: rawModuleIds } = req.body as { prompt?: string; moduleIds?: string[] };
+  const {
+    prompt: rawPrompt,
+    moduleIds: rawModuleIds,
+    imageCustomPrompt,
+    promptReferenceImageUrls,
+    quality,
+    moduleConfigs,
+  } = req.body as {
+    prompt?: string;
+    moduleIds?: string[];
+    imageCustomPrompt?: string;
+    promptReferenceImageUrls?: string[];
+    quality?: "standard" | "hd";
+    moduleConfigs?: Record<string, {
+      imageCustomPrompt?: string;
+      promptReferenceImageUrls?: string[];
+      quality?: "standard" | "hd";
+    }>;
+  };
 
   let moduleIds: AplusModule["id"][];
   try {
@@ -564,6 +582,10 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
         content,
         imageUrls: audit.imageUrls as string[],
         moduleIds,
+        imageCustomPrompt: imageCustomPrompt?.trim() || undefined,
+        promptReferenceImageUrls,
+        quality,
+        moduleConfigs,
         onModuleComplete: async (module, done, total) => {
           newlyGenerated.push(module);
           const merged = mergeAplusModules(preservedModules, newlyGenerated);
@@ -625,14 +647,19 @@ router.post("/generate-content", requireAuth, resolveTeam, requireWriteAccess, a
   await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "content", { userId: ownerId });
 
   try {
+    const imageUrls = [
+      ...(parsed.data.promptReferenceImageUrls ?? []),
+      ...(parsed.data.imageUrls ?? []),
+    ];
     const generatedContent = await generateListingContent({
       productName: parsed.data.productName,
       brandName: parsed.data.brandName,
       category: parsed.data.category,
-      imageUrls: parsed.data.imageUrls,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       currentTitle: parsed.data.title,
       currentBullets: parsed.data.bulletPoints,
       currentKeywords: parsed.data.targetKeywords,
+      customPrompt: parsed.data.customPrompt,
     });
     res.json(generatedContent);
   } catch (err) {
@@ -658,19 +685,29 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWri
   const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
+  const body = req.body as {
+    customPrompt?: string;
+    promptReferenceImageUrls?: string[];
+  };
+
   await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
 
   try {
+    const imageUrls = [
+      ...(body.promptReferenceImageUrls ?? []),
+      ...((audit.imageUrls as string[]) ?? []),
+    ];
     const generatedContent = await generateListingContent({
       productName: audit.productName,
       asin: audit.asin,
       brandName: audit.brandName,
       category: audit.category,
-      imageUrls: audit.imageUrls as string[],
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       currentTitle: audit.title,
       currentBullets: audit.bulletPoints as string[],
       currentKeywords: audit.targetKeywords as string[],
       auditSummary: audit.result?.summary,
+      customPrompt: body.customPrompt,
     });
 
     await db.update(auditsTable)
