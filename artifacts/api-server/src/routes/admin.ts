@@ -1079,14 +1079,21 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
   }));
 
   const invites = await listPendingAdminInvites();
+  const appBaseUrl = resolveAppBaseUrl(req);
 
   res.json({
     users: enriched,
     invites: await Promise.all(invites.map(async (invite) => {
-      const token = invite.inviteToken ?? await ensureAdminInviteToken(invite.id);
+      let token = invite.inviteToken;
+      try {
+        token = token ?? await ensureAdminInviteToken(invite.id);
+      } catch (err) {
+        req.log?.warn?.({ err, inviteId: invite.id }, "Failed to ensure admin invite token");
+      }
       return {
         ...invite,
         inviteToken: token,
+        inviteUrl: token ? buildAdminInviteUrl(token, appBaseUrl) : null,
         role: roleMap[invite.roleId] ?? null,
         status: "pending" as const,
       };
