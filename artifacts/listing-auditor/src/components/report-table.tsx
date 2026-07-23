@@ -1,5 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { jsPDF } from "jspdf";
+import { drawPdfPageChrome, loadTech2GlobeLogoDataUrl } from "@/lib/pdf-branding";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,10 +92,11 @@ export function ReportTable<T>({
     downloadBlob(`${header}\n${body}`, `${exportFilename}.csv`, "text/csv;charset=utf-8;");
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
+    const logoDataUrl = await loadTech2GlobeLogoDataUrl(basePath);
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-    const marginX = 32;
-    let y = 40;
+    const marginX = 48;
+    let y = 56;
     doc.setFontSize(16);
     doc.text(title, marginX, y);
     doc.setFontSize(9);
@@ -121,7 +125,7 @@ export function ReportTable<T>({
 
     doc.setFontSize(8);
     sorted.forEach((r) => {
-      if (y > pageHeight - 30) { doc.addPage(); y = 40; drawHeader(); doc.setFontSize(8); }
+      if (y > pageHeight - 40) { doc.addPage(); y = 56; drawHeader(); doc.setFontSize(8); }
       columns.forEach((c, i) => {
         let text = String(c.value(r) ?? "");
         const maxChars = Math.floor(colWidth / 4.2);
@@ -130,6 +134,15 @@ export function ReportTable<T>({
       });
       y += rowHeight;
     });
+
+    const pages = doc.getNumberOfPages();
+    for (let page = 1; page <= pages; page += 1) {
+      doc.setPage(page);
+      drawPdfPageChrome(doc, page, pages, logoDataUrl, {
+        margin: marginX,
+        footerNote: `Tech2Globe · ${title}`,
+      });
+    }
 
     doc.save(`${exportFilename}.pdf`);
   };
