@@ -9,6 +9,8 @@ import { PageSeo } from "@/components/page-seo";
 import { cn } from "@/lib/utils";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
+import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
+import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -219,12 +221,11 @@ export default function Pricing() {
         </Badge>
         <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight mb-4">Choose your plan</h1>
         <p className="text-xl text-slate-500 max-w-xl mx-auto mb-10">Start free. Scale as you grow. No hidden fees.</p>
-        <div className="inline-flex items-center gap-3 bg-slate-100 rounded-full p-1">
-          <button onClick={() => setYearly(false)} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${!yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>Monthly</button>
-          <button onClick={() => setYearly(true)} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>
-            Yearly <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">Save 20%</span>
-          </button>
-        </div>
+        <BillingCycleToggle
+          yearly={yearly}
+          onChange={setYearly}
+          savingsPercent={maxPlanYearlySavingsPercent(dbPlans)}
+        />
       </section>
 
       {/* Plans Grid */}
@@ -232,6 +233,11 @@ export default function Pricing() {
         <div className={cn("max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6", planGridClass)}>
           {plans.map((plan) => {
             const dbPlan = dbPlans.find((p) => p.name === plan.name);
+            const priceFields = dbPlan ?? {
+              priceMonthly: plan.monthlyPrice ?? 0,
+              priceYearly: plan.yearlyPrice ?? 0,
+            };
+            const priceDisplay = resolvePlanPriceDisplay(priceFields, yearly);
 
             return (
               <div
@@ -251,15 +257,15 @@ export default function Pricing() {
                 <div className="mb-4">
                   <h3 className="text-lg font-bold text-slate-900 mb-1">{plan.name}</h3>
                   <p className="text-sm text-slate-500 mb-3">{plan.description}</p>
-                  {plan.monthlyPrice !== null ? (
+                  {priceDisplay.kind === "custom" ? (
+                    <div className="text-3xl font-extrabold text-slate-900">Custom</div>
+                  ) : (
                     <div className="flex items-end gap-1">
                       <span className="text-4xl font-extrabold text-slate-900">
-                        ${yearly && plan.yearlyPrice ? plan.yearlyPrice * 12 : plan.monthlyPrice}
+                        ${priceDisplay.amount}
                       </span>
-                      <span className="text-slate-400 mb-1">{yearly && plan.yearlyPrice ? "/year" : "/mo"}</span>
+                      <span className="text-slate-400 mb-1">{priceDisplay.period}</span>
                     </div>
-                  ) : (
-                    <div className="text-3xl font-extrabold text-slate-900">Custom</div>
                   )}
                 </div>
 
