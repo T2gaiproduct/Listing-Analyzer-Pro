@@ -2,23 +2,70 @@ import type { jsPDF } from "jspdf";
 
 type Rgb = [number, number, number];
 
+const LOGO_FILE = "tech2globe-logo.svg";
+const LOGO_ASPECT = 82 / 440;
+
 const BRAND_RED: Rgb = [192, 0, 0];
 const BRAND_BLACK: Rgb = [0, 0, 0];
 const LOGO_TAGLINE = "you authorize, we improvise!!";
 
-/** Total vertical space the logo block occupies (pt). */
-export const PDF_LOGO_HEIGHT = 46;
+let cachedLogoDataUrl: string | null | undefined;
 
-/** Draw Tech2Globe logo with tagline — vector text for reliable PDF colors. */
-export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, width = 168) {
-  const scale = width / 168;
-  const fontSize = 14.5 * scale;
+async function rasterizeSvgText(svgText: string, width = 880): Promise<string> {
+  const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const aspect = img.naturalHeight / img.naturalWidth || LOGO_ASPECT;
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = Math.max(1, Math.round(width * aspect));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Could not create canvas context"));
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.onerror = () => reject(new Error("Failed to rasterize SVG logo"));
+      img.src = objectUrl;
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export async function loadTech2GlobeLogoDataUrl(basePath: string): Promise<string | null> {
+  if (cachedLogoDataUrl !== undefined) return cachedLogoDataUrl;
+
+  const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
+  try {
+    const response = await fetch(`${normalizedBase}${LOGO_FILE}`);
+    if (!response.ok) throw new Error(`Logo fetch failed (${response.status})`);
+    const svgText = await response.text();
+    cachedLogoDataUrl = await rasterizeSvgText(svgText);
+    return cachedLogoDataUrl;
+  } catch {
+    cachedLogoDataUrl = null;
+    return null;
+  }
+}
+
+/** Vector fallback when SVG image cannot be loaded. */
+export function drawTech2GlobeLogoVector(doc: jsPDF, rightX: number, topY: number, width = 185) {
+  const scale = width / 185;
+  const fontSize = 15 * scale;
   const x = rightX - width;
-  const baselineY = topY + fontSize * 0.88;
+  const baselineY = topY + fontSize * 0.9;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(fontSize);
-
   doc.setTextColor(...BRAND_RED);
   doc.text("Tech", x, baselineY);
   const techW = doc.getTextWidth("Tech");
@@ -27,34 +74,39 @@ export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, wid
   doc.text("2Globe", x + techW, baselineY);
   const textW = techW + doc.getTextWidth("2Globe");
 
-  const lineY = baselineY + 2.6 * scale;
+  const lineY = baselineY + 3 * scale;
   doc.setDrawColor(...BRAND_BLACK);
-  doc.setLineWidth(0.65 * scale);
+  doc.setLineWidth(0.7 * scale);
   doc.line(x, lineY, x + textW, lineY);
 
-  const globeCX = x + textW + 9 * scale;
-  const globeCY = baselineY - fontSize * 0.28;
-  const globeR = 10 * scale;
-
+  const globeCX = x + textW + 10 * scale;
+  const globeCY = baselineY - fontSize * 0.25;
+  const globeR = 11 * scale;
   doc.setFillColor(...BRAND_RED);
   doc.circle(globeCX, globeCY, globeR, "F");
-
   doc.setFillColor(255, 255, 255);
-  doc.ellipse(globeCX - 2.8 * scale, globeCY - 1.2 * scale, 3.2 * scale, 4.8 * scale, "F");
-  doc.ellipse(globeCX + 4.2 * scale, globeCY + 1.8 * scale, 3 * scale, 4.2 * scale, "F");
-  doc.ellipse(globeCX - 1.2 * scale, globeCY + 5 * scale, 2.8 * scale, 2.4 * scale, "F");
-  doc.ellipse(globeCX + 1.5 * scale, globeCY - 5.5 * scale, 2.2 * scale, 1.8 * scale, "F");
+  doc.ellipse(globeCX - 3 * scale, globeCY - 1 * scale, 3.5 * scale, 5 * scale, "F");
+  doc.ellipse(globeCX + 4 * scale, globeCY + 2 * scale, 3 * scale, 4.5 * scale, "F");
 
-  const tagSize = 5.2 * scale;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(tagSize);
+  doc.setFontSize(7.5 * scale);
   doc.setTextColor(...BRAND_BLACK);
-  doc.text(LOGO_TAGLINE, x, lineY + 7.5 * scale);
+  doc.text(LOGO_TAGLINE, x, lineY + 10 * scale);
 }
 
-/** @deprecated Logo is drawn natively; kept for API compatibility. */
-export async function loadTech2GlobeLogoDataUrl(_basePath: string): Promise<string | null> {
-  return null;
+export function drawTech2GlobeLogo(
+  doc: jsPDF,
+  rightX: number,
+  topY: number,
+  logoDataUrl: string | null,
+  width = 185,
+) {
+  if (logoDataUrl) {
+    const logoH = width * LOGO_ASPECT;
+    doc.addImage(logoDataUrl, "PNG", rightX - width, topY, width, logoH);
+    return;
+  }
+  drawTech2GlobeLogoVector(doc, rightX, topY, width);
 }
 
 /** Strip characters that break jsPDF Helvetica metrics (wide spacing / overlap). */
@@ -73,7 +125,7 @@ export function drawPdfPageChrome(
   doc: jsPDF,
   page: number,
   totalPages: number,
-  _logoDataUrl?: string | null,
+  logoDataUrl: string | null,
   options?: { margin?: number; footerNote?: string },
 ) {
   const margin = options?.margin ?? 48;
@@ -83,7 +135,7 @@ export function drawPdfPageChrome(
   doc.setFillColor(255, 107, 0);
   doc.rect(0, 0, pageW, 4, "F");
 
-  drawTech2GlobeLogo(doc, pageW - margin, 10, 168);
+  drawTech2GlobeLogo(doc, pageW - margin, 8, logoDataUrl, 185);
 
   const footerY = pageH - 20;
   doc.setFont("helvetica", "normal");
@@ -101,5 +153,5 @@ export function defaultLineHeight(fontSize: number, custom?: number): number {
   return custom ?? Math.ceil(fontSize * 1.5);
 }
 
-export const PDF_HEADER_RESERVE = 58;
+export const PDF_HEADER_RESERVE = 62;
 export const PDF_FOOTER_RESERVE = 32;

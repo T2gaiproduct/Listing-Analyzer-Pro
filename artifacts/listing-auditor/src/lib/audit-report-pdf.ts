@@ -4,6 +4,7 @@ import type { AuditWithResults } from "@workspace/api-client-react";
 import {
   defaultLineHeight,
   drawPdfPageChrome,
+  loadTech2GlobeLogoDataUrl,
   PDF_FOOTER_RESERVE,
   PDF_HEADER_RESERVE,
   sanitizePdfText,
@@ -276,8 +277,9 @@ class AuditReportPdf {
   }
 }
 
-export async function downloadAuditReportPdf(audit: AuditWithResults, _basePath: string) {
-  const builder = new AuditReportPdf(null);
+export async function downloadAuditReportPdf(audit: AuditWithResults, basePath: string) {
+  const logoDataUrl = await loadTech2GlobeLogoDataUrl(basePath);
+  const builder = new AuditReportPdf(logoDataUrl);
   const doc = builder.build(audit);
   const filename = `${audit.productName.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_audit_report.pdf`;
   doc.save(filename);
