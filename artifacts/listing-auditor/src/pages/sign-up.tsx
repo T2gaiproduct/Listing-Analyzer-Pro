@@ -29,18 +29,25 @@ export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp();
   const [, setLocation] = useLocation();
 
+  const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
+
   const postAuthPath = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    const redirect = params.get("redirect_url");
+    const redirect = searchParams.get("redirect_url");
     if (redirect && redirect.startsWith("/")) return redirect;
     if (redirect && redirect.startsWith(basePath)) return redirect.slice(basePath.length) || "/";
     return "/onboarding";
-  }, []);
+  }, [searchParams]);
 
-  const initialEmail = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("email") ?? "";
-  }, []);
+  const initialEmail = useMemo(() => searchParams.get("email") ?? "", [searchParams]);
+
+  const signInHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    const redirect = searchParams.get("redirect_url");
+    if (redirect) qs.set("redirect_url", redirect);
+    if (initialEmail) qs.set("email", initialEmail);
+    const query = qs.toString();
+    return query ? `/sign-in?${query}` : "/sign-in";
+  }, [searchParams, initialEmail]);
 
   const [email, setEmail] = useState(initialEmail);
   const [step, setStep] = useState<"form" | "verify">("form");
@@ -86,9 +93,15 @@ export default function SignUpPage() {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setStep("verify");
     } catch (err: unknown) {
-      const e = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      const e = err as { errors?: Array<{ longMessage?: string; message?: string; code?: string }> };
       const first = e?.errors?.[0];
-      setError(first?.longMessage ?? first?.message ?? "Sign up failed. Please try again.");
+      const code = first?.code ?? "";
+      const msg = first?.longMessage ?? first?.message ?? "Sign up failed. Please try again.";
+      if (code === "form_identifier_exists" || /already (taken|exists)/i.test(msg)) {
+        setError("That email already has an account. Sign in instead to accept your invitation.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -246,8 +259,13 @@ export default function SignUpPage() {
                   </div>
 
                   {error && (
-                    <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700">
-                      {error}
+                    <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700 space-y-2">
+                      <p>{error}</p>
+                      {/already has an account/i.test(error) && (
+                        <Link href={signInHref} className="inline-block font-semibold text-orange-600 hover:text-orange-700">
+                          Go to sign in →
+                        </Link>
+                      )}
                     </div>
                   )}
 
@@ -321,7 +339,7 @@ export default function SignUpPage() {
           {/* Footer */}
           <div className="border-t border-slate-100 bg-slate-50 px-8 py-4 text-center text-sm text-slate-500">
             Already have an account?{" "}
-            <Link href="/sign-in" className="text-orange-500 hover:text-orange-600 font-semibold transition-colors">
+            <Link href={signInHref} className="text-orange-500 hover:text-orange-600 font-semibold transition-colors">
               Sign in
             </Link>
           </div>
