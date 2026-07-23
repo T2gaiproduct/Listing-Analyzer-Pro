@@ -1,9 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" role="img" aria-label="Tech2Globe">
-  <text x="0" y="42" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700">
-    <tspan fill="#E31E24">Tech2</tspan><tspan fill="#4A4A4A">Globe</tspan>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 72" role="img" aria-label="Tech2Globe">
+  <text x="0" y="46" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700">
+    <tspan fill="#C00000">Tech</tspan><tspan fill="#333333">2Globe</tspan>
   </text>
-  <line x1="0" y1="52" x2="248" y2="52" stroke="#4A4A4A" stroke-width="2"/>
-  <circle cx="288" cy="32" r="26" fill="#E31E24"/>
-  <ellipse cx="288" cy="32" rx="18" ry="22" fill="#1a1a1a" transform="rotate(-12 288 32)"/>
-  <path d="M278 22c8-6 18-4 22 4-10 2-16 8-18 16-6-4-10-12-4-20z" fill="#E31E24"/>
+  <line x1="0" y1="56" x2="252" y2="56" stroke="#333333" stroke-width="2"/>
+  <g transform="translate(300, 36)">
+    <circle cx="0" cy="0" r="30" fill="#C00000"/>
+    <circle cx="0" cy="0" r="27.5" fill="#ffffff"/>
+    <path fill="#C00000" d="M-8,-18 C-2,-22 6,-20 10,-12 C14,-4 12,6 4,12 C-2,16 -10,14 -14,6 C-16,0 -14,-8 -8,-18 Z"/>
+    <path fill="#C00000" d="M-2,2 C4,-2 12,0 16,8 C18,14 14,20 6,22 C0,24 -6,20 -8,14 C-10,8 -6,4 -2,2 Z"/>
+    <path fill="#C00000" d="M8,-6 C14,-10 22,-6 24,2 C26,10 20,18 12,20 C6,22 0,18 -2,12 C-4,6 2,0 8,-6 Z"/>
+    <path fill="#C00000" d="M-18,4 C-14,0 -6,2 -4,10 C-2,16 -8,22 -16,20 C-22,18 -24,10 -20,4 C-19,2 -18,4 -18,4 Z"/>
+  </g>
 </svg>

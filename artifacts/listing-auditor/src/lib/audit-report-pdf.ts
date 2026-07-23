@@ -1,13 +1,18 @@
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
 import type { AuditWithResults } from "@workspace/api-client-react";
-import { defaultLineHeight, drawPdfPageChrome, loadTech2GlobeLogoDataUrl } from "@/lib/pdf-branding";
+import {
+  defaultLineHeight,
+  drawPdfPageChrome,
+  loadTech2GlobeLogoDataUrl,
+  PDF_FOOTER_RESERVE,
+  PDF_HEADER_RESERVE,
+  sanitizePdfText,
+} from "@/lib/pdf-branding";
 
 type Rgb = [number, number, number];
 
 const MARGIN = 48;
-const FOOTER_RESERVE = 36;
-const HEADER_RESERVE = 28;
 
 function scoreColor(score: number): Rgb {
   if (score >= 70) return [22, 163, 74];
@@ -18,7 +23,7 @@ function scoreColor(score: number): Rgb {
 class AuditReportPdf {
   private readonly doc: jsPDF;
   private readonly contentW: number;
-  private y = MARGIN + HEADER_RESERVE;
+  private y = MARGIN + PDF_HEADER_RESERVE;
 
   constructor(private readonly logoDataUrl: string | null) {
     this.doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -29,10 +34,14 @@ class AuditReportPdf {
     return this.doc.internal.pageSize.getHeight();
   }
 
+  private contentBottom() {
+    return this.pageHeight() - MARGIN - PDF_FOOTER_RESERVE;
+  }
+
   private ensureSpace(needed: number) {
-    if (this.y + needed > this.pageHeight() - MARGIN - FOOTER_RESERVE) {
+    if (this.y + needed > this.contentBottom()) {
       this.doc.addPage();
-      this.y = MARGIN + 12;
+      this.y = MARGIN + 8;
     }
   }
 
@@ -65,6 +74,7 @@ class AuditReportPdf {
       maxWidth?: number;
     } = {},
   ) {
+    const safeText = sanitizePdfText(text);
     const size = options.size ?? 10;
     const lineH = defaultLineHeight(size, options.lineH);
     const maxWidth = options.maxWidth ?? this.contentW;
@@ -72,11 +82,11 @@ class AuditReportPdf {
 
     if (options.wrap === false) {
       this.ensureSpace(lineH);
-      this.doc.text(text, MARGIN, this.y);
+      this.doc.text(safeText, MARGIN, this.y);
       this.y += lineH;
     } else {
-      const lines = this.doc.splitTextToSize(text, maxWidth) as string[];
-      this.ensureSpace(lines.length * lineH);
+      const lines = this.doc.splitTextToSize(safeText, maxWidth) as string[];
+      this.ensureSpace(lines.length * lineH + 2);
       lines.forEach((line) => {
         this.doc.text(line, MARGIN, this.y);
         this.y += lineH;
@@ -87,7 +97,7 @@ class AuditReportPdf {
   }
 
   private addSectionTitle(title: string) {
-    this.addGap(6);
+    this.addGap(8);
     this.addText(title, { size: 9, bold: true, color: [100, 116, 139], afterGap: 6 });
   }
 
@@ -95,7 +105,7 @@ class AuditReportPdf {
     const lineH = 16;
     this.ensureSpace(lineH);
     this.setStyle(10, false, [80, 80, 80]);
-    this.doc.text(label, MARGIN, this.y);
+    this.doc.text(sanitizePdfText(label), MARGIN, this.y);
     this.setStyle(10, true, scoreColor(score));
     this.doc.text(String(score), MARGIN + 140, this.y);
     this.y += lineH;
@@ -103,14 +113,13 @@ class AuditReportPdf {
 
   private addBulletList(
     items: string[],
-    prefix: string,
     label: string,
     labelColor: Rgb,
   ) {
     if (items.length === 0) return;
     this.addText(label, { size: 9, bold: true, color: labelColor, afterGap: 4 });
     items.forEach((item) => {
-      this.addText(`${prefix} ${item}`, { size: 9, color: [71, 85, 105], lineH: 13 });
+      this.addText(`- ${item}`, { size: 9, color: [71, 85, 105], lineH: 14 });
     });
     this.addGap(4);
   }
@@ -152,7 +161,7 @@ class AuditReportPdf {
       lineH: 46,
       afterGap: 8,
     });
-    this.addText(result.summary, { size: 10, color: [71, 85, 105], lineH: 14, afterGap: 10 });
+    this.addText(result.summary, { size: 10, color: [71, 85, 105], lineH: 15, afterGap: 10 });
     this.addRule();
 
     this.addSectionTitle("CATEGORY BREAKDOWN");
@@ -164,7 +173,7 @@ class AuditReportPdf {
     this.addRule();
 
     this.addSectionTitle("LISTING TITLE");
-    this.addText(audit.title, { size: 10, color: [30, 30, 30], lineH: 14 });
+    this.addText(audit.title, { size: 10, color: [30, 30, 30], lineH: 15 });
     this.addText(`${audit.title.length} characters`, {
       size: 8,
       color: [148, 163, 184],
@@ -182,8 +191,8 @@ class AuditReportPdf {
 
     sections.forEach((section) => {
       this.addSectionTitle(section.label);
-      this.addBulletList(section.data.issues, "•", "Issues:", [220, 38, 38]);
-      this.addBulletList(section.data.suggestions, "✓", "Suggestions:", [22, 163, 74]);
+      this.addBulletList(section.data.issues, "Issues:", [220, 38, 38]);
+      this.addBulletList(section.data.suggestions, "Suggestions:", [22, 163, 74]);
       this.addGap(6);
       this.addRule();
     });
@@ -192,7 +201,7 @@ class AuditReportPdf {
     this.addText(audit.targetKeywords.join(", "), {
       size: 9,
       color: [71, 85, 105],
-      lineH: 13,
+      lineH: 14,
       afterGap: 8,
     });
     this.addRule();
@@ -204,25 +213,25 @@ class AuditReportPdf {
           size: 10,
           bold: true,
           color: [15, 23, 42],
-          lineH: 14,
+          lineH: 15,
         });
         this.addText(`Score: ${competitor.overallScore}`, {
           size: 9,
           color: [71, 85, 105],
-          lineH: 13,
+          lineH: 14,
         });
         if (competitor.strengths.length) {
           this.addText(`Strengths: ${competitor.strengths.slice(0, 2).join("; ")}`, {
             size: 9,
             color: [22, 163, 74],
-            lineH: 13,
+            lineH: 14,
           });
         }
         if (competitor.weaknesses.length) {
           this.addText(`Weaknesses: ${competitor.weaknesses.slice(0, 2).join("; ")}`, {
             size: 9,
             color: [220, 38, 38],
-            lineH: 13,
+            lineH: 14,
           });
         }
         this.addGap(8);
@@ -234,14 +243,14 @@ class AuditReportPdf {
       const gc = audit.generatedContent;
       this.addSectionTitle("AI-GENERATED CONTENT");
       this.addText("Optimized Title:", { size: 9, bold: true, color: [30, 30, 30], afterGap: 4 });
-      this.addText(gc.title, { size: 9, color: [71, 85, 105], lineH: 13, afterGap: 8 });
+      this.addText(gc.title, { size: 9, color: [71, 85, 105], lineH: 14, afterGap: 8 });
       this.addText("Bullet Points:", { size: 9, bold: true, color: [30, 30, 30], afterGap: 4 });
       gc.bulletPoints.forEach((bullet, index) => {
-        this.addText(`${index + 1}. ${bullet}`, { size: 9, color: [71, 85, 105], lineH: 13 });
+        this.addText(`${index + 1}. ${bullet}`, { size: 9, color: [71, 85, 105], lineH: 14 });
       });
       this.addGap(6);
       this.addText("Backend Keywords:", { size: 9, bold: true, color: [30, 30, 30], afterGap: 4 });
-      this.addText(gc.keywords.join(", "), { size: 9, color: [71, 85, 105], lineH: 13 });
+      this.addText(gc.keywords.join(", "), { size: 9, color: [71, 85, 105], lineH: 14 });
     }
 
     const pages = this.doc.getNumberOfPages();
