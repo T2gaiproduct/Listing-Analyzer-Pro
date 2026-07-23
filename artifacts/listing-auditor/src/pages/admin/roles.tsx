@@ -220,6 +220,33 @@ export default function AdminRoles() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-role-assignments"] }); toast({ title: "Invite removed" }); },
   });
 
+  const generateInviteLink = useMutation({
+    mutationFn: async (assignmentId: number) => {
+      const r = await fetch(`${basePath}/api/admin/admin-users/${assignmentId}/invite-link`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await readApiJson<{ inviteUrl?: string; error?: string }>(r);
+      if (!r.ok) throw new Error(data.error ?? "Failed to generate invite link");
+      return data;
+    },
+    onSuccess: (data, assignmentId) => {
+      qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
+      const user = assignedUsers.find((u) => u.id === assignmentId);
+      if (data.inviteUrl) {
+        setInviteLinkDialog({
+          email: user?.clerkUser?.email ?? user?.userId ?? "User",
+          url: data.inviteUrl,
+        });
+      }
+      toast({
+        title: "Access link generated",
+        description: "Share the link — the user signs in and accepts to activate their role.",
+      });
+    },
+    onError: (e: Error) => toast({ title: "Failed to generate link", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-8">
       {/* ── Roles Definition ── */}
@@ -317,7 +344,7 @@ export default function AdminRoles() {
             <div>
               <h2 className="text-lg font-bold">Assigned Roles</h2>
               <p className="text-sm text-slate-500 mt-0.5">
-                Assign roles by email. Existing users get access on sign-in; new emails get a shareable invite link.
+                Every assignment generates a shareable link. The user signs in and accepts to activate their role.
               </p>
             </div>
           </div>
@@ -449,7 +476,17 @@ export default function AdminRoles() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-slate-400">
-                        <span className="text-xs text-slate-400">Active user — sign in to access</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7"
+                          disabled={generateInviteLink.isPending}
+                          onClick={() => generateInviteLink.mutate(u.id)}
+                        >
+                          <Copy className="h-3.5 w-3.5 mr-1" />
+                          {generateInviteLink.isPending ? "Generating…" : "Get access link"}
+                        </Button>
                       </TableCell>
                       <TableCell className="text-sm text-slate-400">{format(new Date(u.createdAt), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
@@ -547,7 +584,7 @@ export default function AdminRoles() {
                 value={assignForm.email}
                 onChange={(e) => setAssignForm((p) => ({ ...p, email: e.target.value }))}
               />
-              <p className="text-xs text-slate-400 mt-1">Enter any email — existing users get the role immediately on sign-in; new users receive a pending invite with a shareable access link below.</p>
+              <p className="text-xs text-slate-400 mt-1">Creates a shareable link. The user opens it, signs in, and accepts to activate their admin role.</p>
             </div>
             <div>
               <Label className="text-xs mb-1.5 block">Role *</Label>
@@ -614,7 +651,7 @@ export default function AdminRoles() {
           {inviteLinkDialog && (
             <div className="space-y-3">
               <p className="text-sm text-slate-600">
-                Share this link with <strong>{inviteLinkDialog.email}</strong>. They will sign up or sign in, then accept the invite to access the admin dashboard with their assigned role.
+                Share this link with <strong>{inviteLinkDialog.email}</strong>. They open it, sign in (or create an account), then accept the invitation to access the admin dashboard with their assigned role.
               </p>
               <code className="block text-xs text-slate-700 bg-slate-100 border border-slate-200 rounded-lg p-3 break-all">
                 {inviteLinkDialog.url}

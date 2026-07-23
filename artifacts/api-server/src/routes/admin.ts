@@ -32,13 +32,14 @@ import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import {
   ADMIN_INVITES_MIGRATION_HINT,
-  clearAdminInviteForEmail,
   ensureAdminInviteToken,
   isAdminInvitesTableMissingError,
   listPendingAdminInvites,
   normalizeAdminEmail,
+  revokeAdminAccessForUser,
+  upsertAdminRoleInvite,
 } from "../lib/admin-invites.js";
-import { buildAdminInviteUrl, generateAdminInviteToken } from "../lib/admin-invite-token.js";
+import { buildAdminInviteUrl } from "../lib/admin-invite-token.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 
 const router: IRouter = Router();
@@ -1116,50 +1117,35 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
     return;
   }
 
-  // If email provided, look up in Clerk
+  // Email assignments always create a shareable accept-admin-invite link (sign in to accept).
   if (!targetUserId && email) {
     const normalizedEmail = normalizeAdminEmail(email);
     const result = await clerkFetch(`/users?email_address=${encodeURIComponent(normalizedEmail)}&limit=1`) as Record<string, unknown> | unknown[];
     const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
-
-    if (!usersList.length) {
-      const [existingInvite] = await db.select().from(adminInvitesTable)
-        .where(eq(adminInvitesTable.email, normalizedEmail)).limit(1);
-      const inviteToken = existingInvite?.inviteToken ?? generateAdminInviteToken();
-
-      const [invite] = await db.insert(adminInvitesTable).values({
-        email: normalizedEmail,
-        roleId,
-        inviteToken,
-        invitedByUserId: adminReq.admin.userId,
-      }).onConflictDoUpdate({
-        target: adminInvitesTable.email,
-        set: {
-          roleId,
-          invitedByUserId: adminReq.admin.userId,
-          acceptedAt: null,
-          acceptedUserId: null,
-          inviteToken,
-        },
-      }).returning();
-
-      const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
-      const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
-      const assignedByName = assignerProfile?.name ?? "An administrator";
-      const emailResult = await sendAdminRoleInviteEmail({
-        toEmail: normalizedEmail,
-        roleId,
-        assignedByName,
-        appBaseUrl: resolveAppBaseUrl(req),
-        inviteUrl,
-      });
-
-      res.status(201).json({ pending: true, invite, inviteUrl, ...emailResult });
-      return;
+    if (usersList.length) {
+      targetUserId = (usersList[0] as Record<string, unknown>).id as string;
+      await revokeAdminAccessForUser(targetUserId);
     }
 
-    targetUserId = (usersList[0] as Record<string, unknown>).id as string;
-    await clearAdminInviteForEmail(normalizedEmail);
+    const { invite, inviteToken } = await upsertAdminRoleInvite({
+      email: normalizedEmail,
+      roleId,
+      invitedByUserId: adminReq.admin.userId,
+    });
+
+    const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
+    const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
+    const assignedByName = assignerProfile?.name ?? "An administrator";
+    const emailResult = await sendAdminRoleInviteEmail({
+      toEmail: normalizedEmail,
+      roleId,
+      assignedByName,
+      appBaseUrl: resolveAppBaseUrl(req),
+      inviteUrl,
+    });
+
+    res.status(201).json({ pending: true, invite, inviteUrl, ...emailResult });
+    return;
   }
 
   if (!targetUserId) { res.status(400).json({ error: "Provide email or userId" }); return; }
@@ -1186,6 +1172,39 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
       return;
     }
     const message = err instanceof Error ? err.message : "Failed to assign role";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/admin/admin-users/:id/invite-link", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const adminReq = req as AdminRequest;
+    const [assignment] = await db.select().from(adminUsersTable).where(eq(adminUsersTable.id, id)).limit(1);
+    if (!assignment) { res.status(404).json({ error: "Assignment not found" }); return; }
+
+    const profile = await getClerkUserEmailAndName(assignment.userId, clerkFetch);
+    if (!profile?.email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
+
+    await revokeAdminAccessForUser(assignment.userId);
+
+    const { invite, inviteToken } = await upsertAdminRoleInvite({
+      email: profile.email,
+      roleId: assignment.roleId,
+      invitedByUserId: adminReq.admin.userId,
+    });
+
+    const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
+  res.status(201).json({ pending: true, invite, inviteUrl });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to generate admin invite link");
+    if (isAdminInvitesTableMissingError(err)) {
+      res.status(503).json({ error: ADMIN_INVITES_MIGRATION_HINT });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "Failed to generate invite link";
     res.status(500).json({ error: message });
   }
 });
