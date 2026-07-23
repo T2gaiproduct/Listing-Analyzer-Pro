@@ -24,7 +24,9 @@ import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { TutorialCarousel } from "@/components/tutorial-carousel";
 import { TutorialCard } from "@/components/tutorial-card";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
+import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
+import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -248,10 +250,12 @@ function PricingPlanCard({
   plan,
   compact = false,
   creditRules = [],
+  yearly = false,
 }: {
   plan: DbPlan;
   compact?: boolean;
   creditRules?: { featureType: string; creditsRequired: number; isActive?: boolean }[];
+  yearly?: boolean;
 }) {
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const highlighted = plan.isHighlighted;
@@ -260,6 +264,7 @@ function PricingPlanCard({
   const featureLimit = 5;
   const hasMoreFeatures = compact && features.length > featureLimit;
   const visibleFeatures = hasMoreFeatures && !showAllFeatures ? features.slice(0, featureLimit) : features;
+  const priceDisplay = resolvePlanPriceDisplay(plan, yearly);
 
   return (
     <div
@@ -278,10 +283,19 @@ function PricingPlanCard({
       )}
       <p className="font-bold text-lg text-slate-900">{plan.name}</p>
       <p className={cn("text-sm text-slate-500 mt-1", compact ? "mb-3 line-clamp-2" : "mb-4")}>{plan.description}</p>
-      <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>
-        ${plan.priceMonthly}
-        <span className="text-base font-normal text-slate-400">/mo</span>
-      </p>
+      {priceDisplay.kind === "custom" ? (
+        <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>Custom</p>
+      ) : (
+        <div className={cn(compact ? "mb-4" : "mb-6")}>
+          <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl" : "text-4xl")}>
+            ${priceDisplay.amount}
+            <span className="text-base font-normal text-slate-400">{priceDisplay.period}</span>
+          </p>
+          {priceDisplay.billedYearly && (
+            <p className="text-xs text-slate-400 mt-1">billed annually</p>
+          )}
+        </div>
+      )}
       <PlanCreditsTable plan={plan} creditRules={creditRules} compact={compact} />
       <ul className={cn("space-y-2.5 flex-1", compact ? "mb-5" : "space-y-3 mb-8")}>
         {visibleFeatures.map((f) => (
@@ -320,9 +334,11 @@ function PricingPlanCard({
 function PricingCarousel({
   plans,
   creditRules,
+  yearly,
 }: {
   plans: DbPlan[];
   creditRules: { featureType: string; creditsRequired: number; isActive?: boolean }[];
+  yearly: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const orderedPlans = sortPlansFromAdmin(plans);
@@ -355,7 +371,7 @@ function PricingCarousel({
       >
         {orderedPlans.map((p) => (
           <div key={p.id} className="snap-center shrink-0 w-[min(88vw,22rem)] flex">
-            <PricingPlanCard plan={p} compact creditRules={creditRules} />
+            <PricingPlanCard plan={p} compact creditRules={creditRules} yearly={yearly} />
           </div>
         ))}
       </div>
@@ -366,6 +382,7 @@ function PricingCarousel({
 
 function LandingPricingSection() {
   const cms = useHomepageCmsContext();
+  const [yearly, setYearly] = useState(false);
   const eyebrow = cmsText(cms, "pricing.eyebrow");
   const heading = cmsText(cms, "pricing.heading");
   const footerText = cmsText(cms, "pricing.footer_text");
@@ -388,6 +405,7 @@ function LandingPricingSection() {
   });
 
   const plans = sortPlansFromAdmin(dbPlans);
+  const yearlySavingsPercent = maxPlanYearlySavingsPercent(plans);
 
   if (isLoading) {
     return (
@@ -417,11 +435,17 @@ function LandingPricingSection() {
     <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
       <div className="max-w-6xl mx-auto text-center">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">{heading}</h2>
-        <PricingCarousel plans={plans} creditRules={creditRules} />
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8">{heading}</h2>
+        <BillingCycleToggle
+          yearly={yearly}
+          onChange={setYearly}
+          savingsPercent={yearlySavingsPercent}
+          className="mb-8 sm:mb-10"
+        />
+        <PricingCarousel plans={plans} creditRules={creditRules} yearly={yearly} />
         <div className={cn("hidden sm:grid gap-6 text-left", landingPlanGridClass(plans.length))}>
           {plans.map((p) => (
-            <PricingPlanCard key={p.id} plan={p} creditRules={creditRules} />
+            <PricingPlanCard key={p.id} plan={p} creditRules={creditRules} yearly={yearly} />
           ))}
         </div>
         <p className="mt-5 sm:mt-6 text-sm text-slate-500">
