@@ -23,6 +23,8 @@ import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { TutorialCarousel } from "@/components/tutorial-carousel";
 import { TutorialCard } from "@/components/tutorial-card";
+import { PlanCreditsTable } from "@/components/plan-credits-table";
+import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -205,13 +207,13 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
 function planDisplayFeatures(p: DbPlan): string[] {
   if (p.features.length > 0) return p.features;
 
-  const a = p.creditAllocations ?? {};
+  const counts = resolvePlanAllocationCounts(p);
   const derived = [
-    a.audit != null || p.auditCredits ? `${a.audit ?? p.auditCredits} listing audits/mo` : null,
-    a.content != null ? `${a.content} AI content credits` : p.aiCredits ? `${p.aiCredits} AI content credits` : null,
-    a.images != null || p.imageCredits ? `${a.images ?? p.imageCredits} image generation credits` : null,
-    a.ebc != null ? `${a.ebc} A+ / EBC content credits` : null,
-    a.competitors != null ? `${a.competitors} competitor analyses` : null,
+    counts.audit ? `${counts.audit >= 999 ? "Unlimited" : counts.audit} listing audits/mo` : null,
+    counts.content ? `${counts.content} AI content credits` : null,
+    counts.images ? `${counts.images} image generation credits` : null,
+    counts.ebc ? `${counts.ebc} A+ / EBC content credits` : null,
+    counts.competitors ? `${counts.competitors} competitor analyses` : null,
     p.teamMembers > 1 ? `${p.teamMembers} team members` : null,
   ].filter((item): item is string => Boolean(item));
 
@@ -242,7 +244,15 @@ function landingPlanGridClass(count: number) {
   return "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 }
 
-function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: boolean }) {
+function PricingPlanCard({
+  plan,
+  compact = false,
+  creditRules = [],
+}: {
+  plan: DbPlan;
+  compact?: boolean;
+  creditRules?: { featureType: string; creditsRequired: number; isActive?: boolean }[];
+}) {
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const highlighted = plan.isHighlighted;
   const features = planDisplayFeatures(plan);
@@ -272,6 +282,7 @@ function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: bo
         ${plan.priceMonthly}
         <span className="text-base font-normal text-slate-400">/mo</span>
       </p>
+      <PlanCreditsTable plan={plan} creditRules={creditRules} compact={compact} />
       <ul className={cn("space-y-2.5 flex-1", compact ? "mb-5" : "space-y-3 mb-8")}>
         {visibleFeatures.map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
@@ -306,7 +317,13 @@ function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: bo
   );
 }
 
-function PricingCarousel({ plans }: { plans: DbPlan[] }) {
+function PricingCarousel({
+  plans,
+  creditRules,
+}: {
+  plans: DbPlan[];
+  creditRules: { featureType: string; creditsRequired: number; isActive?: boolean }[];
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const orderedPlans = sortPlansFromAdmin(plans);
   const scroll = (dir: -1 | 1) => {
@@ -338,7 +355,7 @@ function PricingCarousel({ plans }: { plans: DbPlan[] }) {
       >
         {orderedPlans.map((p) => (
           <div key={p.id} className="snap-center shrink-0 w-[min(88vw,22rem)] flex">
-            <PricingPlanCard plan={p} compact />
+            <PricingPlanCard plan={p} compact creditRules={creditRules} />
           </div>
         ))}
       </div>
@@ -363,6 +380,11 @@ function LandingPricingSection() {
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
+  });
+
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()).catch(() => []),
   });
 
   const plans = sortPlansFromAdmin(dbPlans);
@@ -396,10 +418,10 @@ function LandingPricingSection() {
       <div className="max-w-6xl mx-auto text-center">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">{heading}</h2>
-        <PricingCarousel plans={plans} />
+        <PricingCarousel plans={plans} creditRules={creditRules} />
         <div className={cn("hidden sm:grid gap-6 text-left", landingPlanGridClass(plans.length))}>
           {plans.map((p) => (
-            <PricingPlanCard key={p.id} plan={p} />
+            <PricingPlanCard key={p.id} plan={p} creditRules={creditRules} />
           ))}
         </div>
         <p className="mt-5 sm:mt-6 text-sm text-slate-500">
