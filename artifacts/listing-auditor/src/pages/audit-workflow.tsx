@@ -48,6 +48,8 @@ import {
   getGetAuditQueryKey,
   getGetRecentsQueryKey,
 } from "@workspace/api-client-react";
+import { PublishAmazonDialog } from "@/components/publish-amazon-dialog";
+import { downloadAmazonExcelExport, downloadAmazonZipExport } from "@/lib/amazon-export";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -538,6 +540,8 @@ export default function AuditWorkflow() {
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
   const [isDirty, setIsDirty] = useState(false);
+  const [exportLoading, setExportLoading] = useState<"excel" | "zip" | null>(null);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
   const generateContent = useGenerateContent();
@@ -1108,14 +1112,56 @@ export default function AuditWorkflow() {
         });
       }
 
-    } else if (activeStep === 5) {
-      // Export: simulate
-      setTimeout(() => {
-        setIsCreating(false);
-        toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
-      }, 3000);
     }
   }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, promptReferenceImages, graphicsAspectRatio, graphicsQuality, graphicsGenerateOptions, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+
+  const handleExportExcel = useCallback(async () => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 to create your project before exporting.", variant: "destructive" });
+      return;
+    }
+    setExportLoading("excel");
+    try {
+      await downloadAmazonExcelExport(currentAuditId);
+      toast({ title: "Excel export ready", description: "Amazon flat-file downloaded (open in Excel)." });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Could not download Excel file.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(null);
+    }
+  }, [currentAuditId, toast]);
+
+  const handleExportZip = useCallback(async () => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 to create your project before exporting.", variant: "destructive" });
+      return;
+    }
+    setExportLoading("zip");
+    try {
+      await downloadAmazonZipExport(currentAuditId);
+      toast({ title: "ZIP export ready", description: "Listing file and images downloaded." });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Could not download ZIP file.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(null);
+    }
+  }, [currentAuditId, toast]);
+
+  const handleOpenPublishDialog = useCallback(() => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 to create your project before publishing.", variant: "destructive" });
+      return;
+    }
+    setPublishDialogOpen(true);
+  }, [currentAuditId, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -2004,11 +2050,38 @@ export default function AuditWorkflow() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { icon: "📊", title: "Export as Excel file", desc: "Amazon supports Excel file uploads for bulk listings", action: "Download Excel", comingSoon: false },
-                  { icon: "🗂️", title: "Export as ZIP",        desc: "Excel file + all images bundled together",           action: "Download ZIP",   comingSoon: false },
-                  { icon: "🛒", title: "Publish to Amazon",    desc: "Push directly to Seller Central",                      action: "Coming soon",    comingSoon: true  },
+                  {
+                    key: "excel",
+                    icon: "📊",
+                    title: "Export as Excel file",
+                    desc: "Amazon flat-file (TSV) for bulk listing uploads",
+                    action: "Download Excel",
+                    loading: exportLoading === "excel",
+                    onClick: handleExportExcel,
+                  },
+                  {
+                    key: "zip",
+                    icon: "🗂️",
+                    title: "Export as ZIP",
+                    desc: "Listing file + all images bundled together",
+                    action: "Download ZIP",
+                    loading: exportLoading === "zip",
+                    onClick: handleExportZip,
+                  },
+                  {
+                    key: "publish",
+                    icon: "🛒",
+                    title: "Publish to Amazon",
+                    desc: "Validate and push directly to Seller Central",
+                    action: "Publish listing",
+                    loading: false,
+                    onClick: handleOpenPublishDialog,
+                  },
                 ].map((opt) => (
-                  <div key={opt.title} className={cn("border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all", opt.comingSoon ? "opacity-60" : "hover:border-orange-300 hover:shadow-sm")}>
+                  <div
+                    key={opt.key}
+                    className="border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all hover:border-orange-300 hover:shadow-sm"
+                  >
                     <span className="text-3xl">{opt.icon}</span>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{opt.title}</p>
@@ -2016,20 +2089,30 @@ export default function AuditWorkflow() {
                     </div>
                     <Button
                       variant="outline"
-                      className={cn("rounded-xl w-full", opt.comingSoon
-                        ? "border-slate-200 text-slate-400 cursor-default hover:bg-transparent"
-                        : "border-orange-200 text-orange-600 hover:bg-orange-50"
-                      )}
-                      onClick={() => {
-                        if (opt.comingSoon) return;
-                        toast({ title: "Coming soon", description: `${opt.action} is coming soon.` });
-                      }}
+                      className="rounded-xl w-full border-orange-200 text-orange-600 hover:bg-orange-50"
+                      disabled={opt.loading || exportLoading !== null}
+                      onClick={() => void opt.onClick()}
                     >
-                      {opt.action}
+                      {opt.loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Downloading…
+                        </>
+                      ) : (
+                        opt.action
+                      )}
                     </Button>
                   </div>
                 ))}
               </div>
+
+              {currentAuditId !== null && (
+                <PublishAmazonDialog
+                  auditId={currentAuditId}
+                  open={publishDialogOpen}
+                  onOpenChange={setPublishDialogOpen}
+                />
+              )}
             </div>
           )}
 
