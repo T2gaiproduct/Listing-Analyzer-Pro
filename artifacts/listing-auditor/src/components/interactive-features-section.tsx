@@ -19,19 +19,27 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <div className="flex items-center justify-center w-full h-full bg-[#faf8f5] p-3 sm:p-4">
+    <div
+      className={cn(
+        "w-full h-full bg-[#faf8f5]",
+        fitHeight ? "px-2 sm:px-3" : "flex items-center justify-center p-3 sm:p-4",
+      )}
+    >
       <img
         src={feature.image}
         alt={feature.title}
-        className="max-w-full max-h-full w-auto h-auto object-contain"
+        className={cn(
+          "object-contain",
+          fitHeight ? "block w-full h-full" : "max-w-full max-h-full w-auto h-auto",
+        )}
         loading="lazy"
       />
     </div>
   ) : (
     <div
       className={cn(
-        "flex items-center justify-center w-full h-full bg-gradient-to-br from-slate-50 to-white",
-        fitHeight ? "p-6" : "p-3",
+        "flex w-full h-full bg-gradient-to-br from-slate-50 to-white",
+        fitHeight ? "items-center justify-center px-4 py-2" : "items-center justify-center p-3",
       )}
     >
       <div className={cn(fitHeight ? "w-full max-w-md mx-auto" : "max-w-sm scale-110 origin-center")}>
@@ -72,11 +80,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="flex items-center justify-center w-full min-h-[200px] bg-[#faf8f5] p-4">
+    <div className="w-full min-h-[200px] bg-[#faf8f5] px-3">
       <img
         src={feature.image}
         alt={feature.title}
-        className="max-w-full max-h-[280px] w-auto h-auto object-contain"
+        className="block w-full h-auto max-h-[320px] object-contain"
         loading="lazy"
       />
     </div>
