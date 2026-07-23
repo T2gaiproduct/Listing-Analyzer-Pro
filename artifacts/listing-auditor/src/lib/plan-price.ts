@@ -5,15 +5,15 @@ export interface PlanPriceFields {
 
 export type PlanPriceDisplay =
   | { kind: "custom" }
-  | { kind: "price"; amount: number; period: "/mo" | "/year" };
+  | { kind: "price"; amount: number; period: "/mo" | "/year"; billedYearly?: boolean };
 
-/** Display price from admin plan fields — yearly uses priceYearly (per-month rate when billed yearly). */
+/** Display price from admin plan fields — yearly uses priceYearly ($/mo when billed yearly). */
 export function resolvePlanPriceDisplay(plan: PlanPriceFields, yearly: boolean): PlanPriceDisplay {
   const isCustom = plan.priceMonthly <= 0 && plan.priceYearly <= 0;
   if (isCustom) return { kind: "custom" };
 
   if (yearly && plan.priceYearly > 0) {
-    return { kind: "price", amount: plan.priceYearly * 12, period: "/year" };
+    return { kind: "price", amount: plan.priceYearly, period: "/mo", billedYearly: true };
   }
 
   return { kind: "price", amount: plan.priceMonthly, period: "/mo" };

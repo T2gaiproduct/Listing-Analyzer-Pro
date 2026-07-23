@@ -260,11 +260,16 @@ export default function Pricing() {
                   {priceDisplay.kind === "custom" ? (
                     <div className="text-3xl font-extrabold text-slate-900">Custom</div>
                   ) : (
-                    <div className="flex items-end gap-1">
-                      <span className="text-4xl font-extrabold text-slate-900">
-                        ${priceDisplay.amount}
-                      </span>
-                      <span className="text-slate-400 mb-1">{priceDisplay.period}</span>
+                    <div>
+                      <div className="flex items-end gap-1">
+                        <span className="text-4xl font-extrabold text-slate-900">
+                          ${priceDisplay.amount}
+                        </span>
+                        <span className="text-slate-400 mb-1">{priceDisplay.period}</span>
+                      </div>
+                      {priceDisplay.billedYearly && (
+                        <p className="text-xs text-slate-400 mt-1">billed annually</p>
+                      )}
                     </div>
                   )}
                 </div>

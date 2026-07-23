@@ -286,10 +286,15 @@ function PricingPlanCard({
       {priceDisplay.kind === "custom" ? (
         <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>Custom</p>
       ) : (
-        <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>
-          ${priceDisplay.amount}
-          <span className="text-base font-normal text-slate-400">{priceDisplay.period}</span>
-        </p>
+        <div className={cn(compact ? "mb-4" : "mb-6")}>
+          <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl" : "text-4xl")}>
+            ${priceDisplay.amount}
+            <span className="text-base font-normal text-slate-400">{priceDisplay.period}</span>
+          </p>
+          {priceDisplay.billedYearly && (
+            <p className="text-xs text-slate-400 mt-1">billed annually</p>
+          )}
+        </div>
       )}
       <PlanCreditsTable plan={plan} creditRules={creditRules} compact={compact} />
       <ul className={cn("space-y-2.5 flex-1", compact ? "mb-5" : "space-y-3 mb-8")}>
