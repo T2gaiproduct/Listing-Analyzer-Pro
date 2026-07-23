@@ -105,7 +105,7 @@ type MarketplaceEntry = {
 const marketplaces: MarketplaceEntry[] = [
   { name: "Amazon", render: (c) => <AmazonLogo className={c} /> },
   { name: "Shopify", render: (c) => <ShopifyLogo className={c} /> },
-  { name: "Walmart", render: (c) => <WalmartLogo className={c} /> },
+  // { name: "Walmart", render: (c) => <WalmartLogo className={c} /> },
   // { name: "eBay", render: (c) => <EbayLogo className={c} /> },
   // { name: "Etsy", render: (c) => <EtsyLogo className={c} /> },
 ];
