@@ -7,6 +7,38 @@ export function normalizeAdminEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+export function isAdminInvitesTableMissingError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("admin_invites")
+    && (message.includes("does not exist")
+      || message.includes("Failed query")
+      || message.includes("relation"));
+}
+
+export const ADMIN_INVITES_MIGRATION_HINT =
+  "Database is missing admin_invites table. Run: pnpm --filter @workspace/db run push";
+
+/** Remove a pending invite after assigning an existing Clerk user. Non-fatal if table is missing. */
+export async function clearAdminInviteForEmail(email: string): Promise<void> {
+  const normalized = normalizeAdminEmail(email);
+  try {
+    await db.delete(adminInvitesTable).where(eq(adminInvitesTable.email, normalized));
+  } catch (err) {
+    if (isAdminInvitesTableMissingError(err)) return;
+    throw err;
+  }
+}
+
+/** Pending invites for admin UI. Returns [] if schema is not migrated yet. */
+export async function listPendingAdminInvites() {
+  try {
+    return await db.select().from(adminInvitesTable).where(isNull(adminInvitesTable.acceptedAt));
+  } catch (err) {
+    if (isAdminInvitesTableMissingError(err)) return [];
+    throw err;
+  }
+}
+
 /** If a pending invite exists for this email, grant admin_users and mark invite accepted. */
 export async function acceptAdminInviteForUser(userId: string, email?: string | null): Promise<boolean> {
   const normalized = email ? normalizeAdminEmail(email) : "";

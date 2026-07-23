@@ -30,7 +30,14 @@ import {
 } from "../lib/admin-auth";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
-import { normalizeAdminEmail, ensureAdminInviteToken } from "../lib/admin-invites.js";
+import {
+  ADMIN_INVITES_MIGRATION_HINT,
+  clearAdminInviteForEmail,
+  ensureAdminInviteToken,
+  isAdminInvitesTableMissingError,
+  listPendingAdminInvites,
+  normalizeAdminEmail,
+} from "../lib/admin-invites.js";
 import { buildAdminInviteUrl, generateAdminInviteToken } from "../lib/admin-invite-token.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 
@@ -1071,7 +1078,7 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
     return { ...u, role: roleMap[u.roleId] ?? null, clerkUser };
   }));
 
-  const invites = await db.select().from(adminInvitesTable).where(isNull(adminInvitesTable.acceptedAt));
+  const invites = await listPendingAdminInvites();
 
   res.json({
     users: enriched,
@@ -1145,7 +1152,7 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
     }
 
     targetUserId = (usersList[0] as Record<string, unknown>).id as string;
-    await db.delete(adminInvitesTable).where(eq(adminInvitesTable.email, normalizedEmail));
+    await clearAdminInviteForEmail(normalizedEmail);
   }
 
   if (!targetUserId) { res.status(400).json({ error: "Provide email or userId" }); return; }
@@ -1167,20 +1174,28 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
   res.status(201).json({ ...u, ...emailResult });
   } catch (err) {
     req.log?.error?.({ err }, "Failed to assign admin role");
-    const message = err instanceof Error ? err.message : "Failed to assign role";
-    if (message.includes("admin_invites") && message.includes("does not exist")) {
-      res.status(503).json({ error: "Database is missing admin_invites table. Run pnpm --filter @workspace/db run push." });
+    if (isAdminInvitesTableMissingError(err)) {
+      res.status(503).json({ error: ADMIN_INVITES_MIGRATION_HINT });
       return;
     }
+    const message = err instanceof Error ? err.message : "Failed to assign role";
     res.status(500).json({ error: message });
   }
 });
 
 router.delete("/admin/admin-invites/:id", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(String(req.params.id ?? ""));
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  await db.delete(adminInvitesTable).where(eq(adminInvitesTable.id, id));
-  res.sendStatus(204);
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    await db.delete(adminInvitesTable).where(eq(adminInvitesTable.id, id));
+    res.sendStatus(204);
+  } catch (err) {
+    if (isAdminInvitesTableMissingError(err)) {
+      res.status(503).json({ error: ADMIN_INVITES_MIGRATION_HINT });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
