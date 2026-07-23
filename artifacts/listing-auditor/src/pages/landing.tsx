@@ -18,7 +18,7 @@ import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { parseFeatureBullets } from "@/lib/features-cms";
 import { InteractiveFeaturesSection, type FeatureItem } from "@/components/interactive-features-section";
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, heroSlideIsVideo, parseHeroSlides } from "@/lib/hero-slides";
-import { portfolioItemIndices } from "@/lib/portfolio-cms";
+import { parsePortfolioItems } from "@/lib/portfolio-cms";
 import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { TutorialCarousel } from "@/components/tutorial-carousel";
@@ -83,21 +83,7 @@ function useLandingCmsData() {
     label: cmsText(cms, `hero.stat${i}_label`),
   }));
 
-  const portfolioItems: PortfolioItem[] = portfolioItemIndices().flatMap((i) => {
-    const title = cmsText(cms, `portfolio.item${i}_title`);
-    const imagePath = cmsText(cms, `portfolio.item${i}_image`);
-    if (!title || !imagePath) return [];
-    const fit = cmsText(cms, `portfolio.item${i}_fit`);
-    const badge = cmsText(cms, `portfolio.item${i}_badge`);
-    return [{
-      id: `portfolio-${i}`,
-      title,
-      brand: cmsText(cms, `portfolio.item${i}_brand`),
-      image: resolveCmsAssetUrl(imagePath, basePath),
-      badge: badge || null,
-      square: fit === "cover",
-    }];
-  });
+  const portfolioItems = parsePortfolioItems(cms, basePath);
 
   const workflowSteps = [1, 2, 3, 4, 5, 6].map((i) => ({
     icon: WORKFLOW_ICONS[i - 1],
@@ -164,8 +150,8 @@ function PortfolioLightbox({
           />
         </div>
         <div className="px-4 sm:px-5 py-3 sm:py-4 border-t border-slate-200 bg-white shrink-0">
-          <p className="font-semibold text-slate-900">{item.title}</p>
-          <p className="text-sm text-slate-500 mt-0.5">{item.brand}</p>
+          {item.title && <p className="font-semibold text-slate-900">{item.title}</p>}
+          {item.brand && <p className={cn("text-sm text-slate-500", item.title && "mt-0.5")}>{item.brand}</p>}
         </div>
       </div>
     </div>,
@@ -204,8 +190,8 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
               </span>
             )}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-              <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>
-              <p className="text-xs text-white/80 mt-0.5">{item.brand}</p>
+              {item.title && <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>}
+              {item.brand && <p className={cn("text-xs text-white/80", item.title && "mt-0.5")}>{item.brand}</p>}
             </div>
           </button>
         ))}

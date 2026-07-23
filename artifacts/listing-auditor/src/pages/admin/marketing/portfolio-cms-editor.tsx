@@ -220,8 +220,8 @@ export function PortfolioCmsEditor({ data, onChange }: PortfolioCmsEditorProps) 
       <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
         <div>
           <CardTitle className="text-sm font-semibold text-slate-700">Portfolio items</CardTitle>
-          <p className="text-xs text-slate-500 mt-1">
-            Upload an image for each tile. Items need both a title and image to show on the homepage.
+          <p className="text-sm text-slate-500 mt-1">
+            Upload an image for each tile. Only the image is required — title and brand are optional overlays.
           </p>
         </div>
         <Button

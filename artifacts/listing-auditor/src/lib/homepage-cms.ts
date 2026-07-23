@@ -224,7 +224,9 @@ export function mergeHomepageCms(data: HomepageCmsMap): HomepageCmsMap {
 
 export function cmsText(cms: HomepageCmsMap, key: string): string {
   const value = cms[key];
-  if (value === undefined || value === "") {
+  // Only fall back to defaults when the key was never set. An explicit empty string
+  // from admin CMS means "clear this field" and must not resurrect stock defaults.
+  if (value === undefined) {
     return HOMEPAGE_CMS_DEFAULTS[key] ?? "";
   }
   return value;
