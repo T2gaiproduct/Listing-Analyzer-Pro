@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { jsPDF } from "jspdf";
-import { drawPdfPageChrome, loadTech2GlobeLogoDataUrl, sanitizePdfText } from "@/lib/pdf-branding";
+import { drawPdfPageChrome, sanitizePdfText } from "@/lib/pdf-branding";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 import { Card } from "@/components/ui/card";
@@ -93,7 +93,6 @@ export function ReportTable<T>({
   };
 
   const exportPdf = async () => {
-    const logoDataUrl = await loadTech2GlobeLogoDataUrl(basePath);
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const marginX = 48;
     let y = 56;
@@ -138,7 +137,7 @@ export function ReportTable<T>({
     const pages = doc.getNumberOfPages();
     for (let page = 1; page <= pages; page += 1) {
       doc.setPage(page);
-      drawPdfPageChrome(doc, page, pages, logoDataUrl, {
+      drawPdfPageChrome(doc, page, pages, null, {
         margin: marginX,
         footerNote: `Tech2Globe · ${title}`,
       });

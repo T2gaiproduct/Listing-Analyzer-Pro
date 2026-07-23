@@ -4,7 +4,6 @@ import type { AuditWithResults } from "@workspace/api-client-react";
 import {
   defaultLineHeight,
   drawPdfPageChrome,
-  loadTech2GlobeLogoDataUrl,
   PDF_FOOTER_RESERVE,
   PDF_HEADER_RESERVE,
   sanitizePdfText,
@@ -55,11 +54,11 @@ class AuditReportPdf {
     this.y += px;
   }
 
-  private addRule(color: Rgb = [220, 220, 220]) {
-    this.ensureSpace(10);
+  private addRule(color: Rgb = [220, 220, 220], afterGap = 20) {
+    this.ensureSpace(afterGap + 4);
     this.doc.setDrawColor(...color);
     this.doc.line(MARGIN, this.y, MARGIN + this.contentW, this.y);
-    this.addGap(12);
+    this.y += afterGap;
   }
 
   private addText(
@@ -96,9 +95,9 @@ class AuditReportPdf {
     if (options.afterGap) this.addGap(options.afterGap);
   }
 
-  private addSectionTitle(title: string) {
-    this.addGap(8);
-    this.addText(title, { size: 9, bold: true, color: [100, 116, 139], afterGap: 6 });
+  private addSectionTitle(title: string, topGap = 6) {
+    this.y += topGap;
+    this.addText(title, { size: 9, bold: true, color: [100, 116, 139], afterGap: 8 });
   }
 
   private addScoreRow(label: string, score: number) {
@@ -150,9 +149,9 @@ class AuditReportPdf {
       lineH: 12,
       afterGap: 10,
     });
-    this.addRule([255, 107, 0]);
+    this.addRule([255, 107, 0], 26);
 
-    this.addSectionTitle("OVERALL SCORE");
+    this.addSectionTitle("OVERALL SCORE", 4);
     this.addText(String(audit.overallScore), {
       size: 40,
       bold: true,
@@ -267,9 +266,8 @@ class AuditReportPdf {
   }
 }
 
-export async function downloadAuditReportPdf(audit: AuditWithResults, basePath: string) {
-  const logoDataUrl = await loadTech2GlobeLogoDataUrl(basePath);
-  const builder = new AuditReportPdf(logoDataUrl);
+export async function downloadAuditReportPdf(audit: AuditWithResults, _basePath: string) {
+  const builder = new AuditReportPdf(null);
   const doc = builder.build(audit);
   const filename = `${audit.productName.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_audit_report.pdf`;
   doc.save(filename);

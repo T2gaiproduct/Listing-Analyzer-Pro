@@ -1,37 +1,53 @@
 import type { jsPDF } from "jspdf";
 
-const LOGO_FILE = "tech2globe-logo.svg";
-const LOGO_ASPECT = 380 / 72;
+type Rgb = [number, number, number];
 
-function rasterizeImage(src: string, width = 760): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const aspect = img.naturalHeight / img.naturalWidth || 1 / LOGO_ASPECT;
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = Math.max(1, Math.round(width * aspect));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Could not create canvas context"));
-        return;
-      }
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/png"));
-    };
-    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-    img.src = src;
-  });
+const BRAND_RED: Rgb = [192, 0, 0];
+const BRAND_GREY: Rgb = [51, 51, 51];
+
+/** Draw Tech2Globe logo with vector text so colors are always correct in PDF. */
+export function drawTech2GlobeLogo(doc: jsPDF, rightX: number, topY: number, width = 118) {
+  const scale = width / 118;
+  const fontSize = 15.5 * scale;
+  const x = rightX - width;
+  const baselineY = topY + fontSize * 0.82;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(fontSize);
+
+  doc.setTextColor(...BRAND_RED);
+  doc.text("Tech", x, baselineY);
+  const techW = doc.getTextWidth("Tech");
+
+  doc.setTextColor(...BRAND_GREY);
+  doc.text("2Globe", x + techW, baselineY);
+  const globeTextW = doc.getTextWidth("2Globe");
+  const textW = techW + globeTextW;
+
+  const lineY = baselineY + 2.8 * scale;
+  doc.setDrawColor(...BRAND_GREY);
+  doc.setLineWidth(0.7 * scale);
+  doc.line(x, lineY, x + textW, lineY);
+
+  const globeCX = x + textW + 11 * scale;
+  const globeCY = baselineY - fontSize * 0.32;
+  const globeR = 11.5 * scale;
+
+  doc.setFillColor(...BRAND_RED);
+  doc.circle(globeCX, globeCY, globeR, "F");
+  doc.setFillColor(255, 255, 255);
+  doc.circle(globeCX, globeCY, globeR * 0.88, "F");
+
+  doc.setFillColor(...BRAND_RED);
+  doc.ellipse(globeCX - 3.5 * scale, globeCY - 2.5 * scale, 4.2 * scale, 5.5 * scale, "F");
+  doc.ellipse(globeCX + 4.5 * scale, globeCY + 1.5 * scale, 3.8 * scale, 4.5 * scale, "F");
+  doc.ellipse(globeCX - 1 * scale, globeCY + 4.5 * scale, 3.2 * scale, 2.8 * scale, "F");
+  doc.ellipse(globeCX + 1 * scale, globeCY - 5 * scale, 2.5 * scale, 2 * scale, "F");
 }
 
-export async function loadTech2GlobeLogoDataUrl(basePath: string): Promise<string | null> {
-  const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
-  try {
-    return await rasterizeImage(`${normalizedBase}${LOGO_FILE}`);
-  } catch {
-    return null;
-  }
+/** @deprecated Logo is drawn natively; kept for API compatibility. */
+export async function loadTech2GlobeLogoDataUrl(_basePath: string): Promise<string | null> {
+  return null;
 }
 
 /** Strip characters that break jsPDF Helvetica metrics (wide spacing / overlap). */
@@ -50,7 +66,7 @@ export function drawPdfPageChrome(
   doc: jsPDF,
   page: number,
   totalPages: number,
-  logoDataUrl: string | null,
+  _logoDataUrl?: string | null,
   options?: { margin?: number; footerNote?: string },
 ) {
   const margin = options?.margin ?? 48;
@@ -60,11 +76,7 @@ export function drawPdfPageChrome(
   doc.setFillColor(255, 107, 0);
   doc.rect(0, 0, pageW, 4, "F");
 
-  if (logoDataUrl) {
-    const logoW = 118;
-    const logoH = logoW / LOGO_ASPECT;
-    doc.addImage(logoDataUrl, "PNG", pageW - margin - logoW, 14, logoW, logoH);
-  }
+  drawTech2GlobeLogo(doc, pageW - margin, 14, 118);
 
   const footerY = pageH - 20;
   doc.setFont("helvetica", "normal");
@@ -82,5 +94,5 @@ export function defaultLineHeight(fontSize: number, custom?: number): number {
   return custom ?? Math.ceil(fontSize * 1.5);
 }
 
-export const PDF_HEADER_RESERVE = 40;
+export const PDF_HEADER_RESERVE = 48;
 export const PDF_FOOTER_RESERVE = 32;
