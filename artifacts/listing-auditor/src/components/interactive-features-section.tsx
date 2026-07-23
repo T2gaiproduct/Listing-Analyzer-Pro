@@ -19,11 +19,11 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <div className="relative w-full h-full bg-[#faf8f5] overflow-hidden">
+    <div className="flex items-center justify-center w-full h-full bg-[#faf8f5] p-3 sm:p-4">
       <img
         src={feature.image}
         alt={feature.title}
-        className="absolute inset-0 w-full h-full object-cover object-center"
+        className="max-w-full max-h-full w-auto h-auto object-contain"
         loading="lazy"
       />
     </div>
@@ -31,10 +31,10 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
     <div
       className={cn(
         "flex items-center justify-center w-full h-full bg-gradient-to-br from-slate-50 to-white",
-        !fitHeight && "p-3",
+        fitHeight ? "p-6" : "p-3",
       )}
     >
-      <div className={cn(fitHeight ? "w-full scale-[1.35] origin-center" : "max-w-sm scale-110 origin-center")}>
+      <div className={cn(fitHeight ? "w-full max-w-md mx-auto" : "max-w-sm scale-110 origin-center")}>
         <FeatureCardMockup index={feature.index} />
       </div>
     </div>
@@ -72,11 +72,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="relative w-full aspect-[4/3] min-h-[200px] bg-[#faf8f5]">
+    <div className="flex items-center justify-center w-full min-h-[200px] bg-[#faf8f5] p-4">
       <img
         src={feature.image}
         alt={feature.title}
-        className="absolute inset-0 w-full h-full object-cover object-center"
+        className="max-w-full max-h-[280px] w-auto h-auto object-contain"
         loading="lazy"
       />
     </div>
