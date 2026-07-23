@@ -34,6 +34,25 @@ interface PendingInvite {
   status: "pending";
   role: AdminRole | null;
   inviteToken?: string | null;
+  inviteUrl?: string | null;
+}
+
+function resolveInviteUrl(invite: Pick<PendingInvite, "inviteUrl" | "inviteToken">): string {
+  if (invite.inviteUrl?.trim()) return invite.inviteUrl.trim();
+  return adminInviteLink(invite.inviteToken);
+}
+
+function copyInviteLink(
+  invite: Pick<PendingInvite, "inviteUrl" | "inviteToken">,
+  showToast: (opts: { title: string; description?: string; variant?: "destructive" }) => void,
+) {
+  const url = resolveInviteUrl(invite);
+  if (!url) {
+    showToast({ title: "No invite link available", description: "Try refreshing the page or re-assigning the role.", variant: "destructive" });
+    return;
+  }
+  void navigator.clipboard.writeText(url);
+  showToast({ title: "Invite link copied", description: url });
 }
 
 function adminInviteLink(token: string | null | undefined): string {
@@ -43,13 +62,37 @@ function adminInviteLink(token: string | null | undefined): string {
 
 async function readApiJson<T>(r: Response): Promise<T> {
   const text = await r.text();
+  if (!text.trim()) {
+    if (!r.ok) {
+      throw new Error(
+        r.status === 404
+          ? "This action is not available on the running API yet. Deploy the latest backend update, then try again."
+          : `Server error (${r.status}). The API may be unavailable or the database needs updating.`,
+      );
+    }
+    return {} as T;
+  }
   try {
-    return JSON.parse(text) as T;
-  } catch {
+    const data = JSON.parse(text) as T & { error?: string };
+    if (!r.ok) {
+      throw new Error(
+        data.error
+          ?? (r.status === 404
+            ? "This action is not available on the running API yet. Deploy the latest backend update, then try again."
+            : `Server error (${r.status}). The API may be unavailable or the database needs updating.`),
+      );
+    }
+    return data;
+  } catch (err) {
+    if (err instanceof Error && err.message !== "Unexpected token" && !err.message.startsWith("Unexpected token")) {
+      throw err;
+    }
     throw new Error(
       r.ok
         ? "Invalid server response"
-        : `Server error (${r.status}). The API may be unavailable or the database needs updating.`,
+        : r.status === 404
+          ? "This action is not available on the running API yet. Deploy the latest backend update, then try again."
+          : `Server error (${r.status}). The API may be unavailable or the database needs updating.`,
     );
   }
 }
@@ -87,6 +130,7 @@ export default function AdminRoles() {
   const [editAssignOpen, setEditAssignOpen] = useState(false);
   const [editingAssign, setEditingAssign] = useState<AssignedUser | null>(null);
   const [editRoleId, setEditRoleId] = useState("");
+  const [inviteLinkDialog, setInviteLinkDialog] = useState<{ email: string; url: string } | null>(null);
 
   const { data: rolesData, isLoading: rolesLoading, refetch: refetchRoles } = useQuery<{ roles: AdminRole[] }>({
     queryKey: ["admin-roles"],
@@ -139,17 +183,24 @@ export default function AdminRoles() {
       if (!r.ok) throw new Error(data.error ?? "Failed to assign role");
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
+      const assignedEmail = variables.email;
       setAssignDialogOpen(false);
       setAssignForm({ email: "", roleId: "" });
       if (data.pending) {
-        const linkNote = data.inviteUrl ? ` Invite link: ${data.inviteUrl}` : "";
+        if (data.inviteUrl) {
+          setInviteLinkDialog({ email: assignedEmail, url: data.inviteUrl });
+        }
         toast({
           title: "Invite saved",
           description: data.emailSent
-            ? `Invitation email sent.${linkNote}`
-            : `Invite saved.${data.inviteUrl ? ` Share this link: ${data.inviteUrl}` : data.emailError ? ` Email not sent: ${data.emailError}` : ""}`,
+            ? "Invitation email sent. Share the access link below if needed."
+            : data.inviteUrl
+              ? "Copy the invite link below and share it with the user."
+              : data.emailError
+                ? `Email not sent: ${data.emailError}`
+                : "Pending invite created.",
         });
         return;
       }
@@ -191,6 +242,33 @@ export default function AdminRoles() {
   const removeInvite = useMutation({
     mutationFn: (id: number) => fetch(`${basePath}/api/admin/admin-invites/${id}`, { method: "DELETE", credentials: "include" }).then((r) => r.ok),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-role-assignments"] }); toast({ title: "Invite removed" }); },
+  });
+
+  const generateInviteLink = useMutation({
+    mutationFn: async ({ email, roleId }: { email: string; roleId: number }) => {
+      const r = await fetch(`${basePath}/api/admin/admin-users`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, roleId }),
+      });
+      const data = await readApiJson<{ pending?: boolean; inviteUrl?: string; error?: string }>(r);
+      if (!data.inviteUrl) {
+        throw new Error(
+          "The server did not return an invite link. Deploy the latest API update (PR #108), then try again.",
+        );
+      }
+      return { ...data, email };
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-role-assignments"] });
+      setInviteLinkDialog({ email: data.email, url: data.inviteUrl! });
+      toast({
+        title: "Access link generated",
+        description: "Share the link — the user signs in and accepts to activate their role.",
+      });
+    },
+    onError: (e: Error) => toast({ title: "Failed to generate link", description: e.message, variant: "destructive" }),
   });
 
   return (
@@ -289,7 +367,9 @@ export default function AdminRoles() {
             <Users className="h-5 w-5 text-blue-500" />
             <div>
               <h2 className="text-lg font-bold">Assigned Roles</h2>
-              <p className="text-sm text-slate-500 mt-0.5">Assign roles to admin users by their email address</p>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Every assignment generates a shareable link. The user signs in and accepts to activate their role.
+              </p>
             </div>
           </div>
           <Button
@@ -326,6 +406,7 @@ export default function AdminRoles() {
                     <TableHead className="font-semibold">Admin User</TableHead>
                     <TableHead className="font-semibold">Role</TableHead>
                     <TableHead className="font-semibold">Permissions</TableHead>
+                    <TableHead className="font-semibold">Invite link</TableHead>
                     <TableHead className="font-semibold">Assigned On</TableHead>
                     <TableHead className="text-right font-semibold">Actions</TableHead>
                   </TableRow>
@@ -357,21 +438,30 @@ export default function AdminRoles() {
                           {(invite.role?.permissions?.length ?? 0) > 3 && <Badge variant="outline" className="text-xs">+{(invite.role?.permissions.length ?? 0) - 3}</Badge>}
                         </div>
                       </TableCell>
+                      <TableCell className="text-sm">
+                        {(() => {
+                          const url = resolveInviteUrl(invite);
+                          if (!url) {
+                            return <span className="text-xs text-slate-400">Link unavailable — refresh or re-assign</span>;
+                          }
+                          return (
+                            <div className="flex flex-col gap-1.5 max-w-xs">
+                              <code className="text-[11px] text-slate-600 bg-slate-100 px-2 py-1 rounded break-all line-clamp-2">{url}</code>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 w-fit"
+                                onClick={() => copyInviteLink(invite, toast)}
+                              >
+                                <Copy className="h-3.5 w-3.5 mr-1" />Copy link
+                              </Button>
+                            </div>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-sm text-slate-400">{format(new Date(invite.createdAt), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
-                        {invite.inviteToken && (
-                          <Button
-                            variant="ghost" size="sm"
-                            title="Copy invite link"
-                            onClick={() => {
-                              const url = adminInviteLink(invite.inviteToken);
-                              void navigator.clipboard.writeText(url);
-                              toast({ title: "Invite link copied", description: url });
-                            }}
-                          >
-                            <Copy className="h-4 w-4 mr-1" />Copy Link
-                          </Button>
-                        )}
                         <Button
                           variant="ghost" size="sm" className="text-destructive hover:text-destructive"
                           title="Cancel invite"
@@ -408,6 +498,26 @@ export default function AdminRoles() {
                           {(u.role?.permissions?.length ?? 0) > 3 && <Badge variant="outline" className="text-xs">+{(u.role?.permissions.length ?? 0) - 3}</Badge>}
                           {(u.role?.permissions?.length ?? 0) === 0 && <span className="text-xs text-slate-400">No permissions</span>}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-400">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7"
+                          disabled={generateInviteLink.isPending || !u.clerkUser?.email}
+                          onClick={() => {
+                            const email = u.clerkUser?.email;
+                            if (!email) {
+                              toast({ title: "No email on file", description: "Re-assign this role by email to generate a link.", variant: "destructive" });
+                              return;
+                            }
+                            generateInviteLink.mutate({ email, roleId: u.roleId });
+                          }}
+                        >
+                          <Copy className="h-3.5 w-3.5 mr-1" />
+                          {generateInviteLink.isPending ? "Generating…" : "Get access link"}
+                        </Button>
                       </TableCell>
                       <TableCell className="text-sm text-slate-400">{format(new Date(u.createdAt), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
@@ -505,7 +615,7 @@ export default function AdminRoles() {
                 value={assignForm.email}
                 onChange={(e) => setAssignForm((p) => ({ ...p, email: e.target.value }))}
               />
-              <p className="text-xs text-slate-400 mt-1">Enter any email — existing users get the role immediately; new users receive an invite and get access after sign-up</p>
+              <p className="text-xs text-slate-400 mt-1">Creates a shareable link. The user opens it, signs in, and accepts to activate their admin role.</p>
             </div>
             <div>
               <Label className="text-xs mb-1.5 block">Role *</Label>
@@ -559,6 +669,37 @@ export default function AdminRoles() {
               className="bg-orange-500 hover:bg-orange-600"
             >
               {updateAssign.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!inviteLinkDialog} onOpenChange={(open) => !open && setInviteLinkDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Admin access invite link</DialogTitle>
+          </DialogHeader>
+          {inviteLinkDialog && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Share this link with <strong>{inviteLinkDialog.email}</strong>. They open it, sign in (or create an account), then accept the invitation to access the admin dashboard with their assigned role.
+              </p>
+              <code className="block text-xs text-slate-700 bg-slate-100 border border-slate-200 rounded-lg p-3 break-all">
+                {inviteLinkDialog.url}
+              </code>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteLinkDialog(null)}>Close</Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                if (!inviteLinkDialog) return;
+                void navigator.clipboard.writeText(inviteLinkDialog.url);
+                toast({ title: "Invite link copied" });
+              }}
+            >
+              <Copy className="w-4 h-4 mr-2" />Copy link
             </Button>
           </DialogFooter>
         </DialogContent>

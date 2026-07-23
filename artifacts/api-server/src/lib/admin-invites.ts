@@ -39,6 +39,41 @@ export async function listPendingAdminInvites() {
   }
 }
 
+/** Create or refresh a pending admin invite — used for all email-based role assignments. */
+export async function upsertAdminRoleInvite(opts: {
+  email: string;
+  roleId: number;
+  invitedByUserId: string;
+}) {
+  const normalizedEmail = normalizeAdminEmail(opts.email);
+  const [existingInvite] = await db.select().from(adminInvitesTable)
+    .where(eq(adminInvitesTable.email, normalizedEmail)).limit(1);
+  const inviteToken = existingInvite?.inviteToken ?? generateAdminInviteToken();
+
+  const [invite] = await db.insert(adminInvitesTable).values({
+    email: normalizedEmail,
+    roleId: opts.roleId,
+    inviteToken,
+    invitedByUserId: opts.invitedByUserId,
+  }).onConflictDoUpdate({
+    target: adminInvitesTable.email,
+    set: {
+      roleId: opts.roleId,
+      invitedByUserId: opts.invitedByUserId,
+      acceptedAt: null,
+      acceptedUserId: null,
+      inviteToken,
+    },
+  }).returning();
+
+  return { invite, inviteToken: invite.inviteToken ?? inviteToken };
+}
+
+/** Remove active admin assignment so access is granted only after invite acceptance. */
+export async function revokeAdminAccessForUser(userId: string): Promise<void> {
+  await db.delete(adminUsersTable).where(eq(adminUsersTable.userId, userId));
+}
+
 /** If a pending invite exists for this email, grant admin_users and mark invite accepted. */
 export async function acceptAdminInviteForUser(userId: string, email?: string | null): Promise<boolean> {
   const normalized = email ? normalizeAdminEmail(email) : "";

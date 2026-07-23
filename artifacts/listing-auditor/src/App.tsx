@@ -199,19 +199,25 @@ const clerkAppearanceBase = {
 };
 
 function SignInPage() {
-  const redirectParam = new URLSearchParams(window.location.search).get("redirect_url");
+  const params = new URLSearchParams(window.location.search);
+  const redirectParam = params.get("redirect_url");
+  const email = params.get("email") ?? undefined;
   const redirectUrl = redirectParam?.startsWith("/")
     ? `${basePath}${redirectParam}`
     : `${basePath}/dashboard`;
+  const signUpUrl = redirectParam
+    ? `${basePath}/sign-up?redirect_url=${encodeURIComponent(redirectParam)}${email ? `&email=${encodeURIComponent(email)}` : ""}`
+    : `${basePath}/sign-up`;
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
-        signUpUrl={`${basePath}/sign-up`}
+        signUpUrl={signUpUrl}
         fallbackRedirectUrl={redirectUrl}
         forceRedirectUrl={redirectUrl}
+        initialValues={email ? { emailAddress: email } : undefined}
       />
     </div>
   );

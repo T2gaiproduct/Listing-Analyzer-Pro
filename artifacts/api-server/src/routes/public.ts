@@ -1019,6 +1019,23 @@ router.post("/notifications/read-all", requireAuth, async (req, res): Promise<vo
   res.json({ ok: true });
 });
 
+async function clerkAccountExistsForEmail(email: string): Promise<boolean> {
+  const secret = process.env.CLERK_SECRET_KEY;
+  if (!secret) return false;
+  try {
+    const resp = await fetch(
+      `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}&limit=1`,
+      { headers: { Authorization: `Bearer ${secret}` } },
+    );
+    if (!resp.ok) return false;
+    const raw = await resp.json() as unknown[] | { data?: unknown[] };
+    const users = Array.isArray(raw) ? raw : raw.data ?? [];
+    return users.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
   const token = String(req.params.token ?? "");
   const [invite] = await db
@@ -1041,11 +1058,14 @@ router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
     return;
   }
 
+  const accountExists = await clerkAccountExistsForEmail(invite.email);
+
   res.json({
     email: invite.email,
     role: invite.roleName,
     permissions: invite.permissions ?? [],
     invitedAt: invite.createdAt,
+    accountExists,
   });
 });
 

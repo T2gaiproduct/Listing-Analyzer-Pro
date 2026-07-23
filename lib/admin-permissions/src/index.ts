@@ -264,6 +264,7 @@ const API_PERMISSION_RULES: ApiPermissionRule[] = [
   { match: /^\/admin\/audit-logs/, permissions: "manage_team_activity" },
   { match: /^\/admin\/downloads/, permissions: "view_downloads" },
   { match: /^\/admin\/roles/, permissions: "manage_roles" },
+  { match: /^\/admin\/admin-users\/\d+\/invite-link$/, method: "POST", permissions: "manage_roles" },
   { match: /^\/admin\/admin-users/, permissions: "manage_roles" },
   { match: /^\/admin\/admin-invites/, permissions: "manage_roles" },
   { match: /^\/admin\/notifications/, permissions: "manage_notifications" },
