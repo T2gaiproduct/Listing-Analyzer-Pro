@@ -1,8 +1,11 @@
-import { useState, useRef, useLayoutEffect } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import type { LucideIcon } from "lucide-react";
 import { FeatureCardMockup } from "@/components/feature-card-mockups";
 import { cn } from "@/lib/utils";
+
+/** Desktop features row — right preview panel and left tabs share this minimum height. */
+const DESKTOP_PANEL_MIN_HEIGHT = "min-h-[34rem]";
 
 export type FeatureItem = {
   index: number;
@@ -16,11 +19,11 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <div className="relative w-full h-full bg-[#faf8f5] overflow-hidden">
+    <div className="flex items-center justify-center w-full h-full bg-[#faf8f5] p-3 sm:p-4">
       <img
         src={feature.image}
         alt={feature.title}
-        className="absolute inset-0 w-full h-full object-cover object-center"
+        className="max-w-full max-h-full w-auto h-auto object-contain"
         loading="lazy"
       />
     </div>
@@ -28,10 +31,10 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
     <div
       className={cn(
         "flex items-center justify-center w-full h-full bg-gradient-to-br from-slate-50 to-white",
-        !fitHeight && "p-3",
+        fitHeight ? "p-6" : "p-3",
       )}
     >
-      <div className={cn(fitHeight ? "w-full scale-[1.25] origin-center" : "max-w-sm scale-110 origin-center")}>
+      <div className={cn(fitHeight ? "w-full max-w-md mx-auto" : "max-w-sm scale-110 origin-center")}>
         <FeatureCardMockup index={feature.index} />
       </div>
     </div>
@@ -69,11 +72,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="relative w-full aspect-[4/3] min-h-[200px] bg-[#faf8f5]">
+    <div className="flex items-center justify-center w-full min-h-[200px] bg-[#faf8f5] p-4">
       <img
         src={feature.image}
         alt={feature.title}
-        className="absolute inset-0 w-full h-full object-cover object-center"
+        className="max-w-full max-h-[280px] w-auto h-auto object-contain"
         loading="lazy"
       />
     </div>
@@ -185,7 +188,7 @@ function ServiceTab({
       aria-controls={`feature-panel-${feature.index}`}
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-3 text-left transition-all duration-200 w-full px-4 py-3 rounded-xl border",
+        "flex items-center gap-3 text-left transition-all duration-200 w-full flex-1 min-h-[4.5rem] px-4 py-4 rounded-xl border",
         isActive
           ? "bg-orange-50 border-orange-200 shadow-sm border-l-4 border-l-orange-500 rounded-l-md"
           : "bg-white border-slate-200/90 hover:bg-slate-50 hover:border-slate-200",
@@ -219,25 +222,6 @@ function ServiceTab({
 export function InteractiveFeaturesSection({ features }: { features: FeatureItem[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeFeature = features[activeIndex] ?? features[0];
-  const sidebarRef = useRef<HTMLDivElement>(null);
-  const [sidebarHeight, setSidebarHeight] = useState<number | undefined>(undefined);
-
-  useLayoutEffect(() => {
-    const el = sidebarRef.current;
-    if (!el) return;
-
-    const update = () => setSidebarHeight(el.offsetHeight);
-    update();
-
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    window.addEventListener("resize", update);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [features.length, activeIndex]);
 
   if (!activeFeature) return null;
 
@@ -259,9 +243,14 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
         <FeatureMobileDetailPanel feature={activeFeature} />
       </div>
 
-      {/* Desktop — balanced size, image height matches tabs */}
-      <div className="hidden lg:grid lg:grid-cols-[minmax(250px,270px)_1fr] lg:gap-6 xl:gap-8 items-start max-w-5xl mx-auto w-full">
-        <div ref={sidebarRef} role="tablist" aria-label="Services" className="flex flex-col gap-3">
+      {/* Desktop — taller preview panel; tabs stretch to match */}
+      <div
+        className={cn(
+          "hidden lg:grid lg:grid-cols-[minmax(250px,270px)_1fr] lg:gap-6 xl:gap-8 items-stretch max-w-5xl mx-auto w-full",
+          DESKTOP_PANEL_MIN_HEIGHT,
+        )}
+      >
+        <div role="tablist" aria-label="Services" className={cn("flex flex-col gap-3.5 h-full", DESKTOP_PANEL_MIN_HEIGHT)}>
           {features.map((feature, i) => (
             <ServiceTab
               key={feature.title}
@@ -272,10 +261,7 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
             />
           ))}
         </div>
-        <div
-          className="rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-h-0 min-w-0"
-          style={sidebarHeight ? { height: sidebarHeight } : undefined}
-        >
+        <div className={cn("rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-w-0 h-full", DESKTOP_PANEL_MIN_HEIGHT)}>
           <FeatureImagePanel feature={activeFeature} fitHeight />
         </div>
       </div>
