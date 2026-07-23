@@ -369,32 +369,40 @@ export async function generateAplusModuleImages(data: {
   imageCustomPrompt?: string;
   promptReferenceImageUrls?: string[];
   quality?: "standard" | "hd";
+  moduleConfigs?: Record<string, {
+    imageCustomPrompt?: string;
+    promptReferenceImageUrls?: string[];
+    quality?: "standard" | "hd";
+  }>;
   onModuleComplete?: (module: AplusModule, done: number, total: number) => void | Promise<void>;
 }): Promise<AplusModule[]> {
   const dir = ensureAuditImageDir(data.auditId);
 
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const mergedImageUrls = [
-    ...(data.promptReferenceImageUrls ?? []),
-    ...data.imageUrls,
-  ];
-  const sourcePath = await resolveSourceImage(data.auditId, mergedImageUrls);
-  const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
 
   const specs = MODULE_SPECS.filter((spec) => data.moduleIds.includes(spec.id));
   const modules: AplusModule[] = [];
   const errors: string[] = [];
   const total = specs.length;
-  const imageDirection = data.imageCustomPrompt?.trim();
+  const globalImageDirection = data.imageCustomPrompt?.trim();
 
   for (const spec of specs) {
+    const moduleConfig = data.moduleConfigs?.[spec.id];
+    const mergedReferenceUrls = [
+      ...(moduleConfig?.promptReferenceImageUrls ?? data.promptReferenceImageUrls ?? []),
+      ...data.imageUrls,
+    ];
+    const sourcePath = await resolveSourceImage(data.auditId, mergedReferenceUrls);
+    const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+
     const filename = `aplus_${spec.id}_${Date.now()}.png`;
     const filePath = path.join(dir, filename);
     const imageUrl = urlPath(data.auditId, filename);
     const basePrompt = spec.buildPrompt(productDesc, data.content);
+    const imageDirection = moduleConfig?.imageCustomPrompt?.trim() || globalImageDirection;
     const prompt = applyQualityToPrompt(
       imageDirection ? `${basePrompt} Additional creative direction: ${imageDirection}` : basePrompt,
-      data.quality,
+      moduleConfig?.quality ?? data.quality,
     );
 
     try {

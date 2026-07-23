@@ -475,12 +475,18 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
     imageCustomPrompt,
     promptReferenceImageUrls,
     quality,
+    moduleConfigs,
   } = req.body as {
     prompt?: string;
     moduleIds?: string[];
     imageCustomPrompt?: string;
     promptReferenceImageUrls?: string[];
     quality?: "standard" | "hd";
+    moduleConfigs?: Record<string, {
+      imageCustomPrompt?: string;
+      promptReferenceImageUrls?: string[];
+      quality?: "standard" | "hd";
+    }>;
   };
 
   let moduleIds: AplusModule["id"][];
@@ -579,6 +585,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
         imageCustomPrompt: imageCustomPrompt?.trim() || undefined,
         promptReferenceImageUrls,
         quality,
+        moduleConfigs,
         onModuleComplete: async (module, done, total) => {
           newlyGenerated.push(module);
           const merged = mergeAplusModules(preservedModules, newlyGenerated);

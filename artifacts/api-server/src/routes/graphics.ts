@@ -96,6 +96,31 @@ interface GraphicsSpec {
   type: "lifestyle" | "feature";
   index: number;
   prompt: string;
+  imageType?: string;
+  aspectRatio?: string;
+  quality?: string;
+  promptReferenceImageUrls?: string[];
+}
+
+type ImageTypeGenerationConfig = {
+  customPrompt?: string;
+  aspectRatio?: string;
+  quality?: "standard" | "hd";
+  promptReferenceImageUrls?: string[];
+};
+
+function resolveTypeConfig(
+  typeConfigs: Record<string, ImageTypeGenerationConfig> | undefined,
+  imageType: string,
+  legacy?: ImageTypeGenerationConfig,
+): ImageTypeGenerationConfig {
+  const perType = typeConfigs?.[imageType];
+  return {
+    customPrompt: perType?.customPrompt?.trim() || legacy?.customPrompt?.trim() || undefined,
+    aspectRatio: perType?.aspectRatio ?? legacy?.aspectRatio,
+    quality: perType?.quality ?? legacy?.quality,
+    promptReferenceImageUrls: perType?.promptReferenceImageUrls ?? legacy?.promptReferenceImageUrls,
+  };
 }
 
 function buildGraphicsSpecs(
@@ -146,7 +171,8 @@ function buildNewImageSpecs(
   productName: string,
   category: string | null,
   imageTypes: string[],
-  customPrompt?: string,
+  typeConfigs?: Record<string, ImageTypeGenerationConfig>,
+  legacyCustomPrompt?: string,
   existingRecords?: GraphicsImageRecord[],
 ): GraphicsSpec[] {
   const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
@@ -156,30 +182,61 @@ function buildNewImageSpecs(
   const specs: GraphicsSpec[] = [];
   let lifestyleIndex = existingLifestyle;
   let featureIndex = existingFeature;
+  const legacyConfig = legacyCustomPrompt?.trim()
+    ? { customPrompt: legacyCustomPrompt.trim() }
+    : undefined;
 
   for (const type of imageTypes) {
+    const config = resolveTypeConfig(typeConfigs, type, legacyConfig);
     if (type === "custom") {
-      if (!customPrompt?.trim()) continue;
+      if (!config.customPrompt) continue;
       const idx = lifestyleIndex;
-      const prompt = `${customPrompt.trim()} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
-      specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
+      const prompt = `${config.customPrompt} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
+      specs.push({
+        id: `lifestyle_${idx}`,
+        type: "lifestyle",
+        index: idx,
+        prompt,
+        imageType: type,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.promptReferenceImageUrls,
+      });
       lifestyleIndex++;
       continue;
     }
     const promptBuilder = IMAGE_TYPE_PROMPTS[type];
     if (!promptBuilder) continue;
     const basePrompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution.`;
-    const prompt = customPrompt?.trim()
-      ? `${basePrompt} Additional creative direction: ${customPrompt.trim()}`
+    const prompt = config.customPrompt
+      ? `${basePrompt} Additional creative direction: ${config.customPrompt}`
       : basePrompt;
     const isFeature = type === "callouts" || type === "social" || type === "size" || type === "beforeafter";
     if (isFeature) {
       const idx = featureIndex;
-      specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt });
+      specs.push({
+        id: `feature_${idx}`,
+        type: "feature",
+        index: idx,
+        prompt,
+        imageType: type,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.promptReferenceImageUrls,
+      });
       featureIndex++;
     } else {
       const idx = lifestyleIndex;
-      specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
+      specs.push({
+        id: `lifestyle_${idx}`,
+        type: "lifestyle",
+        index: idx,
+        prompt,
+        imageType: type,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.promptReferenceImageUrls,
+      });
       lifestyleIndex++;
     }
   }
@@ -302,19 +359,17 @@ async function generateNewImageTypes(
   productName: string,
   category: string | null,
   imageTypes: string[],
-  customPrompt: string | undefined,
   sourceImagePaths?: string[] | null,
-  aspectRatio?: string,
   existingRecords?: GraphicsImageRecord[],
   startIndex?: number,
-  promptReferencePaths?: string[] | null,
-  quality?: string,
+  typeConfigs?: Record<string, ImageTypeGenerationConfig>,
+  legacy?: ImageTypeGenerationConfig,
 ): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
 
   const existing = existingRecords ?? [];
-  const specs = buildNewImageSpecs(productName, category, imageTypes, customPrompt, existing);
+  const specs = buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -322,30 +377,35 @@ async function generateNewImageTypes(
 
   let generatedCount = startIndex ?? 0;
 
-  const referencePaths = await resolveReferencePaths(projectId, dir, promptReferencePaths ?? undefined, sourceImagePaths);
-
   async function generateOne(spec: GraphicsSpec): Promise<void> {
     const filename = versionedFilename(spec.type, spec.index);
     const filePath = path.join(dir, filename);
     const imgUrl = urlPath(projectId, filename);
 
     try {
-      const arKey = aspectRatio ?? "1:1";
+      const arKey = spec.aspectRatio ?? legacy?.aspectRatio ?? "1:1";
       const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
+      const quality = spec.quality ?? legacy?.quality ?? "standard";
       const prompt = applyQualityToPrompt(spec.prompt, quality);
+      const referencePaths = await resolveReferencePaths(
+        projectId,
+        dir,
+        spec.promptReferenceImageUrls ?? legacy?.promptReferenceImageUrls,
+        sourceImagePaths,
+      );
       let buffer: Buffer;
 
       if (referencePaths.length > 1) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
-        console.log(`[generateNewImageTypes] Using ${referencePaths.length} reference images for ${spec.id}`);
+        console.log(`[generateNewImageTypes] Using ${referencePaths.length} reference images for ${spec.id} (${spec.imageType})`);
         buffer = await editImagesProxy(referencePaths, referencePrompt, filePath);
       } else if (referencePaths.length === 1) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
-        console.log(`[generateNewImageTypes] Using reference image for ${spec.id}: ${referencePaths[0]}`);
+        console.log(`[generateNewImageTypes] Using reference image for ${spec.id} (${spec.imageType}): ${referencePaths[0]}`);
         buffer = await generateImageWithReferenceProxy(referencePrompt, referencePaths[0]!, size);
         fs.writeFileSync(filePath, buffer);
       } else {
-        console.log(`[generateNewImageTypes] No valid source image, generating without reference for ${spec.id}`);
+        console.log(`[generateNewImageTypes] No valid source image, generating without reference for ${spec.id} (${spec.imageType})`);
         buffer = await generateImageBuffer(prompt, size);
         fs.writeFileSync(filePath, buffer);
       }
@@ -714,6 +774,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
     imageTypes?: string[];
     customPrompt?: string;
     promptReferenceImageUrls?: string[];
+    typeConfigs?: Record<string, ImageTypeGenerationConfig>;
     additionalLifestyleCount?: number;
     additionalFeatureCount?: number;
     customLifestylePrompt?: string;
@@ -778,9 +839,12 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   (async () => {
     try {
       const generateStyle = body.style ?? "custom";
-      const generateAspectRatio = body.aspectRatio ?? "1:1";
-      const generateQuality = body.quality ?? "standard";
-      const promptReferencePaths = savePromptReferenceImages(id, body.promptReferenceImageUrls);
+      const legacyConfig: ImageTypeGenerationConfig = {
+        customPrompt: body.customPrompt,
+        aspectRatio: body.aspectRatio ?? "1:1",
+        quality: body.quality ?? "standard",
+        promptReferenceImageUrls: body.promptReferenceImageUrls,
+      };
       const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
       const existingCount = existingRecords.length;
       let newRecords: GraphicsImageRecord[];
@@ -790,13 +854,11 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
           project.productName,
           project.category,
           body.imageTypes,
-          body.customPrompt,
           project.sourceImageUrls,
-          generateAspectRatio,
           existingRecords,
           existingCount,
-          promptReferencePaths,
-          generateQuality,
+          body.typeConfigs,
+          legacyConfig,
         );
       } else {
         const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;

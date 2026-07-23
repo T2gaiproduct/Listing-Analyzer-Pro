@@ -13,6 +13,20 @@ import { ReferenceImageUploadField } from "@/components/reference-image-upload-f
 export type GraphicsAspectRatio = "1:1" | "3:2" | "2:3";
 export type GraphicsQuality = "standard" | "hd";
 
+export type ImageTypePromptConfig = {
+  customPrompt: string;
+  referenceImages: string[];
+  aspectRatio: GraphicsAspectRatio;
+  quality: GraphicsQuality;
+};
+
+export const DEFAULT_IMAGE_TYPE_PROMPT_CONFIG: ImageTypePromptConfig = {
+  customPrompt: "",
+  referenceImages: [],
+  aspectRatio: "1:1",
+  quality: "standard",
+};
+
 export const GRAPHICS_ASPECT_RATIOS: {
   value: GraphicsAspectRatio;
   label: string;
@@ -43,6 +57,8 @@ export interface CustomPromptGenerationPanelProps {
   promptMaxChars?: number;
   examplePrompts?: string[];
   className?: string;
+  title?: string;
+  subtitle?: string;
 }
 
 export function CustomPromptGenerationPanel({
@@ -57,13 +73,18 @@ export function CustomPromptGenerationPanel({
   promptMaxChars = 1000,
   examplePrompts = [],
   className,
+  title = "Custom Prompt",
+  subtitle,
 }: CustomPromptGenerationPanelProps) {
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
 
   return (
     <div className={cn("rounded-2xl border border-orange-200 bg-orange-50/30 p-4 space-y-4", className)}>
-      <label className="text-base font-medium text-orange-900 block">Custom Prompt</label>
+      <div>
+        <label className="text-base font-medium text-orange-900 block">{title}</label>
+        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+      </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <textarea
