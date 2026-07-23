@@ -5,7 +5,7 @@ import { useUser } from "@clerk/react";
 import {
   Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
-  BadgePercent, ClipboardList, LayoutDashboard,
+  BadgePercent, ClipboardList,
   Bell, BrainCircuit, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
@@ -36,7 +36,6 @@ const navSections: Array<{
   {
     label: "Overview",
     items: [
-      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "view_dashboard" },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart2, permission: "view_analytics" },
     ],
   },
@@ -296,7 +295,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const { signOut } = useClerk();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { can, defaultRoute } = useAdminPermissions();
-  const adminHome = defaultRoute || "/admin/dashboard";
+  const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin/dashboard");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
