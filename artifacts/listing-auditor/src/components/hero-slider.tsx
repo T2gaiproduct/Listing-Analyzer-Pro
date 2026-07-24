@@ -76,30 +76,11 @@ function HeroSlideImage({
 
 function HeroVideoEmbed({
   embedUrl,
-  fit = "cover",
   className,
 }: {
   embedUrl: string;
-  fit?: "cover" | "contain";
   className?: string;
 }) {
-  if (fit === "contain") {
-    return (
-      <div className={cn("flex h-full w-full items-center justify-center bg-slate-50 p-3 sm:p-4", className)}>
-        <div className="relative w-full aspect-video max-h-full rounded-2xl overflow-hidden shadow-sm border border-slate-200/80 bg-slate-900">
-          <iframe
-            key={embedUrl}
-            src={embedUrl}
-            title="Hero video"
-            allow="autoplay; fullscreen; picture-in-picture"
-            referrerPolicy="strict-origin-when-cross-origin"
-            className="absolute inset-0 h-full w-full border-0"
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={cn("absolute inset-0 overflow-hidden bg-slate-900", className)}>
       <iframe
@@ -121,20 +102,16 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
 
   if (!source) return null;
 
-  const fit = fullBleed ? "cover" : "contain";
-
   const frameClass = cn(
-    "relative w-full min-w-0",
-    fullBleed
-      ? "h-full w-full overflow-hidden bg-slate-900"
-      : "flex h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[540px] items-center justify-center bg-slate-50 p-3 sm:p-4",
+    "relative w-full min-w-0 overflow-hidden bg-slate-900",
+    fullBleed ? "h-full w-full" : "absolute inset-0 h-full w-full",
     className,
   );
 
   if (source.kind === "youtube" || source.kind === "vimeo") {
     return (
       <div className={frameClass}>
-        <HeroVideoEmbed embedUrl={source.embedUrl} fit={fit} className={fullBleed ? "absolute inset-0" : "h-full w-full"} />
+        <HeroVideoEmbed embedUrl={source.embedUrl} />
       </div>
     );
   }
@@ -153,11 +130,7 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
         loop
         playsInline
         preload="metadata"
-        className={cn(
-          fullBleed
-            ? "absolute inset-0 block h-full w-full max-w-none object-cover object-center"
-            : "block w-full h-auto max-h-full object-contain object-center rounded-2xl",
-        )}
+        className="absolute inset-0 block h-full w-full max-w-none object-cover object-center"
       />
     </div>
   );
@@ -453,8 +426,8 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                   </div>
                   {hasDesktopMedia && (
                     <div className="hidden lg:flex w-full min-w-0 lg:w-1/2 lg:max-w-[50%] items-center py-4 lg:py-6 pr-4 sm:pr-6 lg:pr-8 xl:pr-10">
-                      <div className="w-full min-h-[520px] lg:min-h-[540px] rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-50">
-                        <HeroSlideMedia slide={slide} className="h-full w-full" />
+                      <div className="relative w-full min-h-[520px] lg:min-h-[540px] rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
+                        <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full" />
                       </div>
                     </div>
                   )}
