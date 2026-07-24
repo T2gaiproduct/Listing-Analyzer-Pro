@@ -127,7 +127,17 @@ function HeroVideoEmbed({
   );
 }
 
-function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSlide; className?: string; mobile?: boolean; fullBleed?: boolean }) {
+function HeroSlideVideo({
+  slide,
+  className,
+  mobile,
+  fullBleed,
+}: {
+  slide: HeroSlide;
+  className?: string;
+  mobile?: boolean;
+  fullBleed?: boolean;
+}) {
   const videoUrl = mobile ? heroSlideMobileVideo(slide) : heroSlideDesktopVideo(slide);
   const posterUrl = heroSlideVideoPoster(slide);
   const source = videoUrl ? parseHeroVideoSource(videoUrl) : null;
@@ -138,7 +148,7 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
 
   const frameClass = cn(
     "relative w-full min-w-0 overflow-hidden bg-slate-900",
-    fullBleed ? "h-full w-full" : "absolute inset-0 h-full w-full",
+    fullBleed || mobile ? "h-full w-full" : "absolute inset-0 h-full w-full",
     className,
   );
 
@@ -356,12 +366,12 @@ function HeroMobileOverlaySlide({
         className={cn(
           "relative w-full overflow-hidden bg-slate-900",
           isVideo
-            ? "aspect-video w-full"
+            ? "aspect-video"
             : "aspect-[5/4] min-h-[200px] max-h-[min(38vh,320px)] bg-slate-100",
         )}
       >
-        <div className="absolute inset-0">{media}</div>
-        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none" />
+        {media}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950 to-transparent" />
       </div>
       <div className="px-4 pt-4 pb-5 sm:px-6 text-center">
         <HeroSlideCopy slide={slide} overlay mobileOverlay />
@@ -374,6 +384,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   const [viewportHeight, setViewportHeight] = useState<number | undefined>(undefined);
+  const [lockCarouselHeight, setLockCarouselHeight] = useState(false);
   const slideMeasureRefs = useRef<(HTMLDivElement | null)[]>([]);
   const multiSlide = slides.length > 1;
 
@@ -397,6 +408,18 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
       api.off("reInit", onSelect);
     };
   }, [api, onSelect]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setLockCarouselHeight(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    measureActiveSlide();
+  }, [current, measureActiveSlide, slides.length]);
 
   useEffect(() => {
     measureActiveSlide();
@@ -427,9 +450,13 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
       <div
         className={cn(
           "overflow-hidden",
-          multiSlide && viewportHeight !== undefined && "transition-[height] duration-200 ease-out",
+          multiSlide && lockCarouselHeight && viewportHeight !== undefined && "transition-[height] duration-200 ease-out",
         )}
-        style={multiSlide && viewportHeight !== undefined ? { height: viewportHeight } : undefined}
+        style={
+          multiSlide && lockCarouselHeight && viewportHeight !== undefined
+            ? { height: viewportHeight }
+            : undefined
+        }
       >
         <Carousel
           setApi={setApi}
@@ -461,9 +488,9 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                         isVideo={slideIsVideo}
                         media={
                           slideIsVideo ? (
-                            <HeroSlideMedia slide={slide} mobile panel className="absolute inset-0 h-full w-full" />
+                            <HeroSlideMedia slide={slide} mobile className="h-full w-full" />
                           ) : (
-                            <HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />
+                            <HeroSlideMedia slide={slide} mobile fullBleed className="absolute inset-0 h-full w-full" />
                           )
                         }
                       />
