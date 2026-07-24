@@ -12,6 +12,7 @@ import graphicsRouter from "./graphics";
 import archiveRouter from "./archive";
 import recentsRouter from "./recents";
 import dashboardRouter from "./dashboard";
+import amazonRouter from "./amazon";
 
 const router: IRouter = Router();
 
@@ -20,6 +21,7 @@ router.use(fetchListingRouter);
 router.use(adminRouter);
 router.use(publicRouter);
 router.use(teamRouter);
+router.use(amazonRouter);
 router.use(auditsRouter);
 router.use(competitorsRouter);
 router.use(stripeRouter);

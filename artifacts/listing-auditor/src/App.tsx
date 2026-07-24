@@ -38,6 +38,7 @@ import {
   Privacy,
   Tutorials,
   Dashboard,
+  RecentProjectsPage,
   AuditNew,
   AuditDetail,
   CompetitorNew,
@@ -89,6 +90,7 @@ import {
   AdminSettingsSecurity,
   AdminSettingsPaymentGateway,
   AdminSettingsEmail,
+  AdminSettingsAmazon,
   AdminMarketingHomepage,
   AdminMarketingPages,
   AdminMarketingBlog,
@@ -495,6 +497,9 @@ function Router() {
       <Route path="/admin/settings/email">
         <AdminRoute><AdminSettingsEmail /></AdminRoute>
       </Route>
+      <Route path="/admin/settings/amazon">
+        <AdminRoute><AdminSettingsAmazon /></AdminRoute>
+      </Route>
 
       {/* Marketing */}
       <Route path="/admin/marketing/homepage">
@@ -614,6 +619,9 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
+      </Route>
+      <Route path="/recent-projects">
+        <ProtectedRoute><RecentProjectsPage /></ProtectedRoute>
       </Route>
       <Route path="/audit-listings">
         <ProtectedRoute><AuditListings /></ProtectedRoute>

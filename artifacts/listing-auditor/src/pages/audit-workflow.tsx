@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AMAZON_MARKETPLACES, EXPORT_PLATFORMS, downloadAuditExport, type AmazonMarketplaceId, type ExportPlatform } from "@/lib/amazon-export";
+import { fetchAmazonStatus, startAmazonConnect, disconnectAmazon, publishAuditToAmazon } from "@/lib/amazon-publish";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
@@ -666,6 +667,29 @@ export default function AuditWorkflow() {
   const [exportPlatform, setExportPlatform] = useState<ExportPlatform>("amazon");
   const [exportMarketplace, setExportMarketplace] = useState<AmazonMarketplaceId>("US");
   const [exportLoading, setExportLoading] = useState<"excel" | "zip" | null>(null);
+  const [publishLoading, setPublishLoading] = useState(false);
+
+  const { data: amazonStatus, refetch: refetchAmazonStatus, isError: amazonStatusError } = useQuery({
+    queryKey: ["amazon-connection-status"],
+    queryFn: fetchAmazonStatus,
+    staleTime: 30_000,
+    retry: 2,
+  });
+
+  const publishBlockers = useMemo((): string[] => {
+    if (exportPlatform !== "amazon") return [];
+    const blockers: string[] = [];
+    if (amazonStatusError) blockers.push("Amazon publishing is temporarily unavailable. Please try again later.");
+    if (!amazonStatusError && !amazonStatus?.publishReady) {
+      blockers.push("Amazon publishing isn't set up yet. Contact your administrator.");
+    }
+    if (amazonStatus?.publishReady && !amazonStatus.connected) {
+      blockers.push("Click Connect Amazon above to link your seller account.");
+    }
+    if (!currentAuditId) blockers.push("Save your project in Step 1.");
+    if (!generatedContent) blockers.push("Generate listing content in Step 2.");
+    return blockers;
+  }, [exportPlatform, amazonStatus, amazonStatusError, currentAuditId, generatedContent]);
 
   const generateAplus = useMutation({
     mutationFn: async ({
@@ -1246,6 +1270,44 @@ export default function AuditWorkflow() {
       setExportLoading(null);
     }
   }, [currentAuditId, generatedContent, exportPlatform, exportMarketplace, toast]);
+
+  const handlePublishAmazon = useCallback(async () => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 before publishing.", variant: "destructive" });
+      return;
+    }
+    if (!generatedContent) {
+      toast({ title: "Listing content required", description: "Generate listing content before publishing.", variant: "destructive" });
+      return;
+    }
+    if (!amazonStatus?.publishReady) {
+      toast({ title: "Not available", description: "Amazon publishing isn't set up yet. Contact your administrator.", variant: "destructive" });
+      return;
+    }
+    if (!amazonStatus.connected) {
+      toast({ title: "Connect Amazon", description: "Connect your Amazon seller account first.", variant: "destructive" });
+      return;
+    }
+    setPublishLoading(true);
+    try {
+      const result = await publishAuditToAmazon({
+        auditId: currentAuditId,
+        marketplace: exportMarketplace,
+      });
+      toast({
+        title: result.sandbox ? "Published to Amazon sandbox" : "Published to Amazon",
+        description: result.message,
+      });
+    } catch (err) {
+      toast({
+        title: "Publish failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPublishLoading(false);
+    }
+  }, [currentAuditId, generatedContent, amazonStatus, exportMarketplace, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -2238,6 +2300,53 @@ export default function AuditWorkflow() {
                 Upload files use <strong>public HTTPS image URLs</strong> (not local file paths). ZIP downloads also include image files as a backup. Add price and inventory in Seller Central or Shopify after import.
               </p>
 
+              {exportPlatform === "amazon" && (amazonStatus?.publishReady || amazonStatus?.configured || amazonStatusError) && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Amazon seller account</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {amazonStatus.connected
+                        ? `Connected${amazonStatus.sellerId ? ` · ${amazonStatus.sellerId}` : ""}${amazonStatus.sandbox ? " · Sandbox" : ""}`
+                        : amazonStatus.configured || amazonStatus.publishReady
+                          ? "Connect your seller account to use Publish to Amazon."
+                          : "Amazon publishing isn't set up yet. Contact your administrator."}
+                    </p>
+                  </div>
+                  {amazonStatus.configured && (
+                    <div className="flex gap-2">
+                      {amazonStatus.connected ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => {
+                            void disconnectAmazon().then(() => refetchAmazonStatus());
+                          }}
+                        >
+                          Disconnect
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white"
+                          onClick={() => {
+                            void startAmazonConnect().catch((err) => {
+                              toast({
+                                title: "Connect failed",
+                                description: err instanceof Error ? err.message : "Try again",
+                                variant: "destructive",
+                              });
+                            });
+                          }}
+                        >
+                          Connect Amazon
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!currentAuditId && (
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                   Complete Step 1 and save your project before exporting.
@@ -2248,6 +2357,17 @@ export default function AuditWorkflow() {
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                   Complete the Listing step and generate content before exporting.
                 </p>
+              )}
+
+              {exportPlatform === "amazon" && publishBlockers.length > 0 && (
+                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
+                  <p className="font-semibold">Before you can publish:</p>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">
+                    {publishBlockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2261,6 +2381,7 @@ export default function AuditWorkflow() {
                     action: exportPlatform === "shopify" ? "Download CSV" : "Download Excel",
                     format: "excel" as const,
                     comingSoon: false,
+                    kind: "export" as const,
                   },
                   {
                     icon: "🗂️",
@@ -2271,17 +2392,29 @@ export default function AuditWorkflow() {
                     action: "Download ZIP",
                     format: "zip" as const,
                     comingSoon: false,
+                    kind: "export" as const,
                   },
-                  {
-                    icon: "🛒",
-                    title: exportPlatform === "shopify" ? "Publish to Shopify" : "Publish to Amazon",
-                    desc: exportPlatform === "shopify"
-                      ? "Push directly to your Shopify store"
-                      : "Push directly to Seller Central",
-                    action: "Coming soon",
-                    format: null,
-                    comingSoon: true,
-                  },
+                  exportPlatform === "shopify"
+                    ? {
+                        icon: "🛒",
+                        title: "Publish to Shopify",
+                        desc: "Push directly to your Shopify store",
+                        action: "Coming soon",
+                        format: null,
+                        comingSoon: true,
+                        kind: "publish" as const,
+                      }
+                    : {
+                        icon: "🛒",
+                        title: "Publish to Amazon",
+                        desc: amazonStatus?.sandbox
+                          ? "Submit listing to Amazon SP-API sandbox"
+                          : "Push directly to Seller Central",
+                        action: "Publish to Amazon",
+                        format: null,
+                        comingSoon: !amazonStatus?.publishReady,
+                        kind: "publish" as const,
+                      },
                 ].map((opt) => (
                   <div key={opt.title} className={cn("border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all", opt.comingSoon ? "opacity-60" : "hover:border-orange-300 hover:shadow-sm")}>
                     <span className="text-3xl">{opt.icon}</span>
@@ -2295,16 +2428,31 @@ export default function AuditWorkflow() {
                         ? "border-slate-200 text-slate-400 cursor-default hover:bg-transparent"
                         : "border-orange-200 text-orange-600 hover:bg-orange-50"
                       )}
-                      disabled={opt.comingSoon || !currentAuditId || !generatedContent || exportLoading !== null}
+                      disabled={
+                        opt.comingSoon
+                        || (opt.kind === "export" && (!currentAuditId || !generatedContent || exportLoading !== null))
+                        || (opt.kind === "publish" && (!currentAuditId || !generatedContent || publishLoading || !amazonStatus?.publishReady || !amazonStatus?.connected))
+                      }
                       onClick={() => {
-                        if (opt.comingSoon || !opt.format) return;
-                        void handleExportDownload(opt.format);
+                        if (opt.comingSoon) return;
+                        if (opt.kind === "export" && opt.format) {
+                          void handleExportDownload(opt.format);
+                          return;
+                        }
+                        if (opt.kind === "publish") {
+                          void handlePublishAmazon();
+                        }
                       }}
                     >
-                      {exportLoading === opt.format ? (
+                      {opt.kind === "export" && opt.format && exportLoading === opt.format ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
                           Preparing…
+                        </>
+                      ) : opt.kind === "publish" && publishLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Publishing…
                         </>
                       ) : (
                         opt.action

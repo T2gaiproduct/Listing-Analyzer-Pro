@@ -29,6 +29,7 @@ export const Privacy = lazy(() => import("@/pages/privacy"));
 export const Tutorials = lazy(() => import("@/pages/tutorials"));
 
 export const Dashboard = lazy(() => import("@/pages/dashboard"));
+export const RecentProjectsPage = lazy(() => import("@/pages/recent-projects"));
 export const AuditNew = lazy(() => import("@/pages/audit-new"));
 export const AuditDetail = lazy(() => import("@/pages/audit-detail"));
 export const CompetitorNew = lazy(() => import("@/pages/competitor-new"));
@@ -82,6 +83,7 @@ export const AdminSettingsAPI = lazy(() => import("@/pages/admin/settings/api"))
 export const AdminSettingsSecurity = lazy(() => import("@/pages/admin/settings/security"));
 export const AdminSettingsPaymentGateway = lazy(() => import("@/pages/admin/settings/payment-gateway"));
 export const AdminSettingsEmail = lazy(() => import("@/pages/admin/settings/email"));
+export const AdminSettingsAmazon = lazy(() => import("@/pages/admin/settings/amazon"));
 export const AdminMarketingHomepage = lazy(() => import("@/pages/admin/marketing/homepage"));
 export const AdminMarketingPages = lazy(() => import("@/pages/admin/marketing/pages"));
 export const AdminMarketingBlog = lazy(() => import("@/pages/admin/marketing/blog"));
