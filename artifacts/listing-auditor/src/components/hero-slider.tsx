@@ -17,6 +17,7 @@ import {
   heroSlideDesktopVideo,
   heroSlideHasDesktopMedia,
   heroSlideHasMobileMedia,
+  heroSlideHasPlayableVideo,
   heroSlideIsVideo,
   heroSlideMobileImage,
   heroSlideMobileVideo,
@@ -351,6 +352,48 @@ function HeroSlideCopy({
   );
 }
 
+function HeroMobileVideoBanner({ slide }: { slide: HeroSlide }) {
+  const videoUrl = heroSlideMobileVideo(slide);
+  const source = videoUrl ? parseHeroVideoSource(videoUrl) : null;
+  if (!source) return null;
+
+  if (source.kind === "youtube" || source.kind === "vimeo") {
+    return (
+      <div className="relative w-full aspect-video overflow-hidden bg-slate-900">
+        <iframe
+          key={source.embedUrl}
+          src={source.embedUrl}
+          title="Hero video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          className="absolute inset-0 h-full w-full border-0"
+        />
+      </div>
+    );
+  }
+
+  const src = resolveCmsAssetUrl(source.url, basePath);
+  const posterUrl = heroSlideVideoPoster(slide);
+  const poster = posterUrl ? resolveCmsAssetUrl(posterUrl, basePath) : undefined;
+
+  return (
+    <div className="relative w-full aspect-video overflow-hidden bg-slate-900">
+      <video
+        key={src}
+        src={src}
+        poster={poster}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="absolute inset-0 h-full w-full object-cover object-center"
+      />
+    </div>
+  );
+}
+
 function HeroMobileOverlaySlide({
   slide,
   media,
@@ -362,17 +405,14 @@ function HeroMobileOverlaySlide({
 }) {
   return (
     <div className="lg:hidden w-full shrink-0 overflow-hidden bg-slate-950">
-      <div
-        className={cn(
-          "relative w-full overflow-hidden bg-slate-900",
-          isVideo
-            ? "aspect-video"
-            : "aspect-[5/4] min-h-[200px] max-h-[min(38vh,320px)] bg-slate-100",
-        )}
-      >
-        {media}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950 to-transparent" />
-      </div>
+      {isVideo ? (
+        <HeroMobileVideoBanner slide={slide} />
+      ) : (
+        <div className="relative w-full aspect-[5/4] min-h-[200px] max-h-[min(38vh,320px)] overflow-hidden bg-slate-100">
+          <div className="absolute inset-0">{media}</div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950 to-transparent" />
+        </div>
+      )}
       <div className="px-4 pt-4 pb-5 sm:px-6 text-center">
         <HeroSlideCopy slide={slide} overlay mobileOverlay />
       </div>
@@ -467,8 +507,8 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
             {slides.map((slide, slideIndex) => {
               const hasDesktopMedia = heroSlideHasDesktopMedia(slide);
               const hasMobileMedia = heroSlideHasMobileMedia(slide);
-              const slideIsVideo = heroSlideIsVideo(slide);
-              const showMobileBanner = hasMobileMedia || hasDesktopMedia;
+              const slideHasVideo = heroSlideHasPlayableVideo(slide);
+              const showMobileBanner = hasMobileMedia || hasDesktopMedia || slideHasVideo;
 
               /* Full-bleed video banner disabled — video plays in the right panel only (see hasDesktopMedia layout). */
               // const isVideoBanner = heroSlideIsVideo(slide);
@@ -485,11 +525,9 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     {showMobileBanner ? (
                       <HeroMobileOverlaySlide
                         slide={slide}
-                        isVideo={slideIsVideo}
+                        isVideo={slideHasVideo}
                         media={
-                          slideIsVideo ? (
-                            <HeroSlideMedia slide={slide} mobile className="h-full w-full" />
-                          ) : (
+                          slideHasVideo ? null : (
                             <HeroSlideMedia slide={slide} mobile fullBleed className="absolute inset-0 h-full w-full" />
                           )
                         }
