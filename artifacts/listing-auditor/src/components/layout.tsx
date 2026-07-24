@@ -541,7 +541,6 @@ export function Layout({ children }: { children: ReactNode }) {
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
     <div
       className="flex h-screen w-full bg-background overflow-hidden"
-      onClick={() => { setOpenMenu(null); }}
     >
       {/* Sidebar */}
       <TooltipProvider>
