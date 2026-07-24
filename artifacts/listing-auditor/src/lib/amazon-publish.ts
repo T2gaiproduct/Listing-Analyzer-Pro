@@ -2,6 +2,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export interface AmazonConnectionStatus {
   configured: boolean;
+  publishReady: boolean;
   enabled: boolean;
   sandbox: boolean;
   canSignRequests: boolean;

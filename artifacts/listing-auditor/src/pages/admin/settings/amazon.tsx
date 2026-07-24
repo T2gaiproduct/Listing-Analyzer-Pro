@@ -139,9 +139,10 @@ export default function AdminSettingsAmazon() {
           <ShoppingCart className="w-6 h-6 text-orange-500" />
           Amazon Settings
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Configure Amazon SP-API for Publish to Amazon. Use sandbox mode for testing before going live.
-        </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure Amazon SP-API for Publish to Amazon. Use sandbox mode for testing before going live.
+              Publishing turns on automatically when LWA and AWS credentials are saved.
+            </p>
       </div>
 
       <Card>

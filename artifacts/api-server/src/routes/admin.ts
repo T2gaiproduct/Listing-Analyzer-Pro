@@ -28,7 +28,7 @@ import {
   requireAdminWithPermission,
   type AdminRequest,
 } from "../lib/admin-auth";
-import { loadAmazonSpSettings } from "../lib/amazon-sp-settings.js";
+import { loadAmazonSpSettings, shouldAutoEnableAmazon, AMAZON_SETTINGS_CATEGORY, AMAZON_SETTING_KEYS } from "../lib/amazon-sp-settings.js";
 import { testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
@@ -1361,6 +1361,26 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     const promoCode = promoSettings[ANNOUNCEMENT_PROMO_KEYS.code]?.trim();
     if (promoCode) {
       await ensurePromoCoupon(promoCode, 20);
+    }
+  }
+
+  if (category === AMAZON_SETTINGS_CATEGORY) {
+    const latest = await loadAmazonSpSettings();
+    if (shouldAutoEnableAmazon(latest) && !latest.enabled) {
+      const key = AMAZON_SETTING_KEYS.enabled;
+      const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+      if (existing) {
+        await db.update(settingsTable)
+          .set({ value: "true", category: AMAZON_SETTINGS_CATEGORY, updatedAt: new Date() })
+          .where(eq(settingsTable.key, key));
+      } else {
+        await db.insert(settingsTable).values({
+          key,
+          value: "true",
+          category: AMAZON_SETTINGS_CATEGORY,
+          isSecret: false,
+        });
+      }
     }
   }
 

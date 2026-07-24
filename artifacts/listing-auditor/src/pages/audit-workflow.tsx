@@ -679,11 +679,13 @@ export default function AuditWorkflow() {
   const publishBlockers = useMemo((): string[] => {
     if (exportPlatform !== "amazon") return [];
     const blockers: string[] = [];
-    if (amazonStatusError) blockers.push("Amazon API unavailable — restart the server or deploy the latest version.");
-    if (!amazonStatus?.enabled) blockers.push("Enable Publish to Amazon in Admin → Amazon Settings.");
-    if (amazonStatus?.enabled && !amazonStatus.configured) blockers.push("Complete LWA Client ID, Secret, and Redirect URI in Admin → Amazon Settings.");
-    if (amazonStatus?.enabled && !amazonStatus.canSignRequests) blockers.push("Add AWS Access Key and Secret in Admin → Amazon Settings.");
-    if (amazonStatus?.enabled && amazonStatus.configured && !amazonStatus.connected) blockers.push("Click Connect Amazon above to authorize your seller account.");
+    if (amazonStatusError) blockers.push("Amazon publishing is temporarily unavailable. Please try again later.");
+    if (!amazonStatusError && !amazonStatus?.publishReady) {
+      blockers.push("Amazon publishing isn't set up yet. Contact your administrator.");
+    }
+    if (amazonStatus?.publishReady && !amazonStatus.connected) {
+      blockers.push("Click Connect Amazon above to link your seller account.");
+    }
     if (!currentAuditId) blockers.push("Save your project in Step 1.");
     if (!generatedContent) blockers.push("Generate listing content in Step 2.");
     return blockers;
@@ -1278,16 +1280,12 @@ export default function AuditWorkflow() {
       toast({ title: "Listing content required", description: "Generate listing content before publishing.", variant: "destructive" });
       return;
     }
-    if (!amazonStatus?.enabled || !amazonStatus.configured) {
-      toast({ title: "Amazon not configured", description: "Ask an admin to enable Amazon Settings.", variant: "destructive" });
+    if (!amazonStatus?.publishReady) {
+      toast({ title: "Not available", description: "Amazon publishing isn't set up yet. Contact your administrator.", variant: "destructive" });
       return;
     }
     if (!amazonStatus.connected) {
       toast({ title: "Connect Amazon", description: "Connect your Amazon seller account first.", variant: "destructive" });
-      return;
-    }
-    if (!amazonStatus.canSignRequests) {
-      toast({ title: "AWS credentials missing", description: "Admin must add AWS signing keys in Amazon Settings.", variant: "destructive" });
       return;
     }
     setPublishLoading(true);
@@ -2302,16 +2300,16 @@ export default function AuditWorkflow() {
                 Upload files use <strong>public HTTPS image URLs</strong> (not local file paths). ZIP downloads also include image files as a backup. Add price and inventory in Seller Central or Shopify after import.
               </p>
 
-              {exportPlatform === "amazon" && (amazonStatus?.enabled || amazonStatus?.configured || amazonStatusError) && (
+              {exportPlatform === "amazon" && (amazonStatus?.publishReady || amazonStatus?.configured || amazonStatusError) && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-white">
                   <div>
                     <p className="text-sm font-semibold text-slate-800">Amazon seller account</p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {amazonStatus.connected
                         ? `Connected${amazonStatus.sellerId ? ` · ${amazonStatus.sellerId}` : ""}${amazonStatus.sandbox ? " · Sandbox" : ""}`
-                        : amazonStatus.configured
+                        : amazonStatus.configured || amazonStatus.publishReady
                           ? "Connect your seller account to use Publish to Amazon."
-                          : "Admin must complete Amazon Settings first."}
+                          : "Amazon publishing isn't set up yet. Contact your administrator."}
                     </p>
                   </div>
                   {amazonStatus.configured && (
@@ -2412,9 +2410,9 @@ export default function AuditWorkflow() {
                         desc: amazonStatus?.sandbox
                           ? "Submit listing to Amazon SP-API sandbox"
                           : "Push directly to Seller Central",
-                        action: amazonStatus?.enabled ? "Publish to Amazon" : "Enable in Admin Settings",
+                        action: "Publish to Amazon",
                         format: null,
-                        comingSoon: !amazonStatus?.enabled,
+                        comingSoon: !amazonStatus?.publishReady,
                         kind: "publish" as const,
                       },
                 ].map((opt) => (
@@ -2433,7 +2431,7 @@ export default function AuditWorkflow() {
                       disabled={
                         opt.comingSoon
                         || (opt.kind === "export" && (!currentAuditId || !generatedContent || exportLoading !== null))
-                        || (opt.kind === "publish" && (!currentAuditId || !generatedContent || publishLoading || !amazonStatus?.connected || !amazonStatus?.canSignRequests))
+                        || (opt.kind === "publish" && (!currentAuditId || !generatedContent || publishLoading || !amazonStatus?.publishReady || !amazonStatus?.connected))
                       }
                       onClick={() => {
                         if (opt.comingSoon) return;

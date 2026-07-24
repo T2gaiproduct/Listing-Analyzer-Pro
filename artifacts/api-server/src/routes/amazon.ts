@@ -4,8 +4,13 @@ import { eq, and } from "drizzle-orm";
 import { db, amazonSellerConnectionsTable, amazonPublishJobsTable } from "@workspace/db";
 import {
   loadAmazonSpSettings,
+  ensureAmazonAutoEnabled,
   isAmazonSpConfigured,
+  isAmazonPublishReady,
   canSignSpApiRequests,
+  AMAZON_SETTINGS_CATEGORY,
+  AMAZON_SETTING_KEYS,
+  shouldAutoEnableAmazon,
 } from "../lib/amazon-sp-settings.js";
 import {
   buildAmazonAuthorizeUrl,
@@ -45,7 +50,7 @@ function resolvePublicBaseUrl(req: Request): string {
 }
 
 router.get("/amazon/status", requireAuth, async (req, res): Promise<void> => {
-  const settings = await loadAmazonSpSettings();
+  const settings = await ensureAmazonAutoEnabled();
   const userId = (req as AuthedRequest).userId;
   const [connection] = await db
     .select()
@@ -55,6 +60,7 @@ router.get("/amazon/status", requireAuth, async (req, res): Promise<void> => {
 
   res.json({
     configured: isAmazonSpConfigured(settings),
+    publishReady: isAmazonPublishReady(settings),
     enabled: settings.enabled,
     sandbox: settings.sandbox,
     canSignRequests: canSignSpApiRequests(settings),
@@ -68,7 +74,7 @@ router.get("/amazon/status", requireAuth, async (req, res): Promise<void> => {
 router.get("/amazon/oauth/authorize", requireAuth, async (req, res): Promise<void> => {
   const settings = await loadAmazonSpSettings();
   if (!isAmazonSpConfigured(settings)) {
-    res.status(400).json({ error: "Amazon SP-API is not configured. Ask an admin to complete Amazon Settings." });
+    res.status(400).json({ error: "Amazon publishing isn't set up yet. Contact your administrator." });
     return;
   }
   const userId = (req as AuthedRequest).userId;
@@ -156,13 +162,9 @@ router.post("/audits/:id/publish/amazon", requireAuth, async (req, res): Promise
     return;
   }
 
-  const settings = await loadAmazonSpSettings();
-  if (!isAmazonSpConfigured(settings)) {
-    res.status(400).json({ error: "Amazon SP-API is not enabled or configured in Admin → Amazon Settings." });
-    return;
-  }
-  if (!canSignSpApiRequests(settings)) {
-    res.status(400).json({ error: "AWS signing credentials are required in Admin → Amazon Settings to publish." });
+  const settings = await ensureAmazonAutoEnabled();
+  if (!isAmazonPublishReady(settings)) {
+    res.status(400).json({ error: "Amazon publishing isn't set up yet. Contact your administrator." });
     return;
   }
 

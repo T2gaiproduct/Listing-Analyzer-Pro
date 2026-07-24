@@ -55,13 +55,17 @@ export async function loadAmazonSpSettings(): Promise<AmazonSpSettings> {
   };
 }
 
-export function isAmazonSpConfigured(settings: AmazonSpSettings): boolean {
+export function isAmazonLwaConfigured(settings: AmazonSpSettings): boolean {
   return Boolean(
-    settings.enabled
-    && settings.clientId.trim()
+    settings.clientId.trim()
     && settings.clientSecret.trim()
     && settings.redirectUri.trim(),
   );
+}
+
+/** LWA credentials saved (legacy name used by routes). */
+export function isAmazonSpConfigured(settings: AmazonSpSettings): boolean {
+  return isAmazonLwaConfigured(settings);
 }
 
 export function canSignSpApiRequests(settings: AmazonSpSettings): boolean {
@@ -69,6 +73,36 @@ export function canSignSpApiRequests(settings: AmazonSpSettings): boolean {
     return true;
   }
   return Boolean(settings.awsAccessKeyId.trim() && settings.awsSecretAccessKey.trim());
+}
+
+/** True when sellers can connect + publish (admin completed setup). */
+export function isAmazonPublishReady(settings: AmazonSpSettings): boolean {
+  return settings.enabled && isAmazonLwaConfigured(settings) && canSignSpApiRequests(settings);
+}
+
+export function shouldAutoEnableAmazon(settings: AmazonSpSettings): boolean {
+  return isAmazonLwaConfigured(settings) && canSignSpApiRequests(settings);
+}
+
+export async function ensureAmazonAutoEnabled(): Promise<AmazonSpSettings> {
+  const settings = await loadAmazonSpSettings();
+  if (settings.enabled || !shouldAutoEnableAmazon(settings)) return settings;
+
+  const key = AMAZON_SETTING_KEYS.enabled;
+  const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+  if (existing) {
+    await db.update(settingsTable)
+      .set({ value: "true", category: AMAZON_SETTINGS_CATEGORY, updatedAt: new Date() })
+      .where(eq(settingsTable.key, key));
+  } else {
+    await db.insert(settingsTable).values({
+      key,
+      value: "true",
+      category: AMAZON_SETTINGS_CATEGORY,
+      isSecret: false,
+    });
+  }
+  return { ...settings, enabled: true };
 }
 
 export const AMAZON_MARKETPLACE_SP_IDS: Record<string, string> = {
