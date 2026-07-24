@@ -165,7 +165,9 @@ export async function testAmazonSpConnection(settings: AmazonSpSettings): Promis
       };
     }
     const err = await res.json().catch(() => ({})) as { error_description?: string; error?: string };
-    if (err.error === "invalid_scope") {
+    const scopeRejected = err.error === "invalid_scope"
+      || err.error_description?.toLowerCase().includes("scope");
+    if (scopeRejected) {
       return {
         ok: true,
         message: settings.sandbox

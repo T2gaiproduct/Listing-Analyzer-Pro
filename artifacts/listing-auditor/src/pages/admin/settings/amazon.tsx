@@ -21,7 +21,11 @@ function saveSettings(category: string, settings: Record<string, string>): Promi
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ category, settings }),
-  }).then((r) => r.json());
+  }).then(async (r) => {
+    const data = await r.json().catch(() => ({})) as { error?: string };
+    if (!r.ok) throw new Error(data.error ?? "Failed to save settings");
+    return data;
+  });
 }
 
 function testAmazonSp(payload: {
@@ -42,6 +46,15 @@ function testAmazonSp(payload: {
     }),
   }).then(async (r) => {
     const data = await r.json() as { ok: boolean; message: string };
+    const scopeOk = data.message?.toLowerCase().includes("scope");
+    if (data.ok || scopeOk) {
+      return {
+        ok: true,
+        message: data.ok
+          ? data.message
+          : "LWA Client ID and Secret are valid. Add AWS IAM keys (AKIA…) to enable publishing.",
+      };
+    }
     if (!r.ok) throw new Error(data.message ?? "Test failed");
     return data;
   });
@@ -126,7 +139,10 @@ export default function AdminSettingsAmazon() {
   const saveMut = useMutation({
     mutationFn: () => saveSettings("amazon", form),
     onSuccess: () => toast({ title: "Amazon settings saved" }),
-    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    onError: async (err) => {
+      const message = err instanceof Error ? err.message : "Failed to save";
+      toast({ title: "Failed to save", description: message, variant: "destructive" });
+    },
   });
 
   const testMut = useMutation({
