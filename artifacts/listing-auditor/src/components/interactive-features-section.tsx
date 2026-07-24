@@ -22,15 +22,16 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
     <div
       className={cn(
         "w-full h-full bg-[#faf8f5]",
-        fitHeight ? "px-2 sm:px-3" : "flex items-center justify-center p-3 sm:p-4",
+        fitHeight ? "relative overflow-hidden p-0" : "flex items-center justify-center p-3 sm:p-4",
       )}
     >
       <img
         src={feature.image}
         alt={feature.title}
         className={cn(
-          "object-contain",
-          fitHeight ? "block w-full h-full" : "max-w-full max-h-full w-auto h-auto",
+          fitHeight
+            ? "absolute inset-0 w-full h-full object-cover object-top"
+            : "max-w-full max-h-full w-auto h-auto object-contain",
         )}
         loading="lazy"
       />
@@ -80,11 +81,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="w-full min-h-[200px] bg-[#faf8f5] px-3">
+    <div className="relative w-full min-h-[200px] bg-[#faf8f5] overflow-hidden">
       <img
         src={feature.image}
         alt={feature.title}
-        className="block w-full h-auto max-h-[320px] object-contain"
+        className="block w-full h-auto min-h-[200px] max-h-[360px] object-cover object-top"
         loading="lazy"
       />
     </div>
@@ -269,7 +270,7 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
             />
           ))}
         </div>
-        <div className={cn("rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-w-0 h-full", DESKTOP_PANEL_MIN_HEIGHT)}>
+        <div className={cn("rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-w-0 h-full bg-[#faf8f5]", DESKTOP_PANEL_MIN_HEIGHT)}>
           <FeatureImagePanel feature={activeFeature} fitHeight />
         </div>
       </div>
