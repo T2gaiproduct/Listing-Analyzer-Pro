@@ -57,13 +57,40 @@ function activitySortTime(
   itemType: string,
   id: number,
   createdAt: Date | null,
+  updatedAt?: Date | null,
 ): number {
   if (worked) {
     const dbType = itemType === "listing" ? "audit" : itemType;
     const last = worked.lastActivityAt.get(`${dbType}-${id}`);
     if (last) return last.getTime();
   }
+  if (updatedAt) return new Date(updatedAt).getTime();
   return createdAt ? new Date(createdAt).getTime() : 0;
+}
+
+function recentsTypeLabel(type: string): string {
+  switch (type) {
+    case "audit": return "Audit Results";
+    case "listing": return "Build Your Brand";
+    case "graphics": return "Create Graphics";
+    case "video": return "Create Videos";
+    case "ads": return "Manage Ads";
+    default: return "Project";
+  }
+}
+
+function pickThumbnail(opts: {
+  imageUrls?: string[] | null;
+  imageRecords?: Array<{ currentUrl?: string }> | null;
+  sourceImageUrls?: string[] | null;
+  thumbnailUrl?: string | null;
+}): string | null {
+  if (opts.imageUrls?.[0]) return opts.imageUrls[0];
+  const fromRecords = opts.imageRecords?.find((r) => r.currentUrl)?.currentUrl;
+  if (fromRecords) return fromRecords;
+  if (opts.sourceImageUrls?.[0]) return opts.sourceImageUrls[0];
+  if (opts.thumbnailUrl) return opts.thumbnailUrl;
+  return null;
 }
 
 async function loadScopedRecents(
@@ -89,7 +116,12 @@ async function loadScopedRecents(
             name: auditsTable.projectName,
             productName: auditsTable.productName,
             asin: auditsTable.asin,
+            category: auditsTable.category,
+            overallScore: auditsTable.overallScore,
+            imageUrls: auditsTable.imageUrls,
+            imageRecords: auditsTable.imageRecords,
             createdAt: auditsTable.createdAt,
+            updatedAt: auditsTable.updatedAt,
           })
           .from(auditsTable)
           .where(
@@ -108,7 +140,11 @@ async function loadScopedRecents(
           .select({
             id: graphicsProjectsTable.id,
             name: graphicsProjectsTable.name,
+            category: graphicsProjectsTable.category,
+            sourceImageUrls: graphicsProjectsTable.sourceImageUrls,
+            imageRecords: graphicsProjectsTable.imageRecords,
             createdAt: graphicsProjectsTable.createdAt,
+            updatedAt: graphicsProjectsTable.updatedAt,
           })
           .from(graphicsProjectsTable)
           .where(
@@ -128,7 +164,9 @@ async function loadScopedRecents(
           .select({
             id: videosProjectsTable.id,
             name: videosProjectsTable.name,
+            thumbnailUrl: videosProjectsTable.thumbnailUrl,
             createdAt: videosProjectsTable.createdAt,
+            updatedAt: videosProjectsTable.updatedAt,
           })
           .from(videosProjectsTable)
           .where(
@@ -148,6 +186,7 @@ async function loadScopedRecents(
             id: adsProjectsTable.id,
             name: adsProjectsTable.name,
             createdAt: adsProjectsTable.createdAt,
+            updatedAt: adsProjectsTable.updatedAt,
           })
           .from(adsProjectsTable)
           .where(
@@ -189,13 +228,19 @@ router.get("/recents", requireAuth, resolveTeam, async (req: Request, res: Respo
   const items = [
     ...audits.map((a) => {
       const isAudit = !!a.asin;
+      const type = isAudit ? ("audit" as const) : ("listing" as const);
       return {
-        type: isAudit ? ("audit" as const) : ("listing" as const),
+        type,
         id: a.id,
         name: a.name || a.productName || "Untitled Project",
         createdAt: a.createdAt,
+        updatedAt: a.updatedAt ?? a.createdAt,
         url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
         pinned: pinnedSet.has(`audit-${a.id}`),
+        typeLabel: recentsTypeLabel(type),
+        category: a.category ?? null,
+        score: a.overallScore ?? null,
+        imageUrl: pickThumbnail({ imageUrls: a.imageUrls, imageRecords: a.imageRecords }),
       };
     }),
     ...graphics.map((g) => ({
@@ -203,31 +248,46 @@ router.get("/recents", requireAuth, resolveTeam, async (req: Request, res: Respo
       id: g.id,
       name: g.name,
       createdAt: g.createdAt,
+      updatedAt: g.updatedAt ?? g.createdAt,
       url: `/projects/${g.id}`,
       pinned: pinnedSet.has(`graphics-${g.id}`),
+      typeLabel: recentsTypeLabel("graphics"),
+      category: g.category ?? null,
+      score: null,
+      imageUrl: pickThumbnail({ sourceImageUrls: g.sourceImageUrls, imageRecords: g.imageRecords }),
     })),
     ...videos.map((v) => ({
       type: "video" as const,
       id: v.id,
       name: v.name,
       createdAt: v.createdAt,
+      updatedAt: v.updatedAt ?? v.createdAt,
       url: `/videos/${v.id}`,
       pinned: pinnedSet.has(`video-${v.id}`),
+      typeLabel: recentsTypeLabel("video"),
+      category: null,
+      score: null,
+      imageUrl: pickThumbnail({ thumbnailUrl: v.thumbnailUrl }),
     })),
     ...ads.map((a) => ({
       type: "ads" as const,
       id: a.id,
       name: a.name,
       createdAt: a.createdAt,
+      updatedAt: a.updatedAt ?? a.createdAt,
       url: `/ads/${a.id}`,
       pinned: pinnedSet.has(`ads-${a.id}`),
+      typeLabel: recentsTypeLabel("ads"),
+      category: null,
+      score: null,
+      imageUrl: null,
     })),
   ];
 
   items.sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    const aTime = activitySortTime(worked, a.type, a.id, a.createdAt);
-    const bTime = activitySortTime(worked, b.type, b.id, b.createdAt);
+    const aTime = activitySortTime(worked, a.type, a.id, a.createdAt, a.updatedAt);
+    const bTime = activitySortTime(worked, b.type, b.id, b.createdAt, b.updatedAt);
     return bTime - aTime;
   });
 
@@ -263,7 +323,12 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
             name: auditsTable.projectName,
             productName: auditsTable.productName,
             asin: auditsTable.asin,
+            category: auditsTable.category,
+            overallScore: auditsTable.overallScore,
+            imageUrls: auditsTable.imageUrls,
+            imageRecords: auditsTable.imageRecords,
             createdAt: auditsTable.createdAt,
+            updatedAt: auditsTable.updatedAt,
           })
           .from(auditsTable)
           .where(
@@ -283,7 +348,11 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
           .select({
             id: graphicsProjectsTable.id,
             name: graphicsProjectsTable.name,
+            category: graphicsProjectsTable.category,
+            sourceImageUrls: graphicsProjectsTable.sourceImageUrls,
+            imageRecords: graphicsProjectsTable.imageRecords,
             createdAt: graphicsProjectsTable.createdAt,
+            updatedAt: graphicsProjectsTable.updatedAt,
           })
           .from(graphicsProjectsTable)
           .where(
@@ -303,7 +372,9 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
           .select({
             id: videosProjectsTable.id,
             name: videosProjectsTable.name,
+            thumbnailUrl: videosProjectsTable.thumbnailUrl,
             createdAt: videosProjectsTable.createdAt,
+            updatedAt: videosProjectsTable.updatedAt,
           })
           .from(videosProjectsTable)
           .where(
@@ -323,6 +394,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
             id: adsProjectsTable.id,
             name: adsProjectsTable.name,
             createdAt: adsProjectsTable.createdAt,
+            updatedAt: adsProjectsTable.updatedAt,
           })
           .from(adsProjectsTable)
           .where(
@@ -340,13 +412,19 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
   const items = [
     ...audits.map((a) => {
       const isAudit = !!a.asin;
+      const type = isAudit ? ("audit" as const) : ("listing" as const);
       return {
-        type: isAudit ? ("audit" as const) : ("listing" as const),
+        type,
         id: a.id,
         name: a.name || a.productName || "Untitled Project",
         createdAt: a.createdAt,
+        updatedAt: a.updatedAt ?? a.createdAt,
         url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
         pinned: false,
+        typeLabel: recentsTypeLabel(type),
+        category: a.category ?? null,
+        score: a.overallScore ?? null,
+        imageUrl: pickThumbnail({ imageUrls: a.imageUrls, imageRecords: a.imageRecords }),
       };
     }),
     ...graphics.map((g) => ({
@@ -354,30 +432,45 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
       id: g.id,
       name: g.name,
       createdAt: g.createdAt,
+      updatedAt: g.updatedAt ?? g.createdAt,
       url: `/projects/${g.id}`,
       pinned: false,
+      typeLabel: recentsTypeLabel("graphics"),
+      category: g.category ?? null,
+      score: null,
+      imageUrl: pickThumbnail({ sourceImageUrls: g.sourceImageUrls, imageRecords: g.imageRecords }),
     })),
     ...videos.map((v) => ({
       type: "video" as const,
       id: v.id,
       name: v.name,
       createdAt: v.createdAt,
+      updatedAt: v.updatedAt ?? v.createdAt,
       url: `/videos/${v.id}`,
       pinned: false,
+      typeLabel: recentsTypeLabel("video"),
+      category: null,
+      score: null,
+      imageUrl: pickThumbnail({ thumbnailUrl: v.thumbnailUrl }),
     })),
     ...ads.map((a) => ({
       type: "ads" as const,
       id: a.id,
       name: a.name,
       createdAt: a.createdAt,
+      updatedAt: a.updatedAt ?? a.createdAt,
       url: `/ads/${a.id}`,
       pinned: false,
+      typeLabel: recentsTypeLabel("ads"),
+      category: null,
+      score: null,
+      imageUrl: null,
     })),
   ];
 
   items.sort((a, b) => {
-    const aTime = activitySortTime(worked, a.type, a.id, a.createdAt);
-    const bTime = activitySortTime(worked, b.type, b.id, b.createdAt);
+    const aTime = activitySortTime(worked, a.type, a.id, a.createdAt, a.updatedAt);
+    const bTime = activitySortTime(worked, b.type, b.id, b.createdAt, b.updatedAt);
     return bTime - aTime;
   });
 

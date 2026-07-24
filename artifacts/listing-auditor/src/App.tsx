@@ -38,6 +38,7 @@ import {
   Privacy,
   Tutorials,
   Dashboard,
+  RecentProjectsPage,
   AuditNew,
   AuditDetail,
   CompetitorNew,
@@ -618,6 +619,9 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
+      </Route>
+      <Route path="/recent-projects">
+        <ProtectedRoute><RecentProjectsPage /></ProtectedRoute>
       </Route>
       <Route path="/audit-listings">
         <ProtectedRoute><AuditListings /></ProtectedRoute>
