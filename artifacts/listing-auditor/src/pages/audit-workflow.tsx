@@ -539,10 +539,6 @@ export default function AuditWorkflow() {
   const [generatedContent, setGeneratedContent] = useState<null | { title: string; bulletPoints: string[]; keywords: string[]; htmlDescription: string }>(null);
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
   const [isDirty, setIsDirty] = useState(false);
-  const [listingCustomPrompt, setListingCustomPrompt] = useState("");
-  const [listingReferenceImages, setListingReferenceImages] = useState<string[]>([]);
-  const [listingAspectRatio, setListingAspectRatio] = useState<GraphicsAspectRatio>("1:1");
-  const [listingQuality, setListingQuality] = useState<GraphicsQuality>("standard");
   const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
   const generateContentDirect = useGenerateContentDirect();
@@ -783,11 +779,6 @@ export default function AuditWorkflow() {
     enabled: !!currentAuditId,
     staleTime: 5 * 60 * 1000,
   });
-
-  const listingContentOptions = useMemo(() => ({
-    customPrompt: listingCustomPrompt.trim() || undefined,
-    promptReferenceImageUrls: listingReferenceImages.length > 0 ? listingReferenceImages : undefined,
-  }), [listingCustomPrompt, listingReferenceImages]);
 
   const getAplusModuleConfig = useCallback((moduleId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -1159,7 +1150,6 @@ export default function AuditWorkflow() {
             bulletPoints: syntheticBullets,
             targetKeywords: syntheticKeywords.slice(0, 10),
             imageUrls: uploadedImages,
-            ...listingContentOptions,
           },
         },
         {
@@ -1217,7 +1207,7 @@ export default function AuditWorkflow() {
         toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
       }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, listingContentOptions, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -1620,17 +1610,6 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              <CustomPromptGenerationPanel
-                customPrompt={listingCustomPrompt}
-                onCustomPromptChange={(value) => { setListingCustomPrompt(value); setIsDirty(true); }}
-                referenceImages={listingReferenceImages}
-                onReferenceImagesChange={(images) => { setListingReferenceImages(images); setIsDirty(true); }}
-                aspectRatio={listingAspectRatio}
-                onAspectRatioChange={(ratio) => { setListingAspectRatio(ratio); setIsDirty(true); }}
-                quality={listingQuality}
-                onQualityChange={(q) => { setListingQuality(q); setIsDirty(true); }}
-              />
-
               {/* Generate button — no ASIN required */}
               <button
                 type="button"
@@ -1647,12 +1626,12 @@ export default function AuditWorkflow() {
                   setIsCreating(true);
 
                   if (currentAuditId) {
-                    // Already have an audit: regenerate content with optional custom prompt
+                    // Already have an audit: regenerate listing content
                     fetch(`${basePath}/api/audits/${currentAuditId}/generate-content`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       credentials: "include",
-                      body: JSON.stringify(listingContentOptions),
+                      body: JSON.stringify({}),
                     })
                       .then(async (res) => {
                         if (!res.ok) {
@@ -1710,7 +1689,6 @@ export default function AuditWorkflow() {
                         bulletPoints: syntheticBullets,
                         targetKeywords: syntheticKeywords.slice(0, 10),
                         imageUrls: uploadedImages,
-                        ...listingContentOptions,
                       },
                     },
                     {
