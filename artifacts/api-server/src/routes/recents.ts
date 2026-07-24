@@ -79,18 +79,55 @@ function recentsTypeLabel(type: string): string {
   }
 }
 
+function isUsableImageUrl(url: string | null | undefined): url is string {
+  const trimmed = url?.trim();
+  if (!trimmed || trimmed === "null" || trimmed === "undefined") return false;
+  return true;
+}
+
+function imageUrlPriority(url: string): number {
+  if (url.startsWith("/api/images/")) return 100;
+  if (url.startsWith("https://")) return 80;
+  if (url.startsWith("http://")) return 70;
+  if (url.startsWith("/")) return 60;
+  if (url.startsWith("data:image/")) return 5;
+  if (url.startsWith("blob:")) return 1;
+  return 50;
+}
+
 function pickThumbnail(opts: {
   imageUrls?: string[] | null;
   imageRecords?: Array<{ currentUrl?: string }> | null;
   sourceImageUrls?: string[] | null;
   thumbnailUrl?: string | null;
+  generatedImages?: { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null;
 }): string | null {
-  if (opts.imageUrls?.[0]) return opts.imageUrls[0];
-  const fromRecords = opts.imageRecords?.find((r) => r.currentUrl)?.currentUrl;
-  if (fromRecords) return fromRecords;
-  if (opts.sourceImageUrls?.[0]) return opts.sourceImageUrls[0];
-  if (opts.thumbnailUrl) return opts.thumbnailUrl;
-  return null;
+  const candidates: string[] = [];
+
+  for (const rec of opts.imageRecords ?? []) {
+    if (isUsableImageUrl(rec.currentUrl)) candidates.push(rec.currentUrl.trim());
+  }
+  for (const url of opts.imageUrls ?? []) {
+    if (isUsableImageUrl(url)) candidates.push(url.trim());
+  }
+  for (const url of opts.sourceImageUrls ?? []) {
+    if (isUsableImageUrl(url)) candidates.push(url.trim());
+  }
+  const generated = opts.generatedImages;
+  if (generated) {
+    for (const url of [
+      ...(generated.main ?? []),
+      ...(generated.lifestyle ?? []),
+      ...(generated.infographic ?? []),
+    ]) {
+      if (isUsableImageUrl(url)) candidates.push(url.trim());
+    }
+  }
+  if (isUsableImageUrl(opts.thumbnailUrl)) candidates.push(opts.thumbnailUrl.trim());
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => imageUrlPriority(b) - imageUrlPriority(a));
+  return candidates[0] ?? null;
 }
 
 async function loadScopedRecents(
@@ -120,6 +157,7 @@ async function loadScopedRecents(
             overallScore: auditsTable.overallScore,
             imageUrls: auditsTable.imageUrls,
             imageRecords: auditsTable.imageRecords,
+            generatedImages: auditsTable.generatedImages,
             createdAt: auditsTable.createdAt,
             updatedAt: auditsTable.updatedAt,
           })
@@ -240,7 +278,11 @@ router.get("/recents", requireAuth, resolveTeam, async (req: Request, res: Respo
         typeLabel: recentsTypeLabel(type),
         category: a.category ?? null,
         score: a.overallScore ?? null,
-        imageUrl: pickThumbnail({ imageUrls: a.imageUrls, imageRecords: a.imageRecords }),
+        imageUrl: pickThumbnail({
+          imageUrls: a.imageUrls,
+          imageRecords: a.imageRecords,
+          generatedImages: a.generatedImages as { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null,
+        }),
       };
     }),
     ...graphics.map((g) => ({
@@ -327,6 +369,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
             overallScore: auditsTable.overallScore,
             imageUrls: auditsTable.imageUrls,
             imageRecords: auditsTable.imageRecords,
+            generatedImages: auditsTable.generatedImages,
             createdAt: auditsTable.createdAt,
             updatedAt: auditsTable.updatedAt,
           })
@@ -424,7 +467,11 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
         typeLabel: recentsTypeLabel(type),
         category: a.category ?? null,
         score: a.overallScore ?? null,
-        imageUrl: pickThumbnail({ imageUrls: a.imageUrls, imageRecords: a.imageRecords }),
+        imageUrl: pickThumbnail({
+          imageUrls: a.imageUrls,
+          imageRecords: a.imageRecords,
+          generatedImages: a.generatedImages as { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null,
+        }),
       };
     }),
     ...graphics.map((g) => ({

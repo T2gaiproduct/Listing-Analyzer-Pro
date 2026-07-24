@@ -39,9 +39,40 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const PAGE_SIZE = 10;
 
 function resolveImageUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
-  return `${basePath}${url.startsWith("/") ? url : `/${url}`}`;
+  if (!url?.trim()) return null;
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith("http://")
+    || trimmed.startsWith("https://")
+    || trimmed.startsWith("data:")
+    || trimmed.startsWith("blob:")
+  ) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
+}
+
+function ProjectThumbnail({ imageUrl, alt, compact }: { imageUrl: string | null; alt: string; compact?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const src = imageUrl && !failed ? imageUrl : null;
+
+  if (!src) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Folder className={cn(compact ? "w-5 h-5" : "w-10 h-10", "text-slate-300")} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 function updatedLabel(item: EnrichedRecentItem): string {
@@ -72,13 +103,7 @@ function ProjectCard({
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
       <Link href={item.url} className="block">
         <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
-          {image ? (
-            <img src={image} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Folder className="w-10 h-10 text-slate-300" />
-            </div>
-          )}
+          <ProjectThumbnail imageUrl={image} alt={item.name} />
           {showScore && (
             <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white border-2 border-orange-400 flex items-center justify-center shadow-sm">
               <span className="text-sm font-bold text-orange-600">{item.score}</span>
@@ -135,13 +160,7 @@ function ProjectListRow({
     <div className="flex items-center gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors group">
       <Link href={item.url} className="flex items-center gap-4 flex-1 min-w-0">
         <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0">
-          {image ? (
-            <img src={image} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Folder className="w-5 h-5 text-slate-300" />
-            </div>
-          )}
+          <ProjectThumbnail imageUrl={image} alt={item.name} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-900 truncate group-hover:text-orange-600 transition-colors">{item.name}</p>
@@ -189,21 +208,12 @@ export default function RecentProjectsPage() {
   const { pinMutation, renameMutation, archiveMutation, deleteMutation } = useRecentProjectMutations(200);
   const items = (data?.items ?? []) as EnrichedRecentItem[];
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    for (const item of items) {
-      if (item.category?.trim()) set.add(item.category.trim());
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [items]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const now = Date.now();
     return items.filter((item) => {
       if (q && !item.name.toLowerCase().includes(q)) return false;
       if (typeFilter !== "all" && item.type !== typeFilter) return false;
-      if (categoryFilter !== "all" && (item.category ?? "") !== categoryFilter) return false;
       if (dateFilter !== "all") {
         const raw = item.updatedAt ?? item.createdAt;
         const ts = raw ? new Date(raw).getTime() : 0;
@@ -213,7 +223,7 @@ export default function RecentProjectsPage() {
       }
       return true;
     });
-  }, [items, search, typeFilter, categoryFilter, dateFilter]);
+  }, [items, search, typeFilter, dateFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -296,17 +306,6 @@ export default function RecentProjectsPage() {
               <SelectItem value="graphics">Graphics</SelectItem>
               <SelectItem value="video">Video</SelectItem>
               <SelectItem value="ads">Ads</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[130px] h-10 rounded-full bg-white">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Category</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
             </SelectContent>
           </Select>
           <Select value={dateFilter} onValueChange={(v) => { setDateFilter(v); setPage(1); }}>
