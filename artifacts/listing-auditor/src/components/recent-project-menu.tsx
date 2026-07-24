@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import {
@@ -62,6 +62,30 @@ function InstagramIcon({ className }: { className?: string }) {
   );
 }
 
+const MENU_WIDTH = 176;
+const MENU_GAP = 6;
+const VIEWPORT_PADDING = 8;
+
+function computeMenuPosition(
+  anchor: DOMRect,
+  menuHeight: number,
+): { top: number; left: number } {
+  const maxTop = window.innerHeight - menuHeight - VIEWPORT_PADDING;
+  let top = anchor.bottom + MENU_GAP;
+  if (top > maxTop) {
+    top = anchor.top - menuHeight - MENU_GAP;
+  }
+  top = Math.max(VIEWPORT_PADDING, Math.min(top, maxTop));
+
+  let left = anchor.right - MENU_WIDTH;
+  left = Math.max(
+    VIEWPORT_PADDING,
+    Math.min(left, window.innerWidth - MENU_WIDTH - VIEWPORT_PADDING),
+  );
+
+  return { top, left };
+}
+
 export function RecentProjectMenu({
   item,
   onPin,
@@ -83,15 +107,46 @@ export function RecentProjectMenu({
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const dotsRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  function positionMenu() {
+    const rect = dotsRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const height = menuRef.current?.offsetHeight ?? (shareOpen ? 168 : 252);
+    setMenuPos(computeMenuPosition(rect, height));
+  }
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    positionMenu();
+  }, [menuOpen, shareOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onViewportChange() {
+      positionMenu();
+    }
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
+  }, [menuOpen, shareOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
     function handler(e: MouseEvent) {
-      if (!(e.target as Element)?.closest?.("[data-recent-project-menu]")) {
-        setMenuOpen(false);
-        setShareOpen(false);
+      const target = e.target as Node;
+      if (
+        menuRef.current?.contains(target)
+        || dotsRef.current?.contains(target)
+      ) {
+        return;
       }
+      setMenuOpen(false);
+      setShareOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -100,6 +155,7 @@ export function RecentProjectMenu({
   function closeMenu() {
     setMenuOpen(false);
     setShareOpen(false);
+    setMenuPos(null);
   }
 
   function shareUrl() {
@@ -183,8 +239,9 @@ export function RecentProjectMenu({
           e.preventDefault();
           e.stopPropagation();
           if (menuOpen) { closeMenu(); return; }
+          setShareOpen(false);
           const rect = dotsRef.current?.getBoundingClientRect();
-          if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
+          if (rect) setMenuPos(computeMenuPosition(rect, 252));
           setMenuOpen(true);
         }}
       >
@@ -193,9 +250,10 @@ export function RecentProjectMenu({
 
       {menuOpen && menuPos && createPortal(
         <div
+          ref={menuRef}
           data-recent-project-menu
-          style={{ position: "fixed", top: menuPos.top, left: Math.max(4, menuPos.left), zIndex: 9999 }}
-          className="w-44 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden py-1"
+          style={{ position: "fixed", top: menuPos.top, left: menuPos.left, zIndex: 9999 }}
+          className="w-44 max-h-[min(70vh,20rem)] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl py-1"
         >
           {shareOpen ? (
             <>
