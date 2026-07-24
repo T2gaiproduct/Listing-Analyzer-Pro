@@ -843,28 +843,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
               {dotsOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
-                  <button
-                    onClick={() => { setDotsOpen(false); void handleShareWhatsApp(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                  >
-                    <Share2 className="w-4 h-4 text-[#25D366] flex-shrink-0" />
-                    Share on WhatsApp
-                  </button>
-                  <button
-                    onClick={() => { setDotsOpen(false); void handleShareInstagram(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                  >
-                    <Share2 className="w-4 h-4 text-[#E4405F] flex-shrink-0" />
-                    Share on Instagram
-                  </button>
-                  <button
-                    onClick={() => { setDotsOpen(false); handleShare(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                  >
-                    <Share2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    Copy link
-                  </button>
-
                   {/* Rename */}
                   <button
                     onClick={handleRibbonRename}
