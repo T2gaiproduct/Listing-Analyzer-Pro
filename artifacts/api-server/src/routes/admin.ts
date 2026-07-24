@@ -28,6 +28,8 @@ import {
   requireAdminWithPermission,
   type AdminRequest,
 } from "../lib/admin-auth";
+import { loadAmazonSpSettings } from "../lib/amazon-sp-settings.js";
+import { testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import {
@@ -1304,6 +1306,8 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     "gemini_api_key",
     "resend_api_key",
     "smtp_password",
+    "amazon_sp_client_secret",
+    "amazon_aws_secret_access_key",
   ]);
 
   // Enforce mutual exclusivity for payment gateway enabled flags
@@ -1366,6 +1370,12 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENHANCED DASHBOARD STATS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+router.post("/admin/test-amazon-sp", requireAdmin, async (_req, res): Promise<void> => {
+  const settings = await loadAmazonSpSettings();
+  const result = await testAmazonSpConnection(settings);
+  res.status(result.ok ? 200 : 400).json(result);
+});
 
 router.post("/admin/test-openai-key", requireAdmin, async (req, res): Promise<void> => {
   const { key } = req.body as { key?: string };

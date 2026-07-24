@@ -89,6 +89,7 @@ import {
   AdminSettingsSecurity,
   AdminSettingsPaymentGateway,
   AdminSettingsEmail,
+  AdminSettingsAmazon,
   AdminMarketingHomepage,
   AdminMarketingPages,
   AdminMarketingBlog,
@@ -494,6 +495,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/email">
         <AdminRoute><AdminSettingsEmail /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/amazon">
+        <AdminRoute><AdminSettingsAmazon /></AdminRoute>
       </Route>
 
       {/* Marketing */}
