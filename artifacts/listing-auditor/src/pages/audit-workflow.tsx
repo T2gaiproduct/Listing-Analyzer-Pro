@@ -2305,16 +2305,16 @@ export default function AuditWorkflow() {
                   <div>
                     <p className="text-sm font-semibold text-slate-800">Amazon seller account</p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {amazonStatus.connected
+                      {amazonStatus?.connected
                         ? `Connected${amazonStatus.sellerId ? ` · ${amazonStatus.sellerId}` : ""}${amazonStatus.sandbox ? " · Sandbox" : ""}`
-                        : amazonStatus.configured || amazonStatus.publishReady
+                        : amazonStatus?.configured || amazonStatus?.publishReady
                           ? "Connect your seller account to use Publish to Amazon."
                           : "Amazon publishing isn't set up yet. Contact your administrator."}
                     </p>
                   </div>
-                  {amazonStatus.configured && (
+                  {amazonStatus?.configured && (
                     <div className="flex gap-2">
-                      {amazonStatus.connected ? (
+                      {amazonStatus?.connected ? (
                         <Button
                           variant="outline"
                           size="sm"

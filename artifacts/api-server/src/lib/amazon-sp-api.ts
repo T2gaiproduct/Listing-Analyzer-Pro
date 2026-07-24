@@ -294,7 +294,7 @@ export async function spApiRequest<T>(opts: {
   body?: unknown;
   accessToken?: string;
 }): Promise<T> {
-  if (!settings.awsAccessKeyId.trim() || !settings.awsSecretAccessKey.trim()) {
+  if (!opts.settings.awsAccessKeyId.trim() || !opts.settings.awsSecretAccessKey.trim()) {
     throw new Error("AWS access credentials are required for SP-API. Add them in Admin → Amazon Settings.");
   }
   const token = opts.accessToken

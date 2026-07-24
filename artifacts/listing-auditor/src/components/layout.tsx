@@ -1,7 +1,6 @@
 import { ReactNode, useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard,
   FilePlus2,
   FileSearch,
   Palette,
@@ -50,7 +49,6 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const mainNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new" },
   { icon: FileSearch, label: "Audit Listings", href: "/audit-listings" },
   { icon: Palette, label: "Create Graphics", href: "/projects" },
@@ -541,7 +539,6 @@ export function Layout({ children }: { children: ReactNode }) {
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
     <div
       className="flex h-screen w-full bg-background overflow-hidden"
-      onClick={() => { setOpenMenu(null); }}
     >
       {/* Sidebar */}
       <TooltipProvider>
@@ -625,7 +622,6 @@ export function Layout({ children }: { children: ReactNode }) {
             {mainNavItems.map(({ icon: Icon, label, href }) => {
               const isActive =
                 location === href ||
-                (href === "/dashboard" && location === "/") ||
                 (href === "/recent-projects" && location === "/recent-projects") ||
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
@@ -734,7 +730,6 @@ export function Layout({ children }: { children: ReactNode }) {
               {mainNavItems.map(({ icon: Icon, label, href }) => {
                 const isActive =
                   location === href ||
-                  (href === "/dashboard" && location === "/") ||
                   (href === "/recent-projects" && location === "/recent-projects") ||
                   (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search)));
                 return (
