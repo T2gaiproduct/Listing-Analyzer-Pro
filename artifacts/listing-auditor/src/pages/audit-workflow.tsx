@@ -29,6 +29,8 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AMAZON_MARKETPLACES, downloadAuditExport, type AmazonMarketplaceId } from "@/lib/amazon-export";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
@@ -659,6 +661,11 @@ export default function AuditWorkflow() {
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
   const aplusCompletionToastShownRef = useRef(false);
+
+  /* ── Export step state ── */
+  const [exportMarketplace, setExportMarketplace] = useState<AmazonMarketplaceId>("US");
+  const [exportLoading, setExportLoading] = useState<"excel" | "zip" | null>(null);
+
   const generateAplus = useMutation({
     mutationFn: async ({
       auditId,
@@ -1200,14 +1207,40 @@ export default function AuditWorkflow() {
         });
       }
 
-    } else if (activeStep === 5) {
-      // Export: simulate
-      setTimeout(() => {
-        setIsCreating(false);
-        toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
-      }, 3000);
     }
   }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+
+  const handleExportDownload = useCallback(async (format: "excel" | "zip") => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 to create your project before exporting.", variant: "destructive" });
+      return;
+    }
+    if (!generatedContent) {
+      toast({ title: "Listing content required", description: "Complete the Listing step and generate content before exporting.", variant: "destructive" });
+      return;
+    }
+    setExportLoading(format);
+    try {
+      await downloadAuditExport({
+        auditId: currentAuditId,
+        format,
+        marketplace: exportMarketplace,
+        basePath,
+      });
+      toast({
+        title: format === "excel" ? "Excel downloaded" : "ZIP downloaded",
+        description: `Amazon ${exportMarketplace} listing export is ready.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(null);
+    }
+  }, [currentAuditId, generatedContent, exportMarketplace, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -2148,11 +2181,45 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
+              <div className="max-w-md space-y-2">
+                <label className="text-sm font-medium text-slate-700">Target marketplace</label>
+                <Select
+                  value={exportMarketplace}
+                  onValueChange={(value) => setExportMarketplace(value as AmazonMarketplaceId)}
+                >
+                  <SelectTrigger className="rounded-xl border-slate-200">
+                    <SelectValue placeholder="Select marketplace" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {AMAZON_MARKETPLACES.map((mp) => (
+                      <SelectItem key={mp.id} value={mp.id}>
+                        {mp.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400">
+                  Applies to both Excel and ZIP exports. Format matches Amazon flat-file inventory uploads.
+                </p>
+              </div>
+
+              {!currentAuditId && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Complete Step 1 and save your project before exporting.
+                </p>
+              )}
+
+              {currentAuditId && !generatedContent && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Complete the Listing step and generate content before exporting.
+                </p>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { icon: "📊", title: "Export as Excel file", desc: "Amazon supports Excel file uploads for bulk listings", action: "Download Excel", comingSoon: false },
-                  { icon: "🗂️", title: "Export as ZIP",        desc: "Excel file + all images bundled together",           action: "Download ZIP",   comingSoon: false },
-                  { icon: "🛒", title: "Publish to Amazon",    desc: "Push directly to Seller Central",                      action: "Coming soon",    comingSoon: true  },
+                  { icon: "📊", title: "Export as Excel file", desc: "Amazon supports Excel file uploads for bulk listings", action: "Download Excel", format: "excel" as const, comingSoon: false },
+                  { icon: "🗂️", title: "Export as ZIP",        desc: "Excel file + all images bundled together",           action: "Download ZIP",   format: "zip" as const,   comingSoon: false },
+                  { icon: "🛒", title: "Publish to Amazon",    desc: "Push directly to Seller Central",                      action: "Coming soon",    format: null,             comingSoon: true  },
                 ].map((opt) => (
                   <div key={opt.title} className={cn("border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all", opt.comingSoon ? "opacity-60" : "hover:border-orange-300 hover:shadow-sm")}>
                     <span className="text-3xl">{opt.icon}</span>
@@ -2166,12 +2233,20 @@ export default function AuditWorkflow() {
                         ? "border-slate-200 text-slate-400 cursor-default hover:bg-transparent"
                         : "border-orange-200 text-orange-600 hover:bg-orange-50"
                       )}
+                      disabled={opt.comingSoon || !currentAuditId || !generatedContent || exportLoading !== null}
                       onClick={() => {
-                        if (opt.comingSoon) return;
-                        toast({ title: "Coming soon", description: `${opt.action} is coming soon.` });
+                        if (opt.comingSoon || !opt.format) return;
+                        void handleExportDownload(opt.format);
                       }}
                     >
-                      {opt.action}
+                      {exportLoading === opt.format ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Preparing…
+                        </>
+                      ) : (
+                        opt.action
+                      )}
                     </Button>
                   </div>
                 ))}
