@@ -198,7 +198,9 @@ function HeroSlideMedia({
     return <HeroSlideVideo slide={slide} className={className} mobile={mobile} fullBleed={fullBleed} />;
   }
 
-  const imageUrl = mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide);
+  const imageUrl = mobile
+    ? (heroSlideMobileImage(slide) || heroSlideDesktopImage(slide))
+    : heroSlideDesktopImage(slide);
   if (!imageUrl) return null;
 
   const useCover = Boolean(mobile || fullBleed || panel);
@@ -342,13 +344,22 @@ function HeroSlideCopy({
 function HeroMobileOverlaySlide({
   slide,
   media,
+  isVideo,
 }: {
   slide: HeroSlide;
   media: ReactNode;
+  isVideo?: boolean;
 }) {
   return (
     <div className="lg:hidden w-full shrink-0 overflow-hidden bg-slate-950">
-      <div className="relative w-full aspect-[5/4] min-h-[200px] max-h-[min(38vh,320px)] overflow-hidden bg-slate-100">
+      <div
+        className={cn(
+          "relative w-full overflow-hidden bg-slate-900",
+          isVideo
+            ? "aspect-video w-full"
+            : "aspect-[5/4] min-h-[200px] max-h-[min(38vh,320px)] bg-slate-100",
+        )}
+      >
         <div className="absolute inset-0">{media}</div>
         <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none" />
       </div>
@@ -429,6 +440,8 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
             {slides.map((slide, slideIndex) => {
               const hasDesktopMedia = heroSlideHasDesktopMedia(slide);
               const hasMobileMedia = heroSlideHasMobileMedia(slide);
+              const slideIsVideo = heroSlideIsVideo(slide);
+              const showMobileBanner = hasMobileMedia || hasDesktopMedia;
 
               /* Full-bleed video banner disabled — video plays in the right panel only (see hasDesktopMedia layout). */
               // const isVideoBanner = heroSlideIsVideo(slide);
@@ -442,10 +455,17 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     }}
                     className={cn("flex w-full flex-col lg:items-stretch", hasDesktopMedia && "lg:flex-row")}
                   >
-                    {hasMobileMedia ? (
+                    {showMobileBanner ? (
                       <HeroMobileOverlaySlide
                         slide={slide}
-                        media={<HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />}
+                        isVideo={slideIsVideo}
+                        media={
+                          slideIsVideo ? (
+                            <HeroSlideMedia slide={slide} mobile panel className="absolute inset-0 h-full w-full" />
+                          ) : (
+                            <HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />
+                          )
+                        }
                       />
                     ) : (
                       <div className="lg:hidden px-4 sm:px-6 pt-4 pb-0 text-center">

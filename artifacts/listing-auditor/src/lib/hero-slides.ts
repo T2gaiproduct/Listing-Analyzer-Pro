@@ -79,7 +79,7 @@ export function heroSlideHasMobileImage(slide: HeroSlide): boolean {
 }
 
 export function heroSlideHasMobileMedia(slide: HeroSlide): boolean {
-  return heroSlideHasMobileImage(slide) || heroSlideIsVideo(slide);
+  return heroSlideHasMobileImage(slide) || heroSlideIsVideo(slide) || heroSlideHasDesktopImage(slide);
 }
 
 export function heroSlideDesktopVideo(slide: HeroSlide): string {
