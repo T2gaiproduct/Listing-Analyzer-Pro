@@ -4,8 +4,8 @@ import type { LucideIcon } from "lucide-react";
 import { FeatureCardMockup } from "@/components/feature-card-mockups";
 import { cn } from "@/lib/utils";
 
-/** Desktop features row — right preview panel and left tabs share this minimum height. */
-const DESKTOP_PANEL_MIN_HEIGHT = "min-h-[34rem]";
+/** Fallback height when no CMS image is uploaded for a feature tab. */
+const DESKTOP_MOCKUP_MIN_HEIGHT = "min-h-[34rem]";
 
 export type FeatureItem = {
   index: number;
@@ -19,23 +19,23 @@ export type FeatureItem = {
 
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
-    <div
-      className={cn(
-        "w-full h-full bg-[#faf8f5]",
-        fitHeight ? "overflow-hidden p-0" : "flex items-center justify-center p-3 sm:p-4",
-      )}
-    >
+    fitHeight ? (
       <img
         src={feature.image}
         alt={feature.title}
-        className={cn(
-          fitHeight
-            ? "block w-full h-full object-contain object-left-top"
-            : "max-w-full max-h-full w-auto h-auto object-contain",
-        )}
+        className="block w-full h-auto"
         loading="lazy"
       />
-    </div>
+    ) : (
+      <div className="flex items-center justify-center w-full h-full bg-[#faf8f5] p-3 sm:p-4">
+        <img
+          src={feature.image}
+          alt={feature.title}
+          className="max-w-full max-h-full w-auto h-auto object-contain"
+          loading="lazy"
+        />
+      </div>
+    )
   ) : (
     <div
       className={cn(
@@ -54,7 +54,11 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
       key={feature.index}
       className={cn(
         "animate-in fade-in duration-300 overflow-hidden",
-        fitHeight ? "h-full w-full" : cn("rounded-2xl border border-slate-200/90", feature.image ? "h-52 sm:h-56" : "min-h-[150px]"),
+        fitHeight
+          ? feature.image
+            ? "w-full leading-[0]"
+            : cn("h-full w-full", DESKTOP_MOCKUP_MIN_HEIGHT)
+          : cn("rounded-2xl border border-slate-200/90", feature.image ? "h-52 sm:h-56" : "min-h-[150px]"),
         !feature.image && !fitHeight && "bg-white shadow-sm",
       )}
       role="tabpanel"
@@ -68,7 +72,7 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
 
   if (feature.href) {
     return (
-      <Link href={feature.href} className={cn("block", fitHeight ? "h-full w-full" : "w-full")}>
+      <Link href={feature.href} className={cn("block", fitHeight ? "w-full" : "w-full")}>
         {panel}
       </Link>
     );
@@ -81,11 +85,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="w-full bg-[#faf8f5] overflow-hidden">
+    <div className="w-full overflow-hidden leading-[0]">
       <img
         src={feature.image}
         alt={feature.title}
-        className="block w-full h-auto max-h-[360px] object-contain object-left-top"
+        className="block w-full h-auto"
         loading="lazy"
       />
     </div>
@@ -234,6 +238,8 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
 
   if (!activeFeature) return null;
 
+  const hasPreviewImage = Boolean(activeFeature.image);
+
   return (
     <div className="w-full">
       {/* Mobile — vertical tabs + detail card */}
@@ -252,14 +258,9 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
         <FeatureMobileDetailPanel feature={activeFeature} />
       </div>
 
-      {/* Desktop — taller preview panel; tabs stretch to match */}
-      <div
-        className={cn(
-          "hidden lg:grid lg:grid-cols-[minmax(250px,270px)_1fr] lg:gap-6 xl:gap-8 items-stretch max-w-5xl mx-auto w-full",
-          DESKTOP_PANEL_MIN_HEIGHT,
-        )}
-      >
-        <div role="tablist" aria-label="Services" className={cn("flex flex-col gap-3.5 h-full", DESKTOP_PANEL_MIN_HEIGHT)}>
+      {/* Desktop — preview panel sizes to CMS image; tabs stretch to match */}
+      <div className="hidden lg:grid lg:grid-cols-[minmax(250px,270px)_1fr] lg:gap-6 xl:gap-8 items-stretch max-w-6xl mx-auto w-full">
+        <div role="tablist" aria-label="Services" className="flex flex-col gap-3.5 h-full min-h-0">
           {features.map((feature, i) => (
             <ServiceTab
               key={feature.title}
@@ -270,7 +271,12 @@ export function InteractiveFeaturesSection({ features }: { features: FeatureItem
             />
           ))}
         </div>
-        <div className={cn("rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-w-0 h-full bg-[#faf8f5]", DESKTOP_PANEL_MIN_HEIGHT)}>
+        <div
+          className={cn(
+            "rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden min-w-0 flex flex-col",
+            !hasPreviewImage && DESKTOP_MOCKUP_MIN_HEIGHT,
+          )}
+        >
           <FeatureImagePanel feature={activeFeature} fitHeight />
         </div>
       </div>
