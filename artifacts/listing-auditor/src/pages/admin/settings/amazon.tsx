@@ -24,10 +24,22 @@ function saveSettings(category: string, settings: Record<string, string>): Promi
   }).then((r) => r.json());
 }
 
-function testAmazonSp(): Promise<{ ok: boolean; message: string }> {
+function testAmazonSp(payload: {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  sandbox: boolean;
+}): Promise<{ ok: boolean; message: string }> {
   return fetch(`${basePath}/api/admin/test-amazon-sp`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
+    body: JSON.stringify({
+      clientId: payload.clientId.trim(),
+      ...(payload.clientSecret.trim() ? { clientSecret: payload.clientSecret.trim() } : {}),
+      redirectUri: payload.redirectUri.trim(),
+      sandbox: payload.sandbox,
+    }),
   }).then(async (r) => {
     const data = await r.json() as { ok: boolean; message: string };
     if (!r.ok) throw new Error(data.message ?? "Test failed");
@@ -117,7 +129,21 @@ export default function AdminSettingsAmazon() {
   });
 
   const testMut = useMutation({
-    mutationFn: testAmazonSp,
+    mutationFn: async () => {
+      if (!form.amazon_sp_client_id.trim()) {
+        throw new Error("Enter your LWA Client ID first.");
+      }
+      if (!form.amazon_sp_client_secret.trim() && !maskedFields.has("amazon_sp_client_secret")) {
+        throw new Error("Enter your LWA Client Secret from Amazon Developer Console, then save settings.");
+      }
+      await saveSettings("amazon", form);
+      return testAmazonSp({
+        clientId: form.amazon_sp_client_id,
+        clientSecret: form.amazon_sp_client_secret,
+        redirectUri: form.amazon_sp_redirect_uri || defaultRedirect,
+        sandbox: form.amazon_sp_sandbox === "true",
+      });
+    },
     onSuccess: (result) => toast({ title: "Connection OK", description: result.message }),
     onError: (err) => toast({
       title: "Connection failed",
@@ -250,7 +276,7 @@ export default function AdminSettingsAmazon() {
           <Save className="w-4 h-4" />
           Save settings
         </Button>
-        <Button variant="outline" onClick={() => testMut.mutate()} disabled={testMut.isPending}>
+        <Button variant="outline" onClick={() => testMut.mutate()} disabled={testMut.isPending || saveMut.isPending}>
           Test LWA connection
         </Button>
       </div>

@@ -1342,6 +1342,7 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     if (value === "***") continue;
     const isSecret = SECRET_KEYS.has(key);
     const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+    if (isSecret && !value.trim() && existing?.value) continue;
     if (existing) {
       await db.update(settingsTable)
         .set({ value, category, isSecret, updatedAt: new Date() })
@@ -1391,8 +1392,21 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
 // ENHANCED DASHBOARD STATS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-router.post("/admin/test-amazon-sp", requireAdmin, async (_req, res): Promise<void> => {
-  const settings = await loadAmazonSpSettings();
+router.post("/admin/test-amazon-sp", requireAdmin, async (req, res): Promise<void> => {
+  const body = req.body as {
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
+    sandbox?: boolean;
+  };
+  const saved = await loadAmazonSpSettings();
+  const settings = {
+    ...saved,
+    clientId: body.clientId?.trim() || saved.clientId,
+    clientSecret: body.clientSecret?.trim() || saved.clientSecret,
+    redirectUri: body.redirectUri?.trim() || saved.redirectUri,
+    sandbox: typeof body.sandbox === "boolean" ? body.sandbox : saved.sandbox,
+  };
   const result = await testAmazonSpConnection(settings);
   res.status(result.ok ? 200 : 400).json(result);
 });

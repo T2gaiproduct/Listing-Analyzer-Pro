@@ -99,23 +99,60 @@ export async function refreshAccessToken(
   return json;
 }
 
-export async function testAmazonSpConnection(settings: AmazonSpSettings): Promise<{ ok: boolean; message: string }> {
-  if (!settings.clientId.trim() || !settings.clientSecret.trim()) {
-    return { ok: false, message: "Client ID and Client Secret are required." };
+function normalizeLwaClientId(clientId: string): string {
+  return clientId.trim();
+}
+
+function normalizeLwaClientSecret(clientSecret: string): string {
+  return clientSecret.trim();
+}
+
+function formatLwaAuthError(error: string, description?: string): string {
+  if (error === "invalid_client" || description === "Client authentication failed") {
+    return [
+      "Amazon rejected the LWA Client ID or Client Secret.",
+      "Use the Client identifier (amzn1.application-oa2-client.…), not the SP-API App ID.",
+      "Copy the current Client secret from Seller Central → Apps & Services → Develop Apps → LWA credentials.",
+      "If you recently rotated the secret, paste the new one and save again.",
+    ].join(" ");
   }
-  if (!settings.redirectUri.trim()) {
+  return description ?? error;
+}
+
+export async function testAmazonSpConnection(settings: AmazonSpSettings): Promise<{ ok: boolean; message: string }> {
+  const clientId = normalizeLwaClientId(settings.clientId);
+  const clientSecret = normalizeLwaClientSecret(settings.clientSecret);
+  const redirectUri = settings.redirectUri.trim();
+
+  if (!clientId || !clientSecret) {
+    const missing = [
+      !clientId ? "Client ID" : null,
+      !clientSecret ? "Client Secret" : null,
+    ].filter(Boolean).join(" and ");
+    return {
+      ok: false,
+      message: `${missing} required. Enter your LWA credentials and click Save settings before testing.`,
+    };
+  }
+  if (!clientId.startsWith("amzn1.application-oa2-client.")) {
+    return {
+      ok: false,
+      message: "Client ID must be the LWA Client identifier (starts with amzn1.application-oa2-client.), not the SP-API App ID.",
+    };
+  }
+  if (!redirectUri) {
     return { ok: false, message: "OAuth redirect URI is required." };
   }
   try {
     const body = new URLSearchParams({
       grant_type: "client_credentials",
-      client_id: settings.clientId,
-      client_secret: settings.clientSecret,
+      client_id: clientId,
+      client_secret: clientSecret,
       scope: "sellingpartnerapi::notifications",
     });
     const res = await fetch(LWA_TOKEN_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
       body,
     });
     if (res.ok) {
@@ -127,7 +164,8 @@ export async function testAmazonSpConnection(settings: AmazonSpSettings): Promis
       };
     }
     const err = await res.json().catch(() => ({})) as { error_description?: string; error?: string };
-    return { ok: false, message: err.error_description ?? err.error ?? `LWA test failed (${res.status})` };
+    const message = formatLwaAuthError(err.error ?? "error", err.error_description);
+    return { ok: false, message };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Connection test failed" };
   }
