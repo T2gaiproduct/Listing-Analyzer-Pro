@@ -24,14 +24,26 @@ export const AMAZON_MARKETPLACES = [
 
 export type AmazonMarketplaceId = (typeof AMAZON_MARKETPLACES)[number]["id"];
 
+export type ExportPlatform = "amazon" | "shopify";
+
+export const EXPORT_PLATFORMS: { id: ExportPlatform; label: string; description: string }[] = [
+  { id: "amazon", label: "Amazon", description: "Flat-file Excel for Seller Central bulk upload" },
+  { id: "shopify", label: "Shopify", description: "Product CSV for Shopify admin import" },
+];
+
 export async function downloadAuditExport(opts: {
   auditId: number;
   format: "excel" | "zip";
-  marketplace: AmazonMarketplaceId;
+  platform: ExportPlatform;
+  marketplace?: AmazonMarketplaceId;
   basePath: string;
 }): Promise<void> {
   const endpoint = opts.format === "excel" ? "excel" : "zip";
-  const url = `${opts.basePath}/api/audits/${opts.auditId}/export/${endpoint}?marketplace=${encodeURIComponent(opts.marketplace)}`;
+  const params = new URLSearchParams({ platform: opts.platform });
+  if (opts.platform === "amazon" && opts.marketplace) {
+    params.set("marketplace", opts.marketplace);
+  }
+  const url = `${opts.basePath}/api/audits/${opts.auditId}/export/${endpoint}?${params.toString()}`;
   const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
     const contentType = res.headers.get("Content-Type") ?? "";
@@ -47,7 +59,12 @@ export async function downloadAuditExport(opts: {
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match?.[1] ?? `listing-amazon-${opts.marketplace.toLowerCase()}.${opts.format === "excel" ? "xlsx" : "zip"}`;
+  const defaultExt = opts.platform === "shopify" && opts.format === "excel"
+    ? "csv"
+    : opts.format === "excel"
+      ? "xlsx"
+      : "zip";
+  const filename = match?.[1] ?? `listing-${opts.platform}.${defaultExt}`;
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;

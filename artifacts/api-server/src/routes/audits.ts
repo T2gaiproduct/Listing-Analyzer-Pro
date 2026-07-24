@@ -39,6 +39,19 @@ import {
   buildZipBuffer,
   exportFilename,
 } from "../lib/amazon-listing-export.js";
+import {
+  buildShopifyExportBundle,
+  buildShopifyCsvBuffer,
+  buildShopifyZipBuffer,
+  shopifyExportFilename,
+} from "../lib/shopify-listing-export.js";
+
+export type ExportPlatform = "amazon" | "shopify";
+
+function resolveExportPlatform(input: unknown): ExportPlatform {
+  const value = typeof input === "string" ? input.trim().toLowerCase() : "amazon";
+  return value === "shopify" ? "shopify" : "amazon";
+}
 
 const router: IRouter = Router();
 
@@ -372,14 +385,31 @@ router.get("/audits/:id/export/excel", requireAuth, resolveTeam, async (req, res
     return;
   }
 
+  const platform = resolveExportPlatform(req.query.platform);
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+
   try {
+    if (platform === "shopify") {
+      const bundle = buildShopifyExportBundle({
+        audit: loaded.audit,
+        graphicsImageRecords,
+        publicBaseUrl,
+      });
+      const buffer = buildShopifyCsvBuffer(bundle);
+      const filename = shopifyExportFilename(bundle.filenameBase, "csv");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+      return;
+    }
+
     const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
     const bundle = buildAuditExportBundle({
       audit: loaded.audit,
       marketplaceId: marketplace,
-      graphicsImageRecords: (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined,
-      imageUrlMode: "absolute",
-      publicBaseUrl: resolvePublicBaseUrl(req),
+      graphicsImageRecords,
+      publicBaseUrl,
     });
     const buffer = await buildExcelBuffer(bundle);
     const filename = exportFilename(bundle.filenameBase, "xlsx");
@@ -405,20 +435,45 @@ router.get("/audits/:id/export/zip", requireAuth, resolveTeam, async (req, res):
     return;
   }
 
+  const platform = resolveExportPlatform(req.query.platform);
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+  const graphicsProjectId = loaded.graphicsProject?.id ?? null;
+
   try {
+    if (platform === "shopify") {
+      const bundle = buildShopifyExportBundle({
+        audit: loaded.audit,
+        graphicsImageRecords,
+        publicBaseUrl,
+      });
+      const csvBuffer = buildShopifyCsvBuffer(bundle);
+      const zipBuffer = await buildShopifyZipBuffer({
+        bundle,
+        csvBuffer,
+        auditId,
+        graphicsProjectId,
+      });
+      const filename = shopifyExportFilename(bundle.filenameBase, "zip");
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(zipBuffer);
+      return;
+    }
+
     const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
     const bundle = buildAuditExportBundle({
       audit: loaded.audit,
       marketplaceId: marketplace,
-      graphicsImageRecords: (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined,
-      imageUrlMode: "relative",
+      graphicsImageRecords,
+      publicBaseUrl,
     });
     const excelBuffer = await buildExcelBuffer(bundle);
     const zipBuffer = await buildZipBuffer({
       bundle,
       excelBuffer,
       auditId,
-      graphicsProjectId: loaded.graphicsProject?.id ?? null,
+      graphicsProjectId,
     });
     const filename = exportFilename(bundle.filenameBase, "zip");
     res.setHeader("Content-Type", "application/zip");
