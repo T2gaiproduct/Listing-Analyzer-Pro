@@ -78,12 +78,11 @@ export function heroSlideHasMobileImage(slide: HeroSlide): boolean {
   return Boolean(slide.mobileImageUrl?.trim());
 }
 
-export function heroSlideHasPlayableVideo(slide: HeroSlide): boolean {
-  return Boolean(heroSlideMobileVideo(slide));
-}
-
 export function heroSlideHasMobileMedia(slide: HeroSlide): boolean {
-  return heroSlideHasMobileImage(slide) || heroSlideHasPlayableVideo(slide) || heroSlideHasDesktopImage(slide);
+  if (heroSlideIsVideo(slide)) {
+    return heroSlideHasMobileImage(slide);
+  }
+  return heroSlideHasMobileImage(slide) || heroSlideHasDesktopImage(slide);
 }
 
 export function heroSlideDesktopVideo(slide: HeroSlide): string {
