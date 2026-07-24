@@ -29,6 +29,8 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AMAZON_MARKETPLACES, EXPORT_PLATFORMS, downloadAuditExport, type AmazonMarketplaceId, type ExportPlatform } from "@/lib/amazon-export";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
@@ -659,6 +661,12 @@ export default function AuditWorkflow() {
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
   const aplusCompletionToastShownRef = useRef(false);
+
+  /* ── Export step state ── */
+  const [exportPlatform, setExportPlatform] = useState<ExportPlatform>("amazon");
+  const [exportMarketplace, setExportMarketplace] = useState<AmazonMarketplaceId>("US");
+  const [exportLoading, setExportLoading] = useState<"excel" | "zip" | null>(null);
+
   const generateAplus = useMutation({
     mutationFn: async ({
       auditId,
@@ -1200,14 +1208,44 @@ export default function AuditWorkflow() {
         });
       }
 
-    } else if (activeStep === 5) {
-      // Export: simulate
-      setTimeout(() => {
-        setIsCreating(false);
-        toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
-      }, 3000);
     }
   }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+
+  const handleExportDownload = useCallback(async (format: "excel" | "zip") => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 to create your project before exporting.", variant: "destructive" });
+      return;
+    }
+    if (!generatedContent) {
+      toast({ title: "Listing content required", description: "Complete the Listing step and generate content before exporting.", variant: "destructive" });
+      return;
+    }
+    setExportLoading(format);
+    try {
+      await downloadAuditExport({
+        auditId: currentAuditId,
+        format,
+        platform: exportPlatform,
+        marketplace: exportPlatform === "amazon" ? exportMarketplace : undefined,
+        basePath,
+      });
+      const fileLabel = exportPlatform === "shopify" && format === "excel" ? "CSV" : format === "excel" ? "Excel" : "ZIP";
+      toast({
+        title: `${fileLabel} downloaded`,
+        description: exportPlatform === "amazon"
+          ? `Amazon ${exportMarketplace} listing export is ready. Image columns use public HTTPS URLs.`
+          : "Shopify product CSV is ready. Image columns use public HTTPS URLs.",
+      });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(null);
+    }
+  }, [currentAuditId, generatedContent, exportPlatform, exportMarketplace, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -2148,11 +2186,102 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Platform</label>
+                  <Select
+                    value={exportPlatform}
+                    onValueChange={(value) => setExportPlatform(value as ExportPlatform)}
+                  >
+                    <SelectTrigger className="rounded-xl border-slate-200">
+                      <SelectValue placeholder="Select platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXPORT_PLATFORMS.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-400">
+                    {EXPORT_PLATFORMS.find((p) => p.id === exportPlatform)?.description}
+                  </p>
+                </div>
+
+                {exportPlatform === "amazon" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Amazon marketplace</label>
+                    <Select
+                      value={exportMarketplace}
+                      onValueChange={(value) => setExportMarketplace(value as AmazonMarketplaceId)}
+                    >
+                      <SelectTrigger className="rounded-xl border-slate-200">
+                        <SelectValue placeholder="Select marketplace" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {AMAZON_MARKETPLACES.map((mp) => (
+                          <SelectItem key={mp.id} value={mp.id}>
+                            {mp.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-400">
+                      Sets the marketplace column in the Amazon flat file.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                Upload files use <strong>public HTTPS image URLs</strong> (not local file paths). ZIP downloads also include image files as a backup. Add price and inventory in Seller Central or Shopify after import.
+              </p>
+
+              {!currentAuditId && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Complete Step 1 and save your project before exporting.
+                </p>
+              )}
+
+              {currentAuditId && !generatedContent && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Complete the Listing step and generate content before exporting.
+                </p>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { icon: "📊", title: "Export as Excel file", desc: "Amazon supports Excel file uploads for bulk listings", action: "Download Excel", comingSoon: false },
-                  { icon: "🗂️", title: "Export as ZIP",        desc: "Excel file + all images bundled together",           action: "Download ZIP",   comingSoon: false },
-                  { icon: "🛒", title: "Publish to Amazon",    desc: "Push directly to Seller Central",                      action: "Coming soon",    comingSoon: true  },
+                  {
+                    icon: "📊",
+                    title: exportPlatform === "shopify" ? "Export as CSV" : "Export as Excel",
+                    desc: exportPlatform === "shopify"
+                      ? "Shopify product import CSV with public image URLs"
+                      : "Amazon flat-file Excel with public image URLs",
+                    action: exportPlatform === "shopify" ? "Download CSV" : "Download Excel",
+                    format: "excel" as const,
+                    comingSoon: false,
+                  },
+                  {
+                    icon: "🗂️",
+                    title: "Export as ZIP",
+                    desc: exportPlatform === "shopify"
+                      ? "CSV + all images bundled together"
+                      : "Excel + all images bundled together",
+                    action: "Download ZIP",
+                    format: "zip" as const,
+                    comingSoon: false,
+                  },
+                  {
+                    icon: "🛒",
+                    title: exportPlatform === "shopify" ? "Publish to Shopify" : "Publish to Amazon",
+                    desc: exportPlatform === "shopify"
+                      ? "Push directly to your Shopify store"
+                      : "Push directly to Seller Central",
+                    action: "Coming soon",
+                    format: null,
+                    comingSoon: true,
+                  },
                 ].map((opt) => (
                   <div key={opt.title} className={cn("border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all", opt.comingSoon ? "opacity-60" : "hover:border-orange-300 hover:shadow-sm")}>
                     <span className="text-3xl">{opt.icon}</span>
@@ -2166,12 +2295,20 @@ export default function AuditWorkflow() {
                         ? "border-slate-200 text-slate-400 cursor-default hover:bg-transparent"
                         : "border-orange-200 text-orange-600 hover:bg-orange-50"
                       )}
+                      disabled={opt.comingSoon || !currentAuditId || !generatedContent || exportLoading !== null}
                       onClick={() => {
-                        if (opt.comingSoon) return;
-                        toast({ title: "Coming soon", description: `${opt.action} is coming soon.` });
+                        if (opt.comingSoon || !opt.format) return;
+                        void handleExportDownload(opt.format);
                       }}
                     >
-                      {opt.action}
+                      {exportLoading === opt.format ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Preparing…
+                        </>
+                      ) : (
+                        opt.action
+                      )}
                     </Button>
                   </div>
                 ))}

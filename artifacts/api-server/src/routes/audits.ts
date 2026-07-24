@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, avg, count, sql, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable, competitorsTable } from "@workspace/db";
+import { db, auditsTable, competitorsTable, graphicsProjectsTable } from "@workspace/db";
 import {
   CreateAuditBody,
   GetAuditParams,
@@ -32,6 +32,26 @@ import {
 } from "../lib/image-generator";
 import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
+import {
+  buildAuditExportBundle,
+  buildExcelBuffer,
+  buildZipBuffer,
+  exportFilename,
+} from "../lib/amazon-listing-export.js";
+import {
+  buildShopifyExportBundle,
+  buildShopifyCsvBuffer,
+  buildShopifyZipBuffer,
+  shopifyExportFilename,
+} from "../lib/shopify-listing-export.js";
+
+export type ExportPlatform = "amazon" | "shopify";
+
+function resolveExportPlatform(input: unknown): ExportPlatform {
+  const value = typeof input === "string" ? input.trim().toLowerCase() : "amazon";
+  return value === "shopify" ? "shopify" : "amazon";
+}
 
 const router: IRouter = Router();
 
@@ -317,6 +337,152 @@ router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<
     lowScoreCount: Number(lowScoreResult[0]?.c ?? 0),
     recentAudits,
   });
+});
+
+function resolvePublicBaseUrl(req: Request): string {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const proto = typeof forwardedProto === "string" ? forwardedProto.split(",")[0]!.trim() : req.protocol;
+  const host = req.get("host") ?? "localhost";
+  return `${proto}://${host}`;
+}
+
+async function loadAuditForExport(req: Request, auditId: number) {
+  const userId = (req as AuthedRequest).userId;
+  const ownerId = getEffectiveUserId(req);
+  const whereClause = isAdmin(userId)
+    ? and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0))
+    : and(eq(auditsTable.id, auditId), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0));
+
+  const [audit] = await db.select().from(auditsTable).where(whereClause).limit(1);
+  if (!audit) return null;
+
+  const [graphicsProject] = await db
+    .select()
+    .from(graphicsProjectsTable)
+    .where(and(
+      eq(graphicsProjectsTable.auditId, auditId),
+      eq(graphicsProjectsTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  return { audit, graphicsProject: graphicsProject ?? null };
+}
+
+router.get("/audits/export/marketplaces", requireAuth, (_req, res): void => {
+  res.json({ marketplaces: AMAZON_MARKETPLACES });
+});
+
+router.get("/audits/:id/export/excel", requireAuth, resolveTeam, async (req, res): Promise<void> => {
+  const auditId = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(auditId)) {
+    res.status(400).json({ error: "Invalid audit id" });
+    return;
+  }
+
+  const loaded = await loadAuditForExport(req, auditId);
+  if (!loaded) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const platform = resolveExportPlatform(req.query.platform);
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+
+  try {
+    if (platform === "shopify") {
+      const bundle = buildShopifyExportBundle({
+        audit: loaded.audit,
+        graphicsImageRecords,
+        publicBaseUrl,
+      });
+      const buffer = buildShopifyCsvBuffer(bundle);
+      const filename = shopifyExportFilename(bundle.filenameBase, "csv");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+      return;
+    }
+
+    const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+    const bundle = buildAuditExportBundle({
+      audit: loaded.audit,
+      marketplaceId: marketplace,
+      graphicsImageRecords,
+      publicBaseUrl,
+    });
+    const buffer = await buildExcelBuffer(bundle);
+    const filename = exportFilename(bundle.filenameBase, "xlsx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Export failed";
+    res.status(400).json({ error: message });
+  }
+});
+
+router.get("/audits/:id/export/zip", requireAuth, resolveTeam, async (req, res): Promise<void> => {
+  const auditId = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(auditId)) {
+    res.status(400).json({ error: "Invalid audit id" });
+    return;
+  }
+
+  const loaded = await loadAuditForExport(req, auditId);
+  if (!loaded) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const platform = resolveExportPlatform(req.query.platform);
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+  const graphicsProjectId = loaded.graphicsProject?.id ?? null;
+
+  try {
+    if (platform === "shopify") {
+      const bundle = buildShopifyExportBundle({
+        audit: loaded.audit,
+        graphicsImageRecords,
+        publicBaseUrl,
+      });
+      const csvBuffer = buildShopifyCsvBuffer(bundle);
+      const zipBuffer = await buildShopifyZipBuffer({
+        bundle,
+        csvBuffer,
+        auditId,
+        graphicsProjectId,
+      });
+      const filename = shopifyExportFilename(bundle.filenameBase, "zip");
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(zipBuffer);
+      return;
+    }
+
+    const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+    const bundle = buildAuditExportBundle({
+      audit: loaded.audit,
+      marketplaceId: marketplace,
+      graphicsImageRecords,
+      publicBaseUrl,
+    });
+    const excelBuffer = await buildExcelBuffer(bundle);
+    const zipBuffer = await buildZipBuffer({
+      bundle,
+      excelBuffer,
+      auditId,
+      graphicsProjectId,
+    });
+    const filename = exportFilename(bundle.filenameBase, "zip");
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(zipBuffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Export failed";
+    res.status(400).json({ error: message });
+  }
 });
 
 router.get("/audits/:id", requireAuth, resolveTeam, async (req, res): Promise<void> => {
