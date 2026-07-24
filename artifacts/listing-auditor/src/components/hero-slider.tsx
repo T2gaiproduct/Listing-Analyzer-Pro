@@ -80,9 +80,22 @@ function HeroVideoEmbed({
   className,
 }: {
   embedUrl: string;
-  fit?: "cover" | "contain";
+  fit?: "cover" | "contain" | "fill";
   className?: string;
 }) {
+  if (fit === "fill") {
+    return (
+      <iframe
+        key={embedUrl}
+        src={embedUrl}
+        title="Hero video"
+        allow="autoplay; fullscreen; picture-in-picture"
+        referrerPolicy="strict-origin-when-cross-origin"
+        className={cn("absolute inset-0 h-full w-full border-0", className)}
+      />
+    );
+  }
+
   if (fit === "contain") {
     return (
       <div className={cn("flex h-full w-full flex-col justify-center bg-slate-900", className)}>
@@ -121,7 +134,7 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
 
   if (!source) return null;
 
-  const fit = fullBleed ? "cover" : "contain";
+  const fit = fullBleed ? "cover" : "fill";
 
   const frameClass = cn(
     "relative w-full min-w-0 overflow-hidden bg-slate-900",
@@ -151,10 +164,7 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
         loop
         playsInline
         preload="metadata"
-        className={cn(
-          "absolute inset-0 block w-full h-full max-w-none object-center",
-          fullBleed ? "object-cover" : "object-contain",
-        )}
+        className="absolute inset-0 block h-full w-full max-w-none object-cover object-center"
       />
     </div>
   );
@@ -165,11 +175,13 @@ function HeroSlideMedia({
   className,
   mobile,
   fullBleed,
+  panel,
 }: {
   slide: HeroSlide;
   className?: string;
   mobile?: boolean;
   fullBleed?: boolean;
+  panel?: boolean;
 }) {
   if (heroSlideIsVideo(slide)) {
     const mobileImage = mobile ? heroSlideMobileImage(slide) : "";
@@ -189,7 +201,7 @@ function HeroSlideMedia({
   const imageUrl = mobile ? heroSlideMobileImage(slide) : heroSlideDesktopImage(slide);
   if (!imageUrl) return null;
 
-  const useCover = Boolean(mobile || fullBleed);
+  const useCover = Boolean(mobile || fullBleed || panel);
 
   return (
     <HeroSlideImage
@@ -449,9 +461,9 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     <HeroSlideCopy slide={slide} />
                   </div>
                   {hasDesktopMedia && (
-                    <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 self-stretch items-stretch py-6 sm:py-8 lg:py-10 pr-4 sm:pr-6 lg:pr-8 xl:pr-12">
-                      <div className="relative w-full h-full min-h-0 rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
-                        <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full" />
+                    <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 self-stretch items-center justify-center py-6 sm:py-8 lg:py-10 pr-4 sm:pr-6 lg:pr-8 xl:pr-12">
+                      <div className="relative w-full aspect-video rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
+                        <HeroSlideMedia slide={slide} panel className="absolute inset-0 h-full w-full" />
                       </div>
                     </div>
                   )}
