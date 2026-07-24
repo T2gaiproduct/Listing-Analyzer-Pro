@@ -669,11 +669,25 @@ export default function AuditWorkflow() {
   const [exportLoading, setExportLoading] = useState<"excel" | "zip" | null>(null);
   const [publishLoading, setPublishLoading] = useState(false);
 
-  const { data: amazonStatus, refetch: refetchAmazonStatus } = useQuery({
+  const { data: amazonStatus, refetch: refetchAmazonStatus, isError: amazonStatusError } = useQuery({
     queryKey: ["amazon-connection-status"],
     queryFn: fetchAmazonStatus,
     staleTime: 30_000,
+    retry: 2,
   });
+
+  const publishBlockers = useMemo((): string[] => {
+    if (exportPlatform !== "amazon") return [];
+    const blockers: string[] = [];
+    if (amazonStatusError) blockers.push("Amazon API unavailable — restart the server or deploy the latest version.");
+    if (!amazonStatus?.enabled) blockers.push("Enable Publish to Amazon in Admin → Amazon Settings.");
+    if (amazonStatus?.enabled && !amazonStatus.configured) blockers.push("Complete LWA Client ID, Secret, and Redirect URI in Admin → Amazon Settings.");
+    if (amazonStatus?.enabled && !amazonStatus.canSignRequests) blockers.push("Add AWS Access Key and Secret in Admin → Amazon Settings.");
+    if (amazonStatus?.enabled && amazonStatus.configured && !amazonStatus.connected) blockers.push("Click Connect Amazon above to authorize your seller account.");
+    if (!currentAuditId) blockers.push("Save your project in Step 1.");
+    if (!generatedContent) blockers.push("Generate listing content in Step 2.");
+    return blockers;
+  }, [exportPlatform, amazonStatus, amazonStatusError, currentAuditId, generatedContent]);
 
   const generateAplus = useMutation({
     mutationFn: async ({
@@ -2288,7 +2302,7 @@ export default function AuditWorkflow() {
                 Upload files use <strong>public HTTPS image URLs</strong> (not local file paths). ZIP downloads also include image files as a backup. Add price and inventory in Seller Central or Shopify after import.
               </p>
 
-              {exportPlatform === "amazon" && amazonStatus?.enabled && (
+              {exportPlatform === "amazon" && (amazonStatus?.enabled || amazonStatus?.configured || amazonStatusError) && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-white">
                   <div>
                     <p className="text-sm font-semibold text-slate-800">Amazon seller account</p>
@@ -2347,6 +2361,17 @@ export default function AuditWorkflow() {
                 </p>
               )}
 
+              {exportPlatform === "amazon" && publishBlockers.length > 0 && (
+                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
+                  <p className="font-semibold">Before you can publish:</p>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">
+                    {publishBlockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   {
@@ -2387,7 +2412,7 @@ export default function AuditWorkflow() {
                         desc: amazonStatus?.sandbox
                           ? "Submit listing to Amazon SP-API sandbox"
                           : "Push directly to Seller Central",
-                        action: "Publish to Amazon",
+                        action: amazonStatus?.enabled ? "Publish to Amazon" : "Enable in Admin Settings",
                         format: null,
                         comingSoon: !amazonStatus?.enabled,
                         kind: "publish" as const,
