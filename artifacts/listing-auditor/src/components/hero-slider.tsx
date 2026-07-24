@@ -15,8 +15,8 @@ import { parseHeroVideoSource } from "@/lib/hero-video-url";
 import {
   heroSlideDesktopImage,
   heroSlideDesktopVideo,
-  heroSlideHasDesktopImage,
-  heroSlideHasMobileImage,
+  heroSlideHasDesktopMedia,
+  heroSlideHasMobileMedia,
   heroSlideIsVideo,
   heroSlideMobileImage,
   heroSlideMobileVideo,
@@ -386,30 +386,12 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
         >
           <CarouselContent className="ml-0 w-full items-start">
             {slides.map((slide, slideIndex) => {
-              const isVideoBanner = heroSlideIsVideo(slide);
+              const hasDesktopMedia = heroSlideHasDesktopMedia(slide);
+              const hasMobileMedia = heroSlideHasMobileMedia(slide);
 
-              if (isVideoBanner) {
-                return (
-                  <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
-                    <div
-                      ref={(el) => {
-                        slideMeasureRefs.current[slideIndex] = el;
-                      }}
-                      className="relative w-full aspect-[3/4] sm:aspect-[4/5] lg:aspect-[2.4/1] min-h-[380px] max-h-[min(78vh,680px)] lg:max-h-[85vh] overflow-hidden bg-slate-900"
-                    >
-                    <HeroSlideMedia slide={slide} mobile className="absolute inset-0 h-full w-full lg:hidden" fullBleed />
-                    <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full hidden lg:block" fullBleed />
-                    <div className="absolute inset-x-0 bottom-0 h-[55%] lg:inset-0 lg:h-full bg-gradient-to-t from-black/80 via-black/35 lg:via-black/25 to-transparent pointer-events-none" />
-                    <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12">
-                      <HeroSlideCtas slide={slide} overlay />
-                    </div>
-                  </div>
-                </CarouselItem>
-              );
-            }
-
-            const hasDesktopImage = heroSlideHasDesktopImage(slide);
-            const hasMobileImage = heroSlideHasMobileImage(slide);
+              /* Full-bleed video banner disabled — video plays in the right panel only (see hasDesktopMedia layout). */
+              // const isVideoBanner = heroSlideIsVideo(slide);
+              // if (isVideoBanner) { ... full-screen video ... }
 
               return (
                 <CarouselItem key={slide.id} className="pl-0 basis-full min-w-0 w-full">
@@ -417,9 +399,9 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     ref={(el) => {
                       slideMeasureRefs.current[slideIndex] = el;
                     }}
-                    className={cn("flex w-full flex-col", hasDesktopImage && "lg:flex-row lg:min-h-[480px]")}
+                    className={cn("flex w-full flex-col", hasDesktopMedia && "lg:flex-row lg:min-h-[480px]")}
                   >
-                    {hasMobileImage ? (
+                    {hasMobileMedia ? (
                       <HeroMobileOverlaySlide
                         slide={slide}
                         media={<HeroSlideMedia slide={slide} mobile fullBleed className="h-full w-full" />}
@@ -432,12 +414,12 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                   <div
                     className={cn(
                       "hidden lg:flex w-full flex-col justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-8 lg:py-12 text-center lg:text-left min-w-0",
-                      hasDesktopImage ? "lg:w-1/2 lg:max-w-[50%]" : "max-w-4xl mx-auto",
+                      hasDesktopMedia ? "lg:w-1/2 lg:max-w-[50%]" : "max-w-4xl mx-auto",
                     )}
                   >
                     <HeroSlideCopy slide={slide} />
                   </div>
-                  {hasDesktopImage && (
+                  {hasDesktopMedia && (
                     <div className="hidden lg:block w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
                       <HeroSlideMedia slide={slide} />
                     </div>

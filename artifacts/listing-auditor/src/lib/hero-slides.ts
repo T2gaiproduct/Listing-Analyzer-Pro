@@ -66,12 +66,20 @@ export function heroSlideHasDesktopImage(slide: HeroSlide): boolean {
   return Boolean(slide.imageUrl?.trim());
 }
 
+export function heroSlideIsVideo(slide: HeroSlide): boolean {
+  return slide.bannerType === "video" && Boolean(slide.videoUrl?.trim());
+}
+
+export function heroSlideHasDesktopMedia(slide: HeroSlide): boolean {
+  return heroSlideHasDesktopImage(slide) || heroSlideIsVideo(slide);
+}
+
 export function heroSlideHasMobileImage(slide: HeroSlide): boolean {
   return Boolean(slide.mobileImageUrl?.trim());
 }
 
-export function heroSlideIsVideo(slide: HeroSlide): boolean {
-  return slide.bannerType === "video" && Boolean(slide.videoUrl?.trim());
+export function heroSlideHasMobileMedia(slide: HeroSlide): boolean {
+  return heroSlideHasMobileImage(slide) || heroSlideIsVideo(slide);
 }
 
 export function heroSlideDesktopVideo(slide: HeroSlide): string {
