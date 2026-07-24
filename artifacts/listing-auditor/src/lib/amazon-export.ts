@@ -34,8 +34,15 @@ export async function downloadAuditExport(opts: {
   const url = `${opts.basePath}/api/audits/${opts.auditId}/export/${endpoint}?marketplace=${encodeURIComponent(opts.marketplace)}`;
   const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(err.error ?? `Export failed (${res.status})`);
+    const contentType = res.headers.get("Content-Type") ?? "";
+    if (contentType.includes("application/json")) {
+      const err = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(err.error ?? `Export failed (${res.status})`);
+    }
+    if (res.status === 404) {
+      throw new Error("Export is not available on this server yet. Please refresh and try again, or contact support if the issue persists.");
+    }
+    throw new Error(`Export failed (${res.status})`);
   }
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") ?? "";
