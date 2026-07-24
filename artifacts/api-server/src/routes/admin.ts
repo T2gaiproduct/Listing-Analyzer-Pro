@@ -28,8 +28,8 @@ import {
   requireAdminWithPermission,
   type AdminRequest,
 } from "../lib/admin-auth";
-import { loadAmazonSpSettings, shouldAutoEnableAmazon, AMAZON_SETTINGS_CATEGORY, AMAZON_SETTING_KEYS } from "../lib/amazon-sp-settings.js";
-import { testAmazonSpConnection } from "../lib/amazon-sp-api.js";
+import { loadAmazonSpSettings, shouldAutoEnableAmazon, AMAZON_SETTINGS_CATEGORY, AMAZON_SETTING_KEYS, validateAmazonAwsCredentials } from "../lib/amazon-sp-settings.js";
+import { normalizeLwaClientSecret, testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import {
@@ -1338,6 +1338,24 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     }
   }
 
+  if (category === AMAZON_SETTINGS_CATEGORY) {
+    const s = settings as Record<string, string>;
+    if (s.amazon_sp_client_secret?.trim()) {
+      s.amazon_sp_client_secret = normalizeLwaClientSecret(s.amazon_sp_client_secret);
+    }
+    const awsError = validateAmazonAwsCredentials({
+      ...(await loadAmazonSpSettings()),
+      awsAccessKeyId: s.amazon_aws_access_key_id ?? "",
+      awsSecretAccessKey: s.amazon_aws_secret_access_key ?? "",
+      awsRoleArn: s.amazon_aws_role_arn ?? "",
+    } as Awaited<ReturnType<typeof loadAmazonSpSettings>>);
+    const touchesAws = Boolean(s.amazon_aws_access_key_id?.trim() || s.amazon_aws_secret_access_key?.trim());
+    if (touchesAws && awsError) {
+      res.status(400).json({ error: awsError });
+      return;
+    }
+  }
+
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
     if (value === "***") continue;
     const isSecret = SECRET_KEYS.has(key);
@@ -1403,7 +1421,7 @@ router.post("/admin/test-amazon-sp", requireAdmin, async (req, res): Promise<voi
   const settings = {
     ...saved,
     clientId: body.clientId?.trim() || saved.clientId,
-    clientSecret: body.clientSecret?.trim() || saved.clientSecret,
+    clientSecret: normalizeLwaClientSecret(body.clientSecret?.trim() || saved.clientSecret),
     redirectUri: body.redirectUri?.trim() || saved.redirectUri,
     sandbox: typeof body.sandbox === "boolean" ? body.sandbox : saved.sandbox,
   };

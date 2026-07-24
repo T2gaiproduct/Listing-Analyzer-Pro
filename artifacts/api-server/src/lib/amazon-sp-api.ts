@@ -39,8 +39,9 @@ export function parseOAuthState(state: string): { userId: string } | null {
 }
 
 export function buildAmazonAuthorizeUrl(settings: AmazonSpSettings, state: string): string {
+  const applicationId = settings.applicationId.trim() || settings.clientId.trim();
   const params = new URLSearchParams({
-    application_id: settings.clientId,
+    application_id: applicationId,
     state,
     redirect_uri: settings.redirectUri,
     version: "beta",
@@ -103,17 +104,17 @@ function normalizeLwaClientId(clientId: string): string {
   return clientId.trim();
 }
 
-function normalizeLwaClientSecret(clientSecret: string): string {
-  return clientSecret.trim();
+export function normalizeLwaClientSecret(clientSecret: string): string {
+  return clientSecret.trim().replace(/^secret\s+/i, "");
 }
 
 function formatLwaAuthError(error: string, description?: string): string {
   if (error === "invalid_client" || description === "Client authentication failed") {
     return [
       "Amazon rejected the LWA Client ID or Client Secret.",
-      "Use the Client identifier (amzn1.application-oa2-client.…), not the SP-API App ID.",
+      "Paste only the secret value (amzn1.oa2-cs.v1.…), not the word \"Secret\" before it.",
+      "Use the Client identifier (amzn1.application-oa2-client.…), not the SP-API Application ID.",
       "Copy the current Client secret from Seller Central → Apps & Services → Develop Apps → LWA credentials.",
-      "If you recently rotated the secret, paste the new one and save again.",
     ].join(" ");
   }
   return description ?? error;
@@ -164,6 +165,14 @@ export async function testAmazonSpConnection(settings: AmazonSpSettings): Promis
       };
     }
     const err = await res.json().catch(() => ({})) as { error_description?: string; error?: string };
+    if (err.error === "invalid_scope") {
+      return {
+        ok: true,
+        message: settings.sandbox
+          ? "LWA Client ID and Secret are valid (sandbox mode). Add AWS IAM keys to enable publishing."
+          : "LWA Client ID and Secret are valid. Add AWS IAM keys to enable publishing.",
+      };
+    }
     const message = formatLwaAuthError(err.error ?? "error", err.error_description);
     return { ok: false, message };
   } catch (e) {

@@ -6,6 +6,7 @@ export const AMAZON_SETTINGS_CATEGORY = "amazon";
 export const AMAZON_SETTING_KEYS = {
   enabled: "amazon_sp_enabled",
   sandbox: "amazon_sp_sandbox",
+  applicationId: "amazon_sp_application_id",
   clientId: "amazon_sp_client_id",
   clientSecret: "amazon_sp_client_secret",
   redirectUri: "amazon_sp_redirect_uri",
@@ -18,6 +19,7 @@ export const AMAZON_SETTING_KEYS = {
 export interface AmazonSpSettings {
   enabled: boolean;
   sandbox: boolean;
+  applicationId: string;
   clientId: string;
   clientSecret: string;
   redirectUri: string;
@@ -30,6 +32,7 @@ export interface AmazonSpSettings {
 const DEFAULTS: AmazonSpSettings = {
   enabled: false,
   sandbox: true,
+  applicationId: "",
   clientId: "",
   clientSecret: "",
   redirectUri: "",
@@ -45,6 +48,7 @@ export async function loadAmazonSpSettings(): Promise<AmazonSpSettings> {
   return {
     enabled: map.get(AMAZON_SETTING_KEYS.enabled) === "true",
     sandbox: map.get(AMAZON_SETTING_KEYS.sandbox) !== "false",
+    applicationId: map.get(AMAZON_SETTING_KEYS.applicationId) ?? DEFAULTS.applicationId,
     clientId: map.get(AMAZON_SETTING_KEYS.clientId) ?? DEFAULTS.clientId,
     clientSecret: map.get(AMAZON_SETTING_KEYS.clientSecret) ?? DEFAULTS.clientSecret,
     redirectUri: map.get(AMAZON_SETTING_KEYS.redirectUri) ?? DEFAULTS.redirectUri,
@@ -59,8 +63,31 @@ export function isAmazonLwaConfigured(settings: AmazonSpSettings): boolean {
   return Boolean(
     settings.clientId.trim()
     && settings.clientSecret.trim()
-    && settings.redirectUri.trim(),
+    && settings.redirectUri.trim()
+    && settings.applicationId.trim(),
   );
+}
+
+export function validateAmazonAwsCredentials(settings: AmazonSpSettings): string | null {
+  const accessKey = settings.awsAccessKeyId.trim();
+  const secretKey = settings.awsSecretAccessKey.trim();
+  if (!accessKey && !secretKey) return null;
+  if (accessKey.startsWith("amzn1.") || secretKey.startsWith("amzn1.")) {
+    return "AWS keys look like Amazon app IDs. Use IAM Access Key ID (starts with AKIA…) and Secret Access Key from AWS, and put your SP-API Application ID (amzn1.sp.solution.…) in the Application ID field.";
+  }
+  if (accessKey && !/^AKIA[0-9A-Z]{16}$/.test(accessKey)) {
+    return "AWS Access Key ID should start with AKIA and be 20 characters. Find it in AWS IAM or your SP-API developer registration — not in LWA credentials.";
+  }
+  if (secretKey && secretKey.length < 20) {
+    return "AWS Secret Access Key looks too short. Copy the full 40-character secret from AWS IAM.";
+  }
+  if (accessKey && !secretKey) {
+    return "AWS Secret Access Key is required when an Access Key ID is set.";
+  }
+  if (secretKey && !accessKey) {
+    return "AWS Access Key ID is required when a Secret Access Key is set.";
+  }
+  return null;
 }
 
 /** LWA credentials saved (legacy name used by routes). */

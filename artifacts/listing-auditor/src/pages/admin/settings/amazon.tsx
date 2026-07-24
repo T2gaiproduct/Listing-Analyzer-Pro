@@ -87,6 +87,7 @@ export default function AdminSettingsAmazon() {
   const [form, setForm] = useState({
     amazon_sp_enabled: "false",
     amazon_sp_sandbox: "true",
+    amazon_sp_application_id: "",
     amazon_sp_client_id: "",
     amazon_sp_client_secret: "",
     amazon_sp_redirect_uri: defaultRedirect,
@@ -134,9 +135,8 @@ export default function AdminSettingsAmazon() {
         throw new Error("Enter your LWA Client ID first.");
       }
       if (!form.amazon_sp_client_secret.trim() && !maskedFields.has("amazon_sp_client_secret")) {
-        throw new Error("Enter your LWA Client Secret from Amazon Developer Console, then save settings.");
+        throw new Error("Enter your LWA Client Secret from Amazon Developer Console.");
       }
-      await saveSettings("amazon", form);
       return testAmazonSp({
         clientId: form.amazon_sp_client_id,
         clientSecret: form.amazon_sp_client_secret,
@@ -211,6 +211,17 @@ export default function AdminSettingsAmazon() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
+            <label className="text-sm font-medium mb-1 block">SP-API Application ID</label>
+            <Input
+              value={form.amazon_sp_application_id}
+              onChange={(e) => set("amazon_sp_application_id")(e.target.value)}
+              placeholder="amzn1.sp.solution...."
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              From Develop Apps → your app name (not LWA credentials). Used when sellers click Connect Amazon.
+            </p>
+          </div>
+          <div>
             <label className="text-sm font-medium mb-1 block">LWA Client ID</label>
             <Input
               value={form.amazon_sp_client_id}
@@ -223,7 +234,11 @@ export default function AdminSettingsAmazon() {
             value={form.amazon_sp_client_secret}
             onChange={set("amazon_sp_client_secret")}
             hasSavedValue={maskedFields.has("amazon_sp_client_secret")}
+            placeholder="amzn1.oa2-cs.v1...."
           />
+          <p className="text-xs text-muted-foreground -mt-2">
+            Paste only the secret value. Do not include the word &quot;Secret&quot; shown in Seller Central.
+          </p>
           <div>
             <label className="text-sm font-medium mb-1 block">OAuth redirect URI</label>
             <Input
@@ -252,17 +267,22 @@ export default function AdminSettingsAmazon() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Required to call Amazon SP-API. Use IAM user keys from your SP-API developer profile, or IAM user + Role ARN.
+            From AWS IAM (or SP-API developer registration). These are not the LWA Client ID/Secret or Application ID.
           </p>
           <div>
             <label className="text-sm font-medium mb-1 block">AWS Access Key ID</label>
-            <Input value={form.amazon_aws_access_key_id} onChange={(e) => set("amazon_aws_access_key_id")(e.target.value)} />
+            <Input
+              value={form.amazon_aws_access_key_id}
+              onChange={(e) => set("amazon_aws_access_key_id")(e.target.value)}
+              placeholder="AKIA..."
+            />
           </div>
           <SecretInput
             label="AWS Secret Access Key"
             value={form.amazon_aws_secret_access_key}
             onChange={set("amazon_aws_secret_access_key")}
             hasSavedValue={maskedFields.has("amazon_aws_secret_access_key")}
+            placeholder="40-character IAM secret"
           />
           <div>
             <label className="text-sm font-medium mb-1 block">IAM Role ARN (optional)</label>
