@@ -57,7 +57,7 @@ function HeroSlideImage({
       className={cn(
         "w-full min-w-0",
         fillContainer ? "absolute inset-0 h-full" : "relative h-full",
-        objectFit === "contain" && !fillContainer && "min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
+        objectFit === "contain" && !fillContainer && "min-h-[220px] sm:min-h-[280px] lg:min-h-[540px]",
         className,
       )}
     >
@@ -85,8 +85,8 @@ function HeroVideoEmbed({
 }) {
   if (fit === "contain") {
     return (
-      <div className={cn("flex h-full w-full items-center justify-center bg-slate-50", className)}>
-        <div className="relative w-full aspect-video max-h-full">
+      <div className={cn("flex h-full w-full items-center justify-center bg-slate-50 p-3 sm:p-4", className)}>
+        <div className="relative w-full aspect-video max-h-full rounded-2xl overflow-hidden shadow-sm border border-slate-200/80 bg-slate-900">
           <iframe
             key={embedUrl}
             src={embedUrl}
@@ -127,7 +127,7 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
     "relative w-full min-w-0",
     fullBleed
       ? "h-full w-full overflow-hidden bg-slate-900"
-      : "flex h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px] items-center justify-center bg-slate-50",
+      : "flex h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[540px] items-center justify-center bg-slate-50 p-3 sm:p-4",
     className,
   );
 
@@ -156,7 +156,7 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
         className={cn(
           fullBleed
             ? "absolute inset-0 block h-full w-full max-w-none object-cover object-center"
-            : "block w-full h-auto max-h-full object-contain object-center",
+            : "block w-full h-auto max-h-full object-contain object-center rounded-2xl",
         )}
       />
     </div>
@@ -431,7 +431,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     ref={(el) => {
                       slideMeasureRefs.current[slideIndex] = el;
                     }}
-                    className={cn("flex w-full flex-col", hasDesktopMedia && "lg:flex-row lg:min-h-[480px]")}
+                    className={cn("flex w-full flex-col lg:items-stretch", hasDesktopMedia && "lg:flex-row")}
                   >
                     {hasMobileMedia ? (
                       <HeroMobileOverlaySlide
@@ -452,8 +452,10 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     <HeroSlideCopy slide={slide} />
                   </div>
                   {hasDesktopMedia && (
-                    <div className="hidden lg:block w-full min-w-0 lg:w-1/2 lg:max-w-[50%] lg:self-stretch">
-                      <HeroSlideMedia slide={slide} />
+                    <div className="hidden lg:flex w-full min-w-0 lg:w-1/2 lg:max-w-[50%] items-center py-4 lg:py-6 pr-4 sm:pr-6 lg:pr-8 xl:pr-10">
+                      <div className="w-full min-h-[520px] lg:min-h-[540px] rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-50">
+                        <HeroSlideMedia slide={slide} className="h-full w-full" />
+                      </div>
                     </div>
                   )}
                 </div>
