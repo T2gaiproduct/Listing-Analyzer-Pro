@@ -22,7 +22,7 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
     <div
       className={cn(
         "w-full h-full bg-[#faf8f5]",
-        fitHeight ? "relative overflow-hidden p-0" : "flex items-center justify-center p-3 sm:p-4",
+        fitHeight ? "overflow-hidden p-0" : "flex items-center justify-center p-3 sm:p-4",
       )}
     >
       <img
@@ -30,7 +30,7 @@ function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHe
         alt={feature.title}
         className={cn(
           fitHeight
-            ? "absolute inset-0 w-full h-full object-cover object-top"
+            ? "block w-full h-full object-contain object-left-top"
             : "max-w-full max-h-full w-auto h-auto object-contain",
         )}
         loading="lazy"
@@ -81,11 +81,11 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="relative w-full min-h-[200px] bg-[#faf8f5] overflow-hidden">
+    <div className="w-full bg-[#faf8f5] overflow-hidden">
       <img
         src={feature.image}
         alt={feature.title}
-        className="block w-full h-auto min-h-[200px] max-h-[360px] object-cover object-top"
+        className="block w-full h-auto max-h-[360px] object-contain object-left-top"
         loading="lazy"
       />
     </div>
