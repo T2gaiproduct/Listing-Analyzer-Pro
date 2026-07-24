@@ -74,7 +74,32 @@ function HeroSlideImage({
   );
 }
 
-function HeroVideoEmbed({ embedUrl, className }: { embedUrl: string; className?: string }) {
+function HeroVideoEmbed({
+  embedUrl,
+  fit = "cover",
+  className,
+}: {
+  embedUrl: string;
+  fit?: "cover" | "contain";
+  className?: string;
+}) {
+  if (fit === "contain") {
+    return (
+      <div className={cn("flex h-full w-full items-center justify-center bg-slate-50", className)}>
+        <div className="relative w-full aspect-video max-h-full">
+          <iframe
+            key={embedUrl}
+            src={embedUrl}
+            title="Hero video"
+            allow="autoplay; fullscreen; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="absolute inset-0 h-full w-full border-0"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("absolute inset-0 overflow-hidden bg-slate-900", className)}>
       <iframe
@@ -96,23 +121,26 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
 
   if (!source) return null;
 
+  const fit = fullBleed ? "cover" : "contain";
+
   const frameClass = cn(
-    "relative w-full min-w-0 bg-slate-900 overflow-hidden",
-    fullBleed ? "h-full w-full" : "h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px]",
+    "relative w-full min-w-0",
+    fullBleed
+      ? "h-full w-full overflow-hidden bg-slate-900"
+      : "flex h-full min-h-[220px] sm:min-h-[280px] lg:min-h-[480px] items-center justify-center bg-slate-50",
     className,
   );
 
   if (source.kind === "youtube" || source.kind === "vimeo") {
     return (
       <div className={frameClass}>
-        <HeroVideoEmbed embedUrl={source.embedUrl} className="absolute inset-0" />
+        <HeroVideoEmbed embedUrl={source.embedUrl} fit={fit} className={fullBleed ? "absolute inset-0" : "h-full w-full"} />
       </div>
     );
   }
 
   const src = resolveCmsAssetUrl(source.url, basePath);
   const poster = posterUrl ? resolveCmsAssetUrl(posterUrl, basePath) : undefined;
-  const videoFit = fullBleed ? "object-cover" : "object-contain";
 
   return (
     <div className={frameClass}>
@@ -125,7 +153,11 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
         loop
         playsInline
         preload="metadata"
-        className={cn("absolute inset-0 block h-full w-full max-w-none object-center", videoFit)}
+        className={cn(
+          fullBleed
+            ? "absolute inset-0 block h-full w-full max-w-none object-cover object-center"
+            : "block w-full h-auto max-h-full object-contain object-center",
+        )}
       />
     </div>
   );
