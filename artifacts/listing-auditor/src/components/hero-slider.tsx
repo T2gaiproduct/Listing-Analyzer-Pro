@@ -85,8 +85,8 @@ function HeroVideoEmbed({
 }) {
   if (fit === "contain") {
     return (
-      <div className={cn("flex h-full w-full items-center justify-center bg-slate-900", className)}>
-        <div className="relative h-full w-auto max-w-full aspect-video">
+      <div className={cn("flex h-full w-full flex-col justify-center bg-slate-900", className)}>
+        <div className="relative w-full max-h-full shrink-0 aspect-video">
           <iframe
             key={embedUrl}
             src={embedUrl}
@@ -152,7 +152,7 @@ function HeroSlideVideo({ slide, className, mobile, fullBleed }: { slide: HeroSl
         playsInline
         preload="metadata"
         className={cn(
-          "absolute inset-0 block h-full w-full max-w-none object-center",
+          "absolute inset-0 block w-full h-full max-w-none object-center",
           fullBleed ? "object-cover" : "object-contain",
         )}
       />
@@ -442,15 +442,15 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     )}
                   <div
                     className={cn(
-                      "hidden lg:flex w-full flex-col justify-center px-4 sm:px-6 lg:px-8 xl:px-12 py-6 sm:py-8 lg:py-10 text-center lg:text-left min-w-0",
+                      "hidden lg:flex w-full flex-col justify-center self-stretch px-4 sm:px-6 lg:pl-8 xl:pl-12 lg:pr-4 xl:pr-6 py-6 sm:py-8 lg:py-10 text-center lg:text-left min-w-0",
                       hasDesktopMedia ? "lg:w-[42%] lg:max-w-[42%] lg:shrink-0" : "max-w-4xl mx-auto",
                     )}
                   >
                     <HeroSlideCopy slide={slide} />
                   </div>
                   {hasDesktopMedia && (
-                    <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 items-center py-4 lg:py-6 pr-4 sm:pr-6 lg:pr-8 xl:pr-10">
-                      <div className="relative w-full h-[360px] lg:h-[400px] rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
+                    <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 self-stretch items-stretch py-6 sm:py-8 lg:py-10 pr-4 sm:pr-6 lg:pr-8 xl:pr-12">
+                      <div className="relative w-full h-full min-h-0 rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
                         <HeroSlideMedia slide={slide} className="absolute inset-0 h-full w-full" />
                       </div>
                     </div>
