@@ -59,6 +59,7 @@ export interface CustomPromptGenerationPanelProps {
   className?: string;
   title?: string;
   subtitle?: string;
+  variant?: "card" | "embedded";
 }
 
 export function CustomPromptGenerationPanel({
@@ -75,16 +76,19 @@ export function CustomPromptGenerationPanel({
   className,
   title = "Custom Prompt",
   subtitle,
+  variant = "card",
 }: CustomPromptGenerationPanelProps) {
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
 
-  return (
-    <div className={cn("rounded-2xl border border-orange-200 bg-orange-50/30 p-4 space-y-4", className)}>
-      <div>
-        <label className="text-base font-medium text-orange-900 block">{title}</label>
-        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
-      </div>
+  const content = (
+    <>
+      {variant === "card" && (
+        <div>
+          <label className="text-base font-medium text-orange-900 block">{title}</label>
+          {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <textarea
@@ -195,6 +199,16 @@ export function CustomPromptGenerationPanel({
         </div>
       )}
 
+    </>
+  );
+
+  if (variant === "embedded") {
+    return <div className={cn("space-y-4", className)}>{content}</div>;
+  }
+
+  return (
+    <div className={cn("rounded-2xl border border-orange-200 bg-orange-50/30 p-4 space-y-4", className)}>
+      {content}
     </div>
   );
 }

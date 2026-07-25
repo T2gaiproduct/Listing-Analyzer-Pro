@@ -7,12 +7,15 @@ import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Search, Camera, Monitor, Lightbulb } from "lucide-react";
 import {
-  CustomPromptGenerationPanel,
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
   type GraphicsQuality,
   type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
+import {
+  ImageTypeCustomizeDialog,
+  SelectedGraphicsTypesSummary,
+} from "@/components/graphics-type-customize-ui";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -119,6 +122,7 @@ export default function CreateProject() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
 
   const getImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -522,9 +526,10 @@ export default function CreateProject() {
                 <div
                   key={type.id}
                   onClick={() => {
-                    setSelectedImageTypes((prev) =>
-                      prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                    );
+                    if (!selectedImageTypes.includes(type.id)) {
+                      setSelectedImageTypes((prev) => [...prev, type.id]);
+                    }
+                    setCustomizeTypeId(type.id);
                   }}
                   className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
                     isSelected
@@ -565,34 +570,29 @@ export default function CreateProject() {
           )}
 
           {selectedImageTypes.length > 0 && (
-            <div className="space-y-4">
-              <p className="text-sm font-medium text-slate-700">
-                Customize each selected image type with its own prompt, references, and output settings.
-              </p>
-              {selectedImageTypes.map((typeId) => {
-                const type = IMAGE_TYPES.find((item) => item.id === typeId);
-                if (!type) return null;
-                const config = getImageTypeConfig(typeId);
-                return (
-                  <CustomPromptGenerationPanel
-                    key={typeId}
-                    title={`${type.icon} ${type.label}`}
-                    subtitle={type.desc}
-                    customPrompt={config.customPrompt}
-                    onCustomPromptChange={(value) => updateImageTypeConfig(typeId, { customPrompt: value })}
-                    referenceImages={config.referenceImages}
-                    onReferenceImagesChange={(images) => updateImageTypeConfig(typeId, { referenceImages: images })}
-                    aspectRatio={config.aspectRatio}
-                    onAspectRatioChange={(ratio) => updateImageTypeConfig(typeId, { aspectRatio: ratio })}
-                    quality={config.quality}
-                    onQualityChange={(quality) => updateImageTypeConfig(typeId, { quality })}
-                    promptMaxChars={PROMPT_MAX_CHARS}
-                    examplePrompts={typeId === "custom" ? CUSTOM_EXAMPLES : undefined}
-                  />
-                );
-              })}
-            </div>
+            <SelectedGraphicsTypesSummary
+              imageTypes={IMAGE_TYPES}
+              selectedTypeIds={selectedImageTypes}
+              getConfig={getImageTypeConfig}
+              onEdit={setCustomizeTypeId}
+              onRemove={(typeId) => {
+                setSelectedImageTypes((prev) => prev.filter((id) => id !== typeId));
+                if (customizeTypeId === typeId) setCustomizeTypeId(null);
+              }}
+            />
           )}
+
+          <ImageTypeCustomizeDialog
+            open={customizeTypeId !== null}
+            onOpenChange={(open) => { if (!open) setCustomizeTypeId(null); }}
+            type={IMAGE_TYPES.find((t) => t.id === customizeTypeId) ?? null}
+            config={customizeTypeId ? getImageTypeConfig(customizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+            onConfigChange={(patch) => {
+              if (customizeTypeId) updateImageTypeConfig(customizeTypeId, patch);
+            }}
+            promptMaxChars={PROMPT_MAX_CHARS}
+            examplePrompts={customizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+          />
         </div>
       )}
 
