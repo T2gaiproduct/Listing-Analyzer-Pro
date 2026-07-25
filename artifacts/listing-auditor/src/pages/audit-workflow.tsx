@@ -36,7 +36,6 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
-  CustomPromptGenerationPanel,
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
   type GraphicsQuality,
@@ -658,6 +657,7 @@ export default function AuditWorkflow() {
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
+  const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
   const aplusCompletionToastShownRef = useRef(false);
 
   /* ── Export step state ── */
@@ -2082,11 +2082,11 @@ export default function AuditWorkflow() {
                       key={module.id}
                       type="button"
                       onClick={() => {
-                        setSelectedAplusModules((prev) =>
-                          prev.includes(module.id)
-                            ? prev.filter((id) => id !== module.id)
-                            : [...prev, module.id],
-                        );
+                        if (aplusStatus === "generating" || generateAplus.isPending) return;
+                        if (!selectedAplusModules.includes(module.id)) {
+                          setSelectedAplusModules((prev) => [...prev, module.id]);
+                        }
+                        setAplusCustomizeModuleId(module.id);
                         setIsDirty(true);
                       }}
                       disabled={aplusStatus === "generating" || generateAplus.isPending}
@@ -2132,32 +2132,33 @@ export default function AuditWorkflow() {
               )}
 
               {selectedAplusModules.length > 0 && (
-                <div className="space-y-4">
-                  <p className="text-sm font-medium text-slate-700">
-                    Customize each selected A+ module with its own prompt, references, and quality settings.
-                  </p>
-                  {selectedAplusModules.map((moduleId) => {
-                    const module = APLUS_MODULE_CARDS.find((item) => item.id === moduleId);
-                    if (!module) return null;
-                    const config = getAplusModuleConfig(moduleId);
-                    return (
-                      <CustomPromptGenerationPanel
-                        key={moduleId}
-                        title={`${module.icon} ${module.label}`}
-                        subtitle={module.desc}
-                        customPrompt={config.customPrompt}
-                        onCustomPromptChange={(value) => updateAplusModuleConfig(moduleId, { customPrompt: value })}
-                        referenceImages={config.referenceImages}
-                        onReferenceImagesChange={(images) => updateAplusModuleConfig(moduleId, { referenceImages: images })}
-                        aspectRatio={config.aspectRatio}
-                        onAspectRatioChange={(ratio) => updateAplusModuleConfig(moduleId, { aspectRatio: ratio })}
-                        quality={config.quality}
-                        onQualityChange={(quality) => updateAplusModuleConfig(moduleId, { quality })}
-                      />
-                    );
-                  })}
-                </div>
+                <SelectedGraphicsTypesSummary
+                  imageTypes={APLUS_MODULE_CARDS}
+                  selectedTypeIds={selectedAplusModules}
+                  getConfig={getAplusModuleConfig}
+                  onEdit={setAplusCustomizeModuleId}
+                  onRemove={(moduleId) => {
+                    setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
+                    if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
+                    setIsDirty(true);
+                  }}
+                  instructionText="Selected modules — tap a row to customize prompt, references, and quality."
+                  hideAspectRatio
+                />
               )}
+
+              <ImageTypeCustomizeDialog
+                open={aplusCustomizeModuleId !== null}
+                onOpenChange={(open) => { if (!open) setAplusCustomizeModuleId(null); }}
+                type={APLUS_MODULE_CARDS.find((m) => m.id === aplusCustomizeModuleId) ?? null}
+                config={aplusCustomizeModuleId ? getAplusModuleConfig(aplusCustomizeModuleId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+                onConfigChange={(patch) => {
+                  if (aplusCustomizeModuleId) {
+                    updateAplusModuleConfig(aplusCustomizeModuleId, patch);
+                  }
+                }}
+                hideAspectRatio
+              />
 
               <Button
                 size="lg"

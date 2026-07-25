@@ -60,6 +60,7 @@ export interface CustomPromptGenerationPanelProps {
   title?: string;
   subtitle?: string;
   variant?: "card" | "embedded";
+  hideAspectRatio?: boolean;
 }
 
 export function CustomPromptGenerationPanel({
@@ -77,6 +78,7 @@ export function CustomPromptGenerationPanel({
   title = "Custom Prompt",
   subtitle,
   variant = "card",
+  hideAspectRatio = false,
 }: CustomPromptGenerationPanelProps) {
   const selectedRatio = GRAPHICS_ASPECT_RATIOS.find((r) => r.value === aspectRatio) ?? GRAPHICS_ASPECT_RATIOS[0];
   const selectedQuality = GRAPHICS_QUALITY_OPTIONS.find((q) => q.value === quality) ?? GRAPHICS_QUALITY_OPTIONS[0];
@@ -101,7 +103,7 @@ export function CustomPromptGenerationPanel({
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className={cn("grid grid-cols-1 gap-3", !hideAspectRatio && "sm:grid-cols-2")}>
         <ReferenceImageUploadField
           images={referenceImages}
           onImagesChange={onReferenceImagesChange}
@@ -112,28 +114,32 @@ export function CustomPromptGenerationPanel({
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Output settings</Label>
           <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-500">Aspect ratio</Label>
-              <Select value={aspectRatio} onValueChange={(v) => onAspectRatioChange(v as GraphicsAspectRatio)}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
-                    <SelectItem key={ratio.value} value={ratio.value}>
-                      {ratio.symbol} {ratio.label} ({ratio.value})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!hideAspectRatio && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-500">Aspect ratio</Label>
+                  <Select value={aspectRatio} onValueChange={(v) => onAspectRatioChange(v as GraphicsAspectRatio)}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GRAPHICS_ASPECT_RATIOS.map((ratio) => (
+                        <SelectItem key={ratio.value} value={ratio.value}>
+                          {ratio.symbol} {ratio.label} ({ratio.value})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-500">Size</Label>
-              <div className="h-9 px-3 rounded-md border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-700">
-                {selectedRatio.size}
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-500">Size</Label>
+                  <div className="h-9 px-3 rounded-md border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-700">
+                    {selectedRatio.size}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500">Quality</Label>
@@ -169,11 +175,13 @@ export function CustomPromptGenerationPanel({
           </span>
         )}
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
-          {selectedRatio.symbol} {selectedRatio.value} · {selectedRatio.size}
-        </span>
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
           {selectedQuality.label} quality
         </span>
+        {!hideAspectRatio && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
+            {selectedRatio.symbol} {selectedRatio.value} · {selectedRatio.size}
+          </span>
+        )}
         {customPrompt.length > 0 && (
           <span className={cn("ml-auto", customPrompt.length > promptMaxChars ? "text-red-500" : "text-slate-400")}>
             {customPrompt.length} / {promptMaxChars}
