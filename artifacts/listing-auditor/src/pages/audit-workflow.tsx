@@ -43,6 +43,10 @@ import {
   type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
 import {
+  ImageTypeCustomizeDialog,
+  SelectedGraphicsTypesSummary,
+} from "@/components/graphics-type-customize-ui";
+import {
   useCreateAuditDraft,
   usePatchAudit,
   useGenerateContentDirect,
@@ -619,6 +623,7 @@ export default function AuditWorkflow() {
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [graphicsCustomizeTypeId, setGraphicsCustomizeTypeId] = useState<string | null>(null);
 
   const getImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
     ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
@@ -1918,9 +1923,10 @@ export default function AuditWorkflow() {
                     <button
                       key={type.id}
                       onClick={() => {
-                        setSelectedImageTypes((prev) =>
-                          prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                        );
+                        if (!selectedImageTypes.includes(type.id)) {
+                          setSelectedImageTypes((prev) => [...prev, type.id]);
+                        }
+                        setGraphicsCustomizeTypeId(type.id);
                         if (currentAuditId) setIsDirty(true);
                       }}
                       className={cn(
@@ -1953,32 +1959,31 @@ export default function AuditWorkflow() {
               )}
 
               {selectedImageTypes.length > 0 && (
-                <div className="space-y-4">
-                  <p className="text-sm font-medium text-slate-700">
-                    Customize each selected image type with its own prompt, references, and output settings.
-                  </p>
-                  {selectedImageTypes.map((typeId) => {
-                    const type = IMAGE_TYPES.find((item) => item.id === typeId);
-                    if (!type) return null;
-                    const config = getImageTypeConfig(typeId);
-                    return (
-                      <CustomPromptGenerationPanel
-                        key={typeId}
-                        title={`${type.icon} ${type.label}`}
-                        subtitle={type.desc}
-                        customPrompt={config.customPrompt}
-                        onCustomPromptChange={(value) => updateImageTypeConfig(typeId, { customPrompt: value })}
-                        referenceImages={config.referenceImages}
-                        onReferenceImagesChange={(images) => updateImageTypeConfig(typeId, { referenceImages: images })}
-                        aspectRatio={config.aspectRatio}
-                        onAspectRatioChange={(ratio) => updateImageTypeConfig(typeId, { aspectRatio: ratio })}
-                        quality={config.quality}
-                        onQualityChange={(quality) => updateImageTypeConfig(typeId, { quality })}
-                      />
-                    );
-                  })}
-                </div>
+                <SelectedGraphicsTypesSummary
+                  imageTypes={IMAGE_TYPES}
+                  selectedTypeIds={selectedImageTypes}
+                  getConfig={getImageTypeConfig}
+                  onEdit={setGraphicsCustomizeTypeId}
+                  onRemove={(typeId) => {
+                    setSelectedImageTypes((prev) => prev.filter((id) => id !== typeId));
+                    if (graphicsCustomizeTypeId === typeId) setGraphicsCustomizeTypeId(null);
+                    if (currentAuditId) setIsDirty(true);
+                  }}
+                />
               )}
+
+              <ImageTypeCustomizeDialog
+                open={graphicsCustomizeTypeId !== null}
+                onOpenChange={(open) => { if (!open) setGraphicsCustomizeTypeId(null); }}
+                type={IMAGE_TYPES.find((t) => t.id === graphicsCustomizeTypeId) ?? null}
+                config={graphicsCustomizeTypeId ? getImageTypeConfig(graphicsCustomizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+                onConfigChange={(patch) => {
+                  if (graphicsCustomizeTypeId) {
+                    updateImageTypeConfig(graphicsCustomizeTypeId, patch);
+                    if (currentAuditId) setIsDirty(true);
+                  }
+                }}
+              />
 
               {/* Generate Graphics button */}
               <Button

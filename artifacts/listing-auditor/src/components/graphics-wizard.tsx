@@ -14,12 +14,15 @@ import {
   ArrowLeft, Maximize2, AlertTriangle,
 } from "lucide-react";
 import {
-  CustomPromptGenerationPanel,
   DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
   type GraphicsQuality,
   type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
+import {
+  ImageTypeCustomizeDialog,
+  SelectedGraphicsTypesSummary,
+} from "@/components/graphics-type-customize-ui";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -173,6 +176,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
@@ -187,6 +191,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [showMore, setShowMore] = useState(false);
   const [moreImageTypes, setMoreImageTypes] = useState<string[]>([]);
   const [moreImageTypePromptConfigs, setMoreImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [moreCustomizeTypeId, setMoreCustomizeTypeId] = useState<string | null>(null);
   const [moreEtaSeconds, setMoreEtaSeconds] = useState(0);
   const [moreProgress, setMoreProgress] = useState(0);
 
@@ -814,6 +819,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             setShowMore(false);
             setMoreImageTypes([]);
             setMoreImageTypePromptConfigs({});
+            setMoreCustomizeTypeId(null);
           }
         }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -841,9 +847,10 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                       <div
                         key={type.id}
                         onClick={() => {
-                          setMoreImageTypes((prev) =>
-                            prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                          );
+                          if (!moreImageTypes.includes(type.id)) {
+                            setMoreImageTypes((prev) => [...prev, type.id]);
+                          }
+                          setMoreCustomizeTypeId(type.id);
                         }}
                         className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
                           isSelected
@@ -884,39 +891,35 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 )}
 
                 {moreImageTypes.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-sm font-medium text-slate-700">
-                      Customize each selected image type with its own prompt, references, and output settings.
-                    </p>
-                    {moreImageTypes.map((typeId) => {
-                      const type = IMAGE_TYPES.find((item) => item.id === typeId);
-                      if (!type) return null;
-                      const config = getMoreImageTypeConfig(typeId);
-                      return (
-                        <CustomPromptGenerationPanel
-                          key={typeId}
-                          title={`${type.icon} ${type.label}`}
-                          subtitle={type.desc}
-                          customPrompt={config.customPrompt}
-                          onCustomPromptChange={(value) => updateMoreImageTypeConfig(typeId, { customPrompt: value })}
-                          referenceImages={config.referenceImages}
-                          onReferenceImagesChange={(images) => updateMoreImageTypeConfig(typeId, { referenceImages: images })}
-                          aspectRatio={config.aspectRatio}
-                          onAspectRatioChange={(ratio) => updateMoreImageTypeConfig(typeId, { aspectRatio: ratio })}
-                          quality={config.quality}
-                          onQualityChange={(quality) => updateMoreImageTypeConfig(typeId, { quality })}
-                          promptMaxChars={PROMPT_MAX_CHARS}
-                          examplePrompts={typeId === "custom" ? CUSTOM_EXAMPLES : undefined}
-                        />
-                      );
-                    })}
-                  </div>
+                  <SelectedGraphicsTypesSummary
+                    imageTypes={IMAGE_TYPES}
+                    selectedTypeIds={moreImageTypes}
+                    getConfig={getMoreImageTypeConfig}
+                    onEdit={setMoreCustomizeTypeId}
+                    onRemove={(typeId) => {
+                      setMoreImageTypes((prev) => prev.filter((id) => id !== typeId));
+                      if (moreCustomizeTypeId === typeId) setMoreCustomizeTypeId(null);
+                    }}
+                  />
                 )}
 
+                <ImageTypeCustomizeDialog
+                  open={moreCustomizeTypeId !== null}
+                  onOpenChange={(open) => { if (!open) setMoreCustomizeTypeId(null); }}
+                  type={IMAGE_TYPES.find((t) => t.id === moreCustomizeTypeId) ?? null}
+                  config={moreCustomizeTypeId ? getMoreImageTypeConfig(moreCustomizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+                  onConfigChange={(patch) => {
+                    if (moreCustomizeTypeId) updateMoreImageTypeConfig(moreCustomizeTypeId, patch);
+                  }}
+                  promptMaxChars={PROMPT_MAX_CHARS}
+                  examplePrompts={moreCustomizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+                />
+
                 <div className="flex items-center justify-end gap-3 pt-4 border-t">
-                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => {
+                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg"                   onClick={() => {
                     setMoreImageTypes([]);
                     setMoreImageTypePromptConfigs({});
+                    setMoreCustomizeTypeId(null);
                   }}>
                     Clear
                   </Button>
@@ -1160,9 +1163,10 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 <div
                   key={type.id}
                   onClick={() => {
-                    setSelectedImageTypes((prev) =>
-                      prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                    );
+                    if (!selectedImageTypes.includes(type.id)) {
+                      setSelectedImageTypes((prev) => [...prev, type.id]);
+                    }
+                    setCustomizeTypeId(type.id);
                   }}
                   className={`relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all ${
                     isSelected
@@ -1203,34 +1207,29 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           )}
 
           {selectedImageTypes.length > 0 && (
-            <div className="space-y-4">
-              <p className="text-sm font-medium text-slate-700">
-                Customize each selected image type with its own prompt, references, and output settings.
-              </p>
-              {selectedImageTypes.map((typeId) => {
-                const type = IMAGE_TYPES.find((item) => item.id === typeId);
-                if (!type) return null;
-                const config = getImageTypeConfig(typeId);
-                return (
-                  <CustomPromptGenerationPanel
-                    key={typeId}
-                    title={`${type.icon} ${type.label}`}
-                    subtitle={type.desc}
-                    customPrompt={config.customPrompt}
-                    onCustomPromptChange={(value) => updateImageTypeConfig(typeId, { customPrompt: value })}
-                    referenceImages={config.referenceImages}
-                    onReferenceImagesChange={(images) => updateImageTypeConfig(typeId, { referenceImages: images })}
-                    aspectRatio={config.aspectRatio}
-                    onAspectRatioChange={(ratio) => updateImageTypeConfig(typeId, { aspectRatio: ratio })}
-                    quality={config.quality}
-                    onQualityChange={(quality) => updateImageTypeConfig(typeId, { quality })}
-                    promptMaxChars={PROMPT_MAX_CHARS}
-                    examplePrompts={typeId === "custom" ? CUSTOM_EXAMPLES : undefined}
-                  />
-                );
-              })}
-            </div>
+            <SelectedGraphicsTypesSummary
+              imageTypes={IMAGE_TYPES}
+              selectedTypeIds={selectedImageTypes}
+              getConfig={getImageTypeConfig}
+              onEdit={setCustomizeTypeId}
+              onRemove={(typeId) => {
+                setSelectedImageTypes((prev) => prev.filter((id) => id !== typeId));
+                if (customizeTypeId === typeId) setCustomizeTypeId(null);
+              }}
+            />
           )}
+
+          <ImageTypeCustomizeDialog
+            open={customizeTypeId !== null}
+            onOpenChange={(open) => { if (!open) setCustomizeTypeId(null); }}
+            type={IMAGE_TYPES.find((t) => t.id === customizeTypeId) ?? null}
+            config={customizeTypeId ? getImageTypeConfig(customizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+            onConfigChange={(patch) => {
+              if (customizeTypeId) updateImageTypeConfig(customizeTypeId, patch);
+            }}
+            promptMaxChars={PROMPT_MAX_CHARS}
+            examplePrompts={customizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+          />
         </div>
       )}
 
