@@ -583,7 +583,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           <div className="flex items-center gap-2">
             {canEdit && (
               <Button
-                className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+                className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
                 disabled={!canAffordImages(1)}
                 onClick={() => {
                   if (!requireImageCredits(1)) return;
@@ -793,7 +793,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                         }}
                         className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
                           isSelected
-                            ? "border-purple-600 bg-purple-50/30"
+                            ? "border-orange-500 bg-orange-50/30"
                             : "border-slate-200 bg-white hover:border-slate-300"
                         }`}
                       >
@@ -801,12 +801,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                           <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                              <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
                                 {type.label}
                               </h3>
                               <div
                                 className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                  isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                                  isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
                                 }`}
                               >
                                 {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -822,7 +822,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
                 {moreImageTypes.length > 0 && (
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+                    <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
                       {moreImageTypes.length} selected
                     </span>
                     <span className="text-slate-400">~{moreImageTypes.length * 30}s total</span>
@@ -837,7 +837,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     Clear
                   </Button>
                   <Button
-                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+                    className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
                     disabled={moreImageTypes.length === 0 || !canAffordImages(moreImageTypes.length)}
                     onClick={() => {
                       if (!requireImageCredits(moreImageTypes.length)) return;
@@ -868,7 +868,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             {moreStep === "custom" && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-purple-600">
+                  <span className="text-orange-600">
                     <ArrowLeft className="w-4 h-4" />
                   </span>
                   <span className="font-medium text-slate-900">Custom Image</span>
@@ -902,7 +902,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                           { id: "social", label: "Social Proof" },
                         ].find((t) => t.id === id);
                         return (
-                          <span key={id} className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
+                          <span key={id} className="px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium border border-orange-200">
                             {type?.label}
                           </span>
                         );
@@ -917,7 +917,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     Back
                   </Button>
                   <Button
-                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+                    className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
                     disabled={!moreCustomPrompt.trim() || !canAffordImages(moreImageTypes.length)}
                     onClick={() => {
                       if (!requireImageCredits(moreImageTypes.length)) return;
@@ -958,7 +958,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         <p className="text-sm text-red-400">{displayProject?.errorMessage || "Please try again or contact support."}</p>
         <Button
           variant="outline"
-          className="mt-2 gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+          className="mt-2 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
           onClick={() => {
             setProjectId(null);
             setStep(1);
@@ -1001,7 +1001,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {/* Step indicator — compact on mobile */}
       <div className="mb-6 sm:mb-8 w-full min-w-0">
         <div className="sm:hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
             Step {step} of {STEPS.length}
           </p>
           <p className="text-sm font-semibold text-slate-900 mt-0.5">
@@ -1013,14 +1013,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             <div key={s.id} className="flex items-center flex-1 min-w-0">
               <div className="flex flex-col items-center min-w-0 px-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  s.id < step ? "bg-purple-600 text-white" :
-                  s.id === step ? "bg-purple-600 text-white" :
+                  s.id < step ? "bg-orange-500 text-white" :
+                  s.id === step ? "bg-orange-500 text-white" :
                   "bg-white text-slate-400 border-2 border-slate-200"
                 }`}>
                   {s.id < step ? <Check className="w-4 h-4" /> : s.id}
                 </div>
                 <div className="mt-2 text-center min-w-0">
-                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-purple-600" : "text-slate-400"}`}>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-orange-600" : "text-slate-400"}`}>
                     Step {s.id} of 3
                   </p>
                   <p className={`text-sm font-medium truncate max-w-[7rem] ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
@@ -1029,7 +1029,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 </div>
               </div>
               {idx < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-2 mb-6 min-w-[1rem] ${s.id < step ? "bg-purple-600" : "bg-slate-200"}`} />
+                <div className={`flex-1 h-0.5 mx-2 mb-6 min-w-[1rem] ${s.id < step ? "bg-orange-500" : "bg-slate-200"}`} />
               )}
             </div>
           ))}
@@ -1040,8 +1040,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {step === 1 && (
         <div className="space-y-6">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Upload className="w-5 h-5 text-purple-600" />
+            <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Upload className="w-5 h-5 text-orange-600" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900">Upload Product</h2>
@@ -1051,18 +1051,18 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
           {/* Upload area */}
           <div
-            className="border-2 border-dashed border-purple-200 rounded-xl p-12 text-center bg-purple-50/20 hover:bg-purple-50/30 transition-colors cursor-pointer"
+            className="border-2 border-dashed border-orange-200 rounded-xl p-12 text-center bg-orange-50/20 hover:bg-orange-50/30 transition-colors cursor-pointer"
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
           >
-            <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center mx-auto mb-4">
-              <Upload className="w-8 h-8 text-purple-400" />
+            <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-4">
+              <Upload className="w-8 h-8 text-orange-400" />
             </div>
             <p className="text-sm font-medium text-slate-700 mb-1">Drag & drop your product images here</p>
             <p className="text-sm text-slate-400 mb-4">or</p>
             <Button
-              className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+              className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
               onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
             >
               <Upload className="w-4 h-4 mr-2" />
@@ -1120,7 +1120,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                         {AMAZON_CATEGORIES.filter((c) => c.toLowerCase().includes(categorySearch.toLowerCase())).map((c) => (
                           <div
                             key={c}
-                            className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-purple-50 ${wizardCategory === c ? "bg-purple-50 text-purple-700 font-medium" : "text-slate-700"}`}
+                            className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-orange-50 ${wizardCategory === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
                             onClick={() => { setWizardCategory(c); setCategorySearch(c); setShowCategoryDropdown(false); }}
                           >
                             {c}
@@ -1140,8 +1140,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {step === 2 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Wand2 className="w-4 h-4 text-purple-600" />
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Wand2 className="w-4 h-4 text-orange-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Select Graphics</h2>
@@ -1162,7 +1162,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   }}
                   className={`relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all ${
                     isSelected
-                      ? "border-purple-600 bg-purple-50/30"
+                      ? "border-orange-500 bg-orange-50/30"
                       : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
@@ -1170,12 +1170,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                        <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
                           {type.label}
                         </h3>
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                            isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
                           }`}
                         >
                           {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -1191,7 +1191,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
           {selectedImageTypes.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+              <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
                 {selectedImageTypes.length} selected
               </span>
               <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
@@ -1204,8 +1204,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {step === 3 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-purple-600" />
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-orange-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
@@ -1238,7 +1238,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             </Button>
           )}
           <Button
-            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6 min-h-11"
+            className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6 min-h-11"
             disabled={
               !canContinue()
               || createProject.isPending

@@ -282,7 +282,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       {/* ── Action bar ── */}
       <div className="flex items-center justify-end gap-2 mb-6">
         {project?.status === "completed" && hasRecords && (
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer" onClick={handleDownloadAll}>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" onClick={handleDownloadAll}>
             <Download className="w-4 h-4 mr-2" />
             Download All
           </Button>
@@ -300,7 +300,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
               }
             }}
             disabled={generateMutation.isPending || isGenerating}
-            className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+            className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
           >
             {generateMutation.isPending || isGenerating ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -436,7 +436,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                 <Button
                   onClick={handleEditSubmit}
                   disabled={!editPrompt.trim() || loadingIds.has(editRecord.id)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+                  className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
                 >
                   {loadingIds.has(editRecord.id) ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -480,7 +480,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                     return (
                       <div
                         key={i}
-                        className={`rounded-lg border overflow-hidden ${isCurrent ? "ring-2 ring-purple-500" : ""}`}
+                        className={`rounded-lg border overflow-hidden ${isCurrent ? "ring-2 ring-orange-500" : ""}`}
                       >
                         <div className="aspect-square bg-slate-50">
                           <img
@@ -601,7 +601,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                       }}
                       className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
                         isSelected
-                          ? "border-purple-600 bg-purple-50/30"
+                          ? "border-orange-500 bg-orange-50/30"
                           : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
@@ -609,12 +609,12 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                         <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                            <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
                               {type.label}
                             </h3>
                             <div
                               className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                                isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
                               }`}
                             >
                               {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -630,7 +630,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
 
               {moreImageTypes.length > 0 && (
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+                  <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
                     {moreImageTypes.length} selected
                   </span>
                   <span className="text-slate-400">~{moreImageTypes.length * 30}s total</span>
@@ -645,7 +645,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   Clear
                 </Button>
                 <Button
-                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+                  className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
                   disabled={moreImageTypes.length === 0}
                   onClick={() => {
                     if (moreImageTypes.includes("custom")) {
@@ -669,7 +669,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
           {moreStep === "custom" && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-purple-600">
+                <span className="text-orange-600">
                   <ArrowLeft className="w-4 h-4" />
                 </span>
                 <span className="font-medium text-slate-900">Custom Image</span>
@@ -706,7 +706,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                         { id: "social", label: "Social Proof" },
                       ].find((t) => t.id === tid);
                       return (
-                        <span key={tid} className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
+                        <span key={tid} className="px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium border border-orange-200">
                           {type?.label}
                         </span>
                       );
@@ -721,7 +721,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                   Back
                 </Button>
                 <Button
-                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+                  className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
                   disabled={!moreCustomPrompt.trim()}
                   onClick={() => {
                     generateMutation.mutate({
@@ -775,7 +775,7 @@ function ImageCard({
         />
         {isLoading && (
           <div className="absolute inset-0 bg-white/75 flex flex-col items-center justify-center gap-2">
-            <RefreshCw className="h-6 w-6 animate-spin text-purple-500" />
+            <RefreshCw className="h-6 w-6 animate-spin text-orange-500" />
             <span className="text-xs text-slate-500">Generating...</span>
           </div>
         )}
