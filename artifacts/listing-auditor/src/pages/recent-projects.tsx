@@ -245,12 +245,10 @@ export default function RecentProjectsPage() {
       <div className="space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-11 w-full max-w-xl" />
-        <div className="bg-white rounded-xl border border-slate-200/80 p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-[52px] rounded-md" />
-            ))}
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-[52px] rounded-md" />
+          ))}
         </div>
       </div>
     );
@@ -358,12 +356,10 @@ export default function RecentProjectsPage() {
           </p>
         </div>
       ) : viewMode === "grid" ? (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
             {pageItems.map((item) => (
               <ProjectFolderTile key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
             ))}
-          </div>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden divide-y divide-slate-100">
