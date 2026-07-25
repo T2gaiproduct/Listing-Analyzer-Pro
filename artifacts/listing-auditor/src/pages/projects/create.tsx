@@ -1,16 +1,17 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
-import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Sparkles, Search, Camera, Monitor, Lightbulb } from "lucide-react";
+import { Upload, ArrowRight, Check, Image as ImageIcon, Loader2, Trash2, Wand2, Search, Camera, Monitor, Lightbulb } from "lucide-react";
 import {
   CustomPromptGenerationPanel,
+  DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
   type GraphicsQuality,
+  type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -94,12 +95,11 @@ const CUSTOM_EXAMPLES = [
   "Product on a clean desk setup with laptop and coffee, work-from-home aesthetic",
 ];
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 
 const STEPS = [
   { id: 1, label: "Upload Product" },
   { id: 2, label: "Select Graphics" },
-  { id: 3, label: "Custom Prompt" },
 ];
 
 export default function CreateProject() {
@@ -118,10 +118,38 @@ export default function CreateProject() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [promptReferenceImages, setPromptReferenceImages] = useState<string[]>([]);
-  const [graphicsAspectRatio, setGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
-  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>("standard");
+  const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+
+  const getImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...imageTypePromptConfigs[typeId],
+  }), [imageTypePromptConfigs]);
+
+  const updateImageTypeConfig = useCallback((typeId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setImageTypePromptConfigs((prev) => ({
+      ...prev,
+      [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
+    }));
+  }, []);
+
+  const graphicsTypeConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      customPrompt?: string;
+      aspectRatio: GraphicsAspectRatio;
+      quality: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }> = {};
+    for (const typeId of selectedImageTypes) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...imageTypePromptConfigs[typeId] };
+      configs[typeId] = {
+        customPrompt: config.customPrompt.trim() || undefined,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+      };
+    }
+    return configs;
+  }, [selectedImageTypes, imageTypePromptConfigs]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -138,30 +166,37 @@ export default function CreateProject() {
   );
 
   const createProject = useMutation({
-    mutationFn: async (body: object) => {
+    mutationFn: async (input: {
+      createBody: object;
+      imageTypes: string[];
+      typeConfigs: Record<string, {
+        customPrompt?: string;
+        aspectRatio: GraphicsAspectRatio;
+        quality: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(body),
+        body: JSON.stringify(input.createBody),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Failed to create project (${res.status})`);
       }
-      return res.json();
+      const project = await res.json();
+      return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
     },
-    onSuccess: (project) => {
+    onSuccess: ({ project, imageTypes, typeConfigs }) => {
       void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          imageTypes: selectedImageTypes,
-          customPrompt: customPrompt.trim() || undefined,
-          aspectRatio: graphicsAspectRatio,
-          quality: graphicsQuality,
-          promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
+          imageTypes,
+          typeConfigs,
         }),
       }).then(() => refreshCreditBalances(queryClient));
       nav(`/projects/${project.id}/generating`);
@@ -261,31 +296,26 @@ export default function CreateProject() {
 
   const canContinue = () => {
     if (step === 1) return brandName.trim().length > 0 && productName.trim().length > 0;
-    if (step === 2) return selectedImageTypes.length > 0;
-    if (step === 3) return customPrompt.trim().length > 0;
+    if (step === 2) {
+      if (selectedImageTypes.length === 0) return false;
+      if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
+      return true;
+    }
     return true;
   };
 
   const handleContinue = () => {
-    if (step === 2 && !selectedImageTypes.includes("custom")) {
-      // Non-custom selected: skip Step 3, generate directly
+    if (step === 2) {
       createProject.mutate({
-        name: `${productName} Project`,
-        productName,
-        category,
-        sourceImageUrls: uploadedImages,
+        createBody: {
+          name: `${productName} Project`,
+          productName,
+          category,
+          sourceImageUrls: uploadedImages,
+          imageTypes: selectedImageTypes,
+        },
         imageTypes: selectedImageTypes,
-        customPrompt: undefined,
-      });
-    } else if (step === 3) {
-      // Custom selected: generate with prompt
-      createProject.mutate({
-        name: `${productName} Project`,
-        productName,
-        category,
-        sourceImageUrls: uploadedImages,
-        imageTypes: selectedImageTypes,
-        customPrompt: customPrompt.trim() || undefined,
+        typeConfigs: graphicsTypeConfigsPayload,
       });
     } else {
       setStep((s) => (s + 1) as Step);
@@ -309,7 +339,7 @@ export default function CreateProject() {
                 </div>
                 <div className="mt-1 text-center">
                   <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-orange-600" : "text-slate-400"}`}>
-                    Step {s.id} of 3
+                    Step {s.id} of {STEPS.length}
                   </p>
                   <p className={`text-xs font-medium ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
                     {s.label}
@@ -533,37 +563,36 @@ export default function CreateProject() {
               <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
             </div>
           )}
-        </div>
-      )}
 
-      {/* Step 3: Design Style & Custom Prompt */}
-      {step === 3 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-orange-600" />
+          {selectedImageTypes.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-slate-700">
+                Customize each selected image type with its own prompt, references, and output settings.
+              </p>
+              {selectedImageTypes.map((typeId) => {
+                const type = IMAGE_TYPES.find((item) => item.id === typeId);
+                if (!type) return null;
+                const config = getImageTypeConfig(typeId);
+                return (
+                  <CustomPromptGenerationPanel
+                    key={typeId}
+                    title={`${type.icon} ${type.label}`}
+                    subtitle={type.desc}
+                    customPrompt={config.customPrompt}
+                    onCustomPromptChange={(value) => updateImageTypeConfig(typeId, { customPrompt: value })}
+                    referenceImages={config.referenceImages}
+                    onReferenceImagesChange={(images) => updateImageTypeConfig(typeId, { referenceImages: images })}
+                    aspectRatio={config.aspectRatio}
+                    onAspectRatioChange={(ratio) => updateImageTypeConfig(typeId, { aspectRatio: ratio })}
+                    quality={config.quality}
+                    onQualityChange={(quality) => updateImageTypeConfig(typeId, { quality })}
+                    promptMaxChars={PROMPT_MAX_CHARS}
+                    examplePrompts={typeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+                  />
+                );
+              })}
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
-              <p className="text-xs text-slate-500">Select a style and add a custom prompt if desired.</p>
-            </div>
-          </div>
-
-          {selectedImageTypes.includes("custom") && (
-            <CustomPromptGenerationPanel
-              customPrompt={customPrompt}
-              onCustomPromptChange={setCustomPrompt}
-              referenceImages={promptReferenceImages}
-              onReferenceImagesChange={setPromptReferenceImages}
-              aspectRatio={graphicsAspectRatio}
-              onAspectRatioChange={setGraphicsAspectRatio}
-              quality={graphicsQuality}
-              onQualityChange={setGraphicsQuality}
-              promptMaxChars={PROMPT_MAX_CHARS}
-              examplePrompts={CUSTOM_EXAMPLES}
-            />
           )}
-
         </div>
       )}
 
@@ -587,7 +616,7 @@ export default function CreateProject() {
               </>
             ) : (
               <>
-                {step === 2 && !selectedImageTypes.includes("custom") ? "Generate" : step === 3 ? "Generate" : "Continue"}
+                {step === 2 ? "Generate" : "Continue"}
                 <ArrowRight className="w-3 h-3 ml-1" />
               </>
             )}
