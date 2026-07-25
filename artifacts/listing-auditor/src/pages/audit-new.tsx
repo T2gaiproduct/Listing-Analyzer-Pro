@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { MarketplaceLogos } from "@/components/marketplace-logos";
 import {
   ArrowRight,
   Upload,
@@ -57,13 +58,6 @@ const steps = [
   },
 ];
 
-const platforms = [
-  { name: "Shopify", emoji: "🛍️" },
-  { name: "Walmart", emoji: "🛒" },
-  { name: "eBay", emoji: "🏷️" },
-  { name: "+ More Platforms", emoji: "📦" },
-];
-
 export default function AuditNew() {
   const [, setLocation] = useLocation();
 
@@ -102,10 +96,8 @@ export default function AuditNew() {
 
         <p className="text-xs text-slate-400 mt-4">
           Works with{" "}
-          <span className="text-orange-500 font-medium">Shopify</span>,{" "}
-          <span className="text-orange-500 font-medium">Walmart</span>,{" "}
-          <span className="text-orange-500 font-medium">eBay</span>, and most
-          product pages
+          <span className="text-orange-500 font-medium">Amazon</span> and{" "}
+          <span className="text-orange-500 font-medium">Shopify</span> product pages
         </p>
       </div>
 
@@ -195,16 +187,8 @@ export default function AuditNew() {
         </div>
 
         {/* Platform logos row */}
-        <div className="mt-10 flex items-center justify-center gap-3 flex-wrap">
-          {platforms.map((p) => (
-            <div
-              key={p.name}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm text-sm text-slate-600 font-medium"
-            >
-              <span className="text-base">{p.emoji}</span>
-              {p.name}
-            </div>
-          ))}
+        <div className="mt-10">
+          <MarketplaceLogos variant="pill" />
         </div>
       </div>
     </div>
