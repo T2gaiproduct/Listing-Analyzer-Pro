@@ -1340,6 +1340,9 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
 
   if (category === AMAZON_SETTINGS_CATEGORY) {
     const s = settings as Record<string, string>;
+    if (s.amazon_sp_redirect_uri?.trim()) {
+      s.amazon_sp_redirect_uri = s.amazon_sp_redirect_uri.trim().replace(/([^:]\/)\/+/g, "$1");
+    }
     if (s.amazon_sp_client_secret?.trim()) {
       s.amazon_sp_client_secret = normalizeLwaClientSecret(s.amazon_sp_client_secret);
     }
@@ -1351,8 +1354,9 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     } as Awaited<ReturnType<typeof loadAmazonSpSettings>>);
     const touchesAws = Boolean(s.amazon_aws_access_key_id?.trim() || s.amazon_aws_secret_access_key?.trim());
     if (touchesAws && awsError) {
-      res.status(400).json({ error: awsError });
-      return;
+      (req as Request & { amazonAwsSaveWarning?: string }).amazonAwsSaveWarning = awsError;
+      delete s.amazon_aws_access_key_id;
+      delete s.amazon_aws_secret_access_key;
     }
   }
 
@@ -1403,7 +1407,10 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     }
   }
 
-  res.json({ success: true });
+  res.json({
+    success: true,
+    warning: (req as Request & { amazonAwsSaveWarning?: string }).amazonAwsSaveWarning ?? undefined,
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
