@@ -851,7 +851,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWri
   const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  const body = req.body as {
+  const body = (req.body ?? {}) as {
     customPrompt?: string;
     promptReferenceImageUrls?: string[];
   };
