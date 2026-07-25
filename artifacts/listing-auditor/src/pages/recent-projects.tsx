@@ -255,7 +255,7 @@ export default function RecentProjectsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 w-full min-w-0">
+    <div className="flex flex-col min-h-[calc(100dvh-11rem)] sm:min-h-[calc(100dvh-10rem)] space-y-6 animate-in fade-in duration-500 w-full min-w-0 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Recent Projects</h1>
@@ -347,6 +347,7 @@ export default function RecentProjectsPage() {
         </div>
       </div>
 
+      <div className="flex flex-col flex-1 min-h-0">
       {pageItems.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm px-6 py-16 text-center">
           <Folder className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -357,9 +358,9 @@ export default function RecentProjectsPage() {
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
-            {pageItems.map((item) => (
-              <ProjectFolderTile key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
-            ))}
+          {pageItems.map((item) => (
+            <ProjectFolderTile key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
+          ))}
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden divide-y divide-slate-100">
@@ -370,7 +371,7 @@ export default function RecentProjectsPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <div className="mt-auto pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-slate-500">
             Showing {(currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} projects
           </p>
@@ -416,6 +417,7 @@ export default function RecentProjectsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
