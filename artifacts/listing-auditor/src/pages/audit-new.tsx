@@ -1,6 +1,5 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { MarketplaceLogos } from "@/components/marketplace-logos";
 import {
   ArrowRight,
   Upload,
@@ -184,11 +183,6 @@ export default function AuditNew() {
               </div>
             );
           })}
-        </div>
-
-        {/* Platform logos row */}
-        <div className="mt-10">
-          <MarketplaceLogos variant="pill" />
         </div>
       </div>
     </div>
