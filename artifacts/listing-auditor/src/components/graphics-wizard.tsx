@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import {
   CustomPromptGenerationPanel,
+  DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
   type GraphicsQuality,
+  type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
 import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 
@@ -43,12 +45,11 @@ const CUSTOM_EXAMPLES = [
   "Product on a clean desk setup with laptop and coffee, work-from-home aesthetic",
 ];
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 
 const STEPS = [
   { id: 1, label: "Upload Product" },
   { id: 2, label: "Select Graphics" },
-  { id: 3, label: "Custom Prompt" },
 ];
 
 interface ImageVersion {
@@ -171,10 +172,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [uploadedImages, setUploadedImages] = useState<string[]>(imageUrls ?? []);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [promptReferenceImages, setPromptReferenceImages] = useState<string[]>([]);
-  const [graphicsAspectRatio, setGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
-  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>("standard");
+  const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [projectId, setProjectId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
@@ -187,14 +185,72 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   // Generate More Images modal state
   const [showMore, setShowMore] = useState(false);
-  const [moreStep, setMoreStep] = useState<"select" | "custom" | "generating">("select");
   const [moreImageTypes, setMoreImageTypes] = useState<string[]>([]);
-  const [moreCustomPrompt, setMoreCustomPrompt] = useState("");
-  const [morePromptReferenceImages, setMorePromptReferenceImages] = useState<string[]>([]);
-  const [moreGraphicsAspectRatio, setMoreGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
-  const [moreGraphicsQuality, setMoreGraphicsQuality] = useState<GraphicsQuality>("standard");
+  const [moreImageTypePromptConfigs, setMoreImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [moreEtaSeconds, setMoreEtaSeconds] = useState(0);
   const [moreProgress, setMoreProgress] = useState(0);
+
+  const getImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...imageTypePromptConfigs[typeId],
+  }), [imageTypePromptConfigs]);
+
+  const updateImageTypeConfig = useCallback((typeId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setImageTypePromptConfigs((prev) => ({
+      ...prev,
+      [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
+    }));
+  }, []);
+
+  const graphicsTypeConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      customPrompt?: string;
+      aspectRatio: GraphicsAspectRatio;
+      quality: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }> = {};
+    for (const typeId of selectedImageTypes) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...imageTypePromptConfigs[typeId] };
+      configs[typeId] = {
+        customPrompt: config.customPrompt.trim() || undefined,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+      };
+    }
+    return configs;
+  }, [selectedImageTypes, imageTypePromptConfigs]);
+
+  const getMoreImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...moreImageTypePromptConfigs[typeId],
+  }), [moreImageTypePromptConfigs]);
+
+  const updateMoreImageTypeConfig = useCallback((typeId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setMoreImageTypePromptConfigs((prev) => ({
+      ...prev,
+      [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
+    }));
+  }, []);
+
+  const moreTypeConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      customPrompt?: string;
+      aspectRatio: GraphicsAspectRatio;
+      quality: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }> = {};
+    for (const typeId of moreImageTypes) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...moreImageTypePromptConfigs[typeId] };
+      configs[typeId] = {
+        customPrompt: config.customPrompt.trim() || undefined,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+      };
+    }
+    return configs;
+  }, [moreImageTypes, moreImageTypePromptConfigs]);
 
   const { data: existingProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId],
@@ -260,20 +316,30 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   }, []);
 
   const createProject = useMutation({
-    mutationFn: async (body: object) => {
+    mutationFn: async (input: {
+      createBody: object;
+      imageTypes: string[];
+      typeConfigs: Record<string, {
+        customPrompt?: string;
+        aspectRatio: GraphicsAspectRatio;
+        quality: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(body),
+        body: JSON.stringify(input.createBody),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Failed to create project (${res.status})`);
       }
-      return res.json();
+      const project = await res.json();
+      return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
     },
-    onSuccess: async (project) => {
+    onSuccess: async ({ project, imageTypes, typeConfigs }) => {
       setProjectId(project.id);
       creditsRefreshedRef.current = false;
       try {
@@ -282,11 +348,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            imageTypes: selectedImageTypes,
-            customPrompt: customPrompt.trim() || undefined,
-            aspectRatio: graphicsAspectRatio,
-            quality: graphicsQuality,
-            promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
+            imageTypes,
+            typeConfigs,
           }),
         });
         if (!res.ok) {
@@ -376,10 +439,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const generateMoreMutation = useMutation({
     mutationFn: async ({ pid, payload }: { pid: number; payload: {
       imageTypes?: string[];
-      customPrompt?: string;
-      aspectRatio?: GraphicsAspectRatio;
-      quality?: GraphicsQuality;
-      promptReferenceImageUrls?: string[];
+      typeConfigs?: Record<string, {
+        customPrompt?: string;
+        aspectRatio?: GraphicsAspectRatio;
+        quality?: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
     } }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${pid}/generate`, {
         method: "POST",
@@ -440,33 +505,28 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const canContinue = () => {
     if (step === 1) return productName.trim().length > 0;
-    if (step === 2) return selectedImageTypes.length > 0;
-    if (step === 3) return customPrompt.trim().length > 0;
+    if (step === 2) {
+      if (selectedImageTypes.length === 0) return false;
+      if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
+      return true;
+    }
     return true;
   };
 
   const handleContinue = () => {
-    if (step === 2 && !selectedImageTypes.includes("custom")) {
+    if (step === 2) {
       if (!requireImageCredits(selectedImageTypes.length)) return;
       createProject.mutate({
-        name: `${productName} Project`,
-        productName,
-        category: wizardCategory,
-        sourceImageUrls: uploadedImages,
+        createBody: {
+          name: `${productName} Project`,
+          productName,
+          category: wizardCategory,
+          sourceImageUrls: uploadedImages,
+          imageTypes: selectedImageTypes,
+          auditId,
+        },
         imageTypes: selectedImageTypes,
-        customPrompt: undefined,
-        auditId,
-      });
-    } else if (step === 3) {
-      if (!requireImageCredits(selectedImageTypes.length)) return;
-      createProject.mutate({
-        name: `${productName} Project`,
-        productName,
-        category: wizardCategory,
-        sourceImageUrls: uploadedImages,
-        imageTypes: selectedImageTypes,
-        customPrompt: customPrompt.trim() || undefined,
-        auditId,
+        typeConfigs: graphicsTypeConfigsPayload,
       });
     } else {
       setStep((s) => (s + 1) as Step);
@@ -588,9 +648,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 onClick={() => {
                   if (!requireImageCredits(1)) return;
                   setShowMore(true);
-                  setMoreStep("select");
-                  setSelectedImageTypes([]);
-                  setCustomPrompt("");
+                  setMoreImageTypes([]);
+                  setMoreImageTypePromptConfigs({});
                 }}
               >
                 <Sparkles className="w-4 h-4" />
@@ -753,22 +812,17 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         <Dialog open={showMore} onOpenChange={(o) => {
           if (!o) {
             setShowMore(false);
-            setMoreStep("select");
             setMoreImageTypes([]);
-            setMoreCustomPrompt("");
-            setMorePromptReferenceImages([]);
-            setMoreGraphicsAspectRatio("1:1");
-            setMoreGraphicsQuality("standard");
+            setMoreImageTypePromptConfigs({});
           }
         }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Generate More Images</DialogTitle>
             </DialogHeader>
 
-            {/* Step 1: Select Image Types */}
-            {moreStep === "select" && (
-              <div className="space-y-4">
+            {/* Select image types and customize */}
+            <div className="space-y-4">
                 <p className="text-sm text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -829,96 +883,50 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                   </div>
                 )}
 
+                {moreImageTypes.length > 0 && (
+                  <div className="space-y-4">
+                    <p className="text-sm font-medium text-slate-700">
+                      Customize each selected image type with its own prompt, references, and output settings.
+                    </p>
+                    {moreImageTypes.map((typeId) => {
+                      const type = IMAGE_TYPES.find((item) => item.id === typeId);
+                      if (!type) return null;
+                      const config = getMoreImageTypeConfig(typeId);
+                      return (
+                        <CustomPromptGenerationPanel
+                          key={typeId}
+                          title={`${type.icon} ${type.label}`}
+                          subtitle={type.desc}
+                          customPrompt={config.customPrompt}
+                          onCustomPromptChange={(value) => updateMoreImageTypeConfig(typeId, { customPrompt: value })}
+                          referenceImages={config.referenceImages}
+                          onReferenceImagesChange={(images) => updateMoreImageTypeConfig(typeId, { referenceImages: images })}
+                          aspectRatio={config.aspectRatio}
+                          onAspectRatioChange={(ratio) => updateMoreImageTypeConfig(typeId, { aspectRatio: ratio })}
+                          quality={config.quality}
+                          onQualityChange={(quality) => updateMoreImageTypeConfig(typeId, { quality })}
+                          promptMaxChars={PROMPT_MAX_CHARS}
+                          examplePrompts={typeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-3 pt-4 border-t">
                   <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => {
                     setMoreImageTypes([]);
-                    setMoreCustomPrompt("");
+                    setMoreImageTypePromptConfigs({});
                   }}>
                     Clear
                   </Button>
                   <Button
                     className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
-                    disabled={moreImageTypes.length === 0 || !canAffordImages(moreImageTypes.length)}
-                    onClick={() => {
-                      if (!requireImageCredits(moreImageTypes.length)) return;
-                      if (moreImageTypes.includes("custom")) {
-                        setMoreStep("custom");
-                      } else {
-                        const pid = displayProject?.id ?? activeProjectId ?? 0;
-                        if (pid) {
-                          generateMoreMutation.mutate({
-                            pid,
-                            payload: {
-                              imageTypes: moreImageTypes,
-                            },
-                          });
-                        }
-                        setShowMore(false);
-                      }
-                    }}
-                  >
-                    {moreImageTypes.includes("custom") ? "Continue" : "Generate"}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Custom Prompt */}
-            {moreStep === "custom" && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-orange-600">
-                    <ArrowLeft className="w-4 h-4" />
-                  </span>
-                  <span className="font-medium text-slate-900">Custom Image</span>
-                </div>
-
-                <CustomPromptGenerationPanel
-                  customPrompt={moreCustomPrompt}
-                  onCustomPromptChange={setMoreCustomPrompt}
-                  referenceImages={morePromptReferenceImages}
-                  onReferenceImagesChange={setMorePromptReferenceImages}
-                  aspectRatio={moreGraphicsAspectRatio}
-                  onAspectRatioChange={setMoreGraphicsAspectRatio}
-                  quality={moreGraphicsQuality}
-                  onQualityChange={setMoreGraphicsQuality}
-                  promptMaxChars={PROMPT_MAX_CHARS}
-                  examplePrompts={CUSTOM_EXAMPLES}
-                />
-
-                {moreImageTypes.filter(s => s !== "custom").length > 0 && (
-                  <div className="pt-3 border-t border-slate-100">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Also generating:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {moreImageTypes.filter(s => s !== "custom").map((id) => {
-                        const type = [
-                          { id: "hero", label: "Hero Shot" },
-                          { id: "lifestyle", label: "Lifestyle" },
-                          { id: "callouts", label: "Callouts" },
-                          { id: "size", label: "Size Reference" },
-                          { id: "beforeafter", label: "Before/After" },
-                          { id: "bundle", label: "Bundle" },
-                          { id: "social", label: "Social Proof" },
-                        ].find((t) => t.id === id);
-                        return (
-                          <span key={id} className="px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium border border-orange-200">
-                            {type?.label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setMoreStep("select")}>
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                  </Button>
-                  <Button
-                    className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
-                    disabled={!moreCustomPrompt.trim() || !canAffordImages(moreImageTypes.length)}
+                    disabled={
+                      moreImageTypes.length === 0
+                      || !canAffordImages(moreImageTypes.length)
+                      || (moreImageTypes.includes("custom") && !getMoreImageTypeConfig("custom").customPrompt.trim())
+                    }
                     onClick={() => {
                       if (!requireImageCredits(moreImageTypes.length)) return;
                       const pid = displayProject?.id ?? activeProjectId ?? 0;
@@ -927,22 +935,18 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                           pid,
                           payload: {
                             imageTypes: moreImageTypes,
-                            customPrompt: moreCustomPrompt.trim(),
-                            aspectRatio: moreGraphicsAspectRatio,
-                            quality: moreGraphicsQuality,
-                            promptReferenceImageUrls: morePromptReferenceImages.length > 0 ? morePromptReferenceImages : undefined,
+                            typeConfigs: moreTypeConfigsPayload,
                           },
                         });
                       }
                       setShowMore(false);
                     }}
                   >
-                    Generate {moreImageTypes.length} Image{moreImageTypes.length > 1 ? "s" : ""}
+                    Generate {moreImageTypes.length > 0 ? `${moreImageTypes.length} Image${moreImageTypes.length > 1 ? "s" : ""}` : ""}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
               </div>
-            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -1021,7 +1025,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 </div>
                 <div className="mt-2 text-center min-w-0">
                   <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-orange-600" : "text-slate-400"}`}>
-                    Step {s.id} of 3
+                    Step {s.id} of {STEPS.length}
                   </p>
                   <p className={`text-sm font-medium truncate max-w-[7rem] ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
                     {s.label}
@@ -1197,34 +1201,36 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
             </div>
           )}
-        </div>
-      )}
 
-      {/* Step 3: Custom Prompt (only if custom selected) */}
-      {step === 3 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-orange-600" />
+          {selectedImageTypes.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-slate-700">
+                Customize each selected image type with its own prompt, references, and output settings.
+              </p>
+              {selectedImageTypes.map((typeId) => {
+                const type = IMAGE_TYPES.find((item) => item.id === typeId);
+                if (!type) return null;
+                const config = getImageTypeConfig(typeId);
+                return (
+                  <CustomPromptGenerationPanel
+                    key={typeId}
+                    title={`${type.icon} ${type.label}`}
+                    subtitle={type.desc}
+                    customPrompt={config.customPrompt}
+                    onCustomPromptChange={(value) => updateImageTypeConfig(typeId, { customPrompt: value })}
+                    referenceImages={config.referenceImages}
+                    onReferenceImagesChange={(images) => updateImageTypeConfig(typeId, { referenceImages: images })}
+                    aspectRatio={config.aspectRatio}
+                    onAspectRatioChange={(ratio) => updateImageTypeConfig(typeId, { aspectRatio: ratio })}
+                    quality={config.quality}
+                    onQualityChange={(quality) => updateImageTypeConfig(typeId, { quality })}
+                    promptMaxChars={PROMPT_MAX_CHARS}
+                    examplePrompts={typeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+                  />
+                );
+              })}
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Design Style</h2>
-              <p className="text-xs text-slate-500">Select a style and add a custom prompt if desired.</p>
-            </div>
-          </div>
-
-          <CustomPromptGenerationPanel
-            customPrompt={customPrompt}
-            onCustomPromptChange={setCustomPrompt}
-            referenceImages={promptReferenceImages}
-            onReferenceImagesChange={setPromptReferenceImages}
-            aspectRatio={graphicsAspectRatio}
-            onAspectRatioChange={setGraphicsAspectRatio}
-            quality={graphicsQuality}
-            onQualityChange={setGraphicsQuality}
-            promptMaxChars={PROMPT_MAX_CHARS}
-            examplePrompts={CUSTOM_EXAMPLES}
-          />
+          )}
         </div>
       )}
 
@@ -1242,8 +1248,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             disabled={
               !canContinue()
               || createProject.isPending
-              || ((step === 2 && !selectedImageTypes.includes("custom")) || step === 3)
-                && !canAffordImages(selectedImageTypes.length)
+              || (step === 2 && !canAffordImages(selectedImageTypes.length))
             }
             onClick={handleContinue}
           >
@@ -1254,7 +1259,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               </>
             ) : (
               <>
-                {step === 2 && !selectedImageTypes.includes("custom") ? "Generate" : step === 3 ? "Generate" : "Continue"}
+                {step === 2 ? "Generate" : "Continue"}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}
