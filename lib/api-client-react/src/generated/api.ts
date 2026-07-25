@@ -895,6 +895,11 @@ export const generateContent = async (
   return customFetch<GeneratedContent>(getGenerateContentUrl(id), {
     ...options,
     method: "POST",
+    body: options?.body ?? JSON.stringify({}),
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.headers ?? {}),
+    },
   });
 };
 
