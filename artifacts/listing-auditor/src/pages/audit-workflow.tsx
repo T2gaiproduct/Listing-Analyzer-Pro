@@ -46,6 +46,7 @@ import {
   ImageTypeCustomizeDialog,
   SelectedGraphicsTypesSummary,
 } from "@/components/graphics-type-customize-ui";
+import { GRAPHICS_IMAGE_TYPES } from "@/lib/graphics-image-types";
 import {
   useCreateAuditDraft,
   usePatchAudit,
@@ -320,16 +321,7 @@ const AMAZON_CATEGORIES = [
 ];
 
 /* ── Image types ────────────────────────────────────────────────────────── */
-const IMAGE_TYPES = [
-  { id: "hero",        label: "Hero Shot",        desc: "White background, product centered", icon: "🏆" },
-  { id: "lifestyle",   label: "Lifestyle In-Use",  desc: "Product in use, real environment",   icon: "🌅" },
-  { id: "callouts",    label: "Feature Callouts",  desc: "Numbered features, arrows",          icon: "🔢" },
-  { id: "size",        label: "Size Reference",    desc: "Scale comparison with dimensions",   icon: "📏" },
-  { id: "beforeafter", label: "Before / After",    desc: "Transformation comparison",          icon: "⚡" },
-  { id: "bundle",      label: "Bundle Shot",       desc: "All included items",                 icon: "📦" },
-  { id: "social",      label: "Social Proof",      desc: "Ratings & reviews",                  icon: "⭐" },
-  { id: "custom",      label: "Generate Custom",   desc: "Custom prompt",                      icon: "✨" },
-];
+const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES;
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Loading Panel Component
