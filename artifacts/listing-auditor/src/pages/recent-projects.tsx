@@ -288,17 +288,17 @@ export default function RecentProjectsPage() {
         </DropdownMenu>
       </div>
 
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="relative flex-1 max-w-xl">
+      <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1 min-w-0 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search recent projects..."
-            className="pl-9 h-11 rounded-xl bg-white"
+            className="pl-9 h-11 w-full rounded-xl bg-white"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 lg:ml-auto">
           <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
             <SelectTrigger className="w-[120px] h-10 rounded-full bg-white">
               <SelectValue placeholder="Type" />
@@ -322,7 +322,7 @@ export default function RecentProjectsPage() {
               <SelectItem value="30d">Last 30 days</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex items-center rounded-full border border-slate-200 bg-white p-1 ml-auto lg:ml-0">
+          <div className="flex items-center rounded-full border border-slate-200 bg-white p-1">
             <button
               type="button"
               onClick={() => setViewMode("grid")}
