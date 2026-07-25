@@ -546,9 +546,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         <div className="text-center space-y-6 max-w-md mx-auto">
           {/* Centered loader */}
           <div className="relative w-20 h-20 mx-auto">
-            <div className="absolute inset-0 rounded-full border-4 border-purple-100" />
-            <div className="absolute inset-0 rounded-full border-4 border-purple-600 border-t-transparent animate-spin" />
-            <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-purple-600 animate-spin" />
+            <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
+            <div className="absolute inset-0 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
+            <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-orange-500 animate-spin" />
           </div>
 
           {/* Status text */}
@@ -561,7 +561,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
           {/* Progress bar */}
           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-purple-600 transition-all duration-500" style={{ width: `${Math.min(progress, 95)}%` }} />
+            <div className="h-full rounded-full bg-orange-500 transition-all duration-500" style={{ width: `${Math.min(progress, 95)}%` }} />
           </div>
 
           {/* Percentage */}
@@ -647,8 +647,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                       {loadingIds.has(editRecord.id) ? (
                         <>
                           <div className="relative">
-                            <div className="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
-                            <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-purple-600" />
+                            <div className="w-12 h-12 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+                            <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-orange-500" />
                           </div>
                           <div className="text-center px-4">
                             <p className="text-sm font-medium text-slate-700">Generating edit...</p>

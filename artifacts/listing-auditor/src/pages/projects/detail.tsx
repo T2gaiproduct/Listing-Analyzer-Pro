@@ -315,14 +315,14 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
         </div>
       )}
 
       {/* Generating state */}
       {!isLoading && isGenerating && (
         <div className="rounded-lg border bg-white p-8 text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto" />
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
           <p className="text-slate-700 font-medium">Generating your images...</p>
           <p className="text-sm text-slate-400">This may take a minute or two. The page will update automatically.</p>
         </div>
@@ -392,8 +392,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                     {loadingIds.has(editRecord.id) ? (
                       <>
                         <div className="relative">
-                          <div className="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
-                          <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-purple-600" />
+                          <div className="w-12 h-12 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+                          <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-orange-500" />
                         </div>
                         <div className="text-center px-4">
                           <p className="text-sm font-medium text-slate-700">Generating edit...</p>

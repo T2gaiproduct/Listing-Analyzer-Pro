@@ -92,9 +92,9 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
       <div className="text-center space-y-6 max-w-md mx-auto">
         {/* Centered loader */}
         <div className="relative w-20 h-20 mx-auto">
-          <div className="absolute inset-0 rounded-full border-4 border-purple-100" />
-          <div className="absolute inset-0 rounded-full border-4 border-purple-600 border-t-transparent animate-spin" />
-          <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-purple-600 animate-spin" />
+          <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
+          <div className="absolute inset-0 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
+          <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-orange-500 animate-spin" />
         </div>
 
         {/* Status text */}
@@ -118,7 +118,7 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
         {/* Progress bar */}
         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${project?.status === "failed" ? "bg-red-500" : "bg-purple-600"}`}
+            className={`h-full rounded-full transition-all duration-500 ${project?.status === "failed" ? "bg-red-500" : "bg-orange-500"}`}
             style={{ width: `${project?.status === "completed" ? 100 : Math.min(progress, 95)}%` }}
           />
         </div>
