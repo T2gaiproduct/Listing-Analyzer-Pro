@@ -255,7 +255,7 @@ export default function RecentProjectsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 w-full min-w-0">
+    <div className="flex flex-col min-h-[calc(100dvh-11rem)] sm:min-h-[calc(100dvh-10rem)] space-y-6 animate-in fade-in duration-500 w-full min-w-0 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Recent Projects</h1>
@@ -288,17 +288,17 @@ export default function RecentProjectsPage() {
         </DropdownMenu>
       </div>
 
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="relative flex-1 max-w-xl">
+      <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1 min-w-0 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search recent projects..."
-            className="pl-9 h-11 rounded-xl bg-white"
+            className="pl-9 h-11 w-full rounded-xl bg-white"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 lg:ml-auto">
           <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
             <SelectTrigger className="w-[120px] h-10 rounded-full bg-white">
               <SelectValue placeholder="Type" />
@@ -322,7 +322,7 @@ export default function RecentProjectsPage() {
               <SelectItem value="30d">Last 30 days</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex items-center rounded-full border border-slate-200 bg-white p-1 ml-auto lg:ml-0">
+          <div className="flex items-center rounded-full border border-slate-200 bg-white p-1">
             <button
               type="button"
               onClick={() => setViewMode("grid")}
@@ -347,6 +347,7 @@ export default function RecentProjectsPage() {
         </div>
       </div>
 
+      <div className="flex flex-col flex-1 min-h-0">
       {pageItems.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm px-6 py-16 text-center">
           <Folder className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -357,9 +358,9 @@ export default function RecentProjectsPage() {
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
-            {pageItems.map((item) => (
-              <ProjectFolderTile key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
-            ))}
+          {pageItems.map((item) => (
+            <ProjectFolderTile key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
+          ))}
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden divide-y divide-slate-100">
@@ -370,7 +371,7 @@ export default function RecentProjectsPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <div className="mt-auto pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-slate-500">
             Showing {(currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} projects
           </p>
@@ -416,6 +417,7 @@ export default function RecentProjectsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
