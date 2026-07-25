@@ -44,7 +44,7 @@ function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
     <div
       className={cn(
         pill
-          ? "flex items-center justify-center h-11 min-w-[7.5rem] px-6 rounded-full bg-card border border-border hover:border-orange-300 transition-colors"
+          ? "flex items-center justify-center h-11 min-w-[7.5rem] px-4 bg-transparent"
           : cardClass,
       )}
       title={item.name}
