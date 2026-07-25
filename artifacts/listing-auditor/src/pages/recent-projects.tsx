@@ -60,7 +60,7 @@ function ProjectThumbnail({ imageUrl, alt, compact }: { imageUrl: string | null;
   if (!src) {
     return (
       <div className="w-full h-full flex items-center justify-center">
-        <Folder className={cn(compact ? "w-5 h-5" : "w-10 h-10", "text-slate-300")} />
+        <Folder className={cn(compact ? "w-5 h-5" : "w-8 h-8", "text-slate-300")} />
       </div>
     );
   }
@@ -102,23 +102,23 @@ function ProjectCard({
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
       <Link href={item.url} className="block">
-        <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+        <div className="relative aspect-[16/9] max-h-36 bg-slate-100 overflow-hidden">
           <ProjectThumbnail imageUrl={image} alt={item.name} />
           {showScore && (
-            <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white border-2 border-orange-400 flex items-center justify-center shadow-sm">
-              <span className="text-sm font-bold text-orange-600">{item.score}</span>
+            <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-white border-2 border-orange-400 flex items-center justify-center shadow-sm">
+              <span className="text-xs font-bold text-orange-600">{item.score}</span>
             </div>
           )}
           {item.pinned && (
-            <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow-sm">
-              <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+            <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-white/90 flex items-center justify-center shadow-sm">
+              <Pin className="w-3 h-3 text-orange-500 fill-orange-500" />
             </div>
           )}
         </div>
       </Link>
       <div className="p-4">
         <Link href={item.url}>
-          <h3 className="font-semibold text-slate-900 line-clamp-2 min-h-[2.75rem] group-hover:text-orange-600 transition-colors">
+          <h3 className="font-semibold text-slate-900 line-clamp-2 group-hover:text-orange-600 transition-colors">
             {item.name}
           </h3>
         </Link>
