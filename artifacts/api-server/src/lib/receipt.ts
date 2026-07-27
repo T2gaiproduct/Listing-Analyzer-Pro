@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import { eq } from "drizzle-orm";
 import { db, paymentsTable, plansTable, userProfilesTable } from "@workspace/db";
+import { drawSellerLensLogo } from "./pdf-sellerlens-logo.js";
 
 interface ReceiptData {
   id: number;
@@ -78,14 +79,24 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
   const slate400 = "#94a3b8";
   const slate100 = "#f1f5f9";
 
-  // ─── Header band ───────────────────────────────────────────────────────────
-  doc.rect(m, m, w - m * 2, 100).fill(brand);
-  doc.fillColor("#fff").font("Helvetica-Bold").fontSize(22).text("SellerLens", m + 24, m + 28);
-  doc.font("Helvetica").fontSize(12).text("AI-powered Amazon listing optimization", m + 24, m + 58);
-  doc.font("Helvetica-Bold").fontSize(16).text("RECEIPT", w - m - 120, m + 38, { align: "right" });
+  // ─── Header with SellerLens logo ─────────────────────────────────────────────
+  const headerTop = m + 16;
+  drawSellerLensLogo(doc, m + 8, headerTop, 36);
+  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(16).text("RECEIPT", m, headerTop + 8, {
+    width: w - m * 2,
+    align: "right",
+  });
+  doc.fillColor(slate400).font("Helvetica").fontSize(11).text(
+    "AI-powered Amazon listing optimization",
+    m,
+    headerTop + 30,
+    { width: w - m * 2, align: "right" },
+  );
+  const headerBottom = headerTop + 52;
+  doc.moveTo(m, headerBottom).lineTo(w - m, headerBottom).strokeColor(brand).lineWidth(2).stroke();
 
   // ─── Receipt details ───────────────────────────────────────────────────────
-  let y = m + 130;
+  let y = headerBottom + 28;
   doc.fillColor(slate900).font("Helvetica-Bold").fontSize(12).text("Receipt Details", m, y);
   doc.moveTo(m, y + 18).lineTo(w - m, y + 18).stroke(slate100);
 
