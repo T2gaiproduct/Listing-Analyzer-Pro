@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 import { useRecentProjectMutations } from "@/hooks/use-recent-project-mutations";
 import { RecentProjectMenu, type EnrichedRecentItem } from "@/components/recent-project-menu";
+import { ExplorerFolderSection, RecentProjectsExplorer } from "@/components/recent-projects-explorer";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const PAGE_SIZE = 12;
@@ -116,8 +117,8 @@ function ProjectFolderTile({
         <div className="relative flex-shrink-0">
           <ProjectFolderIcon imageUrl={image} alt={item.name} />
           {item.pinned && (
-            <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-white shadow flex items-center justify-center">
-              <Pin className="w-2.5 h-2.5 text-orange-500 fill-orange-500" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white shadow flex items-center justify-center">
+              <Pin className="w-2.5 h-2.5 text-slate-500 fill-slate-400" />
             </span>
           )}
         </div>
@@ -229,9 +230,29 @@ export default function RecentProjectsPage() {
     });
   }, [items, search, typeFilter, dateFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pinnedItems = useMemo(
+    () => filtered.filter((item) => item.pinned).slice(0, 8),
+    [filtered],
+  );
+
+  const unpinnedFiltered = useMemo(
+    () => filtered.filter((item) => !item.pinned),
+    [filtered],
+  );
+
+  const listTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const gridTotalPages = Math.max(1, Math.ceil(unpinnedFiltered.length / PAGE_SIZE));
+  const totalPages = viewMode === "list" ? listTotalPages : gridTotalPages;
   const currentPage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const gridPageItems = unpinnedFiltered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const listPageItems = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
 
   const actionProps = (item: EnrichedRecentItem) => ({
     onPin: () => pinMutation.mutate({ type: item.type, id: item.id }),
@@ -245,11 +266,15 @@ export default function RecentProjectsPage() {
       <div className="space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-11 w-full max-w-xl" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-[52px] rounded-md" />
-          ))}
-        </div>
+        <RecentProjectsExplorer>
+          <ExplorerFolderSection title="Recent folders">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-[52px] rounded-md" />
+              ))}
+            </div>
+          </ExplorerFolderSection>
+        </RecentProjectsExplorer>
       </div>
     );
   }
@@ -348,7 +373,7 @@ export default function RecentProjectsPage() {
       </div>
 
       <div className="flex flex-col flex-1 min-h-0">
-      {pageItems.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm px-6 py-16 text-center">
           <Folder className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-600 font-medium">No projects found</p>
@@ -357,17 +382,41 @@ export default function RecentProjectsPage() {
           </p>
         </div>
       ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
-          {pageItems.map((item) => (
-            <ProjectFolderTile key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
-          ))}
-        </div>
+        <RecentProjectsExplorer>
+          {pinnedItems.length > 0 && (
+            <ExplorerFolderSection title="Pinned folders" count={pinnedItems.length} className="mb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
+                {pinnedItems.map((item) => (
+                  <ProjectFolderTile key={`pin-${item.type}-${item.id}`} item={item} {...actionProps(item)} />
+                ))}
+              </div>
+            </ExplorerFolderSection>
+          )}
+          <ExplorerFolderSection
+            title="Recent folders"
+            count={unpinnedFiltered.length > 0 ? unpinnedFiltered.length : filtered.length}
+          >
+            {gridPageItems.length === 0 ? (
+              <p className="text-xs text-slate-500 px-2 py-3">All matching projects are pinned above.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-1">
+                {gridPageItems.map((item) => (
+                  <ProjectFolderTile key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
+                ))}
+              </div>
+            )}
+          </ExplorerFolderSection>
+        </RecentProjectsExplorer>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden divide-y divide-slate-100">
-          {pageItems.map((item) => (
-            <ProjectListRow key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
-          ))}
-        </div>
+        <RecentProjectsExplorer>
+          <ExplorerFolderSection title="Recent projects" count={filtered.length}>
+            <div className="bg-white rounded-lg border border-slate-200/80 overflow-hidden divide-y divide-slate-100">
+              {listPageItems.map((item) => (
+                <ProjectListRow key={`${item.type}-${item.id}`} item={item} {...actionProps(item)} />
+              ))}
+            </div>
+          </ExplorerFolderSection>
+        </RecentProjectsExplorer>
       )}
 
       {filtered.length > 0 && (
