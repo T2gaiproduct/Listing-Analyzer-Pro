@@ -269,7 +269,7 @@ function PricingPlanCard({
   return (
     <div
       className={cn(
-        "rounded-2xl flex flex-col bg-white border relative h-full text-left",
+        "rounded-2xl flex flex-col bg-white border relative h-full w-full min-w-0 text-left",
         compact ? "p-5" : "p-6 sm:p-8",
         highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
       )}
@@ -348,34 +348,39 @@ function PricingCarousel({
   };
 
   return (
-    <div className="relative sm:hidden px-2">
-      <button
-        type="button"
-        onClick={() => scroll(-1)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Previous plan"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-600" />
-      </button>
-      <button
-        type="button"
-        onClick={() => scroll(1)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Next plan"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-600" />
-      </button>
+    <div className="sm:hidden space-y-3">
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain items-stretch"
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide overscroll-x-contain -mx-1 px-1"
       >
         {orderedPlans.map((p) => (
-          <div key={p.id} className="snap-center shrink-0 w-[min(88vw,22rem)] flex">
+          <div
+            key={p.id}
+            className="snap-center shrink-0 w-[calc(100vw-2rem)] max-w-[28rem] flex"
+          >
             <PricingPlanCard plan={p} compact creditRules={creditRules} yearly={yearly} />
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs text-slate-400 text-center">Swipe to compare plans</p>
+      <div className="flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => scroll(-1)}
+          className="w-9 h-9 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center hover:bg-slate-50 shrink-0"
+          aria-label="Previous plan"
+        >
+          <ChevronLeft className="w-5 h-5 text-slate-600" />
+        </button>
+        <p className="text-xs text-slate-400 text-center flex-1 min-w-0">Swipe to compare plans</p>
+        <button
+          type="button"
+          onClick={() => scroll(1)}
+          className="w-9 h-9 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center hover:bg-slate-50 shrink-0"
+          aria-label="Next plan"
+        >
+          <ChevronRight className="w-5 h-5 text-slate-600" />
+        </button>
+      </div>
     </div>
   );
 }

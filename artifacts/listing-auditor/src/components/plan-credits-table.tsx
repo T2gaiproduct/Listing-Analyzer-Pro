@@ -26,17 +26,17 @@ export function PlanCreditsTable({
         <span>Credits / Mo</span>
       </div>
       {activityRows.map((row) => (
-        <div key={row.label} className="flex items-center justify-between text-sm">
-          <span className="text-slate-600">{row.label}</span>
-          <span className={cn("font-semibold", row.color)}>
+        <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center text-sm">
+          <span className="text-slate-600 min-w-0">{row.label}</span>
+          <span className={cn("font-semibold shrink-0 tabular-nums", row.color)}>
             {formatPlanAllocationDisplayValue(row.value)}
           </span>
         </div>
       ))}
       <div className="border-t border-slate-200 pt-3 mt-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-600 font-medium">Total Monthly Credits</span>
-          <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center text-sm">
+          <span className="text-slate-600 font-medium min-w-0">Total Monthly Credits</span>
+          <span className="font-bold text-slate-900 shrink-0 tabular-nums">{totalCredits.toLocaleString()}</span>
         </div>
       </div>
     </div>
