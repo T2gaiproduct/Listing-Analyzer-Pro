@@ -4,14 +4,15 @@ import { db, settingsTable } from "@workspace/db";
 
 export const emailFrom = process.env.EMAIL_FROM ?? "SellerLens <noreply@listingauditor.com>";
 
-const EMAIL_SETTING_KEYS = ["resend_api_key", "email_from_name", "email_from_address"] as const;
+const EMAIL_SETTING_KEYS = ["resend_api_key", "email_from_name", "email_from_address", "email_reply_to", "email_notifications_enabled"] as const;
 
 let cachedResend: { apiKey: string; client: Resend } | null = null;
 
-async function resolveResendConfig(): Promise<{ apiKey: string; from: string } | null> {
+async function resolveResendConfig(): Promise<{ apiKey: string; from: string; replyTo?: string } | null> {
   const envKey = process.env.RESEND_API_KEY?.trim();
   if (envKey) {
-    return { apiKey: envKey, from: process.env.EMAIL_FROM?.trim() || emailFrom };
+    const replyTo = process.env.EMAIL_REPLY_TO?.trim() || undefined;
+    return { apiKey: envKey, from: process.env.EMAIL_FROM?.trim() || emailFrom, replyTo };
   }
 
   const rows = await db
@@ -26,7 +27,8 @@ async function resolveResendConfig(): Promise<{ apiKey: string; from: string } |
   const fromName = map.email_from_name?.trim() || "SellerLens";
   const fromAddress = map.email_from_address?.trim();
   const from = fromAddress ? `${fromName} <${fromAddress}>` : emailFrom;
-  return { apiKey, from };
+  const replyTo = map.email_reply_to?.trim() || process.env.EMAIL_REPLY_TO?.trim() || undefined;
+  return { apiKey, from, replyTo };
 }
 
 async function getResendClient(apiKey: string): Promise<Resend> {
@@ -36,14 +38,29 @@ async function getResendClient(apiKey: string): Promise<Resend> {
   return client;
 }
 
+export async function isEmailNotificationsEnabled(): Promise<boolean> {
+  const env = process.env.EMAIL_NOTIFICATIONS_ENABLED?.trim().toLowerCase();
+  if (env === "false" || env === "0") return false;
+
+  const rows = await db
+    .select({ value: settingsTable.value })
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, ["email_notifications_enabled"]));
+  const value = rows[0]?.value?.trim().toLowerCase();
+  if (value === "false" || value === "0") return false;
+  return true;
+}
+
 export async function sendEmail({
   to,
   subject,
   html,
+  replyTo,
 }: {
   to: string;
   subject: string;
   html: string;
+  replyTo?: string;
 }): Promise<{ success: boolean; error?: string; id?: string }> {
   const config = await resolveResendConfig();
   if (!config) {
@@ -57,6 +74,7 @@ export async function sendEmail({
       to,
       subject,
       html,
+      replyTo: replyTo ?? config.replyTo ?? undefined,
     });
     return { success: true, id: result.data?.id };
   } catch (e) {

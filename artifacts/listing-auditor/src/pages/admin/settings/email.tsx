@@ -28,6 +28,7 @@ export default function AdminSettingsEmail() {
     email_from_name: "SellerLens",
     email_from_address: "",
     email_reply_to: "",
+    email_notifications_enabled: "true",
     resend_api_key: "",
     smtp_host: "",
     smtp_port: "587",
@@ -85,8 +86,33 @@ export default function AdminSettingsEmail() {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Email notifications (Resend)</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Send notification emails when credits are low, projects change, and other in-app alerts.
+                </p>
+              </div>
+              <select
+                className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm shrink-0"
+                value={form.email_notifications_enabled}
+                onChange={(e) => setForm({ ...form, email_notifications_enabled: e.target.value })}
+              >
+                <option value="true">Enabled</option>
+                <option value="false">Disabled</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle>Resend</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-sm text-slate-500">
+              Transactional and notification emails are sent through Resend using the API key below.
+            </p>
             {field("resend_api_key", "Resend API Key", "password", "re_...")}
           </CardContent>
         </Card>

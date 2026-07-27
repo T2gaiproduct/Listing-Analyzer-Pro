@@ -1,5 +1,8 @@
 import { db, notificationsTable } from "@workspace/db";
 import type { Notification } from "@workspace/db";
+import { fetchClerkUserEmailAndName } from "./clerk-user.js";
+import { notificationEmailTemplate } from "./email-templates.js";
+import { isEmailNotificationsEnabled, sendEmail } from "./email.js";
 import { wsSend } from "./ws";
 
 export type NotificationType =
@@ -12,6 +15,8 @@ export type NotificationType =
   | "audit_completed"
   | "competitor_added"
   | "credits_low"
+  | "credit_low"
+  | "credit_depleted"
   | "subscription_expired"
   | "subscription_renewed"
   | "payment_received"
@@ -20,12 +25,47 @@ export type NotificationType =
   | "system"
   | "welcome";
 
+function getAppBaseUrl(): string {
+  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://listingauditor.com").replace(/\/$/, "");
+}
+
+async function sendNotificationEmail(params: {
+  userId: string;
+  title: string;
+  message: string;
+  link?: string;
+}): Promise<void> {
+  if (!(await isEmailNotificationsEnabled())) return;
+
+  const profile = await fetchClerkUserEmailAndName(params.userId);
+  if (!profile?.email) return;
+
+  const base = getAppBaseUrl();
+  const actionUrl = params.link
+    ? (params.link.startsWith("http") ? params.link : `${base}${params.link.startsWith("/") ? params.link : `/${params.link}`}`)
+    : `${base}/notifications`;
+
+  const html = notificationEmailTemplate({
+    recipientName: profile.name,
+    title: params.title,
+    message: params.message,
+    actionUrl,
+  });
+
+  await sendEmail({
+    to: profile.email,
+    subject: params.title,
+    html,
+  });
+}
+
 export async function createNotification(params: {
   userId: string;
   type: NotificationType;
   title: string;
   message: string;
   link?: string;
+  skipEmail?: boolean;
 }): Promise<Notification> {
   const [row] = await db
     .insert(notificationsTable)
@@ -48,6 +88,15 @@ export async function createNotification(params: {
     sentAt: row.sentAt,
   });
 
+  if (!params.skipEmail) {
+    void sendNotificationEmail({
+      userId: params.userId,
+      title: params.title,
+      message: params.message,
+      link: params.link,
+    });
+  }
+
   return row;
 }
 
@@ -58,7 +107,8 @@ export async function createBulkNotifications(
     title: string;
     message: string;
     link?: string;
-  }>
+  }>,
+  options?: { skipEmail?: boolean },
 ): Promise<Notification[]> {
   if (notifications.length === 0) return [];
   const rows = await db
@@ -72,8 +122,20 @@ export async function createBulkNotifications(
         link: n.link ?? null,
         read: false,
         sentAt: new Date(),
-      }))
+      })),
     )
     .returning();
+
+  if (!options?.skipEmail) {
+    for (const n of notifications) {
+      void sendNotificationEmail({
+        userId,
+        title: n.title,
+        message: n.message,
+        link: n.link,
+      });
+    }
+  }
+
   return rows;
 }
