@@ -144,7 +144,7 @@ export async function deductCredits(
 
   const remaining = check.currentBalance - amount;
 
-  // Notify user when credits are depleted or running low (in-app + Resend email)
+  // Notify user when credits are depleted or running low (in-app + SMTP email)
   if (remaining === 0) {
     await createNotification({
       userId,

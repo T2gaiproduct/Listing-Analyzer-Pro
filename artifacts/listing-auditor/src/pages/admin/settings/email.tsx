@@ -24,12 +24,10 @@ function saveSettings(category: string, settings: Record<string, string>): Promi
 export default function AdminSettingsEmail() {
   const { toast } = useToast();
   const [form, setForm] = useState({
-    email_provider: "resend",
     email_from_name: "SellerLens",
     email_from_address: "",
     email_reply_to: "",
     email_notifications_enabled: "true",
-    resend_api_key: "",
     smtp_host: "",
     smtp_port: "587",
     smtp_username: "",
@@ -68,20 +66,12 @@ export default function AdminSettingsEmail() {
         <Card>
           <CardHeader><CardTitle>Sender</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Email Provider</label>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                value={form.email_provider}
-                onChange={(e) => setForm({ ...form, email_provider: e.target.value })}
-              >
-                <option value="resend">Resend</option>
-                <option value="smtp">SMTP</option>
-              </select>
-            </div>
             {field("email_from_name", "From Name", "text", "SellerLens")}
             {field("email_from_address", "From Email", "email", "no-reply@yourdomain.com")}
             {field("email_reply_to", "Reply-To Email", "email", "support@yourdomain.com")}
+            <p className="text-xs text-muted-foreground">
+              The from address must be allowed by your SMTP provider. Use port 587 for STARTTLS or 465 for SSL.
+            </p>
           </CardContent>
         </Card>
 
@@ -90,7 +80,7 @@ export default function AdminSettingsEmail() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 px-4 py-3">
               <div>
-                <p className="text-sm font-medium">Email notifications (Resend)</p>
+                <p className="text-sm font-medium">Email notifications (SMTP)</p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Send notification emails when credits are low, projects change, and other in-app alerts.
                 </p>
@@ -108,18 +98,11 @@ export default function AdminSettingsEmail() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Resend</CardTitle></CardHeader>
+          <CardHeader><CardTitle>SMTP (Nodemailer)</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-slate-500">
-              Transactional and notification emails are sent through Resend using the API key below.
+              All transactional and notification emails are sent through your SMTP server (SendGrid, Gmail, etc.).
             </p>
-            {field("resend_api_key", "Resend API Key", "password", "re_...")}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>SMTP (optional fallback)</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
             {field("smtp_host", "SMTP Host", "text", "smtp.example.com")}
             {field("smtp_port", "SMTP Port", "number", "587")}
             {field("smtp_username", "SMTP Username")}

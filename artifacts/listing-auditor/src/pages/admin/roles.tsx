@@ -209,7 +209,7 @@ export default function AdminRoles() {
       } else {
         toast({
           title: "Role assigned",
-          description: `Email not sent: ${data.emailError ?? "Configure Resend in Admin → Email Settings."}`,
+          description: `Email not sent: ${data.emailError ?? "Configure SMTP in Admin → Email Settings."}`,
         });
       }
     },
@@ -228,7 +228,7 @@ export default function AdminRoles() {
       } else {
         toast({
           title: "Role updated",
-          description: `Email not sent: ${data.emailError ?? "Configure Resend in Admin → Email Settings."}`,
+          description: `Email not sent: ${data.emailError ?? "Configure SMTP in Admin → Email Settings."}`,
         });
       }
     },
