@@ -23,6 +23,7 @@ type ImageTypeCustomizeDialogProps = {
   onConfigChange: (patch: Partial<ImageTypePromptConfig>) => void;
   promptMaxChars?: number;
   examplePrompts?: string[];
+  hideAspectRatio?: boolean;
 };
 
 export function ImageTypeCustomizeDialog({
@@ -33,6 +34,7 @@ export function ImageTypeCustomizeDialog({
   onConfigChange,
   promptMaxChars,
   examplePrompts,
+  hideAspectRatio = false,
 }: ImageTypeCustomizeDialogProps) {
   if (!type) return null;
 
@@ -59,6 +61,7 @@ export function ImageTypeCustomizeDialog({
           onQualityChange={(quality) => onConfigChange({ quality })}
           promptMaxChars={promptMaxChars}
           examplePrompts={examplePrompts}
+          hideAspectRatio={hideAspectRatio}
         />
 
         <DialogFooter className="sm:justify-end gap-2">
@@ -81,6 +84,8 @@ type SelectedGraphicsTypesSummaryProps = {
   getConfig: (typeId: string) => ImageTypePromptConfig;
   onEdit: (typeId: string) => void;
   onRemove: (typeId: string) => void;
+  instructionText?: string;
+  hideAspectRatio?: boolean;
 };
 
 export function SelectedGraphicsTypesSummary({
@@ -89,13 +94,15 @@ export function SelectedGraphicsTypesSummary({
   getConfig,
   onEdit,
   onRemove,
+  instructionText = "Selected types — tap a row to customize prompt, uploads, and output settings.",
+  hideAspectRatio = false,
 }: SelectedGraphicsTypesSummaryProps) {
   if (selectedTypeIds.length === 0) return null;
 
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium text-slate-700">
-        Selected types — tap a row to customize prompt, uploads, and output settings.
+        {instructionText}
       </p>
       <div className="space-y-2">
         {selectedTypeIds.map((typeId) => {
@@ -122,7 +129,9 @@ export function SelectedGraphicsTypesSummary({
                   <p className="text-xs text-slate-500 truncate">
                     {promptPreview
                       ? promptPreview
-                      : `${ratio?.label ?? config.aspectRatio} · ${quality?.label ?? config.quality}`}
+                      : hideAspectRatio
+                        ? `${quality?.label ?? config.quality} quality`
+                        : `${ratio?.label ?? config.aspectRatio} · ${quality?.label ?? config.quality}`}
                   </p>
                 </div>
                 <span className="hidden sm:inline-flex items-center gap-1 text-xs text-orange-600 font-medium flex-shrink-0">
