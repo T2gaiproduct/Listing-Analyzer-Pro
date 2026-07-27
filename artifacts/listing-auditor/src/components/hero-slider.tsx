@@ -417,7 +417,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
   if (slides.length === 0) return null;
 
   return (
-    <div className="min-w-0 w-full">
+    <div className="min-w-0 w-full flex flex-col min-h-0 flex-1 justify-center">
       <div
         className={cn(
           "overflow-hidden",
@@ -455,15 +455,20 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     </div>
                   <div
                     className={cn(
-                      "hidden lg:flex w-full flex-col justify-center self-stretch px-4 sm:px-6 lg:pl-8 xl:pl-12 lg:pr-4 xl:pr-6 py-6 sm:py-8 lg:py-10 text-center lg:text-left min-w-0",
+                      "hidden lg:flex w-full flex-col justify-center self-stretch px-4 sm:px-6 lg:pl-8 xl:pl-12 lg:pr-4 xl:pr-6 py-4 sm:py-6 lg:py-8 text-center lg:text-left min-w-0",
                       hasDesktopMedia ? "lg:w-[42%] lg:max-w-[42%] lg:shrink-0" : "max-w-4xl mx-auto",
                     )}
                   >
                     <HeroSlideCopy slide={slide} />
                   </div>
                   {hasDesktopMedia && (
-                    <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 self-stretch items-center justify-center py-6 sm:py-8 lg:py-10 pr-4 sm:pr-6 lg:pr-8 xl:pr-12">
-                      <div className="relative w-full aspect-video rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
+                    <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 self-stretch items-center justify-center py-4 sm:py-6 lg:py-8 pr-4 sm:pr-6 lg:pr-8 xl:pr-12">
+                      <div
+                        className={cn(
+                          "relative w-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-sm bg-slate-900",
+                          "aspect-video max-h-[min(340px,46vh)]",
+                        )}
+                      >
                         <HeroSlideMedia slide={slide} panel className="absolute inset-0 h-full w-full" />
                       </div>
                     </div>
@@ -477,7 +482,11 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
       </div>
 
       {multiSlide && (
-        <div className="flex items-center justify-center gap-2 mt-4 sm:mt-10 px-4" role="tablist" aria-label="Hero slides">
+        <div
+          className="flex items-center justify-center gap-2 mt-3 sm:mt-5 px-4 shrink-0"
+          role="tablist"
+          aria-label="Hero slides"
+        >
           {slides.map((slide, index) => (
             <button
               key={slide.id}

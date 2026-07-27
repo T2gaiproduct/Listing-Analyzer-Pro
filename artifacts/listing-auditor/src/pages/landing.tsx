@@ -621,7 +621,7 @@ export default function Landing() {
   } = useLandingCmsData();
 
   return (
-    <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white">
       <PublicNav />
 
       <PageSeo
@@ -630,11 +630,13 @@ export default function Landing() {
         description={cmsText(cms, "seo.description")}
       />
 
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-clip">
       {cmsEnabled(cms, "hero") && (
-      <section className="relative w-full overflow-hidden pt-3 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
+      <>
+      <section className="relative min-h-full flex flex-col overflow-hidden pt-2 sm:pt-6 lg:pt-8 pb-4 sm:pb-6">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)] pointer-events-none" />
         {heroSlides.length > 0 && (
-          <div className="relative w-full">
+          <div className="relative flex-1 flex flex-col min-h-0 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 justify-center">
             <HeroSlider
               slides={heroSlides}
               autoplay={heroAutoplayEnabled(cms)}
@@ -642,8 +644,9 @@ export default function Landing() {
             />
           </div>
         )}
-        <div className="relative px-4 sm:px-6 lg:px-10 max-w-6xl mx-auto">
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
+      </section>
+      <section className="relative px-4 sm:px-6 lg:px-10 max-w-6xl mx-auto py-8 sm:py-10 border-t border-slate-100/80 bg-white">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0">
             {heroStats.map((s) => (
               <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-50 flex items-center justify-center mb-1.5 shrink-0">
@@ -654,8 +657,8 @@ export default function Landing() {
               </div>
             ))}
           </div>
-        </div>
       </section>
+      </>
       )}
 
       {cmsEnabled(cms, "features") && features.length > 0 && (
@@ -833,6 +836,7 @@ export default function Landing() {
 
       <PublicFooter />
       <ExitPopup />
+      </div>
     </div>
   );
 }
