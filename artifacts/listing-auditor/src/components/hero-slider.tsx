@@ -360,9 +360,12 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
   const multiSlide = slides.length > 1;
 
   const measureActiveSlide = useCallback(() => {
-    const el = slideMeasureRefs.current[current];
-    if (el) setViewportHeight(el.offsetHeight);
-  }, [current]);
+    const heights = slideMeasureRefs.current
+      .map((el) => el?.offsetHeight ?? 0)
+      .filter((h) => h > 0);
+    if (heights.length === 0) return;
+    setViewportHeight(Math.max(...heights));
+  }, []);
 
   const onSelect = useCallback(() => {
     if (!api) return;
@@ -463,7 +466,12 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                   </div>
                   {hasDesktopMedia && (
                     <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 self-stretch items-center justify-center py-6 sm:py-8 lg:py-10 pr-4 sm:pr-6 lg:pr-8 xl:pr-12">
-                      <div className="relative w-full aspect-video rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
+                      <div
+                        className={cn(
+                          "relative w-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-sm bg-slate-900",
+                          "aspect-video max-h-[min(360px,38vh)]",
+                        )}
+                      >
                         <HeroSlideMedia slide={slide} panel className="absolute inset-0 h-full w-full" />
                       </div>
                     </div>
@@ -477,7 +485,11 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
       </div>
 
       {multiSlide && (
-        <div className="flex items-center justify-center gap-2 mt-4 sm:mt-10 px-4" role="tablist" aria-label="Hero slides">
+        <div
+          className="flex items-center justify-center gap-2 mt-4 sm:mt-6 px-4 shrink-0"
+          role="tablist"
+          aria-label="Hero slides"
+        >
           {slides.map((slide, index) => (
             <button
               key={slide.id}

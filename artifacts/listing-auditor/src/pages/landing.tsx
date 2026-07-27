@@ -631,10 +631,10 @@ export default function Landing() {
       />
 
       {cmsEnabled(cms, "hero") && (
-      <section className="relative w-full overflow-hidden pt-3 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
+      <section className="relative w-full overflow-x-hidden pt-3 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)] pointer-events-none" />
         {heroSlides.length > 0 && (
-          <div className="relative w-full">
+          <div className="relative w-full z-0">
             <HeroSlider
               slides={heroSlides}
               autoplay={heroAutoplayEnabled(cms)}
@@ -642,8 +642,8 @@ export default function Landing() {
             />
           </div>
         )}
-        <div className="relative px-4 sm:px-6 lg:px-10 max-w-6xl mx-auto">
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
+        <div className="relative z-10 px-4 sm:px-6 lg:px-10 max-w-6xl mx-auto shrink-0">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-6 sm:mt-8">
             {heroStats.map((s) => (
               <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-50 flex items-center justify-center mb-1.5 shrink-0">
