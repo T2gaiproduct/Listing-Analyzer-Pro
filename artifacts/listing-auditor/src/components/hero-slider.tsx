@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Play, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import {
   heroSlideDesktopImage,
   heroSlideDesktopVideo,
   heroSlideHasDesktopMedia,
-  heroSlideHasMobileMedia,
   heroSlideIsVideo,
   heroSlideMobileImage,
   heroSlideMobileVideo,
@@ -352,26 +351,6 @@ function HeroSlideCopy({
   );
 }
 
-function HeroMobileOverlaySlide({
-  slide,
-  media,
-}: {
-  slide: HeroSlide;
-  media: ReactNode;
-}) {
-  return (
-    <div className="lg:hidden w-full shrink-0 overflow-hidden bg-slate-950">
-      <div className="relative w-full aspect-[5/4] min-h-[200px] max-h-[min(38vh,320px)] overflow-hidden bg-slate-100">
-        <div className="absolute inset-0">{media}</div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950 to-transparent" />
-      </div>
-      <div className="px-4 pt-4 pb-5 sm:px-6 text-center">
-        <HeroSlideCopy slide={slide} overlay mobileOverlay />
-      </div>
-    </div>
-  );
-}
-
 export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 }: HeroSliderProps) {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
@@ -458,7 +437,6 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
           <CarouselContent className="ml-0 w-full items-start">
             {slides.map((slide, slideIndex) => {
               const hasDesktopMedia = heroSlideHasDesktopMedia(slide);
-              const showMobileBanner = heroSlideHasMobileMedia(slide);
 
               /* Full-bleed video banner disabled — video plays in the right panel only (see hasDesktopMedia layout). */
               // const isVideoBanner = heroSlideIsVideo(slide);
@@ -472,16 +450,9 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                     }}
                     className={cn("flex w-full flex-col lg:items-stretch", hasDesktopMedia && "lg:flex-row")}
                   >
-                    {showMobileBanner ? (
-                      <HeroMobileOverlaySlide
-                        slide={slide}
-                        media={<HeroSlideMedia slide={slide} mobile fullBleed className="absolute inset-0 h-full w-full" />}
-                      />
-                    ) : (
-                      <div className="lg:hidden px-4 sm:px-6 pt-4 pb-0 text-center">
-                        <HeroSlideCopy slide={slide} />
-                      </div>
-                    )}
+                    <div className="lg:hidden px-4 sm:px-6 pt-4 pb-0 text-center">
+                      <HeroSlideCopy slide={slide} />
+                    </div>
                   <div
                     className={cn(
                       "hidden lg:flex w-full flex-col justify-center self-stretch px-4 sm:px-6 lg:pl-8 xl:pl-12 lg:pr-4 xl:pr-6 py-6 sm:py-8 lg:py-10 text-center lg:text-left min-w-0",
