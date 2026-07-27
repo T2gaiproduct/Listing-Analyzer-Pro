@@ -24,11 +24,9 @@ function saveSettings(category: string, settings: Record<string, string>): Promi
 export default function AdminSettingsEmail() {
   const { toast } = useToast();
   const [form, setForm] = useState({
-    email_provider: "resend",
     email_from_name: "SellerLens",
     email_from_address: "",
     email_reply_to: "",
-    resend_api_key: "",
     smtp_host: "",
     smtp_port: "587",
     smtp_username: "",
@@ -65,34 +63,23 @@ export default function AdminSettingsEmail() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle>Sender</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Sender</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Email Provider</label>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                value={form.email_provider}
-                onChange={(e) => setForm({ ...form, email_provider: e.target.value })}
-              >
-                <option value="resend">Resend</option>
-                <option value="smtp">SMTP</option>
-              </select>
-            </div>
             {field("email_from_name", "From Name", "text", "SellerLens")}
             {field("email_from_address", "From Email", "email", "no-reply@yourdomain.com")}
             {field("email_reply_to", "Reply-To Email", "email", "support@yourdomain.com")}
+            <p className="text-xs text-muted-foreground">
+              The from address must be allowed by your SMTP provider. Use port 587 for STARTTLS or 465 for SSL.
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Resend</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {field("resend_api_key", "Resend API Key", "password", "re_...")}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>SMTP (optional fallback)</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>SMTP (Nodemailer)</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             {field("smtp_host", "SMTP Host", "text", "smtp.example.com")}
             {field("smtp_port", "SMTP Port", "number", "587")}
