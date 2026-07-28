@@ -1853,53 +1853,60 @@ router.patch("/admin/forms/:id/read", requireAdmin, async (req, res): Promise<vo
 });
 
 router.post("/admin/forms/:id/reply", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(String(req.params.id ?? ""));
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
-  if (!message) {
-    res.status(400).json({ error: "Reply message is required" });
-    return;
-  }
+    const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+    if (!message) {
+      res.status(400).json({ error: "Reply message is required" });
+      return;
+    }
 
-  const [ticket] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, id));
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-  if (!ticket.email?.trim()) {
-    res.status(400).json({ error: "This ticket has no customer email" });
-    return;
-  }
+    const [ticket] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, id));
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found" });
+      return;
+    }
+    if (!ticket.email?.trim()) {
+      res.status(400).json({ error: "This ticket has no customer email" });
+      return;
+    }
 
-  const data = (ticket.data ?? {}) as { subject?: string; message?: string; replies?: Array<{ message: string; sentAt: string }> };
-  const originalSubject = data.subject?.trim() || "Support ticket";
+    const data = (ticket.data ?? {}) as { subject?: string; message?: string; replies?: Array<{ message: string; sentAt: string }> };
+    const originalSubject = data.subject?.trim() || "Support ticket";
 
-  const emailResult = await sendSupportTicketReplyEmail({
-    toEmail: ticket.email.trim(),
-    customerName: ticket.name,
-    originalSubject,
-    replyMessage: message,
-  });
-
-  if (!emailResult.success) {
-    res.status(502).json({
-      error: emailResult.error ?? "Failed to send email. Check Admin → Email Settings (SMTP).",
+    const emailResult = await sendSupportTicketReplyEmail({
+      toEmail: ticket.email.trim(),
+      customerName: ticket.name,
+      originalSubject,
+      replyMessage: message,
     });
-    return;
+
+    if (!emailResult.success) {
+      res.status(502).json({
+        error: emailResult.error ?? "Failed to send email. Check Admin → Email Settings (SMTP).",
+      });
+      return;
+    }
+
+    const replies = [...(data.replies ?? []), { message, sentAt: new Date().toISOString() }];
+    const [updated] = await db
+      .update(formSubmissions)
+      .set({
+        isRead: true,
+        data: { ...data, replies },
+      })
+      .where(eq(formSubmissions.id, id))
+      .returning();
+
+    res.json({ ok: true, ticket: updated });
+  } catch (err) {
+    req.log?.error?.({ err }, "Support ticket reply failed");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to send support ticket reply",
+    });
   }
-
-  const replies = [...(data.replies ?? []), { message, sentAt: new Date().toISOString() }];
-  const [updated] = await db
-    .update(formSubmissions)
-    .set({
-      isRead: true,
-      data: { ...data, replies },
-    })
-    .where(eq(formSubmissions.id, id))
-    .returning();
-
-  res.json({ ok: true, ticket: updated });
 });
 
 router.delete("/admin/forms/:id", requireAdmin, async (req, res): Promise<void> => {
