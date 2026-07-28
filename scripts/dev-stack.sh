@@ -41,6 +41,44 @@ wait_for_url() {
   return 1
 }
 
+# Each Cloudflare quick-tunnel URL is a new hostname; Clerk must know it as a
+# satellite domain with proxy_url or sign-in returns "Invalid host".
+register_clerk_satellite() {
+  local public_url="$1"
+  local proxy_url="${public_url}/api/__clerk"
+  local host="${public_url#https://}"
+  local secret="${CLERK_SEC_FOR_STACK:-${CLERK_SECRET_KEY:-}}"
+
+  if [[ -z "$secret" ]]; then
+    echo "WARNING: CLERK_SECRET_KEY missing — skipping Clerk satellite domain registration" >&2
+    return 0
+  fi
+
+  echo "==> Registering Clerk satellite domain ($host)"
+  if curl -sf -X POST "https://api.clerk.com/v1/domains" \
+    -H "Authorization: Bearer $secret" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"$host\",\"is_satellite\":true,\"proxy_url\":\"$proxy_url\"}" >/dev/null; then
+    echo "Clerk satellite domain registered"
+    return 0
+  fi
+
+  local domain_id
+  domain_id=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" \
+    | python3 -c "import json,sys; host=sys.argv[1]; data=json.load(sys.stdin).get('data',[]); print(next((d['id'] for d in data if d.get('name')==host), ''))" "$host" 2>/dev/null || true)
+  if [[ -n "$domain_id" ]]; then
+    if curl -sf -X PATCH "https://api.clerk.com/v1/domains/$domain_id" \
+      -H "Authorization: Bearer $secret" \
+      -H "Content-Type: application/json" \
+      -d "{\"proxy_url\":\"$proxy_url\"}" >/dev/null; then
+      echo "Clerk satellite domain updated"
+      return 0
+    fi
+  fi
+
+  echo "WARNING: Could not register Clerk satellite domain for $host — sign-in may fail until it is added in Clerk" >&2
+}
+
 echo "==> Starting PostgreSQL"
 sudo pg_ctlcluster 16 main start 2>/dev/null || true
 
@@ -142,6 +180,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
   echo ""
   echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
+  register_clerk_satellite "$PUBLIC_URL"
   tmux_cmd kill-session -t api-server-live 2>/dev/null || true
   kill_port 8080
   kill_port 19145
