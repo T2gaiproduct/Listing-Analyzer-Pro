@@ -83,7 +83,6 @@ const navSections: Array<{
     collapsible: true,
     items: [
       { href: "/admin/announcements", label: "Announcements", icon: Megaphone, permission: "manage_notifications" },
-      { href: "/admin/notifications", label: "Notifications", icon: Bell, permission: "manage_notifications" },
       { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent, permission: "manage_coupons" },
     ],
   },
@@ -371,6 +370,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <Link href={adminHome} aria-label="Dashboard">
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
+            <Link
+              href="/admin/notifications"
+              aria-label="Notifications"
+              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
+            >
+              <Bell className="w-4 h-4" />
+            </Link>
             <button
               type="button"
               onClick={() => setCollapsed(false)}
@@ -446,16 +452,24 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 bg-slate-900 text-slate-100 border-slate-800 flex flex-col lg:hidden">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
-          <div className="h-14 flex items-center px-4 border-b border-slate-700/50">
+          <div className="h-14 flex items-center gap-2 px-4 border-b border-slate-700/50">
             <Link
               href={adminHome}
               onClick={() => setMobileNavOpen(false)}
-              className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity flex-1"
             >
               <Shield className="w-5 h-5 text-orange-400 flex-shrink-0" />
               <span className="font-bold text-white truncate">
                 Super<span className="text-orange-400">Admin</span>
               </span>
+            </Link>
+            <Link
+              href="/admin/notifications"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Notifications"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            >
+              <Bell className="w-4 h-4" />
             </Link>
           </div>
           <nav className="flex-1 py-4 overflow-y-auto px-3 space-y-5">
