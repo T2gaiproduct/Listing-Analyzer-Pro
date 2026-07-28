@@ -27,6 +27,11 @@ export function isEnvSuperAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
+/** Clerk user IDs granted super-admin via ADMIN_USER_IDS env (not always in admin_users). */
+export function getEnvSuperAdminUserIds(): string[] {
+  return [...ADMIN_USER_IDS];
+}
+
 async function resolveAuthEmail(userId: string, sessionEmail?: string | null): Promise<string | null> {
   if (sessionEmail?.trim()) return sessionEmail.trim().toLowerCase();
   try {

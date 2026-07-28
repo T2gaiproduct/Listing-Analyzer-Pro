@@ -250,11 +250,13 @@ router.post("/forms", async (req, res): Promise<void> => {
     message,
   });
 
-  void notifyAdminUsers({
+  notifyAdminUsers({
     type: "support_ticket_new",
     title: "New support ticket",
     message: `${trimmedEmail}: ${subject}`,
-    link: "/admin/help/support-tickets",
+    link: `/admin/help/support-tickets?ticket=${item.id}`,
+  }).catch((err) => {
+    req.log?.error?.({ err, ticketId: item.id }, "Failed to notify admins of support ticket");
   });
 
   res.status(201).json(item);

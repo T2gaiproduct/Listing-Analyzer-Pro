@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LifeBuoy, Mail, CheckCircle, Trash2, Download, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -107,6 +107,16 @@ export default function AdminSupportTickets() {
       fetch(`${basePath}/api/admin/forms/${id}/read`, { method: "PATCH", credentials: "include" }).then((r) => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-support-tickets"] }),
   });
+
+  useEffect(() => {
+    if (!tickets.length) return;
+    const ticketId = Number(new URLSearchParams(window.location.search).get("ticket"));
+    if (!Number.isFinite(ticketId) || ticketId <= 0) return;
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (!ticket) return;
+    setSelected(ticket);
+    if (!ticket.isRead) markReadMutation.mutate(ticket.id);
+  }, [tickets, markReadMutation]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => fetch(`${basePath}/api/admin/forms/${id}`, { method: "DELETE", credentials: "include" }),
