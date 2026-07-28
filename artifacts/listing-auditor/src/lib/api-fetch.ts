@@ -23,16 +23,29 @@ export function isApiAuthReady(): boolean {
   return apiAuthReady;
 }
 
+const TOKEN_TIMEOUT_MS = 12_000;
+
+async function resolveAuthToken(): Promise<string | null> {
+  if (!tokenGetter) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      tokenGetter(),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), TOKEN_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function authHeaders(init?: RequestInit): Promise<Headers> {
   const headers = new Headers(init?.headers);
-  if (tokenGetter) {
-    try {
-      const token = await tokenGetter();
-      if (token) headers.set("Authorization", `Bearer ${token}`);
-    } catch {
-      // Fall back to cookie-based session only.
-    }
-  }
+  const token = await resolveAuthToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   return headers;
 }
 
