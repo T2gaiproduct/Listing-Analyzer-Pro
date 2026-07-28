@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { readApiJson } from "@/lib/api-fetch";
+import { readApiJson, ApiFetchError } from "@/lib/api-fetch";
 import { format } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -25,6 +25,68 @@ interface SupportTicket {
   data: { subject?: string; message?: string; replies?: TicketReply[] } | null;
   isRead: boolean;
   createdAt: string;
+}
+
+function isSupportTicket(value: unknown): value is SupportTicket {
+  return (
+    value !== null
+    && typeof value === "object"
+    && typeof (value as SupportTicket).id === "number"
+    && typeof (value as SupportTicket).formType === "string"
+  );
+}
+
+function parseSupportTicketReplyResponse(data: unknown, sentMessage: string): SupportTicket {
+  if (!data || typeof data !== "object") {
+    throw new Error("Failed to send reply");
+  }
+
+  const record = data as { ticket?: SupportTicket; error?: string; ok?: boolean };
+  if (isSupportTicket(record.ticket)) {
+    return record.ticket;
+  }
+
+  if (isSupportTicket(data)) {
+    const replies = data.data?.replies ?? [];
+    if (replies.some((r) => r.message === sentMessage)) {
+      return data;
+    }
+    throw new Error(
+      "The API marked the ticket read but did not send your reply. Restart the API server (bash scripts/dev-stack.sh) so it runs the latest code.",
+    );
+  }
+
+  throw new Error(record.error ?? "Failed to send reply");
+}
+
+async function sendSupportTicketReply(basePath: string, id: number, message: string): Promise<SupportTicket> {
+  const attempts: Array<{ url: string; method: "POST" | "PATCH"; body: Record<string, string> }> = [
+    { url: `${basePath}/api/admin/forms/${id}/reply`, method: "POST", body: { message } },
+    { url: `${basePath}/api/admin/forms/${id}/read`, method: "PATCH", body: { replyMessage: message } },
+  ];
+
+  let lastError = "Failed to send reply";
+  for (const attempt of attempts) {
+    const r = await fetch(attempt.url, {
+      method: attempt.method,
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(attempt.body),
+    });
+
+    try {
+      const data = await readApiJson<unknown>(r);
+      return parseSupportTicketReplyResponse(data, message);
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : lastError;
+      if (err instanceof ApiFetchError && err.status === 404) {
+        continue;
+      }
+      throw err instanceof Error ? err : new Error(lastError);
+    }
+  }
+
+  throw new Error(lastError);
 }
 
 export default function AdminSupportTickets() {
@@ -56,17 +118,8 @@ export default function AdminSupportTickets() {
   });
 
   const replyMutation = useMutation({
-    mutationFn: async ({ id, message }: { id: number; message: string }) => {
-      const r = await fetch(`${basePath}/api/admin/forms/${id}/read`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ replyMessage: message }),
-      });
-      const data = await readApiJson<{ ok?: boolean; ticket?: SupportTicket; error?: string }>(r);
-      if (!data.ticket) throw new Error(data.error ?? "Failed to send reply");
-      return data.ticket;
-    },
+    mutationFn: ({ id, message }: { id: number; message: string }) =>
+      sendSupportTicketReply(basePath, id, message),
     onSuccess: (ticket) => {
       qc.invalidateQueries({ queryKey: ["admin-support-tickets"] });
       setSelected(ticket);
