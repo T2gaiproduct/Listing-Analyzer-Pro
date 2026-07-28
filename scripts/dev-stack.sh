@@ -37,6 +37,13 @@ fuser -k 19145/tcp 2>/dev/null || true
 fuser -k 3000/tcp 2>/dev/null || true
 sleep 2
 
+echo "==> Applying database schema"
+tmux_cmd kill-session -t db-push 2>/dev/null || true
+tmux_cmd new-session -d -s db-push -c "$ROOT" -- bash -lc "
+  export DATABASE_URL='$DATABASE_URL'
+  pnpm --filter @workspace/db run push
+"
+
 echo "==> Starting API server (port 8080)"
 tmux_cmd kill-session -t api-server-live 2>/dev/null || true
 tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "

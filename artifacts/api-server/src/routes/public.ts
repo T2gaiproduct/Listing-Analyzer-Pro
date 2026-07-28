@@ -22,6 +22,7 @@ import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
 import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
   filterNotificationsByPreferences,
   getUserNotificationPreferences,
   isNotificationPreferencesColumnMissingError,
@@ -323,12 +324,19 @@ router.get("/profile", requireAuth, async (req, res): Promise<void> => {
     .where(eq(paymentsTable.userId, userId))
     .orderBy(desc(paymentsTable.createdAt))
     .limit(20);
+  let notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES;
+  try {
+    notificationPreferences = await getUserNotificationPreferences(userId);
+  } catch (err) {
+    req.log?.warn?.({ err }, "Failed to load notification preferences for profile");
+  }
   res.json({
     profile: profile ?? null,
     subscription: subRows[0] ?? null,
     credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
     transactions,
     billingHistory,
+    notificationPreferences,
   });
 });
 
@@ -351,18 +359,48 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
 });
 
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
-  const profile = await upsertUserProfile(userId, {
-    ...(fullName !== undefined && { fullName: String(fullName) }),
-    ...(companyName !== undefined && { companyName: String(companyName) }),
-    ...(phone !== undefined && { phone: String(phone) }),
-    ...(country !== undefined && { country: String(country) }),
-    ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
-    ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
-    ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
-  });
-  res.json(profile);
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const body = req.body as Record<string, string | number | Partial<NotificationPreferences>>;
+    const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize, notificationPreferences } = body;
+
+    if (notificationPreferences && typeof notificationPreferences === "object") {
+      const patch: Partial<NotificationPreferences> = {};
+      for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+        if (typeof notificationPreferences[key] === "boolean") {
+          patch[key] = notificationPreferences[key];
+        }
+      }
+      if (Object.keys(patch).length > 0) {
+        await updateUserNotificationPreferences(userId, patch);
+      }
+    }
+
+    const profile = await upsertUserProfile(userId, {
+      ...(fullName !== undefined && { fullName: String(fullName) }),
+      ...(companyName !== undefined && { companyName: String(companyName) }),
+      ...(phone !== undefined && { phone: String(phone) }),
+      ...(country !== undefined && { country: String(country) }),
+      ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
+      ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
+      ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
+    });
+
+    const prefs = await getUserNotificationPreferences(userId);
+    res.json({ ...profile, notificationPreferences: prefs });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to update profile");
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      res.status(503).json({ error: NOTIFICATION_PREFS_MIGRATION_HINT });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "Failed to update profile";
+    if (message.includes(NOTIFICATION_PREFS_MIGRATION_HINT)) {
+      res.status(503).json({ error: message });
+      return;
+    }
+    res.status(500).json({ error: message });
+  }
 });
 
 const AVATARS_DIR = path.join(process.cwd(), "public", "images", "avatars");

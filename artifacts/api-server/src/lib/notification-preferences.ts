@@ -88,15 +88,22 @@ export function isNotificationTypeEnabled(
 }
 
 export async function getUserNotificationPreferences(userId: string): Promise<NotificationPreferences> {
-  const [profile] = await db
-    .select({ notificationPreferences: userProfilesTable.notificationPreferences })
-    .from(userProfilesTable)
-    .where(eq(userProfilesTable.userId, userId))
-    .limit(1);
+  try {
+    const [profile] = await db
+      .select({ notificationPreferences: userProfilesTable.notificationPreferences })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, userId))
+      .limit(1);
 
-  return mergeNotificationPreferences(
-    profile?.notificationPreferences as Partial<NotificationPreferences> | null | undefined,
-  );
+    return mergeNotificationPreferences(
+      profile?.notificationPreferences as Partial<NotificationPreferences> | null | undefined,
+    );
+  } catch (err) {
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      return { ...DEFAULT_NOTIFICATION_PREFERENCES };
+    }
+    throw err;
+  }
 }
 
 export async function isNotificationDeliveryEnabled(
@@ -123,16 +130,23 @@ export async function updateUserNotificationPreferences(
     .where(eq(userProfilesTable.userId, userId))
     .limit(1);
 
-  if (existing) {
-    await db
-      .update(userProfilesTable)
-      .set({ notificationPreferences: merged, updatedAt: new Date() })
-      .where(eq(userProfilesTable.userId, userId));
-  } else {
-    await db.insert(userProfilesTable).values({
-      userId,
-      notificationPreferences: merged,
-    });
+  try {
+    if (existing) {
+      await db
+        .update(userProfilesTable)
+        .set({ notificationPreferences: merged, updatedAt: new Date() })
+        .where(eq(userProfilesTable.userId, userId));
+    } else {
+      await db.insert(userProfilesTable).values({
+        userId,
+        notificationPreferences: merged,
+      });
+    }
+  } catch (err) {
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      throw new Error(NOTIFICATION_PREFS_MIGRATION_HINT);
+    }
+    throw err;
   }
 
   return merged;
