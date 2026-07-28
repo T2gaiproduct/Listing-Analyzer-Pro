@@ -82,7 +82,8 @@ const navSections: Array<{
     label: "Marketing",
     collapsible: true,
     items: [
-      { href: "/admin/notifications", label: "Announcements", icon: Megaphone, permission: "manage_notifications" },
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone, permission: "manage_notifications" },
+      { href: "/admin/notifications", label: "Notifications", icon: Bell, permission: "manage_notifications" },
       { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent, permission: "manage_coupons" },
     ],
   },
@@ -152,7 +153,7 @@ function getAdminSearchContext(location: string): { placeholder: string; scope: 
   ) {
     return { placeholder: "Search billing...", scope: "billing" };
   }
-  if (path.startsWith("/admin/marketing") || path === "/admin/notifications") {
+  if (path.startsWith("/admin/marketing") || path === "/admin/announcements" || path === "/admin/notifications") {
     return { placeholder: "Search marketing...", scope: "marketing" };
   }
   if (path.startsWith("/admin/content")) {

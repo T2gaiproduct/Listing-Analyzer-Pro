@@ -74,6 +74,7 @@ export const AdminBuildBrandLogs = lazy(() => import("@/pages/admin/content/buil
 export const AdminContentDownloads = lazy(() => import("@/pages/admin/content/downloads"));
 export const AdminGraphicsLogs = lazy(() => import("@/pages/admin/content/graphics-logs"));
 export const AdminRoles = lazy(() => import("@/pages/admin/roles"));
+export const AdminAnnouncements = lazy(() => import("@/pages/admin/announcements"));
 export const AdminNotifications = lazy(() => import("@/pages/admin/notifications"));
 export const AdminTeamActivity = lazy(() => import("@/pages/admin/team-activity"));
 export const AdminArchivePage = lazy(() => import("@/pages/admin/archive"));
