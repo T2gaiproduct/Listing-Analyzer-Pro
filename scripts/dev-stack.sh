@@ -41,42 +41,56 @@ wait_for_url() {
   return 1
 }
 
-# Each Cloudflare quick-tunnel URL is a new hostname; Clerk must know it as a
-# satellite domain with proxy_url or sign-in returns "Invalid host".
-register_clerk_satellite() {
+# Each Cloudflare quick-tunnel URL is a new hostname. Clerk must proxy FAPI through
+# the primary domain's proxy_url — NOT as a satellite (satellites cannot sign in).
+configure_clerk_proxy_for_tunnel() {
   local public_url="$1"
   local proxy_url="${public_url}/api/__clerk"
   local host="${public_url#https://}"
   local secret="${CLERK_SEC_FOR_STACK:-${CLERK_SECRET_KEY:-}}"
 
   if [[ -z "$secret" ]]; then
-    echo "WARNING: CLERK_SECRET_KEY missing — skipping Clerk satellite domain registration" >&2
+    echo "WARNING: CLERK_SECRET_KEY missing — skipping Clerk proxy configuration" >&2
     return 0
   fi
 
-  echo "==> Registering Clerk satellite domain ($host)"
-  if curl -sf -X POST "https://api.clerk.com/v1/domains" \
+  echo "==> Configuring Clerk proxy for Cloudflare tunnel ($host)"
+  local domains_json primary_id satellite_id
+  domains_json=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
+  if [[ -z "$domains_json" ]]; then
+    echo "WARNING: Could not list Clerk domains — sign-in may fail on this tunnel URL" >&2
+    return 0
+  fi
+
+  read -r primary_id satellite_id < <(python3 -c "
+import json, sys
+host = sys.argv[1]
+data = json.loads(sys.stdin.read()).get('data', [])
+primary = next((d['id'] for d in data if not d.get('is_satellite')), '')
+satellite = next((d['id'] for d in data if d.get('is_satellite') and d.get('name') == host), '')
+print(primary, satellite)
+" "$host" <<<"$domains_json")
+
+  if [[ -n "$satellite_id" ]]; then
+    echo "Removing stale Clerk satellite domain for $host (sign-in is blocked on satellites)"
+    curl -sf -X DELETE "https://api.clerk.com/v1/domains/$satellite_id" \
+      -H "Authorization: Bearer $secret" >/dev/null || true
+  fi
+
+  if [[ -z "$primary_id" ]]; then
+    echo "WARNING: No primary Clerk domain found — sign-in may fail on this tunnel URL" >&2
+    return 0
+  fi
+
+  if curl -sf -X PATCH "https://api.clerk.com/v1/domains/$primary_id" \
     -H "Authorization: Bearer $secret" \
     -H "Content-Type: application/json" \
-    -d "{\"name\":\"$host\",\"is_satellite\":true,\"proxy_url\":\"$proxy_url\"}" >/dev/null; then
-    echo "Clerk satellite domain registered"
+    -d "{\"proxy_url\":\"$proxy_url\"}" >/dev/null; then
+    echo "Clerk primary domain proxy_url set to $proxy_url"
     return 0
   fi
 
-  local domain_id
-  domain_id=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" \
-    | python3 -c "import json,sys; host=sys.argv[1]; data=json.load(sys.stdin).get('data',[]); print(next((d['id'] for d in data if d.get('name')==host), ''))" "$host" 2>/dev/null || true)
-  if [[ -n "$domain_id" ]]; then
-    if curl -sf -X PATCH "https://api.clerk.com/v1/domains/$domain_id" \
-      -H "Authorization: Bearer $secret" \
-      -H "Content-Type: application/json" \
-      -d "{\"proxy_url\":\"$proxy_url\"}" >/dev/null; then
-      echo "Clerk satellite domain updated"
-      return 0
-    fi
-  fi
-
-  echo "WARNING: Could not register Clerk satellite domain for $host — sign-in may fail until it is added in Clerk" >&2
+  echo "WARNING: Could not set Clerk proxy_url for $host — sign-in may fail until configured in Clerk" >&2
 }
 
 echo "==> Starting PostgreSQL"
@@ -180,7 +194,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
   echo ""
   echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
-  register_clerk_satellite "$PUBLIC_URL"
+  configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
   tmux_cmd kill-session -t api-server-live 2>/dev/null || true
   kill_port 8080
   kill_port 19145
