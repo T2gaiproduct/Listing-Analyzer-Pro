@@ -57,11 +57,11 @@ export default function AdminSupportTickets() {
 
   const replyMutation = useMutation({
     mutationFn: async ({ id, message }: { id: number; message: string }) => {
-      const r = await fetch(`${basePath}/api/admin/forms/${id}/reply`, {
-        method: "POST",
+      const r = await fetch(`${basePath}/api/admin/forms/${id}/read`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ replyMessage: message }),
       });
       const data = await readApiJson<{ ok?: boolean; ticket?: SupportTicket; error?: string }>(r);
       if (!data.ticket) throw new Error(data.error ?? "Failed to send reply");
