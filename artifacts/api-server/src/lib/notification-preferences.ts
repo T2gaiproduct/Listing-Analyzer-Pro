@@ -1,6 +1,7 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, isNotNull, desc } from "drizzle-orm";
 import { db, teamMembersTable, userProfilesTable } from "@workspace/db";
 import { clerkAccountExistsForEmail, fetchClerkUserIdByEmail } from "./clerk-user.js";
+import { syncUserLoginEmail } from "./user-profile.js";
 import type { NotificationType } from "./notifications.js";
 
 export const NOTIFICATION_PREFERENCE_CATEGORIES = [
@@ -119,16 +120,40 @@ async function resolveUserIdForEmail(email: string): Promise<string | null> {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return null;
 
+  const [byLogin] = await db
+    .select({ userId: userProfilesTable.userId })
+    .from(userProfilesTable)
+    .where(sql`lower(${userProfilesTable.loginEmail}) = ${normalized}`)
+    .limit(1);
+  if (byLogin?.userId) return byLogin.userId;
+
   const clerkUserId = await fetchClerkUserIdByEmail(normalized);
   if (clerkUserId) return clerkUserId;
 
   const [member] = await db
     .select({ memberUserId: teamMembersTable.memberUserId })
     .from(teamMembersTable)
-    .where(sql`lower(${teamMembersTable.invitedEmail}) = ${normalized}`)
+    .where(and(
+      sql`lower(${teamMembersTable.invitedEmail}) = ${normalized}`,
+      isNotNull(teamMembersTable.memberUserId),
+    ))
+    .orderBy(desc(teamMembersTable.acceptedAt))
     .limit(1);
 
   return member?.memberUserId ?? null;
+}
+
+async function findProfilePrefsByLoginEmail(normalized: string): Promise<NotificationPreferences | null> {
+  const [profile] = await db
+    .select({ notificationPreferences: userProfilesTable.notificationPreferences })
+    .from(userProfilesTable)
+    .where(sql`lower(${userProfilesTable.loginEmail}) = ${normalized}`)
+    .limit(1);
+
+  if (!profile) return null;
+  return mergeNotificationPreferences(
+    profile.notificationPreferences as Partial<NotificationPreferences> | null | undefined,
+  );
 }
 
 /**
@@ -139,6 +164,11 @@ async function resolveUserIdForEmail(email: string): Promise<string | null> {
 export async function shouldSendTeamInviteEmailToAddress(email: string): Promise<boolean> {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return false;
+
+  const prefsByLoginEmail = await findProfilePrefsByLoginEmail(normalized);
+  if (prefsByLoginEmail) {
+    return isNotificationTypeEnabled(prefsByLoginEmail, "team_invite");
+  }
 
   const userId = await resolveUserIdForEmail(normalized);
   if (userId) {
@@ -156,7 +186,11 @@ export async function shouldSendTeamWelcomeEmailToUser(userId: string): Promise<
 export async function updateUserNotificationPreferences(
   userId: string,
   patch: Partial<NotificationPreferences>,
+  options?: { loginEmail?: string | null },
 ): Promise<NotificationPreferences> {
+  if (options?.loginEmail) {
+    await syncUserLoginEmail(userId, options.loginEmail);
+  }
   const current = await getUserNotificationPreferences(userId);
   const merged = mergeNotificationPreferences({
     ...current,

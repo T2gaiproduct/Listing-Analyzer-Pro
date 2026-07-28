@@ -14,7 +14,7 @@ import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits } from "../lib/plan-credits";
-import { upsertUserProfile } from "../lib/user-profile";
+import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
@@ -290,6 +290,11 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  if (sessionEmail) {
+    void syncUserLoginEmail(userId, sessionEmail);
+  }
   const [profile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   const subRows = await db.select({
     id: subscriptionsTable.id,
@@ -362,6 +367,8 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
   try {
     const userId = (req as AuthedRequest).userId;
+    const auth = getAuth(req);
+    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
     const body = req.body as Record<string, string | number | Partial<NotificationPreferences>>;
     const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize, notificationPreferences } = body;
 
@@ -373,8 +380,12 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
         }
       }
       if (Object.keys(patch).length > 0) {
-        await updateUserNotificationPreferences(userId, patch);
+        await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
       }
+    }
+
+    if (sessionEmail) {
+      await syncUserLoginEmail(userId, sessionEmail);
     }
 
     const profile = await upsertUserProfile(userId, {
@@ -1072,6 +1083,8 @@ router.get("/profile/notification-preferences", requireAuth, async (req, res): P
 router.patch("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
   try {
     const userId = (req as AuthedRequest).userId;
+    const auth = getAuth(req);
+    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
     const body = req.body as Partial<NotificationPreferences>;
     const patch: Partial<NotificationPreferences> = {};
 
@@ -1086,7 +1099,7 @@ router.patch("/profile/notification-preferences", requireAuth, async (req, res):
       return;
     }
 
-    const preferences = await updateUserNotificationPreferences(userId, patch);
+    const preferences = await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
     res.json({ preferences });
   } catch (err) {
     req.log?.error?.({ err }, "Failed to update notification preferences");
