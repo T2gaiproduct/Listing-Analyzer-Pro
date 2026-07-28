@@ -66,6 +66,7 @@ app.post(
   express.raw({ type: ["video/*", "application/octet-stream"], limit: "50mb" }),
   clerkMiddleware({
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
   }),
   (req, res) => { void handleHeroVideoUpload(req, res); },
 );
@@ -76,6 +77,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(
   clerkMiddleware({
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
   }),
 );
 

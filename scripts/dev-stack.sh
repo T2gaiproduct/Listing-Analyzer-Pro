@@ -5,6 +5,19 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMUX_CONF="${TMUX_CONF:-/exec-daemon/tmux.portal.conf}"
 DATABASE_URL="${DATABASE_URL:-postgresql://lauser:lapass@127.0.0.1:5432/listingauditor}"
 
+# Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
+CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
+CLERK_SEC_FOR_STACK="${CLERK_SECRET_KEY:-}"
+ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
+
+if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
+  export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+fi
+
+if [[ -z "$CLERK_SEC_FOR_STACK" || -z "$CLERK_PUB_FOR_STACK" ]]; then
+  echo "WARNING: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY missing — signed-in API calls will return 401" >&2
+fi
+
 tmux_cmd() {
   if [[ -f "$TMUX_CONF" ]]; then
     tmux -f "$TMUX_CONF" "$@"
@@ -32,10 +45,17 @@ echo "==> Starting PostgreSQL"
 sudo pg_ctlcluster 16 main start 2>/dev/null || true
 
 echo "==> Stopping stale dev processes"
-fuser -k 8080/tcp 2>/dev/null || true
-fuser -k 19145/tcp 2>/dev/null || true
-fuser -k 3000/tcp 2>/dev/null || true
-sleep 2
+for port in 8080 19145 3000; do
+  fuser -k "${port}/tcp" 2>/dev/null || true
+done
+sleep 3
+for port in 8080 19145 3000; do
+  if fuser "${port}/tcp" 2>/dev/null; then
+    echo "WARNING: port $port still in use — retrying kill" >&2
+    fuser -k "${port}/tcp" 2>/dev/null || true
+    sleep 2
+  fi
+done
 
 echo "==> Applying database schema"
 tmux_cmd kill-session -t db-push 2>/dev/null || true
@@ -49,9 +69,9 @@ tmux_cmd kill-session -t api-server-live 2>/dev/null || true
 tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export DATABASE_URL='$DATABASE_URL'
   export PORT=8080
-  export CLERK_PUBLISHABLE_KEY=\"\${VITE_CLERK_PUBLISHABLE_KEY:-\${CLERK_PUBLISHABLE_KEY:-}}\"
-  export CLERK_SECRET_KEY=\"\${CLERK_SECRET_KEY:-}\"
-  export ADMIN_USER_IDS=\"\${ADMIN_USER_IDS:-}\"
+  export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+  export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+  export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
   export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
   export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
   export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
@@ -64,8 +84,8 @@ tmux_cmd kill-session -t vite-test 2>/dev/null || true
 tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
   export PORT=19145
   export BASE_PATH=/
-  export VITE_CLERK_PUBLISHABLE_KEY=\"\${VITE_CLERK_PUBLISHABLE_KEY:-}\"
-  export VITE_ADMIN_USER_IDS=\"\${ADMIN_USER_IDS:-}\"
+  export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+  export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
   while true; do
     pnpm --filter @workspace/listing-auditor run dev || true
     echo 'Frontend exited — restarting in 3s...'

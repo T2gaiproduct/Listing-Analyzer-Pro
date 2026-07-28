@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { BrandingHead } from "@/components/branding-head";
 import { SiteLogo } from "@/components/site-logo";
 import { refetchCreditQueries } from "@/lib/credit-queries";
+import { fetchJson, isApiAuthReady } from "@/lib/api-fetch";
 import { COUNTRIES } from "@/lib/countries";
 import { useTeam } from "@/hooks/use-team";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -273,10 +274,12 @@ export default function Onboarding() {
   });
 
   const saveProfileMutation = useMutation({
-    mutationFn: () =>
-      fetch(`${basePath}/api/profile`, {
+    mutationFn: () => {
+      if (!isApiAuthReady()) {
+        throw new Error("Still signing you in — wait a moment and try again.");
+      }
+      return fetchJson(`${basePath}/api/profile`, {
         method: "PATCH",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: profile.fullName,
@@ -287,10 +290,8 @@ export default function Onboarding() {
           websiteUrl: profile.websiteUrl || undefined,
           teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
         }),
-      }).then(async (r) => {
-        if (!r.ok) throw new Error(await readApiError(r, "Failed to save profile"));
-        return r.json();
-      }),
+      });
+    },
     onSuccess: async () => {
       if (user && profile.fullName.trim()) {
         await syncClerkFullName(user, profile.fullName);
