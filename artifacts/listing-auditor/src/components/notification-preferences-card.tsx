@@ -46,13 +46,27 @@ async function readApiJson<T>(res: Response): Promise<T> {
   }
 }
 
+function resolvePreferencesFromProfilePayload(data: {
+  notificationPreferences?: NotificationPreferences;
+  preferences?: NotificationPreferences;
+  profile?: { notificationPreferences?: NotificationPreferences } | null;
+}): NotificationPreferences {
+  return (
+    data.notificationPreferences
+    ?? data.preferences
+    ?? data.profile?.notificationPreferences
+    ?? DEFAULT_NOTIFICATION_PREFERENCES
+  );
+}
+
 async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
   const res = await fetch(`${basePath}/api/profile`, { credentials: "include" });
   const data = await readApiJson<{
     notificationPreferences?: NotificationPreferences;
     preferences?: NotificationPreferences;
+    profile?: { notificationPreferences?: NotificationPreferences } | null;
   }>(res);
-  return data.notificationPreferences ?? data.preferences ?? DEFAULT_NOTIFICATION_PREFERENCES;
+  return resolvePreferencesFromProfilePayload(data);
 }
 
 async function saveNotificationPreferences(
@@ -67,8 +81,9 @@ async function saveNotificationPreferences(
   const data = await readApiJson<{
     notificationPreferences?: NotificationPreferences;
     preferences?: NotificationPreferences;
+    profile?: { notificationPreferences?: NotificationPreferences } | null;
   }>(res);
-  return data.notificationPreferences ?? data.preferences ?? DEFAULT_NOTIFICATION_PREFERENCES;
+  return resolvePreferencesFromProfilePayload(data);
 }
 
 export function NotificationPreferencesCard({ compact = false }: { compact?: boolean }) {
