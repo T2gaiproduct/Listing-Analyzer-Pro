@@ -24,7 +24,9 @@ import { isAdminUser } from "../lib/admin-auth.js";
 import {
   filterNotificationsByPreferences,
   getUserNotificationPreferences,
+  isNotificationPreferencesColumnMissingError,
   NOTIFICATION_PREFERENCE_CATEGORIES,
+  NOTIFICATION_PREFS_MIGRATION_HINT,
   updateUserNotificationPreferences,
   type NotificationPreferences,
 } from "../lib/notification-preferences.js";
@@ -1014,29 +1016,47 @@ router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const preferences = await getUserNotificationPreferences(userId);
-  res.json({ preferences });
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const preferences = await getUserNotificationPreferences(userId);
+    res.json({ preferences });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to load notification preferences");
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      res.status(503).json({ error: NOTIFICATION_PREFS_MIGRATION_HINT });
+      return;
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load notification preferences" });
+  }
 });
 
 router.patch("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const body = req.body as Partial<NotificationPreferences>;
-  const patch: Partial<NotificationPreferences> = {};
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const body = req.body as Partial<NotificationPreferences>;
+    const patch: Partial<NotificationPreferences> = {};
 
-  for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
-    if (typeof body[key] === "boolean") {
-      patch[key] = body[key];
+    for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+      if (typeof body[key] === "boolean") {
+        patch[key] = body[key];
+      }
     }
-  }
 
-  if (Object.keys(patch).length === 0) {
-    res.status(400).json({ error: "No valid preference fields provided" });
-    return;
-  }
+    if (Object.keys(patch).length === 0) {
+      res.status(400).json({ error: "No valid preference fields provided" });
+      return;
+    }
 
-  const preferences = await updateUserNotificationPreferences(userId, patch);
-  res.json({ preferences });
+    const preferences = await updateUserNotificationPreferences(userId, patch);
+    res.json({ preferences });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to update notification preferences");
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      res.status(503).json({ error: NOTIFICATION_PREFS_MIGRATION_HINT });
+      return;
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to update notification preferences" });
+  }
 });
 
 router.patch("/notifications/:id/read", requireAuth, async (req, res): Promise<void> => {

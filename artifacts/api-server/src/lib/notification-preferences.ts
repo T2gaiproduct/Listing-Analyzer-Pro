@@ -50,6 +50,18 @@ for (const category of NOTIFICATION_PREFERENCE_CATEGORIES) {
   }
 }
 
+export function isNotificationPreferencesColumnMissingError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("notification_preferences")
+    && (message.includes("does not exist")
+      || message.includes("Failed query")
+      || message.includes("relation")
+      || message.includes("column"));
+}
+
+export const NOTIFICATION_PREFS_MIGRATION_HINT =
+  "Database is missing notification_preferences column. Run: pnpm --filter @workspace/db run push";
+
 export function mergeNotificationPreferences(
   raw: Partial<NotificationPreferences> | null | undefined,
 ): NotificationPreferences {
