@@ -85,10 +85,44 @@ export async function fetchJson<T>(
 ): Promise<T> {
   const headers = await authHeaders(init);
   const res = await fetch(url, { credentials: "include", ...init, headers });
-  if (!res.ok) {
-    throw new ApiFetchError(`Request failed (${res.status})`, res.status);
+  return readApiJson<T>(res);
+}
+
+/** Parse a fetch Response as JSON; surfaces HTML/error-page responses clearly. */
+export async function readApiJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text.trim()) {
+    if (!res.ok) {
+      throw new ApiFetchError(
+        res.status === 401
+          ? "Sign in again to continue."
+          : `Server error (${res.status}). Restart the API server after deploying the latest code.`,
+        res.status,
+      );
+    }
+    return {} as T;
   }
-  return res.json() as Promise<T>;
+
+  if (text.trimStart().startsWith("<")) {
+    throw new ApiFetchError(
+      "The API returned a web page instead of JSON. Deploy/restart the API server with the latest code (support ticket replies need POST /api/admin/forms/:id/reply).",
+      res.status,
+    );
+  }
+
+  try {
+    const data = JSON.parse(text) as T & { error?: string };
+    if (!res.ok) {
+      throw new ApiFetchError(data.error ?? `Server error (${res.status})`, res.status);
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof ApiFetchError) throw error;
+    throw new ApiFetchError(
+      "Invalid response from server. Restart the API after deploying the latest code.",
+      res.status,
+    );
+  }
 }
 
 /** Fetch JSON and guarantee an array — prevents `.filter is not a function` crashes. */

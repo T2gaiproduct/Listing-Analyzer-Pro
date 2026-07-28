@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { readApiJson } from "@/lib/api-fetch";
 import { format } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -62,9 +63,9 @@ export default function AdminSupportTickets() {
         credentials: "include",
         body: JSON.stringify({ message }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "Failed to send reply");
-      return data.ticket as SupportTicket;
+      const data = await readApiJson<{ ok?: boolean; ticket?: SupportTicket; error?: string }>(r);
+      if (!data.ticket) throw new Error(data.error ?? "Failed to send reply");
+      return data.ticket;
     },
     onSuccess: (ticket) => {
       qc.invalidateQueries({ queryKey: ["admin-support-tickets"] });
