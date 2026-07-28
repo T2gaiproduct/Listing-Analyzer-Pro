@@ -21,6 +21,7 @@ import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storag
 import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
+import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   filterNotificationsByPreferences,
@@ -1110,23 +1111,6 @@ router.post("/notifications/read-all", requireAuth, async (req, res): Promise<vo
   await db.update(notificationsTable).set({ read: true, readAt: new Date() }).where(and(eq(notificationsTable.userId, userId), eq(notificationsTable.read, false)));
   res.json({ ok: true });
 });
-
-async function clerkAccountExistsForEmail(email: string): Promise<boolean> {
-  const secret = process.env.CLERK_SECRET_KEY;
-  if (!secret) return false;
-  try {
-    const resp = await fetch(
-      `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}&limit=1`,
-      { headers: { Authorization: `Bearer ${secret}` } },
-    );
-    if (!resp.ok) return false;
-    const raw = await resp.json() as unknown[] | { data?: unknown[] };
-    const users = Array.isArray(raw) ? raw : raw.data ?? [];
-    return users.length > 0;
-  } catch {
-    return false;
-  }
-}
 
 router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
   const token = String(req.params.token ?? "");

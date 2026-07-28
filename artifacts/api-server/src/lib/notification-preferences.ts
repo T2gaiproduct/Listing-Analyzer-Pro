@@ -1,5 +1,6 @@
-import { eq } from "drizzle-orm";
-import { db, userProfilesTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { db, teamMembersTable, userProfilesTable } from "@workspace/db";
+import { clerkAccountExistsForEmail, fetchClerkUserIdByEmail } from "./clerk-user.js";
 import type { NotificationType } from "./notifications.js";
 
 export const NOTIFICATION_PREFERENCE_CATEGORIES = [
@@ -112,6 +113,44 @@ export async function isNotificationDeliveryEnabled(
 ): Promise<boolean> {
   const preferences = await getUserNotificationPreferences(userId);
   return isNotificationTypeEnabled(preferences, type);
+}
+
+async function resolveUserIdForEmail(email: string): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const clerkUserId = await fetchClerkUserIdByEmail(normalized);
+  if (clerkUserId) return clerkUserId;
+
+  const [member] = await db
+    .select({ memberUserId: teamMembersTable.memberUserId })
+    .from(teamMembersTable)
+    .where(sql`lower(${teamMembersTable.invitedEmail}) = ${normalized}`)
+    .limit(1);
+
+  return member?.memberUserId ?? null;
+}
+
+/**
+ * Whether to send a team invite email to this address.
+ * New users (no Clerk account) still receive the invite email so they can sign up and accept.
+ * Existing users with team notifications disabled do not.
+ */
+export async function shouldSendTeamInviteEmailToAddress(email: string): Promise<boolean> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return false;
+
+  const userId = await resolveUserIdForEmail(normalized);
+  if (userId) {
+    return await isNotificationDeliveryEnabled(userId, "team_invite");
+  }
+
+  // No mapped user id — only email brand-new addresses that do not already have a Clerk account.
+  return !(await clerkAccountExistsForEmail(normalized));
+}
+
+export async function shouldSendTeamWelcomeEmailToUser(userId: string): Promise<boolean> {
+  return await isNotificationDeliveryEnabled(userId, "team_invite_accepted");
 }
 
 export async function updateUserNotificationPreferences(
