@@ -1,8 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { eq } from "drizzle-orm";
-import { db, adminRolesTable, adminUsersTable } from "@workspace/db";
+import { db, adminRolesTable, adminUsersTable, userProfilesTable } from "@workspace/db";
 import { acceptAdminInviteForUser } from "./admin-invites.js";
+import { syncUserLoginEmail } from "./user-profile.js";
 import {
   ADMIN_PERMISSIONS,
   canAccessAdminApi,
@@ -27,6 +28,80 @@ export function isEnvSuperAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
+/** Clerk user IDs granted super-admin via ADMIN_USER_IDS env (not always in admin_users). */
+export function getEnvSuperAdminUserIds(): string[] {
+  return [...ADMIN_USER_IDS];
+}
+
+export function sessionEmailFromClaims(sessionClaims: Record<string, unknown> | null | undefined): string | null {
+  if (!sessionClaims) return null;
+  const candidates = [
+    sessionClaims.email,
+    sessionClaims.primary_email_address,
+    sessionClaims.primary_email,
+  ];
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim().toLowerCase();
+    }
+  }
+  return null;
+}
+
+/** Clerk documented test inboxes: *+clerk_test@example.com */
+export function isClerkDevTestEmail(email: string | null | undefined): boolean {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized.endsWith("@example.com") && normalized.includes("clerk_test");
+}
+
+/** Local dev / cloud preview — never enable on production Postgres. */
+export function allowDevAdminBootstrap(): boolean {
+  if (process.env.ALLOW_DEV_ADMIN_BOOTSTRAP === "true") return true;
+  if (process.env.NODE_ENV === "production") return false;
+  const db = process.env.DATABASE_URL ?? "";
+  return /localhost|127\.0\.0\.1/.test(db);
+}
+
+/** Auto-grant Super Admin to Clerk test accounts in local dev (demo sign-in). */
+export async function ensureDevClerkTestAdminAccess(
+  userId: string,
+  email?: string | null,
+): Promise<void> {
+  if (!allowDevAdminBootstrap()) return;
+
+  let resolvedEmail = email?.trim().toLowerCase() || null;
+  if (!resolvedEmail) {
+    const [profile] = await db
+      .select({ loginEmail: userProfilesTable.loginEmail })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, userId))
+      .limit(1);
+    resolvedEmail = profile?.loginEmail?.trim().toLowerCase() ?? null;
+  }
+
+  if (!isClerkDevTestEmail(resolvedEmail)) return;
+
+  if (resolvedEmail) {
+    await syncUserLoginEmail(userId, resolvedEmail);
+  }
+
+  const [superRole] = await db
+    .select({ id: adminRolesTable.id })
+    .from(adminRolesTable)
+    .where(eq(adminRolesTable.name, "Super Admin"))
+    .limit(1);
+  if (!superRole) return;
+
+  await db
+    .insert(adminUsersTable)
+    .values({ userId, roleId: superRole.id })
+    .onConflictDoUpdate({
+      target: adminUsersTable.userId,
+      set: { roleId: superRole.id, isDeleted: 0 },
+    });
+}
+
 async function resolveAuthEmail(userId: string, sessionEmail?: string | null): Promise<string | null> {
   if (sessionEmail?.trim()) return sessionEmail.trim().toLowerCase();
   try {
@@ -47,6 +122,7 @@ export async function loadAdminContext(userId: string, email?: string | null): P
   }
 
   const resolvedEmail = await resolveAuthEmail(userId, email);
+  await ensureDevClerkTestAdminAccess(userId, resolvedEmail ?? email);
   await acceptAdminInviteForUser(userId, resolvedEmail);
 
   const [assignment] = await db
@@ -76,6 +152,7 @@ export async function loadAdminContext(userId: string, email?: string | null): P
 export async function isAdminUser(userId: string, email?: string | null): Promise<boolean> {
   if (isEnvSuperAdmin(userId)) return true;
   const resolvedEmail = await resolveAuthEmail(userId, email);
+  await ensureDevClerkTestAdminAccess(userId, resolvedEmail ?? email);
   await acceptAdminInviteForUser(userId, resolvedEmail);
   const [row] = await db.select({ id: adminUsersTable.id })
     .from(adminUsersTable).where(eq(adminUsersTable.userId, userId));

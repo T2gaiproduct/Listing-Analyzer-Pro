@@ -294,7 +294,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isTeamMember, isLoading: teamLoading } = useTeam();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  if (user && !isAdminUser && (summaryLoading || teamLoading)) return <AuthLoading />;
+  const authContextLoading =
+    summaryLoading
+    || teamLoading
+    || (!envAdmin && !adminLoaded);
+  if (user && !isAdminUser && authContextLoading) return <AuthLoading />;
   if (user && !isAdminUser && requiresOnboarding(summary) && !isTeamMember) {
     return <Redirect to="/onboarding" />;
   }

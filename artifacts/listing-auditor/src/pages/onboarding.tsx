@@ -14,6 +14,8 @@ import { SiteLogo } from "@/components/site-logo";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { COUNTRIES } from "@/lib/countries";
 import { useTeam } from "@/hooks/use-team";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -169,6 +171,16 @@ export default function Onboarding() {
   });
 
   const { isTeamMember, isLoading: teamLoading } = useTeam();
+  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
+
+  // Admins should never complete customer onboarding (profile + plan checkout)
+  useEffect(() => {
+    if (!adminLoaded || !permLoaded) return;
+    if (isAdmin) {
+      setLocation(defaultRoute, { replace: true });
+    }
+  }, [isAdmin, adminLoaded, permLoaded, defaultRoute, setLocation]);
 
   // Team members use the owner workspace — credits come from admin allocation, not plan checkout
   useEffect(() => {
