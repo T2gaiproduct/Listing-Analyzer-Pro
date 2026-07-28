@@ -6,22 +6,17 @@ TMUX_CONF="${TMUX_CONF:-/exec-daemon/tmux.portal.conf}"
 DATABASE_URL="${DATABASE_URL:-postgresql://lauser:lapass@127.0.0.1:5432/listingauditor}"
 
 # Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
-if [[ -n "${VITE_CLERK_PUBLISHABLE_KEY:-}" ]]; then
-  export CLERK_PUBLISHABLE_KEY="$VITE_CLERK_PUBLISHABLE_KEY"
-fi
-
-if [[ -z "${CLERK_SECRET_KEY:-}" ]]; then
-  echo "WARNING: CLERK_SECRET_KEY is unset — signed-in API calls will return 401 Unauthorized" >&2
-fi
-
-if [[ -n "${CLERK_PUBLISHABLE_KEY:-}" && "${CLERK_PUBLISHABLE_KEY}" == *"ZXhhbXBsZS5jb20k"* ]]; then
-  echo "WARNING: API is using Clerk's dummy publishable key — set VITE_CLERK_PUBLISHABLE_KEY + CLERK_SECRET_KEY" >&2
-fi
-
-# Values passed into tmux explicitly — child login shells may not inherit injected secrets.
-CLERK_PUB_FOR_STACK="${CLERK_PUBLISHABLE_KEY:-}"
+CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
 CLERK_SEC_FOR_STACK="${CLERK_SECRET_KEY:-}"
 ADMIN_IDS_FOR_STACK="${ADMIN_USER_IDS:-}"
+
+if [[ -n "$CLERK_PUB_FOR_STACK" ]]; then
+  export CLERK_PUBLISHABLE_KEY="$CLERK_PUB_FOR_STACK"
+fi
+
+if [[ -z "$CLERK_SEC_FOR_STACK" || -z "$CLERK_PUB_FOR_STACK" ]]; then
+  echo "WARNING: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY missing — signed-in API calls will return 401" >&2
+fi
 
 tmux_cmd() {
   if [[ -f "$TMUX_CONF" ]]; then
@@ -50,10 +45,17 @@ echo "==> Starting PostgreSQL"
 sudo pg_ctlcluster 16 main start 2>/dev/null || true
 
 echo "==> Stopping stale dev processes"
-fuser -k 8080/tcp 2>/dev/null || true
-fuser -k 19145/tcp 2>/dev/null || true
-fuser -k 3000/tcp 2>/dev/null || true
-sleep 2
+for port in 8080 19145 3000; do
+  fuser -k "${port}/tcp" 2>/dev/null || true
+done
+sleep 3
+for port in 8080 19145 3000; do
+  if fuser "${port}/tcp" 2>/dev/null; then
+    echo "WARNING: port $port still in use — retrying kill" >&2
+    fuser -k "${port}/tcp" 2>/dev/null || true
+    sleep 2
+  fi
+done
 
 echo "==> Applying database schema"
 tmux_cmd kill-session -t db-push 2>/dev/null || true
