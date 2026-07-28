@@ -1304,7 +1304,6 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     "paypal_client_secret",
     "openai_api_key",
     "gemini_api_key",
-    "resend_api_key",
     "smtp_password",
     "amazon_sp_client_secret",
     "amazon_aws_secret_access_key",

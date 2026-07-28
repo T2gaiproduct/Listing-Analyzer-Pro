@@ -262,3 +262,52 @@ export function adminRoleInviteEmailTemplate({
 </body>
 </html>`;
 }
+
+export function notificationEmailTemplate({
+  recipientName,
+  title,
+  message,
+  actionUrl,
+}: {
+  recipientName: string;
+  title: string;
+  message: string;
+  actionUrl?: string;
+}): string {
+  const actionBlock = actionUrl
+    ? `<div class="btn-wrapper"><a href="${actionUrl}" class="btn">View in SellerLens</a></div>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+    .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: #f97316; padding: 28px 24px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; }
+    .content { padding: 28px 24px; }
+    .content p { color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
+    .content strong { color: #0f172a; }
+    .btn-wrapper { text-align: center; margin: 24px 0 8px; }
+    .btn { display: inline-block; background: #f97316; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 15px; }
+    .footer { background: #f8fafc; padding: 20px 24px; text-align: center; }
+    .footer p { color: #94a3b8; font-size: 12px; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>${title}</h1></div>
+    <div class="content">
+      <p>Hi <strong>${recipientName}</strong>,</p>
+      <p>${message}</p>
+      ${actionBlock}
+    </div>
+    <div class="footer"><p>SellerLens — AI-powered listing optimization</p></div>
+  </div>
+</body>
+</html>`;
+}
