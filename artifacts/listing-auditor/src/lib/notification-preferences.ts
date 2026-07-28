@@ -20,7 +20,7 @@ export const NOTIFICATION_PREFERENCE_META: Record<
   },
   team: {
     label: "Team invites & updates",
-    description: "Invitations to join a workspace and team membership updates.",
+    description: "Invitations to join a workspace and team membership updates. If you already have an account, turning this off blocks team invite and welcome emails to your login email.",
     examples: "Team invite emails, invite accepted",
   },
   billing: {

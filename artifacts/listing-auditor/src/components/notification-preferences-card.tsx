@@ -18,9 +18,9 @@ async function readApiJson<T>(res: Response): Promise<T> {
   if (!text.trim()) {
     if (!res.ok) {
       throw new Error(
-        res.status === 404
-          ? "Notification preferences API is not available yet. Deploy the latest backend and run database migrations, then restart the API server."
-          : `Server error (${res.status}). The API may be offline or needs updating.`,
+        res.status === 401
+          ? "Sign in again to manage notification preferences."
+          : `Server error (${res.status}). Restart the API server after pulling the latest code.`,
       );
     }
     return {} as T;
@@ -28,46 +28,62 @@ async function readApiJson<T>(res: Response): Promise<T> {
 
   if (text.trimStart().startsWith("<")) {
     throw new Error(
-      "The server returned HTML instead of JSON. Restart the API server with the latest code and ensure /api routes are proxied correctly.",
+      "The API server is running old code or is not reachable. Run: bash scripts/dev-stack.sh (or restart the API after git pull).",
     );
   }
 
   try {
     const data = JSON.parse(text) as T & { error?: string };
     if (!res.ok) {
-      throw new Error(
-        data.error
-          ?? (res.status === 404
-            ? "Notification preferences API is not available yet. Deploy the latest backend and run database migrations."
-            : `Server error (${res.status})`),
-      );
+      throw new Error(data.error ?? `Server error (${res.status})`);
     }
     return data;
   } catch (error) {
-    if (error instanceof Error && error.message !== "Unexpected token") {
+    if (error instanceof Error && !error.message.startsWith("Server error")) {
       throw error;
     }
-    throw new Error("Invalid response from server. Deploy the latest API and run pnpm --filter @workspace/db run push.");
+    throw new Error("Invalid response from server. Restart the API and run pnpm --filter @workspace/db run push.");
   }
 }
 
+function resolvePreferencesFromProfilePayload(data: {
+  notificationPreferences?: NotificationPreferences;
+  preferences?: NotificationPreferences;
+  profile?: { notificationPreferences?: NotificationPreferences } | null;
+}): NotificationPreferences {
+  return (
+    data.notificationPreferences
+    ?? data.preferences
+    ?? data.profile?.notificationPreferences
+    ?? DEFAULT_NOTIFICATION_PREFERENCES
+  );
+}
+
 async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
-  const res = await fetch(`${basePath}/api/profile/notification-preferences`, { credentials: "include" });
-  const data = await readApiJson<{ preferences?: NotificationPreferences }>(res);
-  return data.preferences ?? DEFAULT_NOTIFICATION_PREFERENCES;
+  const res = await fetch(`${basePath}/api/profile`, { credentials: "include" });
+  const data = await readApiJson<{
+    notificationPreferences?: NotificationPreferences;
+    preferences?: NotificationPreferences;
+    profile?: { notificationPreferences?: NotificationPreferences } | null;
+  }>(res);
+  return resolvePreferencesFromProfilePayload(data);
 }
 
 async function saveNotificationPreferences(
   patch: Partial<NotificationPreferences>,
 ): Promise<NotificationPreferences> {
-  const res = await fetch(`${basePath}/api/profile/notification-preferences`, {
+  const res = await fetch(`${basePath}/api/profile`, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch),
+    body: JSON.stringify({ notificationPreferences: patch }),
   });
-  const data = await readApiJson<{ preferences?: NotificationPreferences }>(res);
-  return data.preferences ?? DEFAULT_NOTIFICATION_PREFERENCES;
+  const data = await readApiJson<{
+    notificationPreferences?: NotificationPreferences;
+    preferences?: NotificationPreferences;
+    profile?: { notificationPreferences?: NotificationPreferences } | null;
+  }>(res);
+  return resolvePreferencesFromProfilePayload(data);
 }
 
 export function NotificationPreferencesCard({ compact = false }: { compact?: boolean }) {
@@ -99,7 +115,7 @@ export function NotificationPreferencesCard({ compact = false }: { compact?: boo
     if (prefsUnavailable) {
       toast({
         title: "Preferences not available",
-        description: error instanceof Error ? error.message : "Reload after deploying the latest API.",
+        description: error instanceof Error ? error.message : "Restart the API server and try again.",
         variant: "destructive",
       });
       return;
@@ -130,7 +146,7 @@ export function NotificationPreferencesCard({ compact = false }: { compact?: boo
               <div>
                 <p className="font-medium">Could not load notification preferences</p>
                 <p className="text-xs mt-1 text-red-700/90">
-                  {error instanceof Error ? error.message : "The API may need an update or database migration."}
+                  {error instanceof Error ? error.message : "Restart the API server after pulling the latest code."}
                 </p>
               </div>
             </div>

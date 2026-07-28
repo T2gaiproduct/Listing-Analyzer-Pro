@@ -20,6 +20,7 @@ export const userProfilesTable = pgTable("user_profiles", {
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   stripeCustomerId: text("stripe_customer_id"),
   avatarUrl: text("avatar_url"),
+  loginEmail: varchar("login_email", { length: 255 }),
   notificationPreferences: jsonb("notification_preferences").$type<NotificationPreferencesJson>(),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),

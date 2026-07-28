@@ -14,14 +14,16 @@ import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits } from "../lib/plan-credits";
-import { upsertUserProfile } from "../lib/user-profile";
+import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
+import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
   filterNotificationsByPreferences,
   getUserNotificationPreferences,
   isNotificationPreferencesColumnMissingError,
@@ -288,6 +290,11 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  if (sessionEmail) {
+    void syncUserLoginEmail(userId, sessionEmail);
+  }
   const [profile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   const subRows = await db.select({
     id: subscriptionsTable.id,
@@ -323,12 +330,19 @@ router.get("/profile", requireAuth, async (req, res): Promise<void> => {
     .where(eq(paymentsTable.userId, userId))
     .orderBy(desc(paymentsTable.createdAt))
     .limit(20);
+  let notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES;
+  try {
+    notificationPreferences = await getUserNotificationPreferences(userId);
+  } catch (err) {
+    req.log?.warn?.({ err }, "Failed to load notification preferences for profile");
+  }
   res.json({
     profile: profile ?? null,
     subscription: subRows[0] ?? null,
     credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
     transactions,
     billingHistory,
+    notificationPreferences,
   });
 });
 
@@ -351,18 +365,54 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
 });
 
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
-  const profile = await upsertUserProfile(userId, {
-    ...(fullName !== undefined && { fullName: String(fullName) }),
-    ...(companyName !== undefined && { companyName: String(companyName) }),
-    ...(phone !== undefined && { phone: String(phone) }),
-    ...(country !== undefined && { country: String(country) }),
-    ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
-    ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
-    ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
-  });
-  res.json(profile);
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const auth = getAuth(req);
+    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+    const body = req.body as Record<string, string | number | Partial<NotificationPreferences>>;
+    const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize, notificationPreferences } = body;
+
+    if (notificationPreferences && typeof notificationPreferences === "object") {
+      const patch: Partial<NotificationPreferences> = {};
+      for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+        if (typeof notificationPreferences[key] === "boolean") {
+          patch[key] = notificationPreferences[key];
+        }
+      }
+      if (Object.keys(patch).length > 0) {
+        await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
+      }
+    }
+
+    if (sessionEmail) {
+      await syncUserLoginEmail(userId, sessionEmail);
+    }
+
+    const profile = await upsertUserProfile(userId, {
+      ...(fullName !== undefined && { fullName: String(fullName) }),
+      ...(companyName !== undefined && { companyName: String(companyName) }),
+      ...(phone !== undefined && { phone: String(phone) }),
+      ...(country !== undefined && { country: String(country) }),
+      ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
+      ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
+      ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
+    });
+
+    const prefs = await getUserNotificationPreferences(userId);
+    res.json({ ...profile, notificationPreferences: prefs });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to update profile");
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      res.status(503).json({ error: NOTIFICATION_PREFS_MIGRATION_HINT });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "Failed to update profile";
+    if (message.includes(NOTIFICATION_PREFS_MIGRATION_HINT)) {
+      res.status(503).json({ error: message });
+      return;
+    }
+    res.status(500).json({ error: message });
+  }
 });
 
 const AVATARS_DIR = path.join(process.cwd(), "public", "images", "avatars");
@@ -1033,6 +1083,8 @@ router.get("/profile/notification-preferences", requireAuth, async (req, res): P
 router.patch("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
   try {
     const userId = (req as AuthedRequest).userId;
+    const auth = getAuth(req);
+    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
     const body = req.body as Partial<NotificationPreferences>;
     const patch: Partial<NotificationPreferences> = {};
 
@@ -1047,7 +1099,7 @@ router.patch("/profile/notification-preferences", requireAuth, async (req, res):
       return;
     }
 
-    const preferences = await updateUserNotificationPreferences(userId, patch);
+    const preferences = await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
     res.json({ preferences });
   } catch (err) {
     req.log?.error?.({ err }, "Failed to update notification preferences");
@@ -1072,23 +1124,6 @@ router.post("/notifications/read-all", requireAuth, async (req, res): Promise<vo
   await db.update(notificationsTable).set({ read: true, readAt: new Date() }).where(and(eq(notificationsTable.userId, userId), eq(notificationsTable.read, false)));
   res.json({ ok: true });
 });
-
-async function clerkAccountExistsForEmail(email: string): Promise<boolean> {
-  const secret = process.env.CLERK_SECRET_KEY;
-  if (!secret) return false;
-  try {
-    const resp = await fetch(
-      `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}&limit=1`,
-      { headers: { Authorization: `Bearer ${secret}` } },
-    );
-    if (!resp.ok) return false;
-    const raw = await resp.json() as unknown[] | { data?: unknown[] };
-    const users = Array.isArray(raw) ? raw : raw.data ?? [];
-    return users.length > 0;
-  } catch {
-    return false;
-  }
-}
 
 router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
   const token = String(req.params.token ?? "");
