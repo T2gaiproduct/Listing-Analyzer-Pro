@@ -44,15 +44,24 @@ wait_for_url() {
 echo "==> Starting PostgreSQL"
 sudo pg_ctlcluster 16 main start 2>/dev/null || true
 
+kill_port() {
+  local port="$1"
+  local pids
+  pids=$(lsof -t -i:"${port}" 2>/dev/null || true)
+  if [[ -n "$pids" ]]; then
+    kill -9 $pids 2>/dev/null || true
+  fi
+}
+
 echo "==> Stopping stale dev processes"
 for port in 8080 19145 3000; do
-  fuser -k "${port}/tcp" 2>/dev/null || true
+  kill_port "$port"
 done
 sleep 3
 for port in 8080 19145 3000; do
-  if fuser "${port}/tcp" 2>/dev/null; then
-    echo "WARNING: port $port still in use — retrying kill" >&2
-    fuser -k "${port}/tcp" 2>/dev/null || true
+  if lsof -i:"${port}" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "WARNING: port $port still in use — force killing again" >&2
+    kill_port "$port"
     sleep 2
   fi
 done
@@ -129,6 +138,46 @@ echo "Stack ready"
 echo "  Local:    http://127.0.0.1:3000/admin/dashboard"
 if [[ -n "$PUBLIC_URL" ]]; then
   echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
+  echo "  Sign in:    $PUBLIC_URL/sign-in"
+  echo ""
+  echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
+  CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
+  tmux_cmd kill-session -t api-server-live 2>/dev/null || true
+  kill_port 8080
+  kill_port 19145
+  sleep 2
+
+  tmux_cmd kill-session -t api-server-live 2>/dev/null || true
+  tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
+    export DATABASE_URL='$DATABASE_URL'
+    export PORT=8080
+    export ENABLE_CLERK_PROXY=true
+    export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+    export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
+    export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+    export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
+    export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
+    export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+    pnpm --filter @workspace/api-server run dev
+  "
+
+  tmux_cmd kill-session -t frontend-live 2>/dev/null || true
+  tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
+    export PORT=19145
+    export BASE_PATH=/
+    export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
+    export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'
+    export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
+    while true; do
+      pnpm --filter @workspace/listing-auditor run dev || true
+      echo 'Frontend exited — restarting in 3s...'
+      sleep 3
+    done
+  "
+
+  wait_for_url "http://127.0.0.1:8080/api/healthz" "API server (Clerk proxy)" 30
+  wait_for_url "http://127.0.0.1:19145/" "Frontend (Clerk proxy)" 45
+  wait_for_url "http://127.0.0.1:3000/admin/dashboard" "Admin page via proxy" 15
 else
   echo "  Cloudflare: (still starting — check /tmp/cloudflared-url.log)"
 fi

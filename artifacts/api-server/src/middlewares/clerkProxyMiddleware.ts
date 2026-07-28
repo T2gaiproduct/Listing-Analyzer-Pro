@@ -53,8 +53,12 @@ export function getClerkProxyHost(req: {
 }
 
 export function clerkProxyMiddleware(): RequestHandler {
-  // Only run proxy in production — Clerk proxying doesn't work for dev instances
-  if (process.env.NODE_ENV !== "production") {
+  // Production deploys and Cloudflare previews (ENABLE_CLERK_PROXY) need same-origin Clerk FAPI.
+  const enableProxy =
+    process.env.NODE_ENV === "production"
+    || process.env.ENABLE_CLERK_PROXY === "true";
+
+  if (!enableProxy) {
     return (_req, _res, next) => next();
   }
 
