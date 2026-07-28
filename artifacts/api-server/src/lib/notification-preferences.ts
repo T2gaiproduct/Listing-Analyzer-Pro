@@ -79,6 +79,52 @@ export function notificationCategoryForType(type: string): NotificationPreferenc
   return typeToCategory.get(type) ?? null;
 }
 
+/** Admin / log display category including system and unmapped types. */
+export function notificationDisplayCategory(type: string): NotificationPreferenceCategory | "system" | "other" {
+  const mapped = notificationCategoryForType(type);
+  if (mapped) return mapped;
+  if (ALWAYS_ON_TYPES.has(type) || type === "promo") return "system";
+  return "other";
+}
+
+export function allKnownNotificationTypes(): string[] {
+  const fromCategories = NOTIFICATION_PREFERENCE_CATEGORIES.flatMap((c) => CATEGORY_TYPES[c]);
+  return [...new Set([...fromCategories, ...ALWAYS_ON_TYPES, "promo"])];
+}
+
+/** Types for admin list filter; null = no filter (all). */
+export function notificationTypesForAdminCategory(category: string): string[] | null {
+  if (!category || category === "all") return null;
+  if (category === "system") return [...ALWAYS_ON_TYPES, "promo"];
+  if ((NOTIFICATION_PREFERENCE_CATEGORIES as readonly string[]).includes(category)) {
+    return [...CATEGORY_TYPES[category as NotificationPreferenceCategory]];
+  }
+  return null;
+}
+
+export async function enrichNotificationsForAdminLog<
+  T extends { type: string; userId: string | null },
+>(notifications: T[]): Promise<Array<T & { category: string; userWouldSee: boolean | null }>> {
+  const userIds = [...new Set(
+    notifications.map((n) => n.userId).filter((id): id is string => Boolean(id)),
+  )];
+  const prefsByUser = new Map<string, NotificationPreferences>();
+  for (const uid of userIds) {
+    prefsByUser.set(uid, await getUserNotificationPreferences(uid));
+  }
+
+  return notifications.map((n) => ({
+    ...n,
+    category: notificationDisplayCategory(n.type),
+    userWouldSee: n.userId
+      ? isNotificationTypeEnabled(
+        prefsByUser.get(n.userId) ?? DEFAULT_NOTIFICATION_PREFERENCES,
+        n.type,
+      )
+      : null,
+  }));
+}
+
 export function isNotificationTypeEnabled(
   preferences: NotificationPreferences,
   type: string,

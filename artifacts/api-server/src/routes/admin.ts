@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, count, avg, sql, desc, and, inArray, gte, isNull } from "drizzle-orm";
+import { eq, count, avg, sql, desc, and, inArray, gte, isNull, notInArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable,
@@ -43,6 +43,13 @@ import {
 } from "../lib/admin-invites.js";
 import { buildAdminInviteUrl } from "../lib/admin-invite-token.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
+import {
+  allKnownNotificationTypes,
+  enrichNotificationsForAdminLog,
+  notificationTypesForAdminCategory,
+} from "../lib/notification-preferences.js";
+import { createNotification, type NotificationType } from "../lib/notifications.js";
+import { wsSend } from "../lib/ws.js";
 
 const router: IRouter = Router();
 
@@ -1255,17 +1262,105 @@ router.delete("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<
 
 router.get("/admin/notifications", requireAdmin, async (req, res): Promise<void> => {
   const limit = Math.min(Number(req.query.limit ?? 50), 200);
-  const type = (req.query.type as string | undefined) ?? "";
-  let q = db.select().from(notificationsTable).orderBy(desc(notificationsTable.sentAt)).limit(limit);
-  const all = await q;
-  const filtered = type ? all.filter((n) => n.type === type) : all;
-  res.json({ notifications: filtered });
+  const category = String(req.query.category ?? "").trim();
+  const type = String(req.query.type ?? "").trim();
+  const readFilter = String(req.query.read ?? "").trim();
+
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (type) {
+    conditions.push(eq(notificationsTable.type, type));
+  } else if (category === "other") {
+    conditions.push(notInArray(notificationsTable.type, allKnownNotificationTypes()));
+  } else {
+    const types = notificationTypesForAdminCategory(category);
+    if (types?.length) {
+      conditions.push(inArray(notificationsTable.type, types));
+    }
+  }
+  if (readFilter === "read") {
+    conditions.push(eq(notificationsTable.read, true));
+  } else if (readFilter === "unread") {
+    conditions.push(eq(notificationsTable.read, false));
+  }
+
+  const rows = await db
+    .select()
+    .from(notificationsTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(notificationsTable.sentAt))
+    .limit(limit);
+
+  const notifications = await enrichNotificationsForAdminLog(rows);
+  res.json({ notifications });
 });
 
 router.post("/admin/notifications", requireAdmin, async (req, res): Promise<void> => {
-  const { userId, type, title, message, link } = req.body;
-  const [n] = await db.insert(notificationsTable).values({ userId: userId ?? null, type, title, message, link }).returning();
-  res.status(201).json(n);
+  const { userId, type, title, message, link, force } = req.body as {
+    userId?: string | null;
+    type: string;
+    title: string;
+    message: string;
+    link?: string;
+    force?: boolean;
+  };
+
+  if (!type?.trim() || !title?.trim() || !message?.trim()) {
+    res.status(400).json({ error: "type, title, and message are required" });
+    return;
+  }
+
+  const targetUserId = userId?.trim() || null;
+
+  if (!targetUserId) {
+    const [n] = await db.insert(notificationsTable).values({
+      userId: null,
+      type,
+      title,
+      message,
+      link,
+    }).returning();
+    res.status(201).json(n);
+    return;
+  }
+
+  if (force) {
+    const [n] = await db.insert(notificationsTable).values({
+      userId: targetUserId,
+      type,
+      title,
+      message,
+      link,
+      read: false,
+      sentAt: new Date(),
+    }).returning();
+    wsSend(targetUserId, "notification", {
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      sentAt: n.sentAt,
+    });
+    res.status(201).json(n);
+    return;
+  }
+
+  const row = await createNotification({
+    userId: targetUserId,
+    type: type as NotificationType,
+    title,
+    message,
+    link,
+  });
+
+  if (!row) {
+    res.status(200).json({
+      skipped: true,
+      reason: "User has disabled this notification category in their preferences",
+    });
+    return;
+  }
+
+  res.status(201).json(row);
 });
 
 router.patch("/admin/notifications/:id/read", requireAdmin, async (req, res): Promise<void> => {

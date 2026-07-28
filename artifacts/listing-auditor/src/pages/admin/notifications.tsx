@@ -11,23 +11,39 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Megaphone, Plus, Trash2, Check, RefreshCw, Save } from "lucide-react";
+import { Bell, Megaphone, Plus, Trash2, Check, RefreshCw, Save, Filter } from "lucide-react";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { useToast } from "@/hooks/use-toast";
+import { NotificationPreferencesCard } from "@/components/notification-preferences-card";
 import {
   ANNOUNCEMENT_PROMO_CATEGORY,
   ANNOUNCEMENT_PROMO_KEYS,
   announcementPromoFormDefaults,
 } from "@/lib/announcement-promo";
+import {
+  ADMIN_NOTIFICATION_TYPES_BY_CATEGORY,
+  NOTIFICATION_CATEGORY_FILTER_OPTIONS,
+  NOTIFICATION_CATEGORY_LABELS,
+} from "@/lib/notification-preferences";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface Notification {
-  id: number; userId: string | null; type: string; title: string; message: string;
-  read: boolean; sentAt: string;
+  id: number;
+  userId: string | null;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  sentAt: string;
+  category?: string;
+  userWouldSee?: boolean | null;
 }
 
-const NOTIFICATION_TYPES = ["credit_low", "credit_expired", "payment_failed", "payment_success", "plan_expiring", "system", "promo"];
+interface NotificationFilters {
+  category: string;
+  read: string;
+}
 
 function fetchSettings(category: string): Promise<Record<string, string>> {
   return fetch(`${basePath}/api/admin/settings?category=${category}`, { credentials: "include" }).then((r) => r.json());
@@ -42,9 +58,12 @@ function saveSettings(category: string, settings: Record<string, string>): Promi
   }).then((r) => r.json());
 }
 
-function fetchNotifications(type: string): Promise<{ notifications: Notification[] }> {
-  const params = type ? `?type=${type}` : "";
-  return fetch(`${basePath}/api/admin/notifications${params}`, { credentials: "include" }).then((r) => r.json());
+function fetchNotifications(filters: NotificationFilters): Promise<{ notifications: Notification[] }> {
+  const params = new URLSearchParams();
+  if (filters.category && filters.category !== "all") params.set("category", filters.category);
+  if (filters.read && filters.read !== "all") params.set("read", filters.read);
+  const qs = params.toString();
+  return fetch(`${basePath}/api/admin/notifications${qs ? `?${qs}` : ""}`, { credentials: "include" }).then((r) => r.json());
 }
 
 function PromoBannerEditor() {
@@ -170,20 +189,57 @@ function PromoBannerEditor() {
 
 function NotificationLog() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [form, setForm] = useState({ userId: "", type: "system", title: "", message: "" });
+  const [filters, setFilters] = useState<NotificationFilters>({ category: "all", read: "all" });
+  const [form, setForm] = useState({
+    userId: "",
+    category: "system",
+    type: "system",
+    title: "",
+    message: "",
+    force: false,
+  });
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["admin-notifications", typeFilter],
-    queryFn: () => fetchNotifications(typeFilter === "all" ? "" : typeFilter),
+    queryKey: ["admin-notifications", filters],
+    queryFn: () => fetchNotifications(filters),
   });
   const notifications = data?.notifications ?? [];
   const unread = notifications.filter((n) => !n.read).length;
+  const filteredByPrefs = notifications.filter((n) => n.userId && n.userWouldSee === false).length;
+
+  const sendTypes = ADMIN_NOTIFICATION_TYPES_BY_CATEGORY[form.category] ?? ["system"];
 
   const send = useMutation({
-    mutationFn: (body: object) => fetch(`${basePath}/api/admin/notifications`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-notifications"] }); setOpen(false); setForm({ userId: "", type: "system", title: "", message: "" }); },
+    mutationFn: (body: object) =>
+      fetch(`${basePath}/api/admin/notifications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      }).then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Failed to send");
+        return data;
+      }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-notifications"] });
+      setOpen(false);
+      setForm({ userId: "", category: "system", type: "system", title: "", message: "", force: false });
+      if (data?.skipped) {
+        toast({
+          title: "Notification skipped",
+          description: "This user turned off that category in their notification preferences.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Notification sent" });
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const markRead = useMutation({
@@ -200,9 +256,14 @@ function NotificationLog() {
     <>
       <Card className="p-3 sm:p-4 min-w-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-medium text-slate-900">User notification log</p>
             {unread > 0 && <Badge>{unread} unread</Badge>}
+            {filteredByPrefs > 0 && (
+              <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">
+                {filteredByPrefs} hidden by user prefs
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button size="sm" className="flex-1 sm:flex-none min-h-11" onClick={() => setOpen(true)}>
@@ -215,27 +276,49 @@ function NotificationLog() {
           </div>
         </div>
 
-        <div className="mb-4">
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[220px]">
-              <SelectValue placeholder="Filter by type" />
+        <div className="mb-4 flex flex-col sm:flex-row gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0">
+            <Filter className="w-3.5 h-3.5" />
+            Filters
+          </div>
+          <Select
+            value={filters.category}
+            onValueChange={(v) => setFilters((p) => ({ ...p, category: v }))}
+          >
+            <SelectTrigger className="w-full sm:w-[240px]">
+              <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {NOTIFICATION_TYPES.map((t) => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}
+              {NOTIFICATION_CATEGORY_FILTER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.read}
+            onValueChange={(v) => setFilters((p) => ({ ...p, read: v }))}
+          >
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All status</SelectItem>
+              <SelectItem value="unread">Unread only</SelectItem>
+              <SelectItem value="read">Read only</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="rounded-md border min-w-0">
-          <ResponsiveTable minWidth="44rem">
+          <ResponsiveTable minWidth="52rem">
             <table className="w-full caption-bottom text-sm">
               <TableHeader>
                 <TableRow>
+                  <TableHead>Category</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Title</TableHead>
-                  <TableHead>Message</TableHead>
                   <TableHead>User</TableHead>
+                  <TableHead>User sees?</TableHead>
                   <TableHead>Sent</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -243,16 +326,29 @@ function NotificationLog() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center py-8">Loading...</TableCell></TableRow>
                 ) : notifications.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No notifications found.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No notifications found.</TableCell></TableRow>
                 ) : (
                   notifications.map((n) => (
                     <TableRow key={n.id} className={n.read ? "opacity-60" : ""}>
-                      <TableCell><Badge variant="outline" className="capitalize">{n.type.replace(/_/g, " ")}</Badge></TableCell>
-                      <TableCell className="font-medium">{n.title}</TableCell>
-                      <TableCell className="max-w-[200px] truncate text-muted-foreground">{n.message}</TableCell>
-                      <TableCell className="max-w-[120px] truncate text-xs">{n.userId || <span className="text-muted-foreground">Broadcast</span>}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize text-xs">
+                          {NOTIFICATION_CATEGORY_LABELS[n.category ?? "other"] ?? n.category ?? "Other"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell><Badge variant="outline" className="capitalize text-xs">{n.type.replace(/_/g, " ")}</Badge></TableCell>
+                      <TableCell className="font-medium max-w-[160px] truncate">{n.title}</TableCell>
+                      <TableCell className="max-w-[100px] truncate text-xs">{n.userId || <span className="text-muted-foreground">Broadcast</span>}</TableCell>
+                      <TableCell>
+                        {n.userId == null ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : n.userWouldSee ? (
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">Yes</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-amber-700 border-amber-200 text-xs">Filtered off</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{new Date(n.sentAt).toLocaleString()}</TableCell>
                       <TableCell>{n.read ? <Badge variant="secondary">Read</Badge> : <Badge>Unread</Badge>}</TableCell>
                       <TableCell className="text-right">
@@ -272,19 +368,59 @@ function NotificationLog() {
         <DialogContent>
           <DialogHeader><DialogTitle>Send notification</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input placeholder="User ID (leave blank for broadcast)" value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })} />
+            <Input
+              placeholder="User ID (leave blank for broadcast log only)"
+              value={form.userId}
+              onChange={(e) => setForm({ ...form, userId: e.target.value })}
+            />
+            <Select
+              value={form.category}
+              onValueChange={(v) => {
+                const types = ADMIN_NOTIFICATION_TYPES_BY_CATEGORY[v] ?? ["system"];
+                setForm({ ...form, category: v, type: types[0] });
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+              <SelectContent>
+                {Object.keys(ADMIN_NOTIFICATION_TYPES_BY_CATEGORY).map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {NOTIFICATION_CATEGORY_LABELS[cat] ?? cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {NOTIFICATION_TYPES.map((t) => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}
+                {sendTypes.map((t) => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}
               </SelectContent>
             </Select>
             <Input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             <Textarea placeholder="Message" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} rows={3} />
+            {form.userId.trim() && (
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium">Force delivery</p>
+                  <p className="text-xs text-muted-foreground">Bypass the user&apos;s notification category toggles</p>
+                </div>
+                <Switch checked={form.force} onCheckedChange={(checked) => setForm({ ...form, force: checked })} />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => send.mutate({ userId: form.userId || null, type: form.type, title: form.title, message: form.message })} disabled={!form.title || !form.message}>Send</Button>
+            <Button
+              onClick={() => send.mutate({
+                userId: form.userId.trim() || null,
+                type: form.type,
+                title: form.title,
+                message: form.message,
+                force: form.force,
+              })}
+              disabled={!form.title || !form.message || send.isPending}
+            >
+              Send
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -307,12 +443,22 @@ export default function AdminNotifications() {
             <Bell className="w-3.5 h-3.5 mr-1.5" />
             User alerts
           </TabsTrigger>
+          <TabsTrigger value="preferences">
+            <Filter className="w-3.5 h-3.5 mr-1.5" />
+            Your preferences
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="promo" className="mt-4">
           <PromoBannerEditor />
         </TabsContent>
         <TabsContent value="notifications" className="mt-4">
           <NotificationLog />
+        </TabsContent>
+        <TabsContent value="preferences" className="mt-4 max-w-2xl">
+          <NotificationPreferencesCard />
+          <p className="text-xs text-muted-foreground mt-3">
+            These settings apply to your admin account the same way as the customer dashboard — in-app alerts, toast notifications, and email.
+          </p>
         </TabsContent>
       </Tabs>
     </div>
