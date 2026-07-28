@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import {
   Search, Coins, ChevronDown, UserCircle, Receipt, Settings, HelpCircle,
   Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu,
-  Bell, Archive,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
@@ -208,24 +207,6 @@ export function DashboardTopbar({
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
-        {variant === "admin" && (
-          <div className="flex items-center gap-1 sm:gap-1.5">
-            <Link
-              href="/admin/notifications"
-              className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-              aria-label="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/admin/archive"
-              className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-              aria-label="Archive"
-            >
-              <Archive className="w-4 h-4" />
-            </Link>
-          </div>
-        )}
         {showCredits && (
         <div ref={creditsRef} className="relative flex-shrink-0">
           <button

@@ -8,7 +8,7 @@ import {
   BadgePercent, ClipboardList,
   Bell, BrainCircuit, KeyRound, Lock, Wallet, ShoppingCart,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
-  ChevronDown, ChevronUp, FileSearch, Palette,
+  ChevronDown, ChevronUp, FileSearch, Palette, Archive,
   Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -391,6 +391,20 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
             <div className="flex-1" />
+            <Link
+              href="/admin/notifications"
+              aria-label="Notifications"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/admin/archive"
+              aria-label="Archive"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <Archive className="w-4 h-4" />
+            </Link>
             <div className="w-px h-5 bg-slate-700/80" />
             <button
               type="button"
