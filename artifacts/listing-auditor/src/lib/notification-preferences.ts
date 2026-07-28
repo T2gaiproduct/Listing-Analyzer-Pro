@@ -57,6 +57,19 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   admin: true,
 };
 
+/** Merge stored JSON with defaults so new categories (e.g. admin) never appear as undefined/off. */
+export function mergeNotificationPreferences(
+  raw: Partial<NotificationPreferences> | null | undefined,
+): NotificationPreferences {
+  return {
+    projects: raw?.projects ?? DEFAULT_NOTIFICATION_PREFERENCES.projects,
+    team: raw?.team ?? DEFAULT_NOTIFICATION_PREFERENCES.team,
+    billing: raw?.billing ?? DEFAULT_NOTIFICATION_PREFERENCES.billing,
+    audits: raw?.audits ?? DEFAULT_NOTIFICATION_PREFERENCES.audits,
+    admin: raw?.admin ?? DEFAULT_NOTIFICATION_PREFERENCES.admin,
+  };
+}
+
 export const NOTIFICATION_CATEGORY_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All categories" },
   { value: "projects", label: NOTIFICATION_PREFERENCE_META.projects.label },

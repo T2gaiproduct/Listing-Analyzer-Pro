@@ -405,15 +405,34 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
       await syncUserLoginEmail(userId, sessionEmail);
     }
 
-    const profile = await upsertUserProfile(userId, {
-      ...(fullName !== undefined && { fullName: String(fullName) }),
-      ...(companyName !== undefined && { companyName: String(companyName) }),
-      ...(phone !== undefined && { phone: String(phone) }),
-      ...(country !== undefined && { country: String(country) }),
-      ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
-      ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
-      ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
-    });
+    const hasProfileUpdates =
+      fullName !== undefined
+      || companyName !== undefined
+      || phone !== undefined
+      || country !== undefined
+      || gstNumber !== undefined
+      || websiteUrl !== undefined
+      || teamSize !== undefined;
+
+    let profile = null;
+    if (hasProfileUpdates) {
+      profile = await upsertUserProfile(userId, {
+        ...(fullName !== undefined && { fullName: String(fullName) }),
+        ...(companyName !== undefined && { companyName: String(companyName) }),
+        ...(phone !== undefined && { phone: String(phone) }),
+        ...(country !== undefined && { country: String(country) }),
+        ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
+        ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
+        ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
+      });
+    } else {
+      const [existing] = await db
+        .select()
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.userId, userId))
+        .limit(1);
+      profile = existing ?? null;
+    }
 
     const prefs = await getUserNotificationPreferences(userId);
     res.json({ ...profile, notificationPreferences: prefs });
