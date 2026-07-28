@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
+import fs from "node:fs";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -99,6 +100,31 @@ app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api/images/portfolio", express.static(PORTFOLIO_IMAGES_DIR));
 app.use("/api/images/workflow", express.static(WORKFLOW_IMAGES_DIR));
 app.use("/api", router);
+
+// Express 5 HTML 404 pages break admin JSON clients — always return JSON for unknown /api routes.
+app.use("/api", (req, res) => {
+  res.status(404).json({
+    error: `API route not found (${req.method} ${req.originalUrl}). Restart the API server after deploying the latest code.`,
+  });
+});
+
+const frontendDist = process.env.FRONTEND_DIST
+  ?? path.resolve(process.cwd(), "artifacts/listing-auditor/dist/public");
+const shouldServeFrontend =
+  process.env.SERVE_FRONTEND === "1"
+  || process.env.SERVE_FRONTEND === "true"
+  || (process.env.NODE_ENV === "production" && fs.existsSync(path.join(frontendDist, "index.html")));
+
+if (shouldServeFrontend) {
+  app.use(express.static(frontendDist, { index: false }));
+  app.get(/^(?!\/api\/).*/, (req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      next();
+      return;
+    }
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 export default app;
 export const serverRef: { current: import("node:http").Server | null } = { current: null };

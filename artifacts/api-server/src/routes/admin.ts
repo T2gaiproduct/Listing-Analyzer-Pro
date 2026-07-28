@@ -1837,6 +1837,65 @@ router.delete("/admin/nav/:id", requireAdmin, async (req, res): Promise<void> =>
 // MARKETING — FORM SUBMISSIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+type FormSubmissionRow = typeof formSubmissions.$inferSelect;
+
+type SupportTicketReplyOutcome =
+  | { ok: true; ticket: FormSubmissionRow }
+  | { ok: false; status: number; error: string };
+
+async function processSupportTicketReply(id: number, message: string): Promise<SupportTicketReplyOutcome> {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return { ok: false, status: 400, error: "Reply message is required" };
+  }
+
+  const [ticket] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, id));
+  if (!ticket) {
+    return { ok: false, status: 404, error: "Ticket not found" };
+  }
+  if (!ticket.email?.trim()) {
+    return { ok: false, status: 400, error: "This ticket has no customer email" };
+  }
+
+  const data = (ticket.data ?? {}) as {
+    subject?: string;
+    message?: string;
+    replies?: Array<{ message: string; sentAt: string }>;
+  };
+  const originalSubject = data.subject?.trim() || "Support ticket";
+
+  const emailResult = await sendSupportTicketReplyEmail({
+    toEmail: ticket.email.trim(),
+    customerName: ticket.name,
+    originalSubject,
+    replyMessage: trimmed,
+  });
+
+  if (!emailResult.success) {
+    return {
+      ok: false,
+      status: 502,
+      error: emailResult.error ?? "Failed to send email. Check Admin → Email Settings (SMTP).",
+    };
+  }
+
+  const replies = [...(data.replies ?? []), { message: trimmed, sentAt: new Date().toISOString() }];
+  const [updated] = await db
+    .update(formSubmissions)
+    .set({
+      isRead: true,
+      data: { ...data, replies },
+    })
+    .where(eq(formSubmissions.id, id))
+    .returning();
+
+  if (!updated) {
+    return { ok: false, status: 500, error: "Failed to update ticket" };
+  }
+
+  return { ok: true, ticket: updated };
+}
+
 router.get("/admin/forms", requireAdmin, async (req, res): Promise<void> => {
   const type = String(req.query.type ?? "");
   let query = db.select().from(formSubmissions).$dynamic();
@@ -1846,10 +1905,35 @@ router.get("/admin/forms", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.patch("/admin/forms/:id/read", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(String(req.params.id ?? ""));
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const [item] = await db.update(formSubmissions).set({ isRead: true }).where(eq(formSubmissions.id, id)).returning();
-  res.json(item);
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const replyMessage =
+      typeof req.body?.replyMessage === "string"
+        ? req.body.replyMessage
+        : typeof req.body?.message === "string"
+          ? req.body.message
+          : "";
+
+    if (replyMessage.trim()) {
+      const result = await processSupportTicketReply(id, replyMessage);
+      if (!result.ok) {
+        res.status(result.status).json({ error: result.error });
+        return;
+      }
+      res.json({ ok: true, ticket: result.ticket });
+      return;
+    }
+
+    const [item] = await db.update(formSubmissions).set({ isRead: true }).where(eq(formSubmissions.id, id)).returning();
+    res.json(item);
+  } catch (err) {
+    req.log?.error?.({ err }, "Support ticket read/reply failed");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to update support ticket",
+    });
+  }
 });
 
 router.post("/admin/forms/:id/reply", requireAdmin, async (req, res): Promise<void> => {
@@ -1857,50 +1941,14 @@ router.post("/admin/forms/:id/reply", requireAdmin, async (req, res): Promise<vo
     const id = parseInt(String(req.params.id ?? ""));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-    const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
-    if (!message) {
-      res.status(400).json({ error: "Reply message is required" });
+    const message = typeof req.body?.message === "string" ? req.body.message : "";
+    const result = await processSupportTicketReply(id, message);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
       return;
     }
 
-    const [ticket] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, id));
-    if (!ticket) {
-      res.status(404).json({ error: "Ticket not found" });
-      return;
-    }
-    if (!ticket.email?.trim()) {
-      res.status(400).json({ error: "This ticket has no customer email" });
-      return;
-    }
-
-    const data = (ticket.data ?? {}) as { subject?: string; message?: string; replies?: Array<{ message: string; sentAt: string }> };
-    const originalSubject = data.subject?.trim() || "Support ticket";
-
-    const emailResult = await sendSupportTicketReplyEmail({
-      toEmail: ticket.email.trim(),
-      customerName: ticket.name,
-      originalSubject,
-      replyMessage: message,
-    });
-
-    if (!emailResult.success) {
-      res.status(502).json({
-        error: emailResult.error ?? "Failed to send email. Check Admin → Email Settings (SMTP).",
-      });
-      return;
-    }
-
-    const replies = [...(data.replies ?? []), { message, sentAt: new Date().toISOString() }];
-    const [updated] = await db
-      .update(formSubmissions)
-      .set({
-        isRead: true,
-        data: { ...data, replies },
-      })
-      .where(eq(formSubmissions.id, id))
-      .returning();
-
-    res.json({ ok: true, ticket: updated });
+    res.json({ ok: true, ticket: result.ticket });
   } catch (err) {
     req.log?.error?.({ err }, "Support ticket reply failed");
     res.status(500).json({
