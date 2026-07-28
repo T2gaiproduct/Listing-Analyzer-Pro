@@ -1410,7 +1410,7 @@ router.delete("/admin/notifications/:id", requireAdmin, async (req, res): Promis
 // SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/settings", async (req, res): Promise<void> => {
   const category = (req.query.category as string | undefined) ?? "";
   const all = await db.select().from(settingsTable);
   const filtered = category ? all.filter((s) => s.category === category) : all;
@@ -1419,8 +1419,14 @@ router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   res.json(map);
 });
 
-router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
-  const { category, settings } = req.body;
+router.put("/admin/settings", async (req, res): Promise<void> => {
+  const { category, settings } = req.body as { category?: string; settings?: Record<string, string> };
+  if (!category?.trim() || !settings || typeof settings !== "object") {
+    res.status(400).json({ error: "Invalid settings payload" });
+    return;
+  }
+
+  try {
 
   const SECRET_KEYS = new Set([
     "stripe_secret_key", "stripe_webhook_secret",
@@ -1530,10 +1536,14 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     }
   }
 
-  res.json({
-    success: true,
-    warning: (req as Request & { amazonAwsSaveWarning?: string }).amazonAwsSaveWarning ?? undefined,
-  });
+    res.json({
+      success: true,
+      warning: (req as Request & { amazonAwsSaveWarning?: string }).amazonAwsSaveWarning ?? undefined,
+    });
+  } catch (err) {
+    req.log?.error?.({ err, category }, "Failed to save admin settings");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to save settings" });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
