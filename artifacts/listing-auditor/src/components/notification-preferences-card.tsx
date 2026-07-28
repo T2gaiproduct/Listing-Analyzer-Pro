@@ -9,6 +9,7 @@ import {
   CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES,
   NOTIFICATION_PREFERENCE_CATEGORIES,
   NOTIFICATION_PREFERENCE_META,
+  mergeNotificationPreferences,
   type NotificationPreferences,
 } from "@/lib/notification-preferences";
 
@@ -21,7 +22,7 @@ async function readApiJson<T>(res: Response): Promise<T> {
       throw new Error(
         res.status === 401
           ? "Sign in again to manage notification preferences."
-          : `Server error (${res.status}). Restart the API server after pulling the latest code.`,
+          : `Server error (${res.status}). Restart the API server after deploying the latest code.`,
       );
     }
     return {} as T;
@@ -47,44 +48,61 @@ async function readApiJson<T>(res: Response): Promise<T> {
   }
 }
 
-function resolvePreferencesFromProfilePayload(data: {
-  notificationPreferences?: NotificationPreferences;
-  preferences?: NotificationPreferences;
-  profile?: { notificationPreferences?: NotificationPreferences } | null;
+function resolvePreferencesPayload(data: {
+  preferences?: Partial<NotificationPreferences>;
+  notificationPreferences?: Partial<NotificationPreferences>;
+  profile?: { notificationPreferences?: Partial<NotificationPreferences> } | null;
 }): NotificationPreferences {
-  return (
-    data.notificationPreferences
-    ?? data.preferences
-    ?? data.profile?.notificationPreferences
-    ?? DEFAULT_NOTIFICATION_PREFERENCES
-  );
+  const raw =
+    data.preferences
+    ?? data.notificationPreferences
+    ?? data.profile?.notificationPreferences;
+  return mergeNotificationPreferences(raw);
 }
 
 async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
+  const dedicated = await fetch(`${basePath}/api/profile/notification-preferences`, {
+    credentials: "include",
+  });
+  if (dedicated.ok) {
+    const data = await readApiJson<{ preferences?: Partial<NotificationPreferences> }>(dedicated);
+    return resolvePreferencesPayload(data);
+  }
+
   const res = await fetch(`${basePath}/api/profile`, { credentials: "include" });
   const data = await readApiJson<{
-    notificationPreferences?: NotificationPreferences;
-    preferences?: NotificationPreferences;
-    profile?: { notificationPreferences?: NotificationPreferences } | null;
+    notificationPreferences?: Partial<NotificationPreferences>;
+    profile?: { notificationPreferences?: Partial<NotificationPreferences> } | null;
   }>(res);
-  return resolvePreferencesFromProfilePayload(data);
+  return resolvePreferencesPayload(data);
 }
 
 async function saveNotificationPreferences(
-  patch: Partial<NotificationPreferences>,
+  preferences: NotificationPreferences,
 ): Promise<NotificationPreferences> {
-  const res = await fetch(`${basePath}/api/profile`, {
+  const res = await fetch(`${basePath}/api/profile/notification-preferences`, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ notificationPreferences: patch }),
+    body: JSON.stringify(preferences),
   });
-  const data = await readApiJson<{
-    notificationPreferences?: NotificationPreferences;
-    preferences?: NotificationPreferences;
-    profile?: { notificationPreferences?: NotificationPreferences } | null;
-  }>(res);
-  return resolvePreferencesFromProfilePayload(data);
+
+  if (res.ok) {
+    const data = await readApiJson<{ preferences?: Partial<NotificationPreferences> }>(res);
+    return resolvePreferencesPayload(data);
+  }
+
+  // Fallback for older API builds
+  const legacy = await fetch(`${basePath}/api/profile`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ notificationPreferences: preferences }),
+  });
+  const legacyData = await readApiJson<{
+    notificationPreferences?: Partial<NotificationPreferences>;
+  }>(legacy);
+  return resolvePreferencesPayload(legacyData);
 }
 
 export function NotificationPreferencesCard({
@@ -115,6 +133,7 @@ export function NotificationPreferencesCard({
       toast({ title: "Notification preferences updated" });
     },
     onError: (err: Error) => {
+      qc.invalidateQueries({ queryKey: ["notification-preferences"] });
       toast({ title: "Could not update preferences", description: err.message, variant: "destructive" });
     },
   });
@@ -128,7 +147,10 @@ export function NotificationPreferencesCard({
       });
       return;
     }
-    save.mutate({ [category]: enabled });
+
+    const next = mergeNotificationPreferences({ ...resolvedPreferences, [category]: enabled });
+    qc.setQueryData(["notification-preferences"], next);
+    save.mutate(next);
   };
 
   const categories = showAdminAlerts
