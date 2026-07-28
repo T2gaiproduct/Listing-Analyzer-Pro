@@ -9,11 +9,10 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bell, Plus, Trash2, Check, RefreshCw, Filter } from "lucide-react";
+import { Link } from "wouter";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { useToast } from "@/hooks/use-toast";
-import { NotificationPreferencesCard } from "@/components/notification-preferences-card";
 import {
   ADMIN_NOTIFICATION_TYPES_BY_CATEGORY,
   NOTIFICATION_CATEGORY_FILTER_OPTIONS,
@@ -296,26 +295,17 @@ export default function AdminNotifications() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            User alerts, delivery log, and your personal notification preferences.
+            User alert log, delivery status, and send targeted notifications.
           </p>
         </div>
       </div>
 
-      <Tabs defaultValue="log">
-        <TabsList>
-          <TabsTrigger value="log">User alerts</TabsTrigger>
-          <TabsTrigger value="preferences">Your preferences</TabsTrigger>
-        </TabsList>
-        <TabsContent value="log" className="mt-4">
-          <NotificationLog />
-        </TabsContent>
-        <TabsContent value="preferences" className="mt-4 max-w-2xl">
-          <NotificationPreferencesCard />
-          <p className="text-xs text-muted-foreground mt-3">
-            These settings apply to your admin account — in-app alerts, toast notifications, and email.
-          </p>
-        </TabsContent>
-      </Tabs>
+      <NotificationLog />
+
+      <p className="text-xs text-muted-foreground">
+        To manage which alerts you personally receive, open{" "}
+        <Link href="/settings" className="text-orange-600 hover:underline font-medium">Settings</Link>.
+      </p>
     </div>
   );
 }
