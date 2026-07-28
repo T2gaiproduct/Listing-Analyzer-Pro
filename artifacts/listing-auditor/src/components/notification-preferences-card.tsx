@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES,
   NOTIFICATION_PREFERENCE_CATEGORIES,
   NOTIFICATION_PREFERENCE_META,
   type NotificationPreferences,
@@ -86,7 +87,14 @@ async function saveNotificationPreferences(
   return resolvePreferencesFromProfilePayload(data);
 }
 
-export function NotificationPreferencesCard({ compact = false }: { compact?: boolean }) {
+export function NotificationPreferencesCard({
+  compact = false,
+  showAdminAlerts = false,
+}: {
+  compact?: boolean;
+  /** When true (admin dashboard), include Admin & platform alerts toggle. */
+  showAdminAlerts?: boolean;
+}) {
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -122,6 +130,10 @@ export function NotificationPreferencesCard({ compact = false }: { compact?: boo
     }
     save.mutate({ [category]: enabled });
   };
+
+  const categories = showAdminAlerts
+    ? NOTIFICATION_PREFERENCE_CATEGORIES
+    : CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES;
 
   return (
     <Card className={compact ? "border-slate-200" : undefined}>
@@ -160,7 +172,7 @@ export function NotificationPreferencesCard({ compact = false }: { compact?: boo
           </div>
         ) : (
           <>
-            {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => {
+            {categories.map((category) => {
               const meta = NOTIFICATION_PREFERENCE_META[category];
               return (
                 <div

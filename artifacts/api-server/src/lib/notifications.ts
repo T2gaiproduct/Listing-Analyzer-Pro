@@ -23,6 +23,11 @@ export type NotificationType =
   | "payment_received"
   | "team_invite"
   | "team_invite_accepted"
+  | "support_ticket_new"
+  | "admin_role_invite"
+  | "admin_role_assigned"
+  | "admin_role_updated"
+  | "form_submission_new"
   | "system"
   | "welcome";
 

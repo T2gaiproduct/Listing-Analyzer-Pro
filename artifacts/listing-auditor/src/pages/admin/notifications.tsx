@@ -310,7 +310,7 @@ export default function AdminNotifications() {
           <NotificationLog />
         </TabsContent>
         <TabsContent value="preferences" className="mt-4 max-w-2xl">
-          <NotificationPreferencesCard />
+          <NotificationPreferencesCard showAdminAlerts />
           <p className="text-xs text-muted-foreground mt-3">
             These settings apply to your admin account — in-app alerts, toast notifications, and email.
           </p>

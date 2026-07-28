@@ -90,8 +90,23 @@ async function notifyAdminRoleAssignment(
 
   if (!toEmail) return { emailSent: false, emailError: "Recipient email not found" };
 
+  const [role] = await db
+    .select({ name: adminRolesTable.name })
+    .from(adminRolesTable)
+    .where(eq(adminRolesTable.id, opts.roleId))
+    .limit(1);
+  const roleName = role?.name ?? "Administrator";
+
   const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
   const assignedByName = assignerProfile?.name ?? "An administrator";
+
+  void createNotification({
+    userId: opts.userId,
+    type: opts.isUpdate ? "admin_role_updated" : "admin_role_assigned",
+    title: opts.isUpdate ? "Admin role updated" : "Admin access granted",
+    message: `${assignedByName} set your role to ${roleName}.`,
+    link: "/admin/dashboard",
+  });
 
   try {
     const result = await sendAdminRoleAssignedEmail({
@@ -1153,6 +1168,16 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
       appBaseUrl: resolveAppBaseUrl(req),
       inviteUrl,
     });
+
+    if (targetUserId) {
+      void createNotification({
+        userId: targetUserId,
+        type: "admin_role_invite",
+        title: "Admin role invitation",
+        message: `${assignedByName} invited you to become an administrator.`,
+        link: `/accept-admin-invite?token=${invite.inviteToken ?? inviteToken}`,
+      });
+    }
 
     res.status(201).json({ pending: true, invite, inviteUrl, ...emailResult });
     return;
