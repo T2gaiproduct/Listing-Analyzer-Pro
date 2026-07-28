@@ -3,6 +3,7 @@ export const NOTIFICATION_PREFERENCE_CATEGORIES = [
   "team",
   "billing",
   "audits",
+  "admin",
 ] as const;
 
 export type NotificationPreferenceCategory = (typeof NOTIFICATION_PREFERENCE_CATEGORIES)[number];
@@ -33,13 +34,27 @@ export const NOTIFICATION_PREFERENCE_META: Record<
     description: "Audit completion and competitor analysis updates.",
     examples: "Audit completed, competitor added",
   },
+  admin: {
+    label: "Admin & platform alerts",
+    description: "Support tickets, admin role changes, and other platform events for administrators.",
+    examples: "New support ticket, admin role invitation, role assignment",
+  },
 };
+
+/** Categories shown on customer settings — excludes admin-only alerts. */
+export const CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES = [
+  "projects",
+  "team",
+  "billing",
+  "audits",
+] as const;
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   projects: true,
   team: true,
   billing: true,
   audits: true,
+  admin: true,
 };
 
 export const NOTIFICATION_CATEGORY_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
@@ -48,6 +63,7 @@ export const NOTIFICATION_CATEGORY_FILTER_OPTIONS: Array<{ value: string; label:
   { value: "team", label: NOTIFICATION_PREFERENCE_META.team.label },
   { value: "billing", label: NOTIFICATION_PREFERENCE_META.billing.label },
   { value: "audits", label: NOTIFICATION_PREFERENCE_META.audits.label },
+  { value: "admin", label: NOTIFICATION_PREFERENCE_META.admin.label },
   { value: "system", label: "System & announcements" },
   { value: "other", label: "Other / legacy types" },
 ];
@@ -57,6 +73,7 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<string, string> = {
   team: NOTIFICATION_PREFERENCE_META.team.label,
   billing: NOTIFICATION_PREFERENCE_META.billing.label,
   audits: NOTIFICATION_PREFERENCE_META.audits.label,
+  admin: NOTIFICATION_PREFERENCE_META.admin.label,
   system: "System",
   other: "Other",
 };
@@ -85,5 +102,12 @@ export const ADMIN_NOTIFICATION_TYPES_BY_CATEGORY: Record<string, string[]> = {
     "plan_expiring",
   ],
   audits: ["audit_completed", "competitor_added"],
+  admin: [
+    "support_ticket_new",
+    "admin_role_invite",
+    "admin_role_assigned",
+    "admin_role_updated",
+    "form_submission_new",
+  ],
   system: ["system", "welcome", "promo"],
 };

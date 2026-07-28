@@ -5,6 +5,7 @@ export type NotificationPreferencesJson = {
   team: boolean;
   billing: boolean;
   audits: boolean;
+  admin?: boolean;
 };
 
 export const userProfilesTable = pgTable("user_profiles", {

@@ -9,6 +9,7 @@ export const NOTIFICATION_PREFERENCE_CATEGORIES = [
   "team",
   "billing",
   "audits",
+  "admin",
 ] as const;
 
 export type NotificationPreferenceCategory = (typeof NOTIFICATION_PREFERENCE_CATEGORIES)[number];
@@ -20,6 +21,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   team: true,
   billing: true,
   audits: true,
+  admin: true,
 };
 
 const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> = {
@@ -41,6 +43,13 @@ const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> 
     "subscription_renewed",
   ],
   audits: ["audit_completed", "competitor_added"],
+  admin: [
+    "support_ticket_new",
+    "admin_role_invite",
+    "admin_role_assigned",
+    "admin_role_updated",
+    "form_submission_new",
+  ],
 };
 
 const ALWAYS_ON_TYPES = new Set<string>(["system", "welcome"]);
@@ -72,6 +81,7 @@ export function mergeNotificationPreferences(
     team: raw?.team ?? DEFAULT_NOTIFICATION_PREFERENCES.team,
     billing: raw?.billing ?? DEFAULT_NOTIFICATION_PREFERENCES.billing,
     audits: raw?.audits ?? DEFAULT_NOTIFICATION_PREFERENCES.audits,
+    admin: raw?.admin ?? DEFAULT_NOTIFICATION_PREFERENCES.admin,
   };
 }
 

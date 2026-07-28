@@ -23,6 +23,7 @@ import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
 import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
+import { notifyAdminUsers } from "../lib/notify-admins.js";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   filterNotificationsByPreferences,
@@ -247,6 +248,13 @@ router.post("/forms", async (req, res): Promise<void> => {
     name: item.name,
     subject,
     message,
+  });
+
+  void notifyAdminUsers({
+    type: "support_ticket_new",
+    title: "New support ticket",
+    message: `${trimmedEmail}: ${subject}`,
+    link: "/admin/help/support-tickets",
   });
 
   res.status(201).json(item);

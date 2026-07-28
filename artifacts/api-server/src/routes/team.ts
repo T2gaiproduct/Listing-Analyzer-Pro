@@ -8,6 +8,8 @@ import {
 } from "@workspace/db";
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
+import { fetchClerkUserIdByEmail } from "../lib/clerk-user.js";
+import { createNotification } from "../lib/notifications.js";
 import {
   shouldSendTeamInviteEmailToAddress,
   shouldSendTeamWelcomeEmailToUser,
@@ -195,6 +197,26 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
     req.log?.warn?.({ emailErr }, "Failed to send invite email");
   }
 
+  try {
+    const inviteeUserId = await fetchClerkUserIdByEmail(invitedEmail);
+    if (inviteeUserId) {
+      const [profile] = await db
+        .select({ companyName: userProfilesTable.companyName })
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.userId, userId));
+      const inviterName = profile?.companyName ?? "Your team owner";
+      void createNotification({
+        userId: inviteeUserId,
+        type: "team_invite",
+        title: "Team invitation",
+        message: `${inviterName} invited you to join as ${role}.`,
+        link: `/accept-invite?token=${token}`,
+      });
+    }
+  } catch (notifyErr) {
+    req.log?.warn?.({ notifyErr }, "Failed to send team invite notification");
+  }
+
   res.status(201).json({ invite, token });
 });
 
@@ -291,6 +313,14 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   } catch (emailErr) {
     req.log?.warn?.({ emailErr }, "Failed to send welcome email");
   }
+
+  void createNotification({
+    userId: invite.ownerUserId,
+    type: "team_invite_accepted",
+    title: "Team member joined",
+    message: `${invite.invitedName?.trim() || invite.invitedEmail} accepted your team invite (${invite.role}).`,
+    link: "/settings/team",
+  });
 
   res.json({ ok: true, ownerUserId: invite.ownerUserId, role: invite.role });
 });
