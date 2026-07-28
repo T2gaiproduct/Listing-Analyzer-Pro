@@ -6,7 +6,7 @@ import {
   Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
   BadgePercent, ClipboardList,
-  Bell, BrainCircuit, KeyRound, Lock, Wallet, ShoppingCart,
+  BrainCircuit, KeyRound, Lock, Wallet, ShoppingCart,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
   Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import type { RecentItem } from "@workspace/api-client-react";
 import type { AdminPermission } from "@workspace/admin-permissions";
+import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -370,13 +371,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <Link href={adminHome} aria-label="Dashboard">
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
-            <Link
-              href="/admin/notifications"
-              aria-label="Notifications"
+            <AdminNotificationBell
               className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
+            />
             <button
               type="button"
               onClick={() => setCollapsed(false)}
@@ -397,13 +394,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
             <div className="flex-1" />
-            <Link
-              href="/admin/notifications"
-              aria-label="Notifications"
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
+            <AdminNotificationBell
+              className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            />
             <Link
               href="/admin/archive"
               aria-label="Archive"
@@ -463,14 +456,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 Super<span className="text-orange-400">Admin</span>
               </span>
             </Link>
-            <Link
-              href="/admin/notifications"
-              onClick={() => setMobileNavOpen(false)}
-              aria-label="Notifications"
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
+            <AdminNotificationBell
+              onNavigate={() => setMobileNavOpen(false)}
+              className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            />
           </div>
           <nav className="flex-1 py-4 overflow-y-auto px-3 space-y-5">
             <AdminNavSections
