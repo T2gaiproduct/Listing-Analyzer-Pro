@@ -22,6 +22,13 @@ import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
 import {
+  filterNotificationsByPreferences,
+  getUserNotificationPreferences,
+  NOTIFICATION_PREFERENCE_CATEGORIES,
+  updateUserNotificationPreferences,
+  type NotificationPreferences,
+} from "../lib/notification-preferences.js";
+import {
   resolveCoupon,
   couponErrorMessage,
   computeCouponDiscountAmount,
@@ -996,13 +1003,40 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
 router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const limit = Math.min(Number(req.query.limit ?? 20), 100);
+  const preferences = await getUserNotificationPreferences(userId);
   const notifications = await db
     .select()
     .from(notificationsTable)
     .where(eq(notificationsTable.userId, userId))
     .orderBy(desc(notificationsTable.sentAt))
     .limit(limit);
-  res.json({ notifications });
+  res.json({ notifications: filterNotificationsByPreferences(notifications, preferences) });
+});
+
+router.get("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const preferences = await getUserNotificationPreferences(userId);
+  res.json({ preferences });
+});
+
+router.patch("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const body = req.body as Partial<NotificationPreferences>;
+  const patch: Partial<NotificationPreferences> = {};
+
+  for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+    if (typeof body[key] === "boolean") {
+      patch[key] = body[key];
+    }
+  }
+
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "No valid preference fields provided" });
+    return;
+  }
+
+  const preferences = await updateUserNotificationPreferences(userId, patch);
+  res.json({ preferences });
 });
 
 router.patch("/notifications/:id/read", requireAuth, async (req, res): Promise<void> => {

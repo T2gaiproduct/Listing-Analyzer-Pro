@@ -8,6 +8,8 @@ import {
 } from "@workspace/db";
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
+import { fetchClerkUserIdByEmail } from "../lib/clerk-user.js";
+import { isNotificationDeliveryEnabled } from "../lib/notification-preferences.js";
 import { setMemberCredits, getMemberCredits } from "../lib/credits.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import {
@@ -175,14 +177,21 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
     invite = inserted;
   }
 
-  // Send invitation email
+  // Send invitation email (respect invitee notification preferences when they already have an account)
   try {
-    const [profile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-    const inviterName = profile?.companyName ?? "Your team owner";
-    const companyName = profile?.companyName ?? "SellerLens";
-    const inviteUrl = `${process.env.APP_URL ?? "https://listingauditor.com"}/accept-invite?token=${token}`;
-    const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role, invitedName });
-    await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
+    const inviteeUserId = await fetchClerkUserIdByEmail(invitedEmail);
+    const shouldEmail = inviteeUserId
+      ? await isNotificationDeliveryEnabled(inviteeUserId, "team_invite")
+      : true;
+
+    if (shouldEmail) {
+      const [profile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+      const inviterName = profile?.companyName ?? "Your team owner";
+      const companyName = profile?.companyName ?? "SellerLens";
+      const inviteUrl = `${process.env.APP_URL ?? "https://listingauditor.com"}/accept-invite?token=${token}`;
+      const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role, invitedName });
+      await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
+    }
   } catch (emailErr) {
     req.log?.warn?.({ emailErr }, "Failed to send invite email");
   }

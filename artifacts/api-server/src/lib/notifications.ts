@@ -3,6 +3,7 @@ import type { Notification } from "@workspace/db";
 import { fetchClerkUserEmailAndName } from "./clerk-user.js";
 import { notificationEmailTemplate } from "./email-templates.js";
 import { isEmailNotificationsEnabled, sendEmail } from "./email.js";
+import { isNotificationDeliveryEnabled } from "./notification-preferences.js";
 import { wsSend } from "./ws";
 
 export type NotificationType =
@@ -66,7 +67,11 @@ export async function createNotification(params: {
   message: string;
   link?: string;
   skipEmail?: boolean;
-}): Promise<Notification> {
+}): Promise<Notification | null> {
+  if (!(await isNotificationDeliveryEnabled(params.userId, params.type))) {
+    return null;
+  }
+
   const [row] = await db
     .insert(notificationsTable)
     .values({
@@ -111,10 +116,20 @@ export async function createBulkNotifications(
   options?: { skipEmail?: boolean },
 ): Promise<Notification[]> {
   if (notifications.length === 0) return [];
+
+  const enabled = await Promise.all(
+    notifications.map(async (n) => ({
+      notification: n,
+      enabled: await isNotificationDeliveryEnabled(userId, n.type),
+    })),
+  );
+  const toDeliver = enabled.filter((e) => e.enabled).map((e) => e.notification);
+  if (toDeliver.length === 0) return [];
+
   const rows = await db
     .insert(notificationsTable)
     .values(
-      notifications.map((n) => ({
+      toDeliver.map((n) => ({
         userId,
         type: n.type,
         title: n.title,
@@ -127,7 +142,7 @@ export async function createBulkNotifications(
     .returning();
 
   if (!options?.skipEmail) {
-    for (const n of notifications) {
+    for (const n of toDeliver) {
       void sendNotificationEmail({
         userId,
         title: n.title,
