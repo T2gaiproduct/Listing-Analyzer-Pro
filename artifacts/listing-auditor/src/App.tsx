@@ -81,6 +81,7 @@ import {
   AdminContentDownloads,
   AdminGraphicsLogs,
   AdminRoles,
+  AdminAnnouncements,
   AdminNotifications,
   AdminTeamActivity,
   AdminArchivePage,
@@ -469,6 +470,9 @@ function Router() {
       </Route>
       <Route path="/admin/roles">
         <AdminRoute><AdminRoles /></AdminRoute>
+      </Route>
+      <Route path="/admin/announcements">
+        <AdminRoute><AdminAnnouncements /></AdminRoute>
       </Route>
       <Route path="/admin/notifications">
         <AdminRoute><AdminNotifications /></AdminRoute>
