@@ -4,17 +4,24 @@ import { LifeBuoy, Mail, CheckCircle, Trash2, Download, Eye } from "lucide-react
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface TicketReply {
+  message: string;
+  sentAt: string;
+}
 
 interface SupportTicket {
   id: number;
   formType: string;
   email: string | null;
   name: string | null;
-  data: { subject?: string; message?: string } | null;
+  data: { subject?: string; message?: string; replies?: TicketReply[] } | null;
   isRead: boolean;
   createdAt: string;
 }
@@ -23,6 +30,8 @@ export default function AdminSupportTickets() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [selected, setSelected] = useState<SupportTicket | null>(null);
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyMessage, setReplyMessage] = useState("");
 
   const { data: tickets = [], isLoading } = useQuery<SupportTicket[]>({
     queryKey: ["admin-support-tickets"],
@@ -42,6 +51,30 @@ export default function AdminSupportTickets() {
       qc.invalidateQueries({ queryKey: ["admin-support-tickets"] });
       setSelected(null);
       toast({ title: "Ticket deleted" });
+    },
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: async ({ id, message }: { id: number; message: string }) => {
+      const r = await fetch(`${basePath}/api/admin/forms/${id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ message }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? "Failed to send reply");
+      return data.ticket as SupportTicket;
+    },
+    onSuccess: (ticket) => {
+      qc.invalidateQueries({ queryKey: ["admin-support-tickets"] });
+      setSelected(ticket);
+      setReplyOpen(false);
+      setReplyMessage("");
+      toast({ title: "Reply sent", description: `Email delivered to ${ticket.email}` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Reply failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -69,6 +102,7 @@ export default function AdminSupportTickets() {
   }
 
   const unread = tickets.filter((t) => !t.isRead).length;
+  const replies = selected?.data?.replies ?? [];
 
   return (
     <div className="space-y-6">
@@ -161,8 +195,29 @@ export default function AdminSupportTickets() {
                 <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
                   {selected.data?.message || "No message provided"}
                 </p>
+
+                {replies.length > 0 && (
+                  <div className="mt-6 border-t border-slate-100 pt-5">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Replies sent</p>
+                    <div className="space-y-3">
+                      {replies.map((reply, i) => (
+                        <div key={i} className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                          <p className="text-xs text-slate-400 mb-1.5">
+                            {format(new Date(reply.sentAt), "MMM d, yyyy HH:mm")}
+                          </p>
+                          <p className="text-sm text-slate-800 whitespace-pre-wrap">{reply.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {selected.email && (
-                  <Button size="sm" className="mt-4 bg-orange-500 hover:bg-orange-600" onClick={() => window.open(`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.data?.subject ?? "Support ticket")}`)}>
+                  <Button
+                    size="sm"
+                    className="mt-4 bg-orange-500 hover:bg-orange-600"
+                    onClick={() => setReplyOpen(true)}
+                  >
                     <Mail className="w-4 h-4 mr-1.5" /> Reply via Email
                   </Button>
                 )}
@@ -178,6 +233,41 @@ export default function AdminSupportTickets() {
           )}
         </div>
       </div>
+
+      <Dialog open={replyOpen} onOpenChange={(open) => { setReplyOpen(open); if (!open) setReplyMessage(""); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reply via email</DialogTitle>
+          </DialogHeader>
+          {selected?.email && (
+            <p className="text-sm text-slate-500">
+              To <span className="font-medium text-slate-700">{selected.email}</span>
+              {selected.data?.subject && (
+                <> · Re: {selected.data.subject}</>
+              )}
+            </p>
+          )}
+          <Textarea
+            placeholder="Write your reply…"
+            rows={6}
+            value={replyMessage}
+            onChange={(e) => setReplyMessage(e.target.value)}
+            className="resize-none"
+          />
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setReplyOpen(false)} disabled={replyMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600"
+              disabled={!replyMessage.trim() || replyMutation.isPending || !selected}
+              onClick={() => selected && replyMutation.mutate({ id: selected.id, message: replyMessage.trim() })}
+            >
+              {replyMutation.isPending ? "Sending…" : "Send reply"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

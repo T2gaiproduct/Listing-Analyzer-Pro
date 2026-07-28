@@ -22,6 +22,7 @@ import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
 import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
+import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   filterNotificationsByPreferences,
@@ -239,6 +240,14 @@ router.post("/forms", async (req, res): Promise<void> => {
     name: typeof name === "string" && name.trim() ? name.trim() : null,
     data: { subject, message },
   }).returning();
+
+  void sendSupportTicketCreatedEmails({
+    ticketId: item.id,
+    email: trimmedEmail,
+    name: item.name,
+    subject,
+    message,
+  });
 
   res.status(201).json(item);
 });
