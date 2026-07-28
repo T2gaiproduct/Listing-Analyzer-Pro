@@ -26,6 +26,7 @@ import {
   isAdminUser,
   requireAdmin,
   requireAdminWithPermission,
+  sessionEmailFromClaims,
   type AdminRequest,
 } from "../lib/admin-auth";
 import { loadAmazonSpSettings, shouldAutoEnableAmazon, AMAZON_SETTINGS_CATEGORY, AMAZON_SETTING_KEYS, validateAmazonAwsCredentials } from "../lib/amazon-sp-settings.js";
@@ -148,7 +149,9 @@ router.get("/admin/is-admin", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) { res.json({ isAdmin: false }); return; }
-  const email = auth?.sessionClaims?.email as string | undefined;
+  const email =
+    sessionEmailFromClaims(auth?.sessionClaims as Record<string, unknown> | undefined)
+    ?? (auth?.sessionClaims?.email as string | undefined);
   const ok = await isAdminUser(userId, email);
   res.json({ isAdmin: ok });
 });
