@@ -33,7 +33,7 @@ export default defineConfig({
   base: basePath,
   plugins: [
     react(),
-    tailwindcss({ optimize: false }),
+    tailwindcss({ optimize: process.env.NODE_ENV === "production" }),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
@@ -63,6 +63,14 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (
+            id.includes("/src/lib/utils") ||
+            id.includes("clsx") ||
+            id.includes("tailwind-merge")
+          ) {
+            return "vendor-utils";
+          }
+
           if (!id.includes("node_modules")) return;
 
           if (id.includes("@clerk")) return "vendor-clerk";

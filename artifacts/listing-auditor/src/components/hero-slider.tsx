@@ -36,11 +36,13 @@ function HeroSlideImage({
   className,
   objectFit = "contain",
   fillContainer = false,
+  priority = false,
 }: {
   imageUrl: string;
   className?: string;
   objectFit?: "contain" | "cover";
   fillContainer?: boolean;
+  priority?: boolean;
 }) {
   const trimmed = imageUrl.trim();
   if (!trimmed) return null;
@@ -63,7 +65,9 @@ function HeroSlideImage({
       <img
         src={src}
         alt=""
-        loading="eager"
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
+        fetchPriority={priority ? "high" : "auto"}
         className={cn(
           "absolute inset-0 block h-full w-full max-w-none object-center",
           objectFit === "cover" ? "object-cover bg-slate-100" : "object-contain bg-slate-50",
@@ -185,12 +189,14 @@ function HeroSlideMedia({
   mobile,
   fullBleed,
   panel,
+  priority = false,
 }: {
   slide: HeroSlide;
   className?: string;
   mobile?: boolean;
   fullBleed?: boolean;
   panel?: boolean;
+  priority?: boolean;
 }) {
   if (heroSlideIsVideo(slide)) {
     if (mobile) {
@@ -202,6 +208,7 @@ function HeroSlideMedia({
           className={className}
           objectFit="cover"
           fillContainer={fullBleed}
+          priority={priority}
         />
       );
     }
@@ -221,6 +228,7 @@ function HeroSlideMedia({
       className={className}
       objectFit={useCover ? "cover" : "contain"}
       fillContainer={useCover}
+      priority={priority}
     />
   );
 }
@@ -464,7 +472,7 @@ export function HeroSlider({ slides, autoplay = true, autoplayIntervalMs = 6000 
                   {hasDesktopMedia && (
                     <div className="hidden lg:flex w-full min-w-0 lg:w-[58%] lg:max-w-[58%] lg:flex-1 self-stretch items-center justify-center py-6 sm:py-8 lg:py-10 pr-4 sm:pr-6 lg:pr-8 xl:pr-12">
                       <div className="relative w-full aspect-video rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden bg-slate-900">
-                        <HeroSlideMedia slide={slide} panel className="absolute inset-0 h-full w-full" />
+                        <HeroSlideMedia slide={slide} panel className="absolute inset-0 h-full w-full" priority={slideIndex === current} />
                       </div>
                     </div>
                   )}

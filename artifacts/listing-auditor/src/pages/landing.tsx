@@ -31,6 +31,43 @@ import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+const PUBLIC_DATA_STALE_MS = 5 * 60_000;
+
+function LazyMount({
+  children,
+  rootMargin = "320px",
+}: {
+  children: React.ReactNode;
+  rootMargin?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || mounted) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setMounted(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setMounted(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mounted, rootMargin]);
+
+  return <div ref={ref}>{mounted ? children : null}</div>;
+}
+
 interface DbPlan {
   id: number;
   name: string;
@@ -402,11 +439,13 @@ function LandingPricingSection() {
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
+    staleTime: PUBLIC_DATA_STALE_MS,
   });
 
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()).catch(() => []),
+    staleTime: PUBLIC_DATA_STALE_MS,
   });
 
   const plans = sortPlansFromAdmin(dbPlans);
@@ -488,6 +527,7 @@ function LandingTestimonialsSection() {
   const { data: items = [], isLoading } = useQuery<DbTestimonial[]>({
     queryKey: ["public-testimonials"],
     queryFn: () => fetch(`${basePath}/api/testimonials`).then((r) => r.json()).catch(() => []),
+    staleTime: PUBLIC_DATA_STALE_MS,
   });
 
   if (isLoading || items.length === 0) return null;
@@ -570,6 +610,7 @@ function LandingFaqSection() {
   const { data: dbFaqs = [] } = useQuery<DbFaq[]>({
     queryKey: ["public-faqs"],
     queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
+    staleTime: PUBLIC_DATA_STALE_MS,
   });
 
   const faqs = dbFaqs.length > 0
@@ -803,9 +844,21 @@ export default function Landing() {
       </section>
       )}
 
-      {cmsEnabled(cms, "pricing") && <LandingPricingSection />}
-      {cmsEnabled(cms, "social") && <LandingTestimonialsSection />}
-      {cmsEnabled(cms, "faq") && <LandingFaqSection />}
+      {cmsEnabled(cms, "pricing") && (
+        <LazyMount>
+          <LandingPricingSection />
+        </LazyMount>
+      )}
+      {cmsEnabled(cms, "social") && (
+        <LazyMount>
+          <LandingTestimonialsSection />
+        </LazyMount>
+      )}
+      {cmsEnabled(cms, "faq") && (
+        <LazyMount>
+          <LandingFaqSection />
+        </LazyMount>
+      )}
 
       {cmsEnabled(cms, "cta") && (
       <section className="px-4 sm:px-6 py-16 sm:py-20 text-center bg-white border-t border-slate-100">

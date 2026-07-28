@@ -276,7 +276,7 @@ function HomeRedirect() {
   const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
   const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
   const { isTeamMember, isLoading: teamLoading } = useTeam();
-  if (!isLoaded) return <AuthLoading />;
+  if (!isLoaded) return <Landing />;
   if (!user) return <Landing />;
   if (!adminLoaded || ((envAdmin || isAdmin) && !permLoaded)) return <AuthLoading />;
   if (envAdmin || isAdmin) return <Redirect to={defaultRoute} />;
