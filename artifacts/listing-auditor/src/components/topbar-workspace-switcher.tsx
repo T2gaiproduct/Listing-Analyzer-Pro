@@ -146,7 +146,7 @@ export function TopbarWorkspaceSwitcher() {
                   setForm({ name: "", description: "", clientLabel: "" });
                   setCreateOpen(true);
                 }}
-                className="flex items-center justify-center w-9 h-full text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-r-lg transition-colors"
+                className="flex items-center justify-center w-9 h-full text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-r-lg transition-colors"
               >
                 <Plus className="w-4 h-4" />
               </button>
