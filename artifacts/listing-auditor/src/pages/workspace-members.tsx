@@ -108,6 +108,7 @@ export default function WorkspaceMembersPage() {
     onSuccess: (data) => {
       const invitedEmail = email.trim();
       qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
+      qc.invalidateQueries({ queryKey: ["workspace-roles", workspaceId] });
       setEmail("");
       setName("");
       if (data.emailSent) {
@@ -138,10 +139,10 @@ export default function WorkspaceMembersPage() {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/workspaces">
+        <Link href={`/workspaces/${workspaceId}`}>
           <Button variant="ghost" size="sm" className="gap-1.5">
             <ArrowLeft className="w-4 h-4" />
-            Workspaces
+            {ws.name}
           </Button>
         </Link>
         <div>

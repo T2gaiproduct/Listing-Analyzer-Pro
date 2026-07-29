@@ -1,18 +1,36 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface WorkspaceOverview {
+  totalWorkspaces: number;
+  totalMembers: number;
+  activeMembers: number;
+  pendingInvites: number;
+  totalRoles: number;
+  workspaces: Array<{
+    id: number;
+    name: string;
+    description: string | null;
+    clientLabel: string | null;
+    isDefault: boolean;
+    memberCount: number;
+    activeMemberCount: number;
+    pendingMemberCount: number;
+  }>;
+}
 
 export default function WorkspacesPage() {
   const { workspaces, activeWorkspaceId, isAccountOwner, can, refetch } = useWorkspace();
@@ -25,6 +43,12 @@ export default function WorkspacesPage() {
   const canCreate = isAccountOwner || can("workspaces", "create");
   const canEdit = isAccountOwner || can("workspaces", "edit");
   const canDelete = isAccountOwner;
+
+  const { data: overview, isLoading: overviewLoading } = useQuery({
+    queryKey: ["workspaces-overview"],
+    queryFn: () => fetchJson<WorkspaceOverview>(`${basePath}/api/workspaces/overview`),
+    enabled: isAccountOwner,
+  });
 
   const openCreate = () => {
     setEditing(null);
@@ -64,6 +88,7 @@ export default function WorkspacesPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["workspaces"] });
+      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
       refetch();
       setOpen(false);
       toast({ title: editing ? "Workspace updated" : "Workspace created" });
@@ -78,19 +103,38 @@ export default function WorkspacesPage() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["workspaces"] });
+      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
       refetch();
       toast({ title: "Workspace deleted" });
     },
     onError: () => toast({ title: "Failed to delete workspace", variant: "destructive" }),
   });
 
+  const displayWorkspaces = isAccountOwner && overview
+    ? overview.workspaces
+    : workspaces.map((ws) => ({
+        id: ws.id,
+        name: ws.name,
+        description: ws.description,
+        clientLabel: ws.clientLabel,
+        isDefault: ws.isDefault,
+        memberCount: 0,
+        activeMemberCount: 0,
+        pendingMemberCount: 0,
+      }));
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Workspaces</h1>
+          <div className="flex items-center gap-2">
+            <LayoutGrid className="w-6 h-6 text-orange-500" />
+            <h1 className="text-2xl font-bold text-slate-900">Workspace Dashboard</h1>
+          </div>
           <p className="text-sm text-slate-500 mt-1">
-            Manage client workspaces and members.
+            {isAccountOwner
+              ? "Admin overview of all your client workspaces. Select one to view details."
+              : "Manage client workspaces and members."}
           </p>
         </div>
         {canCreate && (
@@ -101,9 +145,57 @@ export default function WorkspacesPage() {
         )}
       </div>
 
+      {isAccountOwner && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Total workspaces</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-slate-900">
+                {overviewLoading ? "—" : overview?.totalWorkspaces ?? workspaces.length}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Total members</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-slate-900">
+                {overviewLoading ? "—" : overview?.totalMembers ?? 0}
+              </p>
+              {!overviewLoading && overview && (
+                <p className="text-xs text-slate-500 mt-1">{overview.activeMembers} active</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Pending invites</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-slate-900">
+                {overviewLoading ? "—" : overview?.pendingInvites ?? 0}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Total roles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-slate-900">
+                {overviewLoading ? "—" : overview?.totalRoles ?? 0}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
-        {workspaces.map((ws) => (
-          <Card key={ws.id} className={ws.id === activeWorkspaceId ? "ring-2 ring-orange-300" : ""}>
+        {displayWorkspaces.map((ws) => (
+          <Card key={ws.id}>
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -112,7 +204,6 @@ export default function WorkspacesPage() {
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
                   {ws.isDefault && <Badge variant="secondary">Default</Badge>}
-                  {ws.id === activeWorkspaceId && <Badge className="bg-orange-100 text-orange-700">Active</Badge>}
                 </div>
               </div>
               {ws.clientLabel && (
@@ -120,9 +211,25 @@ export default function WorkspacesPage() {
               )}
             </CardHeader>
             <CardContent className="space-y-3">
-              {ws.description && <p className="text-sm text-slate-600">{ws.description}</p>}
-              <p className="text-xs text-slate-400">Your role: {ws.roleName ?? "Member"}</p>
+              {ws.description && <p className="text-sm text-slate-600 line-clamp-2">{ws.description}</p>}
+              {isAccountOwner && (
+                <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                  <span>{ws.memberCount} members</span>
+                  {ws.pendingMemberCount > 0 && (
+                    <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
+                  )}
+                </div>
+              )}
+              {!isAccountOwner && (
+                <p className="text-xs text-slate-400">Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Member"}</p>
+              )}
               <div className="flex flex-wrap gap-2 pt-1">
+                <Link href={`/workspaces/${ws.id}`}>
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <ChevronRight className="w-3.5 h-3.5" />
+                    {isAccountOwner ? "View workspace" : "Open"}
+                  </Button>
+                </Link>
                 <Link href={`/workspaces/${ws.id}/members`}>
                   <Button variant="outline" size="sm" className="gap-1.5">
                     <Users className="w-3.5 h-3.5" />
@@ -130,7 +237,7 @@ export default function WorkspacesPage() {
                   </Button>
                 </Link>
                 {canEdit && (
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(ws)} className="gap-1.5">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(workspaces.find((w) => w.id === ws.id)!)} className="gap-1.5">
                     <Pencil className="w-3.5 h-3.5" />
                     Edit
                   </Button>

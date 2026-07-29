@@ -30,7 +30,7 @@ function profileMenuItems(
     { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
     { icon: Users, label: "Team", href: "/team" },
     ...(isAccountOwner ? [{ icon: Shield, label: "Roles", href: "/roles" }] : []),
-    { icon: Building2, label: "Workspaces", href: "/workspaces" },
+    { icon: Building2, label: "Workspace Dashboard", href: "/workspaces" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
 }

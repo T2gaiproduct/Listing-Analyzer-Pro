@@ -17,7 +17,8 @@ export const workspacesTable = pgTable("workspaces", {
 
 export const workspaceRolesTable = pgTable("workspace_roles", {
   id: serial("id").primaryKey(),
-  workspaceId: integer("workspace_id").notNull(),
+  accountOwnerId: text("account_owner_id"),
+  workspaceId: integer("workspace_id"),
   name: text("name").notNull(),
   description: text("description"),
   permissions: jsonb("permissions").$type<WorkspaceRolePermissions>().notNull().default({}),
@@ -26,7 +27,7 @@ export const workspaceRolesTable = pgTable("workspace_roles", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
-  uniqName: unique("workspace_roles_workspace_name_uniq").on(t.workspaceId, t.name),
+  uniqAccountName: unique("workspace_roles_account_name_uniq").on(t.accountOwnerId, t.name),
 }));
 
 export const workspaceMembersTable = pgTable("workspace_members", {
