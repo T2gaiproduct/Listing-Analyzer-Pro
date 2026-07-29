@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
-import { useUser } from "@clerk/react";
+import { useUser, useAuth } from "@clerk/react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export function useWsNotifications() {
   const qc = useQueryClient();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -15,6 +16,7 @@ export function useWsNotifications() {
     if (!user?.id) return;
 
     const userId = user.id;
+
     const url = `wss://${window.location.host}${basePath}/api/ws`;
 
     function connect() {
@@ -24,7 +26,14 @@ export function useWsNotifications() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "auth", userId }));
+        void (async () => {
+          const token = await getToken();
+          if (!token) {
+            ws.close();
+            return;
+          }
+          ws.send(JSON.stringify({ type: "auth", token }));
+        })();
       };
 
       ws.onmessage = (event) => {
@@ -77,5 +86,5 @@ export function useWsNotifications() {
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [user?.id, qc]);
+  }, [user?.id, getToken, qc]);
 }

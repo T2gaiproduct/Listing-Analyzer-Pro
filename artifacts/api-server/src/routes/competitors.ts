@@ -148,22 +148,34 @@ router.post("/audits/:id/competitors", requireAuth, resolveTeam, requireWriteAcc
 });
 
 router.delete("/competitors/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+  const ownerId = getEffectiveUserId(req);
   const params = DeleteCompetitorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const [competitor] = await db
-    .update(competitorsTable)
-    .set({ isDeleted: 1, deletedAt: new Date() })
-    .where(eq(competitorsTable.id, params.data.id))
-    .returning();
+  const [owned] = await db
+    .select({ id: competitorsTable.id })
+    .from(competitorsTable)
+    .innerJoin(auditsTable, eq(competitorsTable.auditId, auditsTable.id))
+    .where(and(
+      eq(competitorsTable.id, params.data.id),
+      eq(auditsTable.userId, ownerId),
+      eq(competitorsTable.isDeleted, 0),
+      eq(auditsTable.isDeleted, 0),
+    ))
+    .limit(1);
 
-  if (!competitor) {
+  if (!owned) {
     res.status(404).json({ error: "Competitor not found" });
     return;
   }
+
+  await db
+    .update(competitorsTable)
+    .set({ isDeleted: 1, deletedAt: new Date() })
+    .where(eq(competitorsTable.id, params.data.id));
 
   res.sendStatus(204);
 });

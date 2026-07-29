@@ -13,6 +13,7 @@ import {
   couponErrorMessage,
   computeCouponDiscountAmount,
 } from "../lib/coupon-validation.js";
+import { isAllowedRedirectUrl } from "../lib/allowed-origins";
 import type Stripe from "stripe";
 
 const router: IRouter = Router();
@@ -48,6 +49,11 @@ router.post("/stripe/create-checkout", requireAuth, async (req, res): Promise<vo
 
   if (!planId || !billingCycle || !successUrl || !cancelUrl) {
     res.status(400).json({ error: "planId, billingCycle, successUrl, and cancelUrl are required" });
+    return;
+  }
+
+  if (!isAllowedRedirectUrl(successUrl) || !isAllowedRedirectUrl(cancelUrl)) {
+    res.status(400).json({ error: "Invalid redirect URL" });
     return;
   }
 

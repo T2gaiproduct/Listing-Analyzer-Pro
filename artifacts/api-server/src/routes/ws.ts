@@ -1,33 +1,50 @@
-import type { Request } from "express";
 import type { WebSocket } from "ws";
+import { verifyToken } from "@clerk/backend";
 import { wsManager } from "../lib/ws";
 import { logger } from "../lib/logger";
 
-export function wsHandler(ws: WebSocket, req: Request) {
-  // Store pending auth on the connection
+export function wsHandler(ws: WebSocket) {
   let userId: string | null = null;
+  let authenticated = false;
 
   ws.on("message", (data) => {
-    try {
-      const msg = JSON.parse(data.toString()) as {
-        type: string;
-        userId?: string;
-      };
+    void (async () => {
+      try {
+        const msg = JSON.parse(data.toString()) as {
+          type: string;
+          token?: string;
+        };
 
-      if (msg.type === "auth" && msg.userId) {
-        userId = msg.userId;
-        wsManager.add(userId, ws);
-        ws.send(JSON.stringify({ type: "connected", payload: { userId } }));
-        return;
+        if (msg.type !== "auth" || !msg.token || authenticated) {
+          return;
+        }
+
+        const secretKey = process.env.CLERK_SECRET_KEY;
+        if (!secretKey) {
+          ws.close(1011, "Auth unavailable");
+          return;
+        }
+
+        const payload = await verifyToken(msg.token, { secretKey });
+        const verifiedUserId = payload.sub;
+        if (!verifiedUserId) {
+          ws.close(1008, "Unauthorized");
+          return;
+        }
+
+        userId = verifiedUserId;
+        authenticated = true;
+        wsManager.add(verifiedUserId, ws);
+        ws.send(JSON.stringify({ type: "connected", payload: { userId: verifiedUserId } }));
+      } catch (err) {
+        logger.warn({ err }, "WebSocket auth failed");
+        ws.close(1008, "Unauthorized");
       }
-    } catch {
-      // ignore malformed messages
-    }
+    })();
   });
 
-  // If auth hasn't happened after 5s, close the connection
   const timeout = setTimeout(() => {
-    if (!userId) {
+    if (!authenticated) {
       ws.close(1008, "Unauthorized");
     }
   }, 5000);

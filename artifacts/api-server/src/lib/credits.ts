@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, sql } from "drizzle-orm";
 import { db, creditsTable, creditTransactionsTable, creditRulesTable, memberCreditsTable, teamMembersTable } from "@workspace/db";
 import { createNotification } from "./notifications";
 
@@ -126,11 +126,21 @@ export async function deductCredits(
   }
 
   const now = new Date();
+  const balanceColumn = getColumn(type);
 
-  await db
+  const [updated] = await db
     .update(creditsTable)
-    .set({ [type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits"]: check.currentBalance - amount, updatedAt: now })
-    .where(eq(creditsTable.userId, userId));
+    .set({
+      [type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits"]:
+        sql`${balanceColumn} - ${amount}`,
+      updatedAt: now,
+    })
+    .where(and(eq(creditsTable.userId, userId), gte(balanceColumn, amount)))
+    .returning({ balance: balanceColumn });
+
+  if (!updated) {
+    return { success: false, remaining: check.currentBalance };
+  }
 
   await db.insert(creditTransactionsTable).values({
     userId,
@@ -142,7 +152,7 @@ export async function deductCredits(
     createdAt: now,
   });
 
-  const remaining = check.currentBalance - amount;
+  const remaining = updated.balance;
 
   // Notify user when credits are depleted or running low (in-app + SMTP email)
   if (remaining === 0) {
