@@ -261,6 +261,7 @@ function useOnboardingSummary() {
       fetchJson<{
         onboardingCompleted?: boolean;
         accountRole?: { type?: string };
+        pendingWorkspaceInvite?: { token: string; workspaceName: string; workspaceId: number } | null;
       }>(`${basePath}/api/profile/summary`),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
@@ -268,11 +269,18 @@ function useOnboardingSummary() {
   });
 }
 
-function requiresOnboarding(summary: { onboardingCompleted?: boolean; accountRole?: { type?: string } } | undefined) {
+function requiresOnboarding(summary: { onboardingCompleted?: boolean; accountRole?: { type?: string }; pendingWorkspaceInvite?: { token: string } | null } | undefined) {
   if (!summary) return false;
+  if (summary.pendingWorkspaceInvite?.token) return false;
   if (summary.onboardingCompleted) return false;
   if (summary.accountRole?.type === "team_member") return false;
   return true;
+}
+
+function pendingWorkspaceInviteRedirect(summary: { pendingWorkspaceInvite?: { token: string } | null } | undefined) {
+  const token = summary?.pendingWorkspaceInvite?.token;
+  if (!token) return null;
+  return `/accept-workspace-invite?token=${encodeURIComponent(token)}`;
 }
 
 function HomeRedirect() {
@@ -287,6 +295,8 @@ function HomeRedirect() {
   if (!adminLoaded || ((envAdmin || isAdmin) && !permLoaded)) return <AuthLoading />;
   if (envAdmin || isAdmin) return <Redirect to={defaultRoute} />;
   if (summaryLoading || teamLoading) return <AuthLoading />;
+  const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
+  if (inviteRedirect) return <Redirect to={inviteRedirect} />;
   if (requiresOnboarding(summary) && !isTeamMember) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
@@ -304,6 +314,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     || teamLoading
     || (!envAdmin && !adminLoaded);
   if (user && !isAdminUser && authContextLoading) return <AuthLoading />;
+  const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
+  if (user && !isAdminUser && inviteRedirect) return <Redirect to={inviteRedirect} />;
   if (user && !isAdminUser && requiresOnboarding(summary) && !isTeamMember) {
     return <Redirect to="/onboarding" />;
   }

@@ -16,6 +16,7 @@ import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits } from "../lib/plan-credits";
 import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
+import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
@@ -291,7 +292,11 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const isAdmin = await isAdminUser(userId, sessionEmail);
   const accountRole = await resolveUserAccountRole(userId);
 
-  // Self-heal: paid users, admins, and team members should never be sent back to onboarding
+  const pendingWorkspaceInvite = sessionEmail
+    ? await findPendingWorkspaceInviteForEmail(sessionEmail)
+    : null;
+
+  // Self-heal: paid users, admins, and team/workspace members should never be sent back to onboarding
   if (!onboardingCompleted && (hasActiveSubscription || isAdmin || accountRole.type === "team_member")) {
     await upsertUserProfile(userId, { onboardingCompleted: true });
     onboardingCompleted = true;
@@ -304,6 +309,7 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     subscription: sub,
     credits,
     accountRole,
+    pendingWorkspaceInvite,
   });
 });
 

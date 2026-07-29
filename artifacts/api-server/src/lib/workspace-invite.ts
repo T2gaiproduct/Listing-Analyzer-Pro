@@ -1,4 +1,6 @@
 import type { Request } from "express";
+import { eq, and, desc } from "drizzle-orm";
+import { db, workspaceMembersTable, workspacesTable } from "@workspace/db";
 import { sendEmail } from "./email.js";
 import { workspaceInviteEmailTemplate } from "./email-templates.js";
 import { shouldSendTeamInviteEmailToAddress } from "./notification-preferences.js";
@@ -107,4 +109,35 @@ export async function deliverWorkspaceMemberInvite(opts: {
   }
 
   return { inviteUrl, emailSent, emailError };
+}
+
+export async function findPendingWorkspaceInviteForEmail(email: string): Promise<{
+  token: string;
+  workspaceName: string;
+  workspaceId: number;
+} | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const [row] = await db.select({
+    token: workspaceMembersTable.inviteToken,
+    workspaceId: workspaceMembersTable.workspaceId,
+    workspaceName: workspacesTable.name,
+  })
+    .from(workspaceMembersTable)
+    .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+    .where(and(
+      eq(workspaceMembersTable.invitedEmail, normalized),
+      eq(workspaceMembersTable.status, "pending"),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ))
+    .orderBy(desc(workspaceMembersTable.invitedAt))
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    token: row.token,
+    workspaceName: row.workspaceName,
+    workspaceId: row.workspaceId,
+  };
 }

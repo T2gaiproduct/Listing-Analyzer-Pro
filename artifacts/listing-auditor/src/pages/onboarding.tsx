@@ -165,6 +165,7 @@ export default function Onboarding() {
     onboardingCompleted?: boolean;
     subscription?: { status?: string; planName?: string } | null;
     accountRole?: { type?: string };
+    pendingWorkspaceInvite?: { token: string; workspaceName: string } | null;
   }>({
     queryKey: ["user-profile-summary"],
     queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
@@ -182,6 +183,14 @@ export default function Onboarding() {
       setLocation(defaultRoute, { replace: true });
     }
   }, [isAdmin, adminLoaded, permLoaded, defaultRoute, setLocation]);
+
+  // Workspace invitees should accept their invite — not complete owner onboarding
+  useEffect(() => {
+    const token = profileSummary?.pendingWorkspaceInvite?.token;
+    if (token) {
+      setLocation(`/accept-workspace-invite?token=${encodeURIComponent(token)}`, { replace: true });
+    }
+  }, [profileSummary, setLocation]);
 
   // Team members use the owner workspace — credits come from admin allocation, not plan checkout
   useEffect(() => {
