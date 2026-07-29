@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Copy, UserPlus } from "lucide-react";
+import { ArrowLeft, Copy, Mail, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -69,6 +69,30 @@ export default function WorkspaceMembersPage() {
 
   const members = membersData?.members ?? [];
   const roles = rolesData?.roles ?? [];
+
+  const resendInvite = useMutation({
+    mutationFn: (memberId: number) =>
+      fetchJson<InviteResponse>(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}/resend`, {
+        method: "POST",
+      }),
+    onSuccess: (data, memberId) => {
+      const member = members.find((m) => m.id === memberId);
+      if (data.emailSent) {
+        toast({
+          title: "Invitation resent",
+          description: `Email sent to ${member?.invitedEmail ?? "invitee"}.`,
+        });
+      } else {
+        toast({
+          title: "Could not send email",
+          description: data.emailError ?? "Copy the invite link instead.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (err: Error) =>
+      toast({ title: "Failed to resend invite", description: err.message, variant: "destructive" }),
+  });
 
   const invite = useMutation({
     mutationFn: () =>
@@ -177,7 +201,7 @@ export default function WorkspaceMembersPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
-                  {canInvite && <TableHead className="w-[7rem]">Invite</TableHead>}
+                  {canInvite && <TableHead className="w-[11rem]">Invite</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -190,15 +214,27 @@ export default function WorkspaceMembersPage() {
                     {canInvite && (
                       <TableCell>
                         {m.status === "pending" && m.inviteToken ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5"
-                            onClick={() => copyInviteLink(m.inviteToken!, toast)}
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            Copy link
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5"
+                              onClick={() => resendInvite.mutate(m.id)}
+                              disabled={resendInvite.isPending}
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              Resend
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5"
+                              onClick={() => copyInviteLink(m.inviteToken!, toast)}
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              Link
+                            </Button>
+                          </div>
                         ) : (
                           <span className="text-slate-300">—</span>
                         )}
