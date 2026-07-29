@@ -29,7 +29,6 @@ interface WorkspaceOverview {
     memberCount: number;
     activeMemberCount: number;
     pendingMemberCount: number;
-    roleCount: number;
   }>;
 }
 
@@ -122,7 +121,6 @@ export default function WorkspacesPage() {
         memberCount: 0,
         activeMemberCount: 0,
         pendingMemberCount: 0,
-        roleCount: 0,
       }));
 
   return (
@@ -217,7 +215,6 @@ export default function WorkspacesPage() {
               {isAccountOwner && (
                 <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                   <span>{ws.memberCount} members</span>
-                  <span>{ws.roleCount} roles</span>
                   {ws.pendingMemberCount > 0 && (
                     <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
                   )}

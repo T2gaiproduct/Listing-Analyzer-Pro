@@ -108,6 +108,7 @@ export default function WorkspaceMembersPage() {
     onSuccess: (data) => {
       const invitedEmail = email.trim();
       qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
+      qc.invalidateQueries({ queryKey: ["workspace-roles", workspaceId] });
       setEmail("");
       setName("");
       if (data.emailSent) {

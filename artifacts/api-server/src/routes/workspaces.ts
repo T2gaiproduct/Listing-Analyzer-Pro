@@ -16,8 +16,6 @@ import {
   WORKSPACE_FEATURE_META,
   WORKSPACE_PRODUCT_FEATURES,
   WORKSPACE_FEATURE_GROUP_ORDER,
-  mergePermissionsFromForm,
-  legacyRolePermissions,
 } from "@workspace/workspace-permissions";
 import {
   listAccessibleWorkspaces,
@@ -27,6 +25,7 @@ import {
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
+import { ensureAccountRolesMigrated, listAccountRoles, getAccountRole } from "../lib/ensure-account-roles";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { createNotification } from "../lib/notifications.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
@@ -84,6 +83,7 @@ router.get("/workspaces/features", requireAuth, async (_req, res): Promise<void>
 router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   await ensureWorkspacesMigrated();
+  await ensureAccountRolesMigrated();
   const accountOwnerId = await resolveAccountOwnerId(userId);
   if (accountOwnerId !== userId) {
     res.status(403).json({ error: "Only the account owner can view workspace overview" });
@@ -120,15 +120,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       eq(workspaceMembersTable.isDeleted, 0),
     ));
 
-  const roles = await db
-    .select({
-      workspaceId: workspaceRolesTable.workspaceId,
-    })
-    .from(workspaceRolesTable)
-    .where(and(
-      inArray(workspaceRolesTable.workspaceId, workspaceIds),
-      eq(workspaceRolesTable.isSystem, false),
-    ));
+  const roles = await listAccountRoles(accountOwnerId);
 
   const memberStats = new Map<number, { total: number; active: number; pending: number }>();
   for (const m of members) {
@@ -137,11 +129,6 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     if (m.status === "active") stats.active += 1;
     if (m.status === "pending") stats.pending += 1;
     memberStats.set(m.workspaceId, stats);
-  }
-
-  const roleCounts = new Map<number, number>();
-  for (const r of roles) {
-    roleCounts.set(r.workspaceId, (roleCounts.get(r.workspaceId) ?? 0) + 1);
   }
 
   let totalMembers = 0;
@@ -170,7 +157,6 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
         memberCount: stats.total,
         activeMemberCount: stats.active,
         pendingMemberCount: stats.pending,
-        roleCount: roleCounts.get(w.id) ?? 0,
       };
     }),
   });
@@ -249,13 +235,7 @@ router.get("/workspaces/:id/summary", requireAuth, requireWorkspaceAccess, async
       eq(workspaceMembersTable.isDeleted, 0),
     ));
 
-  const [roleStats] = await db
-    .select({ total: count() })
-    .from(workspaceRolesTable)
-    .where(and(
-      eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
-      eq(workspaceRolesTable.isSystem, false),
-    ));
+  const accountRoles = await listAccountRoles(ctx.accountOwnerId);
 
   res.json({
     id: ws.id,
@@ -269,7 +249,7 @@ router.get("/workspaces/:id/summary", requireAuth, requireWorkspaceAccess, async
     memberCount: Number(memberStats?.total ?? 0),
     activeMemberCount: Number(memberStats?.active ?? 0),
     pendingMemberCount: Number(memberStats?.pending ?? 0),
-    roleCount: Number(roleStats?.total ?? 0),
+    roleCount: accountRoles.length,
   });
 });
 
@@ -321,118 +301,12 @@ router.delete("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req
   res.sendStatus(204);
 });
 
-// ─── Roles CRUD (per workspace) ────────────────────────────────────────────────
+// ─── Roles (account-global, shared across workspaces) ───────────────────────
 
 router.get("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  const roles = await db
-    .select()
-    .from(workspaceRolesTable)
-    .where(and(
-      eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
-      eq(workspaceRolesTable.isSystem, false),
-    ))
-    .orderBy(workspaceRolesTable.name);
+  const roles = await listAccountRoles(ctx.accountOwnerId);
   res.json({ roles });
-});
-
-router.post("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
-  const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!ctx.isAccountOwner) {
-    res.status(403).json({ error: "Only the account owner can create roles." });
-    return;
-  }
-
-  const { name, description, permissions, preserveExisting } = req.body as {
-    name?: string;
-    description?: string;
-    permissions?: Record<string, Record<string, boolean>>;
-    preserveExisting?: boolean;
-  };
-
-  if (!name?.trim()) {
-    res.status(400).json({ error: "Role name is required" });
-    return;
-  }
-
-  const perms = preserveExisting
-    ? legacyRolePermissions("editor")
-    : mergePermissionsFromForm(permissions ?? {});
-
-  const [role] = await db.insert(workspaceRolesTable).values({
-    workspaceId: ctx.workspaceId,
-    name: name.trim(),
-    description: description?.trim() || null,
-    permissions: perms,
-    isSystem: false,
-  }).returning();
-
-  res.status(201).json(role);
-});
-
-router.patch("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
-  const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!ctx.isAccountOwner) {
-    res.status(403).json({ error: "Only the account owner can edit roles." });
-    return;
-  }
-
-  const roleId = Number(req.params.roleId);
-  const { name, description, permissions } = req.body as {
-    name?: string;
-    description?: string;
-    permissions?: Record<string, Record<string, boolean>>;
-  };
-
-  const [existing] = await db
-    .select()
-    .from(workspaceRolesTable)
-    .where(and(eq(workspaceRolesTable.id, roleId), eq(workspaceRolesTable.workspaceId, ctx.workspaceId)))
-    .limit(1);
-
-  if (!existing) {
-    res.status(404).json({ error: "Role not found" });
-    return;
-  }
-
-  const [updated] = await db.update(workspaceRolesTable)
-    .set({
-      ...(name !== undefined && { name: name.trim() }),
-      ...(description !== undefined && { description: description?.trim() || null }),
-      ...(permissions !== undefined && { permissions: mergePermissionsFromForm(permissions) }),
-      updatedAt: new Date(),
-    })
-    .where(eq(workspaceRolesTable.id, roleId))
-    .returning();
-
-  res.json(updated);
-});
-
-router.delete("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
-  const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!ctx.isAccountOwner) {
-    res.status(403).json({ error: "Only the account owner can delete roles." });
-    return;
-  }
-
-  const roleId = Number(req.params.roleId);
-  const [existing] = await db
-    .select()
-    .from(workspaceRolesTable)
-    .where(and(eq(workspaceRolesTable.id, roleId), eq(workspaceRolesTable.workspaceId, ctx.workspaceId)))
-    .limit(1);
-
-  if (!existing) {
-    res.status(404).json({ error: "Role not found" });
-    return;
-  }
-
-  await db.update(workspaceMembersTable)
-    .set({ roleId: null })
-    .where(eq(workspaceMembersTable.roleId, roleId));
-
-  await db.delete(workspaceRolesTable).where(eq(workspaceRolesTable.id, roleId));
-  res.sendStatus(204);
 });
 
 // ─── Members (per workspace) ─────────────────────────────────────────────────
@@ -537,13 +411,7 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
 
   let roleName = legacyRole ?? "editor";
   if (roleId) {
-    const [role] = await db.select({ name: workspaceRolesTable.name })
-      .from(workspaceRolesTable)
-      .where(and(
-        eq(workspaceRolesTable.id, roleId),
-        eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
-      ))
-      .limit(1);
+    const role = await getAccountRole(ctx.accountOwnerId, Number(roleId));
     if (role?.name) roleName = role.name;
   }
 

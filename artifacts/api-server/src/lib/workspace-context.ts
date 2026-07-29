@@ -16,6 +16,7 @@ import {
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { getDefaultWorkspaceId, ensureWorkspacesMigrated } from "./ensure-workspaces";
+import { ensureAccountRolesMigrated } from "./ensure-account-roles";
 
 export interface WorkspaceContext {
   workspaceId: number;
@@ -49,6 +50,7 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
   roleName: string | null;
 }>> {
   await ensureWorkspacesMigrated();
+  await ensureAccountRolesMigrated();
 
   const owned = await db
     .select()
@@ -101,6 +103,7 @@ export async function resolveWorkspaceContext(
   workspaceIdRaw: string | number | undefined,
 ): Promise<WorkspaceContext | null> {
   await ensureWorkspacesMigrated();
+  await ensureAccountRolesMigrated();
   const team = await resolveTeamContext(userId);
   const accountOwnerId = team.ownerUserId;
 
