@@ -107,11 +107,8 @@ export function TopbarWorkspaceSwitcher() {
     setSeeAllOpen(false);
   };
 
-  const displayLabel = activeWorkspace
-    ? activeWorkspace.clientLabel
-      ? `${activeWorkspace.name} | ${activeWorkspace.clientLabel}`
-      : activeWorkspace.name
-    : "Select workspace";
+  const workspaceName = activeWorkspace?.name ?? "Select workspace";
+  const workspaceSubtitle = activeWorkspace?.clientLabel?.trim() || null;
 
   if (!workspaces.length && !canCreate && !isLoading) return null;
 
@@ -120,19 +117,31 @@ export function TopbarWorkspaceSwitcher() {
       <div ref={rootRef} className="relative flex-shrink-0 hidden sm:flex items-center">
         <div
           className={cn(
-            "flex items-center h-10 rounded-lg border bg-white transition-colors",
+            "flex items-center h-11 rounded-lg border bg-white transition-colors",
             open ? "border-orange-500 ring-1 ring-orange-200" : "border-slate-300 hover:border-slate-400",
           )}
         >
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-1.5 pl-2.5 pr-2 h-full min-w-0 max-w-[11rem] lg:max-w-[14rem]"
+            className="flex items-center gap-2 pl-2.5 pr-2 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]"
             aria-expanded={open}
             aria-haspopup="listbox"
+            aria-label={`Workspace: ${workspaceName}${workspaceSubtitle ? `, ${workspaceSubtitle}` : ""}`}
+            title={`Workspace: ${workspaceName}${workspaceSubtitle ? ` (${workspaceSubtitle})` : ""}`}
           >
             <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
-            <span className="text-sm font-medium text-slate-800 truncate">{displayLabel}</span>
+            <div className="min-w-0 text-left hidden md:block">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
+              <p className="text-sm font-semibold text-slate-900 leading-tight truncate">{workspaceName}</p>
+              {workspaceSubtitle && (
+                <p className="text-[10px] text-slate-400 leading-tight truncate">{workspaceSubtitle}</p>
+              )}
+            </div>
+            <div className="min-w-0 text-left md:hidden">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
+              <p className="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[5.5rem]">{workspaceName}</p>
+            </div>
             <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform", open && "rotate-180")} />
           </button>
           {canCreate && (
@@ -157,6 +166,10 @@ export function TopbarWorkspaceSwitcher() {
         {open && (
           <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
             <div className="absolute -top-1.5 left-6 w-3 h-3 bg-white border-l border-t border-slate-200 rotate-45" />
+            <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/80">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
+              <p className="text-xs text-slate-600 mt-0.5">Projects and data are scoped to the selected workspace.</p>
+            </div>
             <div className="relative max-h-80 overflow-y-auto py-1">
               {isLoading && workspaces.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-slate-500">Loading workspaces…</p>
@@ -210,14 +223,16 @@ export function TopbarWorkspaceSwitcher() {
         )}
       </div>
 
-      {/* Mobile: compact icon */}
+      {/* Mobile: compact with label */}
       <button
         type="button"
-        className="sm:hidden flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0"
+        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0"
         onClick={() => setSeeAllOpen(true)}
-        aria-label="Switch workspace"
+        aria-label={`Workspace: ${workspaceName}`}
+        title={`Workspace: ${workspaceName}`}
       >
         <Building2 className="w-4 h-4 text-orange-500" />
+        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 leading-none mt-0.5">Workspace</span>
       </button>
 
       <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
