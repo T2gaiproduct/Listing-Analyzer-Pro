@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, inArray, sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { randomBytes } from "crypto";
 import {
@@ -81,6 +81,101 @@ router.get("/workspaces/features", requireAuth, async (_req, res): Promise<void>
   });
 });
 
+router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  await ensureWorkspacesMigrated();
+  const accountOwnerId = await resolveAccountOwnerId(userId);
+  if (accountOwnerId !== userId) {
+    res.status(403).json({ error: "Only the account owner can view workspace overview" });
+    return;
+  }
+
+  const owned = await db
+    .select()
+    .from(workspacesTable)
+    .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 0)))
+    .orderBy(desc(workspacesTable.isDefault), workspacesTable.name);
+
+  const workspaceIds = owned.map((w) => w.id);
+  if (workspaceIds.length === 0) {
+    res.json({
+      totalWorkspaces: 0,
+      totalMembers: 0,
+      activeMembers: 0,
+      pendingInvites: 0,
+      totalRoles: 0,
+      workspaces: [],
+    });
+    return;
+  }
+
+  const members = await db
+    .select({
+      workspaceId: workspaceMembersTable.workspaceId,
+      status: workspaceMembersTable.status,
+    })
+    .from(workspaceMembersTable)
+    .where(and(
+      inArray(workspaceMembersTable.workspaceId, workspaceIds),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ));
+
+  const roles = await db
+    .select({
+      workspaceId: workspaceRolesTable.workspaceId,
+    })
+    .from(workspaceRolesTable)
+    .where(and(
+      inArray(workspaceRolesTable.workspaceId, workspaceIds),
+      eq(workspaceRolesTable.isSystem, false),
+    ));
+
+  const memberStats = new Map<number, { total: number; active: number; pending: number }>();
+  for (const m of members) {
+    const stats = memberStats.get(m.workspaceId) ?? { total: 0, active: 0, pending: 0 };
+    stats.total += 1;
+    if (m.status === "active") stats.active += 1;
+    if (m.status === "pending") stats.pending += 1;
+    memberStats.set(m.workspaceId, stats);
+  }
+
+  const roleCounts = new Map<number, number>();
+  for (const r of roles) {
+    roleCounts.set(r.workspaceId, (roleCounts.get(r.workspaceId) ?? 0) + 1);
+  }
+
+  let totalMembers = 0;
+  let activeMembers = 0;
+  let pendingInvites = 0;
+  for (const stats of memberStats.values()) {
+    totalMembers += stats.total;
+    activeMembers += stats.active;
+    pendingInvites += stats.pending;
+  }
+
+  res.json({
+    totalWorkspaces: owned.length,
+    totalMembers,
+    activeMembers,
+    pendingInvites,
+    totalRoles: roles.length,
+    workspaces: owned.map((w) => {
+      const stats = memberStats.get(w.id) ?? { total: 0, active: 0, pending: 0 };
+      return {
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        clientLabel: w.clientLabel,
+        isDefault: w.isDefault,
+        memberCount: stats.total,
+        activeMemberCount: stats.active,
+        pendingMemberCount: stats.pending,
+        roleCount: roleCounts.get(w.id) ?? 0,
+      };
+    }),
+  });
+});
+
 // ─── Create workspace (account owner only) ───────────────────────────────────
 
 router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
@@ -132,6 +227,50 @@ router.get("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req, r
   const ctx = (req as WorkspaceAuthedRequest).workspace;
   const [ws] = await db.select().from(workspacesTable).where(eq(workspacesTable.id, ctx.workspaceId)).limit(1);
   res.json({ ...ws, roleName: ctx.roleName ?? (ctx.isAccountOwner ? "Owner" : ctx.legacyRole) });
+});
+
+router.get("/workspaces/:id/summary", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  const ctx = (req as WorkspaceAuthedRequest).workspace;
+  const [ws] = await db.select().from(workspacesTable).where(eq(workspacesTable.id, ctx.workspaceId)).limit(1);
+  if (!ws) {
+    res.status(404).json({ error: "Workspace not found" });
+    return;
+  }
+
+  const [memberStats] = await db
+    .select({
+      total: count(),
+      active: sql<number>`count(*) filter (where ${workspaceMembersTable.status} = 'active')`,
+      pending: sql<number>`count(*) filter (where ${workspaceMembersTable.status} = 'pending')`,
+    })
+    .from(workspaceMembersTable)
+    .where(and(
+      eq(workspaceMembersTable.workspaceId, ctx.workspaceId),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ));
+
+  const [roleStats] = await db
+    .select({ total: count() })
+    .from(workspaceRolesTable)
+    .where(and(
+      eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
+      eq(workspaceRolesTable.isSystem, false),
+    ));
+
+  res.json({
+    id: ws.id,
+    name: ws.name,
+    description: ws.description,
+    clientLabel: ws.clientLabel,
+    isDefault: ws.isDefault,
+    createdAt: ws.createdAt,
+    roleName: ctx.roleName ?? (ctx.isAccountOwner ? "Owner" : ctx.legacyRole),
+    isAccountOwner: ctx.isAccountOwner,
+    memberCount: Number(memberStats?.total ?? 0),
+    activeMemberCount: Number(memberStats?.active ?? 0),
+    pendingMemberCount: Number(memberStats?.pending ?? 0),
+    roleCount: Number(roleStats?.total ?? 0),
+  });
 });
 
 router.patch("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {

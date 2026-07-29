@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronDown, ChevronRight, Plus, Search, Check } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, Plus, Search, Check, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
@@ -16,6 +17,7 @@ const DROPDOWN_PREVIEW_LIMIT = 8;
 type SortMode = "az" | "za";
 
 export function TopbarWorkspaceSwitcher() {
+  const [, navigate] = useLocation();
   const {
     workspaces,
     activeWorkspace,
@@ -105,7 +107,26 @@ export function TopbarWorkspaceSwitcher() {
     if (id !== activeWorkspaceId) setActiveWorkspaceId(id);
     setOpen(false);
     setSeeAllOpen(false);
+    if (isAccountOwner) {
+      navigate(`/workspaces/${id}`);
+    }
   };
+
+  const openWorkspaceHub = () => {
+    setOpen(false);
+    navigate("/workspaces");
+  };
+
+  const openActiveWorkspace = () => {
+    setOpen(false);
+    if (isAccountOwner) {
+      navigate("/workspaces");
+      return;
+    }
+    setOpen((v) => !v);
+  };
+
+  const toggleDropdown = () => setOpen((v) => !v);
 
   const workspaceName = activeWorkspace?.name ?? "Select workspace";
   const workspaceSubtitle = activeWorkspace?.clientLabel?.trim() || null;
@@ -125,12 +146,10 @@ export function TopbarWorkspaceSwitcher() {
         >
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-2 pl-2.5 pr-2 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none hover:bg-orange-50/50 transition-colors"
-            aria-expanded={open}
-            aria-haspopup="listbox"
+            onClick={openActiveWorkspace}
+            className="flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none hover:bg-orange-50/50 transition-colors"
             aria-label={`Workspace: ${workspaceName}${workspaceSubtitle ? `, ${workspaceSubtitle}` : ""}`}
-            title={`Workspace: ${workspaceName}${workspaceSubtitle ? ` (${workspaceSubtitle})` : ""}`}
+            title={isAccountOwner ? "Open workspaces dashboard" : `Workspace: ${workspaceName}${workspaceSubtitle ? ` (${workspaceSubtitle})` : ""}`}
           >
             <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
             <div className="min-w-0 text-left hidden md:block">
@@ -144,6 +163,15 @@ export function TopbarWorkspaceSwitcher() {
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-none">Workspace</p>
               <p className="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[5.5rem]">{workspaceName}</p>
             </div>
+          </button>
+          <button
+            type="button"
+            onClick={toggleDropdown}
+            className="flex items-center justify-center w-8 h-full hover:bg-orange-50/50 transition-colors focus:outline-none focus-visible:outline-none"
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-label="Switch workspace"
+          >
             <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform", open && "rotate-180")} />
           </button>
           {canCreate && (
@@ -172,6 +200,16 @@ export function TopbarWorkspaceSwitcher() {
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
               <p className="text-xs text-slate-600 mt-0.5">Projects and data are scoped to the selected workspace.</p>
             </div>
+            {isAccountOwner && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors border-b border-slate-100"
+                onClick={openWorkspaceHub}
+              >
+                <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                <span className="truncate flex-1 font-medium text-slate-800">All workspaces</span>
+              </button>
+            )}
             <div className="relative max-h-80 overflow-y-auto py-1">
               {isLoading && workspaces.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-slate-500">Loading workspaces…</p>
@@ -200,7 +238,11 @@ export function TopbarWorkspaceSwitcher() {
                   className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
                   onClick={() => {
                     setOpen(false);
-                    setSeeAllOpen(true);
+                    if (isAccountOwner) {
+                      navigate("/workspaces");
+                    } else {
+                      setSeeAllOpen(true);
+                    }
                   }}
                 >
                   See all
@@ -214,7 +256,11 @@ export function TopbarWorkspaceSwitcher() {
                   className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
                   onClick={() => {
                     setOpen(false);
-                    setSeeAllOpen(true);
+                    if (isAccountOwner) {
+                      navigate("/workspaces");
+                    } else {
+                      setSeeAllOpen(true);
+                    }
                   }}
                 >
                   See all
@@ -229,7 +275,13 @@ export function TopbarWorkspaceSwitcher() {
       <button
         type="button"
         className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0 hover:border-orange-400 hover:bg-orange-50/40 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
-        onClick={() => setSeeAllOpen(true)}
+        onClick={() => {
+          if (isAccountOwner) {
+            navigate("/workspaces");
+          } else {
+            setSeeAllOpen(true);
+          }
+        }}
         aria-label={`Workspace: ${workspaceName}`}
         title={`Workspace: ${workspaceName}`}
       >
@@ -316,7 +368,10 @@ export function TopbarWorkspaceSwitcher() {
               <Button
                 className="bg-orange-500 hover:bg-orange-600 text-white"
                 disabled={!pendingId}
-                onClick={() => pendingId && selectWorkspace(pendingId)}
+                onClick={() => {
+                  if (!pendingId) return;
+                  selectWorkspace(pendingId);
+                }}
               >
                 Select workspace
               </Button>

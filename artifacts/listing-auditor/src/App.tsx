@@ -58,6 +58,7 @@ import {
   AdsPage,
   SettingsPage,
   WorkspacesPage,
+  WorkspaceDetailPage,
   RolesPage,
   WorkspaceMembersPage,
   AcceptInvite,
@@ -648,11 +649,14 @@ function Router() {
       <Route path="/workspaces">
         <ProtectedRoute><WorkspacesPage /></ProtectedRoute>
       </Route>
+      <Route path="/workspaces/:id/members">
+        {params => <ProtectedRoute><WorkspaceMembersPage /></ProtectedRoute>}
+      </Route>
       <Route path="/workspaces/:id/roles">
         <Redirect to="/roles" />
       </Route>
-      <Route path="/workspaces/:id/members">
-        {params => <ProtectedRoute><WorkspaceMembersPage /></ProtectedRoute>}
+      <Route path="/workspaces/:id">
+        {params => <ProtectedRoute><WorkspaceDetailPage /></ProtectedRoute>}
       </Route>
       <Route path="/profile">
         <ProtectedRoute><Profile /></ProtectedRoute>
