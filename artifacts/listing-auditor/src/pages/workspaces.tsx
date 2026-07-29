@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, Building2, Shield, ChevronRight, LayoutGrid } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
@@ -131,11 +131,11 @@ export default function WorkspacesPage() {
         <div>
           <div className="flex items-center gap-2">
             <LayoutGrid className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold text-slate-900">Workspaces</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Workspace Dashboard</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
             {isAccountOwner
-              ? "Overview of all your client workspaces. Select one to view details."
+              ? "Admin overview of all your client workspaces. Select one to view details."
               : "Manage client workspaces and members."}
           </p>
         </div>
@@ -197,7 +197,7 @@ export default function WorkspacesPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         {displayWorkspaces.map((ws) => (
-          <Card key={ws.id} className={ws.id === activeWorkspaceId ? "ring-2 ring-orange-300" : ""}>
+          <Card key={ws.id}>
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -206,7 +206,6 @@ export default function WorkspacesPage() {
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
                   {ws.isDefault && <Badge variant="secondary">Default</Badge>}
-                  {ws.id === activeWorkspaceId && <Badge className="bg-orange-100 text-orange-700">Active</Badge>}
                 </div>
               </div>
               {ws.clientLabel && (
@@ -240,14 +239,6 @@ export default function WorkspacesPage() {
                     Members
                   </Button>
                 </Link>
-                {isAccountOwner && (
-                  <Link href="/roles">
-                    <Button variant="ghost" size="sm" className="gap-1.5">
-                      <Shield className="w-3.5 h-3.5" />
-                      Roles
-                    </Button>
-                  </Link>
-                )}
                 {canEdit && (
                   <Button variant="ghost" size="sm" onClick={() => openEdit(workspaces.find((w) => w.id === ws.id)!)} className="gap-1.5">
                     <Pencil className="w-3.5 h-3.5" />
