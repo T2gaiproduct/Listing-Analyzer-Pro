@@ -72,7 +72,7 @@ export function DashboardTopbar({
   const { isTeamMember, isOwner } = useTeam();
   const { workspaces, activeWorkspace, activeWorkspaceId, setActiveWorkspaceId, canManageWorkspaces } = useWorkspace();
   const menuItems = profileMenuItems(isTeamMember, isOwner, variant);
-  const showWorkspaceSwitcher = variant === "customer" && workspaces.length > 1;
+  const showWorkspaceSwitcher = false; // workspace switcher lives in the left sidebar
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);

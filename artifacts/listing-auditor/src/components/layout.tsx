@@ -32,6 +32,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { SidebarWorkspaceSwitcher } from "@/components/sidebar-workspace-switcher";
 import {
   ProjectShareMenu,
   shareProjectToInstagram,
@@ -40,6 +41,7 @@ import {
 } from "@/components/project-share-menu";
 import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
@@ -283,11 +285,12 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const { isTeamMember, memberCredits } = useTeam();
+  const { activeWorkspaceId } = useWorkspace();
 
-  const recentsReady = clerkLoaded && !!user;
+  const recentsReady = clerkLoaded && !!user && !!activeWorkspaceId;
 
-  // Fetch unified recents for sidebar (scope changes when team membership resolves)
-  const recentsScope = isTeamMember ? "member" : "owner";
+  // Fetch unified recents for sidebar (scoped to active workspace)
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
     {
@@ -617,6 +620,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Nav + Projects (scrollable) ─────────────────────── */}
         <div className="flex-1 overflow-y-auto overflow-x-visible py-4 flex flex-col">
+          {/* Workspace switcher — above main nav */}
+          <SidebarWorkspaceSwitcher collapsed={collapsed} />
+
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
             {mainNavItems.map(({ icon: Icon, label, href }) => {
@@ -727,6 +733,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+              <SidebarWorkspaceSwitcher collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
               {mainNavItems.map(({ icon: Icon, label, href }) => {
                 const isActive =
                   location === href ||

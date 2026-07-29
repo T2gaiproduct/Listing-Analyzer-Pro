@@ -12,6 +12,12 @@ import {
 import { createNotification } from "../lib/notifications";
 import { resolveTeamContext, type TeamAuthedRequest, requireWriteAccess } from "../middlewares/team-auth";
 import {
+  resolveTeamAndWorkspace,
+  getAccountOwnerId,
+  getActiveWorkspaceId,
+  workspaceOwnerFilter,
+} from "../lib/workspace-route-helpers";
+import {
   getMemberWorkedProjects,
   assertMemberProjectAccess,
   ProjectAccessError,
@@ -134,6 +140,7 @@ async function loadScopedRecents(
   ownerUserId: string,
   memberUserId: string,
   team: TeamAuthedRequest["team"],
+  workspaceId: number,
   limit: number,
 ) {
   const isMember = team.isTeamMember;
@@ -164,7 +171,7 @@ async function loadScopedRecents(
           .from(auditsTable)
           .where(
             and(
-              eq(auditsTable.userId, ownerUserId),
+              workspaceOwnerFilter(auditsTable, auditsTable, ownerUserId, workspaceId),
               eq(auditsTable.isDeleted, 0),
               sql`${auditsTable.status} != 'archived'`,
               ...(isMember ? [inArray(auditsTable.id, auditIds)] : []),
@@ -187,7 +194,7 @@ async function loadScopedRecents(
           .from(graphicsProjectsTable)
           .where(
             and(
-              eq(graphicsProjectsTable.userId, ownerUserId),
+              workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerUserId, workspaceId),
               eq(graphicsProjectsTable.isDeleted, 0),
               sql`${graphicsProjectsTable.status} != 'archived'`,
               sql`${graphicsProjectsTable.auditId} IS NULL`,
@@ -209,7 +216,7 @@ async function loadScopedRecents(
           .from(videosProjectsTable)
           .where(
             and(
-              eq(videosProjectsTable.userId, ownerUserId),
+              workspaceOwnerFilter(videosProjectsTable, videosProjectsTable, ownerUserId, workspaceId),
               eq(videosProjectsTable.isDeleted, 0),
               sql`${videosProjectsTable.status} != 'archived'`,
               ...(isMember ? [inArray(videosProjectsTable.id, videoIds)] : []),
@@ -229,7 +236,7 @@ async function loadScopedRecents(
           .from(adsProjectsTable)
           .where(
             and(
-              eq(adsProjectsTable.userId, ownerUserId),
+              workspaceOwnerFilter(adsProjectsTable, adsProjectsTable, ownerUserId, workspaceId),
               eq(adsProjectsTable.isDeleted, 0),
               sql`${adsProjectsTable.status} != 'archived'`,
               ...(isMember ? [inArray(adsProjectsTable.id, adsIds)] : []),
@@ -243,23 +250,28 @@ async function loadScopedRecents(
 }
 
 // GET /recents — unified list of all user projects across all types
-router.get("/recents", requireAuth, resolveTeam, async (req: Request, res: Response) => {
+router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response) => {
   const userId = (req as AuthedRequest).userId;
   const team = (req as TeamAuthedRequest).team;
-  const ownerUserId = getOwnerUserId(req);
+  const ownerUserId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
   const limit = Math.min(Number(req.query.limit) || 100, 500);
 
   const { audits, graphics, videos, ads, worked } = await loadScopedRecents(
     ownerUserId,
     userId,
     team,
+    workspaceId,
     limit,
   );
 
   const pins = await db
     .select({ itemType: pinnedProjectsTable.itemType, itemId: pinnedProjectsTable.itemId })
     .from(pinnedProjectsTable)
-    .where(eq(pinnedProjectsTable.userId, userId));
+    .where(and(
+      eq(pinnedProjectsTable.userId, userId),
+      eq(pinnedProjectsTable.workspaceId, workspaceId),
+    ));
 
   const pinnedSet = new Set(pins.map((p) => `${p.itemType}-${p.itemId}`));
 
@@ -338,10 +350,11 @@ router.get("/recents", requireAuth, resolveTeam, async (req: Request, res: Respo
 });
 
 // GET /search/projects — search across all project types
-router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, res: Response) => {
+router.get("/search/projects", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response) => {
   const userId = (req as AuthedRequest).userId;
   const team = (req as TeamAuthedRequest).team;
-  const ownerUserId = getOwnerUserId(req);
+  const ownerUserId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
   const q = String(req.query.q || "").trim();
   const limit = Math.min(Number(req.query.limit) || 50, 200);
 
@@ -376,7 +389,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
           .from(auditsTable)
           .where(
             and(
-              eq(auditsTable.userId, ownerUserId),
+              workspaceOwnerFilter(auditsTable, auditsTable, ownerUserId, workspaceId),
               eq(auditsTable.isDeleted, 0),
               sql`${auditsTable.status} != 'archived'`,
               sql`(${auditsTable.productName} ilike ${`%${q}%`} OR ${auditsTable.projectName} ilike ${`%${q}%`})`,
@@ -400,7 +413,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
           .from(graphicsProjectsTable)
           .where(
             and(
-              eq(graphicsProjectsTable.userId, ownerUserId),
+              workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerUserId, workspaceId),
               eq(graphicsProjectsTable.isDeleted, 0),
               ilike(graphicsProjectsTable.name, `%${q}%`),
               sql`${graphicsProjectsTable.auditId} IS NULL`,
@@ -422,7 +435,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
           .from(videosProjectsTable)
           .where(
             and(
-              eq(videosProjectsTable.userId, ownerUserId),
+              workspaceOwnerFilter(videosProjectsTable, videosProjectsTable, ownerUserId, workspaceId),
               eq(videosProjectsTable.isDeleted, 0),
               ilike(videosProjectsTable.name, `%${q}%`),
               ...(team.isTeamMember ? [inArray(videosProjectsTable.id, videoIds)] : []),
@@ -442,7 +455,7 @@ router.get("/search/projects", requireAuth, resolveTeam, async (req: Request, re
           .from(adsProjectsTable)
           .where(
             and(
-              eq(adsProjectsTable.userId, ownerUserId),
+              workspaceOwnerFilter(adsProjectsTable, adsProjectsTable, ownerUserId, workspaceId),
               eq(adsProjectsTable.isDeleted, 0),
               ilike(adsProjectsTable.name, `%${q}%`),
               ...(team.isTeamMember ? [inArray(adsProjectsTable.id, adsIds)] : []),

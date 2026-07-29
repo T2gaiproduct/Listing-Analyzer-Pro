@@ -6,6 +6,12 @@ import {
   videosProjectsTable, adsProjectsTable,
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import {
+  resolveTeamAndWorkspace,
+  getAccountOwnerId,
+  getActiveWorkspaceId,
+  workspaceOwnerFilter,
+} from "../lib/workspace-route-helpers";
 import { createNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
@@ -40,40 +46,50 @@ function isAdmin(userId: string): boolean {
 }
 
 // An item is "archived" if isDeleted=1 OR status='archived'
-function archivedCondition(deletedCol: Parameters<typeof eq>[0], statusCol: Parameters<typeof eq>[0], userIdCol: Parameters<typeof eq>[0], ownerId: string, admin: boolean) {
+function archivedCondition(
+  deletedCol: Parameters<typeof eq>[0],
+  statusCol: Parameters<typeof eq>[0],
+  userIdCol: Parameters<typeof eq>[0],
+  workspaceIdCol: Parameters<typeof eq>[0],
+  ownerId: string,
+  workspaceId: number,
+  admin: boolean,
+) {
   const archived = or(eq(deletedCol, 1), eq(statusCol, "archived"));
-  if (admin) return archived;
-  return and(archived, eq(userIdCol, ownerId));
+  const scoped = workspaceOwnerFilter({ userId: userIdCol }, { workspaceId: workspaceIdCol }, ownerId, workspaceId);
+  if (admin) return and(archived, scoped);
+  return and(archived, scoped);
 }
 
 // ─── List archived items ─────────────────────────────────────────────────────
-router.get("/archive", requireAuth, resolveTeam, async (req, res): Promise<void> => {
+router.get("/archive", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const ownerId = getEffectiveUserId(req);
+  const ownerId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
   const admin = isAdmin(userId);
 
   const audits = await db
     .select({ id: auditsTable.id, userId: auditsTable.userId, productName: auditsTable.productName, asin: auditsTable.asin, category: auditsTable.category, overallScore: auditsTable.overallScore, status: auditsTable.status, deletedAt: auditsTable.deletedAt, updatedAt: auditsTable.updatedAt, createdAt: auditsTable.createdAt })
     .from(auditsTable)
-    .where(archivedCondition(auditsTable.isDeleted, auditsTable.status, auditsTable.userId, ownerId, admin))
+    .where(archivedCondition(auditsTable.isDeleted, auditsTable.status, auditsTable.userId, auditsTable.workspaceId, ownerId, workspaceId, admin))
     .orderBy(desc(auditsTable.updatedAt));
 
   const projects = await db
     .select({ id: graphicsProjectsTable.id, userId: graphicsProjectsTable.userId, name: graphicsProjectsTable.name, productName: graphicsProjectsTable.productName, status: graphicsProjectsTable.status, deletedAt: graphicsProjectsTable.deletedAt, updatedAt: graphicsProjectsTable.updatedAt, createdAt: graphicsProjectsTable.createdAt })
     .from(graphicsProjectsTable)
-    .where(archivedCondition(graphicsProjectsTable.isDeleted, graphicsProjectsTable.status, graphicsProjectsTable.userId, ownerId, admin))
+    .where(archivedCondition(graphicsProjectsTable.isDeleted, graphicsProjectsTable.status, graphicsProjectsTable.userId, graphicsProjectsTable.workspaceId, ownerId, workspaceId, admin))
     .orderBy(desc(graphicsProjectsTable.updatedAt));
 
   const videos = await db
     .select({ id: videosProjectsTable.id, userId: videosProjectsTable.userId, name: videosProjectsTable.name, status: videosProjectsTable.status, deletedAt: videosProjectsTable.deletedAt, updatedAt: videosProjectsTable.updatedAt, createdAt: videosProjectsTable.createdAt })
     .from(videosProjectsTable)
-    .where(archivedCondition(videosProjectsTable.isDeleted, videosProjectsTable.status, videosProjectsTable.userId, ownerId, admin))
+    .where(archivedCondition(videosProjectsTable.isDeleted, videosProjectsTable.status, videosProjectsTable.userId, videosProjectsTable.workspaceId, ownerId, workspaceId, admin))
     .orderBy(desc(videosProjectsTable.updatedAt));
 
   const ads = await db
     .select({ id: adsProjectsTable.id, userId: adsProjectsTable.userId, name: adsProjectsTable.name, status: adsProjectsTable.status, deletedAt: adsProjectsTable.deletedAt, updatedAt: adsProjectsTable.updatedAt, createdAt: adsProjectsTable.createdAt })
     .from(adsProjectsTable)
-    .where(archivedCondition(adsProjectsTable.isDeleted, adsProjectsTable.status, adsProjectsTable.userId, ownerId, admin))
+    .where(archivedCondition(adsProjectsTable.isDeleted, adsProjectsTable.status, adsProjectsTable.userId, adsProjectsTable.workspaceId, ownerId, workspaceId, admin))
     .orderBy(desc(adsProjectsTable.updatedAt));
 
   // Competitors join audits to scope by owner
