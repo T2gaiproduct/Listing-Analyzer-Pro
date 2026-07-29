@@ -33,7 +33,7 @@ interface WorkspaceRecord {
 export default function WorkspaceDetailPage() {
   const params = useParams<{ id: string }>();
   const workspaceId = Number(params.id);
-  const { workspaces, activeWorkspaceId, setActiveWorkspaceId, isAccountOwner } = useWorkspace();
+  const { workspaces, activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
 
   useEffect(() => {
     if (Number.isFinite(workspaceId) && workspaceId > 0 && workspaceId !== activeWorkspaceId) {
@@ -130,14 +130,6 @@ export default function WorkspaceDetailPage() {
               Invite member
             </Button>
           </Link>
-          {isAccountOwner && (
-            <Link href="/roles">
-              <Button variant="outline" className="gap-1.5">
-                <Shield className="w-4 h-4" />
-                Manage roles
-              </Button>
-            </Link>
-          )}
         </div>
       </div>
 
@@ -244,19 +236,14 @@ export default function WorkspaceDetailPage() {
 
           {roles.length > 0 && (
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+              <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Shield className="w-4 h-4" />
                   Roles ({roles.length})
                 </CardTitle>
-                {isAccountOwner && (
-                  <Link href="/roles">
-                    <Button variant="ghost" size="sm" className="gap-1.5 text-orange-600 hover:text-orange-700">
-                      Manage roles
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                )}
+                <p className="text-xs text-slate-500 mt-1">
+                  Account-wide roles assigned to members in this workspace. Manage roles from your profile menu.
+                </p>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
