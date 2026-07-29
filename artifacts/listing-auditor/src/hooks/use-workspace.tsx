@@ -125,6 +125,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setSelectedId(id);
     localStorage.setItem(STORAGE_KEY, String(id));
     void qc.invalidateQueries({ queryKey: ["workspace-permissions", id] });
+    void qc.invalidateQueries({ queryKey: ["audits"] });
+    void qc.invalidateQueries({ queryKey: ["graphics-projects"] });
+    void qc.invalidateQueries({ queryKey: ["recents"] });
+    void qc.invalidateQueries({ queryKey: ["dashboard"] });
   }, [qc]);
 
   const value = useMemo<WorkspaceContextValue>(() => ({

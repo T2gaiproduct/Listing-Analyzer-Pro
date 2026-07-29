@@ -49,24 +49,21 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
   roleName: string | null;
 }>> {
   await ensureWorkspacesMigrated();
-  const accountOwnerId = await resolveAccountOwnerId(userId);
 
   const owned = await db
     .select()
     .from(workspacesTable)
-    .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 0)));
+    .where(and(eq(workspacesTable.accountOwnerId, userId), eq(workspacesTable.isDeleted, 0)));
 
-  if (accountOwnerId === userId) {
-    return owned.map((w) => ({
-      id: w.id,
-      name: w.name,
-      description: w.description,
-      clientLabel: w.clientLabel,
-      isDefault: w.isDefault,
-      isAccountOwner: true,
-      roleName: "Owner",
-    }));
-  }
+  const ownedSummaries = owned.map((w) => ({
+    id: w.id,
+    name: w.name,
+    description: w.description,
+    clientLabel: w.clientLabel,
+    isDefault: w.isDefault,
+    isAccountOwner: true,
+    roleName: "Owner",
+  }));
 
   const memberships = await db
     .select({
@@ -84,15 +81,19 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       eq(workspacesTable.isDeleted, 0),
     ));
 
-  return memberships.map((m) => ({
-    id: m.workspace.id,
-    name: m.workspace.name,
-    description: m.workspace.description,
-    clientLabel: m.workspace.clientLabel,
-    isDefault: m.workspace.isDefault,
-    isAccountOwner: false,
-    roleName: m.roleName ?? m.legacyRole ?? "Member",
-  }));
+  const memberSummaries = memberships
+    .filter((m) => m.workspace.accountOwnerId !== userId)
+    .map((m) => ({
+      id: m.workspace.id,
+      name: m.workspace.name,
+      description: m.workspace.description,
+      clientLabel: m.workspace.clientLabel,
+      isDefault: m.workspace.isDefault,
+      isAccountOwner: false,
+      roleName: m.roleName ?? m.legacyRole ?? "Member",
+    }));
+
+  return [...ownedSummaries, ...memberSummaries];
 }
 
 export async function resolveWorkspaceContext(
@@ -118,7 +119,7 @@ export async function resolveWorkspaceContext(
 
   if (!workspace) return null;
 
-  const isAccountOwner = workspace.accountOwnerId === userId && !team.isTeamMember;
+  const isAccountOwner = workspace.accountOwnerId === userId;
 
   if (isAccountOwner || (team.isTeamMember && workspace.accountOwnerId === accountOwnerId)) {
     // account owner or legacy team member on owner's workspaces

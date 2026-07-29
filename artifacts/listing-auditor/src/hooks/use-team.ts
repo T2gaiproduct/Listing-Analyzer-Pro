@@ -36,7 +36,7 @@ export interface TeamContext {
 
 export function useTeam(): TeamContext {
   const { user, isLoaded } = useUser();
-  const { canEdit: wsCanEdit, isAccountOwner: wsOwner, isLoading: wsLoading } = useWorkspace();
+  const { canEdit: wsCanEdit, isAccountOwner: wsOwner, isLoading: wsLoading, workspaces } = useWorkspace();
 
   const { data, isLoading } = useQuery<TeamMembership[]>({
     queryKey: ["team-membership"],
@@ -61,7 +61,12 @@ export function useTeam(): TeamContext {
   const role = membership?.role ?? "owner";
   const isTeamMember = !!membership;
   const isOwner = !isTeamMember || wsOwner;
-  const canEdit = wsOwner || wsCanEdit("audits") || wsCanEdit("graphics") || role === "admin" || role === "editor" || isOwner;
+  const hasWorkspaces = workspaces.length > 0;
+  const canEdit =
+    wsOwner ||
+    wsCanEdit("audits") ||
+    wsCanEdit("graphics") ||
+    (!hasWorkspaces && (role === "admin" || role === "editor" || isOwner));
   const canManage = wsOwner || isOwner;
 
   return {
