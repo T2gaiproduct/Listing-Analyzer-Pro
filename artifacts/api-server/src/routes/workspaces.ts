@@ -9,6 +9,7 @@ import {
   workspaceMembersTable,
   plansTable,
   subscriptionsTable,
+  userProfilesTable,
 } from "@workspace/db";
 import {
   WORKSPACE_FEATURES,
@@ -26,6 +27,9 @@ import {
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
+import { fetchClerkUserIdByEmail } from "../lib/clerk-user.js";
+import { createNotification } from "../lib/notifications.js";
+import { buildWorkspaceInviteUrl, resolveAppBaseUrl, sendWorkspaceInviteEmail } from "../lib/workspace-invite.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 
 const router: IRouter = Router();
@@ -319,6 +323,7 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
 
 router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
+  const inviterUserId = (req as AuthedRequest).userId;
   if (!checkPerm(ctx, "team", "create") && !ctx.isAccountOwner) {
     res.status(403).json({ error: "Forbidden" });
     return;
@@ -336,18 +341,122 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     return;
   }
 
-  const token = randomBytes(24).toString("hex");
-  const [member] = await db.insert(workspaceMembersTable).values({
-    workspaceId: ctx.workspaceId,
-    invitedEmail: invitedEmail.trim().toLowerCase(),
-    invitedName: invitedName?.trim() || invitedEmail.split("@")[0] || "Member",
-    roleId: roleId ?? null,
-    legacyRole: legacyRole ?? "editor",
-    status: "pending",
-    inviteToken: token,
-  }).returning();
+  const normalizedEmail = invitedEmail.trim().toLowerCase();
+  const displayName = invitedName?.trim() || normalizedEmail.split("@")[0] || "Member";
 
-  res.status(201).json(member);
+  const existingMembers = await db.select()
+    .from(workspaceMembersTable)
+    .where(and(
+      eq(workspaceMembersTable.workspaceId, ctx.workspaceId),
+      eq(workspaceMembersTable.invitedEmail, normalizedEmail),
+    ));
+
+  const activeMember = existingMembers.find((m) => m.isDeleted === 0 && m.status !== "revoked");
+  if (activeMember) {
+    res.status(409).json({ error: "This email has already been invited to this workspace." });
+    return;
+  }
+
+  const token = randomBytes(24).toString("hex");
+  const revokedMember = existingMembers.find((m) => m.status === "revoked" || m.isDeleted === 1);
+
+  let member;
+  if (revokedMember) {
+    const [updated] = await db.update(workspaceMembersTable)
+      .set({
+        invitedName: displayName,
+        roleId: roleId ?? null,
+        legacyRole: legacyRole ?? "editor",
+        status: "pending",
+        inviteToken: token,
+        invitedAt: new Date(),
+        userId: null,
+        acceptedAt: null,
+        isDeleted: 0,
+        deletedAt: null,
+      })
+      .where(eq(workspaceMembersTable.id, revokedMember.id))
+      .returning();
+    member = updated;
+  } else {
+    const [inserted] = await db.insert(workspaceMembersTable).values({
+      workspaceId: ctx.workspaceId,
+      invitedEmail: normalizedEmail,
+      invitedName: displayName,
+      roleId: roleId ?? null,
+      legacyRole: legacyRole ?? "editor",
+      status: "pending",
+      inviteToken: token,
+    }).returning();
+    member = inserted;
+  }
+
+  const [workspace] = await db.select({ name: workspacesTable.name })
+    .from(workspacesTable)
+    .where(eq(workspacesTable.id, ctx.workspaceId))
+    .limit(1);
+
+  let roleName = legacyRole ?? "editor";
+  if (roleId) {
+    const [role] = await db.select({ name: workspaceRolesTable.name })
+      .from(workspaceRolesTable)
+      .where(and(
+        eq(workspaceRolesTable.id, roleId),
+        eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
+      ))
+      .limit(1);
+    if (role?.name) roleName = role.name;
+  }
+
+  const [inviterProfile] = await db.select({
+    fullName: userProfilesTable.fullName,
+    companyName: userProfilesTable.companyName,
+  })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, inviterUserId))
+    .limit(1);
+
+  const inviterName = inviterProfile?.fullName?.trim()
+    || inviterProfile?.companyName?.trim()
+    || "A workspace admin";
+  const workspaceName = workspace?.name ?? "Workspace";
+  const appBaseUrl = resolveAppBaseUrl(req);
+  const inviteUrl = buildWorkspaceInviteUrl(member.inviteToken, appBaseUrl);
+
+  let emailSent = false;
+  let emailError: string | undefined;
+  try {
+    const emailResult = await sendWorkspaceInviteEmail({
+      toEmail: normalizedEmail,
+      invitedName: displayName,
+      workspaceName,
+      roleName,
+      inviterName,
+      inviteUrl,
+    });
+    emailSent = emailResult.emailSent;
+    emailError = emailResult.emailError;
+  } catch (emailErr) {
+    req.log?.warn?.({ emailErr }, "Failed to send workspace invite email");
+    emailError = emailErr instanceof Error ? emailErr.message : "Failed to send email";
+  }
+
+  try {
+    const inviteeUserId = await fetchClerkUserIdByEmail(normalizedEmail);
+    if (inviteeUserId) {
+      void createNotification({
+        userId: inviteeUserId,
+        type: "team_invite",
+        title: "Workspace invitation",
+        message: `${inviterName} invited you to join ${workspaceName} as ${roleName}.`,
+        link: `/accept-workspace-invite?token=${member.inviteToken}`,
+      });
+    }
+  } catch (notifyErr) {
+    req.log?.warn?.({ notifyErr }, "Failed to send workspace invite notification");
+  }
+
+  res.status(201).json({ ...member, inviteUrl, emailSent, emailError });
 });
 
 router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
@@ -395,6 +504,131 @@ router.delete("/workspaces/:workspaceId/members/:memberId", requireAuth, require
     ));
 
   res.sendStatus(204);
+});
+
+// ─── Workspace invite accept (public + auth) ─────────────────────────────────
+
+router.get("/workspace-invite/:token", async (req, res): Promise<void> => {
+  const token = String(req.params.token ?? "");
+  const [row] = await db.select({
+    member: workspaceMembersTable,
+    workspaceName: workspacesTable.name,
+    roleName: workspaceRolesTable.name,
+  })
+    .from(workspaceMembersTable)
+    .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+    .leftJoin(workspaceRolesTable, eq(workspaceMembersTable.roleId, workspaceRolesTable.id))
+    .where(and(
+      eq(workspaceMembersTable.inviteToken, token),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Invite not found or expired" });
+    return;
+  }
+  if (row.member.status === "revoked") {
+    res.status(410).json({ error: "This invite has been revoked" });
+    return;
+  }
+  if (row.member.status === "active") {
+    res.status(409).json({ error: "This invite has already been accepted" });
+    return;
+  }
+
+  res.json({
+    id: row.member.id,
+    invitedEmail: row.member.invitedEmail,
+    invitedName: row.member.invitedName,
+    status: row.member.status,
+    invitedAt: row.member.invitedAt,
+    workspaceId: row.member.workspaceId,
+    workspaceName: row.workspaceName,
+    roleName: row.roleName ?? row.member.legacyRole ?? "member",
+  });
+});
+
+router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const token = String(req.params.token ?? "");
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+
+  const [row] = await db.select({
+    member: workspaceMembersTable,
+    workspaceName: workspacesTable.name,
+    accountOwnerId: workspacesTable.accountOwnerId,
+    roleName: workspaceRolesTable.name,
+  })
+    .from(workspaceMembersTable)
+    .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+    .leftJoin(workspaceRolesTable, eq(workspaceMembersTable.roleId, workspaceRolesTable.id))
+    .where(eq(workspaceMembersTable.inviteToken, token))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Invite not found" });
+    return;
+  }
+
+  const invite = row.member;
+  if (invite.status === "revoked" || invite.isDeleted === 1) {
+    res.status(410).json({ error: "This invite has been revoked" });
+    return;
+  }
+  if (invite.status === "active") {
+    res.status(409).json({ error: "Already accepted" });
+    return;
+  }
+
+  if (sessionEmail && sessionEmail.toLowerCase() !== invite.invitedEmail.toLowerCase()) {
+    res.status(403).json({
+      error: `This invite was sent to ${invite.invitedEmail}. Sign in with that email to accept.`,
+    });
+    return;
+  }
+
+  const existingActive = await db.select({ id: workspaceMembersTable.id })
+    .from(workspaceMembersTable)
+    .where(and(
+      eq(workspaceMembersTable.workspaceId, invite.workspaceId),
+      eq(workspaceMembersTable.userId, userId),
+      eq(workspaceMembersTable.status, "active"),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  if (existingActive.length > 0) {
+    res.status(409).json({ error: "You are already a member of this workspace" });
+    return;
+  }
+
+  await db.update(workspaceMembersTable)
+    .set({
+      status: "active",
+      userId,
+      acceptedAt: new Date(),
+      isDeleted: 0,
+      deletedAt: null,
+    })
+    .where(eq(workspaceMembersTable.inviteToken, token));
+
+  const roleName = row.roleName ?? invite.legacyRole ?? "member";
+  void createNotification({
+    userId: row.accountOwnerId,
+    type: "team_invite_accepted",
+    title: "Workspace member joined",
+    message: `${invite.invitedName?.trim() || invite.invitedEmail} joined ${row.workspaceName} (${roleName}).`,
+    link: `/workspaces/${invite.workspaceId}/members`,
+  });
+
+  res.json({
+    ok: true,
+    workspaceId: invite.workspaceId,
+    workspaceName: row.workspaceName,
+    roleName,
+  });
 });
 
 // ─── Current user permissions in workspace ───────────────────────────────────

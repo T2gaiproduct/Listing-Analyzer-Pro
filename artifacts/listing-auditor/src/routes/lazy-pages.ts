@@ -52,6 +52,7 @@ export const WorkspaceRolesPage = lazy(() => import("@/pages/workspace-roles"));
 export const WorkspaceMembersPage = lazy(() => import("@/pages/workspace-members"));
 
 export const AcceptInvite = lazy(() => import("@/pages/accept-invite"));
+export const AcceptWorkspaceInvite = lazy(() => import("@/pages/accept-workspace-invite"));
 export const AcceptAdminInvite = lazy(() => import("@/pages/accept-admin-invite"));
 export const Onboarding = lazy(() => import("@/pages/onboarding"));
 export const CheckoutSuccess = lazy(() => import("@/pages/checkout-success"));
