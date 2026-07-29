@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Link, useParams } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Redirect } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,7 +22,6 @@ import {
 } from "@workspace/workspace-permissions";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { WorkspaceAdminNav } from "@/components/workspace-admin-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -40,26 +40,30 @@ const ACTION_LABELS: Record<WorkspaceAction, string> = {
   delete: "Delete",
 };
 
-export default function WorkspaceRolesPage() {
-  const params = useParams<{ id: string }>();
-  const workspaceId = Number(params.id);
-  const { workspaces, can, isAccountOwner } = useWorkspace();
-  const ws = workspaces.find((w) => w.id === workspaceId);
+export default function RolesPage() {
+  const { workspaces, activeWorkspaceId, isAccountOwner, isLoading: wsLoading } = useWorkspace();
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const [workspaceId, setWorkspaceId] = useState<number | null>(activeWorkspaceId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<WorkspaceRole | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [matrix, setMatrix] = useState<Record<string, Partial<FeaturePermission>>>({});
 
-  const canManage = isAccountOwner || can("team", "edit");
+  useEffect(() => {
+    if (activeWorkspaceId && !workspaceId) {
+      setWorkspaceId(activeWorkspaceId);
+    }
+  }, [activeWorkspaceId, workspaceId]);
+
+  const ws = workspaces.find((w) => w.id === workspaceId) ?? null;
 
   const { data, isLoading } = useQuery({
     queryKey: ["workspace-roles", workspaceId],
     queryFn: () => fetchJson<{ roles: WorkspaceRole[] }>(`${basePath}/api/workspaces/${workspaceId}/roles`),
-    enabled: Number.isFinite(workspaceId) && workspaceId > 0,
+    enabled: Number.isFinite(workspaceId) && (workspaceId ?? 0) > 0,
   });
 
   const roles = data?.roles ?? [];
@@ -109,6 +113,7 @@ export default function WorkspaceRolesPage() {
 
   const saveRole = useMutation({
     mutationFn: async () => {
+      if (!workspaceId) throw new Error("Select a workspace");
       const body = { name: name.trim(), description: description.trim() || undefined, permissions: matrix };
       if (editing) {
         return fetchJson(`${basePath}/api/workspaces/${workspaceId}/roles/${editing.id}`, {
@@ -128,11 +133,12 @@ export default function WorkspaceRolesPage() {
       setDialogOpen(false);
       toast({ title: editing ? "Role updated" : "Role created" });
     },
-    onError: () => toast({ title: "Failed to save role", variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Failed to save role", description: err.message, variant: "destructive" }),
   });
 
   const deleteRole = useMutation({
     mutationFn: async (roleId: number) => {
+      if (!workspaceId) throw new Error("Select a workspace");
       const r = await fetch(`${basePath}/api/workspaces/${workspaceId}/roles/${roleId}`, {
         method: "DELETE",
         credentials: "include",
@@ -151,94 +157,113 @@ export default function WorkspaceRolesPage() {
     },
   });
 
-  if (!ws) {
-    return (
-      <div className="p-6">
-        <p className="text-slate-500">Workspace not found or you do not have access.</p>
-        <Link href="/workspaces"><Button variant="link" className="px-0">Back to workspaces</Button></Link>
-      </div>
-    );
+  if (wsLoading) {
+    return <div className="p-6 text-sm text-slate-500">Loading…</div>;
+  }
+
+  if (!isAccountOwner) {
+    return <Redirect to="/dashboard" />;
   }
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/workspaces">
-          <Button variant="ghost" size="sm" className="gap-1.5">
-            <ArrowLeft className="w-4 h-4" />
-            Workspaces
-          </Button>
-        </Link>
-      </div>
-
-      <WorkspaceAdminNav workspaceId={workspaceId} workspaceName={ws.name} canManageRoles={canManage} />
-
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-slate-600">
-          Define roles and permissions here. Members are invited and assigned a role on the <strong>Members</strong> tab.
-        </p>
-        {canManage && (
-          <Button onClick={openCreate} className="gap-2 flex-shrink-0">
-            <Plus className="w-4 h-4" />
-            Add role
-          </Button>
-        )}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Shield className="w-6 h-6 text-orange-500" />
+            <h1 className="text-2xl font-bold text-slate-900">Roles</h1>
+          </div>
+          <p className="text-sm text-slate-500 mt-1">
+            Create and edit workspace roles. Assign roles to members from each workspace&apos;s Members page.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="gap-2 flex-shrink-0" disabled={!workspaceId}>
+          <Plus className="w-4 h-4" />
+          Add role
+        </Button>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Roles ({roles.length})</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Workspace</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <p className="text-sm text-slate-500">Loading roles…</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {roles.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-sm text-slate-500 py-6 text-center">
-                      No roles yet. Click <strong>Add role</strong> above to create your first role, then assign it to members.
-                    </TableCell>
-                  </TableRow>
-                ) : roles.map((role) => (
-                  <TableRow key={role.id}>
-                    <TableCell className="font-medium">{role.name}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      {canManage && (
-                        <>
-                          <Button variant="outline" size="sm" onClick={() => openEdit(role)} className="gap-1">
-                            <Pencil className="w-3.5 h-3.5" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600"
-                            disabled={deleteRole.isPending}
-                            onClick={() => {
-                              if (!confirm(`Delete role "${role.name}"? Members assigned to this role will need a new role.`)) return;
-                              deleteRole.mutate(role.id);
-                            }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </>
-                      )}
-                    </TableCell>
-                  </TableRow>
+          <div className="max-w-sm">
+            <Label htmlFor="roles-workspace">Select workspace</Label>
+            <Select
+              value={workspaceId ? String(workspaceId) : ""}
+              onValueChange={(value) => setWorkspaceId(Number(value))}
+            >
+              <SelectTrigger id="roles-workspace" className="mt-1.5">
+                <SelectValue placeholder="Choose workspace" />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces.map((w) => (
+                  <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
                 ))}
-              </TableBody>
-            </Table>
-          )}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
+
+      {!ws ? (
+        <p className="text-sm text-slate-500">Select a workspace to manage its roles.</p>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{ws.name} — Roles ({roles.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <p className="text-sm text-slate-500">Loading roles…</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {roles.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-sm text-slate-500 py-6 text-center">
+                        No roles yet. Click <strong>Add role</strong> to create one, then assign it from{" "}
+                        <Link href={`/workspaces/${workspaceId}/members`} className="text-orange-600 hover:underline">
+                          Members
+                        </Link>.
+                      </TableCell>
+                    </TableRow>
+                  ) : roles.map((role) => (
+                    <TableRow key={role.id}>
+                      <TableCell className="font-medium">{role.name}</TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(role)} className="gap-1">
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600"
+                          disabled={deleteRole.isPending}
+                          onClick={() => {
+                            if (!confirm(`Delete role "${role.name}"? Members assigned to this role will need a new role.`)) return;
+                            deleteRole.mutate(role.id);
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0">

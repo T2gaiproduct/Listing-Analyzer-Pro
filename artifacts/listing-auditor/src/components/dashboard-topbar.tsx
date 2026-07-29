@@ -2,17 +2,23 @@ import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Search, Coins, ChevronDown, UserCircle, Receipt, Settings, HelpCircle,
-  Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu, Building2,
+  Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu, Building2, Shield,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { TopbarWorkspaceSwitcher } from "@/components/topbar-workspace-switcher";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function profileMenuItems(isTeamMember: boolean, isOwner: boolean, variant: "customer" | "admin") {
+function profileMenuItems(
+  isTeamMember: boolean,
+  isOwner: boolean,
+  isAccountOwner: boolean,
+  variant: "customer" | "admin",
+) {
   if (variant === "admin") {
     return [
       { icon: Settings, label: "Admin Settings", href: "/admin/settings/platform" },
@@ -23,6 +29,7 @@ function profileMenuItems(isTeamMember: boolean, isOwner: boolean, variant: "cus
     { icon: UserCircle, label: "Edit Profile", href: "/profile" },
     { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
     { icon: Users, label: "Team", href: "/team" },
+    ...(isAccountOwner ? [{ icon: Shield, label: "Roles", href: "/roles" }] : []),
     { icon: Building2, label: "Workspaces", href: "/workspaces" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
@@ -70,7 +77,8 @@ export function DashboardTopbar({
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
-  const menuItems = profileMenuItems(isTeamMember, isOwner, variant);
+  const { isAccountOwner } = useWorkspace();
+  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant);
   const showWorkspaceSwitcher = variant === "customer";
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);

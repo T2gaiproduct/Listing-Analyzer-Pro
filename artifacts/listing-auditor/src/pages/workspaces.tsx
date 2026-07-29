@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, Shield, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
@@ -90,7 +90,7 @@ export default function WorkspacesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Workspaces</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Create roles per workspace, then assign them to members.
+            Manage client workspaces and members.
           </p>
         </div>
         {canCreate && (
@@ -123,14 +123,6 @@ export default function WorkspacesPage() {
               {ws.description && <p className="text-sm text-slate-600">{ws.description}</p>}
               <p className="text-xs text-slate-400">Your role: {ws.roleName ?? "Member"}</p>
               <div className="flex flex-wrap gap-2 pt-1">
-                {(canEdit || isAccountOwner) && (
-                  <Link href={`/workspaces/${ws.id}/roles`}>
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Shield className="w-3.5 h-3.5" />
-                      Roles
-                    </Button>
-                  </Link>
-                )}
                 <Link href={`/workspaces/${ws.id}/members`}>
                   <Button variant="outline" size="sm" className="gap-1.5">
                     <Users className="w-3.5 h-3.5" />

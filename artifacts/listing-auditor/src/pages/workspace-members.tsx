@@ -10,7 +10,6 @@ import { ArrowLeft, Copy, Mail, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { WorkspaceAdminNav } from "@/components/workspace-admin-nav";
 import { useState } from "react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -54,7 +53,6 @@ export default function WorkspaceMembersPage() {
   const [name, setName] = useState("");
   const [roleId, setRoleId] = useState<string>("");
 
-  const canManageRoles = isAccountOwner || can("team", "edit");
   const canInvite = isAccountOwner || can("team", "create");
 
   const { data: membersData, isLoading } = useQuery({
@@ -146,32 +144,12 @@ export default function WorkspaceMembersPage() {
             Workspaces
           </Button>
         </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">{ws.name} — Members</h1>
+        </div>
       </div>
 
-      <WorkspaceAdminNav workspaceId={workspaceId} workspaceName={ws.name} canManageRoles={canManageRoles} />
-
-      <p className="text-sm text-slate-600">
-        Assign an existing role to each member. To create or edit roles, use the <strong>Roles</strong> tab.
-      </p>
-
-      {canInvite && roles.length === 0 && (
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-sm text-amber-900">
-              Create at least one role before inviting members.
-            </p>
-            {canManageRoles && (
-              <Link href={`/workspaces/${workspaceId}/roles`}>
-                <Button size="sm" className="bg-orange-500 hover:bg-orange-600">
-                  Go to Roles
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {canInvite && roles.length > 0 && (
+      {canInvite && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -189,7 +167,7 @@ export default function WorkspaceMembersPage() {
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
-              <Label>Assign role</Label>
+              <Label>Role</Label>
               <Select value={roleId} onValueChange={setRoleId}>
                 <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
                 <SelectContent>
@@ -202,7 +180,7 @@ export default function WorkspaceMembersPage() {
             <Button
               className="sm:col-span-3 w-fit"
               onClick={() => invite.mutate()}
-              disabled={!email.trim() || !roleId || invite.isPending}
+              disabled={!email.trim() || invite.isPending}
             >
               Send invite
             </Button>

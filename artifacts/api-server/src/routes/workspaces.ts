@@ -199,8 +199,8 @@ router.get("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess
 
 router.post("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "team", "create") && !ctx.isAccountOwner) {
-    res.status(403).json({ error: "Forbidden" });
+  if (!ctx.isAccountOwner) {
+    res.status(403).json({ error: "Only the account owner can create roles." });
     return;
   }
 
@@ -233,8 +233,8 @@ router.post("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAcces
 
 router.patch("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "team", "edit") && !ctx.isAccountOwner) {
-    res.status(403).json({ error: "Forbidden" });
+  if (!ctx.isAccountOwner) {
+    res.status(403).json({ error: "Only the account owner can edit roles." });
     return;
   }
 
@@ -271,8 +271,8 @@ router.patch("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorks
 
 router.delete("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "team", "delete") && !ctx.isAccountOwner) {
-    res.status(403).json({ error: "Forbidden" });
+  if (!ctx.isAccountOwner) {
+    res.status(403).json({ error: "Only the account owner can delete roles." });
     return;
   }
 
@@ -341,24 +341,6 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     return;
   }
 
-  if (!roleId || Number.isNaN(Number(roleId))) {
-    res.status(400).json({ error: "A role is required. Create roles in the Roles tab before inviting members." });
-    return;
-  }
-
-  const [assignedRole] = await db.select({ id: workspaceRolesTable.id, name: workspaceRolesTable.name })
-    .from(workspaceRolesTable)
-    .where(and(
-      eq(workspaceRolesTable.id, Number(roleId)),
-      eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
-    ))
-    .limit(1);
-
-  if (!assignedRole) {
-    res.status(400).json({ error: "Invalid role for this workspace." });
-    return;
-  }
-
   const normalizedEmail = invitedEmail.trim().toLowerCase();
   const displayName = invitedName?.trim() || normalizedEmail.split("@")[0] || "Member";
 
@@ -383,8 +365,8 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     const [updated] = await db.update(workspaceMembersTable)
       .set({
         invitedName: displayName,
-        roleId: Number(roleId),
-        legacyRole: legacyRole ?? assignedRole.name.toLowerCase().replace(/\s+/g, "_"),
+        roleId: roleId ?? null,
+        legacyRole: legacyRole ?? "editor",
         status: "pending",
         inviteToken: token,
         invitedAt: new Date(),
@@ -401,8 +383,8 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
       workspaceId: ctx.workspaceId,
       invitedEmail: normalizedEmail,
       invitedName: displayName,
-      roleId: Number(roleId),
-      legacyRole: legacyRole ?? assignedRole.name.toLowerCase().replace(/\s+/g, "_"),
+      roleId: roleId ?? null,
+      legacyRole: legacyRole ?? "editor",
       status: "pending",
       inviteToken: token,
     }).returning();
@@ -414,7 +396,17 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     .where(eq(workspacesTable.id, ctx.workspaceId))
     .limit(1);
 
-  let roleName = assignedRole.name;
+  let roleName = legacyRole ?? "editor";
+  if (roleId) {
+    const [role] = await db.select({ name: workspaceRolesTable.name })
+      .from(workspaceRolesTable)
+      .where(and(
+        eq(workspaceRolesTable.id, roleId),
+        eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
+      ))
+      .limit(1);
+    if (role?.name) roleName = role.name;
+  }
 
   const [inviterProfile] = await db.select({
     fullName: userProfilesTable.fullName,
