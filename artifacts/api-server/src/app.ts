@@ -6,11 +6,18 @@ import fs from "node:fs";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { IMAGES_DIR, GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./lib/image-storage";
+import { IMAGES_DIR } from "./lib/image-storage";
 import { HERO_IMAGES_DIR } from "./lib/hero-image-storage";
 import { handleHeroVideoUpload } from "./lib/hero-video-upload";
 import { PORTFOLIO_IMAGES_DIR } from "./lib/portfolio-image-storage";
 import { WORKFLOW_IMAGES_DIR } from "./lib/workflow-image-storage";
+import {
+  requireAuditImageAccess,
+  requireGraphicsImageAccess,
+  sendAuditImage,
+  sendGraphicsImage,
+} from "./lib/protected-images";
+import { isAllowedOrigin } from "./lib/allowed-origins";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -58,7 +65,13 @@ app.post(
 );
 
 // ─── General middleware (after webhook) ──────────────────────────────────────
-app.use(cors({ credentials: true, origin: true, exposedHeaders: ["Upgrade"] }));
+app.use(cors({
+  credentials: true,
+  origin(origin, callback) {
+    callback(null, isAllowedOrigin(origin));
+  },
+  exposedHeaders: ["Upgrade"],
+}));
 
 // Hero video upload uses raw body (before JSON parser) — up to 50MB
 app.post(
@@ -81,23 +94,20 @@ app.use(
   }),
 );
 
-app.get("/api/images/:auditId/:filename", (req, res, next) => {
-  const auditId = parseInt(String(req.params.auditId ?? ""), 10);
-  const filename = String(req.params.filename ?? "");
-  if (isNaN(auditId) || !filename || filename.includes("..")) {
-    next();
-    return;
-  }
-  const resolved = resolveAuditImagePath(auditId, `/api/images/${auditId}/${filename}`);
-  if (resolved) {
-    res.sendFile(resolved);
-    return;
-  }
-  next();
-});
+app.get(
+  "/api/images/:auditId/:filename",
+  requireAuditImageAccess,
+  sendAuditImage,
+);
 
-app.use("/api/images", express.static(IMAGES_DIR));
-app.use("/api/images/graphics", express.static(GRAPHICS_IMAGES_DIR));
+app.get(
+  "/api/images/graphics/:projectId/:filename",
+  requireGraphicsImageAccess,
+  sendGraphicsImage,
+);
+
+app.use("/api/images/avatars", express.static(path.join(IMAGES_DIR, "avatars")));
+app.use("/api/images/branding", express.static(path.join(IMAGES_DIR, "branding")));
 app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api/images/portfolio", express.static(PORTFOLIO_IMAGES_DIR));
 app.use("/api/images/workflow", express.static(WORKFLOW_IMAGES_DIR));

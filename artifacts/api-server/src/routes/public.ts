@@ -24,6 +24,8 @@ import { isAdminUser } from "../lib/admin-auth.js";
 import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
 import { notifyAdminUsers } from "../lib/notify-admins.js";
+import { rateLimit } from "../lib/rate-limit";
+import { recordPendingGatewayPayment } from "../lib/gateway-payment";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   filterNotificationsByPreferences,
@@ -218,7 +220,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   });
 });
 
-router.post("/forms", async (req, res): Promise<void> => {
+router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max: 10 }), async (req, res): Promise<void> => {
   const { formType, email, name, data } = req.body ?? {};
 
   if (formType !== "support") {
@@ -378,7 +380,7 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
     res.status(400).json({ error: result.errors?.[0]?.message ?? "Failed to reset password" });
     return;
   }
-  res.json({ newPassword });
+  res.json({ ok: true });
 });
 
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
@@ -868,6 +870,14 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     });
     const order = await orderRes.json() as { id?: string; links?: Array<{ rel: string; href: string }>; message?: string };
     if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
+    await recordPendingGatewayPayment({
+      userId,
+      gateway: "paypal",
+      gatewayOrderId: order.id,
+      amountCents: pack.priceCents,
+      currency: "USD",
+      intent: { type: "credit_pack", packId: pack.id },
+    });
     const s = await getGatewaySettings();
     const clientId = s.paypal_client_id ?? "";
     const approvalUrl = order.links?.find((l) => l.rel === "approve" || l.rel === "payer-action")?.href ?? "";
@@ -883,6 +893,14 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     { amount: pack.priceCents, currency: "USD", receipt: `rcpt_${Date.now()}` },
   );
   if (order.error) { res.status(400).json({ error: order.error.description }); return; }
+  await recordPendingGatewayPayment({
+    userId,
+    gateway: "razorpay",
+    gatewayOrderId: order.id,
+    amountCents: pack.priceCents,
+    currency: "USD",
+    intent: { type: "credit_pack", packId: pack.id },
+  });
   res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId, packId: pack.id, packLabel: pack.label });
 });
 
@@ -953,6 +971,14 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
     });
     const order = await orderRes.json() as { id?: string; links?: Array<{ rel: string; href: string }>; message?: string };
     if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
+    await recordPendingGatewayPayment({
+      userId,
+      gateway: "paypal",
+      gatewayOrderId: order.id,
+      amountCents: priceCents,
+      currency: "USD",
+      intent: { type: "custom_credit", creditType: creditType as "ai" | "image" | "audit", creditAmount: amount },
+    });
     const s = await getGatewaySettings();
     const clientId = s.paypal_client_id ?? "";
     const approvalUrl = order.links?.find((l) => l.rel === "approve" || l.rel === "payer-action")?.href ?? "";
@@ -968,6 +994,14 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
     { amount: priceCents, currency: "USD", receipt: `rcpt_${Date.now()}` },
   );
   if (order.error) { res.status(400).json({ error: order.error.description }); return; }
+  await recordPendingGatewayPayment({
+    userId,
+    gateway: "razorpay",
+    gatewayOrderId: order.id,
+    amountCents: priceCents,
+    currency: "USD",
+    intent: { type: "custom_credit", creditType: creditType as "ai" | "image" | "audit", creditAmount: amount },
+  });
   res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId, creditType, creditAmount: amount });
 });
 

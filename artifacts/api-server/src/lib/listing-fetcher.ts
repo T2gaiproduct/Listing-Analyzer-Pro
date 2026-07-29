@@ -540,6 +540,9 @@ export async function fetchListing(input: { asin?: string; url?: string }): Prom
     throw new Error("Only http and https product URLs are supported.");
   }
 
+  const { assertAllowedOutboundUrl } = await import("./ssrf-guard");
+  await assertAllowedOutboundUrl(normalizedUrl);
+
   const platform = detectListingPlatform(normalizedUrl);
   if (platform === "amazon") {
     return fetchListingByUrl(normalizedUrl);
