@@ -29,6 +29,7 @@ import {
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { createNotification } from "../lib/notifications.js";
+import { upsertUserProfile } from "../lib/user-profile.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 
 const router: IRouter = Router();
@@ -646,6 +647,8 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
       deletedAt: null,
     })
     .where(eq(workspaceMembersTable.inviteToken, token));
+
+  await upsertUserProfile(userId, { onboardingCompleted: true });
 
   const roleName = row.roleName ?? invite.legacyRole ?? "member";
   void createNotification({

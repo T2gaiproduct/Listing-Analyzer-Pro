@@ -4,6 +4,7 @@ import {
   adminUsersTable,
   adminRolesTable,
   teamMembersTable,
+  workspaceMembersTable,
 } from "@workspace/db";
 
 const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
@@ -62,6 +63,20 @@ export async function resolveUserAccountRole(userId: string): Promise<UserAccoun
       label: TEAM_ROLE_LABELS[membership.role] ?? "Member",
       teamRole,
     };
+  }
+
+  const [workspaceMembership] = await db
+    .select({ id: workspaceMembersTable.id })
+    .from(workspaceMembersTable)
+    .where(and(
+      eq(workspaceMembersTable.userId, userId),
+      eq(workspaceMembersTable.status, "active"),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  if (workspaceMembership) {
+    return { type: "team_member", label: "Member" };
   }
 
   return { type: "user", label: "User" };
