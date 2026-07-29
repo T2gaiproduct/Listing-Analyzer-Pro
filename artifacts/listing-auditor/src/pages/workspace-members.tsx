@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, UserPlus } from "lucide-react";
+import { ArrowLeft, Copy, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -19,8 +19,25 @@ interface MemberRow {
   invitedEmail: string;
   invitedName: string;
   status: string;
+  inviteToken?: string;
   roleName?: string;
   legacyRole?: string;
+}
+
+interface InviteResponse {
+  inviteUrl?: string;
+  emailSent?: boolean;
+  emailError?: string;
+}
+
+function getWorkspaceInviteUrl(token: string) {
+  return `${window.location.origin}${basePath}/accept-workspace-invite?token=${token}`;
+}
+
+function copyInviteLink(token: string, toast: ReturnType<typeof useToast>["toast"]) {
+  void navigator.clipboard.writeText(getWorkspaceInviteUrl(token)).then(() => {
+    toast({ title: "Invite link copied" });
+  });
 }
 
 interface RoleOption { id: number; name: string; }
@@ -55,7 +72,7 @@ export default function WorkspaceMembersPage() {
 
   const invite = useMutation({
     mutationFn: () =>
-      fetchJson(`${basePath}/api/workspaces/${workspaceId}/members`, {
+      fetchJson<InviteResponse>(`${basePath}/api/workspaces/${workspaceId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,13 +81,25 @@ export default function WorkspaceMembersPage() {
           roleId: roleId ? Number(roleId) : undefined,
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const invitedEmail = email.trim();
       qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
       setEmail("");
       setName("");
-      toast({ title: "Invitation sent" });
+      if (data.emailSent) {
+        toast({ title: "Invitation email sent", description: `An invite was emailed to ${invitedEmail}.` });
+      } else {
+        toast({
+          title: "Invite created",
+          description: data.emailError
+            ? `Email could not be sent (${data.emailError}). Copy the invite link from the members table.`
+            : "Copy the invite link from the members table to share it.",
+          variant: data.emailError ? "destructive" : "default",
+        });
+      }
     },
-    onError: () => toast({ title: "Failed to invite member", variant: "destructive" }),
+    onError: (err: Error) =>
+      toast({ title: "Failed to invite member", description: err.message, variant: "destructive" }),
   });
 
   if (!ws) {
@@ -148,6 +177,7 @@ export default function WorkspaceMembersPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  {canInvite && <TableHead className="w-[7rem]">Invite</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -157,6 +187,23 @@ export default function WorkspaceMembersPage() {
                     <TableCell>{m.invitedEmail}</TableCell>
                     <TableCell>{m.roleName ?? m.legacyRole ?? "—"}</TableCell>
                     <TableCell className="capitalize">{m.status}</TableCell>
+                    {canInvite && (
+                      <TableCell>
+                        {m.status === "pending" && m.inviteToken ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5"
+                            onClick={() => copyInviteLink(m.inviteToken!, toast)}
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy link
+                          </Button>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
