@@ -15,7 +15,6 @@ export const WORKSPACE_FEATURES = [
   "videos",
   "ads",
   "amazon",
-  "exports",
   "workspaces",
 ] as const;
 
@@ -97,7 +96,6 @@ export const WORKSPACE_FEATURE_META: WorkspaceFeatureMeta[] = [
 
   // ── Advanced / integrations ──────────────────────────────────────────────
   { id: "competitors", label: "Competitors", group: "Advanced", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "exports", label: "Exports & Downloads", group: "Advanced", actions: ["viewGlobal", "viewOwn", "create"] },
   { id: "amazon", label: "Amazon Integration", group: "Advanced", actions: ["viewOwn", "edit"] },
 ];
 
