@@ -27,7 +27,6 @@ interface WorkspaceRole {
   name: string;
   description: string | null;
   permissions: Record<string, Partial<FeaturePermission>>;
-  isSystem: boolean;
 }
 
 const ACTION_LABELS: Record<WorkspaceAction, string> = {
@@ -92,14 +91,6 @@ export default function WorkspaceRolesPage() {
       ...m,
       [feature]: { ...(m[feature] ?? {}), [action]: value },
     }));
-  };
-
-  const duplicateRole = (role: WorkspaceRole) => {
-    setEditing(null);
-    setName(`${role.name} copy`);
-    setDescription(role.description ?? "");
-    setMatrix(role.permissions ?? {});
-    setDialogOpen(true);
   };
 
   const saveRole = useMutation({
@@ -177,15 +168,19 @@ export default function WorkspaceRolesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roles.map((role) => (
+                {roles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-sm text-slate-500 py-6 text-center">
+                      No custom roles yet. Click <strong>New role</strong> to create one.
+                    </TableCell>
+                  </TableRow>
+                ) : roles.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell className="font-medium">{role.name}</TableCell>
-                    <TableCell>{role.isSystem ? "System" : "Custom"}</TableCell>
                     <TableCell className="text-right space-x-2">
                       {canManage && (
                         <>
@@ -193,21 +188,14 @@ export default function WorkspaceRolesPage() {
                             <Pencil className="w-3.5 h-3.5" />
                             Edit
                           </Button>
-                          {role.isSystem && (
-                            <Button variant="outline" size="sm" onClick={() => duplicateRole(role)} className="gap-1">
-                              Duplicate
-                            </Button>
-                          )}
-                          {!role.isSystem && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => deleteRole.mutate(role.id)}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600"
+                            onClick={() => deleteRole.mutate(role.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </>
                       )}
                     </TableCell>
@@ -225,15 +213,10 @@ export default function WorkspaceRolesPage() {
             <DialogTitle>{editing ? `Edit role: ${editing.name}` : "Create role"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-4">
-            {editing?.isSystem && (
-              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                System role names are fixed. You can customize permissions below, or use <strong>Duplicate</strong> to create a new role from this template.
-              </p>
-            )}
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <Label>Role name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} disabled={editing?.isSystem} />
+                <Input value={name} onChange={(e) => setName(e.target.value)} />
               </div>
               <div>
                 <Label>Description</Label>

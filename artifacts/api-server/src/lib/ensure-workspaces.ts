@@ -13,7 +13,6 @@ import {
   subscriptionsTable,
   teamMembersTable,
 } from "@workspace/db";
-import { legacyRolePermissions } from "@workspace/workspace-permissions";
 
 const SYSTEM_ROLES = [
   { name: "Viewer", legacyRoleKey: "viewer" },
@@ -21,7 +20,7 @@ const SYSTEM_ROLES = [
   { name: "Admin", legacyRoleKey: "admin" },
 ] as const;
 
-async function ensureSystemRoles(workspaceId: number): Promise<Record<string, number>> {
+async function lookupLegacyRoleIds(workspaceId: number): Promise<Record<string, number>> {
   const roleIds: Record<string, number> = {};
   for (const def of SYSTEM_ROLES) {
     const [existing] = await db
@@ -35,18 +34,7 @@ async function ensureSystemRoles(workspaceId: number): Promise<Record<string, nu
 
     if (existing) {
       roleIds[def.legacyRoleKey] = existing.id;
-      continue;
     }
-
-    const [created] = await db.insert(workspaceRolesTable).values({
-      workspaceId,
-      name: def.name,
-      description: `System ${def.name} role (legacy compatible)`,
-      permissions: legacyRolePermissions(def.legacyRoleKey),
-      isSystem: true,
-      legacyRoleKey: def.legacyRoleKey,
-    }).returning();
-    roleIds[def.legacyRoleKey] = created!.id;
   }
   return roleIds;
 }
@@ -63,7 +51,6 @@ async function ensureDefaultWorkspace(accountOwnerId: string): Promise<number> {
     .limit(1);
 
   if (existing) {
-    await ensureSystemRoles(existing.id);
     return existing.id;
   }
 
@@ -75,7 +62,6 @@ async function ensureDefaultWorkspace(accountOwnerId: string): Promise<number> {
     preserveLegacyPermissions: true,
   }).returning();
 
-  await ensureSystemRoles(ws!.id);
   return ws!.id;
 }
 
@@ -102,7 +88,7 @@ async function backfillWorkspaceData(accountOwnerId: string, workspaceId: number
 }
 
 async function migrateTeamMembersToWorkspace(accountOwnerId: string, workspaceId: number): Promise<void> {
-  const roleIds = await ensureSystemRoles(workspaceId);
+  const roleIds = await lookupLegacyRoleIds(workspaceId);
   const members = await db
     .select()
     .from(teamMembersTable)
@@ -128,7 +114,7 @@ async function migrateTeamMembersToWorkspace(accountOwnerId: string, workspaceId
       userId: m.memberUserId,
       invitedEmail: m.invitedEmail,
       invitedName: m.invitedName,
-      roleId: roleIds[legacyRole],
+      roleId: roleIds[legacyRole] ?? null,
       legacyRole,
       status: m.status,
       inviteToken: m.inviteToken || `mig_${randomBytes(16).toString("hex")}`,

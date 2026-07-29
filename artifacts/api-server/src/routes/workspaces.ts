@@ -115,20 +115,6 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
     preserveLegacyPermissions: preserveLegacyPermissions ?? true,
   }).returning();
 
-  for (const def of [
-    { name: "Viewer", legacyRoleKey: "viewer" },
-    { name: "Editor", legacyRoleKey: "editor" },
-    { name: "Admin", legacyRoleKey: "admin" },
-  ] as const) {
-    await db.insert(workspaceRolesTable).values({
-      workspaceId: ws!.id,
-      name: def.name,
-      permissions: legacyRolePermissions(def.legacyRoleKey),
-      isSystem: true,
-      legacyRoleKey: def.legacyRoleKey,
-    });
-  }
-
   res.status(201).json(ws);
 });
 
@@ -195,7 +181,10 @@ router.get("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess
   const roles = await db
     .select()
     .from(workspaceRolesTable)
-    .where(eq(workspaceRolesTable.workspaceId, ctx.workspaceId))
+    .where(and(
+      eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
+      eq(workspaceRolesTable.isSystem, false),
+    ))
     .orderBy(workspaceRolesTable.name);
   res.json({ roles });
 });
