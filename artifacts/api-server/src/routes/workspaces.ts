@@ -199,8 +199,8 @@ router.get("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess
 
 router.post("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "team", "create") && !ctx.isAccountOwner) {
-    res.status(403).json({ error: "Forbidden" });
+  if (!ctx.isAccountOwner) {
+    res.status(403).json({ error: "Only the account owner can create roles." });
     return;
   }
 
@@ -233,8 +233,8 @@ router.post("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAcces
 
 router.patch("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "team", "edit") && !ctx.isAccountOwner) {
-    res.status(403).json({ error: "Forbidden" });
+  if (!ctx.isAccountOwner) {
+    res.status(403).json({ error: "Only the account owner can edit roles." });
     return;
   }
 
@@ -271,8 +271,8 @@ router.patch("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorks
 
 router.delete("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
-  if (!checkPerm(ctx, "team", "delete") && !ctx.isAccountOwner) {
-    res.status(403).json({ error: "Forbidden" });
+  if (!ctx.isAccountOwner) {
+    res.status(403).json({ error: "Only the account owner can delete roles." });
     return;
   }
 
