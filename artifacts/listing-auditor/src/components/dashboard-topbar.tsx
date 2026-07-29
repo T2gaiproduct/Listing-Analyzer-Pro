@@ -188,8 +188,6 @@ export function DashboardTopbar({
         </button>
       )}
 
-      {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
-
       {/* Search — icon on xs, inline from sm */}
       <div ref={searchContainerRef} className="flex-1 min-w-0 max-w-md lg:max-w-lg relative">
         <button
@@ -210,6 +208,8 @@ export function DashboardTopbar({
         )}
         <div className="hidden sm:block">{searchInput}</div>
       </div>
+
+      {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
 
       <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
         {showCredits && (
