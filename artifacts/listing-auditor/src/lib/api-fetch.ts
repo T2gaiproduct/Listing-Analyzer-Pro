@@ -1,3 +1,5 @@
+import { getActiveWorkspaceId, WORKSPACE_HEADER } from "@/lib/workspace-header";
+
 export class ApiFetchError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -46,6 +48,8 @@ async function authHeaders(init?: RequestInit): Promise<Headers> {
   const headers = new Headers(init?.headers);
   const token = await resolveAuthToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  const workspaceId = getActiveWorkspaceId();
+  if (workspaceId) headers.set(WORKSPACE_HEADER, String(workspaceId));
   return headers;
 }
 

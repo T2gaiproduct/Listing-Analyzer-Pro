@@ -47,6 +47,9 @@ export const NotificationsPage = lazy(() => import("@/pages/notifications"));
 export const VideosPage = lazy(() => import("@/pages/videos"));
 export const AdsPage = lazy(() => import("@/pages/ads"));
 export const SettingsPage = lazy(() => import("@/pages/settings"));
+export const WorkspacesPage = lazy(() => import("@/pages/workspaces"));
+export const WorkspaceRolesPage = lazy(() => import("@/pages/workspace-roles"));
+export const WorkspaceMembersPage = lazy(() => import("@/pages/workspace-members"));
 
 export const AcceptInvite = lazy(() => import("@/pages/accept-invite"));
 export const AcceptAdminInvite = lazy(() => import("@/pages/accept-admin-invite"));

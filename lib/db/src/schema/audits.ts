@@ -66,6 +66,7 @@ export type ImageRecords = z.infer<typeof imageRecordsSchema>;
 export const auditsTable = pgTable("audits", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().default(""),
+  workspaceId: integer("workspace_id"),
   projectName: text("project_name"),
   productName: text("product_name").notNull(),
   asin: text("asin"),

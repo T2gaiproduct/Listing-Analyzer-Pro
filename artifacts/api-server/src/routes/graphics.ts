@@ -6,6 +6,16 @@ import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import {
+  resolveTeamAndWorkspace,
+  getAccountOwnerId,
+  getActiveWorkspaceId,
+  requireWorkspaceAction,
+  loadWorkedProjects,
+  viewOwnIdFilter,
+  getWorkspaceCtx,
+  workspaceOwnerFilter,
+} from "../lib/workspace-route-helpers";
 import * as fs from "fs";
 import * as path from "path";
 import pLimit from "p-limit";
@@ -23,13 +33,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const userId = auth?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   (req as AuthedRequest).userId = userId;
-  next();
-}
-
-async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const userId = (req as AuthedRequest).userId;
-  const team = await resolveTeamContext(userId);
-  (req as TeamAuthedRequest).team = team;
   next();
 }
 
@@ -56,11 +59,17 @@ async function isAdminUser(userId: string): Promise<boolean> {
   return !!row;
 }
 
-function requireWriteAccess(req: Request, res: Response, next: NextFunction): void {
-  const team = (req as TeamAuthedRequest).team;
-  if (!team) { res.status(401).json({ error: "Team context not resolved" }); return; }
-  if (team.role === "viewer") { res.status(403).json({ error: "Forbidden: viewers cannot modify data" }); return; }
-  next();
+async function graphicsScopeWhere(req: Request, extra?: ReturnType<typeof eq>) {
+  const ownerId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+  const worked = await loadWorkedProjects(req);
+  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "graphics", worked, "graphics", graphicsProjectsTable);
+  return and(
+    workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
+    eq(graphicsProjectsTable.isDeleted, 0),
+    ownFilter,
+    extra,
+  );
 }
 
 function ensureDir(dir: string): void {
@@ -644,7 +653,7 @@ function buildRegeneratePrompt(
 }
 
 // ─── Create project ───────────────────────────────────────────────────────────
-router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "create"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number; imageTypes?: string[]; customPrompt?: string; auditId?: number };
 
@@ -658,6 +667,7 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
 
   const [project] = await db.insert(graphicsProjectsTable).values({
     userId,
+    workspaceId: getActiveWorkspaceId(req),
     auditId: body.auditId ?? null,
     name: body.name ?? "Untitled Project",
     productName: body.productName,
@@ -692,8 +702,7 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
 });
 
 // ─── List projects ────────────────────────────────────────────────────────────
-router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Promise<void> => {
-  const userId = getEffectiveUserId(req);
+router.get("/graphics/projects", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const auditIdQuery = req.query.auditId ? parseInt(String(req.query.auditId)) : null;
 
   let projects;
@@ -701,14 +710,14 @@ router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Pro
     projects = await db
       .select()
       .from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.auditId, auditIdQuery), eq(graphicsProjectsTable.isDeleted, 0)))
+      .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.auditId, auditIdQuery)))
       .orderBy(desc(graphicsProjectsTable.updatedAt))
       .limit(100);
   } else {
     projects = await db
       .select()
       .from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)))
+      .where(await graphicsScopeWhere(req))
       .orderBy(desc(graphicsProjectsTable.updatedAt))
       .limit(100);
   }
@@ -716,8 +725,8 @@ router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Pro
 });
 
 // ─── Get project ──────────────────────────────────────────────────────────────
-router.get("/graphics/projects/:id", requireAuth, resolveTeam, async (req, res): Promise<void> => {
-  const userId = getEffectiveUserId(req);
+router.get("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -725,14 +734,14 @@ router.get("/graphics/projects/:id", requireAuth, resolveTeam, async (req, res):
 
   const [project] = admin
     ? await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.isDeleted, 0)))
-    : await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    : await db.select().from(graphicsProjectsTable).where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   res.json(project);
 });
 
 // ─── Update project ───────────────────────────────────────────────────────────
-router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -740,7 +749,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAcc
   const [existing] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -755,7 +764,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAcc
 });
 
 // ─── Generate images ──────────────────────────────────────────────────────────
-router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -763,7 +772,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -907,7 +916,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
 });
 
 // ─── Edit single image ────────────────────────────────────────────────────────
-router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const imageId = String(req.params.imageId ?? "");
@@ -916,7 +925,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -952,7 +961,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
 });
 
 // ─── Regenerate single image ──────────────────────────────────────────────────
-router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const imageId = String(req.params.imageId ?? "");
@@ -961,7 +970,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -1034,7 +1043,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
 });
 
 // ─── Delete project ───────────────────────────────────────────────────────────
-router.delete("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.delete("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "delete"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -1042,7 +1051,7 @@ router.delete("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAc
   const [project] = await db
     .update(graphicsProjectsTable)
     .set({ isDeleted: 1, deletedAt: new Date() })
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)))
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)))
     .returning();
 
   if (!project) {

@@ -3,6 +3,7 @@ import { pgTable, text, serial, integer, timestamp, unique } from "drizzle-orm/p
 export const pinnedProjectsTable = pgTable("pinned_projects", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  workspaceId: integer("workspace_id"),
   itemType: text("item_type").notNull(),
   itemId: integer("item_id").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),

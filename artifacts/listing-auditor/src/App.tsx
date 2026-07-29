@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranding } from "@/hooks/use-branding";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { useTeam } from "@/hooks/use-team";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
@@ -56,6 +57,9 @@ import {
   VideosPage,
   AdsPage,
   SettingsPage,
+  WorkspacesPage,
+  WorkspaceRolesPage,
+  WorkspaceMembersPage,
   AcceptInvite,
   AcceptAdminInvite,
   Onboarding,
@@ -622,6 +626,15 @@ function Router() {
       <Route path="/team">
         <ProtectedRoute><Team /></ProtectedRoute>
       </Route>
+      <Route path="/workspaces">
+        <ProtectedRoute><WorkspacesPage /></ProtectedRoute>
+      </Route>
+      <Route path="/workspaces/:id/roles">
+        {params => <ProtectedRoute><WorkspaceRolesPage /></ProtectedRoute>}
+      </Route>
+      <Route path="/workspaces/:id/members">
+        {params => <ProtectedRoute><WorkspaceMembersPage /></ProtectedRoute>}
+      </Route>
       <Route path="/profile">
         <ProtectedRoute><Profile /></ProtectedRoute>
       </Route>
@@ -727,6 +740,7 @@ function ClerkProviderWithRoutes() {
     >
       <ClerkQueryClientCacheInvalidator />
       <ApiTokenBridge />
+      <WorkspaceProvider>
       <TooltipProvider>
         <Suspense fallback={<AuthLoading />}>
           <ErrorBoundary title="Application failed to load">
@@ -739,6 +753,7 @@ function ClerkProviderWithRoutes() {
         </Suspense>
         <WsNotificationListener />
       </TooltipProvider>
+      </WorkspaceProvider>
     </ClerkProvider>
   );
 }
