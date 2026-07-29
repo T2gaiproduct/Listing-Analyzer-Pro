@@ -9,9 +9,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   WORKSPACE_FEATURE_META,
+  WORKSPACE_FEATURE_GROUP_ORDER,
   WORKSPACE_ACTIONS,
   type WorkspaceFeature,
   type WorkspaceAction,
@@ -67,8 +69,19 @@ export default function WorkspaceRolesPage() {
       if (!groups[meta.group]) groups[meta.group] = [];
       groups[meta.group]!.push(meta);
     }
-    return groups;
+    return WORKSPACE_FEATURE_GROUP_ORDER
+      .filter((group) => groups[group]?.length)
+      .map((group) => [group, groups[group]!] as const);
   }, []);
+
+  const groupDescriptions: Record<string, string> = {
+    Features: "Main product modules — same as the left sidebar",
+    Overview: "Dashboard access",
+    Projects: "Project history and archive",
+    Workspace: "Team and workspace management",
+    Account: "User account settings",
+    Advanced: "Integrations and extra tools",
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -239,13 +252,18 @@ export default function WorkspaceRolesPage() {
               </div>
             </div>
 
-            {Object.entries(groupedFeatures).map(([group, features]) => (
+            {groupedFeatures.map(([group, features]) => (
               <div key={group} className="border rounded-lg overflow-hidden">
-                <div className="bg-slate-50 px-4 py-2 font-semibold text-sm text-slate-700">{group}</div>
+                <div className="bg-slate-50 px-4 py-2">
+                  <div className="font-semibold text-sm text-slate-700">{group}</div>
+                  {groupDescriptions[group] && (
+                    <p className="text-xs text-slate-500 mt-0.5">{groupDescriptions[group]}</p>
+                  )}
+                </div>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground w-48">Feature</th>
+                      <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground w-56">Feature</th>
                       {WORKSPACE_ACTIONS.map((action) => (
                         <th key={action} className="h-10 px-2 text-center align-middle font-medium text-muted-foreground text-xs">
                           {ACTION_LABELS[action]}
@@ -256,17 +274,28 @@ export default function WorkspaceRolesPage() {
                   <tbody>
                     {features.map((meta) => (
                       <tr key={meta.id} className="border-b last:border-0">
-                        <td className="p-2 align-middle text-sm font-medium">{meta.label}</td>
+                        <td className="p-2 align-middle text-sm font-medium">
+                          <span>{meta.label}</span>
+                          {meta.comingSoon && (
+                            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                              Coming Soon
+                            </span>
+                          )}
+                        </td>
                         {WORKSPACE_ACTIONS.map((action) => {
                           const enabled = meta.actions.includes(action);
                           const checked = Boolean(matrix[meta.id]?.[action]);
                           return (
                             <td key={action} className="p-2 align-middle text-center">
                               {enabled ? (
-                                <label className="inline-flex items-center justify-center min-h-9 min-w-9 cursor-pointer rounded-md hover:bg-slate-50">
+                                <label className={cn(
+                                  "inline-flex items-center justify-center min-h-9 min-w-9 rounded-md",
+                                  meta.comingSoon ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-slate-50",
+                                )}>
                                   <Checkbox
                                     className="h-5 w-5"
                                     checked={checked}
+                                    disabled={meta.comingSoon}
                                     onCheckedChange={(value) => setPermission(meta.id, action, value === true)}
                                   />
                                 </label>

@@ -47,26 +47,58 @@ export interface WorkspaceFeatureMeta {
   group: string;
   /** Actions that apply to this feature (others shown disabled in UI). */
   actions: WorkspaceAction[];
+  /** Product feature not launched yet — shown with Coming Soon badge in role UI. */
+  comingSoon?: boolean;
 }
 
+/** Primary sidebar product features shown first in the role permissions matrix. */
+export const WORKSPACE_PRODUCT_FEATURES: WorkspaceFeature[] = [
+  "build_brand",
+  "audits",
+  "graphics",
+  "videos",
+  "ads",
+];
+
+/** Display order for permission matrix groups in the role editor. */
+export const WORKSPACE_FEATURE_GROUP_ORDER = [
+  "Features",
+  "Overview",
+  "Projects",
+  "Workspace",
+  "Account",
+  "Advanced",
+] as const;
+
 export const WORKSPACE_FEATURE_META: WorkspaceFeatureMeta[] = [
+  // ── Core product features (match left sidebar) ─────────────────────────────
+  { id: "build_brand", label: "Build Your Brand", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
+  { id: "audits", label: "Audit Listing", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
+  { id: "graphics", label: "Create Graphics", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
+  { id: "videos", label: "Create Video", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"], comingSoon: true },
+  { id: "ads", label: "Manage Ads", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"], comingSoon: true },
+
+  // ── Overview ───────────────────────────────────────────────────────────────
   { id: "dashboard", label: "Dashboard", group: "Overview", actions: ["viewGlobal", "viewOwn"] },
-  { id: "build_brand", label: "Build Your Brand", group: "Listings", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "audits", label: "Audit Listings", group: "Listings", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "competitors", label: "Competitors", group: "Listings", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "graphics", label: "Create Graphics", group: "Creative", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "recent_projects", label: "Recent Projects", group: "Creative", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "archive", label: "Archive", group: "Creative", actions: ["viewGlobal", "viewOwn", "edit", "delete"] },
-  { id: "notifications", label: "Notifications", group: "Account", actions: ["viewOwn", "edit", "delete"] },
+
+  // ── Projects & history ─────────────────────────────────────────────────────
+  { id: "recent_projects", label: "Recent Projects", group: "Projects", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
+  { id: "archive", label: "Archive", group: "Projects", actions: ["viewGlobal", "viewOwn", "edit", "delete"] },
+
+  // ── Workspace admin ────────────────────────────────────────────────────────
   { id: "team", label: "Team & Members", group: "Workspace", actions: ["viewGlobal", "create", "edit", "delete"] },
+  { id: "workspaces", label: "Workspaces", group: "Workspace", actions: ["viewGlobal", "create", "edit", "delete"] },
+
+  // ── Account ────────────────────────────────────────────────────────────────
+  { id: "notifications", label: "Notifications", group: "Account", actions: ["viewOwn", "edit", "delete"] },
   { id: "billing", label: "Billing", group: "Account", actions: ["viewGlobal", "edit"] },
   { id: "profile", label: "Profile", group: "Account", actions: ["viewOwn", "edit"] },
   { id: "settings", label: "Settings", group: "Account", actions: ["viewOwn", "edit"] },
-  { id: "videos", label: "Create Videos", group: "Creative", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "ads", label: "Manage Ads", group: "Creative", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "amazon", label: "Amazon Integration", group: "Integrations", actions: ["viewOwn", "edit"] },
-  { id: "exports", label: "Exports & Downloads", group: "Listings", actions: ["viewGlobal", "viewOwn", "create"] },
-  { id: "workspaces", label: "Workspaces", group: "Workspace", actions: ["viewGlobal", "create", "edit", "delete"] },
+
+  // ── Advanced / integrations ──────────────────────────────────────────────
+  { id: "competitors", label: "Competitors", group: "Advanced", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
+  { id: "exports", label: "Exports & Downloads", group: "Advanced", actions: ["viewGlobal", "viewOwn", "create"] },
+  { id: "amazon", label: "Amazon Integration", group: "Advanced", actions: ["viewOwn", "edit"] },
 ];
 
 export const WORKSPACE_OWNER_ROLE_NAME = "Owner";

@@ -13,6 +13,8 @@ import {
 import {
   WORKSPACE_FEATURES,
   WORKSPACE_FEATURE_META,
+  WORKSPACE_PRODUCT_FEATURES,
+  WORKSPACE_FEATURE_GROUP_ORDER,
   mergePermissionsFromForm,
   legacyRolePermissions,
 } from "@workspace/workspace-permissions";
@@ -68,7 +70,9 @@ router.get("/workspaces", requireAuth, async (req, res): Promise<void> => {
 router.get("/workspaces/features", requireAuth, async (_req, res): Promise<void> => {
   res.json({
     features: WORKSPACE_FEATURES,
+    productFeatures: WORKSPACE_PRODUCT_FEATURES,
     meta: WORKSPACE_FEATURE_META,
+    groupOrder: WORKSPACE_FEATURE_GROUP_ORDER,
     actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"],
   });
 });

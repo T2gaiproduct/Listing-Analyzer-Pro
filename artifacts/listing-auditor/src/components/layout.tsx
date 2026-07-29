@@ -52,10 +52,10 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const mainNavItems = [
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new" },
-  { icon: FileSearch, label: "Audit Listings", href: "/audit-listings" },
+  { icon: FileSearch, label: "Audit Listing", href: "/audit-listings" },
   { icon: Palette, label: "Create Graphics", href: "/projects" },
-  { icon: Video, label: "Create Videos", href: "/videos" },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads" },
+  { icon: Video, label: "Create Video", href: "/videos", comingSoon: true },
+  { icon: Megaphone, label: "Manage Ads", href: "/ads", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects" },
 ];
 
@@ -625,7 +625,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
-            {mainNavItems.map(({ icon: Icon, label, href }) => {
+            {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
               const isActive =
                 location === href ||
                 (href === "/recent-projects" && location === "/recent-projects") ||
@@ -662,7 +662,12 @@ export function Layout({ children }: { children: ReactNode }) {
                     )}
                   >
                     <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
-                    {label}
+                    <span className="flex-1 min-w-0 truncate">{label}</span>
+                    {comingSoon && !isActive && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
+                        Soon
+                      </span>
+                    )}
                   </button>
                 </Link>
               );
@@ -734,7 +739,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
               <SidebarWorkspaceSwitcher collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
-              {mainNavItems.map(({ icon: Icon, label, href }) => {
+              {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
                 const isActive =
                   location === href ||
                   (href === "/recent-projects" && location === "/recent-projects") ||
@@ -752,7 +757,10 @@ export function Layout({ children }: { children: ReactNode }) {
                       )}
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
-                      {label}
+                      <span className="flex-1">{label}</span>
+                      {comingSoon && (
+                        <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
+                      )}
                     </button>
                   </Link>
                 );
