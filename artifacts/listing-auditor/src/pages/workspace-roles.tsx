@@ -87,12 +87,19 @@ export default function WorkspaceRolesPage() {
     setDialogOpen(true);
   };
 
-  const toggle = (feature: WorkspaceFeature, action: WorkspaceAction) => {
-    setMatrix((m) => {
-      const row = { ...(m[feature] ?? {}) };
-      row[action] = !row[action];
-      return { ...m, [feature]: row };
-    });
+  const setPermission = (feature: WorkspaceFeature, action: WorkspaceAction, value: boolean) => {
+    setMatrix((m) => ({
+      ...m,
+      [feature]: { ...(m[feature] ?? {}), [action]: value },
+    }));
+  };
+
+  const duplicateRole = (role: WorkspaceRole) => {
+    setEditing(null);
+    setName(`${role.name} copy`);
+    setDescription(role.description ?? "");
+    setMatrix(role.permissions ?? {});
+    setDialogOpen(true);
   };
 
   const saveRole = useMutation({
@@ -186,6 +193,11 @@ export default function WorkspaceRolesPage() {
                             <Pencil className="w-3.5 h-3.5" />
                             Edit
                           </Button>
+                          {role.isSystem && (
+                            <Button variant="outline" size="sm" onClick={() => duplicateRole(role)} className="gap-1">
+                              Duplicate
+                            </Button>
+                          )}
                           {!role.isSystem && (
                             <Button
                               variant="ghost"
@@ -208,11 +220,16 @@ export default function WorkspaceRolesPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle>{editing ? `Edit role: ${editing.name}` : "Create role"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-4">
+            {editing?.isSystem && (
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                System role names are fixed. You can customize permissions below, or use <strong>Duplicate</strong> to create a new role from this template.
+              </p>
+            )}
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <Label>Role name</Label>
@@ -227,45 +244,50 @@ export default function WorkspaceRolesPage() {
             {Object.entries(groupedFeatures).map(([group, features]) => (
               <div key={group} className="border rounded-lg overflow-hidden">
                 <div className="bg-slate-50 px-4 py-2 font-semibold text-sm text-slate-700">{group}</div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-48">Feature</TableHead>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground w-48">Feature</th>
                       {WORKSPACE_ACTIONS.map((action) => (
-                        <TableHead key={action} className="text-center text-xs">{ACTION_LABELS[action]}</TableHead>
+                        <th key={action} className="h-10 px-2 text-center align-middle font-medium text-muted-foreground text-xs">
+                          {ACTION_LABELS[action]}
+                        </th>
                       ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {features.map((meta) => (
-                      <TableRow key={meta.id}>
-                        <TableCell className="text-sm font-medium">{meta.label}</TableCell>
+                      <tr key={meta.id} className="border-b last:border-0">
+                        <td className="p-2 align-middle text-sm font-medium">{meta.label}</td>
                         {WORKSPACE_ACTIONS.map((action) => {
                           const enabled = meta.actions.includes(action);
+                          const checked = Boolean(matrix[meta.id]?.[action]);
                           return (
-                            <TableCell key={action} className="text-center">
+                            <td key={action} className="p-2 align-middle text-center">
                               {enabled ? (
-                                <Checkbox
-                                  checked={Boolean(matrix[meta.id]?.[action])}
-                                  onCheckedChange={() => toggle(meta.id, action)}
-                                  disabled={editing?.isSystem}
-                                />
+                                <label className="inline-flex items-center justify-center min-h-9 min-w-9 cursor-pointer rounded-md hover:bg-slate-50">
+                                  <Checkbox
+                                    className="h-5 w-5"
+                                    checked={checked}
+                                    onCheckedChange={(value) => setPermission(meta.id, action, value === true)}
+                                  />
+                                </label>
                               ) : (
-                                <span className="text-slate-300">—</span>
+                                <span className="text-slate-300 select-none" title="Not applicable">—</span>
                               )}
-                            </TableCell>
+                            </td>
                           );
                         })}
-                      </TableRow>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             ))}
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t bg-background">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={() => saveRole.mutate()} disabled={!name.trim() || saveRole.isPending || editing?.isSystem}>
+            <Button onClick={() => saveRole.mutate()} disabled={!name.trim() || saveRole.isPending}>
               Save role
             </Button>
           </DialogFooter>
