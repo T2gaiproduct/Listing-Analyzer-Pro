@@ -289,14 +289,34 @@ router.delete("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req
   }
 
   const [ws] = await db.select().from(workspacesTable).where(eq(workspacesTable.id, ctx.workspaceId)).limit(1);
-  if (ws?.isDefault) {
-    res.status(400).json({ error: "Cannot delete the default workspace" });
+  if (!ws) {
+    res.status(404).json({ error: "Workspace not found" });
     return;
   }
+
+  const wasDefault = ws.isDefault;
 
   await db.update(workspacesTable)
     .set({ isDeleted: 1, deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(workspacesTable.id, ctx.workspaceId));
+
+  if (wasDefault) {
+    const [nextDefault] = await db
+      .select()
+      .from(workspacesTable)
+      .where(and(
+        eq(workspacesTable.accountOwnerId, ctx.accountOwnerId),
+        eq(workspacesTable.isDeleted, 0),
+      ))
+      .orderBy(workspacesTable.name)
+      .limit(1);
+
+    if (nextDefault) {
+      await db.update(workspacesTable)
+        .set({ isDefault: true, updatedAt: new Date() })
+        .where(eq(workspacesTable.id, nextDefault.id));
+    }
+  }
 
   res.sendStatus(204);
 });

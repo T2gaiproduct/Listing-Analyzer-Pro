@@ -242,13 +242,16 @@ export default function WorkspacesPage() {
                     Edit
                   </Button>
                 )}
-                {canDelete && !ws.isDefault && (
+                {canDelete && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-red-600 gap-1.5"
                     onClick={() => {
-                      if (confirm(`Delete workspace "${ws.name}"?`)) remove.mutate(ws.id);
+                      const message = ws.isDefault
+                        ? `Delete default workspace "${ws.name}"? Another workspace will become the new default.`
+                        : `Delete workspace "${ws.name}"?`;
+                      if (confirm(message)) remove.mutate(ws.id);
                     }}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
