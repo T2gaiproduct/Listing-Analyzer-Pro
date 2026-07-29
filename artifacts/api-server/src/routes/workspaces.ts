@@ -27,9 +27,8 @@ import {
   requireWorkspacePerm as checkPerm,
 } from "../lib/workspace-context";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
-import { fetchClerkUserIdByEmail } from "../lib/clerk-user.js";
+import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { createNotification } from "../lib/notifications.js";
-import { buildWorkspaceInviteUrl, resolveAppBaseUrl, sendWorkspaceInviteEmail } from "../lib/workspace-invite.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 
 const router: IRouter = Router();
@@ -420,43 +419,18 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     || inviterProfile?.companyName?.trim()
     || "A workspace admin";
   const workspaceName = workspace?.name ?? "Workspace";
-  const appBaseUrl = resolveAppBaseUrl(req);
-  const inviteUrl = buildWorkspaceInviteUrl(member.inviteToken, appBaseUrl);
 
-  let emailSent = false;
-  let emailError: string | undefined;
-  try {
-    const emailResult = await sendWorkspaceInviteEmail({
-      toEmail: normalizedEmail,
-      invitedName: displayName,
-      workspaceName,
-      roleName,
-      inviterName,
-      inviteUrl,
-    });
-    emailSent = emailResult.emailSent;
-    emailError = emailResult.emailError;
-  } catch (emailErr) {
-    req.log?.warn?.({ emailErr }, "Failed to send workspace invite email");
-    emailError = emailErr instanceof Error ? emailErr.message : "Failed to send email";
-  }
+  const delivery = await deliverWorkspaceMemberInvite({
+    invitedEmail: normalizedEmail,
+    invitedName: displayName,
+    workspaceName,
+    roleName,
+    inviterName,
+    inviteToken: member.inviteToken,
+    req,
+  });
 
-  try {
-    const inviteeUserId = await fetchClerkUserIdByEmail(normalizedEmail);
-    if (inviteeUserId) {
-      void createNotification({
-        userId: inviteeUserId,
-        type: "team_invite",
-        title: "Workspace invitation",
-        message: `${inviterName} invited you to join ${workspaceName} as ${roleName}.`,
-        link: `/accept-workspace-invite?token=${member.inviteToken}`,
-      });
-    }
-  } catch (notifyErr) {
-    req.log?.warn?.({ notifyErr }, "Failed to send workspace invite notification");
-  }
-
-  res.status(201).json({ ...member, inviteUrl, emailSent, emailError });
+  res.status(201).json({ ...member, ...delivery });
 });
 
 router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
@@ -486,6 +460,65 @@ router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireW
     return;
   }
   res.json(updated);
+});
+
+router.post("/workspaces/:workspaceId/members/:memberId/resend", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  const ctx = (req as WorkspaceAuthedRequest).workspace;
+  const inviterUserId = (req as AuthedRequest).userId;
+  if (!checkPerm(ctx, "team", "create") && !ctx.isAccountOwner) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const memberId = Number(req.params.memberId);
+  const [row] = await db.select({
+    member: workspaceMembersTable,
+    workspaceName: workspacesTable.name,
+    roleName: workspaceRolesTable.name,
+  })
+    .from(workspaceMembersTable)
+    .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+    .leftJoin(workspaceRolesTable, eq(workspaceMembersTable.roleId, workspaceRolesTable.id))
+    .where(and(
+      eq(workspaceMembersTable.id, memberId),
+      eq(workspaceMembersTable.workspaceId, ctx.workspaceId),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+  if (row.member.status !== "pending") {
+    res.status(400).json({ error: "Only pending invites can be resent" });
+    return;
+  }
+
+  const [inviterProfile] = await db.select({
+    fullName: userProfilesTable.fullName,
+    companyName: userProfilesTable.companyName,
+  })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, inviterUserId))
+    .limit(1);
+
+  const inviterName = inviterProfile?.fullName?.trim()
+    || inviterProfile?.companyName?.trim()
+    || "A workspace admin";
+  const roleName = row.roleName ?? row.member.legacyRole ?? "member";
+
+  const delivery = await deliverWorkspaceMemberInvite({
+    invitedEmail: row.member.invitedEmail,
+    invitedName: row.member.invitedName,
+    workspaceName: row.workspaceName,
+    roleName,
+    inviterName,
+    inviteToken: row.member.inviteToken,
+    req,
+  });
+
+  res.json({ ...row.member, ...delivery });
 });
 
 router.delete("/workspaces/:workspaceId/members/:memberId", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
