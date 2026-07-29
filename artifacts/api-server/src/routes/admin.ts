@@ -52,6 +52,7 @@ import {
 import { createNotification, type NotificationType } from "../lib/notifications.js";
 import { wsSend } from "../lib/ws.js";
 import { sendSupportTicketReplyEmail } from "../lib/support-ticket-email.js";
+import { isSecretSettingKey, SECRET_SETTING_KEYS, maskSettingValue } from "../lib/secret-settings.js";
 
 const router: IRouter = Router();
 
@@ -1415,7 +1416,7 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
   const all = await db.select().from(settingsTable);
   const filtered = category ? all.filter((s) => s.category === category) : all;
   const map: Record<string, string> = {};
-  for (const s of filtered) map[s.key] = s.isSecret ? "***" : s.value;
+  for (const s of filtered) map[s.key] = maskSettingValue(s.key, s.value, s.isSecret);
   res.json(map);
 });
 
@@ -1428,16 +1429,7 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
 
   try {
 
-  const SECRET_KEYS = new Set([
-    "stripe_secret_key", "stripe_webhook_secret",
-    "razorpay_key_secret", "razorpay_webhook_secret",
-    "paypal_client_secret",
-    "openai_api_key",
-    "gemini_api_key",
-    "smtp_password",
-    "amazon_sp_client_secret",
-    "amazon_aws_secret_access_key",
-  ]);
+  const SECRET_KEYS = SECRET_SETTING_KEYS;
 
   // Enforce mutual exclusivity for payment gateway enabled flags
   if (category === "payment_gateway") {
@@ -1491,7 +1483,7 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
 
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
     if (value === "***") continue;
-    const isSecret = SECRET_KEYS.has(key);
+    const isSecret = isSecretSettingKey(key, SECRET_KEYS.has(key));
     const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
     if (isSecret && !value.trim() && existing?.value) continue;
     if (existing) {

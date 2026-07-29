@@ -12,15 +12,15 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 ### PostgreSQL (local dev DB)
 - Postgres is installed in the VM image but is **not started automatically**. Start it each session:
   - `sudo pg_ctlcluster 16 main start`
-- A local dev database already exists in the image (role `lauser` / password `lapass`, database `listingauditor`). The Drizzle schema and seeded plans persist in the cluster's data dir. Connection string:
-  - `export DATABASE_URL="postgresql://lauser:lapass@127.0.0.1:5432/listingauditor"`
-- If the DB is ever missing/empty, recreate it: `sudo -u postgres psql -c "CREATE ROLE lauser LOGIN PASSWORD 'lapass' CREATEDB;"` then `sudo -u postgres createdb -O lauser listingauditor`, then `DATABASE_URL=... pnpm --filter @workspace/db run push` and `DATABASE_URL=... pnpm --filter @workspace/db run seed-plans`.
+- A local dev database may exist in the VM image. Set `DATABASE_URL` in `.env` (see `.env.example`) — never commit credentials to source code.
+- If the DB is ever missing/empty, recreate the role/database with your chosen credentials, then `pnpm --filter @workspace/db run push` and `pnpm --filter @workspace/db run seed-plans`.
 
 ### Running the API server (port 8080)
+- Copy `.env.example` → `.env` and set all required variables before starting services.
 - The API requires several env vars just to boot and serve **any** route:
-  - `DATABASE_URL` (see above), `PORT=8080`
-  - `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY` — module-level throw at import if unset (`lib/integrations-openai-ai-server/src/client.ts`). Dummy values let the server boot; real values are only needed for AI audits/content/image generation.
-  - `CLERK_PUBLISHABLE_KEY` **and** `CLERK_SECRET_KEY` — `clerkMiddleware` runs on every request and 500s the whole app if either is missing. Clerk's well-known dummy pair lets signed-out (public) routes work: `CLERK_PUBLISHABLE_KEY=pk_test_Y2xlcmsuZXhhbXBsZS5jb20k`, `CLERK_SECRET_KEY=sk_test_<any-40+-char-string>`. With dummies, public routes (`/api/healthz`, `/api/plans`, `/api/fetch-listing`, `/api/credit-*`) work and auth-gated routes correctly return 401.
+  - `DATABASE_URL`, `PORT=8080`
+  - `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY` — module-level throw at import if unset (`lib/integrations-openai-ai-server/src/client.ts`). Use a boot placeholder from `.env.example` if you only need the server up without legacy Replit AI.
+  - `CLERK_PUBLISHABLE_KEY` **and** `CLERK_SECRET_KEY` — `clerkMiddleware` runs on every request and 500s the whole app if either is missing. Use keys from your Clerk dashboard (see `.env.example`).
 - Run: `pnpm --filter @workspace/api-server run dev` (esbuild bundle → `dist/index.mjs`, then node). Stripe init failing on boot ("Missing Replit environment variables") is expected and non-fatal.
 
 ### Running the frontend (port 19145)
@@ -35,8 +35,7 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 ### Full UI E2E — same-origin proxy + auth testing (important gotchas)
 - The frontend has no Vite `/api` proxy, so for a working UI run a reverse proxy that serves the SPA and forwards `/api` to the API. A minimal Node proxy (route `/api*` → `127.0.0.1:8080`, everything else + websocket upgrades → `127.0.0.1:19145`) on a spare port works; then browse to the proxy port so `/api` calls resolve.
 - Clerk **sign-up** is blocked in this VM: the instance has bot-protection CAPTCHA (Smart CAPTCHA/Turnstile) that can't load headlessly ("The CAPTCHA failed to load"). Do NOT try to demo account creation through the UI.
-- To test authenticated flows, create the user via the **Clerk Backend API** (bypasses CAPTCHA), then **sign in** through the UI (sign-in has no CAPTCHA):
-  - `curl -X POST https://api.clerk.com/v1/users -H "Authorization: Bearer $CLERK_SECRET_KEY" -H 'Content-Type: application/json' -d '{"email_address":["demo+clerk_test@example.com"],"password":"DemoAudit!2026","skip_password_checks":true}'`
+- To test authenticated flows, create the user via the **Clerk Backend API** (bypasses CAPTCHA), then **sign in** through the UI (sign-in has no CAPTCHA). Use `$CLERK_SECRET_KEY` from your environment and a Clerk test email (`+clerk_test@example.com`). See Clerk docs for the Users API.
   - Use a Clerk **test email** (`+clerk_test@example.com`); `.test`/disposable TLDs are rejected. The email-code verification step accepts the fixed dev code **`424242`**.
 - With real Clerk keys, signing in reaches the dashboard and the API authenticates the session (profile/stats/credits load from Postgres). Creating an audit still needs a real AI key.
 
@@ -46,5 +45,6 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 - Audit/content/image endpoints require **credits** from the `credits` table (audit = 1 audit credit by default). A brand-new user has 0 credits until onboarding/plan grants them; for testing you can insert a `credits` row for the user id.
 
 ### External secrets
-- Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are required for auth / any UI — currently provisioned.
-- A real OpenAI key enables the full audit flow; when present it lives in the DB `settings` table (see above). The `AI_INTEGRATIONS_OPENAI_API_KEY` env is only a dummy and does not drive the default OpenAI provider.
+- All secrets live in `.env` or the host secret manager — see `.env.example` and `README.md` (including the **rotate if ever committed** warning).
+- Real Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are required for auth / any UI.
+- A real OpenAI key enables the full audit flow; when present it lives in the DB `settings` table (see above). The `AI_INTEGRATIONS_OPENAI_API_KEY` env is for legacy module boot only and does not drive the default OpenAI provider.

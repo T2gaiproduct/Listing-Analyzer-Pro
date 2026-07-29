@@ -83,8 +83,11 @@ pnpm run build
 Create `/opt/listingauditor/.env` (never commit this file):
 
 ```env
+# Never commit real secrets. Copy to `.env` and fill in values from your secret manager.
+# See README.md — rotate any credential that was ever committed to git history.
+
 # Database
-DATABASE_URL=postgresql://lauser:yourpassword@localhost:5432/listingauditor
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/listingauditor
 
 # Clerk Auth — get from dashboard.clerk.com
 CLERK_SECRET_KEY=sk_live_XXXXXXXXXXXXXXXX

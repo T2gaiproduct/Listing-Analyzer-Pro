@@ -11,6 +11,8 @@ import {
 } from "../lib/gateway-payment";
 import { isAllowedOrigin } from "../lib/allowed-origins";
 
+import { isSecretSettingKey } from "../lib/secret-settings";
+
 const router: IRouter = Router();
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
@@ -49,7 +51,7 @@ function resolveAppBaseUrl(origin: string | undefined): string {
 router.get("/payment-config", async (_req, res): Promise<void> => {
   const rows = await db.select().from(settingsTable).where(eq(settingsTable.category, "payment_gateway"));
   const m: Record<string, string> = {};
-  for (const r of rows) if (!r.isSecret) m[r.key] = r.value;
+  for (const r of rows) if (!isSecretSettingKey(r.key, r.isSecret)) m[r.key] = r.value;
 
   res.json({
     defaultGateway: m.default_gateway ?? "stripe",

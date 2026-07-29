@@ -3,7 +3,23 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMUX_CONF="${TMUX_CONF:-/exec-daemon/tmux.portal.conf}"
-DATABASE_URL="${DATABASE_URL:-postgresql://lauser:lapass@127.0.0.1:5432/listingauditor}"
+
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/.env"
+  set +a
+fi
+
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  echo "ERROR: DATABASE_URL is not set. Copy .env.example to .env and configure your database URL." >&2
+  exit 1
+fi
+
+if [[ -z "${AI_INTEGRATIONS_OPENAI_API_KEY:-}" || -z "${AI_INTEGRATIONS_OPENAI_BASE_URL:-}" ]]; then
+  echo "ERROR: AI_INTEGRATIONS_OPENAI_API_KEY and AI_INTEGRATIONS_OPENAI_BASE_URL must be set (see .env.example)." >&2
+  exit 1
+fi
 
 # Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
@@ -134,8 +150,8 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
   export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
   export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
-  export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
-  export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+  export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\$AI_INTEGRATIONS_OPENAI_BASE_URL\"
+  export AI_INTEGRATIONS_OPENAI_API_KEY=\"\$AI_INTEGRATIONS_OPENAI_API_KEY\"
   pnpm --filter @workspace/api-server run dev
 "
 
@@ -209,8 +225,8 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
     export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
-    export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
-    export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+    export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\$AI_INTEGRATIONS_OPENAI_BASE_URL\"
+    export AI_INTEGRATIONS_OPENAI_API_KEY=\"\$AI_INTEGRATIONS_OPENAI_API_KEY\"
     pnpm --filter @workspace/api-server run dev
   "
 
