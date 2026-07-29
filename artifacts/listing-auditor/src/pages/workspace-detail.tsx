@@ -1,28 +1,33 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Building2, Shield, Users, UserPlus, Clock } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Building2, Shield, Users, UserPlus, ChevronRight } from "lucide-react";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-interface WorkspaceSummary {
+interface MemberRow {
+  id: number;
+  invitedEmail: string;
+  invitedName: string;
+  status: string;
+  roleName?: string;
+  legacyRole?: string;
+}
+
+interface WorkspaceRecord {
   id: number;
   name: string;
   description: string | null;
   clientLabel: string | null;
   isDefault: boolean;
-  createdAt: string;
-  roleName: string;
-  isAccountOwner: boolean;
-  memberCount: number;
-  activeMemberCount: number;
-  pendingMemberCount: number;
-  roleCount: number;
+  createdAt?: string;
+  roleName?: string;
 }
 
 export default function WorkspaceDetailPage() {
@@ -36,13 +41,46 @@ export default function WorkspaceDetailPage() {
     }
   }, [workspaceId, activeWorkspaceId, setActiveWorkspaceId]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["workspace-summary", workspaceId],
-    queryFn: () => fetchJson<WorkspaceSummary>(`${basePath}/api/workspaces/${workspaceId}/summary`),
+  const ws = workspaces.find((w) => w.id === workspaceId);
+
+  const { data: workspaceData, isLoading: wsLoading } = useQuery({
+    queryKey: ["workspace", workspaceId],
+    queryFn: () => fetchJson<WorkspaceRecord>(`${basePath}/api/workspaces/${workspaceId}`),
     enabled: Number.isFinite(workspaceId) && workspaceId > 0,
   });
 
-  const ws = workspaces.find((w) => w.id === workspaceId);
+  const { data: membersData, isLoading: membersLoading } = useQuery({
+    queryKey: ["workspace-members", workspaceId],
+    queryFn: () => fetchJson<{ members: MemberRow[] }>(`${basePath}/api/workspaces/${workspaceId}/members`),
+    enabled: Number.isFinite(workspaceId) && workspaceId > 0,
+  });
+
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
+    queryKey: ["workspace-roles", workspaceId],
+    queryFn: () => fetchJson<{ roles: Array<{ id: number; name: string }> }>(`${basePath}/api/workspaces/${workspaceId}/roles`),
+    enabled: Number.isFinite(workspaceId) && workspaceId > 0,
+  });
+
+  const members = membersData?.members ?? [];
+  const roles = rolesData?.roles ?? [];
+  const isLoading = wsLoading || membersLoading || rolesLoading;
+
+  const stats = useMemo(() => {
+    const activeMemberCount = members.filter((m) => m.status === "active").length;
+    const pendingMemberCount = members.filter((m) => m.status === "pending").length;
+    return {
+      memberCount: members.length,
+      activeMemberCount,
+      pendingMemberCount,
+      roleCount: roles.length,
+    };
+  }, [members, roles]);
+
+  const displayName = workspaceData?.name ?? ws?.name ?? "Workspace";
+  const displayClient = workspaceData?.clientLabel ?? ws?.clientLabel;
+  const displayDescription = workspaceData?.description ?? ws?.description;
+  const displayRole = workspaceData?.roleName ?? ws?.roleName ?? "Member";
+  const isDefault = workspaceData?.isDefault ?? ws?.isDefault;
   const isActive = workspaceId === activeWorkspaceId;
 
   if (!ws && !isLoading) {
@@ -72,24 +110,40 @@ export default function WorkspaceDetailPage() {
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-900 truncate">{data?.name ?? ws?.name ?? "Workspace"}</h1>
-              {data?.isDefault && <Badge variant="secondary">Default</Badge>}
+              <h1 className="text-2xl font-bold text-slate-900 truncate">{displayName}</h1>
+              {isDefault && <Badge variant="secondary">Default</Badge>}
               {isActive && <Badge className="bg-orange-100 text-orange-700">Active</Badge>}
             </div>
-            {data?.clientLabel && (
-              <p className="text-sm text-slate-500 mt-1">Client: {data.clientLabel}</p>
+            {displayClient && (
+              <p className="text-sm text-slate-500 mt-1">Client: {displayClient}</p>
             )}
-            {data?.description && (
-              <p className="text-sm text-slate-600 mt-2">{data.description}</p>
+            {displayDescription && (
+              <p className="text-sm text-slate-600 mt-2">{displayDescription}</p>
             )}
-            <p className="text-xs text-slate-400 mt-2">Your role: {data?.roleName ?? ws?.roleName ?? "Member"}</p>
+            <p className="text-xs text-slate-400 mt-2">Your role: {displayRole}</p>
           </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/workspaces/${workspaceId}/members`}>
+            <Button className="gap-1.5 bg-orange-500 hover:bg-orange-600">
+              <UserPlus className="w-4 h-4" />
+              Invite member
+            </Button>
+          </Link>
+          {isAccountOwner && (
+            <Link href="/roles">
+              <Button variant="outline" className="gap-1.5">
+                <Shield className="w-4 h-4" />
+                Manage roles
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-slate-500">Loading workspace…</p>
-      ) : data ? (
+      ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -97,8 +151,8 @@ export default function WorkspaceDetailPage() {
                 <CardTitle className="text-sm font-medium text-slate-500">Members</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{data.memberCount}</p>
-                <p className="text-xs text-slate-500 mt-1">{data.activeMemberCount} active</p>
+                <p className="text-2xl font-bold text-slate-900">{stats.memberCount}</p>
+                <p className="text-xs text-slate-500 mt-1">{stats.activeMemberCount} active</p>
               </CardContent>
             </Card>
             <Card>
@@ -106,7 +160,7 @@ export default function WorkspaceDetailPage() {
                 <CardTitle className="text-sm font-medium text-slate-500">Pending invites</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{data.pendingMemberCount}</p>
+                <p className="text-2xl font-bold text-slate-900">{stats.pendingMemberCount}</p>
                 <p className="text-xs text-slate-500 mt-1">Awaiting acceptance</p>
               </CardContent>
             </Card>
@@ -115,60 +169,108 @@ export default function WorkspaceDetailPage() {
                 <CardTitle className="text-sm font-medium text-slate-500">Roles</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{data.roleCount}</p>
+                <p className="text-2xl font-bold text-slate-900">{stats.roleCount}</p>
                 <p className="text-xs text-slate-500 mt-1">Custom roles defined</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Created</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-500">Workspace ID</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-lg font-bold text-slate-900">
-                  {new Date(data.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Workspace start date</p>
+                <p className="text-2xl font-bold text-slate-900">#{workspaceId}</p>
+                <p className="text-xs text-slate-500 mt-1">Internal reference</p>
               </CardContent>
             </Card>
           </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Quick actions</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Members ({members.length})
+              </CardTitle>
+              <Link href={`/workspaces/${workspaceId}/members`}>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-orange-600 hover:text-orange-700">
+                  View all
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Link href={`/workspaces/${workspaceId}/members`}>
-                <Button variant="outline" className="gap-1.5">
-                  <Users className="w-4 h-4" />
-                  Manage members
-                </Button>
-              </Link>
-              {isAccountOwner && (
-                <Link href="/roles">
-                  <Button variant="outline" className="gap-1.5">
-                    <Shield className="w-4 h-4" />
-                    Manage roles
-                  </Button>
-                </Link>
+            <CardContent>
+              {members.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-slate-500 mb-3">No members yet. Invite someone to collaborate in this workspace.</p>
+                  <Link href={`/workspaces/${workspaceId}/members`}>
+                    <Button size="sm" className="gap-1.5 bg-orange-500 hover:bg-orange-600">
+                      <UserPlus className="w-4 h-4" />
+                      Invite first member
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.slice(0, 8).map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="font-medium">{m.invitedName}</TableCell>
+                        <TableCell>{m.invitedEmail}</TableCell>
+                        <TableCell>{m.roleName ?? m.legacyRole ?? "—"}</TableCell>
+                        <TableCell className="capitalize">{m.status}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
-              {data.pendingMemberCount > 0 && (
-                <Link href={`/workspaces/${workspaceId}/members`}>
-                  <Button variant="outline" className="gap-1.5">
-                    <Clock className="w-4 h-4" />
-                    Review pending invites
-                  </Button>
-                </Link>
+              {members.length > 8 && (
+                <div className="pt-3 text-center">
+                  <Link href={`/workspaces/${workspaceId}/members`}>
+                    <Button variant="link" className="text-orange-600">
+                      View all {members.length} members
+                    </Button>
+                  </Link>
+                </div>
               )}
-              <Link href={`/workspaces/${workspaceId}/members`}>
-                <Button className="gap-1.5 bg-orange-500 hover:bg-orange-600">
-                  <UserPlus className="w-4 h-4" />
-                  Invite member
-                </Button>
-              </Link>
             </CardContent>
           </Card>
+
+          {roles.length > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Roles ({roles.length})
+                </CardTitle>
+                {isAccountOwner && (
+                  <Link href="/roles">
+                    <Button variant="ghost" size="sm" className="gap-1.5 text-orange-600 hover:text-orange-700">
+                      Manage roles
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((role) => (
+                    <Badge key={role.id} variant="outline" className="text-sm py-1 px-2.5">
+                      {role.name}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
-      ) : null}
+      )}
     </div>
   );
 }
