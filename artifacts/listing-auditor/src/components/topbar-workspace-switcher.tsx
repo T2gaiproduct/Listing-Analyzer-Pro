@@ -121,7 +121,7 @@ export function TopbarWorkspaceSwitcher() {
         <div
           className={cn(
             "flex items-center h-10 rounded-lg border bg-white transition-colors",
-            open ? "border-teal-700 ring-1 ring-teal-700/20" : "border-slate-300 hover:border-slate-400",
+            open ? "border-orange-500 ring-1 ring-orange-200" : "border-slate-300 hover:border-slate-400",
           )}
         >
           <button
@@ -182,7 +182,7 @@ export function TopbarWorkspaceSwitcher() {
               <div className="border-t border-slate-100 py-2 text-center">
                 <button
                   type="button"
-                  className="text-sm font-medium text-teal-700 hover:text-teal-800 hover:underline"
+                  className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
                   onClick={() => {
                     setOpen(false);
                     setSeeAllOpen(true);
@@ -196,7 +196,7 @@ export function TopbarWorkspaceSwitcher() {
               <div className="border-t border-slate-100 py-2 text-center">
                 <button
                   type="button"
-                  className="text-sm font-medium text-teal-700 hover:text-teal-800 hover:underline"
+                  className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
                   onClick={() => {
                     setOpen(false);
                     setSeeAllOpen(true);
@@ -235,13 +235,13 @@ export function TopbarWorkspaceSwitcher() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search for a workspace"
-                className="pl-9"
+                className="pl-9 focus-visible:ring-orange-200 focus-visible:border-orange-400"
               />
             </div>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortMode)}
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
             >
               <option value="az">Alphabetical (A–Z)</option>
               <option value="za">Alphabetical (Z–A)</option>
@@ -265,7 +265,7 @@ export function TopbarWorkspaceSwitcher() {
                     )}
                   >
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <Building2 className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                    <Building2 className={cn("w-4 h-4 flex-shrink-0", selected ? "text-orange-500" : "text-slate-500")} />
                     <span className="flex-1 truncate font-medium text-slate-800">
                       {ws.name}
                       {isCurrent && <span className="text-slate-500 font-normal"> (current)</span>}
@@ -297,7 +297,7 @@ export function TopbarWorkspaceSwitcher() {
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setSeeAllOpen(false)}>Cancel</Button>
               <Button
-                className="bg-teal-700 hover:bg-teal-800"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
                 disabled={!pendingId}
                 onClick={() => pendingId && selectWorkspace(pendingId)}
               >
@@ -343,6 +343,7 @@ export function TopbarWorkspaceSwitcher() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white"
               onClick={() => createWorkspace.mutate()}
               disabled={!form.name.trim() || createWorkspace.isPending}
             >
