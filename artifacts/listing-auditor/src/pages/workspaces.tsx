@@ -90,7 +90,7 @@ export default function WorkspacesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Workspaces</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Create roles per workspace, then assign them to members.
+            Manage client workspaces, members, and per-workspace permissions.
           </p>
         </div>
         {canCreate && (

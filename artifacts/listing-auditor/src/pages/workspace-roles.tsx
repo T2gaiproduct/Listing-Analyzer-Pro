@@ -21,7 +21,6 @@ import {
 } from "@workspace/workspace-permissions";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { WorkspaceAdminNav } from "@/components/workspace-admin-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -169,18 +168,14 @@ export default function WorkspaceRolesPage() {
             Workspaces
           </Button>
         </Link>
-      </div>
-
-      <WorkspaceAdminNav workspaceId={workspaceId} workspaceName={ws.name} canManageRoles={canManage} />
-
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-slate-600">
-          Define roles and permissions here. Members are invited and assigned a role on the <strong>Members</strong> tab.
-        </p>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">{ws.name} — Roles</h1>
+          <p className="text-sm text-slate-500">Configure horizontal permissions per feature.</p>
+        </div>
         {canManage && (
-          <Button onClick={openCreate} className="gap-2 flex-shrink-0">
+          <Button onClick={openCreate} className="ml-auto gap-2">
             <Plus className="w-4 h-4" />
-            Add role
+            New role
           </Button>
         )}
       </div>
@@ -204,7 +199,7 @@ export default function WorkspaceRolesPage() {
                 {roles.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={2} className="text-sm text-slate-500 py-6 text-center">
-                      No roles yet. Click <strong>Add role</strong> above to create your first role, then assign it to members.
+                      No custom roles yet. Click <strong>New role</strong> to create one.
                     </TableCell>
                   </TableRow>
                 ) : roles.map((role) => (
