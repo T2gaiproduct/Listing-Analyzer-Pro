@@ -341,6 +341,24 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     return;
   }
 
+  if (!roleId || Number.isNaN(Number(roleId))) {
+    res.status(400).json({ error: "A role is required. Create roles in the Roles tab before inviting members." });
+    return;
+  }
+
+  const [assignedRole] = await db.select({ id: workspaceRolesTable.id, name: workspaceRolesTable.name })
+    .from(workspaceRolesTable)
+    .where(and(
+      eq(workspaceRolesTable.id, Number(roleId)),
+      eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
+    ))
+    .limit(1);
+
+  if (!assignedRole) {
+    res.status(400).json({ error: "Invalid role for this workspace." });
+    return;
+  }
+
   const normalizedEmail = invitedEmail.trim().toLowerCase();
   const displayName = invitedName?.trim() || normalizedEmail.split("@")[0] || "Member";
 
@@ -365,8 +383,8 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     const [updated] = await db.update(workspaceMembersTable)
       .set({
         invitedName: displayName,
-        roleId: roleId ?? null,
-        legacyRole: legacyRole ?? "editor",
+        roleId: Number(roleId),
+        legacyRole: legacyRole ?? assignedRole.name.toLowerCase().replace(/\s+/g, "_"),
         status: "pending",
         inviteToken: token,
         invitedAt: new Date(),
@@ -383,8 +401,8 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
       workspaceId: ctx.workspaceId,
       invitedEmail: normalizedEmail,
       invitedName: displayName,
-      roleId: roleId ?? null,
-      legacyRole: legacyRole ?? "editor",
+      roleId: Number(roleId),
+      legacyRole: legacyRole ?? assignedRole.name.toLowerCase().replace(/\s+/g, "_"),
       status: "pending",
       inviteToken: token,
     }).returning();
@@ -396,17 +414,7 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     .where(eq(workspacesTable.id, ctx.workspaceId))
     .limit(1);
 
-  let roleName = legacyRole ?? "editor";
-  if (roleId) {
-    const [role] = await db.select({ name: workspaceRolesTable.name })
-      .from(workspaceRolesTable)
-      .where(and(
-        eq(workspaceRolesTable.id, roleId),
-        eq(workspaceRolesTable.workspaceId, ctx.workspaceId),
-      ))
-      .limit(1);
-    if (role?.name) roleName = role.name;
-  }
+  let roleName = assignedRole.name;
 
   const [inviterProfile] = await db.select({
     fullName: userProfilesTable.fullName,
