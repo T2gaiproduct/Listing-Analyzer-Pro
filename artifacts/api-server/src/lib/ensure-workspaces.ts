@@ -39,6 +39,21 @@ async function lookupLegacyRoleIds(workspaceId: number): Promise<Record<string, 
   return roleIds;
 }
 
+/** Remove auto-seeded Viewer/Editor/Admin templates; members keep legacyRole fallback. */
+async function purgeLegacySystemRoles(): Promise<void> {
+  const systemRoles = await db
+    .select({ id: workspaceRolesTable.id })
+    .from(workspaceRolesTable)
+    .where(eq(workspaceRolesTable.isSystem, true));
+
+  for (const role of systemRoles) {
+    await db.update(workspaceMembersTable)
+      .set({ roleId: null })
+      .where(eq(workspaceMembersTable.roleId, role.id));
+    await db.delete(workspaceRolesTable).where(eq(workspaceRolesTable.id, role.id));
+  }
+}
+
 async function ensureDefaultWorkspace(accountOwnerId: string): Promise<number> {
   const [existing] = await db
     .select()
@@ -128,6 +143,8 @@ async function migrateTeamMembersToWorkspace(accountOwnerId: string, workspaceId
  * Idempotent migration: one default workspace per account owner, backfill workspace_id on data.
  */
 export async function ensureWorkspacesMigrated(): Promise<void> {
+  await purgeLegacySystemRoles();
+
   const subs = await db.select({ userId: subscriptionsTable.userId }).from(subscriptionsTable);
   const auditOwners = await db
     .selectDistinct({ userId: auditsTable.userId })

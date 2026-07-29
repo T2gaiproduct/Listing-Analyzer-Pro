@@ -118,11 +118,22 @@ export default function WorkspaceRolesPage() {
   });
 
   const deleteRole = useMutation({
-    mutationFn: (roleId: number) =>
-      fetch(`${basePath}/api/workspaces/${workspaceId}/roles/${roleId}`, { method: "DELETE", credentials: "include" }),
+    mutationFn: async (roleId: number) => {
+      const r = await fetch(`${basePath}/api/workspaces/${workspaceId}/roles/${roleId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? "Failed to delete role");
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["workspace-roles", workspaceId] });
       toast({ title: "Role deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to delete role", description: err.message, variant: "destructive" });
     },
   });
 
@@ -192,7 +203,11 @@ export default function WorkspaceRolesPage() {
                             variant="ghost"
                             size="sm"
                             className="text-red-600"
-                            onClick={() => deleteRole.mutate(role.id)}
+                            disabled={deleteRole.isPending}
+                            onClick={() => {
+                              if (!confirm(`Delete role "${role.name}"? Members assigned to this role will need a new role.`)) return;
+                              deleteRole.mutate(role.id);
+                            }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>

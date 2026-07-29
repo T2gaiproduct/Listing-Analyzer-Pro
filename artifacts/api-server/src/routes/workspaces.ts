@@ -279,10 +279,10 @@ router.delete("/workspaces/:workspaceId/roles/:roleId", requireAuth, requireWork
     res.status(404).json({ error: "Role not found" });
     return;
   }
-  if (existing.isSystem) {
-    res.status(400).json({ error: "Cannot delete system roles" });
-    return;
-  }
+
+  await db.update(workspaceMembersTable)
+    .set({ roleId: null })
+    .where(eq(workspaceMembersTable.roleId, roleId));
 
   await db.delete(workspaceRolesTable).where(eq(workspaceRolesTable.id, roleId));
   res.sendStatus(204);
