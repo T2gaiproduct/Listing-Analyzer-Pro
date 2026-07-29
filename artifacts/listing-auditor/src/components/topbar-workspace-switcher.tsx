@@ -118,13 +118,15 @@ export function TopbarWorkspaceSwitcher() {
         <div
           className={cn(
             "flex items-center h-11 rounded-lg border bg-white transition-colors",
-            open ? "border-orange-500 ring-1 ring-orange-200" : "border-slate-300 hover:border-slate-400",
+            open
+              ? "border-orange-500 ring-2 ring-orange-200"
+              : "border-slate-300 hover:border-slate-400 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-200",
           )}
         >
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-2 pl-2.5 pr-2 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem]"
+            className="flex items-center gap-2 pl-2.5 pr-2 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none"
             aria-expanded={open}
             aria-haspopup="listbox"
             aria-label={`Workspace: ${workspaceName}${workspaceSubtitle ? `, ${workspaceSubtitle}` : ""}`}
@@ -155,7 +157,7 @@ export function TopbarWorkspaceSwitcher() {
                   setForm({ name: "", description: "", clientLabel: "" });
                   setCreateOpen(true);
                 }}
-                className="flex items-center justify-center w-9 h-full text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-r-lg transition-colors"
+                className="flex items-center justify-center w-9 h-full text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-r-lg transition-colors focus:outline-none focus-visible:outline-none"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -226,7 +228,7 @@ export function TopbarWorkspaceSwitcher() {
       {/* Mobile: compact with label */}
       <button
         type="button"
-        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0"
+        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
         onClick={() => setSeeAllOpen(true)}
         aria-label={`Workspace: ${workspaceName}`}
         title={`Workspace: ${workspaceName}`}
@@ -250,7 +252,7 @@ export function TopbarWorkspaceSwitcher() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search for a workspace"
-                className="pl-9 focus-visible:ring-orange-200 focus-visible:border-orange-400"
+                className="pl-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
               />
             </div>
             <select

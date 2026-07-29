@@ -170,6 +170,13 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+  }
+
   /* Hide scrollbar visuals on scrollable regions (scroll still works) */
   :where(
     .overflow-auto,
