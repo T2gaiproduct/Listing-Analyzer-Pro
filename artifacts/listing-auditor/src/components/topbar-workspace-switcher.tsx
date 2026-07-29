@@ -119,14 +119,14 @@ export function TopbarWorkspaceSwitcher() {
           className={cn(
             "flex items-center h-11 rounded-lg border bg-white transition-colors",
             open
-              ? "border-orange-500 ring-2 ring-orange-200"
-              : "border-slate-300 hover:border-slate-400 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-200",
+              ? "border-orange-500 ring-2 ring-orange-200 bg-orange-50/30"
+              : "border-slate-200 hover:border-orange-400 hover:bg-orange-50/40 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-200",
           )}
         >
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-2 pl-2.5 pr-2 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none"
+            className="flex items-center gap-2 pl-2.5 pr-2 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none hover:bg-orange-50/50 transition-colors"
             aria-expanded={open}
             aria-haspopup="listbox"
             aria-label={`Workspace: ${workspaceName}${workspaceSubtitle ? `, ${workspaceSubtitle}` : ""}`}
@@ -181,7 +181,7 @@ export function TopbarWorkspaceSwitcher() {
                     key={ws.id}
                     type="button"
                     className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-slate-50 transition-colors",
+                      "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors",
                       ws.id === activeWorkspaceId && "bg-orange-50 text-orange-800",
                     )}
                     onClick={() => selectWorkspace(ws.id)}
@@ -228,7 +228,7 @@ export function TopbarWorkspaceSwitcher() {
       {/* Mobile: compact with label */}
       <button
         type="button"
-        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
+        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0 hover:border-orange-400 hover:bg-orange-50/40 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
         onClick={() => setSeeAllOpen(true)}
         aria-label={`Workspace: ${workspaceName}`}
         title={`Workspace: ${workspaceName}`}
@@ -277,7 +277,7 @@ export function TopbarWorkspaceSwitcher() {
                     type="button"
                     onClick={() => setPendingId(ws.id)}
                     className={cn(
-                      "w-full flex items-center gap-2 px-4 py-3 text-sm text-left border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors",
+                      "w-full flex items-center gap-2 px-4 py-3 text-sm text-left border-b border-slate-100 last:border-0 hover:bg-orange-50 transition-colors",
                       selected && "bg-orange-50 ring-1 ring-inset ring-orange-300",
                     )}
                   >
