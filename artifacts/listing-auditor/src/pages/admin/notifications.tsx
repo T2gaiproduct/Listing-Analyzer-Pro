@@ -10,10 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Plus, Trash2, Check, RefreshCw, Filter, CheckCheck, ArrowRight } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { Link } from "wouter";
-import { cn } from "@/lib/utils";
+import { Bell, Plus, Trash2, Check, RefreshCw, Filter } from "lucide-react";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationPreferencesCard } from "@/components/notification-preferences-card";
@@ -24,118 +21,6 @@ import {
 } from "@/lib/notification-preferences";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-interface PersonalNotification {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  link?: string | null;
-  read: boolean;
-  sentAt: string;
-}
-
-function fetchPersonalNotifications(): Promise<{ notifications: PersonalNotification[] }> {
-  return fetch(`${basePath}/api/notifications?limit=100`, { credentials: "include" }).then((r) => r.json());
-}
-
-function PersonalInbox() {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["notifications"],
-    queryFn: fetchPersonalNotifications,
-  });
-  const notifications = data?.notifications ?? [];
-  const unread = notifications.filter((n) => !n.read).length;
-
-  const markRead = useMutation({
-    mutationFn: (id: number) =>
-      fetch(`${basePath}/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-
-  const markAllRead = useMutation({
-    mutationFn: () =>
-      fetch(`${basePath}/api/notifications/read-all`, { method: "POST", credentials: "include" }).then((r) => r.json()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["notifications"] });
-      toast({ title: "All notifications marked read" });
-    },
-  });
-
-  return (
-    <Card className="p-3 sm:p-4 min-w-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium text-slate-900">Your inbox</p>
-          {unread > 0 && <Badge>{unread} unread</Badge>}
-        </div>
-        <div className="flex items-center gap-2">
-          {unread > 0 && (
-            <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
-              <CheckCheck className="h-4 w-4 mr-1" />
-              Mark all read
-            </Button>
-          )}
-          <Button variant="outline" size="sm" className="min-h-11 min-w-11 px-0 sm:px-3" onClick={() => refetch()} aria-label="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="py-12 flex justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500" />
-        </div>
-      ) : notifications.length === 0 ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
-          <Bell className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          No notifications yet. Support tickets and admin alerts will appear here.
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              className={cn(
-                "rounded-lg border px-4 py-3 flex items-start gap-3",
-                n.read ? "border-slate-100 bg-white" : "border-orange-200 bg-orange-50/40",
-              )}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {!n.read && <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />}
-                  <p className="text-sm font-semibold text-slate-900">{n.title}</p>
-                  <Badge variant="outline" className="text-[10px] capitalize">{n.type.replace(/_/g, " ")}</Badge>
-                </div>
-                <p className="text-sm text-slate-600 mt-1">{n.message}</p>
-                <p className="text-xs text-slate-400 mt-1.5">
-                  {formatDistanceToNow(new Date(n.sentAt), { addSuffix: true })}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {n.link && (
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={n.link.startsWith("/") ? n.link : `/${n.link}`}>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                )}
-                {!n.read && (
-                  <Button variant="ghost" size="sm" onClick={() => markRead.mutate(n.id)} aria-label="Mark read">
-                    <Check className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
 
 interface Notification {
   id: number;
@@ -405,9 +290,9 @@ function NotificationLog() {
 
 export default function AdminNotifications() {
   const initialTab =
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "log"
-      ? "log"
-      : "inbox";
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "preferences"
+      ? "preferences"
+      : "log";
 
   return (
     <div className="w-full min-w-0 space-y-4 sm:space-y-6">
@@ -416,20 +301,16 @@ export default function AdminNotifications() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Your inbox, platform delivery log, and notification preferences.
+            Platform delivery log and notification preferences.
           </p>
         </div>
       </div>
 
       <Tabs defaultValue={initialTab}>
         <TabsList>
-          <TabsTrigger value="inbox">Your inbox</TabsTrigger>
           <TabsTrigger value="log">Platform log</TabsTrigger>
           <TabsTrigger value="preferences">Your preferences</TabsTrigger>
         </TabsList>
-        <TabsContent value="inbox" className="mt-4">
-          <PersonalInbox />
-        </TabsContent>
         <TabsContent value="log" className="mt-4">
           <NotificationLog />
         </TabsContent>
