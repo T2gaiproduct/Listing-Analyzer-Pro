@@ -32,7 +32,6 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
-import { SidebarWorkspaceSwitcher } from "@/components/sidebar-workspace-switcher";
 import {
   ProjectShareMenu,
   shareProjectToInstagram,
@@ -620,9 +619,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Nav + Projects (scrollable) ─────────────────────── */}
         <div className="flex-1 overflow-y-auto overflow-x-visible py-4 flex flex-col">
-          {/* Workspace switcher — above main nav */}
-          <SidebarWorkspaceSwitcher collapsed={collapsed} />
-
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
             {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
@@ -738,7 +734,6 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              <SidebarWorkspaceSwitcher collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
               {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
                 const isActive =
                   location === href ||
