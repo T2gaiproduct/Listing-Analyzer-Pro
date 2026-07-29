@@ -85,6 +85,15 @@ export function requireWriteAccess(
   res: Response,
   next: NextFunction
 ): void {
+  const workspace = (req as { workspace?: { isAccountOwner: boolean; legacyRole?: string } }).workspace;
+  if (workspace) {
+    if (workspace.isAccountOwner || workspace.legacyRole !== "viewer") {
+      next();
+      return;
+    }
+    res.status(403).json({ error: "Forbidden: viewers cannot modify data" });
+    return;
+  }
   const team = (req as TeamAuthedRequest).team;
   if (!team) {
     res.status(401).json({ error: "Team context not resolved" });

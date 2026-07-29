@@ -14,6 +14,7 @@
     "seed-coupons": "tsx src/seed-coupons.ts"
   },
   "dependencies": {
+    "@workspace/workspace-permissions": "workspace:*",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "^0.8.3",
     "pg": "^8.20.0",

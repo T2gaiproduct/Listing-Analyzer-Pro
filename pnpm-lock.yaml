@@ -200,6 +200,9 @@ importers:
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
+      '@workspace/workspace-permissions':
+        specifier: workspace:*
+        version: link:../../lib/workspace-permissions
       archiver:
         specifier: ^8.0.0
         version: 8.0.0
@@ -418,6 +421,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/workspace-permissions':
+        specifier: workspace:*
+        version: link:../../lib/workspace-permissions
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -696,6 +702,9 @@ importers:
 
   lib/db:
     dependencies:
+      '@workspace/workspace-permissions':
+        specifier: workspace:*
+        version: link:../workspace-permissions
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@types/pg@8.18.0)(pg@8.20.0)
@@ -739,6 +748,8 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+
+  lib/workspace-permissions: {}
 
   scripts:
     dependencies:

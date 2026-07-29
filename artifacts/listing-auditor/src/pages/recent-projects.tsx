@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { useRecentProjectMutations } from "@/hooks/use-recent-project-mutations";
 import { RecentProjectMenu, type EnrichedRecentItem } from "@/components/recent-project-menu";
 
@@ -191,20 +192,21 @@ function ProjectListRow({
 export default function RecentProjectsPage() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember } = useTeam();
+  const { activeWorkspaceId } = useWorkspace();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [page, setPage] = useState(1);
 
-  const recentsScope = isTeamMember ? "member" : "owner";
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
   const { data, isLoading } = useGetRecents(
     { limit: 200 },
     {
       query: {
         queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
         staleTime: 30_000,
-        enabled: clerkLoaded && !!user,
+        enabled: clerkLoaded && !!user && !!activeWorkspaceId,
       },
     },
   );

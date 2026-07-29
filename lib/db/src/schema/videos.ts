@@ -8,6 +8,7 @@ export type VideoStatus = (typeof VIDEO_STATUS)[number];
 export const videosProjectsTable = pgTable("videos_projects", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  workspaceId: integer("workspace_id"),
   teamId: text("team_id"),
   auditId: integer("audit_id"),
   name: text("name").notNull().default("Untitled Video"),

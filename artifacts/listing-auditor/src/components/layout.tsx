@@ -32,6 +32,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { SidebarWorkspaceSwitcher } from "@/components/sidebar-workspace-switcher";
 import {
   ProjectShareMenu,
   shareProjectToInstagram,
@@ -40,6 +41,7 @@ import {
 } from "@/components/project-share-menu";
 import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
@@ -50,10 +52,10 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const mainNavItems = [
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new" },
-  { icon: FileSearch, label: "Audit Listings", href: "/audit-listings" },
+  { icon: FileSearch, label: "Audit Listing", href: "/audit-listings" },
   { icon: Palette, label: "Create Graphics", href: "/projects" },
-  { icon: Video, label: "Create Videos", href: "/videos" },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads" },
+  { icon: Video, label: "Create Video", href: "/videos", comingSoon: true },
+  { icon: Megaphone, label: "Manage Ads", href: "/ads", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects" },
 ];
 
@@ -283,11 +285,12 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const { isTeamMember, memberCredits } = useTeam();
+  const { activeWorkspaceId } = useWorkspace();
 
-  const recentsReady = clerkLoaded && !!user;
+  const recentsReady = clerkLoaded && !!user && !!activeWorkspaceId;
 
-  // Fetch unified recents for sidebar (scope changes when team membership resolves)
-  const recentsScope = isTeamMember ? "member" : "owner";
+  // Fetch unified recents for sidebar (scoped to active workspace)
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
     {
@@ -617,9 +620,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Nav + Projects (scrollable) ─────────────────────── */}
         <div className="flex-1 overflow-y-auto overflow-x-visible py-4 flex flex-col">
+          {/* Workspace switcher — above main nav */}
+          <SidebarWorkspaceSwitcher collapsed={collapsed} />
+
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
-            {mainNavItems.map(({ icon: Icon, label, href }) => {
+            {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
               const isActive =
                 location === href ||
                 (href === "/recent-projects" && location === "/recent-projects") ||
@@ -656,7 +662,12 @@ export function Layout({ children }: { children: ReactNode }) {
                     )}
                   >
                     <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
-                    {label}
+                    <span className="flex-1 min-w-0 truncate">{label}</span>
+                    {comingSoon && !isActive && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
+                        Soon
+                      </span>
+                    )}
                   </button>
                 </Link>
               );
@@ -727,7 +738,8 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              {mainNavItems.map(({ icon: Icon, label, href }) => {
+              <SidebarWorkspaceSwitcher collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
+              {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
                 const isActive =
                   location === href ||
                   (href === "/recent-projects" && location === "/recent-projects") ||
@@ -745,7 +757,10 @@ export function Layout({ children }: { children: ReactNode }) {
                       )}
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
-                      {label}
+                      <span className="flex-1">{label}</span>
+                      {comingSoon && (
+                        <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
+                      )}
                     </button>
                   </Link>
                 );

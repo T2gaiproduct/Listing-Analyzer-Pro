@@ -9,6 +9,7 @@ export * from "./marketing";
 export * from "./user-profiles";
 export * from "./subscriptions";
 export * from "./team-members";
+export * from "./workspaces";
 export * from "./graphics";
 export * from "./videos";
 export * from "./ads";

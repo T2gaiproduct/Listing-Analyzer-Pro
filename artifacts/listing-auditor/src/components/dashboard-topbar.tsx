@@ -2,12 +2,13 @@ import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Search, Coins, ChevronDown, UserCircle, Receipt, Settings, HelpCircle,
-  Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu,
+  Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu, Building2,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -22,6 +23,7 @@ function profileMenuItems(isTeamMember: boolean, isOwner: boolean, variant: "cus
     { icon: UserCircle, label: "Edit Profile", href: "/profile" },
     { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
     { icon: Users, label: "Team", href: "/team" },
+    { icon: Building2, label: "Workspaces", href: "/workspaces" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
 }
@@ -68,7 +70,9 @@ export function DashboardTopbar({
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
+  const { workspaces, activeWorkspace, activeWorkspaceId, setActiveWorkspaceId, canManageWorkspaces } = useWorkspace();
   const menuItems = profileMenuItems(isTeamMember, isOwner, variant);
+  const showWorkspaceSwitcher = false; // workspace switcher lives in the left sidebar
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -80,6 +84,8 @@ export function DashboardTopbar({
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const workspaceRef = useRef<HTMLDivElement>(null);
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
   const profileSubtitle = variant === "admin"
@@ -121,6 +127,9 @@ export function DashboardTopbar({
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
         setHelpOpen(false);
+      }
+      if (workspaceRef.current && !workspaceRef.current.contains(e.target as Node)) {
+        setWorkspaceOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -207,6 +216,49 @@ export function DashboardTopbar({
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
+        {showWorkspaceSwitcher && (
+          <div ref={workspaceRef} className="relative hidden md:block">
+            <button
+              type="button"
+              onClick={() => { setWorkspaceOpen((o) => !o); setCreditsOpen(false); setProfileOpen(false); }}
+              className="flex items-center gap-2 h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors max-w-[12rem]"
+            >
+              <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
+              <span className="text-sm font-medium text-slate-800 truncate">{activeWorkspace?.name ?? "Workspace"}</span>
+              <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0", workspaceOpen && "rotate-180")} />
+            </button>
+            {workspaceOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 max-h-72 overflow-y-auto">
+                {workspaces.map((ws) => (
+                  <button
+                    key={ws.id}
+                    type="button"
+                    className={cn(
+                      "w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 transition-colors",
+                      ws.id === activeWorkspaceId && "bg-orange-50 text-orange-700 font-medium",
+                    )}
+                    onClick={() => {
+                      setActiveWorkspaceId(ws.id);
+                      setWorkspaceOpen(false);
+                    }}
+                  >
+                    <span className="block truncate">{ws.name}</span>
+                    {ws.clientLabel && <span className="block text-xs text-slate-400 truncate">{ws.clientLabel}</span>}
+                  </button>
+                ))}
+                {canManageWorkspaces && (
+                  <div className="border-t border-slate-100 mt-1 pt-1 px-2">
+                    <Link href="/workspaces">
+                      <button type="button" className="w-full px-2 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg text-left" onClick={() => setWorkspaceOpen(false)}>
+                        Manage workspaces →
+                      </button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {showCredits && (
         <div ref={creditsRef} className="relative flex-shrink-0">
           <button

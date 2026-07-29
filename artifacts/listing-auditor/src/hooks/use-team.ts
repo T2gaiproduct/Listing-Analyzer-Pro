@@ -2,6 +2,7 @@ import { useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchJson, fetchJsonArray } from "@/lib/api-fetch";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -35,6 +36,7 @@ export interface TeamContext {
 
 export function useTeam(): TeamContext {
   const { user, isLoaded } = useUser();
+  const { canEdit: wsCanEdit, isAccountOwner: wsOwner, isLoading: wsLoading, workspaces } = useWorkspace();
 
   const { data, isLoading } = useQuery<TeamMembership[]>({
     queryKey: ["team-membership"],
@@ -58,9 +60,14 @@ export function useTeam(): TeamContext {
   const membership = data && data.length > 0 ? data[0] : null;
   const role = membership?.role ?? "owner";
   const isTeamMember = !!membership;
-  const isOwner = !isTeamMember;
-  const canEdit = role === "admin" || role === "editor" || isOwner;
-  const canManage = isOwner;
+  const isOwner = !isTeamMember || wsOwner;
+  const hasWorkspaces = workspaces.length > 0;
+  const canEdit =
+    wsOwner ||
+    wsCanEdit("audits") ||
+    wsCanEdit("graphics") ||
+    (!hasWorkspaces && (role === "admin" || role === "editor" || isOwner));
+  const canManage = wsOwner || isOwner;
 
   return {
     membership,
@@ -69,7 +76,7 @@ export function useTeam(): TeamContext {
     isOwner,
     canEdit,
     canManage,
-    isLoading,
+    isLoading: isLoading || wsLoading,
     memberCredits: creditsData?.credits ?? null,
     memberCreditsLoading: creditsLoading,
   };
