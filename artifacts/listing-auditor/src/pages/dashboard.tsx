@@ -162,17 +162,17 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember, memberCredits } = useTeam();
-  const { activeWorkspaceId, activeWorkspace, isLoading: wsLoading } = useWorkspace();
+  const { featureWorkspaceId, featureWorkspace, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard", activeWorkspaceId],
+    queryKey: ["dashboard", featureWorkspaceId],
     queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
-    enabled: clerkLoaded && !!user && !!activeWorkspaceId,
+    enabled: clerkLoaded && !!user && !!featureWorkspaceId,
     staleTime: 30_000,
     retry: 3,
   });
 
-  if (wsLoading || (isLoading && activeWorkspaceId)) {
+  if (wsLoading || (isLoading && featureWorkspaceId)) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
@@ -187,13 +187,13 @@ export default function Dashboard() {
     );
   }
 
-  if (!activeWorkspaceId) {
+  if (!featureWorkspaceId || needsWorkspaceSelection) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
         <h2 className="text-lg font-semibold text-slate-900">Select a workspace</h2>
         <p className="text-sm text-slate-500 mt-2 max-w-md">
-          Projects are scoped to a workspace. Choose one in the top bar, or create a workspace from the workspace dashboard.
+          Pick a workspace in the top bar to view its dashboard, or open the workspace dashboard to manage all workspaces.
         </p>
         <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
           <Link href="/workspaces">Open workspace dashboard</Link>
@@ -254,7 +254,7 @@ export default function Dashboard() {
             Welcome back, {name}! 👋
           </h1>
           <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">
-            Overview for <span className="font-medium text-slate-700">{activeWorkspace?.name ?? "this workspace"}</span>.
+            Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.
           </p>
         </div>
         <DropdownMenu>

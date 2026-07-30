@@ -41,11 +41,15 @@ import {
 import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { isWorkspaceAdminOverviewRoute } from "@/lib/workspace-routes";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { SidebarProjectsContext } from "@/contexts/sidebar-projects";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Building2, ChevronRight } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -189,14 +193,36 @@ export function Layout({ children }: { children: ReactNode }) {
   const { isAdmin } = useIsAdmin();
   const { defaultRoute, can } = useAdminPermissions();
   const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin");
+  const {
+    activeWorkspaceId,
+    featureWorkspaceId,
+    isWorkspaceApiScopeActive,
+    needsWorkspaceSelection,
+    isAccountOwner,
+    workspaces,
+    setActiveWorkspaceId,
+  } = useWorkspace();
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
+  const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
 
   const focusRecentProjects = useCallback(() => {
     navigate("/recent-projects");
   }, [navigate]);
+
+  const handleFeatureNav = useCallback((href: string, comingSoon?: boolean) => {
+    if (comingSoon) return;
+    if (isAccountOwner && isWorkspaceAdminOverviewRoute(location) && needsWorkspaceSelection) {
+      setPendingNavHref(href);
+      setWorkspacePickerOpen(true);
+      return;
+    }
+    navigate(href);
+    setMobileNavOpen(false);
+  }, [isAccountOwner, location, needsWorkspaceSelection, navigate]);
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -290,12 +316,11 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const { isTeamMember, memberCredits } = useTeam();
-  const { activeWorkspaceId, isWorkspaceApiScopeActive } = useWorkspace();
 
-  const recentsReady = clerkLoaded && !!user && !!activeWorkspaceId && isWorkspaceApiScopeActive;
+  const recentsReady = clerkLoaded && !!user && !!featureWorkspaceId && isWorkspaceApiScopeActive;
 
   // Fetch unified recents for sidebar (scoped to active workspace)
-  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
     {
@@ -310,13 +335,13 @@ export function Layout({ children }: { children: ReactNode }) {
 
   // Search projects (scoped to active workspace)
   const { data: searchData } = useQuery({
-    queryKey: ["search-projects", searchQuery, activeWorkspaceId],
+    queryKey: ["search-projects", searchQuery, featureWorkspaceId],
     queryFn: async () => {
       const r = await fetch(`${basePath}/api/search/projects?q=${encodeURIComponent(searchQuery)}&limit=50`, { credentials: "include" });
       if (!r.ok) return { items: [] };
       return r.json() as Promise<{ items: RecentItem[] }>;
     },
-    enabled: isWorkspaceApiScopeActive && searchQuery.length > 0 && !!activeWorkspaceId,
+    enabled: isWorkspaceApiScopeActive && searchQuery.length > 0 && !!featureWorkspaceId,
     staleTime: 0,
   });
   const searchResults = (searchData?.items ?? []) as RecentItem[];
@@ -638,40 +663,41 @@ export function Layout({ children }: { children: ReactNode }) {
               if (collapsed) {
                 return (
                   <SidebarTooltip key={href} label={label} side="right">
-                    <Link href={href}>
-                      <button
-                        className={cn(
-                          "w-full flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
-                          isActive
-                            ? "bg-orange-500 text-white shadow-sm"
-                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                        )}
-                      >
-                        <Icon className={cn("w-5 h-5", isActive ? "text-white" : "")} />
-                      </button>
-                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleFeatureNav(href, comingSoon)}
+                      className={cn(
+                        "w-full flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
+                        isActive
+                          ? "bg-orange-500 text-white shadow-sm"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      <Icon className={cn("w-5 h-5", isActive ? "text-white" : "")} />
+                    </button>
                   </SidebarTooltip>
                 );
               }
               return (
-                <Link key={href} href={href}>
-                  <button
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left",
-                      isActive
-                        ? "bg-orange-500 text-white font-semibold shadow-sm"
-                        : "text-sidebar-foreground/60 font-medium hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                    )}
-                  >
-                    <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
-                    <span className="flex-1 min-w-0 truncate">{label}</span>
-                    {comingSoon && !isActive && (
-                      <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
-                        Soon
-                      </span>
-                    )}
-                  </button>
-                </Link>
+                <button
+                  key={href}
+                  type="button"
+                  onClick={() => handleFeatureNav(href, comingSoon)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left",
+                    isActive
+                      ? "bg-orange-500 text-white font-semibold shadow-sm"
+                      : "text-sidebar-foreground/60 font-medium hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  )}
+                >
+                  <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
+                  <span className="flex-1 min-w-0 truncate">{label}</span>
+                  {comingSoon && !isActive && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
+                      Soon
+                    </span>
+                  )}
+                </button>
               );
             })}
           </div>
@@ -746,24 +772,23 @@ export function Layout({ children }: { children: ReactNode }) {
                   (href === "/recent-projects" && location === "/recent-projects") ||
                   (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search)));
                 return (
-                  <Link key={href} href={href}>
-                    <button
-                      type="button"
-                      onClick={() => setMobileNavOpen(false)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors text-left min-h-11",
-                        isActive
-                          ? "bg-orange-500 text-white font-semibold shadow-sm"
-                          : "text-slate-600 font-medium hover:bg-slate-100"
-                      )}
-                    >
-                      <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="flex-1">{label}</span>
-                      {comingSoon && (
-                        <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
-                      )}
-                    </button>
-                  </Link>
+                  <button
+                    key={href}
+                    type="button"
+                    onClick={() => handleFeatureNav(href, comingSoon)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors text-left min-h-11",
+                      isActive
+                        ? "bg-orange-500 text-white font-semibold shadow-sm"
+                        : "text-slate-600 font-medium hover:bg-slate-100"
+                    )}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="flex-1">{label}</span>
+                    {comingSoon && (
+                      <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
+                    )}
+                  </button>
                 );
               })}
               {isAdmin && (
@@ -1021,6 +1046,51 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={workspacePickerOpen}
+        onOpenChange={(open) => {
+          setWorkspacePickerOpen(open);
+          if (!open) setPendingNavHref(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select a workspace</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500">
+            Choose which workspace you want to work in. Projects and features are scoped to the workspace you pick.
+          </p>
+          <div className="border border-slate-200 rounded-lg divide-y max-h-64 overflow-y-auto mt-3">
+            {workspaces.map((ws) => (
+              <button
+                key={ws.id}
+                type="button"
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left hover:bg-orange-50 transition-colors"
+                onClick={() => {
+                  setActiveWorkspaceId(ws.id);
+                  setWorkspacePickerOpen(false);
+                  if (pendingNavHref) {
+                    navigate(pendingNavHref);
+                    setPendingNavHref(null);
+                  }
+                  setMobileNavOpen(false);
+                }}
+              >
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                <span className="font-medium text-slate-800 flex-1 truncate">{ws.name}</span>
+                {ws.isDefault && (
+                  <span className="text-[10px] font-medium text-slate-500 uppercase">Default</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWorkspacePickerOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </SidebarProjectsContext.Provider>
   );

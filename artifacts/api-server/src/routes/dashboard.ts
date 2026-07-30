@@ -15,7 +15,7 @@ import {
   teamMembersTable,
   type AuditResult,
 } from "@workspace/db";
-import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import { type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
   getActiveWorkspaceId,

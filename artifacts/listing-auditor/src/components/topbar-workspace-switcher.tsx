@@ -35,11 +35,14 @@ export function TopbarWorkspaceSwitcher() {
     workspaces,
     activeWorkspace,
     activeWorkspaceId,
+    featureWorkspaceId,
+    featureWorkspace,
     setActiveWorkspaceId,
     isAccountOwner,
     can,
     refetch,
     isLoading,
+    needsWorkspaceSelection,
   } = useWorkspace();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -152,16 +155,22 @@ export function TopbarWorkspaceSwitcher() {
 
   const highlightedWorkspaceId = onWorkspaceDashboard || onAccountScopedPage
     ? null
-    : (viewedWorkspaceId ?? activeWorkspaceId);
+    : (viewedWorkspaceId ?? featureWorkspaceId ?? activeWorkspaceId);
+
+  const scopedWorkspace = viewedWorkspace
+    ?? featureWorkspace
+    ?? (needsWorkspaceSelection ? null : activeWorkspace);
 
   const pillName = onWorkspaceDashboard
     ? "Workspace dashboard"
     : accountPill?.name
-      ?? (viewedWorkspace?.name ?? activeWorkspace?.name ?? "Select workspace");
+      ?? (needsWorkspaceSelection ? "Select workspace" : scopedWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
     ? "All workspaces"
     : accountPill?.subtitle
-      ?? (viewedWorkspace?.clientLabel?.trim() || activeWorkspace?.clientLabel?.trim() || null);
+      ?? (needsWorkspaceSelection
+        ? "Choose a workspace to continue"
+        : (scopedWorkspace?.clientLabel?.trim() || null));
 
   if (!workspaces.length && !canCreate && !isLoading) return null;
 

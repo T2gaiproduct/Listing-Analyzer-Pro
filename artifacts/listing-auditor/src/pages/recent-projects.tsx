@@ -192,21 +192,21 @@ function ProjectListRow({
 export default function RecentProjectsPage() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember } = useTeam();
-  const { activeWorkspaceId, activeWorkspace, isLoading: wsLoading } = useWorkspace();
+  const { featureWorkspaceId, featureWorkspace, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [page, setPage] = useState(1);
 
-  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
   const { data, isLoading } = useGetRecents(
     { limit: 200 },
     {
       query: {
         queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
         staleTime: 30_000,
-        enabled: clerkLoaded && !!user && !!activeWorkspaceId,
+        enabled: clerkLoaded && !!user && !!featureWorkspaceId,
       },
     },
   );
@@ -242,7 +242,7 @@ export default function RecentProjectsPage() {
     onDelete: () => deleteMutation.mutateAsync({ type: item.type, id: item.id }),
   });
 
-  if (wsLoading || (isLoading && activeWorkspaceId)) {
+  if (wsLoading || (isLoading && featureWorkspaceId)) {
     return (
       <div className="space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-72" />
@@ -256,7 +256,7 @@ export default function RecentProjectsPage() {
     );
   }
 
-  if (!activeWorkspaceId) {
+  if (!featureWorkspaceId || needsWorkspaceSelection) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
@@ -277,7 +277,7 @@ export default function RecentProjectsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Recent Projects</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Projects in <span className="font-medium text-slate-700">{activeWorkspace?.name ?? "this workspace"}</span>.
+            Projects in <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.
           </p>
         </div>
         <DropdownMenu>

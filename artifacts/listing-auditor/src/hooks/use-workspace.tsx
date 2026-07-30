@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { isWorkspaceApiScopeActive } from "@/lib/workspace-routes";
+import { isWorkspaceApiScopeActive, isWorkspaceAdminOverviewRoute } from "@/lib/workspace-routes";
 import {
   hasWorkspacePermission,
   type WorkspaceFeature,
@@ -37,6 +37,9 @@ interface WorkspaceContextValue {
   workspaces: WorkspaceSummary[];
   activeWorkspace: WorkspaceSummary | null;
   activeWorkspaceId: number | null;
+  /** Workspace used for project/feature pages — null until user picks one from overview. */
+  featureWorkspaceId: number | null;
+  featureWorkspace: WorkspaceSummary | null;
   permissions: WorkspaceRolePermissions;
   roleName: string;
   isAccountOwner: boolean;
@@ -48,6 +51,8 @@ interface WorkspaceContextValue {
   canManageWorkspaces: boolean;
   /** False on workspace admin hub and account routes — project APIs should not run. */
   isWorkspaceApiScopeActive: boolean;
+  /** Account owner must pick a workspace after visiting the workspace admin hub. */
+  needsWorkspaceSelection: boolean;
   refetch: () => void;
 }
 
@@ -69,7 +74,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(() => readStoredWorkspaceId());
+  const [workspaceScopeCommitted, setWorkspaceScopeCommitted] = useState(
+    () => readStoredWorkspaceId() != null,
+  );
   const workspaceApiScopeActive = isWorkspaceApiScopeActive(location);
+
+  useEffect(() => {
+    if (isWorkspaceAdminOverviewRoute(location)) {
+      setWorkspaceScopeCommitted(false);
+    }
+  }, [location]);
 
   const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
@@ -109,10 +123,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
-
-  useEffect(() => {
-    setActiveWorkspaceId(workspaceApiScopeActive ? activeWorkspaceId : null);
-  }, [activeWorkspaceId, workspaceApiScopeActive]);
+  const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
+  const isBillingAccountOwner = profileSummary?.accountRole?.type === "user";
+  const isAccountOwnerHint = isBillingAccountOwner || ownsAnyWorkspace;
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
@@ -124,12 +137,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const permissions = permData?.permissions ?? {};
   const roleName = permData?.roleName ?? activeWorkspace?.roleName ?? "Member";
-  const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
   const isWorkspaceAccountOwner =
     permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
-  const isBillingAccountOwner = profileSummary?.accountRole?.type === "user";
   const isAccountOwner =
     isBillingAccountOwner || ownsAnyWorkspace || isWorkspaceAccountOwner;
+
+  const featureWorkspaceId = workspaceApiScopeActive
+    ? (isAccountOwner && !workspaceScopeCommitted ? null : activeWorkspaceId)
+    : null;
+  const featureWorkspace = featureWorkspaceId
+    ? workspaces.find((w) => w.id === featureWorkspaceId) ?? null
+    : null;
+  const needsWorkspaceSelection = isAccountOwner
+    && workspaceApiScopeActive
+    && !workspaceScopeCommitted;
+
+  useEffect(() => {
+    setActiveWorkspaceId(featureWorkspaceId);
+  }, [featureWorkspaceId]);
 
   const can = useCallback(
     (feature: WorkspaceFeature, action: WorkspaceAction) => {
@@ -151,6 +176,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const setWorkspace = useCallback((id: number) => {
     setSelectedId(id);
+    setWorkspaceScopeCommitted(true);
     localStorage.setItem(STORAGE_KEY, String(id));
     void qc.invalidateQueries({ queryKey: ["workspace-permissions"] });
     void qc.invalidateQueries({ queryKey: ["audits"] });
@@ -167,6 +193,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     workspaces,
     activeWorkspace,
     activeWorkspaceId,
+    featureWorkspaceId,
+    featureWorkspace,
     permissions,
     roleName,
     isAccountOwner,
@@ -177,11 +205,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     canEdit,
     canManageWorkspaces: isAccountOwner || can("workspaces", "viewGlobal"),
     isWorkspaceApiScopeActive: workspaceApiScopeActive,
+    needsWorkspaceSelection,
     refetch: () => { void refetchList(); },
   }), [
-    workspaces, activeWorkspace, activeWorkspaceId, permissions, roleName, isAccountOwner,
+    workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
+    permissions, roleName, isAccountOwner,
     listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, refetchList,
-    workspaceApiScopeActive,
+    workspaceApiScopeActive, needsWorkspaceSelection,
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
