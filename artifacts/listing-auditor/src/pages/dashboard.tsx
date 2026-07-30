@@ -159,18 +159,87 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
   );
 }
 
+function MemberHomePanel({
+  name,
+  roleName,
+  workspaceName,
+  creditsBalance,
+  actions,
+}: {
+  name: string;
+  roleName: string;
+  workspaceName: string;
+  creditsBalance: number;
+  actions: Array<{ href: string; label: string }>;
+}) {
+  return (
+    <div className="space-y-6 max-w-3xl animate-in fade-in duration-500">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+          Welcome, {name}! 👋
+        </h1>
+        <p className="text-sm sm:text-base text-slate-500 mt-1">
+          You&apos;re a <span className="font-medium text-slate-700">{roleName}</span> on{" "}
+          <span className="font-medium text-slate-700">{workspaceName}</span>.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your credits</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{creditsBalance}</p>
+          <p className="text-xs text-slate-500 mt-1">Allocated by your workspace owner</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your access</p>
+          <p className="text-sm text-slate-700 mt-2 leading-relaxed">
+            Use the sidebar to open the tools your role allows. If something is missing, ask your workspace owner to update your role on the Team page.
+          </p>
+        </div>
+      </div>
+      {actions.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-900 mb-3">Quick links</p>
+          <div className="flex flex-wrap gap-2">
+            {actions.map((action) => (
+              <Button key={action.href} asChild variant="outline" size="sm">
+                <Link href={action.href}>{action.label}</Link>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember, memberCredits } = useTeam();
   const {
     featureWorkspaceId,
     featureWorkspace,
+    activeWorkspaceId,
     isLoading: wsLoading,
     needsWorkspaceSelection,
     canView,
     isAccountOwner,
     isTeamMemberAccount,
+    roleName,
+    workspaces,
   } = useWorkspace();
+
+  const hasSharedWorkspace = workspaces.some((w) => !w.isAccountOwner);
+  const memberWorkspaceId = featureWorkspaceId ?? activeWorkspaceId;
+  const isMemberView = isTeamMemberAccount || (isTeamMember && hasSharedWorkspace);
+
+  const memberActions = [
+    { href: "/audits/new", label: "Build Your Brand", feature: "build_brand" as const },
+    { href: "/audit-listings", label: "Audit Listings", feature: "audits" as const },
+    { href: "/projects", label: "Create Graphics", feature: "graphics" as const },
+    { href: "/videos", label: "Create Videos", feature: "videos" as const },
+    { href: "/ads", label: "Manage Ads", feature: "ads" as const },
+    { href: "/recent-projects", label: "Recent Projects", feature: "recent_projects" as const },
+  ].filter((item) => isAccountOwner || canView(item.feature));
 
   const newProjectActions = [
     { href: "/audits/new", label: "Build Your Brand", feature: "build_brand" as const },
@@ -183,12 +252,29 @@ export default function Dashboard() {
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard", featureWorkspaceId],
     queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
-    enabled: clerkLoaded && !!user && !!featureWorkspaceId,
+    enabled: clerkLoaded && !!user && !!featureWorkspaceId && (isAccountOwner || canView("dashboard")),
     staleTime: 30_000,
     retry: 3,
   });
 
-  if (wsLoading || (isLoading && featureWorkspaceId)) {
+  const memberName =
+    user?.firstName ?? user?.fullName?.split(" ")[0] ?? user?.primaryEmailAddress?.emailAddress?.split("@")[0] ?? "there";
+  const memberCreditTotal =
+    (memberCredits?.auditCredits ?? 0) + (memberCredits?.aiCredits ?? 0) + (memberCredits?.imageCredits ?? 0);
+
+  if (isMemberView && memberWorkspaceId && !canView("dashboard") && !isAccountOwner) {
+    return (
+      <MemberHomePanel
+        name={memberName}
+        roleName={roleName}
+        workspaceName={featureWorkspace?.name ?? workspaces.find((w) => w.id === memberWorkspaceId)?.name ?? "your workspace"}
+        creditsBalance={memberCreditTotal}
+        actions={memberActions.map(({ href, label }) => ({ href, label }))}
+      />
+    );
+  }
+
+  if (wsLoading || (isLoading && memberWorkspaceId)) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
@@ -203,7 +289,17 @@ export default function Dashboard() {
     );
   }
 
-  if ((!featureWorkspaceId && !isTeamMemberAccount) || (needsWorkspaceSelection && !isTeamMemberAccount)) {
+  if ((!memberWorkspaceId && !isMemberView) || (needsWorkspaceSelection && !isMemberView)) {
+    if (wsLoading) {
+      return (
+        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+          <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 sm:h-36 rounded-xl sm:rounded-2xl" />)}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
@@ -219,6 +315,17 @@ export default function Dashboard() {
   }
 
   if (!dashboard || isError) {
+    if (isMemberView && memberWorkspaceId) {
+      return (
+        <MemberHomePanel
+          name={memberName}
+          roleName={roleName}
+          workspaceName={featureWorkspace?.name ?? workspaces.find((w) => w.id === memberWorkspaceId)?.name ?? "your workspace"}
+          creditsBalance={memberCreditTotal}
+          actions={memberActions.map(({ href, label }) => ({ href, label }))}
+        />
+      );
+    }
     return (
       <div className="text-center py-16 text-slate-500">
         <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />

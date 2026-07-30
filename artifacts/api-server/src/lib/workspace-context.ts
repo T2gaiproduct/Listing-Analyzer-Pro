@@ -16,7 +16,7 @@ import {
   canWriteInWorkspace,
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
-import { getDefaultWorkspaceId, ensureWorkspacesMigrated } from "./ensure-workspaces";
+import { getDefaultWorkspaceId, ensureTeamMembersSchema } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
 import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
 
@@ -60,8 +60,8 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
   isAccountOwner: boolean;
   roleName: string | null;
 }>> {
-  await ensureWorkspacesMigrated();
   await ensureAccountRolesMigrated();
+  await ensureTeamMembersSchema();
 
   const team = await resolveTeamContext(userId);
   if (team.isTeamMember && team.memberId) {
@@ -71,14 +71,18 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       .where(eq(teamMembersTable.id, team.memberId))
       .limit(1);
     if (tm?.memberUserId && tm.status === "active") {
-      await syncTeamMemberWorkspaceMemberships({
-        ownerUserId: tm.ownerUserId,
-        memberUserId: tm.memberUserId,
-        invitedEmail: tm.invitedEmail,
-        invitedName: tm.invitedName,
-        roleId: tm.roleId,
-        legacyRole: normalizeLegacyRole(tm.role),
-      });
+      try {
+        await syncTeamMemberWorkspaceMemberships({
+          ownerUserId: tm.ownerUserId,
+          memberUserId: tm.memberUserId,
+          invitedEmail: tm.invitedEmail,
+          invitedName: tm.invitedName,
+          roleId: tm.roleId,
+          legacyRole: normalizeLegacyRole(tm.role),
+        });
+      } catch (syncErr) {
+        console.error("[workspaces] team member sync failed", syncErr);
+      }
     }
   }
 
@@ -155,8 +159,8 @@ export async function resolveWorkspaceContext(
   userId: string,
   workspaceIdRaw: string | number | undefined,
 ): Promise<WorkspaceContext | null> {
-  await ensureWorkspacesMigrated();
   await ensureAccountRolesMigrated();
+  await ensureTeamMembersSchema();
   const team = await resolveTeamContext(userId);
   const accountOwnerId = team.ownerUserId;
 

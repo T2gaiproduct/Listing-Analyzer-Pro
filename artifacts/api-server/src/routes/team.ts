@@ -24,6 +24,7 @@ import {
 } from "../lib/team-stats.js";
 import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
 import { syncTeamMemberWorkspaceMemberships } from "../lib/team-workspace-sync.js";
+import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 
 const router: IRouter = Router();
 
@@ -322,6 +323,7 @@ router.get("/invite/:token", async (req, res): Promise<void> => {
 
 // ─── Accept invite (auth required) ───────────────────────────────────────────
 router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void> => {
+  await ensureTeamMembersRoleId();
   const userId = (req as AuthedRequest).userId;
   const token = String(req.params.token ?? "");
   const auth = getAuth(req);
@@ -393,7 +395,15 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
     link: "/settings/team",
   });
 
-  res.json({ ok: true, ownerUserId: invite.ownerUserId, role: invite.role });
+  const defaultWorkspaceId = await getDefaultWorkspaceId(invite.ownerUserId);
+
+  res.json({
+    ok: true,
+    ownerUserId: invite.ownerUserId,
+    role: invite.role,
+    roleId: invite.roleId,
+    defaultWorkspaceId,
+  });
 });
 
 // ─── Update member credit allocation (owner only) ───────────────────────────
