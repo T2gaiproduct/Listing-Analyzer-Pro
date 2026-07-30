@@ -28,6 +28,11 @@ function accountScopedPill(location: string): { name: string; subtitle: string }
   return null;
 }
 
+/** Account-owner hub pages show a neutral workspace pill, not the active workspace name. */
+function isWorkspaceHubRoute(location: string): boolean {
+  return location === "/dashboard" || location === "/workspaces";
+}
+
 export function TopbarWorkspaceSwitcher() {
   const [location, navigate] = useLocation();
   const {
@@ -140,7 +145,7 @@ export function TopbarWorkspaceSwitcher() {
 
   const toggleDropdown = () => setOpen((v) => !v);
 
-  const onWorkspaceDashboard = isAccountOwner && location === "/workspaces";
+  const onWorkspaceDashboard = isAccountOwner && isWorkspaceHubRoute(location);
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const workspaceDetailMatch = location.match(/^\/workspaces\/(\d+)$/);
