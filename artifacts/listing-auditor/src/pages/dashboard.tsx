@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 
-import { fetchJson } from "@/lib/api-fetch";
+import { fetchJson, useApiAuthReady, shouldRetryApiQuery } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -153,13 +153,14 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember, memberCredits } = useTeam();
+  const apiAuthReady = useApiAuthReady();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
     queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
-    enabled: clerkLoaded && !!user,
+    enabled: clerkLoaded && !!user && apiAuthReady,
     staleTime: 30_000,
-    retry: 3,
+    retry: shouldRetryApiQuery,
   });
 
   if (isLoading) {

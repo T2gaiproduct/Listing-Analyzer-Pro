@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { getActiveWorkspaceId, WORKSPACE_HEADER } from "@/lib/workspace-header";
 
 export class ApiFetchError extends Error {
@@ -10,24 +11,57 @@ export class ApiFetchError extends Error {
 let tokenGetter: (() => Promise<string | null>) | null = null;
 let nativeFetch: typeof fetch | null = null;
 let apiAuthReady = false;
+const authReadyListeners = new Set<() => void>();
 
-const FETCH_PATCHED_KEY = "__laApiFetchPatched";
+function notifyAuthReadyListeners(): void {
+  for (const listener of authReadyListeners) listener();
+}
 
 export function setApiTokenGetter(getter: (() => Promise<string | null>) | null) {
   tokenGetter = getter;
 }
 
 export function setApiAuthReady(ready: boolean) {
+  if (apiAuthReady === ready) return;
   apiAuthReady = ready;
+  notifyAuthReadyListeners();
 }
 
 export function isApiAuthReady(): boolean {
   return apiAuthReady;
 }
 
+/** Reactive hook — wait for this before firing authenticated API queries. */
+export function useApiAuthReady(): boolean {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      authReadyListeners.add(onStoreChange);
+      return () => authReadyListeners.delete(onStoreChange);
+    },
+    () => apiAuthReady,
+    () => false,
+  );
+}
+
+export function shouldRetryApiQuery(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiFetchError && error.status === 401) return false;
+  return failureCount < 2;
+}
+
+const FETCH_PATCHED_KEY = "__laApiFetchPatched";
 const TOKEN_TIMEOUT_MS = 12_000;
 
+async function waitForAuthReady(maxMs = 2_500): Promise<void> {
+  if (apiAuthReady && tokenGetter) return;
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    if (apiAuthReady && tokenGetter) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 async function resolveAuthToken(): Promise<string | null> {
+  await waitForAuthReady();
   if (!tokenGetter) return null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

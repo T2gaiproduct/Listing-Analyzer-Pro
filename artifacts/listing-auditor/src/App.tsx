@@ -18,7 +18,7 @@ import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { useTeam } from "@/hooks/use-team";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
-import { fetchJson } from "@/lib/api-fetch";
+import { fetchJson, useApiAuthReady, shouldRetryApiQuery } from "@/lib/api-fetch";
 import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
@@ -256,6 +256,7 @@ function ClerkQueryClientCacheInvalidator() {
 
 function useOnboardingSummary() {
   const { user, isLoaded } = useUser();
+  const apiAuthReady = useApiAuthReady();
   return useQuery({
     queryKey: ["user-profile-summary"],
     queryFn: () =>
@@ -264,9 +265,9 @@ function useOnboardingSummary() {
         accountRole?: { type?: string };
         pendingWorkspaceInvite?: { token: string; workspaceName: string; workspaceId: number } | null;
       }>(`${basePath}/api/profile/summary`),
-    enabled: isLoaded && !!user,
+    enabled: isLoaded && !!user && apiAuthReady,
     staleTime: 60_000,
-    retry: 3,
+    retry: shouldRetryApiQuery,
   });
 }
 
