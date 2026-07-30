@@ -168,18 +168,24 @@ export function TopbarWorkspaceSwitcher() {
     ? null
     : viewedWorkspaceId ?? (onAccountScopedPage ? null : (activeWorkspaceId ?? featureWorkspaceId));
 
-  const scopedWorkspace = viewedWorkspace ?? featureWorkspace;
+  const scopedWorkspace = viewedWorkspace ?? activeWorkspace ?? featureWorkspace;
 
   const pillName = onWorkspaceDashboard
     ? "Workspace dashboard"
     : accountPill?.name
-      ?? (needsWorkspaceSelection ? "Select workspace" : scopedWorkspace?.name ?? "Select workspace");
+      ?? (viewedWorkspaceId != null
+        ? (viewedWorkspace?.name ?? scopedWorkspace?.name ?? "Workspace")
+        : needsWorkspaceSelection
+          ? "Select workspace"
+          : scopedWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
     ? "All workspaces"
     : accountPill?.subtitle
-      ?? (needsWorkspaceSelection
-        ? "Choose a workspace to continue"
-        : (scopedWorkspace?.clientLabel?.trim() || null));
+      ?? (viewedWorkspaceId != null
+        ? (viewedWorkspace?.clientLabel?.trim() || scopedWorkspace?.clientLabel?.trim() || null)
+        : needsWorkspaceSelection
+          ? "Choose a workspace to continue"
+          : (scopedWorkspace?.clientLabel?.trim() || null));
 
   if (!workspaces.length && !canCreate && !isLoading) return null;
 
