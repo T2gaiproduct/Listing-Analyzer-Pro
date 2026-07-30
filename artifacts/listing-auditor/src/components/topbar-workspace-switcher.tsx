@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronDown, ChevronRight, Plus, Search, Check, LayoutGrid } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, Plus, Search, Check, LayoutGrid, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
@@ -15,6 +15,18 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const DROPDOWN_PREVIEW_LIMIT = 8;
 
 type SortMode = "az" | "za";
+
+/** Pages scoped to the account, not a single workspace — don't highlight one workspace in the switcher. */
+function isAccountScopedRoute(location: string): boolean {
+  return location === "/roles";
+}
+
+function accountScopedPill(location: string): { name: string; subtitle: string } | null {
+  if (location === "/roles") {
+    return { name: "Account", subtitle: "Roles & permissions" };
+  }
+  return null;
+}
 
 export function TopbarWorkspaceSwitcher() {
   const [location, navigate] = useLocation();
@@ -129,22 +141,26 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && location === "/workspaces";
+  const onAccountScopedPage = isAccountScopedRoute(location);
+  const accountPill = accountScopedPill(location);
   const workspaceDetailMatch = location.match(/^\/workspaces\/(\d+)$/);
   const viewedWorkspaceId = workspaceDetailMatch ? Number(workspaceDetailMatch[1]) : null;
   const viewedWorkspace = viewedWorkspaceId
     ? workspaces.find((w) => w.id === viewedWorkspaceId) ?? null
     : null;
 
-  const highlightedWorkspaceId = onWorkspaceDashboard
+  const highlightedWorkspaceId = onWorkspaceDashboard || onAccountScopedPage
     ? null
     : (viewedWorkspaceId ?? activeWorkspaceId);
 
   const pillName = onWorkspaceDashboard
     ? "Workspace dashboard"
-    : (viewedWorkspace?.name ?? activeWorkspace?.name ?? "Select workspace");
+    : accountPill?.name
+      ?? (viewedWorkspace?.name ?? activeWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
     ? "All workspaces"
-    : (viewedWorkspace?.clientLabel?.trim() || activeWorkspace?.clientLabel?.trim() || null);
+    : accountPill?.subtitle
+      ?? (viewedWorkspace?.clientLabel?.trim() || activeWorkspace?.clientLabel?.trim() || null);
 
   if (!workspaces.length && !canCreate && !isLoading) return null;
 
@@ -168,6 +184,8 @@ export function TopbarWorkspaceSwitcher() {
           >
             {onWorkspaceDashboard ? (
               <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
+            ) : onAccountScopedPage && location === "/roles" ? (
+              <Shield className="w-4 h-4 text-orange-500 flex-shrink-0" />
             ) : (
               <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
             )}
