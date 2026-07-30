@@ -65,9 +65,14 @@ async function requireWorkspaceAccess(req: Request, res: Response, next: NextFun
 // ─── List workspaces accessible to current user ─────────────────────────────
 
 router.get("/workspaces", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const list = await listAccessibleWorkspaces(userId);
-  res.json({ workspaces: list });
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const list = await listAccessibleWorkspaces(userId);
+    res.json({ workspaces: list });
+  } catch (err) {
+    console.error("[workspaces] list failed", err);
+    res.status(500).json({ error: "Failed to load workspaces" });
+  }
 });
 
 router.get("/workspaces/features", requireAuth, async (_req, res): Promise<void> => {

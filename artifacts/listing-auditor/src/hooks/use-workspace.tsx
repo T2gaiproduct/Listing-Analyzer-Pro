@@ -79,11 +79,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const overviewVisitedThisSession = useRef(false);
   const workspaceApiScopeActive = isWorkspaceApiScopeActive(location);
 
-  const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
+  const { data: listData, isLoading: listLoading, isError: listError, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => fetchJson<{ workspaces: WorkspaceSummary[] }>(`${basePath}/api/workspaces`),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
+    retry: 3,
   });
 
   const workspaces = listData?.workspaces ?? [];
@@ -167,6 +168,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       void refetchList();
     }
   }, [isTeamMemberAccount, workspaces.length, listLoading, refetchList]);
+
+  useEffect(() => {
+    if (listError && !listLoading) {
+      void refetchList();
+    }
+  }, [listError, listLoading, refetchList]);
 
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;

@@ -290,6 +290,16 @@ export default function Dashboard() {
   }
 
   if ((!memberWorkspaceId && !isMemberView) || (needsWorkspaceSelection && !isMemberView)) {
+    if (wsLoading) {
+      return (
+        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+          <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 sm:h-36 rounded-xl sm:rounded-2xl" />)}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />

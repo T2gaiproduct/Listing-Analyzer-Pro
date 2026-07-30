@@ -12,7 +12,7 @@ import {
   subscriptionsTable,
   teamMembersTable,
 } from "@workspace/db";
-import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
+import { ensureTeamMembersRoleId } from "./ensure-account-roles.js";
 
 /** Remove auto-seeded Viewer/Editor/Admin templates; members keep legacyRole fallback. */
 async function purgeLegacySystemRoles(): Promise<void> {
@@ -118,34 +118,18 @@ async function backfillWorkspaceData(accountOwnerId: string, workspaceId: number
     .where(and(eq(pinnedProjectsTable.userId, accountOwnerId), isNull(pinnedProjectsTable.workspaceId)));
 }
 
-async function migrateTeamMembersToWorkspace(accountOwnerId: string): Promise<void> {
-  const members = await db
-    .select()
-    .from(teamMembersTable)
-    .where(and(
-      eq(teamMembersTable.ownerUserId, accountOwnerId),
-      eq(teamMembersTable.status, "active"),
-      eq(teamMembersTable.isDeleted, 0),
-    ));
-
-  for (const m of members) {
-    if (!m.memberUserId) continue;
-    await syncTeamMemberWorkspaceMemberships({
-      ownerUserId: accountOwnerId,
-      memberUserId: m.memberUserId,
-      invitedEmail: m.invitedEmail,
-      invitedName: m.invitedName,
-      roleId: m.roleId,
-      legacyRole: m.role,
-    });
-  }
-}
+const migratedOwners = new Set<string>();
+let legacyRolesPurged = false;
 
 /**
  * Idempotent migration: backfill workspace_id on legacy data. New accounts start with no workspace.
+ * Team member workspace sync runs on invite accept / workspace list — not here.
  */
 export async function ensureWorkspacesMigrated(): Promise<void> {
-  await purgeLegacySystemRoles();
+  if (!legacyRolesPurged) {
+    await purgeLegacySystemRoles();
+    legacyRolesPurged = true;
+  }
 
   const subs = await db.select({ userId: subscriptionsTable.userId }).from(subscriptionsTable);
   const auditOwners = await db
@@ -163,11 +147,20 @@ export async function ensureWorkspacesMigrated(): Promise<void> {
   for (const t of teamOwners) ownerIds.add(t.ownerUserId);
 
   for (const accountOwnerId of ownerIds) {
-    if (!(await accountNeedsWorkspaceMigration(accountOwnerId))) continue;
+    if (migratedOwners.has(accountOwnerId)) continue;
+    if (!(await accountNeedsWorkspaceMigration(accountOwnerId))) {
+      migratedOwners.add(accountOwnerId);
+      continue;
+    }
     const workspaceId = await ensureDefaultWorkspace(accountOwnerId);
     await backfillWorkspaceData(accountOwnerId, workspaceId);
-    await migrateTeamMembersToWorkspace(accountOwnerId);
+    migratedOwners.add(accountOwnerId);
   }
+}
+
+/** Ensure team_members.role_id exists before reads that include roleId. */
+export async function ensureTeamMembersSchema(): Promise<void> {
+  await ensureTeamMembersRoleId();
 }
 
 export async function getDefaultWorkspaceId(accountOwnerId: string): Promise<number | null> {
