@@ -22,7 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { fetchJson } from "@/lib/api-fetch";
+import { accountRoleLabel } from "@/lib/role-display";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -63,8 +63,8 @@ interface WorkspaceMemberListItem {
   invitedName: string;
   status: string;
   userId: string | null;
+  roleId?: number | null;
   roleName: string | null;
-  legacyRole: string | null;
   invitedAt: string;
   acceptedAt: string | null;
 }
@@ -129,7 +129,15 @@ function copyToClipboard(text: string, label: string, toast: (t: object) => void
   navigator.clipboard.writeText(text).then(() => toast({ title: `${label} copied!` }));
 }
 
-function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMemberListItem[]; emptyLabel?: string }) {
+function WorkspaceMembersList({
+  members,
+  roles,
+  emptyLabel,
+}: {
+  members: WorkspaceMemberListItem[];
+  roles: AccountRole[];
+  emptyLabel?: string;
+}) {
   if (members.length === 0) {
     return <p className="text-xs text-slate-500 py-2">{emptyLabel ?? "No members yet."}</p>;
   }
@@ -142,7 +150,9 @@ function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMembe
             <p className="text-xs text-slate-500 truncate">{m.invitedEmail}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+            <Badge variant="outline" className="text-xs">
+              {accountRoleLabel(m.roleId, m.roleName, roles)}
+            </Badge>
             <Badge
               variant={m.status === "active" ? "secondary" : "outline"}
               className={`text-xs capitalize ${m.status === "pending" ? "border-amber-200 text-amber-700" : ""}`}
@@ -159,11 +169,12 @@ function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMembe
 interface WorkspaceMembersDetailPanelProps {
   members: WorkspaceMemberListItem[];
   stats: WorkspaceMemberStat[];
+  roles: AccountRole[];
   canManageCredits: boolean;
   availableToAllocate?: TeamData["availableToAllocate"];
   editingCredits: Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>;
   setEditingCredits: Dispatch<SetStateAction<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>>;
-  onSaveCredits: (teamMemberId: number, aiCredits: number, imageCredits: number, auditCredits: number) => void;
+  onSaveCredits: (workspaceMemberId: number, aiCredits: number, imageCredits: number, auditCredits: number) => void;
   creditSaving: boolean;
   emptyLabel?: string;
 }
@@ -171,6 +182,7 @@ interface WorkspaceMembersDetailPanelProps {
 function WorkspaceMembersDetailPanel({
   members,
   stats,
+  roles,
   canManageCredits,
   availableToAllocate,
   editingCredits,
@@ -194,15 +206,12 @@ function WorkspaceMembersDetailPanel({
     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
       {active.map((m) => {
         const stat = getWsStat(m.id);
-        const teamMemberId = stat?.teamMemberId;
-        const isEditing = teamMemberId != null && editingCredits[teamMemberId] != null;
-        const editVals = teamMemberId != null
-          ? editingCredits[teamMemberId] ?? {
-            aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
-            imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
-            auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
-          }
-          : null;
+        const isEditing = editingCredits[m.id] != null;
+        const editVals = editingCredits[m.id] ?? {
+          aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
+          imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
+          auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
+        };
 
         return (
           <div key={m.id} className="px-5 py-4">
@@ -233,21 +242,23 @@ function WorkspaceMembersDetailPanel({
                   </div>
                 )}
               </div>
-              <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+              <Badge variant="outline" className="text-xs">
+              {accountRoleLabel(m.roleId, m.roleName, roles)}
+            </Badge>
               <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
               {m.acceptedAt && (
                 <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">
                   Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}
                 </span>
               )}
-              {canManageCredits && teamMemberId != null && (
+              {canManageCredits && m.status === "active" && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="flex-shrink-0"
                   onClick={() => setEditingCredits((prev) => ({
                     ...prev,
-                    [teamMemberId]: {
+                    [m.id]: {
                       aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
                       imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
                       auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
@@ -258,7 +269,7 @@ function WorkspaceMembersDetailPanel({
                 </Button>
               )}
             </div>
-            {isEditing && editVals && teamMemberId != null && (
+            {isEditing && (
               <div className="mt-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="w-4 h-4 text-blue-500" />
@@ -273,31 +284,31 @@ function WorkspaceMembersDetailPanel({
                   <div>
                     <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
                     <Input type="number" min={0} value={editVals.aiCredits} className="h-8 text-sm"
-                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, aiCredits: e.target.value } }))} />
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id]!, aiCredits: e.target.value } }))} />
                   </div>
                   <div>
                     <Label className="text-xs text-slate-500 mb-1 block">Image Credits</Label>
                     <Input type="number" min={0} value={editVals.imageCredits} className="h-8 text-sm"
-                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, imageCredits: e.target.value } }))} />
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id]!, imageCredits: e.target.value } }))} />
                   </div>
                   <div>
                     <Label className="text-xs text-slate-500 mb-1 block">Audit Credits</Label>
                     <Input type="number" min={0} value={editVals.auditCredits} className="h-8 text-sm"
-                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, auditCredits: e.target.value } }))} />
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id]!, auditCredits: e.target.value } }))} />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="bg-orange-500 hover:bg-orange-600" disabled={creditSaving}
                     onClick={() => {
                       onSaveCredits(
-                        teamMemberId,
+                        m.id,
                         Math.max(0, parseInt(editVals.aiCredits) || 0),
                         Math.max(0, parseInt(editVals.imageCredits) || 0),
                         Math.max(0, parseInt(editVals.auditCredits) || 0),
                       );
                       setEditingCredits((prev) => {
                         const next = { ...prev };
-                        delete next[teamMemberId];
+                        delete next[m.id];
                         return next;
                       });
                     }}>
@@ -305,7 +316,7 @@ function WorkspaceMembersDetailPanel({
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setEditingCredits((prev) => {
                     const next = { ...prev };
-                    delete next[teamMemberId];
+                    delete next[m.id];
                     return next;
                   })}>
                     Cancel
@@ -329,7 +340,7 @@ function WorkspaceMembersDetailPanel({
               Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}
             </p>
           </div>
-          <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+          <Badge variant="outline" className="text-xs">{accountRoleLabel(m.roleId, m.roleName, roles)}</Badge>
           <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
         </div>
       ))}
@@ -387,19 +398,25 @@ export default function Team() {
 
   const { data: scopedWorkspaceMembersData } = useQuery({
     queryKey: ["workspace-members", scopedWorkspaceId],
-    queryFn: () => fetchJson<{ members: Array<{
-      id: number;
-      invitedEmail: string;
-      invitedName: string;
-      status: string;
-      userId: string | null;
-      roleName?: string;
-      legacyRole?: string | null;
-      invitedAt: string;
-      acceptedAt: string | null;
-    }> }>(`${basePath}/api/workspaces/${scopedWorkspaceId}/members`),
-    enabled: !isAccountOwner && isWorkspaceTeamView && scopedWorkspaceId != null && (can("team", "viewGlobal") || canManage),
+    queryFn: () => fetchJson<{
+      members: Array<{
+        id: number;
+        invitedEmail: string;
+        invitedName: string;
+        status: string;
+        userId: string | null;
+        roleId?: number | null;
+        roleName?: string | null;
+        invitedAt: string;
+        acceptedAt: string | null;
+        allocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+      }>;
+      poolAvailableForMembers?: { aiCredits: number; imageCredits: number; auditCredits: number };
+    }>(`${basePath}/api/workspaces/${scopedWorkspaceId}/members`),
+    enabled: scopedWorkspaceId != null && (can("team", "viewGlobal") || can("credits", "viewGlobal") || canManage),
   });
+
+  const workspacePoolAvailable = scopedWorkspaceMembersData?.poolAvailableForMembers;
 
   const { data: overviewFallback } = useQuery({
     queryKey: ["workspaces-overview"],
@@ -448,8 +465,11 @@ export default function Team() {
   });
 
   const creditMutation = useMutation({
-    mutationFn: ({ id, aiCredits, imageCredits, auditCredits }: { id: number; aiCredits: number; imageCredits: number; auditCredits: number }) =>
-      fetch(`${basePath}/api/team/${id}/credits`, {
+    mutationFn: ({ id, aiCredits, imageCredits, auditCredits }: { id: number; aiCredits: number; imageCredits: number; auditCredits: number }) => {
+      if (!scopedWorkspaceId) {
+        throw new Error("Select a workspace to assign credits from its pool.");
+      }
+      return fetch(`${basePath}/api/workspaces/${scopedWorkspaceId}/members/${id}/credits`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -458,8 +478,13 @@ export default function Team() {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error ?? "Failed to update credits");
         return data;
-      }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["team"] }); toast({ title: "Credits updated" }); },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["team"] });
+      qc.invalidateQueries({ queryKey: ["workspace-members"] });
+      toast({ title: "Credits updated" });
+    },
     onError: (e: Error) => toast({ title: "Failed to update credits", description: e.message, variant: "destructive" }),
   });
 
@@ -483,8 +508,8 @@ export default function Team() {
       invitedName: m.invitedName,
       status: m.status,
       userId: m.userId,
+      roleId: m.roleId ?? null,
       roleName: m.roleName ?? null,
-      legacyRole: m.legacyRole ?? null,
       invitedAt: m.invitedAt,
       acceptedAt: m.acceptedAt,
     }));
@@ -623,12 +648,14 @@ export default function Team() {
             {" "}to add more members.
           </p>
         )}
-        {data?.availableToAllocate && (
+        {isAccountOwner && data?.availableToAllocate && (
           <p className="text-xs text-slate-500 mt-3">
-            Unassigned workspace credits:{" "}
+            Account credits not yet in workspace pools:{" "}
             <span className="font-medium text-slate-700">
               {data.availableToAllocate.auditCredits} audit · {data.availableToAllocate.aiCredits} text · {data.availableToAllocate.imageCredits} images
             </span>
+            . Fund pools on the{" "}
+            <Link href="/workspaces" className="underline font-medium">Workspaces</Link> page.
           </p>
         )}
       </div>
@@ -653,8 +680,9 @@ export default function Team() {
           <WorkspaceMembersDetailPanel
             members={scopedWorkspaceMembers}
             stats={workspaceMemberStats}
-            canManageCredits={isAccountOwner && canManage}
-            availableToAllocate={data?.availableToAllocate}
+            roles={accountRoles}
+            canManageCredits={!isAccountOwner && can("credits", "edit")}
+            availableToAllocate={workspacePoolAvailable ?? data?.availableToAllocate}
             editingCredits={editingCredits}
             setEditingCredits={setEditingCredits}
             onSaveCredits={(id, ai, img, audit) => creditMutation.mutate({ id, aiCredits: ai, imageCredits: img, auditCredits: audit })}
@@ -733,7 +761,7 @@ export default function Team() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <WorkspaceMembersList members={ws.members ?? []} emptyLabel="No members in this workspace." />
+                    <WorkspaceMembersList members={ws.members ?? []} roles={accountRoles} emptyLabel="No members in this workspace." />
                     <Link href={`/workspaces/${ws.id}/members`}>
                       <Button variant="outline" size="sm" className="gap-1.5">
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -901,7 +929,7 @@ export default function Team() {
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
           <h2 className="font-semibold text-slate-900 text-sm">Account seats & credits</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Billing seats and credit allocation for your account team.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Billing seats for your account. Fund workspace pools on Workspaces, then workspace admins assign member credits.</p>
         </div>
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-medium text-slate-800 text-sm">
@@ -922,19 +950,12 @@ export default function Team() {
               <p className="font-semibold text-slate-900 text-sm">{user?.fullName || user?.primaryEmailAddress?.emailAddress} <span className="text-xs text-slate-400 font-normal">(you)</span></p>
               <p className="text-slate-400 text-xs">{user?.primaryEmailAddress?.emailAddress}</p>
             </div>
-            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">admin</Badge>
             <Badge variant="outline" className="border-green-200 text-green-600">Owner</Badge>
           </div>
 
           {/* Active members */}
           {activeMembers.map((m) => {
             const stat = getStat(m.id);
-            const isEditing = editingCredits[m.id] != null;
-            const editVals = editingCredits[m.id] ?? {
-              aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
-              imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
-              auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
-            };
             return (
               <div key={m.id} className="px-5 py-4">
                 <div className="flex items-center gap-4">
@@ -944,7 +965,7 @@ export default function Team() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName}</p>
                     <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
-                    {stat && !isEditing && (
+                    {stat && (
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className="text-xs text-slate-400 flex items-center gap-1"><BarChart3 className="w-3 h-3 text-orange-400" />{stat.auditCount} audit actions</span>
                         <span className="text-xs text-slate-400">{stat.creditsUsed} credits used</span>
@@ -954,7 +975,9 @@ export default function Team() {
                       </div>
                     )}
                   </div>
-                  <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+                  <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>
+                    {accountRoleLabel(m.roleId, m.role, accountRoles)}
+                  </Badge>
                   <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
                   {m.acceptedAt && <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}</span>}
                   <DropdownMenu>
@@ -973,9 +996,6 @@ export default function Team() {
                         </DropdownMenuItem>
                       ))}
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setEditingCredits((prev) => ({ ...prev, [m.id]: { aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0), imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0), auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0) } }))}>
-                        <Zap className="w-4 h-4 mr-2" />Edit Credits
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => confirm(`Remove ${m.invitedName} from your team?`) && removeMutation.mutate(m.id)}
@@ -985,85 +1005,6 @@ export default function Team() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                {/* Credit allocation inline editor */}
-                {isEditing && (
-                  <div className="mt-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Zap className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm font-medium text-slate-700">Allocate Credits</span>
-                    </div>
-                    {data?.availableToAllocate && (
-                      <p className="text-xs text-slate-500 mb-3">
-                        Available to assign: up to {data.availableToAllocate.auditCredits} audit, {data.availableToAllocate.aiCredits} text, {data.availableToAllocate.imageCredits} image credits (including this member&apos;s current allocation).
-                      </p>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                      <div>
-                        <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editVals.aiCredits}
-                          onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id], aiCredits: e.target.value } }))}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-slate-500 mb-1 block">Image Credits</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editVals.imageCredits}
-                          onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id], imageCredits: e.target.value } }))}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-slate-500 mb-1 block">Audit Credits</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editVals.auditCredits}
-                          onChange={(e) => setEditingCredits((prev) => ({ ...prev, [m.id]: { ...prev[m.id], auditCredits: e.target.value } }))}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="bg-orange-500 hover:bg-orange-600"
-                        disabled={creditMutation.isPending}
-                        onClick={() => {
-                          creditMutation.mutate({
-                            id: m.id,
-                            aiCredits: Math.max(0, parseInt(editVals.aiCredits) || 0),
-                            imageCredits: Math.max(0, parseInt(editVals.imageCredits) || 0),
-                            auditCredits: Math.max(0, parseInt(editVals.auditCredits) || 0),
-                          });
-                          setEditingCredits((prev) => {
-                            const next = { ...prev };
-                            delete next[m.id];
-                            return next;
-                          });
-                        }}
-                      >
-                        {creditMutation.isPending ? "Saving..." : "Save Credits"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingCredits((prev) => {
-                          const next = { ...prev };
-                          delete next[m.id];
-                          return next;
-                        })}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -1079,7 +1020,9 @@ export default function Team() {
                 <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
                 <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" />Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}</p>
               </div>
-              <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+              <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>
+                {accountRoleLabel(m.roleId, m.role, accountRoles)}
+              </Badge>
               <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1156,7 +1099,9 @@ export default function Team() {
                         </div>
                       </td>
                       <td className="px-3 py-3">
-                        <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit text-xs`}>{m.role}</Badge>
+                        <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit text-xs`}>
+                          {accountRoleLabel(m.roleId, m.role, accountRoles)}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-slate-800">{stat?.creditsUsed ?? 0}</td>
                       <td className="px-4 py-3 text-right text-slate-600">{stat?.auditCount ?? 0}</td>

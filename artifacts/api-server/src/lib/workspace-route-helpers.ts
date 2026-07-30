@@ -147,6 +147,21 @@ export function canViewFeature(ctx: WorkspaceContext, feature: WorkspaceFeature,
   return canViewInWorkspace(ctx.permissions, feature, { ...workspacePermOpts(ctx), isCreator });
 }
 
+export function buildTeamAwareCreditCtx(req: Request): import("./credits.js").TeamAwareContext {
+  const team = (req as TeamAuthedRequest).team;
+  const userId = (req as AuthedRequest).userId;
+  const ws = getWorkspaceCtx(req);
+  return {
+    userId,
+    memberId: team?.memberId,
+    ownerUserId: team?.ownerUserId,
+    isTeamMember: team?.isTeamMember ?? false,
+    workspaceId: ws.workspaceId,
+    workspaceMemberId: ws.workspaceMemberId,
+    isAccountOwner: ws.isAccountOwner,
+  };
+}
+
 export function workspaceOwnerFilter(
   ownerColumn: { userId: unknown },
   workspaceColumn: { workspaceId: unknown },

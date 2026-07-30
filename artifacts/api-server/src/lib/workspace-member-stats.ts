@@ -36,11 +36,11 @@ export async function buildWorkspaceMemberStats(
     byEmail.set(row.invitedEmail.trim().toLowerCase(), row);
   }
 
-  const teamMemberIds = teamRows.map((r) => r.id);
-  const allCredits = teamMemberIds.length > 0
-    ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.memberId, teamMemberIds))
+  const workspaceMemberIds = workspaceMembers.map((wm) => wm.id);
+  const allCredits = workspaceMemberIds.length > 0
+    ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.workspaceMemberId, workspaceMemberIds))
     : [];
-  const creditsByMemberId = new Map(allCredits.map((c) => [c.memberId, c]));
+  const creditsByWorkspaceMemberId = new Map(allCredits.map((c) => [c.workspaceMemberId, c]));
 
   return Promise.all(workspaceMembers.map(async (wm) => {
     const teamMember = wm.userId
@@ -62,7 +62,7 @@ export async function buildWorkspaceMemberStats(
     const creditsUsed = await sumCreditsUsedInPeriod(wm.userId, periodStart, periodEnd);
     const auditCount = await countAuditActivity(wm.userId, periodStart, periodEnd);
     const lastActivityAt = await getLastActivityAt(wm.userId);
-    const allocated = teamMember ? creditsByMemberId.get(teamMember.id) : undefined;
+    const allocated = creditsByWorkspaceMemberId.get(wm.id);
 
     return {
       workspaceMemberId: wm.id,

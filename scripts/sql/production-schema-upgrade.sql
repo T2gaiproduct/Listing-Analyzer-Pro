@@ -104,6 +104,25 @@ ALTER TABLE videos_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
 ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
 ALTER TABLE pinned_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
 
+-- ─── workspace-scoped credits (two-level: account → workspace pool → members) ─
+CREATE TABLE IF NOT EXISTS workspace_credits (
+  id serial PRIMARY KEY,
+  workspace_id integer NOT NULL UNIQUE,
+  ai_credits integer NOT NULL DEFAULT 0,
+  image_credits integer NOT NULL DEFAULT 0,
+  audit_credits integer NOT NULL DEFAULT 0,
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_id integer;
+ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_member_id integer;
+ALTER TABLE member_credits ALTER COLUMN member_id DROP NOT NULL;
+ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS workspace_id integer;
+ALTER TABLE member_credits DROP CONSTRAINT IF EXISTS member_credits_member_id_unique;
+CREATE UNIQUE INDEX IF NOT EXISTS member_credits_workspace_member_uniq
+  ON member_credits (workspace_member_id)
+  WHERE workspace_member_id IS NOT NULL;
+
 COMMIT;
 
 -- Verification (run manually after COMMIT):

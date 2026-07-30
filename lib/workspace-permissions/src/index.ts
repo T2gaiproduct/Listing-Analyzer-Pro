@@ -16,6 +16,7 @@ export const WORKSPACE_FEATURES = [
   "ads",
   "amazon",
   "workspaces",
+  "credits",
 ] as const;
 
 export type WorkspaceFeature = (typeof WORKSPACE_FEATURES)[number];
@@ -86,6 +87,7 @@ export const WORKSPACE_FEATURE_META: WorkspaceFeatureMeta[] = [
 
   // ── Workspace admin ────────────────────────────────────────────────────────
   { id: "team", label: "Team & Members", group: "Workspace", actions: ["viewGlobal", "create", "edit", "delete"] },
+  { id: "credits", label: "Credits", group: "Workspace", actions: ["viewGlobal", "edit"] },
   { id: "workspaces", label: "Workspaces", group: "Workspace", actions: ["viewGlobal", "create", "edit", "delete"] },
 
   // ── Account ────────────────────────────────────────────────────────────────
@@ -135,7 +137,7 @@ export function legacyRolePermissions(role: WorkspaceLegacyRole | "owner"): Work
   const perms: WorkspaceRolePermissions = {};
   for (const meta of WORKSPACE_FEATURE_META) {
     if (role === "viewer") {
-      if (meta.id === "billing" || meta.id === "workspaces" || meta.id === "team") {
+      if (meta.id === "billing" || meta.id === "workspaces" || meta.id === "team" || meta.id === "credits") {
         perms[meta.id] = emptyPermission();
       } else if (meta.id === "profile" || meta.id === "settings" || meta.id === "notifications") {
         perms[meta.id] = { ...emptyPermission(), viewOwn: true, edit: meta.id !== "notifications" };
@@ -147,6 +149,8 @@ export function legacyRolePermissions(role: WorkspaceLegacyRole | "owner"): Work
         perms[meta.id] = emptyPermission();
       } else if (meta.id === "team") {
         perms[meta.id] = { ...emptyPermission(), viewGlobal: true };
+      } else if (meta.id === "credits") {
+        perms[meta.id] = { ...emptyPermission(), viewGlobal: true };
       } else if (meta.id === "profile" || meta.id === "settings" || meta.id === "notifications") {
         perms[meta.id] = { ...emptyPermission(), viewOwn: true, edit: true };
       } else {
@@ -157,6 +161,8 @@ export function legacyRolePermissions(role: WorkspaceLegacyRole | "owner"): Work
         perms[meta.id] = { ...emptyPermission(), viewGlobal: true };
       } else if (meta.id === "workspaces") {
         perms[meta.id] = { ...emptyPermission(), viewGlobal: true, create: true, edit: true };
+      } else if (meta.id === "credits") {
+        perms[meta.id] = { ...emptyPermission(), viewGlobal: true, edit: true };
       } else if (meta.id === "profile" || meta.id === "settings" || meta.id === "notifications") {
         perms[meta.id] = { ...emptyPermission(), viewOwn: true, edit: true };
       } else {

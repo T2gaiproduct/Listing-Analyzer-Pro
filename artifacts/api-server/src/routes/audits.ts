@@ -43,6 +43,7 @@ import {
   viewOwnIdFilter,
   assertProjectViewAccess,
   workspaceOwnerFilter,
+  buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
 import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
 import {
@@ -109,14 +110,7 @@ async function auditScopeWhere(req: Request, extra?: ReturnType<typeof and>) {
 }
 
 function getCreditCtx(req: Request): TeamAwareContext {
-  const team = (req as TeamAuthedRequest).team;
-  const userId = (req as AuthedRequest).userId;
-  return {
-    userId,
-    memberId: team?.memberId,
-    ownerUserId: team?.ownerUserId,
-    isTeamMember: team?.isTeamMember ?? false,
-  };
+  return buildTeamAwareCreditCtx(req);
 }
 
 function readLegacyGeneratedImages(audit: typeof auditsTable.$inferSelect) {

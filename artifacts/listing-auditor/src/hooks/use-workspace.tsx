@@ -199,7 +199,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   });
 
   const permissions = permData?.permissions ?? {};
-  const roleName = permData?.roleName ?? activeWorkspace?.roleName ?? "Member";
+  const roleName = permData?.roleName ?? activeWorkspace?.roleName ?? "Unassigned";
   const isWorkspaceAccountOwner =
     permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
   const isAccountOwner =

@@ -1,8 +1,18 @@
-import { pgTable, text, serial, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, jsonb, unique } from "drizzle-orm/pg-core";
 
 export const creditsTable = pgTable("credits", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().unique(),
+  aiCredits: integer("ai_credits").notNull().default(0),
+  imageCredits: integer("image_credits").notNull().default(0),
+  auditCredits: integer("audit_credits").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/** Per-workspace credit pool (funded from account owner balance). */
+export const workspaceCreditsTable = pgTable("workspace_credits", {
+  id: serial("id").primaryKey(),
+  workspaceId: integer("workspace_id").notNull().unique(),
   aiCredits: integer("ai_credits").notNull().default(0),
   imageCredits: integer("image_credits").notNull().default(0),
   auditCredits: integer("audit_credits").notNull().default(0),
@@ -17,6 +27,7 @@ export const creditTransactionsTable = pgTable("credit_transactions", {
   reason: text("reason"),
   featureType: text("feature_type"),
   metadata: jsonb("metadata"),
+  workspaceId: integer("workspace_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -46,14 +57,19 @@ export const creditRulesTable = pgTable("credit_rules", {
 
 export const memberCreditsTable = pgTable("member_credits", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id").notNull().unique(),
+  workspaceId: integer("workspace_id").notNull(),
+  workspaceMemberId: integer("workspace_member_id").notNull(),
+  memberId: integer("member_id"),
   aiCredits: integer("ai_credits").notNull().default(0),
   imageCredits: integer("image_credits").notNull().default(0),
   auditCredits: integer("audit_credits").notNull().default(0),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => ({
+  uniqWorkspaceMember: unique("member_credits_workspace_member_uniq").on(t.workspaceMemberId),
+}));
 
 export type Credits = typeof creditsTable.$inferSelect;
+export type WorkspaceCredits = typeof workspaceCreditsTable.$inferSelect;
 export type CreditTransaction = typeof creditTransactionsTable.$inferSelect;
 export type CreditPack = typeof creditPacksTable.$inferSelect;
 export type InsertCreditPack = typeof creditPacksTable.$inferInsert;

@@ -12,8 +12,8 @@ export interface WorkspaceMemberListItem {
   invitedName: string;
   status: string;
   userId: string | null;
+  roleId: number | null;
   roleName: string | null;
-  legacyRole: string | null;
   invitedAt: string;
   acceptedAt: string | null;
 }
@@ -96,7 +96,7 @@ export async function getWorkspaceMemberSummaryForOwner(
       userId: workspaceMembersTable.userId,
       invitedEmail: workspaceMembersTable.invitedEmail,
       invitedName: workspaceMembersTable.invitedName,
-      legacyRole: workspaceMembersTable.legacyRole,
+      roleId: workspaceMembersTable.roleId,
       invitedAt: workspaceMembersTable.invitedAt,
       acceptedAt: workspaceMembersTable.acceptedAt,
       roleName: workspaceRolesTable.name,
@@ -143,8 +143,8 @@ export async function getWorkspaceMemberSummaryForOwner(
         invitedName: row.invitedName,
         status: row.status,
         userId: row.userId,
+        roleId: row.roleId,
         roleName: row.roleName,
-        legacyRole: row.legacyRole,
         invitedAt: row.invitedAt.toISOString(),
         acceptedAt: row.acceptedAt?.toISOString() ?? null,
       });

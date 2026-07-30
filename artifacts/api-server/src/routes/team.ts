@@ -14,7 +14,7 @@ import {
   shouldSendTeamInviteEmailToAddress,
   shouldSendTeamWelcomeEmailToUser,
 } from "../lib/notification-preferences.js";
-import { setMemberCredits, getMemberCredits } from "../lib/credits.js";
+import { getMemberCredits } from "../lib/credits.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import {
   countAuditActivity,
@@ -23,6 +23,7 @@ import {
   sumCreditsUsedInPeriod,
 } from "../lib/team-stats.js";
 import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
+import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
 import { syncTeamMemberWorkspaceMemberships } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
@@ -33,19 +34,17 @@ const router: IRouter = Router();
 async function resolveInviteRole(
   ownerUserId: string,
   body: { roleId?: number; role?: string },
-): Promise<{ roleId: number | null; roleName: string; legacyRole: string } | { error: string }> {
-  if (body.roleId != null) {
-    const accountRole = await getAccountRole(ownerUserId, body.roleId);
-    if (!accountRole) return { error: "Invalid role" };
-    return {
-      roleId: accountRole.id,
-      roleName: accountRole.name,
-      legacyRole: accountRole.legacyRoleKey ?? "editor",
-    };
+): Promise<{ roleId: number; roleName: string; legacyRole: string } | { error: string }> {
+  if (body.roleId == null || Number.isNaN(Number(body.roleId))) {
+    return { error: "Role is required. Choose a role from Roles settings." };
   }
-  const role = body.role ?? "editor";
-  if (!["admin", "editor", "viewer"].includes(role)) return { error: "Invalid role" };
-  return { roleId: null, roleName: role, legacyRole: role };
+  const accountRole = await getAccountRole(ownerUserId, Number(body.roleId));
+  if (!accountRole) return { error: "Invalid role" };
+  return {
+    roleId: accountRole.id,
+    roleName: accountRole.name,
+    legacyRole: accountRole.legacyRoleKey ?? "editor",
+  };
 }
 
 interface AuthedRequest extends Request {
@@ -63,6 +62,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 // ─── List my team members (as workspace owner) ───────────────────────────────
 router.get("/team", requireAuth, async (req, res): Promise<void> => {
   await ensureTeamMembersRoleId();
+  await ensureWorkspaceCreditsMigrated();
   const userId = (req as AuthedRequest).userId;
 
   const [sub] = await db.select({
@@ -437,53 +437,10 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   });
 });
 
-// ─── Update member credit allocation (owner only) ───────────────────────────
+// ─── Update member credit allocation (deprecated — use workspace member credits API) ───
 router.patch("/team/:id/credits", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const id = parseInt(String(req.params.id ?? ""));
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { aiCredits, imageCredits, auditCredits } = req.body as { aiCredits?: number; imageCredits?: number; auditCredits?: number };
-
-  const [member] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.id, id), eq(teamMembersTable.ownerUserId, userId)));
-  if (!member) { res.status(404).json({ error: "Member not found" }); return; }
-
-  const ai = Math.max(0, Math.floor(aiCredits ?? 0));
-  const img = Math.max(0, Math.floor(imageCredits ?? 0));
-  const audit = Math.max(0, Math.floor(auditCredits ?? 0));
-
-  const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
-  const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const otherAllocated = await sumAllocatedCreditsForOwner(userId, id);
-
-  const maxAi = ownerCredits.aiCredits - otherAllocated.aiCredits;
-  const maxImg = ownerCredits.imageCredits - otherAllocated.imageCredits;
-  const maxAudit = ownerCredits.auditCredits - otherAllocated.auditCredits;
-
-  if (ai > maxAi || img > maxImg || audit > maxAudit) {
-    res.status(400).json({
-      error: "Allocation exceeds available workspace credits.",
-      availableToAllocate: {
-        aiCredits: Math.max(0, maxAi),
-        imageCredits: Math.max(0, maxImg),
-        auditCredits: Math.max(0, maxAudit),
-      },
-    });
-    return;
-  }
-
-  await setMemberCredits(id, ai, img, audit);
-
-  const updated = await getMemberCredits(id);
-  const totalAllocated = await sumAllocatedCreditsForOwner(userId);
-  res.json({
-    memberId: id,
-    credits: updated,
-    totalAllocated,
-    availableToAllocate: {
-      aiCredits: Math.max(0, ownerCredits.aiCredits - totalAllocated.aiCredits),
-      imageCredits: Math.max(0, ownerCredits.imageCredits - totalAllocated.imageCredits),
-      auditCredits: Math.max(0, ownerCredits.auditCredits - totalAllocated.auditCredits),
-    },
+  res.status(400).json({
+    error: "Allocate credits per workspace: fund pools on Workspaces, then workspace admins assign members on the workspace Members page.",
   });
 });
 
@@ -517,7 +474,10 @@ router.get("/team/membership", requireAuth, async (req, res): Promise<void> => {
 
 // ─── Member usage for billing period (team members) ────────────────────────────
 router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void> => {
+  await ensureWorkspaceCreditsMigrated();
   const userId = (req as AuthedRequest).userId;
+  const workspaceIdParam = req.query.workspaceId;
+  const workspaceId = workspaceIdParam != null ? Number(workspaceIdParam) : null;
   const [membership] = await db.select({
     id: teamMembersTable.id,
     ownerUserId: teamMembersTable.ownerUserId,
@@ -540,7 +500,12 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
   const periodStart = sub?.currentPeriodStart ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const periodEnd = sub?.currentPeriodEnd ?? new Date();
   const creditsUsed = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
-  const remaining = await getMemberCredits(membership.id);
+  const effectiveWorkspaceId = workspaceId && Number.isFinite(workspaceId) && workspaceId > 0
+    ? workspaceId
+    : await getDefaultWorkspaceId(membership.ownerUserId);
+  const remaining = effectiveWorkspaceId
+    ? await getMemberCredits(membership.id, effectiveWorkspaceId)
+    : await getMemberCredits(membership.id);
   const remainingCredits = remaining ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const remainingTotal = remainingCredits.aiCredits + remainingCredits.imageCredits + remainingCredits.auditCredits;
   const totalAllocatedCredits = remainingTotal + creditsUsed;
@@ -566,14 +531,22 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
 
 // ─── Member's own credit balance ─────────────────────────────────────────────
 router.get("/team/membership/credits", requireAuth, async (req, res): Promise<void> => {
+  await ensureWorkspaceCreditsMigrated();
   const userId = (req as AuthedRequest).userId;
-  const [membership] = await db.select({ id: teamMembersTable.id })
+  const workspaceIdParam = req.query.workspaceId;
+  const workspaceId = workspaceIdParam != null ? Number(workspaceIdParam) : null;
+  const [membership] = await db.select({ id: teamMembersTable.id, ownerUserId: teamMembersTable.ownerUserId })
     .from(teamMembersTable)
     .where(and(eq(teamMembersTable.memberUserId, userId), eq(teamMembersTable.status, "active")));
   if (!membership) { res.status(404).json({ error: "Not a team member" }); return; }
 
-  const credits = await getMemberCredits(membership.id);
-  res.json({ memberId: membership.id, credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 } });
+  const effectiveWorkspaceId = workspaceId && Number.isFinite(workspaceId) && workspaceId > 0
+    ? workspaceId
+    : await getDefaultWorkspaceId(membership.ownerUserId);
+  const credits = effectiveWorkspaceId
+    ? await getMemberCredits(membership.id, effectiveWorkspaceId)
+    : await getMemberCredits(membership.id);
+  res.json({ memberId: membership.id, workspaceId: effectiveWorkspaceId, credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 } });
 });
 
 export default router;

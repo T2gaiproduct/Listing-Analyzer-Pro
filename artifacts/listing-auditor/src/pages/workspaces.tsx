@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
@@ -31,6 +31,8 @@ interface WorkspaceOverview {
   activeMembers: number;
   pendingInvites: number;
   totalRoles: number;
+  ownerCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+  availableToFundWorkspaces?: { aiCredits: number; imageCredits: number; auditCredits: number };
   workspaces: Array<{
     id: number;
     name: string;
@@ -41,6 +43,8 @@ interface WorkspaceOverview {
     activeMemberCount: number;
     pendingMemberCount: number;
     members: WorkspaceMemberListItem[];
+    poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+    poolAvailableForMembers?: { aiCredits: number; imageCredits: number; auditCredits: number };
   }>;
 }
 
@@ -52,6 +56,8 @@ export default function WorkspacesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<typeof workspaces[0] | null>(null);
   const [form, setForm] = useState({ name: "", description: "", clientLabel: "" });
+  const [fundingWorkspace, setFundingWorkspace] = useState<WorkspaceOverview["workspaces"][0] | null>(null);
+  const [poolForm, setPoolForm] = useState({ aiCredits: "0", imageCredits: "0", auditCredits: "0" });
 
   const canCreate = isAccountOwner || can("workspaces", "create");
   const canEdit = isAccountOwner || can("workspaces", "edit");
@@ -157,6 +163,37 @@ export default function WorkspacesPage() {
     onError: () => toast({ title: "Failed to delete workspace", variant: "destructive" }),
   });
 
+  const fundPool = useMutation({
+    mutationFn: async () => {
+      if (!fundingWorkspace) throw new Error("No workspace selected");
+      return fetchJson(`${basePath}/api/workspaces/${fundingWorkspace.id}/credits`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aiCredits: Math.max(0, parseInt(poolForm.aiCredits) || 0),
+          imageCredits: Math.max(0, parseInt(poolForm.imageCredits) || 0),
+          auditCredits: Math.max(0, parseInt(poolForm.auditCredits) || 0),
+        }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
+      qc.invalidateQueries({ queryKey: ["user-credits"] });
+      setFundingWorkspace(null);
+      toast({ title: "Workspace credit pool updated" });
+    },
+    onError: (err: Error) => toast({ title: "Failed to update pool", description: err.message, variant: "destructive" }),
+  });
+
+  const openFundPool = (ws: WorkspaceOverview["workspaces"][0]) => {
+    setFundingWorkspace(ws);
+    setPoolForm({
+      aiCredits: String(ws.poolCredits?.aiCredits ?? 0),
+      imageCredits: String(ws.poolCredits?.imageCredits ?? 0),
+      auditCredits: String(ws.poolCredits?.auditCredits ?? 0),
+    });
+  };
+
   const displayWorkspaces = isAccountOwner && overview
     ? overview.workspaces.map((ws) => ({
         ...ws,
@@ -244,6 +281,15 @@ export default function WorkspacesPage() {
         </div>
       )}
 
+      {isAccountOwner && overview?.availableToFundWorkspaces && (
+        <p className="text-xs text-slate-500">
+          Account credits available to fund workspace pools:{" "}
+          <span className="font-medium text-slate-700">
+            {overview.availableToFundWorkspaces.auditCredits} audit · {overview.availableToFundWorkspaces.aiCredits} text · {overview.availableToFundWorkspaces.imageCredits} images
+          </span>
+        </p>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         {displayWorkspaces.map((ws) => (
           <Card key={ws.id}>
@@ -263,6 +309,22 @@ export default function WorkspacesPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {ws.description && <p className="text-sm text-slate-600 line-clamp-2">{ws.description}</p>}
+              {isAccountOwner && (
+                <div className="text-xs text-slate-500 flex flex-wrap gap-2 items-center">
+                  <Zap className="w-3.5 h-3.5 text-blue-500" />
+                  <span>
+                    Pool: {ws.poolCredits?.auditCredits ?? 0} audit · {ws.poolCredits?.aiCredits ?? 0} text · {ws.poolCredits?.imageCredits ?? 0} images
+                  </span>
+                  {ws.poolAvailableForMembers && (
+                    <span className="text-slate-400">
+                      ({ws.poolAvailableForMembers.auditCredits} audit unassigned to members)
+                    </span>
+                  )}
+                  <Button variant="link" size="sm" className="h-auto p-0 text-orange-600" onClick={() => openFundPool(ws as WorkspaceOverview["workspaces"][0])}>
+                    Fund pool
+                  </Button>
+                </div>
+              )}
               {isAccountOwner && (
                 <div className="space-y-2">
                   <div className="flex flex-wrap gap-3 text-xs text-slate-500">
@@ -287,7 +349,7 @@ export default function WorkspacesPage() {
                 </div>
               )}
               {!isAccountOwner && (
-                <p className="text-xs text-slate-400">Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Member"}</p>
+                <p className="text-xs text-slate-400">Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Unassigned"}</p>
               )}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Link href={`/workspaces/${ws.id}`}>
@@ -353,6 +415,42 @@ export default function WorkspacesPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={() => save.mutate()} disabled={!form.name.trim() || save.isPending}>
               {editing ? "Save" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fundingWorkspace != null} onOpenChange={(v) => !v && setFundingWorkspace(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fund workspace pool — {fundingWorkspace?.name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-slate-500">
+            Move credits from your account balance into this workspace pool. Workspace admins assign from the pool to members.
+          </p>
+          {overview?.availableToFundWorkspaces && (
+            <p className="text-xs text-slate-500">
+              Available in account: {overview.availableToFundWorkspaces.auditCredits} audit · {overview.availableToFundWorkspaces.aiCredits} text · {overview.availableToFundWorkspaces.imageCredits} images
+            </p>
+          )}
+          <div className="grid grid-cols-3 gap-3 py-2">
+            <div>
+              <Label className="text-xs">Audit</Label>
+              <Input type="number" min={0} value={poolForm.auditCredits} onChange={(e) => setPoolForm((f) => ({ ...f, auditCredits: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Text (AI)</Label>
+              <Input type="number" min={0} value={poolForm.aiCredits} onChange={(e) => setPoolForm((f) => ({ ...f, aiCredits: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Images</Label>
+              <Input type="number" min={0} value={poolForm.imageCredits} onChange={(e) => setPoolForm((f) => ({ ...f, imageCredits: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFundingWorkspace(null)}>Cancel</Button>
+            <Button onClick={() => fundPool.mutate()} disabled={fundPool.isPending}>
+              {fundPool.isPending ? "Saving…" : "Update pool"}
             </Button>
           </DialogFooter>
         </DialogContent>

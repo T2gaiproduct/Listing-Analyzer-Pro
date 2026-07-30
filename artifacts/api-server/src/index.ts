@@ -9,6 +9,7 @@ import { wsHandler } from "./routes/ws";
 import { ensureDefaultPromoCoupons } from "./lib/promo-coupon-sync";
 import { ensureAdminRolePermissions } from "./lib/ensure-admin-role-permissions";
 import { ensureWorkspacesMigrated } from "./lib/ensure-workspaces";
+import { ensureWorkspaceCreditsMigrated } from "./lib/ensure-workspace-credits.js";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -90,6 +91,10 @@ ensureAdminRolePermissions()
 ensureWorkspacesMigrated()
   .then(() => logger.info("Workspace migration ready"))
   .catch((err) => logger.error({ err }, "Workspace migration failed"));
+
+ensureWorkspaceCreditsMigrated()
+  .then(() => logger.info("Workspace credits migration ready"))
+  .catch((err) => logger.error({ err }, "Workspace credits migration failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);

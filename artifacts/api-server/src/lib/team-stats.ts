@@ -1,5 +1,6 @@
-import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { db, creditTransactionsTable, memberCreditsTable, teamMembersTable } from "@workspace/db";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { db, creditTransactionsTable } from "@workspace/db";
+import { sumWorkspacePoolsForOwner } from "./workspace-credits.js";
 
 export interface CreditTotals {
   aiCredits: number;
@@ -63,26 +64,5 @@ export async function getLastActivityAt(userId: string): Promise<Date | null> {
 }
 
 export async function sumAllocatedCreditsForOwner(ownerUserId: string, excludeMemberId?: number): Promise<CreditTotals> {
-  const members = await db
-    .select({ id: teamMembersTable.id })
-    .from(teamMembersTable)
-    .where(and(eq(teamMembersTable.ownerUserId, ownerUserId), eq(teamMembersTable.status, "active")));
-
-  const memberIds = members.map((m) => m.id).filter((id) => id !== excludeMemberId);
-  if (memberIds.length === 0) {
-    return { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  }
-
-  const rows = memberIds.length
-    ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.memberId, memberIds))
-    : [];
-
-  return rows.reduce(
-    (acc, row) => ({
-      aiCredits: acc.aiCredits + row.aiCredits,
-      imageCredits: acc.imageCredits + row.imageCredits,
-      auditCredits: acc.auditCredits + row.auditCredits,
-    }),
-    { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
-  );
+  return sumWorkspacePoolsForOwner(ownerUserId);
 }
