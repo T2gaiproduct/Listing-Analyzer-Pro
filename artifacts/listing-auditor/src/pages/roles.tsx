@@ -21,7 +21,6 @@ import {
 } from "@workspace/workspace-permissions";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { useUser } from "@clerk/react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -41,19 +40,7 @@ const ACTION_LABELS: Record<WorkspaceAction, string> = {
 };
 
 export default function RolesPage() {
-  const { user, isLoaded } = useUser();
   const { isAccountOwner, isLoading: wsLoading } = useWorkspace();
-  const { data: profileSummary, isLoading: profileLoading } = useQuery<{
-    accountRole?: { type: string; label: string };
-  }>({
-    queryKey: ["user-profile-summary"],
-    queryFn: () =>
-      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
-    enabled: isLoaded && !!user,
-    staleTime: 30_000,
-  });
-  const canManageAccountRoles =
-    profileSummary?.accountRole?.type === "user" || isAccountOwner;
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -66,7 +53,7 @@ export default function RolesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["account-roles"],
     queryFn: () => fetchJson<{ roles: AccountRole[] }>(`${basePath}/api/account/roles`),
-    enabled: canManageAccountRoles,
+    enabled: isAccountOwner,
   });
 
   const roles = data?.roles ?? [];
@@ -160,11 +147,11 @@ export default function RolesPage() {
     },
   });
 
-  if (wsLoading || profileLoading) {
+  if (wsLoading) {
     return <div className="p-6 text-sm text-slate-500">Loading…</div>;
   }
 
-  if (!canManageAccountRoles) {
+  if (!isAccountOwner) {
     return <Redirect to="/dashboard" />;
   }
 

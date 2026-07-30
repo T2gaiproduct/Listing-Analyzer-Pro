@@ -74,6 +74,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const workspaces = listData?.workspaces ?? [];
 
+  const { data: profileSummary } = useQuery<{
+    accountRole?: { type: string; label: string };
+  }>({
+    queryKey: ["user-profile-summary"],
+    queryFn: () =>
+      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isLoaded && !!user,
+    staleTime: 30_000,
+  });
+
   useEffect(() => {
     if (!workspaces.length) {
       if (selectedId != null) {
@@ -108,7 +118,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const permissions = permData?.permissions ?? {};
   const roleName = permData?.roleName ?? activeWorkspace?.roleName ?? "Member";
-  const isAccountOwner = permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
+  const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
+  const isWorkspaceAccountOwner =
+    permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
+  const isBillingAccountOwner = profileSummary?.accountRole?.type === "user";
+  const isAccountOwner =
+    isBillingAccountOwner || ownsAnyWorkspace || isWorkspaceAccountOwner;
 
   const can = useCallback(
     (feature: WorkspaceFeature, action: WorkspaceAction) => {
