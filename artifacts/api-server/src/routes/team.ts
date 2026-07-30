@@ -351,13 +351,23 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
     .set({ status: "active", memberUserId: userId, acceptedAt: new Date() })
     .where(eq(teamMembersTable.inviteToken, token));
 
+  let legacyRoleKey = "editor";
+  if (invite.roleId) {
+    const accountRole = await getAccountRole(invite.ownerUserId, invite.roleId);
+    if (accountRole?.legacyRoleKey && ["admin", "editor", "viewer"].includes(accountRole.legacyRoleKey)) {
+      legacyRoleKey = accountRole.legacyRoleKey;
+    }
+  } else if (["admin", "editor", "viewer"].includes(invite.role)) {
+    legacyRoleKey = invite.role;
+  }
+
   await syncTeamMemberWorkspaceMemberships({
     ownerUserId: invite.ownerUserId,
     memberUserId: userId,
     invitedEmail: invite.invitedEmail,
     invitedName: invite.invitedName,
     roleId: invite.roleId,
-    legacyRole: invite.role,
+    legacyRole: legacyRoleKey,
   });
 
   // Team members join an existing workspace — skip owner onboarding/plan selection

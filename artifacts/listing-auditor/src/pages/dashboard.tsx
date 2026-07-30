@@ -169,6 +169,7 @@ export default function Dashboard() {
     needsWorkspaceSelection,
     canView,
     isAccountOwner,
+    isTeamMemberAccount,
   } = useWorkspace();
 
   const newProjectActions = [
@@ -202,7 +203,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!featureWorkspaceId || needsWorkspaceSelection) {
+  if ((!featureWorkspaceId && !isTeamMemberAccount) || (needsWorkspaceSelection && !isTeamMemberAccount)) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />

@@ -2,6 +2,11 @@ import { randomBytes } from "crypto";
 import { and, eq, or } from "drizzle-orm";
 import { db, workspacesTable, workspaceMembersTable } from "@workspace/db";
 
+function normalizeLegacyRole(role: string | null | undefined): string {
+  if (role === "admin" || role === "editor" || role === "viewer") return role;
+  return "editor";
+}
+
 /** Mirror team membership into workspace_members so granular roles apply on every workspace. */
 export async function syncTeamMemberWorkspaceMemberships(input: {
   ownerUserId: string;
@@ -40,7 +45,7 @@ export async function syncTeamMemberWorkspaceMemberships(input: {
           invitedEmail: input.invitedEmail.toLowerCase(),
           invitedName: input.invitedName,
           roleId: input.roleId,
-          ...(input.legacyRole ? { legacyRole: input.legacyRole } : {}),
+          legacyRole: normalizeLegacyRole(input.legacyRole),
           acceptedAt: new Date(),
           isDeleted: 0,
           deletedAt: null,
@@ -55,7 +60,7 @@ export async function syncTeamMemberWorkspaceMemberships(input: {
       invitedEmail: input.invitedEmail.toLowerCase(),
       invitedName: input.invitedName,
       roleId: input.roleId,
-      legacyRole: input.legacyRole ?? "editor",
+      legacyRole: normalizeLegacyRole(input.legacyRole),
       status: "active",
       inviteToken: randomBytes(32).toString("hex"),
       acceptedAt: new Date(),

@@ -18,6 +18,16 @@ import {
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { getDefaultWorkspaceId, ensureWorkspacesMigrated } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
+import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
+
+function isLegacyRoleKey(role: string | null | undefined): boolean {
+  return role === "admin" || role === "editor" || role === "viewer";
+}
+
+function normalizeLegacyRole(role: string | null | undefined): WorkspaceLegacyRole {
+  if (isLegacyRoleKey(role)) return role as WorkspaceLegacyRole;
+  return "editor";
+}
 
 export interface WorkspaceContext {
   workspaceId: number;
@@ -52,6 +62,25 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
 }>> {
   await ensureWorkspacesMigrated();
   await ensureAccountRolesMigrated();
+
+  const team = await resolveTeamContext(userId);
+  if (team.isTeamMember && team.memberId) {
+    const [tm] = await db
+      .select()
+      .from(teamMembersTable)
+      .where(eq(teamMembersTable.id, team.memberId))
+      .limit(1);
+    if (tm?.memberUserId && tm.status === "active") {
+      await syncTeamMemberWorkspaceMemberships({
+        ownerUserId: tm.ownerUserId,
+        memberUserId: tm.memberUserId,
+        invitedEmail: tm.invitedEmail,
+        invitedName: tm.invitedName,
+        roleId: tm.roleId,
+        legacyRole: normalizeLegacyRole(tm.role),
+      });
+    }
+  }
 
   const owned = await db
     .select()
@@ -96,7 +125,6 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       roleName: m.roleName ?? m.legacyRole ?? "Member",
     }));
 
-  const team = await resolveTeamContext(userId);
   if (team.isTeamMember) {
     const ownerWorkspaces = await db
       .select()
@@ -217,7 +245,7 @@ export async function resolveWorkspaceContext(
         ))
         .limit(1);
 
-      let legacyRole = team.role as WorkspaceLegacyRole;
+      let legacyRole = normalizeLegacyRole(team.role);
       let roleId: number | null = teamMember?.roleId ?? null;
       let roleName: string | null = teamMember?.role ?? null;
       let permissions = legacyRolePermissions(legacyRole);
@@ -227,7 +255,7 @@ export async function resolveWorkspaceContext(
         if (accountRole) {
           roleId = accountRole.id;
           roleName = accountRole.name;
-          legacyRole = (accountRole.legacyRoleKey ?? legacyRole) as WorkspaceLegacyRole;
+          legacyRole = normalizeLegacyRole(accountRole.legacyRoleKey ?? legacyRole);
           permissions = accountRole.permissions ?? legacyRolePermissions(legacyRole);
         }
       }
@@ -251,8 +279,11 @@ export async function resolveWorkspaceContext(
     return null;
   }
 
-  const legacyRole = (membership.member.legacyRole ?? membership.role?.legacyRoleKey ?? team.role) as WorkspaceLegacyRole;
-  const useLegacy = workspace.preserveLegacyPermissions && Boolean(membership.member.legacyRole || membership.role?.legacyRoleKey);
+  const legacyRoleKey = membership.member.legacyRole ?? membership.role?.legacyRoleKey ?? team.role;
+  const legacyRole = normalizeLegacyRole(legacyRoleKey);
+  const useLegacy = workspace.preserveLegacyPermissions
+    && !membership.member.roleId
+    && isLegacyRoleKey(legacyRoleKey);
 
   const permissions = useLegacy
     ? legacyRolePermissions(legacyRole)
