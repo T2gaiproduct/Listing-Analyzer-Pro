@@ -5,13 +5,13 @@ import { useLocation, Link } from "wouter";
 import {
   Users, Plus, Trash2, Mail, Shield, MoreHorizontal,
   CheckCircle2, Copy, ExternalLink, Clock, BarChart3, Zap, RefreshCw,
-  AlertTriangle, X,
+  AlertTriangle, X, Building2, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +56,21 @@ interface MemberStat {
   allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
 }
 
+interface WorkspaceMemberSummary {
+  totalMemberships: number;
+  uniquePeople: number;
+  activeMembers: number;
+  pendingInvites: number;
+  workspaces: Array<{
+    id: number;
+    name: string;
+    isDefault: boolean;
+    memberCount: number;
+    activeMemberCount: number;
+    pendingMemberCount: number;
+  }>;
+}
+
 interface TeamData {
   maxSeats: number;
   planName: string | null;
@@ -65,6 +80,7 @@ interface TeamData {
   availableToAllocate?: { aiCredits: number; imageCredits: number; auditCredits: number };
   members: TeamMember[];
   memberStats: MemberStat[];
+  workspaceMembers?: WorkspaceMemberSummary;
 }
 
 const roleBadgeColors = [
@@ -267,6 +283,93 @@ export default function Team() {
           </p>
         )}
       </div>
+
+      {/* Workspace access (members across workspaces) */}
+      {data?.workspaceMembers && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Workspace access</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Member counts from workspace memberships (same person on multiple workspaces counts separately).
+              </p>
+            </div>
+            <Link href="/workspaces">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                All workspaces
+              </Button>
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Total memberships</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.totalMemberships}</p>
+                <p className="text-xs text-slate-500 mt-1">{data.workspaceMembers.uniquePeople} unique people</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Active members</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.activeMembers}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Pending invites</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.pendingInvites}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Workspaces</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.workspaces.length}</p>
+              </CardContent>
+            </Card>
+          </div>
+          {data.workspaceMembers.workspaces.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {data.workspaceMembers.workspaces.map((ws) => (
+                <Card key={ws.id}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                        <CardTitle className="text-base truncate">{ws.name}</CardTitle>
+                      </div>
+                      {ws.isDefault && <Badge variant="secondary">Default</Badge>}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                      <span>{ws.memberCount} members</span>
+                      <span>{ws.activeMemberCount} active</span>
+                      {ws.pendingMemberCount > 0 && (
+                        <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
+                      )}
+                    </div>
+                    <Link href={`/workspaces/${ws.id}/members`}>
+                      <Button variant="outline" size="sm" className="gap-1.5">
+                        <ChevronRight className="w-3.5 h-3.5" />
+                        Manage members
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Role guide */}
       {accountRoles.length > 0 ? (

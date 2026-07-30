@@ -25,6 +25,7 @@ import {
 import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
 import { syncTeamMemberWorkspaceMemberships } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
+import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 
 const router: IRouter = Router();
 
@@ -98,6 +99,8 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
 
   const ownerUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
 
+  const workspaceMembers = await getWorkspaceMemberSummaryForOwner(userId);
+
   const memberStats = await Promise.all(members.map(async (m) => {
     if (!m.memberUserId) {
       return {
@@ -143,6 +146,7 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     ownerUsedInPeriod,
     members: [...members, ...pending],
     memberStats,
+    workspaceMembers,
   });
 });
 
