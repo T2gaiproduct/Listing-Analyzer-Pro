@@ -1,4 +1,5 @@
 import { Link, useParams } from "wouter";
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,8 +46,14 @@ interface RoleOption { id: number; name: string; }
 export default function WorkspaceMembersPage() {
   const params = useParams<{ id: string }>();
   const workspaceId = Number(params.id);
-  const { workspaces, can, isAccountOwner } = useWorkspace();
+  const { workspaces, can, isAccountOwner, activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
   const ws = workspaces.find((w) => w.id === workspaceId);
+
+  useEffect(() => {
+    if (Number.isFinite(workspaceId) && workspaceId > 0 && workspaceId !== activeWorkspaceId) {
+      setActiveWorkspaceId(workspaceId);
+    }
+  }, [workspaceId, activeWorkspaceId, setActiveWorkspaceId]);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [email, setEmail] = useState("");

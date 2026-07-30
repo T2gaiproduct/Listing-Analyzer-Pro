@@ -192,21 +192,21 @@ function ProjectListRow({
 export default function RecentProjectsPage() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember } = useTeam();
-  const { activeWorkspaceId } = useWorkspace();
+  const { featureWorkspaceId, featureWorkspace, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [page, setPage] = useState(1);
 
-  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
   const { data, isLoading } = useGetRecents(
     { limit: 200 },
     {
       query: {
         queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
         staleTime: 30_000,
-        enabled: clerkLoaded && !!user && !!activeWorkspaceId,
+        enabled: clerkLoaded && !!user && !!featureWorkspaceId,
       },
     },
   );
@@ -242,7 +242,7 @@ export default function RecentProjectsPage() {
     onDelete: () => deleteMutation.mutateAsync({ type: item.type, id: item.id }),
   });
 
-  if (isLoading) {
+  if (wsLoading || (isLoading && featureWorkspaceId)) {
     return (
       <div className="space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-72" />
@@ -256,12 +256,29 @@ export default function RecentProjectsPage() {
     );
   }
 
+  if (!featureWorkspaceId || needsWorkspaceSelection) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+        <Folder className="w-12 h-12 text-slate-300 mb-4" />
+        <h2 className="text-lg font-semibold text-slate-900">Select a workspace</h2>
+        <p className="text-sm text-slate-500 mt-2 max-w-md">
+          Projects are scoped to a workspace. Choose one in the top bar, or create a workspace from the workspace dashboard.
+        </p>
+        <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
+          <Link href="/workspaces">Open workspace dashboard</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-[calc(100dvh-11rem)] sm:min-h-[calc(100dvh-10rem)] space-y-6 animate-in fade-in duration-500 w-full min-w-0 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Recent Projects</h1>
-          <p className="text-sm text-slate-500 mt-1">Quick access to your recently worked on projects.</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Projects in <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.
+          </p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

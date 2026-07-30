@@ -4,12 +4,20 @@ import { useUser } from "@clerk/react";
 import { format } from "date-fns";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Folder,
   TrendingUp,
   Clock,
   Wallet,
   ChevronRight,
+  Plus,
   FilePlus2,
   FileSearch,
   Palette,
@@ -23,6 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 import { fetchJson } from "@/lib/api-fetch";
 
@@ -153,16 +162,17 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember, memberCredits } = useTeam();
+  const { featureWorkspaceId, featureWorkspace, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard"],
+    queryKey: ["dashboard", featureWorkspaceId],
     queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
-    enabled: clerkLoaded && !!user,
+    enabled: clerkLoaded && !!user && !!featureWorkspaceId,
     staleTime: 30_000,
     retry: 3,
   });
 
-  if (isLoading) {
+  if (wsLoading || (isLoading && featureWorkspaceId)) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
@@ -173,6 +183,21 @@ export default function Dashboard() {
           <Skeleton className="h-80 rounded-2xl lg:col-span-2" />
           <Skeleton className="h-80 rounded-2xl" />
         </div>
+      </div>
+    );
+  }
+
+  if (!featureWorkspaceId || needsWorkspaceSelection) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+        <Folder className="w-12 h-12 text-slate-300 mb-4" />
+        <h2 className="text-lg font-semibold text-slate-900">Select a workspace</h2>
+        <p className="text-sm text-slate-500 mt-2 max-w-md">
+          Pick a workspace in the top bar to view its dashboard, or open the workspace dashboard to manage all workspaces.
+        </p>
+        <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
+          <Link href="/workspaces">Open workspace dashboard</Link>
+        </Button>
       </div>
     );
   }
@@ -223,11 +248,40 @@ export default function Dashboard() {
   return (
     <div className={cn("space-y-4 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
       {/* Welcome */}
-      <div>
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight">
-          Welcome back, {name}! 👋
-        </h1>
-        <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">Here&apos;s your overview for today.</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight">
+            Welcome back, {name}! 👋
+          </h1>
+          <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">
+            Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.
+          </p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shrink-0">
+              <Plus className="w-4 h-4" />
+              New Project
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem asChild>
+              <Link href="/audits/new">Build Your Brand</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/audit-listings">Audit Listings</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/projects/create">Create Graphics</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/videos">Create Videos</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/ads">Manage Ads</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Top stats row */}

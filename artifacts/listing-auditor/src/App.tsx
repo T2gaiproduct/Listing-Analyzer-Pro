@@ -320,11 +320,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (user && !isAdminUser && requiresOnboarding(summary) && !isTeamMember) {
     return <Redirect to="/onboarding" />;
   }
-  const Shell = isAdminUser ? AdminLayout : Layout;
+  // Customer SaaS routes always use the customer shell (workspace switcher, sidebar).
+  // Platform admins reach /admin/* via AdminRoute with AdminLayout.
   return (
     <>
       <Show when="signed-in">
-        <Shell>{children}</Shell>
+        <Layout>{children}</Layout>
       </Show>
       <Show when="signed-out">
         <Redirect to="/" />

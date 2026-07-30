@@ -5,6 +5,11 @@ import { Building2, ChevronDown, ChevronRight, Plus, Search, Check, LayoutGrid, 
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
+import {
+  isAccountScopedRoute,
+  isWorkspaceAdminOverviewRoute,
+  parseWorkspaceRouteId,
+} from "@/lib/workspace-routes";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,20 +22,11 @@ const DROPDOWN_PREVIEW_LIMIT = 8;
 type SortMode = "az" | "za";
 
 /** Pages scoped to the account, not a single workspace — don't highlight one workspace in the switcher. */
-function isAccountScopedRoute(location: string): boolean {
-  return location === "/roles";
-}
-
 function accountScopedPill(location: string): { name: string; subtitle: string } | null {
   if (location === "/roles") {
     return { name: "Account", subtitle: "Roles & permissions" };
   }
   return null;
-}
-
-/** Account-owner hub pages show a neutral workspace pill, not the active workspace name. */
-function isWorkspaceHubRoute(location: string): boolean {
-  return location === "/dashboard" || location === "/workspaces";
 }
 
 export function TopbarWorkspaceSwitcher() {
@@ -39,11 +35,14 @@ export function TopbarWorkspaceSwitcher() {
     workspaces,
     activeWorkspace,
     activeWorkspaceId,
+    featureWorkspaceId,
+    featureWorkspace,
     setActiveWorkspaceId,
     isAccountOwner,
     can,
     refetch,
     isLoading,
+    needsWorkspaceSelection,
   } = useWorkspace();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -72,11 +71,11 @@ export function TopbarWorkspaceSwitcher() {
 
   useEffect(() => {
     if (seeAllOpen) {
-      setPendingId(activeWorkspaceId);
+      setPendingId(featureWorkspaceId);
       setSearch("");
       setSort("az");
     }
-  }, [seeAllOpen, activeWorkspaceId]);
+  }, [seeAllOpen, featureWorkspaceId]);
 
   const sortedWorkspaces = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -124,7 +123,8 @@ export function TopbarWorkspaceSwitcher() {
     if (id !== activeWorkspaceId) setActiveWorkspaceId(id);
     setOpen(false);
     setSeeAllOpen(false);
-    if (isAccountOwner) {
+    if (!isAccountOwner) return;
+    if (/^\/workspaces\/\d+$/.test(location)) {
       navigate(`/workspaces/${id}`);
     }
   };
@@ -145,27 +145,30 @@ export function TopbarWorkspaceSwitcher() {
 
   const toggleDropdown = () => setOpen((v) => !v);
 
-  const onWorkspaceDashboard = isAccountOwner && isWorkspaceHubRoute(location);
+  const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
-  const workspaceDetailMatch = location.match(/^\/workspaces\/(\d+)$/);
-  const viewedWorkspaceId = workspaceDetailMatch ? Number(workspaceDetailMatch[1]) : null;
+  const viewedWorkspaceId = parseWorkspaceRouteId(location);
   const viewedWorkspace = viewedWorkspaceId
     ? workspaces.find((w) => w.id === viewedWorkspaceId) ?? null
     : null;
 
   const highlightedWorkspaceId = onWorkspaceDashboard || onAccountScopedPage
     ? null
-    : (viewedWorkspaceId ?? activeWorkspaceId);
+    : (viewedWorkspaceId ?? featureWorkspaceId);
+
+  const scopedWorkspace = viewedWorkspace ?? featureWorkspace;
 
   const pillName = onWorkspaceDashboard
     ? "Workspace dashboard"
     : accountPill?.name
-      ?? (viewedWorkspace?.name ?? activeWorkspace?.name ?? "Select workspace");
+      ?? (needsWorkspaceSelection ? "Select workspace" : scopedWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
     ? "All workspaces"
     : accountPill?.subtitle
-      ?? (viewedWorkspace?.clientLabel?.trim() || activeWorkspace?.clientLabel?.trim() || null);
+      ?? (needsWorkspaceSelection
+        ? "Choose a workspace to continue"
+        : (scopedWorkspace?.clientLabel?.trim() || null));
 
   if (!workspaces.length && !canCreate && !isLoading) return null;
 
@@ -333,6 +336,11 @@ export function TopbarWorkspaceSwitcher() {
       >
         <Building2 className="w-4 h-4 text-orange-500" />
         <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 leading-none mt-0.5">Workspace</span>
+        {onWorkspaceDashboard ? (
+          <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">Dashboard</span>
+        ) : (
+          <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">{pillName}</span>
+        )}
       </button>
 
       <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
@@ -368,7 +376,7 @@ export function TopbarWorkspaceSwitcher() {
             ) : (
               sortedWorkspaces.map((ws) => {
                 const selected = pendingId === ws.id;
-                const isCurrent = ws.id === activeWorkspaceId;
+                const isCurrent = featureWorkspaceId != null && ws.id === featureWorkspaceId;
                 return (
                   <button
                     key={ws.id}
