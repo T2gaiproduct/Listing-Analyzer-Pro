@@ -110,13 +110,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (isWorkspaceAdminOverviewRoute(location)) return;
     const owns = workspaces.some((w) => w.isAccountOwner);
     const billing = profileSummary?.accountRole?.type === "user";
-    if (!owns && !billing) return;
+    const sharedOnly = workspaces.length > 0 && !owns;
+    const teamMember = profileSummary?.accountRole?.type === "team_member";
+    if (!owns && !billing && !sharedOnly && !teamMember) return;
     if (selectedId != null && workspaces.some((w) => w.id === selectedId)) {
       setWorkspaceScopeCommitted(true);
     }
   }, [workspaces, selectedId, location, profileSummary?.accountRole?.type, workspaceScopeCommitted]);
 
+  const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
+  const hasOnlySharedWorkspaces = workspaces.length > 0 && !ownsAnyWorkspace;
+  const profileTeamMember = profileSummary?.accountRole?.type === "team_member";
+  const isTeamMemberAccount = profileTeamMember || hasOnlySharedWorkspaces;
+
   useEffect(() => {
+    if (listLoading) return;
     if (!workspaces.length) {
       if (selectedId != null) {
         setSelectedId(null);
@@ -126,23 +134,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       return;
     }
     const valid = selectedId != null && workspaces.some((w) => w.id === selectedId);
-    if (!valid) {
-      const userOwnsWorkspaces = workspaces.some((w) => w.isAccountOwner);
-      const billingAccountOwner = profileSummary?.accountRole?.type === "user";
-      if (userOwnsWorkspaces || billingAccountOwner) {
-        if (selectedId != null) {
-          setSelectedId(null);
-          localStorage.removeItem(STORAGE_KEY);
-        }
-        return;
-      }
-      const fallback = workspaces.find((w) => w.isDefault) ?? workspaces[0]!;
-      setSelectedId(fallback.id);
-      localStorage.setItem(STORAGE_KEY, String(fallback.id));
-    }
-  }, [workspaces, selectedId, profileSummary?.accountRole?.type]);
+    if (valid) return;
 
-  const isTeamMemberAccount = profileSummary?.accountRole?.type === "team_member";
+    const billingAccountOwner = profileSummary?.accountRole?.type === "user";
+    // Billing owners who own workspaces pick from the hub; everyone else auto-selects.
+    if (ownsAnyWorkspace && billingAccountOwner && !profileTeamMember) {
+      if (selectedId != null) {
+        setSelectedId(null);
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      return;
+    }
+
+    const fallback = workspaces.find((w) => w.isDefault) ?? workspaces[0]!;
+    setSelectedId(fallback.id);
+    localStorage.setItem(STORAGE_KEY, String(fallback.id));
+  }, [workspaces, selectedId, profileSummary?.accountRole?.type, profileTeamMember, ownsAnyWorkspace, listLoading]);
 
   useEffect(() => {
     if (!isTeamMemberAccount || !workspaces.length) return;
@@ -155,10 +162,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
   }, [isTeamMemberAccount, workspaces, selectedId, workspaceScopeCommitted]);
 
+  useEffect(() => {
+    if (isTeamMemberAccount && workspaces.length === 0 && !listLoading) {
+      void refetchList();
+    }
+  }, [isTeamMemberAccount, workspaces.length, listLoading, refetchList]);
+
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
-  const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
-  const isBillingAccountOwner = profileSummary?.accountRole?.type === "user";
+  const isBillingAccountOwner = profileSummary?.accountRole?.type === "user" && ownsAnyWorkspace;
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
@@ -173,7 +185,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isWorkspaceAccountOwner =
     permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
   const isAccountOwner =
-    isBillingAccountOwner || (ownsAnyWorkspace && !isTeamMemberAccount) || isWorkspaceAccountOwner;
+    isWorkspaceAccountOwner || (ownsAnyWorkspace && !isTeamMemberAccount && profileSummary?.accountRole?.type === "user");
 
   const featureWorkspaceId = workspaceApiScopeActive
     ? (isBillingAccountOwner && ownsAnyWorkspace && !workspaceScopeCommitted ? null : activeWorkspaceId)
@@ -187,8 +199,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     && !workspaceScopeCommitted;
 
   useEffect(() => {
-    setActiveWorkspaceId(featureWorkspaceId);
-  }, [featureWorkspaceId]);
+    setActiveWorkspaceId(activeWorkspaceId);
+  }, [activeWorkspaceId]);
 
   const can = useCallback(
     (feature: WorkspaceFeature, action: WorkspaceAction) => {

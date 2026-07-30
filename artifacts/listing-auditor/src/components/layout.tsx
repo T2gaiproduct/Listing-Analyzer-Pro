@@ -206,15 +206,18 @@ export function Layout({ children }: { children: ReactNode }) {
     needsWorkspaceSelection,
     isAccountOwner,
     isTeamMemberAccount,
+    activeWorkspaceId,
     isLoading: wsNavLoading,
     workspaces,
     setActiveWorkspaceId,
     canView,
+    roleName,
   } = useWorkspace();
 
-  const visibleNavItems = wsNavLoading
-    ? mainNavItems
-    : mainNavItems.filter((item) => isAccountOwner || canView(item.feature));
+  const navReady = isAccountOwner || (activeWorkspaceId != null && !wsNavLoading);
+  const visibleNavItems = navReady
+    ? mainNavItems.filter((item) => isAccountOwner || canView(item.feature))
+    : [];
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);

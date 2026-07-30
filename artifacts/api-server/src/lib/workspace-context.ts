@@ -71,14 +71,18 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       .where(eq(teamMembersTable.id, team.memberId))
       .limit(1);
     if (tm?.memberUserId && tm.status === "active") {
-      await syncTeamMemberWorkspaceMemberships({
-        ownerUserId: tm.ownerUserId,
-        memberUserId: tm.memberUserId,
-        invitedEmail: tm.invitedEmail,
-        invitedName: tm.invitedName,
-        roleId: tm.roleId,
-        legacyRole: normalizeLegacyRole(tm.role),
-      });
+      try {
+        await syncTeamMemberWorkspaceMemberships({
+          ownerUserId: tm.ownerUserId,
+          memberUserId: tm.memberUserId,
+          invitedEmail: tm.invitedEmail,
+          invitedName: tm.invitedName,
+          roleId: tm.roleId,
+          legacyRole: normalizeLegacyRole(tm.role),
+        });
+      } catch (syncErr) {
+        console.error("[workspaces] team member sync failed", syncErr);
+      }
     }
   }
 

@@ -6,8 +6,11 @@ import { CheckCircle, Mail, Shield, User, RefreshCw, AlertTriangle, ArrowRight }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { fetchJson } from "@/lib/api-fetch";
+import { setActiveWorkspaceId } from "@/lib/workspace-header";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const STORAGE_KEY = "la_active_workspace_id";
 
 interface InviteDetails {
   id: number;
@@ -70,17 +73,46 @@ export default function AcceptInvite() {
       }).then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error ?? "Failed to accept invite");
-        return data;
+        return data as {
+          ok: boolean;
+          defaultWorkspaceId?: number | null;
+          ownerUserId?: string;
+          role?: string;
+        };
       }),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       setAccepted(true);
       toast({ title: "Welcome to the team!", description: "You now have access to your team workspace." });
+
+      if (data.defaultWorkspaceId) {
+        localStorage.setItem(STORAGE_KEY, String(data.defaultWorkspaceId));
+        setActiveWorkspaceId(data.defaultWorkspaceId);
+      }
+
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["user-profile-summary"] }),
-        queryClient.refetchQueries({ queryKey: ["team-membership"] }),
-        queryClient.refetchQueries({ queryKey: ["team-membership-credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["team-membership"] }),
+        queryClient.invalidateQueries({ queryKey: ["team-membership-credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["workspaces"] }),
+        queryClient.invalidateQueries({ queryKey: ["workspace-permissions"] }),
       ]);
-      setTimeout(() => setLocation("/dashboard", { replace: true }), 800);
+
+      if (!data.defaultWorkspaceId) {
+        try {
+          const wsData = await fetchJson<{ workspaces: Array<{ id: number; isDefault: boolean }> }>(
+            `${basePath}/api/workspaces`,
+          );
+          const pick = wsData.workspaces.find((w) => w.isDefault) ?? wsData.workspaces[0];
+          if (pick) {
+            localStorage.setItem(STORAGE_KEY, String(pick.id));
+            setActiveWorkspaceId(pick.id);
+          }
+        } catch {
+          /* navigate anyway — workspace hook will auto-select */
+        }
+      }
+
+      setLocation("/dashboard", { replace: true });
     },
     onError: (e: Error) => toast({ title: "Failed to accept invite", description: e.message, variant: "destructive" }),
   });
