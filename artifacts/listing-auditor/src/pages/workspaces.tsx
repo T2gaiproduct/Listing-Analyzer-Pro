@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Archive, Users, Building2, ChevronRight, LayoutGrid } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
@@ -96,10 +96,10 @@ export default function WorkspacesPage() {
     onError: (err: Error) => toast({ title: "Failed to save workspace", description: err.message, variant: "destructive" }),
   });
 
-  const archiveWorkspace = useMutation({
+  const deleteWorkspace = useMutation({
     mutationFn: (id: number) =>
       fetch(`${basePath}/api/workspaces/${id}`, { method: "DELETE", credentials: "include" }).then((r) => {
-        if (!r.ok) throw new Error("Archive failed");
+        if (!r.ok) throw new Error("Delete failed");
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["workspaces"] });
@@ -107,11 +107,11 @@ export default function WorkspacesPage() {
       qc.invalidateQueries({ queryKey: ["archive"] });
       refetch();
       toast({
-        title: "Workspace archived",
-        description: "You can restore it anytime from Archive.",
+        title: "Workspace deleted",
+        description: "It was moved to Archive → Workspaces. You can restore it from there.",
       });
     },
-    onError: () => toast({ title: "Failed to archive workspace", variant: "destructive" }),
+    onError: () => toast({ title: "Failed to delete workspace", variant: "destructive" }),
   });
 
   const displayWorkspaces = isAccountOwner && overview
@@ -250,16 +250,16 @@ export default function WorkspacesPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-amber-700 gap-1.5"
+                    className="text-red-600 gap-1.5"
                     onClick={() => {
                       const message = ws.isDefault
-                        ? `Archive default workspace "${ws.name}"? Another workspace will become the new default. You can restore it from Archive.`
-                        : `Archive workspace "${ws.name}"? You can restore it from Archive.`;
-                      if (confirm(message)) archiveWorkspace.mutate(ws.id);
+                        ? `Delete default workspace "${ws.name}"? It will be removed from this dashboard and moved to Archive → Workspaces. Another workspace will become the new default.`
+                        : `Delete workspace "${ws.name}"? It will be removed from this dashboard and moved to Archive → Workspaces.`;
+                      if (confirm(message)) deleteWorkspace.mutate(ws.id);
                     }}
                   >
-                    <Archive className="w-3.5 h-3.5" />
-                    Archive
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
                   </Button>
                 )}
               </div>
