@@ -145,7 +145,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
   const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
   const isBillingAccountOwner = profileSummary?.accountRole?.type === "user";
-  const isAccountOwnerHint = isBillingAccountOwner || ownsAnyWorkspace;
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
