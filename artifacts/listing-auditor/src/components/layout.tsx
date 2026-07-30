@@ -57,8 +57,8 @@ const mainNavItems = [
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings" },
   { icon: Palette, label: "Create Graphics", href: "/projects" },
-  { icon: Video, label: "Create Video", href: "/videos", comingSoon: true },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads", comingSoon: true },
+  { icon: Video, label: "Create Video", href: "/videos" },
+  { icon: Megaphone, label: "Manage Ads", href: "/ads" },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects" },
 ];
 
@@ -194,7 +194,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const { defaultRoute, can } = useAdminPermissions();
   const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin");
   const {
-    activeWorkspaceId,
     featureWorkspaceId,
     isWorkspaceApiScopeActive,
     needsWorkspaceSelection,
