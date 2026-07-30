@@ -682,7 +682,7 @@ export default function Team() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Total memberships</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-500">Total members</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-slate-900">{adminSummary.totalMemberships}</p>
