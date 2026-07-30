@@ -158,7 +158,10 @@ export default function WorkspacesPage() {
   });
 
   const displayWorkspaces = isAccountOwner && overview
-    ? overview.workspaces
+    ? overview.workspaces.map((ws) => ({
+        ...ws,
+        members: ws.members ?? [],
+      }))
     : workspaces.map((ws) => ({
         id: ws.id,
         name: ws.name,
@@ -168,6 +171,7 @@ export default function WorkspacesPage() {
         memberCount: 0,
         activeMemberCount: 0,
         pendingMemberCount: 0,
+        members: [] as WorkspaceMemberListItem[],
       }));
 
   return (

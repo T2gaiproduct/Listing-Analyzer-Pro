@@ -494,7 +494,7 @@ export default function Team() {
                         <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
                       )}
                     </div>
-                    <WorkspaceMembersList members={ws.members} />
+                    <WorkspaceMembersList members={ws.members ?? []} />
                     <Link href={`/workspaces/${ws.id}/members`}>
                       <Button variant="outline" size="sm" className="gap-1.5">
                         <ChevronRight className="w-3.5 h-3.5" />

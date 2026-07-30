@@ -178,7 +178,7 @@ export async function getWorkspaceMemberSummaryForOwner(
         memberCount: stats.total,
         activeMemberCount: stats.active,
         pendingMemberCount: stats.pending,
-        members: stats.members,
+        members: includeMembers ? stats.members : [],
       };
     }),
   };
