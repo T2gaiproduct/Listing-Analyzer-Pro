@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMUX_CONF="${TMUX_CONF:-/exec-daemon/tmux.portal.conf}"
 DATABASE_URL="${DATABASE_URL:-postgresql://lauser:lapass@127.0.0.1:5432/listingauditor}"
+CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-$HOME/.local/bin/cloudflared}"
+PUBLIC_URL_FILE="/tmp/public-url.txt"
+TUNNEL_LOG="/tmp/cloudflared-url.log"
 
 # Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
@@ -39,6 +42,90 @@ wait_for_url() {
   done
   echo "ERROR: $label failed to start ($url)" >&2
   return 1
+}
+
+ensure_cloudflared() {
+  if [[ -x "$CLOUDFLARED_BIN" ]]; then
+    return
+  fi
+
+  if [[ -x /tmp/cloudflared ]]; then
+    CLOUDFLARED_BIN=/tmp/cloudflared
+    return
+  fi
+
+  echo "==> Installing cloudflared"
+  mkdir -p "$(dirname "$CLOUDFLARED_BIN")"
+  curl -fsSL \
+    https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+    -o "$CLOUDFLARED_BIN"
+  chmod +x "$CLOUDFLARED_BIN"
+}
+
+tunnel_url_from_log() {
+  if [[ -f "$TUNNEL_LOG" ]]; then
+    rg -o 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" | tail -1 || true
+  fi
+}
+
+public_url_is_healthy() {
+  local url="$1"
+  [[ -n "$url" ]] || return 1
+
+  local host="${url#https://}"
+  host="${host%%/*}"
+
+  if ! dig @1.1.1.1 +short "$host" | rg -q '.'; then
+    return 1
+  fi
+
+  curl -sf --max-time 15 "$url/" >/dev/null
+}
+
+wait_for_public_url() {
+  local url=""
+  for _ in {1..45}; do
+    url=$(tunnel_url_from_log)
+    if public_url_is_healthy "$url"; then
+      echo "$url"
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+start_cloudflare_tunnel() {
+  ensure_cloudflared
+
+  echo "==> Starting Cloudflare tunnel"
+  tmux_cmd kill-session -t cloudflare-tunnel 2>/dev/null || true
+  tmux_cmd kill-session -t cf-tunnel 2>/dev/null || true
+  sleep 1
+  : >"$TUNNEL_LOG"
+
+  tmux_cmd new-session -d -s cloudflare-tunnel -c "$ROOT" -- bash -lc "
+    exec '$CLOUDFLARED_BIN' tunnel --url http://127.0.0.1:3000 2>&1 | tee '$TUNNEL_LOG'
+  "
+}
+
+ensure_cloudflare_tunnel() {
+  local existing_url=""
+  if [[ -f "$PUBLIC_URL_FILE" ]]; then
+    existing_url=$(tr -d '[:space:]' <"$PUBLIC_URL_FILE")
+  fi
+
+  if tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null; then
+    existing_url="${existing_url:-$(tunnel_url_from_log)}"
+    if public_url_is_healthy "$existing_url"; then
+      echo "$existing_url"
+      return 0
+    fi
+    echo "==> Existing Cloudflare tunnel is unhealthy; restarting"
+  fi
+
+  start_cloudflare_tunnel
+  wait_for_public_url
 }
 
 # Each Cloudflare quick-tunnel URL is a new hostname. Clerk must proxy FAPI through
@@ -166,24 +253,11 @@ tmux_cmd new-session -d -s dev-proxy -c "$ROOT" -- bash -lc "
 wait_for_url "http://127.0.0.1:3000/__devproxy/health" "Dev proxy" 15
 wait_for_url "http://127.0.0.1:3000/admin/dashboard" "Admin page via proxy" 15
 
-echo "==> Starting Cloudflare tunnel"
-tmux_cmd kill-session -t cloudflare-tunnel 2>/dev/null || true
-tmux_cmd kill-session -t cf-tunnel 2>/dev/null || true
-sleep 1
-: > /tmp/cloudflared-url.log
-tmux_cmd new-session -d -s cloudflare-tunnel -c "$ROOT" -- bash -lc "
-  CLOUDFLARED=\"\${CLOUDFLARED:-\$(command -v cloudflared || echo /tmp/cloudflared)}\"
-  \"\$CLOUDFLARED\" tunnel --url http://127.0.0.1:3000 2>&1 | tee /tmp/cloudflared-url.log
-"
-
 PUBLIC_URL=""
-for i in {1..20}; do
-  PUBLIC_URL=$(rg -o 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cloudflared-url.log 2>/dev/null | tail -1 || true)
-  if [[ -n "$PUBLIC_URL" ]]; then
-    break
-  fi
-  sleep 2
-done
+if public_url=$(ensure_cloudflare_tunnel); then
+  PUBLIC_URL="$public_url"
+  printf '%s\n' "$PUBLIC_URL" >"$PUBLIC_URL_FILE"
+fi
 
 echo ""
 echo "Stack ready"
@@ -232,5 +306,5 @@ if [[ -n "$PUBLIC_URL" ]]; then
   wait_for_url "http://127.0.0.1:19145/" "Frontend (Clerk proxy)" 45
   wait_for_url "http://127.0.0.1:3000/admin/dashboard" "Admin page via proxy" 15
 else
-  echo "  Cloudflare: (still starting — check /tmp/cloudflared-url.log)"
+  echo "  Cloudflare: (still starting — check $TUNNEL_LOG)"
 fi
