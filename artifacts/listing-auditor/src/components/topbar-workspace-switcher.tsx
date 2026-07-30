@@ -71,11 +71,11 @@ export function TopbarWorkspaceSwitcher() {
 
   useEffect(() => {
     if (seeAllOpen) {
-      setPendingId(activeWorkspaceId);
+      setPendingId(featureWorkspaceId);
       setSearch("");
       setSort("az");
     }
-  }, [seeAllOpen, activeWorkspaceId]);
+  }, [seeAllOpen, featureWorkspaceId]);
 
   const sortedWorkspaces = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -155,11 +155,9 @@ export function TopbarWorkspaceSwitcher() {
 
   const highlightedWorkspaceId = onWorkspaceDashboard || onAccountScopedPage
     ? null
-    : (viewedWorkspaceId ?? featureWorkspaceId ?? activeWorkspaceId);
+    : (viewedWorkspaceId ?? featureWorkspaceId);
 
-  const scopedWorkspace = viewedWorkspace
-    ?? featureWorkspace
-    ?? (needsWorkspaceSelection ? null : activeWorkspace);
+  const scopedWorkspace = viewedWorkspace ?? featureWorkspace;
 
   const pillName = onWorkspaceDashboard
     ? "Workspace dashboard"
@@ -378,7 +376,7 @@ export function TopbarWorkspaceSwitcher() {
             ) : (
               sortedWorkspaces.map((ws) => {
                 const selected = pendingId === ws.id;
-                const isCurrent = ws.id === activeWorkspaceId;
+                const isCurrent = featureWorkspaceId != null && ws.id === featureWorkspaceId;
                 return (
                   <button
                     key={ws.id}

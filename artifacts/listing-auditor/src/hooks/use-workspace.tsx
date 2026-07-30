@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -74,16 +74,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(() => readStoredWorkspaceId());
-  const [workspaceScopeCommitted, setWorkspaceScopeCommitted] = useState(
-    () => readStoredWorkspaceId() != null,
-  );
+  const [workspaceScopeCommitted, setWorkspaceScopeCommitted] = useState(false);
+  const overviewVisitedThisSession = useRef(false);
   const workspaceApiScopeActive = isWorkspaceApiScopeActive(location);
 
   useEffect(() => {
     if (isWorkspaceAdminOverviewRoute(location)) {
+      overviewVisitedThisSession.current = true;
       setWorkspaceScopeCommitted(false);
     }
   }, [location]);
+
+  useEffect(() => {
+    if (!workspaces.length || workspaceScopeCommitted || overviewVisitedThisSession.current) return;
+    if (isWorkspaceAdminOverviewRoute(location)) return;
+    const owns = workspaces.some((w) => w.isAccountOwner);
+    const billing = profileSummary?.accountRole?.type === "user";
+    if (!owns && !billing) return;
+    if (selectedId != null && workspaces.some((w) => w.id === selectedId)) {
+      setWorkspaceScopeCommitted(true);
+    }
+  }, [workspaces, selectedId, location, profileSummary?.accountRole?.type, workspaceScopeCommitted]);
 
   const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
@@ -115,11 +126,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
     const valid = selectedId != null && workspaces.some((w) => w.id === selectedId);
     if (!valid) {
+      const userOwnsWorkspaces = workspaces.some((w) => w.isAccountOwner);
+      const billingAccountOwner = profileSummary?.accountRole?.type === "user";
+      if (userOwnsWorkspaces || billingAccountOwner) {
+        if (selectedId != null) {
+          setSelectedId(null);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+        return;
+      }
       const fallback = workspaces.find((w) => w.isDefault) ?? workspaces[0]!;
       setSelectedId(fallback.id);
       localStorage.setItem(STORAGE_KEY, String(fallback.id));
     }
-  }, [workspaces, selectedId]);
+  }, [workspaces, selectedId, profileSummary?.accountRole?.type]);
 
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
