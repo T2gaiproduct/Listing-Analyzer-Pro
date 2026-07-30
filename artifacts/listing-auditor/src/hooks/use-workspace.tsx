@@ -7,7 +7,7 @@ import {
   type WorkspaceAction,
   type WorkspaceRolePermissions,
 } from "@workspace/workspace-permissions";
-import { fetchJson, useApiAuthReady } from "@/lib/api-fetch";
+import { fetchJson } from "@/lib/api-fetch";
 import { setActiveWorkspaceId } from "@/lib/workspace-header";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -63,13 +63,12 @@ function readStoredWorkspaceId(): number | null {
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
   const qc = useQueryClient();
-  const apiAuthReady = useApiAuthReady();
   const [selectedId, setSelectedId] = useState<number | null>(() => readStoredWorkspaceId());
 
   const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => fetchJson<{ workspaces: WorkspaceSummary[] }>(`${basePath}/api/workspaces`),
-    enabled: isLoaded && !!user && apiAuthReady,
+    enabled: isLoaded && !!user,
     staleTime: 60_000,
   });
 
@@ -96,7 +95,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     queryKey: ["workspace-permissions", activeWorkspaceId],
     queryFn: () =>
       fetchJson<WorkspacePermissionsResponse>(`${basePath}/api/workspaces/${activeWorkspaceId}/permissions/me`),
-    enabled: isLoaded && !!user && !!activeWorkspaceId && apiAuthReady,
+    enabled: isLoaded && !!user && !!activeWorkspaceId,
     staleTime: 30_000,
   });
 

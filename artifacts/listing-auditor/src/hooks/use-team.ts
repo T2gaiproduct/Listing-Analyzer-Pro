@@ -1,7 +1,7 @@
 import { useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchJson, fetchJsonArray, useApiAuthReady } from "@/lib/api-fetch";
+import { fetchJson, fetchJsonArray } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -37,12 +37,11 @@ export interface TeamContext {
 export function useTeam(): TeamContext {
   const { user, isLoaded } = useUser();
   const { canEdit: wsCanEdit, isAccountOwner: wsOwner, isLoading: wsLoading, workspaces } = useWorkspace();
-  const apiAuthReady = useApiAuthReady();
 
   const { data, isLoading } = useQuery<TeamMembership[]>({
     queryKey: ["team-membership"],
     queryFn: () => fetchJsonArray<TeamMembership>(`${basePath}/api/team/membership`),
-    enabled: isLoaded && !!user && apiAuthReady,
+    enabled: isLoaded && !!user,
     staleTime: 60_000,
     retry: 3,
   });
@@ -55,7 +54,7 @@ export function useTeam(): TeamContext {
       ),
     staleTime: 60_000,
     retry: 3,
-    enabled: !!data && data.length > 0 && apiAuthReady,
+    enabled: !!data && data.length > 0,
   });
 
   const membership = data && data.length > 0 ? data[0] : null;
