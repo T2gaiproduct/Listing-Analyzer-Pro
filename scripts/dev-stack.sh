@@ -304,6 +304,14 @@ if [[ -n "$PUBLIC_URL" ]]; then
 
   wait_for_url "http://127.0.0.1:8080/api/healthz" "API server (Clerk proxy)" 30
   wait_for_url "http://127.0.0.1:19145/" "Frontend (Clerk proxy)" 45
+
+  echo "==> Restarting dev proxy (port 3000)"
+  tmux_cmd kill-session -t dev-proxy 2>/dev/null || true
+  tmux_cmd new-session -d -s dev-proxy -c "$ROOT" -- bash -lc "
+    node scripts/dev-proxy.mjs
+  "
+
+  wait_for_url "http://127.0.0.1:3000/__devproxy/health" "Dev proxy" 15
   wait_for_url "http://127.0.0.1:3000/admin/dashboard" "Admin page via proxy" 15
 else
   echo "  Cloudflare: (still starting — check $TUNNEL_LOG)"
