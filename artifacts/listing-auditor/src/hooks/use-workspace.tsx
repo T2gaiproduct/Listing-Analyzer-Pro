@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { isWorkspaceApiScopeActive } from "@/lib/workspace-routes";
 import {
   hasWorkspacePermission,
   type WorkspaceFeature,
@@ -44,6 +46,8 @@ interface WorkspaceContextValue {
   canView: (feature: WorkspaceFeature) => boolean;
   canEdit: (feature: WorkspaceFeature) => boolean;
   canManageWorkspaces: boolean;
+  /** False on workspace admin hub and account routes — project APIs should not run. */
+  isWorkspaceApiScopeActive: boolean;
   refetch: () => void;
 }
 
@@ -61,9 +65,11 @@ function readStoredWorkspaceId(): number | null {
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const [location] = useLocation();
   const { user, isLoaded } = useUser();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(() => readStoredWorkspaceId());
+  const workspaceApiScopeActive = isWorkspaceApiScopeActive(location);
 
   const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
@@ -105,8 +111,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
   useEffect(() => {
-    setActiveWorkspaceId(activeWorkspaceId);
-  }, [activeWorkspaceId]);
+    setActiveWorkspaceId(workspaceApiScopeActive ? activeWorkspaceId : null);
+  }, [activeWorkspaceId, workspaceApiScopeActive]);
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
@@ -170,10 +176,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     canView,
     canEdit,
     canManageWorkspaces: isAccountOwner || can("workspaces", "viewGlobal"),
+    isWorkspaceApiScopeActive: workspaceApiScopeActive,
     refetch: () => { void refetchList(); },
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, permissions, roleName, isAccountOwner,
     listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, refetchList,
+    workspaceApiScopeActive,
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

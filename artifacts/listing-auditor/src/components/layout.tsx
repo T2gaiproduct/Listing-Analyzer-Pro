@@ -290,9 +290,9 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const { isTeamMember, memberCredits } = useTeam();
-  const { activeWorkspaceId } = useWorkspace();
+  const { activeWorkspaceId, isWorkspaceApiScopeActive } = useWorkspace();
 
-  const recentsReady = clerkLoaded && !!user && !!activeWorkspaceId;
+  const recentsReady = clerkLoaded && !!user && !!activeWorkspaceId && isWorkspaceApiScopeActive;
 
   // Fetch unified recents for sidebar (scoped to active workspace)
   const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
@@ -308,15 +308,15 @@ export function Layout({ children }: { children: ReactNode }) {
   );
   const recents = (recentsData?.items ?? []) as RecentItem[];
 
-  // Search projects
+  // Search projects (scoped to active workspace)
   const { data: searchData } = useQuery({
-    queryKey: ["search-projects", searchQuery],
+    queryKey: ["search-projects", searchQuery, activeWorkspaceId],
     queryFn: async () => {
       const r = await fetch(`${basePath}/api/search/projects?q=${encodeURIComponent(searchQuery)}&limit=50`, { credentials: "include" });
       if (!r.ok) return { items: [] };
       return r.json() as Promise<{ items: RecentItem[] }>;
     },
-    enabled: searchQuery.length > 0,
+    enabled: isWorkspaceApiScopeActive && searchQuery.length > 0 && !!activeWorkspaceId,
     staleTime: 0,
   });
   const searchResults = (searchData?.items ?? []) as RecentItem[];

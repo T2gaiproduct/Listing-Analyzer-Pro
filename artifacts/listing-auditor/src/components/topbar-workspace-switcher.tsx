@@ -5,6 +5,11 @@ import { Building2, ChevronDown, ChevronRight, Plus, Search, Check, LayoutGrid, 
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
+import {
+  isAccountScopedRoute,
+  isWorkspaceAdminOverviewRoute,
+  parseWorkspaceRouteId,
+} from "@/lib/workspace-routes";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,20 +22,11 @@ const DROPDOWN_PREVIEW_LIMIT = 8;
 type SortMode = "az" | "za";
 
 /** Pages scoped to the account, not a single workspace — don't highlight one workspace in the switcher. */
-function isAccountScopedRoute(location: string): boolean {
-  return location === "/roles";
-}
-
 function accountScopedPill(location: string): { name: string; subtitle: string } | null {
   if (location === "/roles") {
     return { name: "Account", subtitle: "Roles & permissions" };
   }
   return null;
-}
-
-/** Account overview pages — neutral workspace pill (not a single workspace name). */
-function isWorkspaceOverviewRoute(location: string): boolean {
-  return location === "/dashboard" || location === "/workspaces";
 }
 
 export function TopbarWorkspaceSwitcher() {
@@ -146,11 +142,10 @@ export function TopbarWorkspaceSwitcher() {
 
   const toggleDropdown = () => setOpen((v) => !v);
 
-  const onWorkspaceDashboard = isAccountOwner && isWorkspaceOverviewRoute(location);
+  const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
-  const workspaceDetailMatch = location.match(/^\/workspaces\/(\d+)$/);
-  const viewedWorkspaceId = workspaceDetailMatch ? Number(workspaceDetailMatch[1]) : null;
+  const viewedWorkspaceId = parseWorkspaceRouteId(location);
   const viewedWorkspace = viewedWorkspaceId
     ? workspaces.find((w) => w.id === viewedWorkspaceId) ?? null
     : null;
