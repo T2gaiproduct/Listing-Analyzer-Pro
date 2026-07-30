@@ -219,6 +219,53 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
 
 // ─── Get / update / delete workspace ─────────────────────────────────────────
 
+// ─── Workspace credit pool (account owner → workspace) — register before /workspaces/:id ─
+
+router.patch("/workspaces/:id/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  await ensureWorkspaceCreditsMigrated();
+  const ctx = (req as WorkspaceAuthedRequest).workspace;
+  const userId = (req as AuthedRequest).userId;
+  if (!ctx.isAccountOwner || userId !== ctx.accountOwnerId) {
+    res.status(403).json({ error: "Only the account owner can fund workspace credit pools" });
+    return;
+  }
+
+  const { aiCredits, imageCredits, auditCredits } = req.body as {
+    aiCredits?: number;
+    imageCredits?: number;
+    auditCredits?: number;
+  };
+
+  try {
+    const result = await setWorkspaceCreditPool(
+      ctx.accountOwnerId,
+      ctx.workspaceId,
+      aiCredits ?? 0,
+      imageCredits ?? 0,
+      auditCredits ?? 0,
+    );
+    const inPools = await sumWorkspacePoolsForOwner(ctx.accountOwnerId);
+    res.json({
+      workspaceCredits: result.workspaceCredits,
+      accountCredits: result.accountCredits,
+      inWorkspacePools: inPools,
+      availableToFundWorkspaces: {
+        aiCredits: Math.max(0, result.accountCredits.aiCredits),
+        imageCredits: Math.max(0, result.accountCredits.imageCredits),
+        auditCredits: Math.max(0, result.accountCredits.auditCredits),
+      },
+    });
+  } catch (err) {
+    const e = err as Error & { code?: string };
+    if (e.code === "INSUFFICIENT_ACCOUNT" || e.code === "BELOW_MEMBER_ALLOCATIONS") {
+      res.status(400).json({ error: e.message, code: e.code });
+      return;
+    }
+    console.error("[workspaces] pool update failed", err);
+    res.status(500).json({ error: "Failed to update workspace credit pool" });
+  }
+});
+
 router.get("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
   const [ws] = await db.select().from(workspacesTable).where(eq(workspacesTable.id, ctx.workspaceId)).limit(1);
@@ -390,53 +437,6 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
       };
     }),
   });
-});
-
-// ─── Workspace credit pool (account owner → workspace) ───────────────────────
-
-router.patch("/workspaces/:workspaceId/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
-  await ensureWorkspaceCreditsMigrated();
-  const ctx = (req as WorkspaceAuthedRequest).workspace;
-  const userId = (req as AuthedRequest).userId;
-  if (!ctx.isAccountOwner || userId !== ctx.accountOwnerId) {
-    res.status(403).json({ error: "Only the account owner can fund workspace credit pools" });
-    return;
-  }
-
-  const { aiCredits, imageCredits, auditCredits } = req.body as {
-    aiCredits?: number;
-    imageCredits?: number;
-    auditCredits?: number;
-  };
-
-  try {
-    const result = await setWorkspaceCreditPool(
-      ctx.accountOwnerId,
-      ctx.workspaceId,
-      aiCredits ?? 0,
-      imageCredits ?? 0,
-      auditCredits ?? 0,
-    );
-    const inPools = await sumWorkspacePoolsForOwner(ctx.accountOwnerId);
-    res.json({
-      workspaceCredits: result.workspaceCredits,
-      accountCredits: result.accountCredits,
-      inWorkspacePools: inPools,
-      availableToFundWorkspaces: {
-        aiCredits: Math.max(0, result.accountCredits.aiCredits),
-        imageCredits: Math.max(0, result.accountCredits.imageCredits),
-        auditCredits: Math.max(0, result.accountCredits.auditCredits),
-      },
-    });
-  } catch (err) {
-    const e = err as Error & { code?: string };
-    if (e.code === "INSUFFICIENT_ACCOUNT" || e.code === "BELOW_MEMBER_ALLOCATIONS") {
-      res.status(400).json({ error: e.message, code: e.code });
-      return;
-    }
-    console.error("[workspaces] pool update failed", err);
-    res.status(500).json({ error: "Failed to update workspace credit pool" });
-  }
 });
 
 router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {

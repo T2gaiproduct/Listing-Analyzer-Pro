@@ -23,7 +23,7 @@ export async function ensureWorkspaceCreditsMigrated(): Promise<void> {
   await db.execute(sql`ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_member_id integer`);
   await db.execute(sql`ALTER TABLE member_credits ALTER COLUMN member_id DROP NOT NULL`);
   await db.execute(sql`ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS workspace_id integer`);
-  await db.execute(sql`DROP INDEX IF EXISTS member_credits_member_id_unique`);
+  await db.execute(sql`ALTER TABLE member_credits DROP CONSTRAINT IF EXISTS member_credits_member_id_unique`);
   await db.execute(sql`
     CREATE UNIQUE INDEX IF NOT EXISTS member_credits_workspace_member_uniq
       ON member_credits (workspace_member_id)

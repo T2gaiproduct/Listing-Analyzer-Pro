@@ -118,7 +118,7 @@ ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_id integer;
 ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_member_id integer;
 ALTER TABLE member_credits ALTER COLUMN member_id DROP NOT NULL;
 ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS workspace_id integer;
-DROP INDEX IF EXISTS member_credits_member_id_unique;
+ALTER TABLE member_credits DROP CONSTRAINT IF EXISTS member_credits_member_id_unique;
 CREATE UNIQUE INDEX IF NOT EXISTS member_credits_workspace_member_uniq
   ON member_credits (workspace_member_id)
   WHERE workspace_member_id IS NOT NULL;
