@@ -115,6 +115,21 @@ export default function WorkspacesPage() {
           localStorage.removeItem(STORAGE_KEY);
         }
       }
+
+      qc.setQueryData<WorkspaceOverview>(["workspaces-overview"], (old) => {
+        if (!old) return old;
+        const nextWorkspaces = old.workspaces.filter((w) => w.id !== deletedId);
+        return {
+          ...old,
+          totalWorkspaces: nextWorkspaces.length,
+          workspaces: nextWorkspaces,
+        };
+      });
+      qc.setQueryData<{ workspaces: typeof workspaces }>(["workspaces"], (old) => {
+        if (!old) return old;
+        return { workspaces: old.workspaces.filter((w) => w.id !== deletedId) };
+      });
+
       await qc.invalidateQueries({ queryKey: ["workspaces"] });
       await qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
       await qc.invalidateQueries({ queryKey: ["archive"] });

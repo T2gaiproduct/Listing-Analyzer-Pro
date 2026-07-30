@@ -54,17 +54,7 @@ async function purgeLegacySystemRoles(): Promise<void> {
   }
 }
 
-async function accountNeedsWorkspaceMigration(accountOwnerId: string): Promise<boolean> {
-  const [existingWs] = await db
-    .select({ id: workspacesTable.id })
-    .from(workspacesTable)
-    .where(and(
-      eq(workspacesTable.accountOwnerId, accountOwnerId),
-      eq(workspacesTable.isDeleted, 0),
-    ))
-    .limit(1);
-  if (existingWs) return true;
-
+async function hasUnmigratedLegacyData(accountOwnerId: string): Promise<boolean> {
   const unmigratedChecks = await Promise.all([
     db.select({ id: auditsTable.id }).from(auditsTable)
       .where(and(eq(auditsTable.userId, accountOwnerId), isNull(auditsTable.workspaceId))).limit(1),
@@ -81,6 +71,30 @@ async function accountNeedsWorkspaceMigration(accountOwnerId: string): Promise<b
   ]);
 
   return unmigratedChecks.some(([row]) => row != null);
+}
+
+async function accountNeedsWorkspaceMigration(accountOwnerId: string): Promise<boolean> {
+  const [existingWs] = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.isDeleted, 0),
+    ))
+    .limit(1);
+  if (existingWs) {
+    return hasUnmigratedLegacyData(accountOwnerId);
+  }
+
+  // User deleted all workspaces — do not recreate Default Workspace.
+  const [everHadWorkspace] = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(eq(workspacesTable.accountOwnerId, accountOwnerId))
+    .limit(1);
+  if (everHadWorkspace) return false;
+
+  return hasUnmigratedLegacyData(accountOwnerId);
 }
 
 async function ensureDefaultWorkspace(accountOwnerId: string): Promise<number> {
