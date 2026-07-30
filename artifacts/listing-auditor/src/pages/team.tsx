@@ -1,11 +1,11 @@
-import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { useLocation, Link } from "wouter";
 import {
   Users, Plus, Trash2, Mail, Shield, MoreHorizontal,
-  CheckCircle2, Copy, ExternalLink, Clock, BarChart3, Zap, RefreshCw,
-  AlertTriangle, X, Building2, ChevronRight,
+  CheckCircle2, Copy, Clock, BarChart3, Zap,
+  AlertTriangle, Building2, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -366,9 +366,6 @@ export default function Team() {
   const isWorkspaceTeamView = scopedWorkspaceId != null;
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ name: "", email: "", roleId: "" });
-  const [createdInvite, setCreatedInvite] = useState<{ token: string; invitedName: string; invitedEmail: string } | null>(null);
 
   const { data: rolesData } = useQuery({
     queryKey: ["account-roles"],
@@ -376,18 +373,6 @@ export default function Team() {
     enabled: isAccountOwner,
   });
   const accountRoles = rolesData?.roles ?? [];
-
-  useEffect(() => {
-    if (accountRoles.length > 0 && !inviteForm.roleId) {
-      setInviteForm((p) => ({ ...p, roleId: String(accountRoles[0]!.id) }));
-    }
-  }, [accountRoles, inviteForm.roleId]);
-
-  useEffect(() => {
-    if (showInvite) {
-      document.getElementById("team-invite-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [showInvite]);
 
   const { data, isLoading } = useQuery<TeamData>({
     queryKey: ["team", scopedWorkspaceId],
@@ -444,19 +429,6 @@ export default function Team() {
       pendingInvites?: number;
     }>(`${basePath}/api/workspaces/overview`),
     enabled: isAdminTeamView,
-  });
-
-  const inviteMutation = useMutation({
-    mutationFn: (body: { invitedEmail: string; invitedName: string; roleId: number }) =>
-      fetch(`${basePath}/api/team/invite`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["team"] });
-      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
-      setCreatedInvite({ token: data.token, invitedName: data.invite.invitedName, invitedEmail: data.invite.invitedEmail });
-      setInviteForm({ name: "", email: "", roleId: accountRoles[0] ? String(accountRoles[0].id) : "" });
-    },
-    onError: (e: Error) => toast({ title: "Invite failed", description: e.message, variant: "destructive" }),
   });
 
   const roleMutation = useMutation({
@@ -611,27 +583,6 @@ export default function Team() {
             <p className="text-xs text-slate-400 mt-1">Your role: <span className="font-medium capitalize">{role}</span></p>
           )}
         </div>
-        {canManage && isAdminTeamView && (
-          <Button
-            className="bg-orange-500 hover:bg-orange-600 text-white"
-            onClick={() => {
-              if (accountRoles.length === 0) {
-                toast({
-                  title: "Create a role first",
-                  description: "Go to Roles and create at least one role before inviting members.",
-                  variant: "destructive",
-                });
-                return;
-              }
-              setShowInvite(true);
-              setCreatedInvite(null);
-            }}
-            disabled={isAtLimit}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Invite Member
-          </Button>
-        )}
         {canManage && isWorkspaceTeamView && scopedWorkspaceId != null && (
           <Link href={`/workspaces/${scopedWorkspaceId}/members`}>
             <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
@@ -818,129 +769,11 @@ export default function Team() {
           <div>
             <p className="text-sm font-medium text-amber-900">No roles defined yet</p>
             <p className="text-xs text-amber-700 mt-1">
-              Create roles on the <Link href="/roles" className="underline font-semibold">Roles</Link> page before inviting team members.
+              Create roles on the <Link href="/roles" className="underline font-semibold">Roles</Link> page, then invite members from a workspace&apos;s Members page.
             </p>
           </div>
         </div>
       ) : null}
-
-      {/* Invite form */}
-      {isAdminTeamView && showInvite && canManage && (
-        <div id="team-invite-panel" className="bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-orange-500" />
-              Invite a team member
-            </h2>
-            <Button variant="ghost" size="sm" onClick={() => { setShowInvite(false); setCreatedInvite(null); }}><X className="w-4 h-4" /></Button>
-          </div>
-
-          {createdInvite ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 text-green-700 bg-green-50 rounded-xl p-4">
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-sm">Invite created for {createdInvite.invitedName}</p>
-                  <p className="text-xs text-green-600 mt-0.5">Share the link below with {createdInvite.invitedEmail}</p>
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs font-medium text-slate-500 mb-1.5 block">Invite Link</Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={getInviteUrl(createdInvite.token)}
-                    className="font-mono text-xs bg-slate-50 text-slate-600 flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(getInviteUrl(createdInvite.token), "Invite link", toast)}
-                  >
-                    <Copy className="w-4 h-4 mr-1.5" />Copy
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(getInviteUrl(createdInvite.token), "_blank")}
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-slate-400 mt-1.5">Share this link with your team member. They'll need to sign up or sign in to accept.</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setCreatedInvite(null)}>Invite Another</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setShowInvite(false); setCreatedInvite(null); }}>Done</Button>
-              </div>
-            </div>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const roleId = Number(inviteForm.roleId);
-                if (!roleId) {
-                  toast({ title: "Select a role", description: "Create a role on the Roles page first.", variant: "destructive" });
-                  return;
-                }
-                inviteMutation.mutate({ invitedEmail: inviteForm.email, invitedName: inviteForm.name, roleId });
-              }}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="inviteName" className="text-xs">Full Name *</Label>
-                  <Input
-                    id="inviteName"
-                    className="mt-1"
-                    value={inviteForm.name}
-                    onChange={(e) => setInviteForm((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="Jane Smith"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="inviteEmail" className="text-xs">Email Address *</Label>
-                  <Input
-                    id="inviteEmail"
-                    type="email"
-                    className="mt-1"
-                    value={inviteForm.email}
-                    onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
-                    placeholder="colleague@example.com"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="inviteRole" className="text-xs">Role *</Label>
-                  <select
-                    id="inviteRole"
-                    value={inviteForm.roleId}
-                    onChange={(e) => setInviteForm((p) => ({ ...p, roleId: e.target.value }))}
-                    className="mt-1 w-full border border-input rounded-md px-3 py-2 text-sm bg-background h-9"
-                    required
-                    disabled={accountRoles.length === 0}
-                  >
-                    {accountRoles.length === 0 ? (
-                      <option value="">No roles — create one first</option>
-                    ) : (
-                      accountRoles.map((r) => (
-                        <option key={r.id} value={String(r.id)}>{r.name}</option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button type="submit" disabled={inviteMutation.isPending || accountRoles.length === 0} className="bg-orange-500 hover:bg-orange-600">
-                  {inviteMutation.isPending ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Creating…</> : <><Mail className="w-4 h-4 mr-2" />Create Invite</>}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
 
       {/* Account seats & credits (team_members billing) */}
       {isAdminTeamView && (
@@ -1068,10 +901,12 @@ export default function Team() {
             <div className="py-12 text-center">
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500 text-sm font-medium">No team members yet</p>
-              <p className="text-slate-400 text-xs mt-1">Invite your team to collaborate on audits</p>
-              <Button className="mt-4 bg-orange-500 hover:bg-orange-600" size="sm" onClick={() => setShowInvite(true)} disabled={isAtLimit}>
-                <Plus className="w-4 h-4 mr-2" />Invite First Member
-              </Button>
+              <p className="text-slate-400 text-xs mt-1">Invite members from a workspace&apos;s Members page.</p>
+              <Link href="/workspaces">
+                <Button className="mt-4 bg-orange-500 hover:bg-orange-600" size="sm">
+                  <Building2 className="w-4 h-4 mr-2" />Go to Workspaces
+                </Button>
+              </Link>
             </div>
           )}
 
