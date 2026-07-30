@@ -55,11 +55,25 @@ export function requireWorkspaceAction(
   feature: WorkspaceFeature,
   action: "create" | "edit" | "delete",
 ) {
+  return requireWorkspaceActionAny([feature], action);
+}
+
+export function requireWorkspaceActionAny(
+  features: WorkspaceFeature[],
+  action: "create" | "edit" | "delete",
+) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const ctx = getWorkspaceCtx(req);
-    if (ctx.isAccountOwner || canWriteInWorkspace(ctx.permissions, feature, action, workspacePermOpts(ctx))) {
+    if (ctx.isAccountOwner) {
       next();
       return;
+    }
+    const opts = workspacePermOpts(ctx);
+    for (const feature of features) {
+      if (canWriteInWorkspace(ctx.permissions, feature, action, opts)) {
+        next();
+        return;
+      }
     }
     res.status(403).json({ error: "Forbidden: insufficient workspace permission" });
   };

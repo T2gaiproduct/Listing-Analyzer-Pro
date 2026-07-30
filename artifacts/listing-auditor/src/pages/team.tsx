@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
-  Users, Plus, Trash2, Mail, Shield, User, MoreHorizontal,
+  Users, Plus, Trash2, Mail, Shield, MoreHorizontal,
   CheckCircle2, Copy, ExternalLink, Clock, BarChart3, Zap, RefreshCw,
-  ChevronRight, AlertTriangle, X,
+  AlertTriangle, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +21,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
+import { fetchJson } from "@/lib/api-fetch";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type Role = "admin" | "editor" | "viewer";
+interface AccountRole {
+  id: number;
+  name: string;
+  description: string | null;
+}
 
 interface TeamMember {
   id: number;
@@ -35,6 +40,7 @@ interface TeamMember {
   invitedEmail: string;
   invitedName: string;
   role: string;
+  roleId: number | null;
   status: string;
   inviteToken: string;
   invitedAt: string;
@@ -61,17 +67,21 @@ interface TeamData {
   memberStats: MemberStat[];
 }
 
-const roleColors: Record<string, string> = {
-  admin: "bg-orange-100 text-orange-700",
-  editor: "bg-blue-100 text-blue-700",
-  viewer: "bg-slate-100 text-slate-600",
-};
+const roleBadgeColors = [
+  "bg-orange-100 text-orange-700",
+  "bg-blue-100 text-blue-700",
+  "bg-purple-100 text-purple-700",
+  "bg-teal-100 text-teal-700",
+  "bg-slate-100 text-slate-600",
+];
 
-const roleDescriptions: Record<string, string> = {
-  admin: "Full workspace access — can create and edit audits",
-  editor: "Can create and edit audits in the shared workspace",
-  viewer: "Read-only access to audits and reports",
-};
+function roleBadgeClass(roleId: number | null | undefined, roles: AccountRole[]): string {
+  if (roleId) {
+    const idx = roles.findIndex((r) => r.id === roleId);
+    if (idx >= 0) return roleBadgeColors[idx % roleBadgeColors.length];
+  }
+  return "bg-slate-100 text-slate-600";
+}
 
 function copyToClipboard(text: string, label: string, toast: (t: object) => void) {
   navigator.clipboard.writeText(text).then(() => toast({ title: `${label} copied!` }));
@@ -84,8 +94,21 @@ export default function Team() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ name: "", email: "", role: "editor" as Role });
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", roleId: "" });
   const [createdInvite, setCreatedInvite] = useState<{ token: string; invitedName: string; invitedEmail: string } | null>(null);
+
+  const { data: rolesData } = useQuery({
+    queryKey: ["account-roles"],
+    queryFn: () => fetchJson<{ roles: AccountRole[] }>(`${basePath}/api/account/roles`),
+    enabled: isOwner,
+  });
+  const accountRoles = rolesData?.roles ?? [];
+
+  useEffect(() => {
+    if (accountRoles.length > 0 && !inviteForm.roleId) {
+      setInviteForm((p) => ({ ...p, roleId: String(accountRoles[0]!.id) }));
+    }
+  }, [accountRoles, inviteForm.roleId]);
 
   const { data, isLoading } = useQuery<TeamData>({
     queryKey: ["team"],
@@ -97,20 +120,20 @@ export default function Team() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: (body: { invitedEmail: string; invitedName: string; role: string }) =>
+    mutationFn: (body: { invitedEmail: string; invitedName: string; roleId: number }) =>
       fetch(`${basePath}/api/team/invite`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
         .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["team"] });
       setCreatedInvite({ token: data.token, invitedName: data.invite.invitedName, invitedEmail: data.invite.invitedEmail });
-      setInviteForm({ name: "", email: "", role: "editor" });
+      setInviteForm({ name: "", email: "", roleId: accountRoles[0] ? String(accountRoles[0].id) : "" });
     },
     onError: (e: Error) => toast({ title: "Invite failed", description: e.message, variant: "destructive" }),
   });
 
   const roleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: number; role: string }) =>
-      fetch(`${basePath}/api/team/${id}/role`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) }).then((r) => r.json()),
+    mutationFn: ({ id, roleId }: { id: number; roleId: number }) =>
+      fetch(`${basePath}/api/team/${id}/role`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleId }) }).then((r) => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["team"] }); toast({ title: "Role updated" }); },
   });
 
@@ -246,19 +269,33 @@ export default function Team() {
       </div>
 
       {/* Role guide */}
-      <div className="bg-slate-50 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-        {(["admin", "editor", "viewer"] as const).map((role) => (
-          <div key={role} className="flex gap-3">
-            <div className="mt-0.5 flex-shrink-0">
-              {role === "admin" ? <Shield className="w-4 h-4 text-orange-500" /> : <User className={`w-4 h-4 ${role === "editor" ? "text-blue-500" : "text-slate-400"}`} />}
+      {accountRoles.length > 0 ? (
+        <div className="bg-slate-50 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {accountRoles.map((role, idx) => (
+            <div key={role.id} className="flex gap-3">
+              <div className="mt-0.5 flex-shrink-0">
+                <Shield className={`w-4 h-4 ${idx === 0 ? "text-orange-500" : "text-slate-400"}`} />
+              </div>
+              <div>
+                <span className={`text-xs font-bold uppercase tracking-wide ${roleBadgeColors[idx % roleBadgeColors.length].replace("bg-", "text-").split(" ")[0]}`}>{role.name}</span>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                  {role.description?.trim() || "Custom role — permissions set on the Roles page."}
+                </p>
+              </div>
             </div>
-            <div>
-              <span className={`text-xs font-bold uppercase tracking-wide ${role === "admin" ? "text-orange-600" : role === "editor" ? "text-blue-600" : "text-slate-500"}`}>{role}</span>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{roleDescriptions[role]}</p>
-            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-900">No roles defined yet</p>
+            <p className="text-xs text-amber-700 mt-1">
+              Create roles on the <Link href="/roles" className="underline font-semibold">Roles</Link> page before inviting team members.
+            </p>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Invite form */}
       {showInvite && canManage && (
@@ -314,7 +351,12 @@ export default function Team() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                inviteMutation.mutate({ invitedEmail: inviteForm.email, invitedName: inviteForm.name, role: inviteForm.role });
+                const roleId = Number(inviteForm.roleId);
+                if (!roleId) {
+                  toast({ title: "Select a role", description: "Create a role on the Roles page first.", variant: "destructive" });
+                  return;
+                }
+                inviteMutation.mutate({ invitedEmail: inviteForm.email, invitedName: inviteForm.name, roleId });
               }}
               className="space-y-4"
             >
@@ -343,21 +385,27 @@ export default function Team() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="inviteRole" className="text-xs">Access Level *</Label>
+                  <Label htmlFor="inviteRole" className="text-xs">Role *</Label>
                   <select
                     id="inviteRole"
-                    value={inviteForm.role}
-                    onChange={(e) => setInviteForm((p) => ({ ...p, role: e.target.value as Role }))}
+                    value={inviteForm.roleId}
+                    onChange={(e) => setInviteForm((p) => ({ ...p, roleId: e.target.value }))}
                     className="mt-1 w-full border border-input rounded-md px-3 py-2 text-sm bg-background h-9"
+                    required
+                    disabled={accountRoles.length === 0}
                   >
-                    <option value="editor">Editor — Create & edit audits</option>
-                    <option value="viewer">Viewer — Read-only access</option>
-                    <option value="admin">Admin — Full workspace access</option>
+                    {accountRoles.length === 0 ? (
+                      <option value="">No roles — create one first</option>
+                    ) : (
+                      accountRoles.map((r) => (
+                        <option key={r.id} value={String(r.id)}>{r.name}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
               <div className="flex gap-2 pt-1">
-                <Button type="submit" disabled={inviteMutation.isPending} className="bg-orange-500 hover:bg-orange-600">
+                <Button type="submit" disabled={inviteMutation.isPending || accountRoles.length === 0} className="bg-orange-500 hover:bg-orange-600">
                   {inviteMutation.isPending ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Creating…</> : <><Mail className="w-4 h-4 mr-2" />Create Invite</>}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
@@ -420,7 +468,7 @@ export default function Team() {
                       </div>
                     )}
                   </div>
-                  <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+                  <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
                   <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
                   {m.acceptedAt && <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}</span>}
                   <DropdownMenu>
@@ -428,10 +476,14 @@ export default function Team() {
                       <Button variant="ghost" size="sm" className="flex-shrink-0"><MoreHorizontal className="w-4 h-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {(["admin", "editor", "viewer"] as Role[]).map((role) => (
-                        <DropdownMenuItem key={role} onClick={() => roleMutation.mutate({ id: m.id, role })} disabled={m.role === role}>
-                          {m.role === role && <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-500" />}
-                          Make {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {accountRoles.map((accountRole) => (
+                        <DropdownMenuItem
+                          key={accountRole.id}
+                          onClick={() => roleMutation.mutate({ id: m.id, roleId: accountRole.id })}
+                          disabled={m.roleId === accountRole.id}
+                        >
+                          {m.roleId === accountRole.id && <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-500" />}
+                          Make {accountRole.name}
                         </DropdownMenuItem>
                       ))}
                       <DropdownMenuSeparator />
@@ -541,7 +593,7 @@ export default function Team() {
                 <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
                 <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" />Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}</p>
               </div>
-              <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+              <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
               <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -619,7 +671,7 @@ export default function Team() {
                         </div>
                       </td>
                       <td className="px-3 py-3">
-                        <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit text-xs`}>{m.role}</Badge>
+                        <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit text-xs`}>{m.role}</Badge>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-slate-800">{stat?.creditsUsed ?? 0}</td>
                       <td className="px-4 py-3 text-right text-slate-600">{stat?.auditCount ?? 0}</td>

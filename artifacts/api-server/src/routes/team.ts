@@ -22,8 +22,28 @@ import {
   sumAllocatedCreditsForOwner,
   sumCreditsUsedInPeriod,
 } from "../lib/team-stats.js";
+import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
+import { syncTeamMemberWorkspaceMemberships } from "../lib/team-workspace-sync.js";
 
 const router: IRouter = Router();
+
+async function resolveInviteRole(
+  ownerUserId: string,
+  body: { roleId?: number; role?: string },
+): Promise<{ roleId: number | null; roleName: string; legacyRole: string } | { error: string }> {
+  if (body.roleId != null) {
+    const accountRole = await getAccountRole(ownerUserId, body.roleId);
+    if (!accountRole) return { error: "Invalid role" };
+    return {
+      roleId: accountRole.id,
+      roleName: accountRole.name,
+      legacyRole: accountRole.legacyRoleKey ?? "editor",
+    };
+  }
+  const role = body.role ?? "editor";
+  if (!["admin", "editor", "viewer"].includes(role)) return { error: "Invalid role" };
+  return { roleId: null, roleName: role, legacyRole: role };
+}
 
 interface AuthedRequest extends Request {
   userId: string;
@@ -39,6 +59,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 
 // ─── List my team members (as workspace owner) ───────────────────────────────
 router.get("/team", requireAuth, async (req, res): Promise<void> => {
+  await ensureTeamMembersRoleId();
   const userId = (req as AuthedRequest).userId;
 
   const [sub] = await db.select({
@@ -126,10 +147,20 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
 
 // ─── Send invite ──────────────────────────────────────────────────────────────
 router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
+  await ensureTeamMembersRoleId();
   const userId = (req as AuthedRequest).userId;
-  const { invitedEmail, invitedName, role = "editor" } = req.body as { invitedEmail: string; invitedName: string; role?: string };
+  const { invitedEmail, invitedName, role, roleId } = req.body as {
+    invitedEmail: string;
+    invitedName: string;
+    role?: string;
+    roleId?: number;
+  };
 
   if (!invitedEmail || !invitedName) { res.status(400).json({ error: "Email and name are required" }); return; }
+
+  const resolved = await resolveInviteRole(userId, { roleId, role });
+  if ("error" in resolved) { res.status(400).json({ error: resolved.error }); return; }
+  const { roleId: resolvedRoleId, roleName, legacyRole } = resolved;
 
   // Check seat limit
   const [sub] = await db.select({ teamMembers: plansTable.teamMembers })
@@ -161,7 +192,8 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
         status: "pending",
         inviteToken: token,
         invitedAt: new Date(),
-        role,
+        role: roleName,
+        roleId: resolvedRoleId,
         invitedName,
         memberUserId: null,
         acceptedAt: null,
@@ -174,7 +206,8 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
       ownerUserId: userId,
       invitedEmail: invitedEmail.toLowerCase(),
       invitedName,
-      role,
+      role: roleName,
+      roleId: resolvedRoleId,
       status: "pending",
       inviteToken: token,
     }).returning();
@@ -190,7 +223,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
       const inviterName = profile?.companyName ?? "Your team owner";
       const companyName = profile?.companyName ?? "SellerLens";
       const inviteUrl = `${process.env.APP_URL ?? "https://listingauditor.com"}/accept-invite?token=${token}`;
-      const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role, invitedName });
+      const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role: roleName, invitedName });
       await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
     }
   } catch (emailErr) {
@@ -209,7 +242,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
         userId: inviteeUserId,
         type: "team_invite",
         title: "Team invitation",
-        message: `${inviterName} invited you to join as ${role}.`,
+        message: `${inviterName} invited you to join as ${roleName}.`,
         link: `/accept-invite?token=${token}`,
       });
     }
@@ -222,16 +255,35 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
 
 // ─── Change member role ───────────────────────────────────────────────────────
 router.patch("/team/:id/role", requireAuth, async (req, res): Promise<void> => {
+  await ensureTeamMembersRoleId();
   const userId = (req as AuthedRequest).userId;
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { role } = req.body as { role: string };
-  if (!["admin", "editor", "viewer"].includes(role)) { res.status(400).json({ error: "Invalid role" }); return; }
+  const { role, roleId } = req.body as { role?: string; roleId?: number };
+
+  const resolved = await resolveInviteRole(userId, { roleId, role });
+  if ("error" in resolved) { res.status(400).json({ error: resolved.error }); return; }
+  const { roleId: resolvedRoleId, roleName, legacyRole } = resolved;
 
   const [member] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.id, id), eq(teamMembersTable.ownerUserId, userId)));
   if (!member) { res.status(404).json({ error: "Member not found" }); return; }
 
-  const [updated] = await db.update(teamMembersTable).set({ role }).where(eq(teamMembersTable.id, id)).returning();
+  const [updated] = await db.update(teamMembersTable)
+    .set({ role: roleName, roleId: resolvedRoleId })
+    .where(eq(teamMembersTable.id, id))
+    .returning();
+
+  if (member.status === "active" && member.memberUserId) {
+    await syncTeamMemberWorkspaceMemberships({
+      ownerUserId: userId,
+      memberUserId: member.memberUserId,
+      invitedEmail: member.invitedEmail,
+      invitedName: member.invitedName,
+      roleId: resolvedRoleId,
+      legacyRole,
+    });
+  }
+
   res.json(updated);
 });
 
@@ -298,6 +350,25 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   await db.update(teamMembersTable)
     .set({ status: "active", memberUserId: userId, acceptedAt: new Date() })
     .where(eq(teamMembersTable.inviteToken, token));
+
+  let legacyRoleKey = "editor";
+  if (invite.roleId) {
+    const accountRole = await getAccountRole(invite.ownerUserId, invite.roleId);
+    if (accountRole?.legacyRoleKey && ["admin", "editor", "viewer"].includes(accountRole.legacyRoleKey)) {
+      legacyRoleKey = accountRole.legacyRoleKey;
+    }
+  } else if (["admin", "editor", "viewer"].includes(invite.role)) {
+    legacyRoleKey = invite.role;
+  }
+
+  await syncTeamMemberWorkspaceMemberships({
+    ownerUserId: invite.ownerUserId,
+    memberUserId: userId,
+    invitedEmail: invite.invitedEmail,
+    invitedName: invite.invitedName,
+    roleId: invite.roleId,
+    legacyRole: legacyRoleKey,
+  });
 
   // Team members join an existing workspace — skip owner onboarding/plan selection
   await upsertUserProfile(userId, { onboardingCompleted: true });
@@ -382,6 +453,7 @@ router.get("/team/membership", requireAuth, async (req, res): Promise<void> => {
     id: teamMembersTable.id,
     ownerUserId: teamMembersTable.ownerUserId,
     role: teamMembersTable.role,
+    roleId: teamMembersTable.roleId,
     status: teamMembersTable.status,
     invitedName: teamMembersTable.invitedName,
     acceptedAt: teamMembersTable.acceptedAt,

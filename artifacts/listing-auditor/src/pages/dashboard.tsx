@@ -162,7 +162,23 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember, memberCredits } = useTeam();
-  const { featureWorkspaceId, featureWorkspace, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
+  const {
+    featureWorkspaceId,
+    featureWorkspace,
+    isLoading: wsLoading,
+    needsWorkspaceSelection,
+    canView,
+    isAccountOwner,
+    isTeamMemberAccount,
+  } = useWorkspace();
+
+  const newProjectActions = [
+    { href: "/audits/new", label: "Build Your Brand", feature: "build_brand" as const },
+    { href: "/audit-listings", label: "Audit Listings", feature: "audits" as const },
+    { href: "/projects/create", label: "Create Graphics", feature: "graphics" as const },
+    { href: "/videos", label: "Create Videos", feature: "videos" as const },
+    { href: "/ads", label: "Manage Ads", feature: "ads" as const },
+  ].filter((item) => isAccountOwner || canView(item.feature));
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard", featureWorkspaceId],
@@ -187,7 +203,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!featureWorkspaceId || needsWorkspaceSelection) {
+  if ((!featureWorkspaceId && !isTeamMemberAccount) || (needsWorkspaceSelection && !isTeamMemberAccount)) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
@@ -259,27 +275,17 @@ export default function Dashboard() {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shrink-0">
+            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white shrink-0" disabled={newProjectActions.length === 0}>
               <Plus className="w-4 h-4" />
               New Project
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem asChild>
-              <Link href="/audits/new">Build Your Brand</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/audit-listings">Audit Listings</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/projects/create">Create Graphics</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/videos">Create Videos</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/ads">Manage Ads</Link>
-            </DropdownMenuItem>
+            {newProjectActions.map((item) => (
+              <DropdownMenuItem key={item.href} asChild>
+                <Link href={item.href}>{item.label}</Link>
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

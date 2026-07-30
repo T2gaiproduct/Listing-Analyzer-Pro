@@ -187,7 +187,11 @@ export default function AcceptWorkspaceInvite() {
               <Button
                 className="w-full bg-orange-500 hover:bg-orange-600"
                 onClick={() => {
-                  setLocation(`/sign-up?redirect_url=${encodeURIComponent(acceptPath)}`);
+                  const qs = new URLSearchParams({
+                    redirect_url: acceptPath,
+                    email: invite?.invitedEmail ?? "",
+                  });
+                  setLocation(`/sign-up?${qs.toString()}`);
                 }}
               >
                 Create account & join
@@ -196,7 +200,11 @@ export default function AcceptWorkspaceInvite() {
                 variant="outline"
                 className="w-full"
                 onClick={() => {
-                  setLocation(`/sign-in?redirect_url=${encodeURIComponent(acceptPath)}`);
+                  const qs = new URLSearchParams({
+                    redirect_url: acceptPath,
+                    email: invite?.invitedEmail ?? "",
+                  });
+                  setLocation(`/sign-in?${qs.toString()}`);
                 }}
               >
                 Sign in to accept

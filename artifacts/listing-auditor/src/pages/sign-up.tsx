@@ -40,6 +40,17 @@ export default function SignUpPage() {
 
   const initialEmail = useMemo(() => searchParams.get("email") ?? "", [searchParams]);
 
+  const isInviteSignUp = useMemo(() => {
+    const redirect = searchParams.get("redirect_url") ?? "";
+    return (
+      redirect.includes("accept-invite") ||
+      redirect.includes("accept-workspace-invite") ||
+      redirect.includes("accept-admin-invite")
+    );
+  }, [searchParams]);
+
+  const emailLocked = isInviteSignUp && initialEmail.length > 0;
+
   const signInHref = useMemo(() => {
     const qs = new URLSearchParams();
     const redirect = searchParams.get("redirect_url");
@@ -97,7 +108,9 @@ export default function SignUpPage() {
       const first = e?.errors?.[0];
       const code = first?.code ?? "";
       const msg = first?.longMessage ?? first?.message ?? "Sign up failed. Please try again.";
-      if (code === "form_identifier_exists" || /already (taken|exists)/i.test(msg)) {
+      if (code === "captcha_invalid" || /security validation/i.test(msg)) {
+        setError("Sign-up security check failed. Complete the verification below if shown, then try again. If it keeps failing, refresh the page.");
+      } else if (code === "form_identifier_exists" || /already (taken|exists)/i.test(msg)) {
         setError("That email already has an account. Sign in instead to accept your invitation.");
       } else {
         setError(msg);
@@ -139,8 +152,14 @@ export default function SignUpPage() {
             </a>
             {step === "form" ? (
               <>
-                <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
-                <p className="text-slate-500 text-sm mt-1">Start auditing your Amazon listings today</p>
+                <h1 className="text-2xl font-bold text-slate-900">
+                  {emailLocked ? "Create your account to join" : "Create your account"}
+                </h1>
+                <p className="text-slate-500 text-sm mt-1">
+                  {emailLocked
+                    ? "Use the invited email address to accept your invitation"
+                    : "Start auditing your Amazon listings today"}
+                </p>
               </>
             ) : (
               <>
@@ -191,7 +210,8 @@ export default function SignUpPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-colors"
+                      readOnly={emailLocked}
+                      className={`w-full px-3 py-2.5 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-colors ${emailLocked ? "cursor-default opacity-90" : ""}`}
                       placeholder="jane@example.com"
                       required
                       autoComplete="email"
@@ -257,6 +277,9 @@ export default function SignUpPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Clerk bot protection CAPTCHA — required for custom sign-up flows */}
+                  <div id="clerk-captcha" className="min-h-[1px]" />
 
                   {error && (
                     <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700 space-y-2">

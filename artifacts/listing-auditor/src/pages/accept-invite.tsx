@@ -200,7 +200,12 @@ export default function AcceptInvite() {
                 className="w-full bg-orange-500 hover:bg-orange-600"
                 onClick={() => {
                   localStorage.setItem("pendingInviteToken", token);
-                  setLocation(`/sign-up?redirect_url=${encodeURIComponent(`${basePath}/accept-invite?token=${token}`)}`);
+                  const acceptPath = `${basePath}/accept-invite?token=${token}`;
+                  const qs = new URLSearchParams({
+                    redirect_url: acceptPath,
+                    email: invite?.invitedEmail ?? "",
+                  });
+                  setLocation(`/sign-up?${qs.toString()}`);
                 }}
               >
                 Create Account & Join
@@ -210,7 +215,12 @@ export default function AcceptInvite() {
                 className="w-full"
                 onClick={() => {
                   localStorage.setItem("pendingInviteToken", token);
-                  setLocation(`/sign-in?redirect_url=${encodeURIComponent(`${basePath}/accept-invite?token=${token}`)}`);
+                  const acceptPath = `${basePath}/accept-invite?token=${token}`;
+                  const qs = new URLSearchParams({
+                    redirect_url: acceptPath,
+                    email: invite?.invitedEmail ?? "",
+                  });
+                  setLocation(`/sign-in?${qs.toString()}`);
                 }}
               >
                 Sign In to Accept

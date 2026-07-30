@@ -37,12 +37,13 @@ interface WorkspaceContextValue {
   workspaces: WorkspaceSummary[];
   activeWorkspace: WorkspaceSummary | null;
   activeWorkspaceId: number | null;
-  /** Workspace used for project/feature pages — null until user picks one from overview. */
+  /** Workspace used for project/feature pages — null until billing owner picks one from overview. */
   featureWorkspaceId: number | null;
   featureWorkspace: WorkspaceSummary | null;
   permissions: WorkspaceRolePermissions;
   roleName: string;
   isAccountOwner: boolean;
+  isTeamMemberAccount: boolean;
   isLoading: boolean;
   setActiveWorkspaceId: (id: number) => void;
   can: (feature: WorkspaceFeature, action: WorkspaceAction) => boolean;
@@ -141,6 +142,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [workspaces, selectedId, profileSummary?.accountRole?.type]);
 
+  const isTeamMemberAccount = profileSummary?.accountRole?.type === "team_member";
+
+  useEffect(() => {
+    if (!isTeamMemberAccount || !workspaces.length) return;
+    const valid = selectedId != null && workspaces.some((w) => w.id === selectedId);
+    if (!valid) {
+      const fallback = workspaces.find((w) => w.isDefault) ?? workspaces[0]!;
+      setSelectedId(fallback.id);
+      localStorage.setItem(STORAGE_KEY, String(fallback.id));
+    }
+    if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
+  }, [isTeamMemberAccount, workspaces, selectedId, workspaceScopeCommitted]);
+
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
   const ownsAnyWorkspace = workspaces.some((w) => w.isAccountOwner);
@@ -159,15 +173,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isWorkspaceAccountOwner =
     permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
   const isAccountOwner =
-    isBillingAccountOwner || ownsAnyWorkspace || isWorkspaceAccountOwner;
+    isBillingAccountOwner || (ownsAnyWorkspace && !isTeamMemberAccount) || isWorkspaceAccountOwner;
 
   const featureWorkspaceId = workspaceApiScopeActive
-    ? (isAccountOwner && !workspaceScopeCommitted ? null : activeWorkspaceId)
+    ? (isBillingAccountOwner && ownsAnyWorkspace && !workspaceScopeCommitted ? null : activeWorkspaceId)
     : null;
   const featureWorkspace = featureWorkspaceId
     ? workspaces.find((w) => w.id === featureWorkspaceId) ?? null
     : null;
-  const needsWorkspaceSelection = isAccountOwner
+  const needsWorkspaceSelection = isBillingAccountOwner
+    && ownsAnyWorkspace
     && workspaceApiScopeActive
     && !workspaceScopeCommitted;
 
@@ -217,6 +232,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     permissions,
     roleName,
     isAccountOwner,
+    isTeamMemberAccount,
     isLoading: listLoading || permLoading || !isLoaded,
     setActiveWorkspaceId: setWorkspace,
     can,
@@ -228,7 +244,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     refetch: () => { void refetchList(); },
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
-    permissions, roleName, isAccountOwner,
+    permissions, roleName, isAccountOwner, isTeamMemberAccount,
     listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection,
   ]);
