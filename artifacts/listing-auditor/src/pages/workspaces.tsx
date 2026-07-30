@@ -16,6 +16,15 @@ import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-he
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
 
+interface WorkspaceMemberListItem {
+  id: number;
+  invitedEmail: string;
+  invitedName: string;
+  status: string;
+  roleName: string | null;
+  legacyRole: string | null;
+}
+
 interface WorkspaceOverview {
   totalWorkspaces: number;
   totalMembers: number;
@@ -31,6 +40,7 @@ interface WorkspaceOverview {
     memberCount: number;
     activeMemberCount: number;
     pendingMemberCount: number;
+    members: WorkspaceMemberListItem[];
   }>;
 }
 
@@ -148,7 +158,10 @@ export default function WorkspacesPage() {
   });
 
   const displayWorkspaces = isAccountOwner && overview
-    ? overview.workspaces
+    ? overview.workspaces.map((ws) => ({
+        ...ws,
+        members: ws.members ?? [],
+      }))
     : workspaces.map((ws) => ({
         id: ws.id,
         name: ws.name,
@@ -158,6 +171,7 @@ export default function WorkspacesPage() {
         memberCount: 0,
         activeMemberCount: 0,
         pendingMemberCount: 0,
+        members: [] as WorkspaceMemberListItem[],
       }));
 
   return (
@@ -250,10 +264,25 @@ export default function WorkspacesPage() {
             <CardContent className="space-y-3">
               {ws.description && <p className="text-sm text-slate-600 line-clamp-2">{ws.description}</p>}
               {isAccountOwner && (
-                <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                  <span>{ws.memberCount} members</span>
-                  {ws.pendingMemberCount > 0 && (
-                    <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                    <span>{ws.memberCount} members</span>
+                    {ws.pendingMemberCount > 0 && (
+                      <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
+                    )}
+                  </div>
+                  {ws.members.length > 0 && (
+                    <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden text-xs">
+                      {ws.members.slice(0, 5).map((m) => (
+                        <div key={m.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                          <span className="truncate text-slate-700">{m.invitedName || m.invitedEmail}</span>
+                          <Badge variant="outline" className="text-[10px] capitalize shrink-0">{m.status}</Badge>
+                        </div>
+                      ))}
+                      {ws.members.length > 5 && (
+                        <p className="px-3 py-2 text-slate-400">+{ws.members.length - 5} more</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

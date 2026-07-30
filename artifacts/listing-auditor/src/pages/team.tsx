@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { useLocation, Link } from "wouter";
 import {
   Users, Plus, Trash2, Mail, Shield, MoreHorizontal,
   CheckCircle2, Copy, ExternalLink, Clock, BarChart3, Zap, RefreshCw,
-  AlertTriangle, X,
+  AlertTriangle, X, Building2, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
@@ -56,6 +57,45 @@ interface MemberStat {
   allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
 }
 
+interface WorkspaceMemberListItem {
+  id: number;
+  invitedEmail: string;
+  invitedName: string;
+  status: string;
+  userId: string | null;
+  roleName: string | null;
+  legacyRole: string | null;
+  invitedAt: string;
+  acceptedAt: string | null;
+}
+
+interface WorkspaceMemberSummary {
+  totalMemberships: number;
+  uniquePeople: number;
+  activeMembers: number;
+  pendingInvites: number;
+  scopedWorkspaceId: number | null;
+  workspaces: Array<{
+    id: number;
+    name: string;
+    isDefault: boolean;
+    memberCount: number;
+    activeMemberCount: number;
+    pendingMemberCount: number;
+    members: WorkspaceMemberListItem[];
+  }>;
+}
+
+interface WorkspaceMemberStat {
+  workspaceMemberId: number;
+  teamMemberId: number | null;
+  auditCount: number;
+  creditsUsed: number;
+  lastActivityAt: string | null;
+  remainingCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
+  allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
+}
+
 interface TeamData {
   maxSeats: number;
   planName: string | null;
@@ -65,6 +105,8 @@ interface TeamData {
   availableToAllocate?: { aiCredits: number; imageCredits: number; auditCredits: number };
   members: TeamMember[];
   memberStats: MemberStat[];
+  workspaceMembers?: WorkspaceMemberSummary;
+  workspaceMemberStats?: WorkspaceMemberStat[];
 }
 
 const roleBadgeColors = [
@@ -87,10 +129,229 @@ function copyToClipboard(text: string, label: string, toast: (t: object) => void
   navigator.clipboard.writeText(text).then(() => toast({ title: `${label} copied!` }));
 }
 
+function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMemberListItem[]; emptyLabel?: string }) {
+  if (members.length === 0) {
+    return <p className="text-xs text-slate-500 py-2">{emptyLabel ?? "No members yet."}</p>;
+  }
+  return (
+    <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden bg-white">
+      {members.map((m) => (
+        <div key={m.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+          <div className="min-w-0">
+            <p className="font-medium text-slate-900 truncate">{m.invitedName || m.invitedEmail}</p>
+            <p className="text-xs text-slate-500 truncate">{m.invitedEmail}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+            <Badge
+              variant={m.status === "active" ? "secondary" : "outline"}
+              className={`text-xs capitalize ${m.status === "pending" ? "border-amber-200 text-amber-700" : ""}`}
+            >
+              {m.status}
+            </Badge>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface WorkspaceMembersDetailPanelProps {
+  members: WorkspaceMemberListItem[];
+  stats: WorkspaceMemberStat[];
+  canManageCredits: boolean;
+  availableToAllocate?: TeamData["availableToAllocate"];
+  editingCredits: Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>;
+  setEditingCredits: Dispatch<SetStateAction<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>>;
+  onSaveCredits: (teamMemberId: number, aiCredits: number, imageCredits: number, auditCredits: number) => void;
+  creditSaving: boolean;
+  emptyLabel?: string;
+}
+
+function WorkspaceMembersDetailPanel({
+  members,
+  stats,
+  canManageCredits,
+  availableToAllocate,
+  editingCredits,
+  setEditingCredits,
+  onSaveCredits,
+  creditSaving,
+  emptyLabel,
+}: WorkspaceMembersDetailPanelProps) {
+  if (members.length === 0) {
+    return <p className="text-xs text-slate-500 py-4">{emptyLabel ?? "No members yet."}</p>;
+  }
+
+  function getWsStat(workspaceMemberId: number) {
+    return stats.find((s) => s.workspaceMemberId === workspaceMemberId);
+  }
+
+  const active = members.filter((m) => m.status === "active");
+  const pending = members.filter((m) => m.status === "pending");
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
+      {active.map((m) => {
+        const stat = getWsStat(m.id);
+        const teamMemberId = stat?.teamMemberId;
+        const isEditing = teamMemberId != null && editingCredits[teamMemberId] != null;
+        const editVals = teamMemberId != null
+          ? editingCredits[teamMemberId] ?? {
+            aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
+            imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
+            auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
+          }
+          : null;
+
+        return (
+          <div key={m.id} className="px-5 py-4">
+            <div className="flex items-center gap-4">
+              <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-sm font-bold text-slate-600">
+                {(m.invitedName?.[0] ?? m.invitedEmail[0]).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName || m.invitedEmail}</p>
+                <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
+                {stat && !isEditing && (
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <BarChart3 className="w-3 h-3 text-orange-400" />{stat.auditCount} audit actions
+                    </span>
+                    <span className="text-xs text-slate-400">{stat.creditsUsed} credits used</span>
+                    {stat.remainingCredits && (
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-blue-400" />
+                        {stat.remainingCredits.aiCredits} AI / {stat.remainingCredits.imageCredits} Img / {stat.remainingCredits.auditCredits} Audit left
+                      </span>
+                    )}
+                    {stat.lastActivityAt && (
+                      <span className="text-xs text-slate-400">
+                        Last active {formatDistanceToNow(new Date(stat.lastActivityAt), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+              <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
+              {m.acceptedAt && (
+                <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">
+                  Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}
+                </span>
+              )}
+              {canManageCredits && teamMemberId != null && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={() => setEditingCredits((prev) => ({
+                    ...prev,
+                    [teamMemberId]: {
+                      aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
+                      imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
+                      auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
+                    },
+                  }))}
+                >
+                  <Zap className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            {isEditing && editVals && teamMemberId != null && (
+              <div className="mt-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium text-slate-700">Allocate Credits</span>
+                </div>
+                {availableToAllocate && (
+                  <p className="text-xs text-slate-500 mb-3">
+                    Available to assign: up to {availableToAllocate.auditCredits} audit, {availableToAllocate.aiCredits} text, {availableToAllocate.imageCredits} image credits.
+                  </p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
+                    <Input type="number" min={0} value={editVals.aiCredits} className="h-8 text-sm"
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, aiCredits: e.target.value } }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1 block">Image Credits</Label>
+                    <Input type="number" min={0} value={editVals.imageCredits} className="h-8 text-sm"
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, imageCredits: e.target.value } }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1 block">Audit Credits</Label>
+                    <Input type="number" min={0} value={editVals.auditCredits} className="h-8 text-sm"
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, auditCredits: e.target.value } }))} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600" disabled={creditSaving}
+                    onClick={() => {
+                      onSaveCredits(
+                        teamMemberId,
+                        Math.max(0, parseInt(editVals.aiCredits) || 0),
+                        Math.max(0, parseInt(editVals.imageCredits) || 0),
+                        Math.max(0, parseInt(editVals.auditCredits) || 0),
+                      );
+                      setEditingCredits((prev) => {
+                        const next = { ...prev };
+                        delete next[teamMemberId];
+                        return next;
+                      });
+                    }}>
+                    {creditSaving ? "Saving..." : "Save Credits"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingCredits((prev) => {
+                    const next = { ...prev };
+                    delete next[teamMemberId];
+                    return next;
+                  })}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {pending.map((m) => (
+        <div key={m.id} className="flex items-center gap-4 px-5 py-4 bg-amber-50/40">
+          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <Mail className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName || m.invitedEmail}</p>
+            <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
+            <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+          <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Team() {
   const { user } = useUser();
   const { canManage, isTeamMember, isOwner, role, membership, memberCredits } = useTeam();
+  const {
+    featureWorkspaceId,
+    featureWorkspace,
+    isAccountOwner,
+    can,
+  } = useWorkspace();
   const [, setLocation] = useLocation();
+  const viewAllWorkspaces = typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("all") === "1";
+  const scopedWorkspaceId = isAccountOwner && viewAllWorkspaces ? null : featureWorkspaceId;
+  const isAdminTeamView = isAccountOwner && !scopedWorkspaceId;
+  const isWorkspaceTeamView = scopedWorkspaceId != null;
   const qc = useQueryClient();
   const { toast } = useToast();
   const [showInvite, setShowInvite] = useState(false);
@@ -100,7 +361,7 @@ export default function Team() {
   const { data: rolesData } = useQuery({
     queryKey: ["account-roles"],
     queryFn: () => fetchJson<{ roles: AccountRole[] }>(`${basePath}/api/account/roles`),
-    enabled: isOwner,
+    enabled: isAccountOwner,
   });
   const accountRoles = rolesData?.roles ?? [];
 
@@ -111,12 +372,54 @@ export default function Team() {
   }, [accountRoles, inviteForm.roleId]);
 
   const { data, isLoading } = useQuery<TeamData>({
-    queryKey: ["team"],
-    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => {
-      if (!r.ok) throw new Error("Failed to load team");
-      return r.json();
-    }),
-    enabled: isOwner,
+    queryKey: ["team", scopedWorkspaceId],
+    queryFn: () => {
+      const url = scopedWorkspaceId
+        ? `${basePath}/api/team?workspaceId=${scopedWorkspaceId}`
+        : `${basePath}/api/team`;
+      return fetch(url, { credentials: "include" }).then((r) => {
+        if (!r.ok) throw new Error("Failed to load team");
+        return r.json();
+      });
+    },
+    enabled: isAccountOwner,
+  });
+
+  const { data: scopedWorkspaceMembersData } = useQuery({
+    queryKey: ["workspace-members", scopedWorkspaceId],
+    queryFn: () => fetchJson<{ members: Array<{
+      id: number;
+      invitedEmail: string;
+      invitedName: string;
+      status: string;
+      userId: string | null;
+      roleName?: string;
+      legacyRole?: string | null;
+      invitedAt: string;
+      acceptedAt: string | null;
+    }> }>(`${basePath}/api/workspaces/${scopedWorkspaceId}/members`),
+    enabled: !isAccountOwner && isWorkspaceTeamView && scopedWorkspaceId != null && (can("team", "viewGlobal") || canManage),
+  });
+
+  const { data: overviewFallback } = useQuery({
+    queryKey: ["workspaces-overview"],
+    queryFn: () => fetchJson<{
+      workspaces: Array<{
+        id: number;
+        name: string;
+        isDefault: boolean;
+        memberCount: number;
+        activeMemberCount: number;
+        pendingMemberCount: number;
+        members?: WorkspaceMemberListItem[];
+      }>;
+      totalMemberships?: number;
+      totalMembers?: number;
+      uniquePeople?: number;
+      activeMembers?: number;
+      pendingInvites?: number;
+    }>(`${basePath}/api/workspaces/overview`),
+    enabled: isAdminTeamView,
   });
 
   const inviteMutation = useMutation({
@@ -172,6 +475,47 @@ export default function Team() {
   const activeMembers = members.filter((m) => m.status === "active");
   const pendingMembers = members.filter((m) => m.status === "pending");
 
+  const scopedWorkspaceMembers: WorkspaceMemberListItem[] = isAccountOwner
+    ? (data?.workspaceMembers?.workspaces[0]?.members ?? [])
+    : (scopedWorkspaceMembersData?.members ?? []).map((m) => ({
+      id: m.id,
+      invitedEmail: m.invitedEmail,
+      invitedName: m.invitedName,
+      status: m.status,
+      userId: m.userId,
+      roleName: m.roleName ?? null,
+      legacyRole: m.legacyRole ?? null,
+      invitedAt: m.invitedAt,
+      acceptedAt: m.acceptedAt,
+    }));
+
+  const scopedWorkspaceName = isAccountOwner
+    ? data?.workspaceMembers?.workspaces[0]?.name ?? featureWorkspace?.name
+    : featureWorkspace?.name;
+
+  const workspaceMemberStats = data?.workspaceMemberStats ?? [];
+
+  const adminWorkspaceRows = (data?.workspaceMembers?.workspaces?.length
+    ? data.workspaceMembers.workspaces
+    : overviewFallback?.workspaces?.map((ws) => ({
+      id: ws.id,
+      name: ws.name,
+      isDefault: ws.isDefault,
+      memberCount: ws.memberCount,
+      activeMemberCount: ws.activeMemberCount,
+      pendingMemberCount: ws.pendingMemberCount,
+      members: ws.members ?? [],
+    }))) ?? [];
+
+  const adminSummary = data?.workspaceMembers ?? (overviewFallback ? {
+    totalMemberships: overviewFallback.totalMembers ?? 0,
+    uniquePeople: overviewFallback.uniquePeople ?? 0,
+    activeMembers: overviewFallback.activeMembers ?? 0,
+    pendingInvites: overviewFallback.pendingInvites ?? 0,
+    scopedWorkspaceId: null,
+    workspaces: adminWorkspaceRows,
+  } : null);
+
   function getInviteUrl(token: string) {
     return `${window.location.origin}${basePath}/accept-invite?token=${token}`;
   }
@@ -217,12 +561,24 @@ export default function Team() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Team</h1>
-          <p className="text-slate-500 mt-1 text-sm">Manage who has access to your workspace.</p>
+          <p className="text-slate-500 mt-1 text-sm">
+            {isWorkspaceTeamView
+              ? `Members with access to ${scopedWorkspaceName ?? "this workspace"}.`
+              : isAdminTeamView
+                ? "All workspaces and their members across your account."
+                : "Manage who has access to your workspace."}
+          </p>
+          {isWorkspaceTeamView && isAccountOwner && (
+            <p className="text-xs text-slate-400 mt-1">
+              Scoped to the workspace selected in the switcher.{" "}
+              <Link href="/team?all=1" className="underline font-medium text-slate-600">View all workspaces</Link>
+            </p>
+          )}
           {isTeamMember && (
             <p className="text-xs text-slate-400 mt-1">Your role: <span className="font-medium capitalize">{role}</span></p>
           )}
         </div>
-        {canManage && (
+        {canManage && isAdminTeamView && (
           <Button
             className="bg-orange-500 hover:bg-orange-600 text-white"
             onClick={() => { setShowInvite(true); setCreatedInvite(null); }}
@@ -232,9 +588,18 @@ export default function Team() {
             Invite Member
           </Button>
         )}
+        {canManage && isWorkspaceTeamView && scopedWorkspaceId != null && (
+          <Link href={`/workspaces/${scopedWorkspaceId}/members`}>
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+              <Plus className="w-4 h-4" />
+              Invite to workspace
+            </Button>
+          </Link>
+        )}
       </div>
 
-      {/* Seat usage */}
+      {/* Seat usage (account billing) */}
+      {isAccountOwner && (
       <div className="bg-white border border-slate-200 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -267,9 +632,124 @@ export default function Team() {
           </p>
         )}
       </div>
+      )}
+
+      {/* Workspace-scoped members with activity & credits */}
+      {isWorkspaceTeamView && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-orange-500" />
+              <h2 className="text-sm font-semibold text-slate-900">{scopedWorkspaceName ?? "Workspace"} team</h2>
+              {featureWorkspace?.isDefault && <Badge variant="secondary">Default</Badge>}
+            </div>
+            <Link href={`/workspaces/${scopedWorkspaceId}/members`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ChevronRight className="w-3.5 h-3.5" />
+                Manage members
+              </Button>
+            </Link>
+          </div>
+          <WorkspaceMembersDetailPanel
+            members={scopedWorkspaceMembers}
+            stats={workspaceMemberStats}
+            canManageCredits={isAccountOwner && canManage}
+            availableToAllocate={data?.availableToAllocate}
+            editingCredits={editingCredits}
+            setEditingCredits={setEditingCredits}
+            onSaveCredits={(id, ai, img, audit) => creditMutation.mutate({ id, aiCredits: ai, imageCredits: img, auditCredits: audit })}
+            creditSaving={creditMutation.isPending}
+            emptyLabel="No members in this workspace yet. Invite someone from the workspace members page."
+          />
+        </div>
+      )}
+
+      {/* Admin: all workspaces with their members */}
+      {isAdminTeamView && adminSummary && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">All workspaces</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Each workspace shows only its own members.
+              </p>
+            </div>
+            <Link href="/workspaces">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                Workspace hub
+              </Button>
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Total memberships</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{adminSummary.totalMemberships}</p>
+                <p className="text-xs text-slate-500 mt-1">{adminSummary.uniquePeople} unique people</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Active members</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{adminSummary.activeMembers}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Pending invites</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{adminSummary.pendingInvites}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Workspaces</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{adminWorkspaceRows.length}</p>
+              </CardContent>
+            </Card>
+          </div>
+          {adminWorkspaceRows.length > 0 && (
+            <div className="space-y-4">
+              {adminWorkspaceRows.map((ws) => (
+                <Card key={ws.id}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                        <CardTitle className="text-base truncate">{ws.name}</CardTitle>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {ws.isDefault && <Badge variant="secondary">Default</Badge>}
+                        <Badge variant="outline" className="text-xs">{ws.memberCount} members</Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <WorkspaceMembersList members={ws.members ?? []} emptyLabel="No members in this workspace." />
+                    <Link href={`/workspaces/${ws.id}/members`}>
+                      <Button variant="outline" size="sm" className="gap-1.5">
+                        <ChevronRight className="w-3.5 h-3.5" />
+                        Manage members
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Role guide */}
-      {accountRoles.length > 0 ? (
+      {isAdminTeamView && accountRoles.length > 0 ? (
         <div className="bg-slate-50 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {accountRoles.map((role, idx) => (
             <div key={role.id} className="flex gap-3">
@@ -285,7 +765,7 @@ export default function Team() {
             </div>
           ))}
         </div>
-      ) : (
+      ) : isAdminTeamView ? (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -295,10 +775,10 @@ export default function Team() {
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Invite form */}
-      {showInvite && canManage && (
+      {isAdminTeamView && showInvite && canManage && (
         <div className="bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-semibold text-slate-900 flex items-center gap-2">
@@ -415,12 +895,18 @@ export default function Team() {
         </div>
       )}
 
-      {/* Owner card */}
+      {/* Account seats & credits (team_members billing) */}
+      {isAdminTeamView && (
+      <>
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900 text-sm">
-            {activePendingCount + pendingMembers.length} member{activePendingCount + pendingMembers.length !== 1 ? "s" : ""}
-          </h2>
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900 text-sm">Account seats & credits</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Billing seats and credit allocation for your account team.</p>
+        </div>
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="font-medium text-slate-800 text-sm">
+            {activePendingCount + pendingMembers.length} seat member{activePendingCount + pendingMembers.length !== 1 ? "s" : ""}
+          </h3>
         </div>
         <div className="divide-y divide-slate-100">
           {/* Owner (you) */}
@@ -635,7 +1121,6 @@ export default function Team() {
         </div>
       </div>
 
-      {/* Activity of active members */}
       {activeMembers.length > 0 && (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-0">
@@ -687,6 +1172,8 @@ export default function Team() {
             </ResponsiveTable>
           </CardContent>
         </Card>
+      )}
+      </>
       )}
     </div>
   );

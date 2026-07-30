@@ -25,6 +25,8 @@ import {
 import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
 import { syncTeamMemberWorkspaceMemberships } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
+import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
+import { buildWorkspaceMemberStats } from "../lib/workspace-member-stats.js";
 
 const router: IRouter = Router();
 
@@ -98,6 +100,26 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
 
   const ownerUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
 
+  const workspaceIdParam = req.query.workspaceId;
+  const scopedWorkspaceId =
+    workspaceIdParam != null && String(workspaceIdParam).trim() !== ""
+      ? Number(workspaceIdParam)
+      : null;
+  if (scopedWorkspaceId != null && (!Number.isFinite(scopedWorkspaceId) || scopedWorkspaceId <= 0)) {
+    res.status(400).json({ error: "Invalid workspaceId" });
+    return;
+  }
+
+  const workspaceMembers = await getWorkspaceMemberSummaryForOwner(userId, {
+    workspaceId: scopedWorkspaceId ?? undefined,
+    includeMembers: true,
+  });
+
+  if (scopedWorkspaceId != null && workspaceMembers.workspaces.length === 0) {
+    res.status(404).json({ error: "Workspace not found" });
+    return;
+  }
+
   const memberStats = await Promise.all(members.map(async (m) => {
     if (!m.memberUserId) {
       return {
@@ -129,6 +151,13 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     };
   }));
 
+  const scopedMembers = scopedWorkspaceId != null
+    ? workspaceMembers.workspaces[0]?.members ?? []
+    : [];
+  const workspaceMemberStats = scopedMembers.length > 0
+    ? await buildWorkspaceMemberStats(userId, scopedMembers, periodStart, periodEnd)
+    : [];
+
   res.json({
     maxSeats,
     planName: sub?.planName ?? null,
@@ -143,6 +172,8 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     ownerUsedInPeriod,
     members: [...members, ...pending],
     memberStats,
+    workspaceMembers,
+    workspaceMemberStats,
   });
 });
 

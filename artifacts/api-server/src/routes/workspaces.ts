@@ -27,6 +27,7 @@ import {
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
 import { ensureAccountRolesMigrated, listAccountRoles, getAccountRole } from "../lib/ensure-account-roles";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
+import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { createNotification } from "../lib/notifications.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
@@ -101,67 +102,29 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 0)))
     .orderBy(desc(workspacesTable.isDefault), workspacesTable.name);
 
-  const workspaceIds = owned.map((w) => w.id);
-  if (workspaceIds.length === 0) {
-    res.json({
-      totalWorkspaces: 0,
-      totalMembers: 0,
-      activeMembers: 0,
-      pendingInvites: 0,
-      totalRoles: 0,
-      workspaces: [],
-    });
-    return;
-  }
-
-  const members = await db
-    .select({
-      workspaceId: workspaceMembersTable.workspaceId,
-      status: workspaceMembersTable.status,
-    })
-    .from(workspaceMembersTable)
-    .where(and(
-      inArray(workspaceMembersTable.workspaceId, workspaceIds),
-      eq(workspaceMembersTable.isDeleted, 0),
-    ));
-
   const roles = await listAccountRoles(accountOwnerId);
-
-  const memberStats = new Map<number, { total: number; active: number; pending: number }>();
-  for (const m of members) {
-    const stats = memberStats.get(m.workspaceId) ?? { total: 0, active: 0, pending: 0 };
-    stats.total += 1;
-    if (m.status === "active") stats.active += 1;
-    if (m.status === "pending") stats.pending += 1;
-    memberStats.set(m.workspaceId, stats);
-  }
-
-  let totalMembers = 0;
-  let activeMembers = 0;
-  let pendingInvites = 0;
-  for (const stats of memberStats.values()) {
-    totalMembers += stats.total;
-    activeMembers += stats.active;
-    pendingInvites += stats.pending;
-  }
+  const summary = await getWorkspaceMemberSummaryForOwner(accountOwnerId, { includeMembers: true });
+  const ownedById = new Map(owned.map((w) => [w.id, w]));
 
   res.json({
     totalWorkspaces: owned.length,
-    totalMembers,
-    activeMembers,
-    pendingInvites,
+    totalMembers: summary.totalMemberships,
+    uniquePeople: summary.uniquePeople,
+    activeMembers: summary.activeMembers,
+    pendingInvites: summary.pendingInvites,
     totalRoles: roles.length,
-    workspaces: owned.map((w) => {
-      const stats = memberStats.get(w.id) ?? { total: 0, active: 0, pending: 0 };
+    workspaces: summary.workspaces.map((w) => {
+      const meta = ownedById.get(w.id);
       return {
         id: w.id,
         name: w.name,
-        description: w.description,
-        clientLabel: w.clientLabel,
+        description: meta?.description ?? null,
+        clientLabel: meta?.clientLabel ?? null,
         isDefault: w.isDefault,
-        memberCount: stats.total,
-        activeMemberCount: stats.active,
-        pendingMemberCount: stats.pending,
+        memberCount: w.memberCount,
+        activeMemberCount: w.activeMemberCount,
+        pendingMemberCount: w.pendingMemberCount,
+        members: w.members,
       };
     }),
   });
