@@ -11,7 +11,8 @@ import { ArrowLeft, Copy, Mail, UserPlus, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { accountRoleLabel } from "@/lib/role-display";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -21,8 +22,8 @@ interface MemberRow {
   invitedName: string;
   status: string;
   inviteToken?: string;
-  roleName?: string;
-  legacyRole?: string;
+  roleId?: number | null;
+  roleName?: string | null;
   allocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
 }
 
@@ -84,6 +85,12 @@ export default function WorkspaceMembersPage() {
 
   const members = membersData?.members ?? [];
   const roles = rolesData?.roles ?? [];
+
+  useEffect(() => {
+    if (roles.length > 0 && !roleId) {
+      setRoleId(String(roles[0]!.id));
+    }
+  }, [roles, roleId]);
 
   const creditMutation = useMutation({
     mutationFn: ({ memberId, aiCredits, imageCredits, auditCredits }: { memberId: number; aiCredits: number; imageCredits: number; auditCredits: number }) =>
@@ -238,7 +245,7 @@ export default function WorkspaceMembersPage() {
             <Button
               className="sm:col-span-3 w-fit"
               onClick={() => invite.mutate()}
-              disabled={!email.trim() || invite.isPending}
+              disabled={!email.trim() || !roleId || roles.length === 0 || invite.isPending}
             >
               Send invite
             </Button>
@@ -275,7 +282,7 @@ export default function WorkspaceMembersPage() {
                   <TableRow key={m.id}>
                     <TableCell>{m.invitedName}</TableCell>
                     <TableCell>{m.invitedEmail}</TableCell>
-                    <TableCell>{m.roleName ?? m.legacyRole ?? "—"}</TableCell>
+                    <TableCell>{accountRoleLabel(m.roleId, m.roleName, roles)}</TableCell>
                     <TableCell className="capitalize">{m.status}</TableCell>
                     {canViewCredits && (
                       <TableCell>

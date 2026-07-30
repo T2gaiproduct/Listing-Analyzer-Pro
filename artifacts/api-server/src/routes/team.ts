@@ -34,19 +34,17 @@ const router: IRouter = Router();
 async function resolveInviteRole(
   ownerUserId: string,
   body: { roleId?: number; role?: string },
-): Promise<{ roleId: number | null; roleName: string; legacyRole: string } | { error: string }> {
-  if (body.roleId != null) {
-    const accountRole = await getAccountRole(ownerUserId, body.roleId);
-    if (!accountRole) return { error: "Invalid role" };
-    return {
-      roleId: accountRole.id,
-      roleName: accountRole.name,
-      legacyRole: accountRole.legacyRoleKey ?? "editor",
-    };
+): Promise<{ roleId: number; roleName: string; legacyRole: string } | { error: string }> {
+  if (body.roleId == null || Number.isNaN(Number(body.roleId))) {
+    return { error: "Role is required. Choose a role from Roles settings." };
   }
-  const role = body.role ?? "editor";
-  if (!["admin", "editor", "viewer"].includes(role)) return { error: "Invalid role" };
-  return { roleId: null, roleName: role, legacyRole: role };
+  const accountRole = await getAccountRole(ownerUserId, Number(body.roleId));
+  if (!accountRole) return { error: "Invalid role" };
+  return {
+    roleId: accountRole.id,
+    roleName: accountRole.name,
+    legacyRole: accountRole.legacyRoleKey ?? "editor",
+  };
 }
 
 interface AuthedRequest extends Request {

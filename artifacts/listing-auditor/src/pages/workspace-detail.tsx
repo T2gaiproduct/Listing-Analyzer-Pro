@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Building2, Shield, Users, UserPlus, ChevronRight } from "lucide-react";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { accountRoleLabel } from "@/lib/role-display";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -16,8 +17,8 @@ interface MemberRow {
   invitedEmail: string;
   invitedName: string;
   status: string;
-  roleName?: string;
-  legacyRole?: string;
+  roleId?: number | null;
+  roleName?: string | null;
 }
 
 interface WorkspaceRecord {
@@ -79,7 +80,7 @@ export default function WorkspaceDetailPage() {
   const displayName = workspaceData?.name ?? ws?.name ?? "Workspace";
   const displayClient = workspaceData?.clientLabel ?? ws?.clientLabel;
   const displayDescription = workspaceData?.description ?? ws?.description;
-  const displayRole = workspaceData?.roleName ?? ws?.roleName ?? "Member";
+  const displayRole = workspaceData?.roleName ?? ws?.roleName ?? "Unassigned";
   const isDefault = workspaceData?.isDefault ?? ws?.isDefault;
   const isActive = workspaceId === activeWorkspaceId;
 
@@ -215,7 +216,7 @@ export default function WorkspaceDetailPage() {
                       <TableRow key={m.id}>
                         <TableCell className="font-medium">{m.invitedName}</TableCell>
                         <TableCell>{m.invitedEmail}</TableCell>
-                        <TableCell>{m.roleName ?? m.legacyRole ?? "—"}</TableCell>
+                        <TableCell>{accountRoleLabel(m.roleId, m.roleName, roles)}</TableCell>
                         <TableCell className="capitalize">{m.status}</TableCell>
                       </TableRow>
                     ))}

@@ -30,6 +30,7 @@ import {
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
 import { ensureAccountRolesMigrated, listAccountRoles, getAccountRole } from "../lib/ensure-account-roles";
 import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
+import { displayWorkspaceRoleLabel } from "../lib/role-display.js";
 import {
   getWorkspaceCredits,
   setWorkspaceCreditPool,
@@ -269,7 +270,7 @@ router.patch("/workspaces/:id/credits", requireAuth, requireWorkspaceAccess, asy
 router.get("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
   const ctx = (req as WorkspaceAuthedRequest).workspace;
   const [ws] = await db.select().from(workspacesTable).where(eq(workspacesTable.id, ctx.workspaceId)).limit(1);
-  res.json({ ...ws, roleName: ctx.roleName ?? (ctx.isAccountOwner ? "Owner" : ctx.legacyRole) });
+  res.json({ ...ws, roleName: displayWorkspaceRoleLabel({ isAccountOwner: ctx.isAccountOwner, roleId: ctx.roleId, roleName: ctx.roleName }) });
 });
 
 router.get("/workspaces/:id/summary", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
@@ -301,7 +302,7 @@ router.get("/workspaces/:id/summary", requireAuth, requireWorkspaceAccess, async
     clientLabel: ws.clientLabel,
     isDefault: ws.isDefault,
     createdAt: ws.createdAt,
-    roleName: ctx.roleName ?? (ctx.isAccountOwner ? "Owner" : ctx.legacyRole),
+    roleName: displayWorkspaceRoleLabel({ isAccountOwner: ctx.isAccountOwner, roleId: ctx.roleId, roleName: ctx.roleName }),
     isAccountOwner: ctx.isAccountOwner,
     memberCount: Number(memberStats?.total ?? 0),
     activeMemberCount: Number(memberStats?.active ?? 0),
@@ -430,7 +431,7 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
       const allocated = creditsByMember.get(m.member.id);
       return {
         ...m.member,
-        roleName: m.roleName ?? m.member.legacyRole,
+        roleName: m.roleName ?? null,
         allocatedCredits: canViewCredits && allocated
           ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
           : undefined,
@@ -528,17 +529,28 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     return;
   }
 
-  const { invitedEmail, invitedName, roleId, legacyRole } = req.body as {
+  const { invitedEmail, invitedName, roleId } = req.body as {
     invitedEmail?: string;
     invitedName?: string;
     roleId?: number;
-    legacyRole?: string;
   };
 
   if (!invitedEmail?.trim()) {
     res.status(400).json({ error: "Email is required" });
     return;
   }
+
+  if (roleId == null || Number.isNaN(Number(roleId))) {
+    res.status(400).json({ error: "Role is required. Select a role from Roles settings." });
+    return;
+  }
+
+  const accountRole = await getAccountRole(ctx.accountOwnerId, Number(roleId));
+  if (!accountRole) {
+    res.status(400).json({ error: "Invalid role" });
+    return;
+  }
+  const resolvedLegacyRole = accountRole.legacyRoleKey ?? "editor";
 
   const normalizedEmail = invitedEmail.trim().toLowerCase();
   const displayName = invitedName?.trim() || normalizedEmail.split("@")[0] || "Member";
@@ -564,8 +576,8 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     const [updated] = await db.update(workspaceMembersTable)
       .set({
         invitedName: displayName,
-        roleId: roleId ?? null,
-        legacyRole: legacyRole ?? "editor",
+        roleId: accountRole.id,
+        legacyRole: resolvedLegacyRole,
         status: "pending",
         inviteToken: token,
         invitedAt: new Date(),
@@ -582,8 +594,8 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
       workspaceId: ctx.workspaceId,
       invitedEmail: normalizedEmail,
       invitedName: displayName,
-      roleId: roleId ?? null,
-      legacyRole: legacyRole ?? "editor",
+      roleId: accountRole.id,
+      legacyRole: resolvedLegacyRole,
       status: "pending",
       inviteToken: token,
     }).returning();
@@ -595,11 +607,7 @@ router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcc
     .where(eq(workspacesTable.id, ctx.workspaceId))
     .limit(1);
 
-  let roleName = legacyRole ?? "editor";
-  if (roleId) {
-    const role = await getAccountRole(ctx.accountOwnerId, Number(roleId));
-    if (role?.name) roleName = role.name;
-  }
+  const roleName = accountRole.name;
 
   const [inviterProfile] = await db.select({
     fullName: userProfilesTable.fullName,
@@ -635,14 +643,26 @@ router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireW
   }
 
   const memberId = Number(req.params.memberId);
-  const { roleId, legacyRole, status } = req.body as { roleId?: number; legacyRole?: string; status?: string };
+  const { roleId, status } = req.body as { roleId?: number; status?: string };
+
+  const updates: Partial<typeof workspaceMembersTable.$inferInsert> = {};
+  if (status !== undefined) updates.status = status;
+  if (roleId !== undefined) {
+    if (roleId == null || Number.isNaN(Number(roleId))) {
+      res.status(400).json({ error: "Invalid role" });
+      return;
+    }
+    const accountRole = await getAccountRole(ctx.accountOwnerId, Number(roleId));
+    if (!accountRole) {
+      res.status(400).json({ error: "Invalid role" });
+      return;
+    }
+    updates.roleId = accountRole.id;
+    updates.legacyRole = accountRole.legacyRoleKey ?? "editor";
+  }
 
   const [updated] = await db.update(workspaceMembersTable)
-    .set({
-      ...(roleId !== undefined && { roleId }),
-      ...(legacyRole !== undefined && { legacyRole }),
-      ...(status !== undefined && { status }),
-    })
+    .set(updates)
     .where(and(
       eq(workspaceMembersTable.id, memberId),
       eq(workspaceMembersTable.workspaceId, ctx.workspaceId),
@@ -700,7 +720,7 @@ router.post("/workspaces/:workspaceId/members/:memberId/resend", requireAuth, re
   const inviterName = inviterProfile?.fullName?.trim()
     || inviterProfile?.companyName?.trim()
     || "A workspace admin";
-  const roleName = row.roleName ?? row.member.legacyRole ?? "member";
+  const roleName = row.roleName ?? "Unassigned";
 
   const delivery = await deliverWorkspaceMemberInvite({
     invitedEmail: row.member.invitedEmail,
@@ -772,7 +792,7 @@ router.get("/workspace-invite/:token", async (req, res): Promise<void> => {
     invitedAt: row.member.invitedAt,
     workspaceId: row.member.workspaceId,
     workspaceName: row.workspaceName,
-    roleName: row.roleName ?? row.member.legacyRole ?? "member",
+    roleName: displayWorkspaceRoleLabel({ roleId: row.member.roleId, roleName: row.roleName }),
   });
 });
 
@@ -843,7 +863,7 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
 
   await upsertUserProfile(userId, { onboardingCompleted: true });
 
-  const roleName = row.roleName ?? invite.legacyRole ?? "member";
+  const roleName = row.roleName ?? "Unassigned";
   void createNotification({
     userId: row.accountOwnerId,
     type: "team_invite_accepted",
@@ -867,7 +887,7 @@ router.get("/workspaces/:workspaceId/permissions/me", requireAuth, requireWorksp
   res.json({
     workspaceId: ctx.workspaceId,
     permissions: ctx.permissions,
-    roleName: ctx.roleName ?? (ctx.isAccountOwner ? "Owner" : ctx.legacyRole),
+    roleName: displayWorkspaceRoleLabel({ isAccountOwner: ctx.isAccountOwner, roleId: ctx.roleId, roleName: ctx.roleName }),
     isAccountOwner: ctx.isAccountOwner,
     preserveLegacyPermissions: ctx.preserveLegacyPermissions,
     header: WORKSPACE_HEADER,

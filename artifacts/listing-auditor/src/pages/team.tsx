@@ -22,7 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { fetchJson } from "@/lib/api-fetch";
+import { accountRoleLabel } from "@/lib/role-display";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -63,8 +63,8 @@ interface WorkspaceMemberListItem {
   invitedName: string;
   status: string;
   userId: string | null;
+  roleId?: number | null;
   roleName: string | null;
-  legacyRole: string | null;
   invitedAt: string;
   acceptedAt: string | null;
 }
@@ -129,7 +129,15 @@ function copyToClipboard(text: string, label: string, toast: (t: object) => void
   navigator.clipboard.writeText(text).then(() => toast({ title: `${label} copied!` }));
 }
 
-function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMemberListItem[]; emptyLabel?: string }) {
+function WorkspaceMembersList({
+  members,
+  roles,
+  emptyLabel,
+}: {
+  members: WorkspaceMemberListItem[];
+  roles: AccountRole[];
+  emptyLabel?: string;
+}) {
   if (members.length === 0) {
     return <p className="text-xs text-slate-500 py-2">{emptyLabel ?? "No members yet."}</p>;
   }
@@ -142,7 +150,9 @@ function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMembe
             <p className="text-xs text-slate-500 truncate">{m.invitedEmail}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+            <Badge variant="outline" className="text-xs">
+              {accountRoleLabel(m.roleId, m.roleName, roles)}
+            </Badge>
             <Badge
               variant={m.status === "active" ? "secondary" : "outline"}
               className={`text-xs capitalize ${m.status === "pending" ? "border-amber-200 text-amber-700" : ""}`}
@@ -159,6 +169,7 @@ function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMembe
 interface WorkspaceMembersDetailPanelProps {
   members: WorkspaceMemberListItem[];
   stats: WorkspaceMemberStat[];
+  roles: AccountRole[];
   canManageCredits: boolean;
   availableToAllocate?: TeamData["availableToAllocate"];
   editingCredits: Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>;
@@ -171,6 +182,7 @@ interface WorkspaceMembersDetailPanelProps {
 function WorkspaceMembersDetailPanel({
   members,
   stats,
+  roles,
   canManageCredits,
   availableToAllocate,
   editingCredits,
@@ -230,7 +242,9 @@ function WorkspaceMembersDetailPanel({
                   </div>
                 )}
               </div>
-              <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+              <Badge variant="outline" className="text-xs">
+              {accountRoleLabel(m.roleId, m.roleName, roles)}
+            </Badge>
               <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
               {m.acceptedAt && (
                 <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">
@@ -326,7 +340,7 @@ function WorkspaceMembersDetailPanel({
               Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}
             </p>
           </div>
-          <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+          <Badge variant="outline" className="text-xs">{accountRoleLabel(m.roleId, m.roleName, roles)}</Badge>
           <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
         </div>
       ))}
@@ -391,8 +405,8 @@ export default function Team() {
         invitedName: string;
         status: string;
         userId: string | null;
-        roleName?: string;
-        legacyRole?: string | null;
+        roleId?: number | null;
+        roleName?: string | null;
         invitedAt: string;
         acceptedAt: string | null;
         allocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
@@ -494,8 +508,8 @@ export default function Team() {
       invitedName: m.invitedName,
       status: m.status,
       userId: m.userId,
+      roleId: m.roleId ?? null,
       roleName: m.roleName ?? null,
-      legacyRole: m.legacyRole ?? null,
       invitedAt: m.invitedAt,
       acceptedAt: m.acceptedAt,
     }));
@@ -666,6 +680,7 @@ export default function Team() {
           <WorkspaceMembersDetailPanel
             members={scopedWorkspaceMembers}
             stats={workspaceMemberStats}
+            roles={accountRoles}
             canManageCredits={!isAccountOwner && can("credits", "edit")}
             availableToAllocate={workspacePoolAvailable ?? data?.availableToAllocate}
             editingCredits={editingCredits}
@@ -746,7 +761,7 @@ export default function Team() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <WorkspaceMembersList members={ws.members ?? []} emptyLabel="No members in this workspace." />
+                    <WorkspaceMembersList members={ws.members ?? []} roles={accountRoles} emptyLabel="No members in this workspace." />
                     <Link href={`/workspaces/${ws.id}/members`}>
                       <Button variant="outline" size="sm" className="gap-1.5">
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -935,7 +950,6 @@ export default function Team() {
               <p className="font-semibold text-slate-900 text-sm">{user?.fullName || user?.primaryEmailAddress?.emailAddress} <span className="text-xs text-slate-400 font-normal">(you)</span></p>
               <p className="text-slate-400 text-xs">{user?.primaryEmailAddress?.emailAddress}</p>
             </div>
-            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">admin</Badge>
             <Badge variant="outline" className="border-green-200 text-green-600">Owner</Badge>
           </div>
 
@@ -961,7 +975,9 @@ export default function Team() {
                       </div>
                     )}
                   </div>
-                  <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+                  <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>
+                    {accountRoleLabel(m.roleId, m.role, accountRoles)}
+                  </Badge>
                   <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
                   {m.acceptedAt && <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}</span>}
                   <DropdownMenu>
@@ -1004,7 +1020,9 @@ export default function Team() {
                 <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
                 <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" />Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}</p>
               </div>
-              <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+              <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>
+                {accountRoleLabel(m.roleId, m.role, accountRoles)}
+              </Badge>
               <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1081,7 +1099,9 @@ export default function Team() {
                         </div>
                       </td>
                       <td className="px-3 py-3">
-                        <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit text-xs`}>{m.role}</Badge>
+                        <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit text-xs`}>
+                          {accountRoleLabel(m.roleId, m.role, accountRoles)}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-slate-800">{stat?.creditsUsed ?? 0}</td>
                       <td className="px-4 py-3 text-right text-slate-600">{stat?.auditCount ?? 0}</td>

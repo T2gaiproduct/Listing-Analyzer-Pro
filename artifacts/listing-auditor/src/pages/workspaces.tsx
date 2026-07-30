@@ -349,7 +349,7 @@ export default function WorkspacesPage() {
                 </div>
               )}
               {!isAccountOwner && (
-                <p className="text-xs text-slate-400">Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Member"}</p>
+                <p className="text-xs text-slate-400">Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Unassigned"}</p>
               )}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Link href={`/workspaces/${ws.id}`}>

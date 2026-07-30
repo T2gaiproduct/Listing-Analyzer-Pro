@@ -16,6 +16,7 @@ import {
   canWriteInWorkspace,
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
+import { displayWorkspaceRoleLabel } from "./role-display.js";
 import { getDefaultWorkspaceId, ensureTeamMembersSchema } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
 import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
@@ -105,8 +106,8 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
   const memberships = await db
     .select({
       workspace: workspacesTable,
+      roleId: workspaceMembersTable.roleId,
       roleName: workspaceRolesTable.name,
-      legacyRole: workspaceMembersTable.legacyRole,
     })
     .from(workspaceMembersTable)
     .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
@@ -127,10 +128,23 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       clientLabel: m.workspace.clientLabel,
       isDefault: m.workspace.isDefault,
       isAccountOwner: false,
-      roleName: m.roleName ?? m.legacyRole ?? "Member",
+      roleName: displayWorkspaceRoleLabel({ roleId: m.roleId, roleName: m.roleName }),
     }));
 
   if (team.isTeamMember) {
+    let teamSeatRoleName = "Unassigned";
+    if (team.memberId) {
+      const [tm] = await db
+        .select({ roleId: teamMembersTable.roleId })
+        .from(teamMembersTable)
+        .where(eq(teamMembersTable.id, team.memberId))
+        .limit(1);
+      if (tm?.roleId) {
+        const accountRole = await getAccountRole(team.ownerUserId, tm.roleId);
+        teamSeatRoleName = displayWorkspaceRoleLabel({ roleId: tm.roleId, roleName: accountRole?.name });
+      }
+    }
+
     const ownerWorkspaces = await db
       .select()
       .from(workspacesTable)
@@ -148,7 +162,7 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
         clientLabel: w.clientLabel,
         isDefault: w.isDefault,
         isAccountOwner: false,
-        roleName: team.role,
+        roleName: teamSeatRoleName,
       });
     }
   }
