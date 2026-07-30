@@ -195,12 +195,14 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const isFirstWorkspace = Number(total) === 0;
+
   const [ws] = await db.insert(workspacesTable).values({
     accountOwnerId,
     name: name.trim(),
     description: description?.trim() || null,
     clientLabel: clientLabel?.trim() || null,
-    isDefault: false,
+    isDefault: isFirstWorkspace,
     preserveLegacyPermissions: preserveLegacyPermissions ?? true,
   }).returning();
 

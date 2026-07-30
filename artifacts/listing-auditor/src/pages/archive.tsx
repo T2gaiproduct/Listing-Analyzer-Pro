@@ -46,7 +46,12 @@ function fetchArchive(): Promise<ArchiveResponse> {
 }
 
 function useArchive() {
-  return useQuery({ queryKey: ["archive"], queryFn: fetchArchive });
+  return useQuery({
+    queryKey: ["archive"],
+    queryFn: fetchArchive,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
 }
 
 function archivedAgo(item: ArchivedItem): string {

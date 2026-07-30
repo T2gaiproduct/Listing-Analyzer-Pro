@@ -11,8 +11,10 @@ import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid } from
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
+import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-header";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const STORAGE_KEY = "la_active_workspace_id";
 
 interface WorkspaceOverview {
   totalWorkspaces: number;
@@ -102,15 +104,20 @@ export default function WorkspacesPage() {
       fetch(`${basePath}/api/workspaces/${id}`, { method: "DELETE", credentials: "include" }).then((r) => {
         if (!r.ok) throw new Error("Delete failed");
       }),
-    onSuccess: (_data, deletedId) => {
+    onSuccess: async (_data, deletedId) => {
+      const remaining = workspaces.filter((w) => w.id !== deletedId);
       if (activeWorkspaceId === deletedId) {
-        const remaining = workspaces.filter((w) => w.id !== deletedId);
         const next = remaining.find((w) => w.isDefault) ?? remaining[0];
-        if (next) setActiveWorkspaceId(next.id);
+        if (next) {
+          setActiveWorkspaceId(next.id);
+        } else {
+          setHeaderWorkspaceId(null);
+          localStorage.removeItem(STORAGE_KEY);
+        }
       }
-      qc.invalidateQueries({ queryKey: ["workspaces"] });
-      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
-      qc.invalidateQueries({ queryKey: ["archive"] });
+      await qc.invalidateQueries({ queryKey: ["workspaces"] });
+      await qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
+      await qc.invalidateQueries({ queryKey: ["archive"] });
       refetch();
       toast({
         title: "Workspace deleted",

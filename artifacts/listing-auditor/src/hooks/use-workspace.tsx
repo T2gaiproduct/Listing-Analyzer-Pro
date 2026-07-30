@@ -75,7 +75,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const workspaces = listData?.workspaces ?? [];
 
   useEffect(() => {
-    if (!workspaces.length) return;
+    if (!workspaces.length) {
+      if (selectedId != null) {
+        setSelectedId(null);
+        localStorage.removeItem(STORAGE_KEY);
+        setActiveWorkspaceId(null);
+      }
+      return;
+    }
     const valid = selectedId != null && workspaces.some((w) => w.id === selectedId);
     if (!valid) {
       const fallback = workspaces.find((w) => w.isDefault) ?? workspaces[0]!;
