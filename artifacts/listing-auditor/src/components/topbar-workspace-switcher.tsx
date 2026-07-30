@@ -30,7 +30,24 @@ function accountScopedPill(location: string): { name: string; subtitle: string }
 
 /** Account-owner hub pages show a neutral workspace pill, not the active workspace name. */
 function isWorkspaceHubRoute(location: string): boolean {
-  return location === "/dashboard" || location === "/workspaces";
+  const hubPaths = new Set([
+    "/dashboard",
+    "/workspaces",
+    "/recent-projects",
+    "/ads",
+    "/videos",
+    "/projects",
+    "/audit-listings",
+    "/audits/new",
+    "/audits/workflow",
+    "/billing",
+    "/team",
+    "/settings",
+    "/profile",
+    "/notifications",
+    "/archive",
+  ]);
+  return hubPaths.has(location);
 }
 
 export function TopbarWorkspaceSwitcher() {
@@ -333,6 +350,11 @@ export function TopbarWorkspaceSwitcher() {
       >
         <Building2 className="w-4 h-4 text-orange-500" />
         <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 leading-none mt-0.5">Workspace</span>
+        {onWorkspaceDashboard ? (
+          <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">Dashboard</span>
+        ) : (
+          <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">{pillName}</span>
+        )}
       </button>
 
       <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
