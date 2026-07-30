@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { useLocation, Link } from "wouter";
@@ -86,6 +86,16 @@ interface WorkspaceMemberSummary {
   }>;
 }
 
+interface WorkspaceMemberStat {
+  workspaceMemberId: number;
+  teamMemberId: number | null;
+  auditCount: number;
+  creditsUsed: number;
+  lastActivityAt: string | null;
+  remainingCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
+  allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
+}
+
 interface TeamData {
   maxSeats: number;
   planName: string | null;
@@ -96,6 +106,7 @@ interface TeamData {
   members: TeamMember[];
   memberStats: MemberStat[];
   workspaceMembers?: WorkspaceMemberSummary;
+  workspaceMemberStats?: WorkspaceMemberStat[];
 }
 
 const roleBadgeColors = [
@@ -139,6 +150,187 @@ function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMembe
               {m.status}
             </Badge>
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface WorkspaceMembersDetailPanelProps {
+  members: WorkspaceMemberListItem[];
+  stats: WorkspaceMemberStat[];
+  canManageCredits: boolean;
+  availableToAllocate?: TeamData["availableToAllocate"];
+  editingCredits: Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>;
+  setEditingCredits: Dispatch<SetStateAction<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>>;
+  onSaveCredits: (teamMemberId: number, aiCredits: number, imageCredits: number, auditCredits: number) => void;
+  creditSaving: boolean;
+  emptyLabel?: string;
+}
+
+function WorkspaceMembersDetailPanel({
+  members,
+  stats,
+  canManageCredits,
+  availableToAllocate,
+  editingCredits,
+  setEditingCredits,
+  onSaveCredits,
+  creditSaving,
+  emptyLabel,
+}: WorkspaceMembersDetailPanelProps) {
+  if (members.length === 0) {
+    return <p className="text-xs text-slate-500 py-4">{emptyLabel ?? "No members yet."}</p>;
+  }
+
+  function getWsStat(workspaceMemberId: number) {
+    return stats.find((s) => s.workspaceMemberId === workspaceMemberId);
+  }
+
+  const active = members.filter((m) => m.status === "active");
+  const pending = members.filter((m) => m.status === "pending");
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
+      {active.map((m) => {
+        const stat = getWsStat(m.id);
+        const teamMemberId = stat?.teamMemberId;
+        const isEditing = teamMemberId != null && editingCredits[teamMemberId] != null;
+        const editVals = teamMemberId != null
+          ? editingCredits[teamMemberId] ?? {
+            aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
+            imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
+            auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
+          }
+          : null;
+
+        return (
+          <div key={m.id} className="px-5 py-4">
+            <div className="flex items-center gap-4">
+              <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-sm font-bold text-slate-600">
+                {(m.invitedName?.[0] ?? m.invitedEmail[0]).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName || m.invitedEmail}</p>
+                <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
+                {stat && !isEditing && (
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <BarChart3 className="w-3 h-3 text-orange-400" />{stat.auditCount} audit actions
+                    </span>
+                    <span className="text-xs text-slate-400">{stat.creditsUsed} credits used</span>
+                    {stat.remainingCredits && (
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-blue-400" />
+                        {stat.remainingCredits.aiCredits} AI / {stat.remainingCredits.imageCredits} Img / {stat.remainingCredits.auditCredits} Audit left
+                      </span>
+                    )}
+                    {stat.lastActivityAt && (
+                      <span className="text-xs text-slate-400">
+                        Last active {formatDistanceToNow(new Date(stat.lastActivityAt), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+              <Badge variant="outline" className="border-green-200 text-green-600 flex-shrink-0">Active</Badge>
+              {m.acceptedAt && (
+                <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">
+                  Joined {format(new Date(m.acceptedAt), "MMM d, yyyy")}
+                </span>
+              )}
+              {canManageCredits && teamMemberId != null && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={() => setEditingCredits((prev) => ({
+                    ...prev,
+                    [teamMemberId]: {
+                      aiCredits: String(stat?.allocatedCredits?.aiCredits ?? 0),
+                      imageCredits: String(stat?.allocatedCredits?.imageCredits ?? 0),
+                      auditCredits: String(stat?.allocatedCredits?.auditCredits ?? 0),
+                    },
+                  }))}
+                >
+                  <Zap className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            {isEditing && editVals && teamMemberId != null && (
+              <div className="mt-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium text-slate-700">Allocate Credits</span>
+                </div>
+                {availableToAllocate && (
+                  <p className="text-xs text-slate-500 mb-3">
+                    Available to assign: up to {availableToAllocate.auditCredits} audit, {availableToAllocate.aiCredits} text, {availableToAllocate.imageCredits} image credits.
+                  </p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1 block">AI Credits</Label>
+                    <Input type="number" min={0} value={editVals.aiCredits} className="h-8 text-sm"
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, aiCredits: e.target.value } }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1 block">Image Credits</Label>
+                    <Input type="number" min={0} value={editVals.imageCredits} className="h-8 text-sm"
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, imageCredits: e.target.value } }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1 block">Audit Credits</Label>
+                    <Input type="number" min={0} value={editVals.auditCredits} className="h-8 text-sm"
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [teamMemberId]: { ...prev[teamMemberId]!, auditCredits: e.target.value } }))} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600" disabled={creditSaving}
+                    onClick={() => {
+                      onSaveCredits(
+                        teamMemberId,
+                        Math.max(0, parseInt(editVals.aiCredits) || 0),
+                        Math.max(0, parseInt(editVals.imageCredits) || 0),
+                        Math.max(0, parseInt(editVals.auditCredits) || 0),
+                      );
+                      setEditingCredits((prev) => {
+                        const next = { ...prev };
+                        delete next[teamMemberId];
+                        return next;
+                      });
+                    }}>
+                    {creditSaving ? "Saving..." : "Save Credits"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingCredits((prev) => {
+                    const next = { ...prev };
+                    delete next[teamMemberId];
+                    return next;
+                  })}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {pending.map((m) => (
+        <div key={m.id} className="flex items-center gap-4 px-5 py-4 bg-amber-50/40">
+          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <Mail className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-900 text-sm truncate">{m.invitedName || m.invitedEmail}</p>
+            <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
+            <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+          <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
         </div>
       ))}
     </div>
@@ -207,6 +399,27 @@ export default function Team() {
       acceptedAt: string | null;
     }> }>(`${basePath}/api/workspaces/${scopedWorkspaceId}/members`),
     enabled: !isAccountOwner && isWorkspaceTeamView && scopedWorkspaceId != null && (can("team", "viewGlobal") || canManage),
+  });
+
+  const { data: overviewFallback } = useQuery({
+    queryKey: ["workspaces-overview"],
+    queryFn: () => fetchJson<{
+      workspaces: Array<{
+        id: number;
+        name: string;
+        isDefault: boolean;
+        memberCount: number;
+        activeMemberCount: number;
+        pendingMemberCount: number;
+        members?: WorkspaceMemberListItem[];
+      }>;
+      totalMemberships?: number;
+      totalMembers?: number;
+      uniquePeople?: number;
+      activeMembers?: number;
+      pendingInvites?: number;
+    }>(`${basePath}/api/workspaces/overview`),
+    enabled: isAdminTeamView,
   });
 
   const inviteMutation = useMutation({
@@ -279,6 +492,29 @@ export default function Team() {
   const scopedWorkspaceName = isAccountOwner
     ? data?.workspaceMembers?.workspaces[0]?.name ?? featureWorkspace?.name
     : featureWorkspace?.name;
+
+  const workspaceMemberStats = data?.workspaceMemberStats ?? [];
+
+  const adminWorkspaceRows = (data?.workspaceMembers?.workspaces?.length
+    ? data.workspaceMembers.workspaces
+    : overviewFallback?.workspaces?.map((ws) => ({
+      id: ws.id,
+      name: ws.name,
+      isDefault: ws.isDefault,
+      memberCount: ws.memberCount,
+      activeMemberCount: ws.activeMemberCount,
+      pendingMemberCount: ws.pendingMemberCount,
+      members: ws.members ?? [],
+    }))) ?? [];
+
+  const adminSummary = data?.workspaceMembers ?? (overviewFallback ? {
+    totalMemberships: overviewFallback.totalMembers ?? 0,
+    uniquePeople: overviewFallback.uniquePeople ?? 0,
+    activeMembers: overviewFallback.activeMembers ?? 0,
+    pendingInvites: overviewFallback.pendingInvites ?? 0,
+    scopedWorkspaceId: null,
+    workspaces: adminWorkspaceRows,
+  } : null);
 
   function getInviteUrl(token: string) {
     return `${window.location.origin}${basePath}/accept-invite?token=${token}`;
@@ -398,13 +634,13 @@ export default function Team() {
       </div>
       )}
 
-      {/* Workspace-scoped members */}
+      {/* Workspace-scoped members with activity & credits */}
       {isWorkspaceTeamView && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-orange-500" />
-              <h2 className="text-sm font-semibold text-slate-900">{scopedWorkspaceName ?? "Workspace"} members</h2>
+              <h2 className="text-sm font-semibold text-slate-900">{scopedWorkspaceName ?? "Workspace"} team</h2>
               {featureWorkspace?.isDefault && <Badge variant="secondary">Default</Badge>}
             </div>
             <Link href={`/workspaces/${scopedWorkspaceId}/members`}>
@@ -414,21 +650,28 @@ export default function Team() {
               </Button>
             </Link>
           </div>
-          <WorkspaceMembersList
+          <WorkspaceMembersDetailPanel
             members={scopedWorkspaceMembers}
+            stats={workspaceMemberStats}
+            canManageCredits={isAccountOwner && canManage}
+            availableToAllocate={data?.availableToAllocate}
+            editingCredits={editingCredits}
+            setEditingCredits={setEditingCredits}
+            onSaveCredits={(id, ai, img, audit) => creditMutation.mutate({ id, aiCredits: ai, imageCredits: img, auditCredits: audit })}
+            creditSaving={creditMutation.isPending}
             emptyLabel="No members in this workspace yet. Invite someone from the workspace members page."
           />
         </div>
       )}
 
-      {/* Admin: all workspaces with members */}
-      {isAdminTeamView && data?.workspaceMembers && (
+      {/* Admin: all workspaces with their members */}
+      {isAdminTeamView && adminSummary && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">All workspaces</h2>
+              <h2 className="text-lg font-semibold text-slate-900">All workspaces</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Each workspace lists only its own members. Totals count memberships across workspaces.
+                Each workspace shows only its own members.
               </p>
             </div>
             <Link href="/workspaces">
@@ -444,8 +687,8 @@ export default function Team() {
                 <CardTitle className="text-sm font-medium text-slate-500">Total memberships</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.totalMemberships}</p>
-                <p className="text-xs text-slate-500 mt-1">{data.workspaceMembers.uniquePeople} unique people</p>
+                <p className="text-2xl font-bold text-slate-900">{adminSummary.totalMemberships}</p>
+                <p className="text-xs text-slate-500 mt-1">{adminSummary.uniquePeople} unique people</p>
               </CardContent>
             </Card>
             <Card>
@@ -453,7 +696,7 @@ export default function Team() {
                 <CardTitle className="text-sm font-medium text-slate-500">Active members</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.activeMembers}</p>
+                <p className="text-2xl font-bold text-slate-900">{adminSummary.activeMembers}</p>
               </CardContent>
             </Card>
             <Card>
@@ -461,7 +704,7 @@ export default function Team() {
                 <CardTitle className="text-sm font-medium text-slate-500">Pending invites</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.pendingInvites}</p>
+                <p className="text-2xl font-bold text-slate-900">{adminSummary.pendingInvites}</p>
               </CardContent>
             </Card>
             <Card>
@@ -469,13 +712,13 @@ export default function Team() {
                 <CardTitle className="text-sm font-medium text-slate-500">Workspaces</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{data.workspaceMembers.workspaces.length}</p>
+                <p className="text-2xl font-bold text-slate-900">{adminWorkspaceRows.length}</p>
               </CardContent>
             </Card>
           </div>
-          {data.workspaceMembers.workspaces.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {data.workspaceMembers.workspaces.map((ws) => (
+          {adminWorkspaceRows.length > 0 && (
+            <div className="space-y-4">
+              {adminWorkspaceRows.map((ws) => (
                 <Card key={ws.id}>
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
@@ -483,18 +726,14 @@ export default function Team() {
                         <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
                         <CardTitle className="text-base truncate">{ws.name}</CardTitle>
                       </div>
-                      {ws.isDefault && <Badge variant="secondary">Default</Badge>}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {ws.isDefault && <Badge variant="secondary">Default</Badge>}
+                        <Badge variant="outline" className="text-xs">{ws.memberCount} members</Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                      <span>{ws.memberCount} members</span>
-                      <span>{ws.activeMemberCount} active</span>
-                      {ws.pendingMemberCount > 0 && (
-                        <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
-                      )}
-                    </div>
-                    <WorkspaceMembersList members={ws.members ?? []} />
+                    <WorkspaceMembersList members={ws.members ?? []} emptyLabel="No members in this workspace." />
                     <Link href={`/workspaces/${ws.id}/members`}>
                       <Button variant="outline" size="sm" className="gap-1.5">
                         <ChevronRight className="w-3.5 h-3.5" />

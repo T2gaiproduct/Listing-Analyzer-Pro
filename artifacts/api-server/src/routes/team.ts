@@ -26,6 +26,7 @@ import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-r
 import { syncTeamMemberWorkspaceMemberships } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
+import { buildWorkspaceMemberStats } from "../lib/workspace-member-stats.js";
 
 const router: IRouter = Router();
 
@@ -150,6 +151,13 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     };
   }));
 
+  const scopedMembers = scopedWorkspaceId != null
+    ? workspaceMembers.workspaces[0]?.members ?? []
+    : [];
+  const workspaceMemberStats = scopedMembers.length > 0
+    ? await buildWorkspaceMemberStats(userId, scopedMembers, periodStart, periodEnd)
+    : [];
+
   res.json({
     maxSeats,
     planName: sub?.planName ?? null,
@@ -165,6 +173,7 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     members: [...members, ...pending],
     memberStats,
     workspaceMembers,
+    workspaceMemberStats,
   });
 });
 
