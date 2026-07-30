@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, workspaceRolesTable, workspaceMembersTable } from "@workspace/db";
+import { db, workspaceRolesTable, workspaceMembersTable, teamMembersTable } from "@workspace/db";
 import {
   mergePermissionsFromForm,
   legacyRolePermissions,
@@ -112,6 +112,10 @@ router.delete("/account/roles/:roleId", requireAuth, requireAccountOwner, async 
   await db.update(workspaceMembersTable)
     .set({ roleId: null })
     .where(eq(workspaceMembersTable.roleId, roleId));
+
+  await db.update(teamMembersTable)
+    .set({ roleId: null })
+    .where(eq(teamMembersTable.roleId, roleId));
 
   await db.delete(workspaceRolesTable).where(eq(workspaceRolesTable.id, roleId));
   res.sendStatus(204);

@@ -7,6 +7,7 @@ export const teamMembersTable = pgTable("team_members", {
   invitedEmail: text("invited_email").notNull(),
   invitedName: varchar("invited_name", { length: 200 }).notNull(),
   role: text("role").notNull().default("editor"),
+  roleId: integer("role_id"),
   status: text("status").notNull().default("pending"),
   inviteToken: text("invite_token").notNull().unique(),
   invitedAt: timestamp("invited_at").notNull().defaultNow(),

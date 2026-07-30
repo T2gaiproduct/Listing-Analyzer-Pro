@@ -4,6 +4,7 @@ import {
   workspacesTable,
   workspaceRolesTable,
   workspaceMembersTable,
+  teamMembersTable,
 } from "@workspace/db";
 import {
   type WorkspaceRolePermissions,
@@ -16,7 +17,7 @@ import {
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { getDefaultWorkspaceId, ensureWorkspacesMigrated } from "./ensure-workspaces";
-import { ensureAccountRolesMigrated } from "./ensure-account-roles";
+import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
 
 export interface WorkspaceContext {
   workspaceId: number;
@@ -94,6 +95,30 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       isAccountOwner: false,
       roleName: m.roleName ?? m.legacyRole ?? "Member",
     }));
+
+  const team = await resolveTeamContext(userId);
+  if (team.isTeamMember) {
+    const ownerWorkspaces = await db
+      .select()
+      .from(workspacesTable)
+      .where(and(
+        eq(workspacesTable.accountOwnerId, team.ownerUserId),
+        eq(workspacesTable.isDeleted, 0),
+      ));
+    const seenIds = new Set(memberSummaries.map((m) => m.id));
+    for (const w of ownerWorkspaces) {
+      if (seenIds.has(w.id)) continue;
+      memberSummaries.push({
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        clientLabel: w.clientLabel,
+        isDefault: w.isDefault,
+        isAccountOwner: false,
+        roleName: team.role,
+      });
+    }
+  }
 
   return [...ownedSummaries, ...memberSummaries];
 }
@@ -180,17 +205,43 @@ export async function resolveWorkspaceContext(
     .limit(1);
 
   if (!membership) {
-    // Legacy team member without workspace_members row — use team role on default workspace only
-    if (team.isTeamMember && workspace.isDefault) {
-      const legacyRole = team.role as WorkspaceLegacyRole;
-      const useLegacy = workspace.preserveLegacyPermissions;
+    // Legacy team member without workspace_members row — apply team role on all owner workspaces
+    if (team.isTeamMember && workspace.accountOwnerId === accountOwnerId) {
+      const [teamMember] = await db
+        .select()
+        .from(teamMembersTable)
+        .where(and(
+          eq(teamMembersTable.memberUserId, userId),
+          eq(teamMembersTable.ownerUserId, accountOwnerId),
+          eq(teamMembersTable.status, "active"),
+        ))
+        .limit(1);
+
+      let legacyRole = team.role as WorkspaceLegacyRole;
+      let roleId: number | null = teamMember?.roleId ?? null;
+      let roleName: string | null = teamMember?.role ?? null;
+      let permissions = legacyRolePermissions(legacyRole);
+
+      if (teamMember?.roleId) {
+        const accountRole = await getAccountRole(accountOwnerId, teamMember.roleId);
+        if (accountRole) {
+          roleId = accountRole.id;
+          roleName = accountRole.name;
+          legacyRole = (accountRole.legacyRoleKey ?? legacyRole) as WorkspaceLegacyRole;
+          permissions = accountRole.permissions ?? legacyRolePermissions(legacyRole);
+        }
+      }
+
+      const useLegacy = workspace.preserveLegacyPermissions && !teamMember?.roleId;
       return {
         workspaceId,
         workspaceName: workspace.name,
         accountOwnerId: workspace.accountOwnerId,
         isAccountOwner: false,
         memberId: team.memberId,
-        permissions: useLegacy ? legacyRolePermissions(legacyRole) : legacyRolePermissions(legacyRole),
+        roleId,
+        roleName,
+        permissions: useLegacy ? legacyRolePermissions(legacyRole) : permissions,
         legacyRole,
         preserveLegacyPermissions: workspace.preserveLegacyPermissions,
         useLegacy,

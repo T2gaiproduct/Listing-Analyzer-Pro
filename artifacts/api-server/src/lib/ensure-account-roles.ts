@@ -53,6 +53,11 @@ export async function ensureAccountRolesMigrated(): Promise<void> {
   migrated = true;
 }
 
+export async function ensureTeamMembersRoleId(): Promise<void> {
+  await ensureAccountRolesMigrated();
+  await db.execute(sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS role_id integer`);
+}
+
 export async function listAccountRoles(accountOwnerId: string) {
   await ensureAccountRolesMigrated();
   return db
