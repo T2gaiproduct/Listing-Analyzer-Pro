@@ -1281,7 +1281,7 @@ export default function AuditWorkflow() {
       toast({ title: "Not available", description: "Amazon publishing isn't set up yet. Contact your administrator.", variant: "destructive" });
       return;
     }
-    if (!amazonStatus.connected) {
+    if (!amazonStatus?.connected) {
       toast({ title: "Connect Amazon", description: "Connect your Amazon seller account first.", variant: "destructive" });
       return;
     }
