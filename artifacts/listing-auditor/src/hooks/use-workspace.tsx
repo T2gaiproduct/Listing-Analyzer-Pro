@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { isWorkspaceApiScopeActive, isWorkspaceAdminOverviewRoute } from "@/lib/workspace-routes";
+import { isWorkspaceApiScopeActive, isWorkspaceAdminOverviewRoute, parseWorkspaceRouteId } from "@/lib/workspace-routes";
 import {
   hasWorkspacePermission,
   type WorkspaceFeature,
@@ -106,6 +106,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [location]);
 
+  // Visiting a workspace detail URL (/workspaces/:id) commits that workspace for the ribbon and scoped APIs.
+  useEffect(() => {
+    const routeWorkspaceId = parseWorkspaceRouteId(location);
+    if (routeWorkspaceId == null || !workspaces.some((w) => w.id === routeWorkspaceId)) return;
+    if (selectedId !== routeWorkspaceId) {
+      setSelectedId(routeWorkspaceId);
+      localStorage.setItem(STORAGE_KEY, String(routeWorkspaceId));
+    }
+    if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
+  }, [location, workspaces, selectedId, workspaceScopeCommitted]);
+
   useEffect(() => {
     if (!workspaces.length || workspaceScopeCommitted || overviewVisitedThisSession.current) return;
     if (isWorkspaceAdminOverviewRoute(location)) return;
@@ -203,7 +214,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const needsWorkspaceSelection = isBillingAccountOwner
     && ownsAnyWorkspace
     && workspaceApiScopeActive
-    && !workspaceScopeCommitted;
+    && !workspaceScopeCommitted
+    && parseWorkspaceRouteId(location) == null;
 
   useEffect(() => {
     setActiveWorkspaceId(activeWorkspaceId);

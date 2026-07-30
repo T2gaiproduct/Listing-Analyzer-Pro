@@ -36,10 +36,10 @@ export default function WorkspaceDetailPage() {
   const { workspaces, activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
 
   useEffect(() => {
-    if (Number.isFinite(workspaceId) && workspaceId > 0 && workspaceId !== activeWorkspaceId) {
+    if (Number.isFinite(workspaceId) && workspaceId > 0) {
       setActiveWorkspaceId(workspaceId);
     }
-  }, [workspaceId, activeWorkspaceId, setActiveWorkspaceId]);
+  }, [workspaceId, setActiveWorkspaceId]);
 
   const ws = workspaces.find((w) => w.id === workspaceId);
 
