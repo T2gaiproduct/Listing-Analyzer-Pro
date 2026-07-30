@@ -27,6 +27,66 @@ function memberPatch(input: {
   };
 }
 
+/** Mirror pending team invite into workspace_members (pending) on every workspace. */
+export async function syncPendingTeamInviteToWorkspaces(input: {
+  ownerUserId: string;
+  invitedEmail: string;
+  invitedName: string;
+  roleId: number | null;
+  legacyRole: string | null;
+}): Promise<void> {
+  const workspaces = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.accountOwnerId, input.ownerUserId),
+      eq(workspacesTable.isDeleted, 0),
+    ));
+
+  const emailLower = input.invitedEmail.toLowerCase();
+  const legacyRole = normalizeLegacyRole(input.legacyRole);
+
+  for (const ws of workspaces) {
+    const [byEmail] = await db
+      .select()
+      .from(workspaceMembersTable)
+      .where(and(
+        eq(workspaceMembersTable.workspaceId, ws.id),
+        sql`lower(${workspaceMembersTable.invitedEmail}) = ${emailLower}`,
+      ))
+      .limit(1);
+
+    if (byEmail) {
+      if (byEmail.status === "active" && byEmail.isDeleted === 0) continue;
+      await db.update(workspaceMembersTable)
+        .set({
+          invitedName: input.invitedName,
+          roleId: input.roleId,
+          legacyRole,
+          status: "pending",
+          userId: null,
+          acceptedAt: null,
+          inviteToken: randomBytes(32).toString("hex"),
+          invitedAt: new Date(),
+          isDeleted: 0,
+          deletedAt: null,
+        })
+        .where(eq(workspaceMembersTable.id, byEmail.id));
+      continue;
+    }
+
+    await db.insert(workspaceMembersTable).values({
+      workspaceId: ws.id,
+      invitedEmail: emailLower,
+      invitedName: input.invitedName,
+      roleId: input.roleId,
+      legacyRole,
+      status: "pending",
+      inviteToken: randomBytes(32).toString("hex"),
+    });
+  }
+}
+
 /** Mirror team membership into workspace_members so granular roles apply on every workspace. */
 export async function syncTeamMemberWorkspaceMemberships(input: {
   ownerUserId: string;

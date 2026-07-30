@@ -383,6 +383,12 @@ export default function Team() {
     }
   }, [accountRoles, inviteForm.roleId]);
 
+  useEffect(() => {
+    if (showInvite) {
+      document.getElementById("team-invite-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [showInvite]);
+
   const { data, isLoading } = useQuery<TeamData>({
     queryKey: ["team", scopedWorkspaceId],
     queryFn: () => {
@@ -446,6 +452,7 @@ export default function Team() {
         .then(async (r) => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["team"] });
+      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
       setCreatedInvite({ token: data.token, invitedName: data.invite.invitedName, invitedEmail: data.invite.invitedEmail });
       setInviteForm({ name: "", email: "", roleId: accountRoles[0] ? String(accountRoles[0].id) : "" });
     },
@@ -607,7 +614,18 @@ export default function Team() {
         {canManage && isAdminTeamView && (
           <Button
             className="bg-orange-500 hover:bg-orange-600 text-white"
-            onClick={() => { setShowInvite(true); setCreatedInvite(null); }}
+            onClick={() => {
+              if (accountRoles.length === 0) {
+                toast({
+                  title: "Create a role first",
+                  description: "Go to Roles and create at least one role before inviting members.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setShowInvite(true);
+              setCreatedInvite(null);
+            }}
             disabled={isAtLimit}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -808,7 +826,7 @@ export default function Team() {
 
       {/* Invite form */}
       {isAdminTeamView && showInvite && canManage && (
-        <div className="bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
+        <div id="team-invite-panel" className="bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-semibold text-slate-900 flex items-center gap-2">
               <Mail className="w-4 h-4 text-orange-500" />
