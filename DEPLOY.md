@@ -111,10 +111,23 @@ PORT=8080
 
 ## Step 5 — Run DB Migrations
 
+**Option A — Drizzle push (recommended on each deploy)**
+
 ```bash
 cd /opt/listingauditor
 pnpm --filter @workspace/db run push
 ```
+
+**Option B — Reviewed SQL script (production catch-up)**
+
+If production is missing columns such as `user_profiles.login_email` or workspace RBAC tables, back up the database and run:
+
+```bash
+cd /opt/listingauditor
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-schema-upgrade.sql
+```
+
+Then restart the API. This script is additive only (`IF NOT EXISTS`). Schema source of truth remains `lib/db/src/schema/`.
 
 ---
 
@@ -253,8 +266,9 @@ pnpm install --frozen-lockfile
 pnpm run build
 pnpm --filter @workspace/listing-auditor run build
 
-# Run any new migrations
+# Run any new migrations (prefer push; use SQL script if production schema is behind)
 pnpm --filter @workspace/db run push
+# Fallback: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-schema-upgrade.sql
 
 # Restart API
 pm2 restart listing-auditor-api
@@ -279,6 +293,8 @@ pm2 restart listing-auditor-api
 | Blank page | Check `dist/` was built, Nginx root path is correct |
 | Clerk auth failing | Ensure production keys are set, domain is whitelisted in Clerk |
 | DB connection refused | Check `DATABASE_URL` format and firewall rules |
+| `column "login_email" does not exist` | Run Step 5 Option B SQL script or `pnpm --filter @workspace/db run push` |
+| `workspace_members` errors | Same — production needs workspace RBAC schema (Step 5) |
 | "Port already in use" | `pm2 delete all && pm2 start ...` |
 
 ---
