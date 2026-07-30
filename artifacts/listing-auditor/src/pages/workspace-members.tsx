@@ -1,5 +1,5 @@
 import { Link, useParams } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { ArrowLeft, Copy, Mail, UserPlus, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { useState, useEffect } from "react";
 import { accountRoleLabel } from "@/lib/role-display";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");

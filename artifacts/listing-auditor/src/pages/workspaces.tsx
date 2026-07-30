@@ -194,7 +194,7 @@ export default function WorkspacesPage() {
     });
   };
 
-  const displayWorkspaces = isAccountOwner && overview
+  const displayWorkspaces: WorkspaceOverview["workspaces"] = isAccountOwner && overview
     ? overview.workspaces.map((ws) => ({
         ...ws,
         members: ws.members ?? [],
