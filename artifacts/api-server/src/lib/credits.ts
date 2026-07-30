@@ -7,6 +7,7 @@ import {
   getWorkspaceCredits,
   getWorkspaceMemberCredits,
   resolveWorkspaceMemberIdForTeamMember,
+  setWorkspaceMemberCredits,
 } from "./workspace-credits.js";
 
 export type CreditType = "ai" | "image" | "audit";
@@ -481,33 +482,29 @@ export async function addMemberCredits(
   memberId: number,
   type: CreditType,
   amount: number,
+  workspaceId: number,
 ): Promise<number> {
-  const [existing] = await db
-    .select()
-    .from(memberCreditsTable)
-    .where(eq(memberCreditsTable.memberId, memberId));
-
-  const now = new Date();
-  let newBalance: number;
-  const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
-
-  if (existing) {
-    newBalance = (existing[key as keyof typeof existing] as number) + amount;
-    await db
-      .update(memberCreditsTable)
-      .set({ [key]: newBalance, updatedAt: now })
-      .where(eq(memberCreditsTable.memberId, memberId));
-  } else {
-    newBalance = Math.max(0, amount);
-    await db.insert(memberCreditsTable).values({
-      memberId,
-      aiCredits: type === "ai" ? newBalance : 0,
-      imageCredits: type === "image" ? newBalance : 0,
-      auditCredits: type === "audit" ? newBalance : 0,
-    });
+  const workspaceMemberId = await resolveWorkspaceMemberIdForTeamMember(memberId, workspaceId);
+  if (workspaceMemberId == null) {
+    throw new Error("Workspace member not found for team member");
   }
 
-  return newBalance;
+  const current = await getWorkspaceMemberCredits(workspaceMemberId) ?? {
+    aiCredits: 0,
+    imageCredits: 0,
+    auditCredits: 0,
+  };
+  const key = type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits";
+  const newBalance = Math.max(0, current[key] + amount);
+  const updated = await setWorkspaceMemberCredits(
+    workspaceId,
+    workspaceMemberId,
+    memberId,
+    type === "ai" ? newBalance : current.aiCredits,
+    type === "image" ? newBalance : current.imageCredits,
+    type === "audit" ? newBalance : current.auditCredits,
+  );
+  return updated[key];
 }
 
 export async function setMemberCredits(
@@ -515,26 +512,20 @@ export async function setMemberCredits(
   aiCredits: number,
   imageCredits: number,
   auditCredits: number,
+  workspaceId: number,
 ): Promise<void> {
-  const [existing] = await db
-    .select()
-    .from(memberCreditsTable)
-    .where(eq(memberCreditsTable.memberId, memberId));
-
-  const now = new Date();
-  if (existing) {
-    await db
-      .update(memberCreditsTable)
-      .set({ aiCredits, imageCredits, auditCredits, updatedAt: now })
-      .where(eq(memberCreditsTable.memberId, memberId));
-  } else {
-    await db.insert(memberCreditsTable).values({
-      memberId,
-      aiCredits,
-      imageCredits,
-      auditCredits,
-    });
+  const workspaceMemberId = await resolveWorkspaceMemberIdForTeamMember(memberId, workspaceId);
+  if (workspaceMemberId == null) {
+    throw new Error("Workspace member not found for team member");
   }
+  await setWorkspaceMemberCredits(
+    workspaceId,
+    workspaceMemberId,
+    memberId,
+    aiCredits,
+    imageCredits,
+    auditCredits,
+  );
 }
 
 export async function getMemberCredits(

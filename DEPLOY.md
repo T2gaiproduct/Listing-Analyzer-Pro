@@ -111,23 +111,42 @@ PORT=8080
 
 ## Step 5 — Run DB Migrations
 
-**Option A — Drizzle push (recommended on each deploy)**
+**Recommended — one command (schema + data backfill + verify)**
+
+Back up the database first, then from the repo root:
+
+```bash
+cd /opt/listingauditor
+export DATABASE_URL="postgresql://..."   # production connection string
+bash scripts/sync-production-db.sh
+```
+
+This runs:
+
+1. `pnpm --filter @workspace/db run push` (Drizzle schema from `lib/db/src/schema/`)
+2. On push failure, falls back to `scripts/sql/production-schema-upgrade.sql`
+3. `scripts/sql/production-data-migration.sql` — workspace credit pool rows + `member_credits` workspace scope backfill
+4. `scripts/verify-production-readiness.sh`
+
+Then restart the API (`pm2 restart listing-auditor-api`). Boot also runs `ensureWorkspaceCreditsMigrated`, but the SQL data step aligns production before restart.
+
+**Option A — Drizzle push only**
 
 ```bash
 cd /opt/listingauditor
 pnpm --filter @workspace/db run push
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-data-migration.sql
 ```
 
-**Option B — Reviewed SQL script (production catch-up)**
-
-If production is missing columns such as `user_profiles.login_email` or workspace RBAC tables, back up the database and run:
+**Option B — Reviewed SQL scripts (when push cannot run on the host)**
 
 ```bash
 cd /opt/listingauditor
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-schema-upgrade.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-data-migration.sql
 ```
 
-Then restart the API. This script is additive only (`IF NOT EXISTS`). Schema source of truth remains `lib/db/src/schema/`.
+All scripts are additive / idempotent (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`). Schema source of truth remains `lib/db/src/schema/`.
 
 ---
 
@@ -266,9 +285,8 @@ pnpm install --frozen-lockfile
 pnpm run build
 pnpm --filter @workspace/listing-auditor run build
 
-# Run any new migrations (prefer push; use SQL script if production schema is behind)
-pnpm --filter @workspace/db run push
-# Fallback: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-schema-upgrade.sql
+# Sync production DB with local schema + workspace credit data
+bash scripts/sync-production-db.sh
 
 # Restart API
 pm2 restart listing-auditor-api
@@ -295,6 +313,8 @@ pm2 restart listing-auditor-api
 | DB connection refused | Check `DATABASE_URL` format and firewall rules |
 | `column "login_email" does not exist` | Run Step 5 Option B SQL script or `pnpm --filter @workspace/db run push` |
 | `workspace_members` errors | Same — production needs workspace RBAC schema (Step 5) |
+| Workspace pool / member credits 404 | Run `bash scripts/sync-production-db.sh` then restart API |
+| `member_credits` missing `workspace_id` | Run `scripts/sql/production-data-migration.sql` |
 | "Port already in use" | `pm2 delete all && pm2 start ...` |
 
 ---

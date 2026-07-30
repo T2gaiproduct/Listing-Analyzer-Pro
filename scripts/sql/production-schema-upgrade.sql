@@ -14,7 +14,10 @@
 -- Apply:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-schema-upgrade.sql
 --
--- After apply: restart the API server. Legacy workspace_id backfill runs on demand via the API.
+-- After apply:
+--   1. psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-data-migration.sql
+--      (or run bash scripts/sync-production-db.sh which does schema + data + verify)
+--   2. Restart the API server (ensureWorkspaceCreditsMigrated also runs on boot).
 
 BEGIN;
 
@@ -129,5 +132,9 @@ COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');
 --   SELECT to_regclass('public.workspace_members'), to_regclass('public.workspaces');
+--   SELECT to_regclass('public.workspace_credits');
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'team_members' AND column_name = 'role_id';
+--   SELECT column_name FROM information_schema.columns
+--     WHERE table_name = 'member_credits'
+--       AND column_name IN ('workspace_id', 'workspace_member_id');
