@@ -195,16 +195,98 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const isFirstWorkspace = Number(total) === 0;
+
   const [ws] = await db.insert(workspacesTable).values({
     accountOwnerId,
     name: name.trim(),
     description: description?.trim() || null,
     clientLabel: clientLabel?.trim() || null,
-    isDefault: false,
+    isDefault: isFirstWorkspace,
     preserveLegacyPermissions: preserveLegacyPermissions ?? true,
   }).returning();
 
   res.status(201).json(ws);
+});
+
+// ─── Archived workspaces (account owner) ─────────────────────────────────────
+
+router.get("/workspaces/archived", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const accountOwnerId = await resolveAccountOwnerId(userId);
+  if (accountOwnerId !== userId) {
+    res.status(403).json({ error: "Only the account owner can view archived workspaces" });
+    return;
+  }
+
+  const archived = await db
+    .select({
+      id: workspacesTable.id,
+      name: workspacesTable.name,
+      description: workspacesTable.description,
+      clientLabel: workspacesTable.clientLabel,
+      isDefault: workspacesTable.isDefault,
+      deletedAt: workspacesTable.deletedAt,
+      createdAt: workspacesTable.createdAt,
+    })
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.isDeleted, 1),
+    ))
+    .orderBy(desc(workspacesTable.deletedAt));
+
+  res.json({ workspaces: archived });
+});
+
+router.post("/workspaces/:id/restore", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const workspaceId = Number(req.params.id);
+  if (!workspaceId || Number.isNaN(workspaceId)) {
+    res.status(400).json({ error: "Invalid workspace id" });
+    return;
+  }
+
+  const accountOwnerId = await resolveAccountOwnerId(userId);
+  if (accountOwnerId !== userId) {
+    res.status(403).json({ error: "Only the account owner can restore workspaces" });
+    return;
+  }
+
+  const [archived] = await db.select().from(workspacesTable).where(and(
+    eq(workspacesTable.id, workspaceId),
+    eq(workspacesTable.accountOwnerId, accountOwnerId),
+    eq(workspacesTable.isDeleted, 1),
+  )).limit(1);
+
+  if (!archived) {
+    res.status(404).json({ error: "Archived workspace not found" });
+    return;
+  }
+
+  const [activeDefault] = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.isDeleted, 0),
+      eq(workspacesTable.isDefault, true),
+    ))
+    .limit(1);
+
+  const restoreAsDefault = archived.isDefault && !activeDefault;
+
+  const [restored] = await db.update(workspacesTable)
+    .set({
+      isDeleted: 0,
+      deletedAt: null,
+      isDefault: restoreAsDefault,
+      updatedAt: new Date(),
+    })
+    .where(eq(workspacesTable.id, workspaceId))
+    .returning();
+
+  res.json(restored);
 });
 
 // ─── Get / update / delete workspace ─────────────────────────────────────────

@@ -111,7 +111,6 @@ export default function WorkspaceDetailPage() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold text-slate-900 truncate">{displayName}</h1>
-              {isDefault && <Badge variant="secondary">Default</Badge>}
               {isActive && <Badge className="bg-orange-100 text-orange-700">Active</Badge>}
             </div>
             {displayClient && (

@@ -54,6 +54,35 @@ async function purgeLegacySystemRoles(): Promise<void> {
   }
 }
 
+async function accountNeedsWorkspaceMigration(accountOwnerId: string): Promise<boolean> {
+  const [existingWs] = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.isDeleted, 0),
+    ))
+    .limit(1);
+  if (existingWs) return true;
+
+  const unmigratedChecks = await Promise.all([
+    db.select({ id: auditsTable.id }).from(auditsTable)
+      .where(and(eq(auditsTable.userId, accountOwnerId), isNull(auditsTable.workspaceId))).limit(1),
+    db.select({ id: graphicsProjectsTable.id }).from(graphicsProjectsTable)
+      .where(and(eq(graphicsProjectsTable.userId, accountOwnerId), isNull(graphicsProjectsTable.workspaceId))).limit(1),
+    db.select({ id: videosProjectsTable.id }).from(videosProjectsTable)
+      .where(and(eq(videosProjectsTable.userId, accountOwnerId), isNull(videosProjectsTable.workspaceId))).limit(1),
+    db.select({ id: adsProjectsTable.id }).from(adsProjectsTable)
+      .where(and(eq(adsProjectsTable.userId, accountOwnerId), isNull(adsProjectsTable.workspaceId))).limit(1),
+    db.select({ id: pinnedProjectsTable.id }).from(pinnedProjectsTable)
+      .where(and(eq(pinnedProjectsTable.userId, accountOwnerId), isNull(pinnedProjectsTable.workspaceId))).limit(1),
+    db.select({ id: teamMembersTable.id }).from(teamMembersTable)
+      .where(and(eq(teamMembersTable.ownerUserId, accountOwnerId), eq(teamMembersTable.isDeleted, 0))).limit(1),
+  ]);
+
+  return unmigratedChecks.some(([row]) => row != null);
+}
+
 async function ensureDefaultWorkspace(accountOwnerId: string): Promise<number> {
   const [existing] = await db
     .select()
@@ -140,7 +169,7 @@ async function migrateTeamMembersToWorkspace(accountOwnerId: string, workspaceId
 }
 
 /**
- * Idempotent migration: one default workspace per account owner, backfill workspace_id on data.
+ * Idempotent migration: backfill workspace_id on legacy data. New accounts start with no workspace.
  */
 export async function ensureWorkspacesMigrated(): Promise<void> {
   await purgeLegacySystemRoles();
@@ -161,6 +190,7 @@ export async function ensureWorkspacesMigrated(): Promise<void> {
   for (const t of teamOwners) ownerIds.add(t.ownerUserId);
 
   for (const accountOwnerId of ownerIds) {
+    if (!(await accountNeedsWorkspaceMigration(accountOwnerId))) continue;
     const workspaceId = await ensureDefaultWorkspace(accountOwnerId);
     await backfillWorkspaceData(accountOwnerId, workspaceId);
     await migrateTeamMembersToWorkspace(accountOwnerId, workspaceId);
