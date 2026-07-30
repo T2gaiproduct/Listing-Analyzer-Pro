@@ -3,8 +3,9 @@ import { eq, and, desc, or } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, graphicsProjectsTable, teamMembersTable,
-  videosProjectsTable, adsProjectsTable,
+  videosProjectsTable, adsProjectsTable, workspacesTable, workspaceMembersTable,
 } from "@workspace/db";
+import { resolveAccountOwnerId } from "../lib/workspace-context";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
@@ -118,6 +119,24 @@ router.get("/archive", requireAuth, resolveTeamAndWorkspace, async (req, res): P
     .select({ id: teamMembersTable.id, ownerUserId: teamMembersTable.ownerUserId, invitedEmail: teamMembersTable.invitedEmail, invitedName: teamMembersTable.invitedName, role: teamMembersTable.role, status: teamMembersTable.status, deletedAt: teamMembersTable.deletedAt, updatedAt: teamMembersTable.invitedAt, invitedAt: teamMembersTable.invitedAt, createdAt: teamMembersTable.invitedAt })
     .from(teamMembersTable).where(teamWhere).orderBy(desc(teamMembersTable.deletedAt));
 
+  const accountOwnerId = await resolveAccountOwnerId(userId);
+  const archivedWorkspaces = accountOwnerId === userId
+    ? await db
+      .select({
+        id: workspacesTable.id,
+        name: workspacesTable.name,
+        description: workspacesTable.description,
+        clientLabel: workspacesTable.clientLabel,
+        isDefault: workspacesTable.isDefault,
+        deletedAt: workspacesTable.deletedAt,
+        updatedAt: workspacesTable.updatedAt,
+        createdAt: workspacesTable.createdAt,
+      })
+      .from(workspacesTable)
+      .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 1)))
+      .orderBy(desc(workspacesTable.deletedAt))
+    : [];
+
   res.json({
     audits: audits.map(a => ({ ...a, type: "audit" })),
     projects: projects.map(p => ({ ...p, type: "project" })),
@@ -125,6 +144,7 @@ router.get("/archive", requireAuth, resolveTeamAndWorkspace, async (req, res): P
     ads: ads.map(a => ({ ...a, type: "ad" })),
     competitors: competitorRows.map(c => ({ ...c, type: "competitor" })),
     teamMembers: teamMembers.map(m => ({ ...m, type: "teamMember" })),
+    workspaces: archivedWorkspaces.map(w => ({ ...w, type: "workspace" })),
   });
 });
 
@@ -192,6 +212,30 @@ router.post("/archive/:type/:id/recover", requireAuth, resolveTeam, async (req, 
       result = item;
       break;
     }
+    case "workspace": {
+      if (ownerId !== userId) { res.status(403).json({ error: "Only the account owner can restore workspaces" }); return; }
+      const [archived] = await db.select().from(workspacesTable).where(and(
+        eq(workspacesTable.id, id),
+        eq(workspacesTable.accountOwnerId, ownerId),
+        eq(workspacesTable.isDeleted, 1),
+      )).limit(1);
+      if (!archived) { res.status(404).json({ error: "Item not found" }); return; }
+
+      const [activeDefault] = await db.select({ id: workspacesTable.id })
+        .from(workspacesTable)
+        .where(and(eq(workspacesTable.accountOwnerId, ownerId), eq(workspacesTable.isDeleted, 0), eq(workspacesTable.isDefault, true)))
+        .limit(1);
+
+      const restoreAsDefault = archived.isDefault && !activeDefault;
+      const [item] = await db.update(workspacesTable).set({
+        isDeleted: 0,
+        deletedAt: null,
+        isDefault: restoreAsDefault,
+        updatedAt: new Date(),
+      }).where(eq(workspacesTable.id, id)).returning();
+      result = item;
+      break;
+    }
     default:
       res.status(400).json({ error: "Unknown type" });
       return;
@@ -202,8 +246,10 @@ router.post("/archive/:type/:id/recover", requireAuth, resolveTeam, async (req, 
   await createNotification({
     userId: (req as AuthedRequest).userId,
     type: "project_restored",
-    title: "Project restored",
-    message: `Your ${type} project was restored from the Archive and is back in your feed.`,
+    title: type === "workspace" ? "Workspace restored" : "Project restored",
+    message: type === "workspace"
+      ? "Your workspace was restored from the Archive and is available again."
+      : `Your ${type} project was restored from the Archive and is back in your feed.`,
   });
   res.json({ success: true, item: result });
 });
@@ -274,6 +320,19 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
       result = item;
       break;
     }
+    case "workspace": {
+      if (ownerId !== userId) { res.status(403).json({ error: "Only the account owner can permanently delete workspaces" }); return; }
+      const [archived] = await db.select().from(workspacesTable).where(and(
+        eq(workspacesTable.id, id),
+        eq(workspacesTable.accountOwnerId, ownerId),
+        eq(workspacesTable.isDeleted, 1),
+      )).limit(1);
+      if (!archived) { res.status(404).json({ error: "Item not found" }); return; }
+      await db.delete(workspaceMembersTable).where(eq(workspaceMembersTable.workspaceId, id));
+      const [item] = await db.delete(workspacesTable).where(eq(workspacesTable.id, id)).returning();
+      result = item;
+      break;
+    }
     default:
       res.status(400).json({ error: "Unknown type" });
       return;
@@ -287,8 +346,10 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
   await createNotification({
     userId,
     type: "project_deleted",
-    title: "Project permanently deleted",
-    message: `Your ${type} project was permanently removed from the Archive.`,
+    title: type === "workspace" ? "Workspace permanently deleted" : "Project permanently deleted",
+    message: type === "workspace"
+      ? "Your workspace was permanently removed from the Archive."
+      : `Your ${type} project was permanently removed from the Archive.`,
   });
   res.sendStatus(204);
 });
