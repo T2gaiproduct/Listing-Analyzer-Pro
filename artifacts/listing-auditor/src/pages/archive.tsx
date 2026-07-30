@@ -3,13 +3,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Search, Image, Users, RotateCcw, Trash2, AlertCircle, Video, Megaphone } from "lucide-react";
+import { Package, Search, Image, Users, RotateCcw, Trash2, AlertCircle, Video, Megaphone, Building2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useActionDialog } from "@/components/ui/action-dialog";
 
 interface ArchivedItem {
   id: number;
-  type: "audit" | "project" | "video" | "ad" | "competitor" | "teamMember";
+  type: "audit" | "project" | "video" | "ad" | "competitor" | "teamMember" | "workspace";
   userId?: string;
   productName?: string;
   name?: string;
@@ -20,6 +20,8 @@ interface ArchivedItem {
   overallScore?: number;
   status?: string;
   role?: string;
+  clientLabel?: string | null;
+  isDefault?: boolean;
   deletedAt?: string | null;
   updatedAt?: string | null;
   createdAt: string;
@@ -32,6 +34,7 @@ interface ArchiveResponse {
   ads: ArchivedItem[];
   competitors: ArchivedItem[];
   teamMembers: ArchivedItem[];
+  workspaces: ArchivedItem[];
 }
 
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -60,18 +63,25 @@ function RecoverButton({ type, id }: { type: string; id: number }) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["archive"] });
       void qc.invalidateQueries({ queryKey: ["/api/recents"] });
+      void qc.invalidateQueries({ queryKey: ["workspaces"] });
+      void qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
     },
   });
 
   function handleClick() {
+    const isWorkspace = type === "workspace";
     trigger(
       async () => { await recover.mutateAsync(); },
       {
-        title: "Restore this item?",
-        description: "It will reappear in your Recent Projects feed.",
+        title: isWorkspace ? "Restore this workspace?" : "Restore this item?",
+        description: isWorkspace
+          ? "It will reappear on your Workspace Dashboard."
+          : "It will reappear in your Recent Projects feed.",
         confirmLabel: "Restore",
         successTitle: "Restored!",
-        successDescription: "The item is back in your projects.",
+        successDescription: isWorkspace
+          ? "The workspace is back on your dashboard."
+          : "The item is back in your projects.",
       }
     );
   }
@@ -98,7 +108,11 @@ function DeleteButton({ type, id }: { type: string; id: number }) {
   const del = useMutation({
     mutationFn: () =>
       fetch(`${basePath}/api/archive/${type}/${id}`, { method: "DELETE", credentials: "include" }).then((r) => r.ok),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["archive"] }); },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["archive"] });
+      void qc.invalidateQueries({ queryKey: ["workspaces"] });
+      void qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
+    },
   });
 
   function handleClick() {
@@ -169,9 +183,13 @@ function ArchiveList({
                     {item.role && (
                       <Badge variant="outline" className="text-xs capitalize">{item.role}</Badge>
                     )}
+                    {item.isDefault && (
+                      <Badge variant="outline" className="text-xs">Default</Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                     {item.asin && <span>ASIN: {item.asin}</span>}
+                    {item.clientLabel && <span>Client: {item.clientLabel}</span>}
                     {item.invitedEmail && <span>{item.invitedEmail}</span>}
                     {(() => { const ago = archivedAgo(item); return ago ? <span>Archived {ago}</span> : null; })()}
                   </div>
@@ -206,7 +224,8 @@ export default function ArchivePage() {
   const ads = data?.ads ?? [];
   const competitors = data?.competitors ?? [];
   const teamMembers = data?.teamMembers ?? [];
-  const total = audits.length + projects.length + videos.length + ads.length + competitors.length + teamMembers.length;
+  const workspaces = data?.workspaces ?? [];
+  const total = audits.length + projects.length + videos.length + ads.length + competitors.length + teamMembers.length + workspaces.length;
 
   return (
     <div className="space-y-6">
@@ -243,6 +262,10 @@ export default function ArchivePage() {
             <Users className="w-3.5 h-3.5" />
             Team {teamMembers.length > 0 && `(${teamMembers.length})`}
           </TabsTrigger>
+          <TabsTrigger value="workspaces" className="gap-1">
+            <Building2 className="w-3.5 h-3.5" />
+            Workspaces {workspaces.length > 0 && `(${workspaces.length})`}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="audits" className="mt-4">
           <ArchiveList items={audits} emptyLabel="audits" icon={Search} />
@@ -261,6 +284,9 @@ export default function ArchivePage() {
         </TabsContent>
         <TabsContent value="team" className="mt-4">
           <ArchiveList items={teamMembers} emptyLabel="team members" icon={Users} />
+        </TabsContent>
+        <TabsContent value="workspaces" className="mt-4">
+          <ArchiveList items={workspaces} emptyLabel="workspaces" icon={Building2} />
         </TabsContent>
       </Tabs>
     </div>
