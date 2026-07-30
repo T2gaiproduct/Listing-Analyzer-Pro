@@ -78,24 +78,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const overviewVisitedThisSession = useRef(false);
   const workspaceApiScopeActive = isWorkspaceApiScopeActive(location);
 
-  useEffect(() => {
-    if (isWorkspaceAdminOverviewRoute(location)) {
-      overviewVisitedThisSession.current = true;
-      setWorkspaceScopeCommitted(false);
-    }
-  }, [location]);
-
-  useEffect(() => {
-    if (!workspaces.length || workspaceScopeCommitted || overviewVisitedThisSession.current) return;
-    if (isWorkspaceAdminOverviewRoute(location)) return;
-    const owns = workspaces.some((w) => w.isAccountOwner);
-    const billing = profileSummary?.accountRole?.type === "user";
-    if (!owns && !billing) return;
-    if (selectedId != null && workspaces.some((w) => w.id === selectedId)) {
-      setWorkspaceScopeCommitted(true);
-    }
-  }, [workspaces, selectedId, location, profileSummary?.accountRole?.type, workspaceScopeCommitted]);
-
   const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => fetchJson<{ workspaces: WorkspaceSummary[] }>(`${basePath}/api/workspaces`),
@@ -114,6 +96,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     enabled: isLoaded && !!user,
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    if (isWorkspaceAdminOverviewRoute(location)) {
+      overviewVisitedThisSession.current = true;
+      setWorkspaceScopeCommitted(false);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (!workspaces.length || workspaceScopeCommitted || overviewVisitedThisSession.current) return;
+    if (isWorkspaceAdminOverviewRoute(location)) return;
+    const owns = workspaces.some((w) => w.isAccountOwner);
+    const billing = profileSummary?.accountRole?.type === "user";
+    if (!owns && !billing) return;
+    if (selectedId != null && workspaces.some((w) => w.id === selectedId)) {
+      setWorkspaceScopeCommitted(true);
+    }
+  }, [workspaces, selectedId, location, profileSummary?.accountRole?.type, workspaceScopeCommitted]);
 
   useEffect(() => {
     if (!workspaces.length) {
