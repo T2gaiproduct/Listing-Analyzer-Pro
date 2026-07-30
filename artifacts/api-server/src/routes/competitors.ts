@@ -20,6 +20,7 @@ import {
   viewOwnIdFilter,
   getWorkspaceCtx,
   workspaceOwnerFilter,
+  buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
 
 const router: IRouter = Router();
@@ -37,14 +38,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 }
 
 function getCreditCtx(req: Request): TeamAwareContext {
-  const team = (req as TeamAuthedRequest).team;
-  const userId = (req as AuthedRequest).userId;
-  return {
-    userId,
-    memberId: team?.memberId,
-    ownerUserId: team?.ownerUserId,
-    isTeamMember: team?.isTeamMember ?? false,
-  };
+  return buildTeamAwareCreditCtx(req);
 }
 
 async function auditScopeWhere(req: Request, auditId: number) {

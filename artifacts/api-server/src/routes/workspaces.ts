@@ -10,6 +10,9 @@ import {
   plansTable,
   subscriptionsTable,
   userProfilesTable,
+  creditsTable,
+  teamMembersTable,
+  memberCreditsTable,
 } from "@workspace/db";
 import {
   WORKSPACE_FEATURES,
@@ -26,6 +29,15 @@ import {
 } from "../lib/workspace-context";
 import { ensureWorkspacesMigrated } from "../lib/ensure-workspaces";
 import { ensureAccountRolesMigrated, listAccountRoles, getAccountRole } from "../lib/ensure-account-roles";
+import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
+import {
+  getWorkspaceCredits,
+  setWorkspaceCreditPool,
+  setWorkspaceMemberCredits,
+  sumAllocatedMemberCreditsForWorkspace,
+  getWorkspaceMemberCredits,
+  sumWorkspacePoolsForOwner,
+} from "../lib/workspace-credits.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { createNotification } from "../lib/notifications.js";
@@ -90,11 +102,21 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   const userId = (req as AuthedRequest).userId;
   await ensureWorkspacesMigrated();
   await ensureAccountRolesMigrated();
+  await ensureWorkspaceCreditsMigrated();
   const accountOwnerId = await resolveAccountOwnerId(userId);
   if (accountOwnerId !== userId) {
     res.status(403).json({ error: "Only the account owner can view workspace overview" });
     return;
   }
+
+  const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, accountOwnerId));
+  const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const inWorkspacePools = await sumWorkspacePoolsForOwner(accountOwnerId);
+  const availableToFundWorkspaces = {
+    aiCredits: Math.max(0, ownerCredits.aiCredits - inWorkspacePools.aiCredits),
+    imageCredits: Math.max(0, ownerCredits.imageCredits - inWorkspacePools.imageCredits),
+    auditCredits: Math.max(0, ownerCredits.auditCredits - inWorkspacePools.auditCredits),
+  };
 
   const owned = await db
     .select()
@@ -106,6 +128,30 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   const summary = await getWorkspaceMemberSummaryForOwner(accountOwnerId, { includeMembers: true });
   const ownedById = new Map(owned.map((w) => [w.id, w]));
 
+  const workspacesWithPools = await Promise.all(summary.workspaces.map(async (w) => {
+    const meta = ownedById.get(w.id);
+    const pool = await getWorkspaceCredits(w.id);
+    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
+    return {
+      id: w.id,
+      name: w.name,
+      description: meta?.description ?? null,
+      clientLabel: meta?.clientLabel ?? null,
+      isDefault: w.isDefault,
+      memberCount: w.memberCount,
+      activeMemberCount: w.activeMemberCount,
+      pendingMemberCount: w.pendingMemberCount,
+      members: w.members,
+      poolCredits: pool,
+      memberAllocatedCredits: memberAllocated,
+      poolAvailableForMembers: {
+        aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
+        imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
+        auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
+      },
+    };
+  }));
+
   res.json({
     totalWorkspaces: owned.length,
     totalMembers: summary.totalMemberships,
@@ -113,20 +159,14 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     activeMembers: summary.activeMembers,
     pendingInvites: summary.pendingInvites,
     totalRoles: roles.length,
-    workspaces: summary.workspaces.map((w) => {
-      const meta = ownedById.get(w.id);
-      return {
-        id: w.id,
-        name: w.name,
-        description: meta?.description ?? null,
-        clientLabel: meta?.clientLabel ?? null,
-        isDefault: w.isDefault,
-        memberCount: w.memberCount,
-        activeMemberCount: w.activeMemberCount,
-        pendingMemberCount: w.pendingMemberCount,
-        members: w.members,
-      };
-    }),
+    ownerCredits: {
+      aiCredits: ownerCredits.aiCredits,
+      imageCredits: ownerCredits.imageCredits,
+      auditCredits: ownerCredits.auditCredits,
+    },
+    inWorkspacePools,
+    availableToFundWorkspaces,
+    workspaces: workspacesWithPools,
   });
 });
 
@@ -302,6 +342,7 @@ router.get("/workspaces/:workspaceId/roles", requireAuth, requireWorkspaceAccess
 // ─── Members (per workspace) ─────────────────────────────────────────────────
 
 router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  await ensureWorkspaceCreditsMigrated();
   const ctx = (req as WorkspaceAuthedRequest).workspace;
   const members = await db
     .select({
@@ -316,12 +357,167 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
     ))
     .orderBy(desc(workspaceMembersTable.invitedAt));
 
+  const canViewCredits = ctx.isAccountOwner || checkPerm(ctx, "credits", "viewGlobal");
+  const pool = canViewCredits ? await getWorkspaceCredits(ctx.workspaceId) : null;
+  const memberAllocated = canViewCredits
+    ? await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId)
+    : null;
+
+  const memberIds = members.map((m) => m.member.id);
+  const creditRows = memberIds.length > 0
+    ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.workspaceMemberId, memberIds))
+    : [];
+  const creditsByMember = new Map(creditRows.map((c) => [c.workspaceMemberId, c]));
+
   res.json({
-    members: members.map((m) => ({
-      ...m.member,
-      roleName: m.roleName ?? m.member.legacyRole,
-    })),
+    poolCredits: pool,
+    memberAllocatedCredits: memberAllocated,
+    poolAvailableForMembers: pool && memberAllocated
+      ? {
+          aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
+          imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
+          auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
+        }
+      : null,
+    members: members.map((m) => {
+      const allocated = creditsByMember.get(m.member.id);
+      return {
+        ...m.member,
+        roleName: m.roleName ?? m.member.legacyRole,
+        allocatedCredits: canViewCredits && allocated
+          ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
+          : undefined,
+      };
+    }),
   });
+});
+
+// ─── Workspace credit pool (account owner → workspace) ───────────────────────
+
+router.patch("/workspaces/:workspaceId/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  await ensureWorkspaceCreditsMigrated();
+  const ctx = (req as WorkspaceAuthedRequest).workspace;
+  const userId = (req as AuthedRequest).userId;
+  if (!ctx.isAccountOwner || userId !== ctx.accountOwnerId) {
+    res.status(403).json({ error: "Only the account owner can fund workspace credit pools" });
+    return;
+  }
+
+  const { aiCredits, imageCredits, auditCredits } = req.body as {
+    aiCredits?: number;
+    imageCredits?: number;
+    auditCredits?: number;
+  };
+
+  try {
+    const result = await setWorkspaceCreditPool(
+      ctx.accountOwnerId,
+      ctx.workspaceId,
+      aiCredits ?? 0,
+      imageCredits ?? 0,
+      auditCredits ?? 0,
+    );
+    const inPools = await sumWorkspacePoolsForOwner(ctx.accountOwnerId);
+    res.json({
+      workspaceCredits: result.workspaceCredits,
+      accountCredits: result.accountCredits,
+      inWorkspacePools: inPools,
+      availableToFundWorkspaces: {
+        aiCredits: Math.max(0, result.accountCredits.aiCredits),
+        imageCredits: Math.max(0, result.accountCredits.imageCredits),
+        auditCredits: Math.max(0, result.accountCredits.auditCredits),
+      },
+    });
+  } catch (err) {
+    const e = err as Error & { code?: string };
+    if (e.code === "INSUFFICIENT_ACCOUNT" || e.code === "BELOW_MEMBER_ALLOCATIONS") {
+      res.status(400).json({ error: e.message, code: e.code });
+      return;
+    }
+    console.error("[workspaces] pool update failed", err);
+    res.status(500).json({ error: "Failed to update workspace credit pool" });
+  }
+});
+
+router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  await ensureWorkspaceCreditsMigrated();
+  const ctx = (req as WorkspaceAuthedRequest).workspace;
+  const memberId = Number(req.params.memberId);
+  if (!memberId || Number.isNaN(memberId)) {
+    res.status(400).json({ error: "Invalid member id" });
+    return;
+  }
+
+  const canAllocate = !ctx.isAccountOwner && checkPerm(ctx, "credits", "edit");
+  if (!canAllocate) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const [wm] = await db
+    .select()
+    .from(workspaceMembersTable)
+    .where(and(
+      eq(workspaceMembersTable.id, memberId),
+      eq(workspaceMembersTable.workspaceId, ctx.workspaceId),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ));
+  if (!wm) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+
+  const { aiCredits, imageCredits, auditCredits } = req.body as {
+    aiCredits?: number;
+    imageCredits?: number;
+    auditCredits?: number;
+  };
+
+  let teamMemberId: number | null = null;
+  if (wm.userId) {
+    const [tm] = await db
+      .select({ id: teamMembersTable.id })
+      .from(teamMembersTable)
+      .where(and(
+        eq(teamMembersTable.ownerUserId, ctx.accountOwnerId),
+        eq(teamMembersTable.memberUserId, wm.userId),
+        eq(teamMembersTable.status, "active"),
+      ))
+      .limit(1);
+    teamMemberId = tm?.id ?? null;
+  }
+
+  try {
+    const credits = await setWorkspaceMemberCredits(
+      ctx.workspaceId,
+      memberId,
+      teamMemberId,
+      aiCredits ?? 0,
+      imageCredits ?? 0,
+      auditCredits ?? 0,
+    );
+    const pool = await getWorkspaceCredits(ctx.workspaceId);
+    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
+    res.json({
+      workspaceMemberId: memberId,
+      credits,
+      poolCredits: pool,
+      memberAllocatedCredits: memberAllocated,
+      poolAvailableForMembers: {
+        aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
+        imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
+        auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
+      },
+    });
+  } catch (err) {
+    const e = err as Error & { code?: string };
+    if (e.code === "EXCEEDS_WORKSPACE_POOL") {
+      res.status(400).json({ error: e.message, code: e.code });
+      return;
+    }
+    console.error("[workspaces] member credits failed", err);
+    res.status(500).json({ error: "Failed to update member credits" });
+  }
 });
 
 router.post("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {

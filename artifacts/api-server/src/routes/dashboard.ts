@@ -462,7 +462,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Reque
   let creditsAllowance: number;
 
   if (team?.isTeamMember && team.memberId) {
-    const memberCredits = await getMemberCredits(team.memberId);
+    const memberCredits = await getMemberCredits(team.memberId, workspaceId);
     displayCredits = memberCredits ?? zeroCredits;
     const memberUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
     const memberRemaining =

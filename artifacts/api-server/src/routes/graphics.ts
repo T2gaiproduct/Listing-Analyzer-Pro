@@ -15,6 +15,7 @@ import {
   viewOwnIdFilter,
   getWorkspaceCtx,
   workspaceOwnerFilter,
+  buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
 import * as fs from "fs";
 import * as path from "path";
@@ -37,14 +38,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 }
 
 function getCreditCtx(req: Request): TeamAwareContext {
-  const team = (req as TeamAuthedRequest).team;
-  const userId = (req as AuthedRequest).userId;
-  return {
-    userId,
-    ownerUserId: team.ownerUserId,
-    isTeamMember: team.isTeamMember,
-    memberId: team.memberId,
-  };
+  return buildTeamAwareCreditCtx(req);
 }
 
 function getEffectiveUserId(req: Request): string {

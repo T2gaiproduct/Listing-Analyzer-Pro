@@ -34,7 +34,8 @@ export interface WorkspaceContext {
   workspaceName: string;
   accountOwnerId: string;
   isAccountOwner: boolean;
-  memberId?: number;
+  workspaceMemberId?: number;
+  teamMemberId?: number;
   roleId?: number | null;
   roleName?: string | null;
   permissions: WorkspaceRolePermissions;
@@ -265,12 +266,26 @@ export async function resolveWorkspaceContext(
       }
 
       const useLegacy = workspace.preserveLegacyPermissions && !teamMember?.roleId;
+      let workspaceMemberId: number | undefined;
+      const [wmRow] = await db
+        .select({ id: workspaceMembersTable.id })
+        .from(workspaceMembersTable)
+        .where(and(
+          eq(workspaceMembersTable.workspaceId, workspaceId),
+          eq(workspaceMembersTable.userId, userId),
+          eq(workspaceMembersTable.status, "active"),
+          eq(workspaceMembersTable.isDeleted, 0),
+        ))
+        .limit(1);
+      workspaceMemberId = wmRow?.id;
+
       return {
         workspaceId,
         workspaceName: workspace.name,
         accountOwnerId: workspace.accountOwnerId,
         isAccountOwner: false,
-        memberId: team.memberId,
+        workspaceMemberId,
+        teamMemberId: team.memberId,
         roleId,
         roleName,
         permissions: useLegacy ? legacyRolePermissions(legacyRole) : permissions,
@@ -298,7 +313,8 @@ export async function resolveWorkspaceContext(
     workspaceName: workspace.name,
     accountOwnerId: workspace.accountOwnerId,
     isAccountOwner: false,
-    memberId: membership.member.id,
+    workspaceMemberId: membership.member.id,
+    teamMemberId: team.memberId,
     roleId: membership.member.roleId,
     roleName: membership.role?.name ?? null,
     permissions,
