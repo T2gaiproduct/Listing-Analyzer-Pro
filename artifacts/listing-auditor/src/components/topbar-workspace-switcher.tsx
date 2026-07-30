@@ -28,26 +28,9 @@ function accountScopedPill(location: string): { name: string; subtitle: string }
   return null;
 }
 
-/** Account-owner hub pages show a neutral workspace pill, not the active workspace name. */
-function isWorkspaceHubRoute(location: string): boolean {
-  const hubPaths = new Set([
-    "/dashboard",
-    "/workspaces",
-    "/recent-projects",
-    "/ads",
-    "/videos",
-    "/projects",
-    "/audit-listings",
-    "/audits/new",
-    "/audits/workflow",
-    "/billing",
-    "/team",
-    "/settings",
-    "/profile",
-    "/notifications",
-    "/archive",
-  ]);
-  return hubPaths.has(location);
+/** Account overview pages — neutral workspace pill (not a single workspace name). */
+function isWorkspaceOverviewRoute(location: string): boolean {
+  return location === "/dashboard" || location === "/workspaces";
 }
 
 export function TopbarWorkspaceSwitcher() {
@@ -141,7 +124,8 @@ export function TopbarWorkspaceSwitcher() {
     if (id !== activeWorkspaceId) setActiveWorkspaceId(id);
     setOpen(false);
     setSeeAllOpen(false);
-    if (isAccountOwner) {
+    if (!isAccountOwner) return;
+    if (/^\/workspaces\/\d+$/.test(location)) {
       navigate(`/workspaces/${id}`);
     }
   };
@@ -162,7 +146,7 @@ export function TopbarWorkspaceSwitcher() {
 
   const toggleDropdown = () => setOpen((v) => !v);
 
-  const onWorkspaceDashboard = isAccountOwner && isWorkspaceHubRoute(location);
+  const onWorkspaceDashboard = isAccountOwner && isWorkspaceOverviewRoute(location);
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const workspaceDetailMatch = location.match(/^\/workspaces\/(\d+)$/);

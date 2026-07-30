@@ -16,6 +16,11 @@ import {
   type AuditResult,
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import {
+  resolveTeamAndWorkspace,
+  getActiveWorkspaceId,
+  workspaceOwnerFilter,
+} from "../lib/workspace-route-helpers";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod } from "../lib/team-stats";
@@ -71,13 +76,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
     return;
   }
   (req as AuthedRequest).userId = userId;
-  next();
-}
-
-async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const userId = (req as AuthedRequest).userId;
-  const team = await resolveTeamContext(userId);
-  (req as TeamAuthedRequest).team = team;
   next();
 }
 
@@ -163,7 +161,11 @@ function statusBadgeColor(label: string): "orange" | "green" | "blue" | "red" | 
   return "gray";
 }
 
-async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedProjects | null): Promise<number> {
+async function countProjectsSaved(
+  ownerId: string,
+  workspaceId: number,
+  memberWorked?: MemberWorkedProjects | null,
+): Promise<number> {
   const isMember = !!memberWorked;
   const noMemberAudits = isMember && (memberWorked?.auditIds.length ?? 0) === 0;
   const noMemberGraphics = isMember && (memberWorked?.graphicsIds.length ?? 0) === 0;
@@ -175,7 +177,7 @@ async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedPr
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(auditsTable)
           .where(and(
-            eq(auditsTable.userId, ownerId),
+            workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
             eq(auditsTable.isDeleted, 0),
             sql`${auditsTable.status} != 'archived'`,
             ...(isMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
@@ -184,7 +186,7 @@ async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedPr
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(graphicsProjectsTable)
           .where(and(
-            eq(graphicsProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
             eq(graphicsProjectsTable.isDeleted, 0),
             sql`${graphicsProjectsTable.status} != 'archived'`,
             sql`${graphicsProjectsTable.auditId} IS NULL`,
@@ -194,7 +196,7 @@ async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedPr
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(videosProjectsTable)
           .where(and(
-            eq(videosProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(videosProjectsTable, videosProjectsTable, ownerId, workspaceId),
             eq(videosProjectsTable.isDeleted, 0),
             sql`${videosProjectsTable.status} != 'archived'`,
             ...(isMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
@@ -203,7 +205,7 @@ async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedPr
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(adsProjectsTable)
           .where(and(
-            eq(adsProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(adsProjectsTable, adsProjectsTable, ownerId, workspaceId),
             eq(adsProjectsTable.isDeleted, 0),
             sql`${adsProjectsTable.status} != 'archived'`,
             ...(isMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
@@ -215,6 +217,7 @@ async function countProjectsSaved(ownerId: string, memberWorked?: MemberWorkedPr
 
 async function countProjectsCreatedSince(
   ownerId: string,
+  workspaceId: number,
   since: Date,
   memberWorked?: MemberWorkedProjects | null,
 ): Promise<number> {
@@ -229,7 +232,7 @@ async function countProjectsCreatedSince(
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(auditsTable)
           .where(and(
-            eq(auditsTable.userId, ownerId),
+            workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
             eq(auditsTable.isDeleted, 0),
             sql`${auditsTable.status} != 'archived'`,
             gte(auditsTable.createdAt, since),
@@ -239,7 +242,7 @@ async function countProjectsCreatedSince(
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(graphicsProjectsTable)
           .where(and(
-            eq(graphicsProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
             eq(graphicsProjectsTable.isDeleted, 0),
             sql`${graphicsProjectsTable.status} != 'archived'`,
             sql`${graphicsProjectsTable.auditId} IS NULL`,
@@ -250,7 +253,7 @@ async function countProjectsCreatedSince(
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(videosProjectsTable)
           .where(and(
-            eq(videosProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(videosProjectsTable, videosProjectsTable, ownerId, workspaceId),
             eq(videosProjectsTable.isDeleted, 0),
             sql`${videosProjectsTable.status} != 'archived'`,
             gte(videosProjectsTable.createdAt, since),
@@ -260,7 +263,7 @@ async function countProjectsCreatedSince(
       ? Promise.resolve([{ c: 0 }])
       : db.select({ c: count() }).from(adsProjectsTable)
           .where(and(
-            eq(adsProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(adsProjectsTable, adsProjectsTable, ownerId, workspaceId),
             eq(adsProjectsTable.isDeleted, 0),
             sql`${adsProjectsTable.status} != 'archived'`,
             gte(adsProjectsTable.createdAt, since),
@@ -283,11 +286,12 @@ function computeTimeSavedHours(transactions: { featureType: string | null; amoun
   return Math.round((minutes / 60) * 10) / 10;
 }
 
-router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Response): Promise<void> => {
+router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   try {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getOwnerId(req);
   const team = (req as TeamAuthedRequest).team;
+  const workspaceId = getActiveWorkspaceId(req);
 
   const now = new Date();
   const defaultStart = startOfMonth(now);
@@ -337,14 +341,23 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
     recentVideos,
     recentAds,
   ] = await Promise.all([
-    countProjectsSaved(ownerId, memberWorked),
-    countProjectsCreatedSince(ownerId, weekStart, memberWorked),
+    countProjectsSaved(ownerId, workspaceId, memberWorked),
+    countProjectsCreatedSince(ownerId, workspaceId, weekStart, memberWorked),
     db.select({ c: count() }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0))),
+      .where(and(workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId), eq(auditsTable.isDeleted, 0))),
     db.select({ c: count() }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), gte(auditsTable.createdAt, weekStart))),
+      .where(and(
+        workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
+        eq(auditsTable.isDeleted, 0),
+        gte(auditsTable.createdAt, weekStart),
+      )),
     db.select({ c: count() }).from(auditsTable)
-      .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), gte(auditsTable.createdAt, prevWeekStart), lte(auditsTable.createdAt, prevWeekEnd))),
+      .where(and(
+        workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
+        eq(auditsTable.isDeleted, 0),
+        gte(auditsTable.createdAt, prevWeekStart),
+        lte(auditsTable.createdAt, prevWeekEnd),
+      )),
     db.select({
       featureType: creditTransactionsTable.featureType,
       amount: creditTransactionsTable.amount,
@@ -358,7 +371,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
       result: auditsTable.result,
     }).from(auditsTable)
       .where(and(
-        eq(auditsTable.userId, ownerId),
+        workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
         eq(auditsTable.isDeleted, 0),
         gte(auditsTable.createdAt, weekStart),
       )),
@@ -374,7 +387,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
           createdAt: auditsTable.createdAt,
         }).from(auditsTable)
           .where(and(
-            eq(auditsTable.userId, ownerId),
+            workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
             eq(auditsTable.isDeleted, 0),
             sql`${auditsTable.status} != 'archived'`,
             ...(team?.isTeamMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
@@ -390,7 +403,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
           createdAt: graphicsProjectsTable.createdAt,
         }).from(graphicsProjectsTable)
           .where(and(
-            eq(graphicsProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
             eq(graphicsProjectsTable.isDeleted, 0),
             sql`${graphicsProjectsTable.status} != 'archived'`,
             sql`${graphicsProjectsTable.auditId} IS NULL`,
@@ -407,7 +420,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
           createdAt: videosProjectsTable.createdAt,
         }).from(videosProjectsTable)
           .where(and(
-            eq(videosProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(videosProjectsTable, videosProjectsTable, ownerId, workspaceId),
             eq(videosProjectsTable.isDeleted, 0),
             sql`${videosProjectsTable.status} != 'archived'`,
             ...(team?.isTeamMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
@@ -423,7 +436,7 @@ router.get("/dashboard", requireAuth, resolveTeam, async (req: Request, res: Res
           createdAt: adsProjectsTable.createdAt,
         }).from(adsProjectsTable)
           .where(and(
-            eq(adsProjectsTable.userId, ownerId),
+            workspaceOwnerFilter(adsProjectsTable, adsProjectsTable, ownerId, workspaceId),
             eq(adsProjectsTable.isDeleted, 0),
             sql`${adsProjectsTable.status} != 'archived'`,
             ...(team?.isTeamMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),

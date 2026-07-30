@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 import { fetchJson } from "@/lib/api-fetch";
 
@@ -153,11 +154,12 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember, memberCredits } = useTeam();
+  const { activeWorkspaceId } = useWorkspace();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard"],
+    queryKey: ["dashboard", activeWorkspaceId],
     queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
-    enabled: clerkLoaded && !!user,
+    enabled: clerkLoaded && !!user && !!activeWorkspaceId,
     staleTime: 30_000,
     retry: 3,
   });
