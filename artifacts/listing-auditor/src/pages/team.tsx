@@ -5,7 +5,7 @@ import { useLocation, Link } from "wouter";
 import {
   Users, Plus, Trash2, Mail, Shield, MoreHorizontal,
   CheckCircle2, Copy, ExternalLink, Clock, BarChart3, Zap, RefreshCw,
-  ChevronRight, AlertTriangle, X,
+  AlertTriangle, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
