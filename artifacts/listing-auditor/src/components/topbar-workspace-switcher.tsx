@@ -120,12 +120,23 @@ export function TopbarWorkspaceSwitcher() {
   });
 
   const selectWorkspace = (id: number) => {
-    if (id !== activeWorkspaceId) setActiveWorkspaceId(id);
+    setActiveWorkspaceId(id);
     setOpen(false);
     setSeeAllOpen(false);
-    if (!isAccountOwner) return;
-    if (/^\/workspaces\/\d+$/.test(location)) {
-      navigate(`/workspaces/${id}`);
+
+    if (isAccountOwner) {
+      if (isWorkspaceAdminOverviewRoute(location)) {
+        navigate(`/workspaces/${id}`);
+        return;
+      }
+      if (/^\/workspaces\/\d+/.test(location)) {
+        navigate(`/workspaces/${id}`);
+      }
+      return;
+    }
+
+    if (isWorkspaceAdminOverviewRoute(location) || needsWorkspaceSelection) {
+      navigate("/dashboard");
     }
   };
 
@@ -153,9 +164,9 @@ export function TopbarWorkspaceSwitcher() {
     ? workspaces.find((w) => w.id === viewedWorkspaceId) ?? null
     : null;
 
-  const highlightedWorkspaceId = onWorkspaceDashboard || onAccountScopedPage
+  const highlightedWorkspaceId = onWorkspaceDashboard
     ? null
-    : (viewedWorkspaceId ?? featureWorkspaceId);
+    : viewedWorkspaceId ?? (onAccountScopedPage ? null : (activeWorkspaceId ?? featureWorkspaceId));
 
   const scopedWorkspace = viewedWorkspace ?? featureWorkspace;
 
