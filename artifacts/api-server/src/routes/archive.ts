@@ -5,14 +5,12 @@ import {
   db, auditsTable, competitorsTable, graphicsProjectsTable, teamMembersTable,
   videosProjectsTable, adsProjectsTable, workspacesTable, workspaceMembersTable,
 } from "@workspace/db";
-import { resolveAccountOwnerId } from "../lib/workspace-context";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
-  resolveTeamAndWorkspace,
-  getAccountOwnerId,
-  getActiveWorkspaceId,
   workspaceOwnerFilter,
 } from "../lib/workspace-route-helpers";
+import { resolveWorkspaceContext, WORKSPACE_HEADER } from "../lib/workspace-context";
+import { getDefaultWorkspaceId } from "../lib/ensure-workspaces";
 import { createNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
@@ -63,38 +61,51 @@ function archivedCondition(
 }
 
 // ─── List archived items ─────────────────────────────────────────────────────
-router.get("/archive", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+router.get("/archive", requireAuth, resolveTeam, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const ownerId = getAccountOwnerId(req);
-  const workspaceId = getActiveWorkspaceId(req);
+  const ownerId = getEffectiveUserId(req);
   const admin = isAdmin(userId);
 
-  const audits = await db
+  const headerVal = req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id");
+  const queryVal = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
+  const ctx = await resolveWorkspaceContext(userId, headerVal ?? queryVal);
+  const workspaceId = ctx?.workspaceId ?? (await getDefaultWorkspaceId(ownerId));
+
+  const audits = workspaceId != null
+    ? await db
     .select({ id: auditsTable.id, userId: auditsTable.userId, productName: auditsTable.productName, asin: auditsTable.asin, category: auditsTable.category, overallScore: auditsTable.overallScore, status: auditsTable.status, deletedAt: auditsTable.deletedAt, updatedAt: auditsTable.updatedAt, createdAt: auditsTable.createdAt })
     .from(auditsTable)
     .where(archivedCondition(auditsTable.isDeleted, auditsTable.status, auditsTable.userId, auditsTable.workspaceId, ownerId, workspaceId, admin))
-    .orderBy(desc(auditsTable.updatedAt));
+    .orderBy(desc(auditsTable.updatedAt))
+    : [];
 
-  const projects = await db
+  const projects = workspaceId != null
+    ? await db
     .select({ id: graphicsProjectsTable.id, userId: graphicsProjectsTable.userId, name: graphicsProjectsTable.name, productName: graphicsProjectsTable.productName, status: graphicsProjectsTable.status, deletedAt: graphicsProjectsTable.deletedAt, updatedAt: graphicsProjectsTable.updatedAt, createdAt: graphicsProjectsTable.createdAt })
     .from(graphicsProjectsTable)
     .where(archivedCondition(graphicsProjectsTable.isDeleted, graphicsProjectsTable.status, graphicsProjectsTable.userId, graphicsProjectsTable.workspaceId, ownerId, workspaceId, admin))
-    .orderBy(desc(graphicsProjectsTable.updatedAt));
+    .orderBy(desc(graphicsProjectsTable.updatedAt))
+    : [];
 
-  const videos = await db
+  const videos = workspaceId != null
+    ? await db
     .select({ id: videosProjectsTable.id, userId: videosProjectsTable.userId, name: videosProjectsTable.name, status: videosProjectsTable.status, deletedAt: videosProjectsTable.deletedAt, updatedAt: videosProjectsTable.updatedAt, createdAt: videosProjectsTable.createdAt })
     .from(videosProjectsTable)
     .where(archivedCondition(videosProjectsTable.isDeleted, videosProjectsTable.status, videosProjectsTable.userId, videosProjectsTable.workspaceId, ownerId, workspaceId, admin))
-    .orderBy(desc(videosProjectsTable.updatedAt));
+    .orderBy(desc(videosProjectsTable.updatedAt))
+    : [];
 
-  const ads = await db
+  const ads = workspaceId != null
+    ? await db
     .select({ id: adsProjectsTable.id, userId: adsProjectsTable.userId, name: adsProjectsTable.name, status: adsProjectsTable.status, deletedAt: adsProjectsTable.deletedAt, updatedAt: adsProjectsTable.updatedAt, createdAt: adsProjectsTable.createdAt })
     .from(adsProjectsTable)
     .where(archivedCondition(adsProjectsTable.isDeleted, adsProjectsTable.status, adsProjectsTable.userId, adsProjectsTable.workspaceId, ownerId, workspaceId, admin))
-    .orderBy(desc(adsProjectsTable.updatedAt));
+    .orderBy(desc(adsProjectsTable.updatedAt))
+    : [];
 
   // Competitors join audits to scope by owner
-  const competitorRows = await db
+  const competitorRows = workspaceId != null
+    ? await db
     .select({
       id: competitorsTable.id,
       productName: competitorsTable.productName,
@@ -112,30 +123,29 @@ router.get("/archive", requireAuth, resolveTeamAndWorkspace, async (req, res): P
         ? eq(competitorsTable.isDeleted, 1)
         : and(eq(competitorsTable.isDeleted, 1), eq(auditsTable.userId, ownerId))
     )
-    .orderBy(desc(competitorsTable.deletedAt));
+    .orderBy(desc(competitorsTable.deletedAt))
+    : [];
 
   const teamWhere = admin ? eq(teamMembersTable.isDeleted, 1) : and(eq(teamMembersTable.isDeleted, 1), eq(teamMembersTable.ownerUserId, ownerId));
   const teamMembers = await db
     .select({ id: teamMembersTable.id, ownerUserId: teamMembersTable.ownerUserId, invitedEmail: teamMembersTable.invitedEmail, invitedName: teamMembersTable.invitedName, role: teamMembersTable.role, status: teamMembersTable.status, deletedAt: teamMembersTable.deletedAt, updatedAt: teamMembersTable.invitedAt, invitedAt: teamMembersTable.invitedAt, createdAt: teamMembersTable.invitedAt })
     .from(teamMembersTable).where(teamWhere).orderBy(desc(teamMembersTable.deletedAt));
 
-  const accountOwnerId = await resolveAccountOwnerId(userId);
-  const archivedWorkspaces = accountOwnerId === userId
-    ? await db
-      .select({
-        id: workspacesTable.id,
-        name: workspacesTable.name,
-        description: workspacesTable.description,
-        clientLabel: workspacesTable.clientLabel,
-        isDefault: workspacesTable.isDefault,
-        deletedAt: workspacesTable.deletedAt,
-        updatedAt: workspacesTable.updatedAt,
-        createdAt: workspacesTable.createdAt,
-      })
-      .from(workspacesTable)
-      .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 1)))
-      .orderBy(desc(workspacesTable.deletedAt))
-    : [];
+  // Archived workspaces belong to the account owner (userId), not the team owner context.
+  const archivedWorkspaces = await db
+    .select({
+      id: workspacesTable.id,
+      name: workspacesTable.name,
+      description: workspacesTable.description,
+      clientLabel: workspacesTable.clientLabel,
+      isDefault: workspacesTable.isDefault,
+      deletedAt: workspacesTable.deletedAt,
+      updatedAt: workspacesTable.updatedAt,
+      createdAt: workspacesTable.createdAt,
+    })
+    .from(workspacesTable)
+    .where(and(eq(workspacesTable.accountOwnerId, userId), eq(workspacesTable.isDeleted, 1)))
+    .orderBy(desc(workspacesTable.deletedAt));
 
   res.json({
     audits: audits.map(a => ({ ...a, type: "audit" })),

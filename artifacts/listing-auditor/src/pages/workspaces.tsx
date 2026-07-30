@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Archive, Users, Building2, ChevronRight, LayoutGrid } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
+import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-header";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const STORAGE_KEY = "la_active_workspace_id";
 
 interface WorkspaceOverview {
   totalWorkspaces: number;
@@ -33,7 +35,8 @@ interface WorkspaceOverview {
 }
 
 export default function WorkspacesPage() {
-  const { workspaces, activeWorkspaceId, isAccountOwner, can, refetch } = useWorkspace();
+  const { workspaces, activeWorkspaceId, isAccountOwner, can, refetch, setActiveWorkspaceId } = useWorkspace();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -96,22 +99,37 @@ export default function WorkspacesPage() {
     onError: (err: Error) => toast({ title: "Failed to save workspace", description: err.message, variant: "destructive" }),
   });
 
-  const archiveWorkspace = useMutation({
+  const deleteWorkspace = useMutation({
     mutationFn: (id: number) =>
       fetch(`${basePath}/api/workspaces/${id}`, { method: "DELETE", credentials: "include" }).then((r) => {
-        if (!r.ok) throw new Error("Archive failed");
+        if (!r.ok) throw new Error("Delete failed");
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["workspaces"] });
-      qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
-      qc.invalidateQueries({ queryKey: ["archive"] });
+    onSuccess: async (_data, deletedId) => {
+      const remaining = workspaces.filter((w) => w.id !== deletedId);
+      if (activeWorkspaceId === deletedId) {
+        const next = remaining.find((w) => w.isDefault) ?? remaining[0];
+        if (next) {
+          setActiveWorkspaceId(next.id);
+        } else {
+          setHeaderWorkspaceId(null);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+      await qc.invalidateQueries({ queryKey: ["workspaces"] });
+      await qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
+      await qc.invalidateQueries({ queryKey: ["archive"] });
       refetch();
       toast({
-        title: "Workspace archived",
-        description: "You can restore it anytime from Archive.",
+        title: "Workspace deleted",
+        description: "It was moved to Archive → Workspaces. You can restore it from there.",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => navigate("/archive?tab=workspaces")}>
+            View Archive
+          </Button>
+        ),
       });
     },
-    onError: () => toast({ title: "Failed to archive workspace", variant: "destructive" }),
+    onError: () => toast({ title: "Failed to delete workspace", variant: "destructive" }),
   });
 
   const displayWorkspaces = isAccountOwner && overview
@@ -250,16 +268,16 @@ export default function WorkspacesPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-amber-700 gap-1.5"
+                    className="text-red-600 gap-1.5"
                     onClick={() => {
                       const message = ws.isDefault
-                        ? `Archive default workspace "${ws.name}"? Another workspace will become the new default. You can restore it from Archive.`
-                        : `Archive workspace "${ws.name}"? You can restore it from Archive.`;
-                      if (confirm(message)) archiveWorkspace.mutate(ws.id);
+                        ? `Delete default workspace "${ws.name}"? It will be removed from this dashboard and moved to Archive → Workspaces. Another workspace will become the new default.`
+                        : `Delete workspace "${ws.name}"? It will be removed from this dashboard and moved to Archive → Workspaces.`;
+                      if (confirm(message)) deleteWorkspace.mutate(ws.id);
                     }}
                   >
-                    <Archive className="w-3.5 h-3.5" />
-                    Archive
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
                   </Button>
                 )}
               </div>
