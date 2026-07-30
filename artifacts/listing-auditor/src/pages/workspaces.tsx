@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,8 @@ interface WorkspaceOverview {
 }
 
 export default function WorkspacesPage() {
-  const { workspaces, activeWorkspaceId, isAccountOwner, can, refetch } = useWorkspace();
+  const { workspaces, activeWorkspaceId, isAccountOwner, can, refetch, setActiveWorkspaceId } = useWorkspace();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -101,14 +102,24 @@ export default function WorkspacesPage() {
       fetch(`${basePath}/api/workspaces/${id}`, { method: "DELETE", credentials: "include" }).then((r) => {
         if (!r.ok) throw new Error("Archive failed");
       }),
-    onSuccess: () => {
+    onSuccess: (_data, archivedId) => {
+      if (activeWorkspaceId === archivedId) {
+        const remaining = workspaces.filter((w) => w.id !== archivedId);
+        const next = remaining.find((w) => w.isDefault) ?? remaining[0];
+        if (next) setActiveWorkspaceId(next.id);
+      }
       qc.invalidateQueries({ queryKey: ["workspaces"] });
       qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
       qc.invalidateQueries({ queryKey: ["archive"] });
       refetch();
       toast({
         title: "Workspace archived",
-        description: "You can restore it anytime from Archive.",
+        description: "Open Archive → Workspaces to restore it.",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => navigate("/archive?tab=workspaces")}>
+            View Archive
+          </Button>
+        ),
       });
     },
     onError: () => toast({ title: "Failed to archive workspace", variant: "destructive" }),

@@ -108,6 +108,7 @@ export async function resolveWorkspaceContext(
   const accountOwnerId = team.ownerUserId;
 
   let workspaceId = Number(workspaceIdRaw);
+  const explicitWorkspaceId = Boolean(workspaceIdRaw && !Number.isNaN(workspaceId));
   if (!workspaceId || Number.isNaN(workspaceId)) {
     const defaultId = await getDefaultWorkspaceId(accountOwnerId);
     if (!defaultId) return null;
@@ -120,7 +121,16 @@ export async function resolveWorkspaceContext(
     .where(and(eq(workspacesTable.id, workspaceId), eq(workspacesTable.isDeleted, 0)))
     .limit(1);
 
-  if (!workspace) return null;
+  if (!workspace) {
+    // Client may still send a deleted/stale workspace id (e.g. right after delete).
+    if (explicitWorkspaceId) {
+      const defaultId = await getDefaultWorkspaceId(accountOwnerId);
+      if (defaultId && defaultId !== workspaceId) {
+        return resolveWorkspaceContext(userId, defaultId);
+      }
+    }
+    return null;
+  }
 
   const isAccountOwner = workspace.accountOwnerId === userId;
 

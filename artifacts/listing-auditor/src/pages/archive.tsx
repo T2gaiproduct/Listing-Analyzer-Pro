@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, Search, Image, Users, RotateCcw, Trash2, AlertCircle, Video, Megaphone, Building2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useActionDialog } from "@/components/ui/action-dialog";
+import { fetchJson } from "@/lib/api-fetch";
 
 interface ArchivedItem {
   id: number;
@@ -40,7 +42,7 @@ interface ArchiveResponse {
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function fetchArchive(): Promise<ArchiveResponse> {
-  return fetch(`${basePath}/api/archive`, { credentials: "include" }).then((r) => r.json());
+  return fetchJson<ArchiveResponse>(`${basePath}/api/archive`);
 }
 
 function useArchive() {
@@ -208,12 +210,25 @@ function ArchiveList({
 }
 
 export default function ArchivePage() {
-  const { data, isLoading } = useArchive();
+  const search = useSearch();
+  const tabParam = new URLSearchParams(search).get("tab");
+  const validTabs = new Set(["audits", "projects", "videos", "ads", "competitors", "team", "workspaces"]);
+  const requestedTab = tabParam && validTabs.has(tabParam) ? tabParam : null;
+  const { data, isLoading, isError } = useArchive();
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <AlertCircle className="w-8 h-8 mb-3 opacity-40" />
+        <p className="text-sm">Could not load archive. Try refreshing the page.</p>
       </div>
     );
   }
@@ -226,6 +241,9 @@ export default function ArchivePage() {
   const teamMembers = data?.teamMembers ?? [];
   const workspaces = data?.workspaces ?? [];
   const total = audits.length + projects.length + videos.length + ads.length + competitors.length + teamMembers.length + workspaces.length;
+  const onlyWorkspacesArchived = workspaces.length > 0
+    && audits.length + projects.length + videos.length + ads.length + competitors.length + teamMembers.length === 0;
+  const activeTab = requestedTab ?? (onlyWorkspacesArchived ? "workspaces" : "audits");
 
   return (
     <div className="space-y-6">
@@ -236,7 +254,7 @@ export default function ArchivePage() {
         </p>
       </div>
 
-      <Tabs defaultValue="audits" className="w-full">
+      <Tabs defaultValue={activeTab} key={activeTab} className="w-full">
         <TabsList className="flex flex-wrap gap-1 h-auto w-full max-w-2xl">
           <TabsTrigger value="audits" className="gap-1">
             <Search className="w-3.5 h-3.5" />
@@ -264,7 +282,7 @@ export default function ArchivePage() {
           </TabsTrigger>
           <TabsTrigger value="workspaces" className="gap-1">
             <Building2 className="w-3.5 h-3.5" />
-            Workspaces {workspaces.length > 0 && `(${workspaces.length})`}
+            Workspaces{workspaces.length > 0 ? ` (${workspaces.length})` : ""}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="audits" className="mt-4">

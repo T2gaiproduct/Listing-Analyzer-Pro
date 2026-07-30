@@ -5,7 +5,6 @@ import {
   db, auditsTable, competitorsTable, graphicsProjectsTable, teamMembersTable,
   videosProjectsTable, adsProjectsTable, workspacesTable, workspaceMembersTable,
 } from "@workspace/db";
-import { resolveAccountOwnerId } from "../lib/workspace-context";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
@@ -119,23 +118,21 @@ router.get("/archive", requireAuth, resolveTeamAndWorkspace, async (req, res): P
     .select({ id: teamMembersTable.id, ownerUserId: teamMembersTable.ownerUserId, invitedEmail: teamMembersTable.invitedEmail, invitedName: teamMembersTable.invitedName, role: teamMembersTable.role, status: teamMembersTable.status, deletedAt: teamMembersTable.deletedAt, updatedAt: teamMembersTable.invitedAt, invitedAt: teamMembersTable.invitedAt, createdAt: teamMembersTable.invitedAt })
     .from(teamMembersTable).where(teamWhere).orderBy(desc(teamMembersTable.deletedAt));
 
-  const accountOwnerId = await resolveAccountOwnerId(userId);
-  const archivedWorkspaces = accountOwnerId === userId
-    ? await db
-      .select({
-        id: workspacesTable.id,
-        name: workspacesTable.name,
-        description: workspacesTable.description,
-        clientLabel: workspacesTable.clientLabel,
-        isDefault: workspacesTable.isDefault,
-        deletedAt: workspacesTable.deletedAt,
-        updatedAt: workspacesTable.updatedAt,
-        createdAt: workspacesTable.createdAt,
-      })
-      .from(workspacesTable)
-      .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 1)))
-      .orderBy(desc(workspacesTable.deletedAt))
-    : [];
+  // Archived workspaces belong to the account owner (userId), not the team owner context.
+  const archivedWorkspaces = await db
+    .select({
+      id: workspacesTable.id,
+      name: workspacesTable.name,
+      description: workspacesTable.description,
+      clientLabel: workspacesTable.clientLabel,
+      isDefault: workspacesTable.isDefault,
+      deletedAt: workspacesTable.deletedAt,
+      updatedAt: workspacesTable.updatedAt,
+      createdAt: workspacesTable.createdAt,
+    })
+    .from(workspacesTable)
+    .where(and(eq(workspacesTable.accountOwnerId, userId), eq(workspacesTable.isDeleted, 1)))
+    .orderBy(desc(workspacesTable.deletedAt));
 
   res.json({
     audits: audits.map(a => ({ ...a, type: "audit" })),
