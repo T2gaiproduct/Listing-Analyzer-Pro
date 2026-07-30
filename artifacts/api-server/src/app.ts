@@ -94,23 +94,26 @@ app.use(
   }),
 );
 
-app.get(
-  "/api/images/:auditId/:filename",
-  requireAuditImageAccess,
-  sendAuditImage,
-);
-
-app.get(
-  "/api/images/graphics/:projectId/:filename",
-  requireGraphicsImageAccess,
-  sendGraphicsImage,
-);
-
+// Public CMS/branding assets — register before /api/images/:auditId/:filename so
+// segment names like "heroes" are not captured as audit ids (see protected-images.ts).
 app.use("/api/images/avatars", express.static(path.join(IMAGES_DIR, "avatars")));
 app.use("/api/images/branding", express.static(path.join(IMAGES_DIR, "branding")));
 app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api/images/portfolio", express.static(PORTFOLIO_IMAGES_DIR));
 app.use("/api/images/workflow", express.static(WORKFLOW_IMAGES_DIR));
+
+app.get(
+  /^\/api\/images\/(?<auditId>\d+)\/(?<filename>[^/]+)$/,
+  requireAuditImageAccess,
+  sendAuditImage,
+);
+
+app.get(
+  /^\/api\/images\/graphics\/(?<projectId>\d+)\/(?<filename>[^/]+)$/,
+  requireGraphicsImageAccess,
+  sendGraphicsImage,
+);
+
 app.use("/api", router);
 
 // Express 5 HTML 404 pages break admin JSON clients — always return JSON for unknown /api routes.

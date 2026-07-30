@@ -6,6 +6,16 @@ import { db, auditsTable, graphicsProjectsTable } from "@workspace/db";
 import { resolveTeamContext } from "../middlewares/team-auth";
 import { GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./image-storage";
 
+/** First path segment under /api/images served by express.static (not audit-owned files). */
+export const PUBLIC_IMAGE_PATH_SEGMENTS = new Set([
+  "heroes",
+  "portfolio",
+  "workflow",
+  "avatars",
+  "branding",
+  "graphics",
+]);
+
 async function resolveOwnerUserId(req: Request): Promise<string | null> {
   const auth = getAuth(req);
   const userId = auth?.userId;
@@ -19,15 +29,24 @@ export async function requireAuditImageAccess(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const ownerId = await resolveOwnerUserId(req);
-  if (!ownerId) {
-    res.status(401).json({ error: "Unauthorized" });
+  const auditIdParam = String(req.params.auditId ?? "");
+
+  // /api/images/:auditId/:filename is registered before express.static in the stack
+  // history; reserved segments (heroes, portfolio, …) must fall through to static.
+  if (PUBLIC_IMAGE_PATH_SEGMENTS.has(auditIdParam)) {
+    next();
     return;
   }
 
-  const auditId = parseInt(String(req.params.auditId ?? ""), 10);
+  const auditId = parseInt(auditIdParam, 10);
   if (Number.isNaN(auditId)) {
-    res.status(400).json({ error: "Invalid audit id" });
+    next();
+    return;
+  }
+
+  const ownerId = await resolveOwnerUserId(req);
+  if (!ownerId) {
+    res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
