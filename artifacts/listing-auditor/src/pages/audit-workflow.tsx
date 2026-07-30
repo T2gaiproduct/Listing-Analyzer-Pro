@@ -29,18 +29,26 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AMAZON_MARKETPLACES, EXPORT_PLATFORMS, downloadAuditExport, type AmazonMarketplaceId, type ExportPlatform } from "@/lib/amazon-export";
+import { fetchAmazonStatus, startAmazonConnect, disconnectAmazon, publishAuditToAmazon } from "@/lib/amazon-publish";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
-  CustomPromptGenerationPanel,
+  DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
   type GraphicsQuality,
+  type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
+import {
+  ImageTypeCustomizeDialog,
+  SelectedGraphicsTypesSummary,
+} from "@/components/graphics-type-customize-ui";
+import { GRAPHICS_IMAGE_TYPES } from "@/lib/graphics-image-types";
 import {
   useCreateAuditDraft,
   usePatchAudit,
-  useGenerateContent,
   useGenerateContentDirect,
   useGetAudit,
   getGetAuditStatsQueryKey,
@@ -312,16 +320,7 @@ const AMAZON_CATEGORIES = [
 ];
 
 /* ── Image types ────────────────────────────────────────────────────────── */
-const IMAGE_TYPES = [
-  { id: "hero",        label: "Hero Shot",        desc: "White background, product centered", icon: "🏆" },
-  { id: "lifestyle",   label: "Lifestyle In-Use",  desc: "Product in use, real environment",   icon: "🌅" },
-  { id: "callouts",    label: "Feature Callouts",  desc: "Numbered features, arrows",          icon: "🔢" },
-  { id: "size",        label: "Size Reference",    desc: "Scale comparison with dimensions",   icon: "📏" },
-  { id: "beforeafter", label: "Before / After",    desc: "Transformation comparison",          icon: "⚡" },
-  { id: "bundle",      label: "Bundle Shot",       desc: "All included items",                 icon: "📦" },
-  { id: "social",      label: "Social Proof",      desc: "Ratings & reviews",                  icon: "⭐" },
-  { id: "custom",      label: "Generate Custom",   desc: "Custom prompt",                      icon: "✨" },
-];
+const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES;
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Loading Panel Component
@@ -540,7 +539,6 @@ export default function AuditWorkflow() {
   const [isDirty, setIsDirty] = useState(false);
   const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
-  const generateContent = useGenerateContent();
   const generateContentDirect = useGenerateContentDirect();
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
     query: { enabled: currentAuditId !== null, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
@@ -551,6 +549,16 @@ export default function AuditWorkflow() {
       setCurrentAuditId(resumeAuditId);
     }
   }, [resumeAuditId]);
+
+  useEffect(() => {
+    if (!currentAuditId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("resume") === String(currentAuditId)) return;
+    params.set("resume", String(currentAuditId));
+    const query = params.toString();
+    const next = `${window.location.pathname}${query ? `?${query}` : ""}`;
+    window.history.replaceState({}, "", next);
+  }, [currentAuditId]);
 
   useEffect(() => {
     stepRestoredForAuditIdRef.current = null;
@@ -605,11 +613,21 @@ export default function AuditWorkflow() {
 
   /* ── Graphics step state ── */
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
-  const [customPrompt, setCustomPrompt]             = useState("");
-  const [promptReferenceImages, setPromptReferenceImages] = useState<string[]>([]);
-  const [graphicsAspectRatio, setGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
-  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>("standard");
+  const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [graphicsCustomizeTypeId, setGraphicsCustomizeTypeId] = useState<string | null>(null);
 
+  const getImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...imageTypePromptConfigs[typeId],
+  }), [imageTypePromptConfigs]);
+
+  const updateImageTypeConfig = useCallback((typeId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setImageTypePromptConfigs((prev) => ({
+      ...prev,
+      [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
+    }));
+    setIsDirty(true);
+  }, []);
 
   /* ── Close category dropdown on outside click ── */
   useEffect(() => {
@@ -634,18 +652,64 @@ export default function AuditWorkflow() {
 
   /* ── A+ Content step state ── */
   const [selectedAplusModules, setSelectedAplusModules] = useState<AplusModuleId[]>([]);
+  const [aplusModulePromptConfigs, setAplusModulePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
   const [aplusModules, setAplusModules] = useState<AplusModule[]>([]);
   const [aplusStatus, setAplusStatus] = useState<"idle" | "generating" | "completed" | "failed">("idle");
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
+  const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
   const aplusCompletionToastShownRef = useRef(false);
+
+  /* ── Export step state ── */
+  const [exportPlatform, setExportPlatform] = useState<ExportPlatform>("amazon");
+  const [exportMarketplace, setExportMarketplace] = useState<AmazonMarketplaceId>("US");
+  const [exportLoading, setExportLoading] = useState<"excel" | "zip" | null>(null);
+  const [publishLoading, setPublishLoading] = useState(false);
+
+  const { data: amazonStatus, refetch: refetchAmazonStatus, isError: amazonStatusError } = useQuery({
+    queryKey: ["amazon-connection-status"],
+    queryFn: fetchAmazonStatus,
+    staleTime: 30_000,
+    retry: 2,
+  });
+
+  const publishBlockers = useMemo((): string[] => {
+    if (exportPlatform !== "amazon") return [];
+    const blockers: string[] = [];
+    if (amazonStatusError) blockers.push("Amazon publishing is temporarily unavailable. Please try again later.");
+    if (!amazonStatusError && !amazonStatus?.publishReady) {
+      blockers.push("Amazon publishing isn't set up yet. Contact your administrator.");
+    }
+    if (amazonStatus?.publishReady && !amazonStatus.connected) {
+      blockers.push("Click Connect Amazon above to link your seller account.");
+    }
+    if (!currentAuditId) blockers.push("Save your project in Step 1.");
+    if (!generatedContent) blockers.push("Generate listing content in Step 2.");
+    return blockers;
+  }, [exportPlatform, amazonStatus, amazonStatusError, currentAuditId, generatedContent]);
+
   const generateAplus = useMutation({
-    mutationFn: async ({ auditId, moduleIds }: { auditId: number; moduleIds: AplusModuleId[] }) => {
+    mutationFn: async ({
+      auditId,
+      moduleIds,
+      moduleConfigs,
+    }: {
+      auditId: number;
+      moduleIds: AplusModuleId[];
+      moduleConfigs: Record<string, {
+        imageCustomPrompt?: string;
+        promptReferenceImageUrls?: string[];
+        quality?: GraphicsQuality;
+      }>;
+    }) => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/generate-aplus`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ moduleIds }),
+        body: JSON.stringify({
+          moduleIds,
+          moduleConfigs,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -745,28 +809,74 @@ export default function AuditWorkflow() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const graphicsGenerateOptions = useMemo(() => ({
-    aspectRatio: graphicsAspectRatio,
-    quality: graphicsQuality,
-    promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
-  }), [graphicsAspectRatio, graphicsQuality, promptReferenceImages]);
+  const getAplusModuleConfig = useCallback((moduleId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...aplusModulePromptConfigs[moduleId],
+  }), [aplusModulePromptConfigs]);
+
+  const updateAplusModuleConfig = useCallback((moduleId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setAplusModulePromptConfigs((prev) => ({
+      ...prev,
+      [moduleId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[moduleId], ...patch },
+    }));
+    setIsDirty(true);
+  }, []);
+
+  const aplusModuleConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      imageCustomPrompt?: string;
+      promptReferenceImageUrls?: string[];
+      quality: GraphicsQuality;
+    }> = {};
+    for (const moduleId of selectedAplusModules) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
+      configs[moduleId] = {
+        imageCustomPrompt: config.customPrompt.trim() || undefined,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+        quality: config.quality,
+      };
+    }
+    return configs;
+  }, [selectedAplusModules, aplusModulePromptConfigs]);
+
+  const aplusGenerateOptions = useMemo(() => ({
+    moduleConfigs: aplusModuleConfigsPayload,
+  }), [aplusModuleConfigsPayload]);
+
+  const graphicsTypeConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      customPrompt?: string;
+      aspectRatio: GraphicsAspectRatio;
+      quality: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }> = {};
+    for (const typeId of selectedImageTypes) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...imageTypePromptConfigs[typeId] };
+      configs[typeId] = {
+        customPrompt: config.customPrompt.trim() || undefined,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+      };
+    }
+    return configs;
+  }, [selectedImageTypes, imageTypePromptConfigs]);
 
   /* ── Generate on existing project ── */
   const generateExisting = useMutation({
     mutationFn: async ({
       projectId,
       imageTypes,
-      customPrompt,
-      aspectRatio,
-      quality,
-      promptReferenceImageUrls,
+      typeConfigs,
     }: {
       projectId: number;
       imageTypes: string[];
-      customPrompt?: string;
-      aspectRatio?: GraphicsAspectRatio;
-      quality?: GraphicsQuality;
-      promptReferenceImageUrls?: string[];
+      typeConfigs: Record<string, {
+        customPrompt?: string;
+        aspectRatio?: GraphicsAspectRatio;
+        quality?: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
     }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${projectId}/generate`, {
         method: "POST",
@@ -774,10 +884,7 @@ export default function AuditWorkflow() {
         credentials: "include",
         body: JSON.stringify({
           imageTypes,
-          customPrompt: customPrompt?.trim() || undefined,
-          aspectRatio,
-          quality,
-          promptReferenceImageUrls,
+          typeConfigs,
         }),
       });
       if (!res.ok) {
@@ -803,30 +910,37 @@ export default function AuditWorkflow() {
 
   /* ── Graphics project mutation ── */
   const createProject = useMutation({
-    mutationFn: async (body: object) => {
+    mutationFn: async (input: {
+      createBody: object;
+      imageTypes: string[];
+      typeConfigs: Record<string, {
+        customPrompt?: string;
+        aspectRatio: GraphicsAspectRatio;
+        quality: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(body),
+        body: JSON.stringify(input.createBody),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
       }
-      return res.json();
+      const project = await res.json() as { id: number; lifestyleCount?: number; featureCount?: number };
+      return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
     },
-    onSuccess: (project: { id: number; lifestyleCount?: number; featureCount?: number }) => {
+    onSuccess: ({ project, imageTypes, typeConfigs }) => {
       void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          imageTypes: selectedImageTypes,
-          customPrompt: customPrompt.trim() || undefined,
-          aspectRatio: graphicsAspectRatio,
-          quality: graphicsQuality,
-          promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
+          imageTypes,
+          typeConfigs,
         }),
       }).then(() => refreshCreditBalances(queryClient));
       setGraphicsProjectId(project.id);
@@ -1088,34 +1202,109 @@ export default function AuditWorkflow() {
         toast({ title: "Select image types", description: "Please select at least one image type.", variant: "destructive" });
         return;
       }
+      if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) {
+        setIsCreating(false);
+        toast({ title: "Custom prompt required", description: "Add a prompt for the Generate Custom image type.", variant: "destructive" });
+        return;
+      }
       // Reuse existing graphics project for this audit, or create new one
       if (existingGraphicsProject?.id) {
         generateExisting.mutate({
           projectId: existingGraphicsProject.id,
           imageTypes: selectedImageTypes,
-          customPrompt: customPrompt.trim() || undefined,
-          ...graphicsGenerateOptions,
+          typeConfigs: graphicsTypeConfigsPayload,
         });
       } else {
         createProject.mutate({
-          name: projectName.trim() || productName || "Product",
-          productName: productName || "Product",
-          category,
-          sourceImageUrls: uploadedImages,
+          createBody: {
+            name: projectName.trim() || productName || "Product",
+            productName: productName || "Product",
+            category,
+            sourceImageUrls: uploadedImages,
+            imageTypes: selectedImageTypes,
+            auditId: currentAuditId ?? undefined,
+          },
           imageTypes: selectedImageTypes,
-          customPrompt: customPrompt.trim() || undefined,
-          auditId: currentAuditId ?? undefined,
+          typeConfigs: graphicsTypeConfigsPayload,
         });
       }
 
-    } else if (activeStep === 5) {
-      // Export: simulate
-      setTimeout(() => {
-        setIsCreating(false);
-        toast({ title: "Export ready!", description: "Coming soon — this feature is launching shortly." });
-      }, 3000);
     }
-  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, customPrompt, promptReferenceImages, graphicsAspectRatio, graphicsQuality, graphicsGenerateOptions, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+
+  const handleExportDownload = useCallback(async (format: "excel" | "zip") => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 to create your project before exporting.", variant: "destructive" });
+      return;
+    }
+    if (!generatedContent) {
+      toast({ title: "Listing content required", description: "Complete the Listing step and generate content before exporting.", variant: "destructive" });
+      return;
+    }
+    setExportLoading(format);
+    try {
+      await downloadAuditExport({
+        auditId: currentAuditId,
+        format,
+        platform: exportPlatform,
+        marketplace: exportPlatform === "amazon" ? exportMarketplace : undefined,
+        basePath,
+      });
+      const fileLabel = exportPlatform === "shopify" && format === "excel" ? "CSV" : format === "excel" ? "Excel" : "ZIP";
+      toast({
+        title: `${fileLabel} downloaded`,
+        description: exportPlatform === "amazon"
+          ? `Amazon ${exportMarketplace} listing export is ready. Image columns use public HTTPS URLs.`
+          : "Shopify product CSV is ready. Image columns use public HTTPS URLs.",
+      });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(null);
+    }
+  }, [currentAuditId, generatedContent, exportPlatform, exportMarketplace, toast]);
+
+  const handlePublishAmazon = useCallback(async () => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 before publishing.", variant: "destructive" });
+      return;
+    }
+    if (!generatedContent) {
+      toast({ title: "Listing content required", description: "Generate listing content before publishing.", variant: "destructive" });
+      return;
+    }
+    if (!amazonStatus?.publishReady) {
+      toast({ title: "Not available", description: "Amazon publishing isn't set up yet. Contact your administrator.", variant: "destructive" });
+      return;
+    }
+    if (!amazonStatus.connected) {
+      toast({ title: "Connect Amazon", description: "Connect your Amazon seller account first.", variant: "destructive" });
+      return;
+    }
+    setPublishLoading(true);
+    try {
+      const result = await publishAuditToAmazon({
+        auditId: currentAuditId,
+        marketplace: exportMarketplace,
+      });
+      toast({
+        title: result.sandbox ? "Published to Amazon sandbox" : "Published to Amazon",
+        description: result.message,
+      });
+    } catch (err) {
+      toast({
+        title: "Publish failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPublishLoading(false);
+    }
+  }, [currentAuditId, generatedContent, amazonStatus, exportMarketplace, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -1149,8 +1338,9 @@ export default function AuditWorkflow() {
     generateAplus.mutate({
       auditId: currentAuditId,
       moduleIds: selectedAplusModules,
+      ...aplusGenerateOptions,
     });
-  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule]);
+  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule, aplusGenerateOptions]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1533,22 +1723,32 @@ export default function AuditWorkflow() {
                   setIsCreating(true);
 
                   if (currentAuditId) {
-                    // Already have an audit: just regenerate content
-                    generateContent.mutate(
-                      { id: currentAuditId },
-                      {
-                        onSuccess: (data) => {
-                          setIsCreating(false);
-                          setGeneratedContent(data);
-                          toast({ title: "Listing content regenerated!", description: "Your optimized content is ready." });
-                          refreshCreditBalances(queryClient);
-                        },
-                        onError: (err) => {
-                          setIsCreating(false);
-                          toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
-                        },
-                      }
-                    );
+                    // Already have an audit: regenerate listing content
+                    fetch(`${basePath}/api/audits/${currentAuditId}/generate-content`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({}),
+                    })
+                      .then(async (res) => {
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({}));
+                          throw new Error((err as { error?: string }).error || "Content generation failed");
+                        }
+                        return res.json() as Promise<typeof generatedContent>;
+                      })
+                      .then((data) => {
+                        if (!data) return;
+                        setIsCreating(false);
+                        setGeneratedContent(data);
+                        toast({ title: "Listing content regenerated!", description: "Your optimized content is ready." });
+                        refreshCreditBalances(queryClient);
+                        queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+                      })
+                      .catch((err) => {
+                        setIsCreating(false);
+                        toast({ title: "Failed", description: err instanceof Error ? err.message : "Content generation failed", variant: "destructive" });
+                      });
                     return;
                   }
 
@@ -1715,9 +1915,10 @@ export default function AuditWorkflow() {
                     <button
                       key={type.id}
                       onClick={() => {
-                        setSelectedImageTypes((prev) =>
-                          prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                        );
+                        if (!selectedImageTypes.includes(type.id)) {
+                          setSelectedImageTypes((prev) => [...prev, type.id]);
+                        }
+                        setGraphicsCustomizeTypeId(type.id);
                         if (currentAuditId) setIsDirty(true);
                       }}
                       className={cn(
@@ -1749,18 +1950,32 @@ export default function AuditWorkflow() {
                 </div>
               )}
 
-              {selectedImageTypes.includes("custom") && (
-                <CustomPromptGenerationPanel
-                  customPrompt={customPrompt}
-                  onCustomPromptChange={(value) => { setCustomPrompt(value); setIsDirty(true); }}
-                  referenceImages={promptReferenceImages}
-                  onReferenceImagesChange={(images) => { setPromptReferenceImages(images); setIsDirty(true); }}
-                  aspectRatio={graphicsAspectRatio}
-                  onAspectRatioChange={(ratio) => { setGraphicsAspectRatio(ratio); setIsDirty(true); }}
-                  quality={graphicsQuality}
-                  onQualityChange={(q) => { setGraphicsQuality(q); setIsDirty(true); }}
+              {selectedImageTypes.length > 0 && (
+                <SelectedGraphicsTypesSummary
+                  imageTypes={IMAGE_TYPES}
+                  selectedTypeIds={selectedImageTypes}
+                  getConfig={getImageTypeConfig}
+                  onEdit={setGraphicsCustomizeTypeId}
+                  onRemove={(typeId) => {
+                    setSelectedImageTypes((prev) => prev.filter((id) => id !== typeId));
+                    if (graphicsCustomizeTypeId === typeId) setGraphicsCustomizeTypeId(null);
+                    if (currentAuditId) setIsDirty(true);
+                  }}
                 />
               )}
+
+              <ImageTypeCustomizeDialog
+                open={graphicsCustomizeTypeId !== null}
+                onOpenChange={(open) => { if (!open) setGraphicsCustomizeTypeId(null); }}
+                type={IMAGE_TYPES.find((t) => t.id === graphicsCustomizeTypeId) ?? null}
+                config={graphicsCustomizeTypeId ? getImageTypeConfig(graphicsCustomizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+                onConfigChange={(patch) => {
+                  if (graphicsCustomizeTypeId) {
+                    updateImageTypeConfig(graphicsCustomizeTypeId, patch);
+                    if (currentAuditId) setIsDirty(true);
+                  }
+                }}
+              />
 
               {/* Generate Graphics button */}
               <Button
@@ -1867,11 +2082,11 @@ export default function AuditWorkflow() {
                       key={module.id}
                       type="button"
                       onClick={() => {
-                        setSelectedAplusModules((prev) =>
-                          prev.includes(module.id)
-                            ? prev.filter((id) => id !== module.id)
-                            : [...prev, module.id],
-                        );
+                        if (aplusStatus === "generating" || generateAplus.isPending) return;
+                        if (!selectedAplusModules.includes(module.id)) {
+                          setSelectedAplusModules((prev) => [...prev, module.id]);
+                        }
+                        setAplusCustomizeModuleId(module.id);
                         setIsDirty(true);
                       }}
                       disabled={aplusStatus === "generating" || generateAplus.isPending}
@@ -1915,6 +2130,35 @@ export default function AuditWorkflow() {
                   </span>
                 </div>
               )}
+
+              {selectedAplusModules.length > 0 && (
+                <SelectedGraphicsTypesSummary
+                  imageTypes={APLUS_MODULE_CARDS}
+                  selectedTypeIds={selectedAplusModules}
+                  getConfig={getAplusModuleConfig}
+                  onEdit={setAplusCustomizeModuleId}
+                  onRemove={(moduleId) => {
+                    setSelectedAplusModules((prev) => prev.filter((id) => id !== moduleId));
+                    if (aplusCustomizeModuleId === moduleId) setAplusCustomizeModuleId(null);
+                    setIsDirty(true);
+                  }}
+                  instructionText="Selected modules — tap a row to customize prompt, references, and quality."
+                  hideAspectRatio
+                />
+              )}
+
+              <ImageTypeCustomizeDialog
+                open={aplusCustomizeModuleId !== null}
+                onOpenChange={(open) => { if (!open) setAplusCustomizeModuleId(null); }}
+                type={APLUS_MODULE_CARDS.find((m) => m.id === aplusCustomizeModuleId) ?? null}
+                config={aplusCustomizeModuleId ? getAplusModuleConfig(aplusCustomizeModuleId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+                onConfigChange={(patch) => {
+                  if (aplusCustomizeModuleId) {
+                    updateAplusModuleConfig(aplusCustomizeModuleId, patch);
+                  }
+                }}
+                hideAspectRatio
+              />
 
               <Button
                 size="lg"
@@ -2002,11 +2246,173 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Platform</label>
+                  <Select
+                    value={exportPlatform}
+                    onValueChange={(value) => setExportPlatform(value as ExportPlatform)}
+                  >
+                    <SelectTrigger className="rounded-xl border-slate-200">
+                      <SelectValue placeholder="Select platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXPORT_PLATFORMS.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-400">
+                    {EXPORT_PLATFORMS.find((p) => p.id === exportPlatform)?.description}
+                  </p>
+                </div>
+
+                {exportPlatform === "amazon" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Amazon marketplace</label>
+                    <Select
+                      value={exportMarketplace}
+                      onValueChange={(value) => setExportMarketplace(value as AmazonMarketplaceId)}
+                    >
+                      <SelectTrigger className="rounded-xl border-slate-200">
+                        <SelectValue placeholder="Select marketplace" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {AMAZON_MARKETPLACES.map((mp) => (
+                          <SelectItem key={mp.id} value={mp.id}>
+                            {mp.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-400">
+                      Sets the marketplace column in the Amazon flat file.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                Upload files use <strong>public HTTPS image URLs</strong> (not local file paths). ZIP downloads also include image files as a backup. Add price and inventory in Seller Central or Shopify after import.
+              </p>
+
+              {exportPlatform === "amazon" && (amazonStatus?.publishReady || amazonStatus?.configured || amazonStatusError) && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Amazon seller account</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {amazonStatus?.connected
+                        ? `Connected${amazonStatus.sellerId ? ` · ${amazonStatus.sellerId}` : ""}${amazonStatus.sandbox ? " · Sandbox" : ""}`
+                        : amazonStatus?.configured || amazonStatus?.publishReady
+                          ? "Connect your seller account to use Publish to Amazon."
+                          : "Amazon publishing isn't set up yet. Contact your administrator."}
+                    </p>
+                  </div>
+                  {amazonStatus?.configured && (
+                    <div className="flex gap-2">
+                      {amazonStatus?.connected ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => {
+                            void disconnectAmazon().then(() => refetchAmazonStatus());
+                          }}
+                        >
+                          Disconnect
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white"
+                          onClick={() => {
+                            void startAmazonConnect().catch((err) => {
+                              toast({
+                                title: "Connect failed",
+                                description: err instanceof Error ? err.message : "Try again",
+                                variant: "destructive",
+                              });
+                            });
+                          }}
+                        >
+                          Connect Amazon
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!currentAuditId && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Complete Step 1 and save your project before exporting.
+                </p>
+              )}
+
+              {currentAuditId && !generatedContent && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Complete the Listing step and generate content before exporting.
+                </p>
+              )}
+
+              {exportPlatform === "amazon" && publishBlockers.length > 0 && (
+                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
+                  <p className="font-semibold">Before you can publish:</p>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">
+                    {publishBlockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { icon: "📊", title: "Export as Excel file", desc: "Amazon supports Excel file uploads for bulk listings", action: "Download Excel", comingSoon: false },
-                  { icon: "🗂️", title: "Export as ZIP",        desc: "Excel file + all images bundled together",           action: "Download ZIP",   comingSoon: false },
-                  { icon: "🛒", title: "Publish to Amazon",    desc: "Push directly to Seller Central",                      action: "Coming soon",    comingSoon: true  },
+                  {
+                    icon: "📊",
+                    title: exportPlatform === "shopify" ? "Export as CSV" : "Export as Excel",
+                    desc: exportPlatform === "shopify"
+                      ? "Shopify product import CSV with public image URLs"
+                      : "Amazon flat-file Excel with public image URLs",
+                    action: exportPlatform === "shopify" ? "Download CSV" : "Download Excel",
+                    format: "excel" as const,
+                    comingSoon: false,
+                    kind: "export" as const,
+                  },
+                  {
+                    icon: "🗂️",
+                    title: "Export as ZIP",
+                    desc: exportPlatform === "shopify"
+                      ? "CSV + all images bundled together"
+                      : "Excel + all images bundled together",
+                    action: "Download ZIP",
+                    format: "zip" as const,
+                    comingSoon: false,
+                    kind: "export" as const,
+                  },
+                  exportPlatform === "shopify"
+                    ? {
+                        icon: "🛒",
+                        title: "Publish to Shopify",
+                        desc: "Push directly to your Shopify store",
+                        action: "Coming soon",
+                        format: null,
+                        comingSoon: true,
+                        kind: "publish" as const,
+                      }
+                    : {
+                        icon: "🛒",
+                        title: "Publish to Amazon",
+                        desc: amazonStatus?.sandbox
+                          ? "Submit listing to Amazon SP-API sandbox"
+                          : "Push directly to Seller Central",
+                        action: "Publish to Amazon",
+                        format: null,
+                        comingSoon: !amazonStatus?.publishReady,
+                        kind: "publish" as const,
+                      },
                 ].map((opt) => (
                   <div key={opt.title} className={cn("border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all", opt.comingSoon ? "opacity-60" : "hover:border-orange-300 hover:shadow-sm")}>
                     <span className="text-3xl">{opt.icon}</span>
@@ -2020,12 +2426,35 @@ export default function AuditWorkflow() {
                         ? "border-slate-200 text-slate-400 cursor-default hover:bg-transparent"
                         : "border-orange-200 text-orange-600 hover:bg-orange-50"
                       )}
+                      disabled={
+                        opt.comingSoon
+                        || (opt.kind === "export" && (!currentAuditId || !generatedContent || exportLoading !== null))
+                        || (opt.kind === "publish" && (!currentAuditId || !generatedContent || publishLoading || !amazonStatus?.publishReady || !amazonStatus?.connected))
+                      }
                       onClick={() => {
                         if (opt.comingSoon) return;
-                        toast({ title: "Coming soon", description: `${opt.action} is coming soon.` });
+                        if (opt.kind === "export" && opt.format) {
+                          void handleExportDownload(opt.format);
+                          return;
+                        }
+                        if (opt.kind === "publish") {
+                          void handlePublishAmazon();
+                        }
                       }}
                     >
-                      {opt.action}
+                      {opt.kind === "export" && opt.format && exportLoading === opt.format ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Preparing…
+                        </>
+                      ) : opt.kind === "publish" && publishLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Publishing…
+                        </>
+                      ) : (
+                        opt.action
+                      )}
                     </Button>
                   </div>
                 ))}

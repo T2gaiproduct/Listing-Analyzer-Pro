@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, Check, CheckCheck, AlertCircle, ArrowRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { NotificationPreferencesCard } from "@/components/notification-preferences-card";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface NotificationItem {
   id: number;
@@ -20,15 +23,15 @@ interface NotificationItem {
 }
 
 function fetchNotifications(limit = 100): Promise<{ notifications: NotificationItem[] }> {
-  return fetch(`/api/notifications?limit=${limit}`).then((r) => r.json());
+  return fetch(`${basePath}/api/notifications?limit=${limit}`).then((r) => r.json());
 }
 
 function markAsRead(id: number): Promise<{ ok: boolean }> {
-  return fetch(`/api/notifications/${id}/read`, { method: "PATCH" }).then((r) => r.json());
+  return fetch(`${basePath}/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" }).then((r) => r.json());
 }
 
 function markAllRead(): Promise<{ ok: boolean }> {
-  return fetch("/api/notifications/read-all", { method: "POST" }).then((r) => r.json());
+  return fetch(`${basePath}/api/notifications/read-all`, { method: "POST", credentials: "include" }).then((r) => r.json());
 }
 
 export default function NotificationsPage() {
@@ -92,6 +95,8 @@ export default function NotificationsPage() {
           </Button>
         )}
       </div>
+
+      <NotificationPreferencesCard compact />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">

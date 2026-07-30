@@ -2,16 +2,23 @@ import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Search, Coins, ChevronDown, UserCircle, Receipt, Settings, HelpCircle,
-  Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu,
+  Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu, Building2, Shield,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { TopbarWorkspaceSwitcher } from "@/components/topbar-workspace-switcher";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function profileMenuItems(isTeamMember: boolean, isOwner: boolean, variant: "customer" | "admin") {
+function profileMenuItems(
+  isTeamMember: boolean,
+  isOwner: boolean,
+  isAccountOwner: boolean,
+  variant: "customer" | "admin",
+) {
   if (variant === "admin") {
     return [
       { icon: Settings, label: "Admin Settings", href: "/admin/settings/platform" },
@@ -22,6 +29,8 @@ function profileMenuItems(isTeamMember: boolean, isOwner: boolean, variant: "cus
     { icon: UserCircle, label: "Edit Profile", href: "/profile" },
     { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
     { icon: Users, label: "Team", href: "/team" },
+    ...(isAccountOwner ? [{ icon: Shield, label: "Roles", href: "/roles" }] : []),
+    { icon: Building2, label: "Workspace Dashboard", href: "/workspaces" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
 }
@@ -68,7 +77,9 @@ export function DashboardTopbar({
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
-  const menuItems = profileMenuItems(isTeamMember, isOwner, variant);
+  const { isAccountOwner } = useWorkspace();
+  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant);
+  const showWorkspaceSwitcher = variant === "customer";
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -140,7 +151,7 @@ export function DashboardTopbar({
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
           placeholder={searchPlaceholder}
-          className="w-full h-11 pl-10 pr-3 sm:pr-24 rounded-xl text-sm bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-300"
+          className="w-full h-11 pl-10 pr-3 sm:pr-24 rounded-xl text-sm bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
         />
         <kbd className="absolute right-3 hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-medium text-slate-400 bg-white border border-slate-200 rounded-md">
           Ctrl + K
@@ -186,7 +197,7 @@ export function DashboardTopbar({
       )}
 
       {/* Search — icon on xs, inline from sm */}
-      <div ref={searchContainerRef} className="flex-1 min-w-0 max-w-2xl relative">
+      <div ref={searchContainerRef} className="flex-1 min-w-0 max-w-md lg:max-w-lg relative">
         <button
           type="button"
           className="sm:hidden touch-target flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
@@ -205,6 +216,8 @@ export function DashboardTopbar({
         )}
         <div className="hidden sm:block">{searchInput}</div>
       </div>
+
+      {showWorkspaceSwitcher && <TopbarWorkspaceSwitcher />}
 
       <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
         {showCredits && (

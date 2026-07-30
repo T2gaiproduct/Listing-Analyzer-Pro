@@ -13,18 +13,60 @@ import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
 import { PageSeo } from "@/components/page-seo";
 import { HeroSlider } from "@/components/hero-slider";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHomepageCmsContext } from "@/components/homepage-cms-context";
 import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { parseFeatureBullets } from "@/lib/features-cms";
-import { FeatureCardMockup } from "@/components/feature-card-mockups";
-import { heroAutoplayEnabled, heroAutoplayIntervalMs, heroSlideIsVideo, parseHeroSlides } from "@/lib/hero-slides";
-import { portfolioItemIndices } from "@/lib/portfolio-cms";
-import { parseTutorialItems } from "@/lib/tutorials-cms";
-import { youtubeEmbedUrl, youtubeThumbnailUrl } from "@/lib/video-embed";
+import { InteractiveFeaturesSection, type FeatureItem } from "@/components/interactive-features-section";
+import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
+import { parsePortfolioItems } from "@/lib/portfolio-cms";
+import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
+import { youtubeEmbedUrl } from "@/lib/video-embed";
+import { TutorialCarousel } from "@/components/tutorial-carousel";
+import { TutorialCard } from "@/components/tutorial-card";
+import { PlanCreditsTable } from "@/components/plan-credits-table";
+import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
+import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
+import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const PUBLIC_DATA_STALE_MS = 5 * 60_000;
+
+function LazyMount({
+  children,
+  rootMargin = "320px",
+}: {
+  children: React.ReactNode;
+  rootMargin?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || mounted) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setMounted(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setMounted(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mounted, rootMargin]);
+
+  return <div ref={ref}>{mounted ? children : null}</div>;
+}
 
 interface DbPlan {
   id: number;
@@ -51,16 +93,6 @@ const FEATURE_ICONS = [ClipboardList, PenLine, Box, Video, Megaphone];
 const HERO_STAT_ICONS = [BarChart3, Image, TrendingUp, Users];
 const WORKFLOW_ICONS = [Upload, Search, Wand2, Image, Download, Globe];
 
-type FeatureItem = {
-  index: number;
-  icon: typeof ClipboardList;
-  title: string;
-  description: string;
-  href: string;
-  bullets: string[];
-  image: string;
-};
-
 type PortfolioItem = {
   id: string;
   title: string;
@@ -70,12 +102,6 @@ type PortfolioItem = {
   square: boolean;
 };
 
-type TutorialItem = {
-  title: string;
-  duration: string;
-  image: string;
-  videoUrl: string;
-};
 
 function useLandingCmsData() {
   const cms = useHomepageCmsContext();
@@ -98,21 +124,7 @@ function useLandingCmsData() {
     label: cmsText(cms, `hero.stat${i}_label`),
   }));
 
-  const portfolioItems: PortfolioItem[] = portfolioItemIndices().flatMap((i) => {
-    const title = cmsText(cms, `portfolio.item${i}_title`);
-    const imagePath = cmsText(cms, `portfolio.item${i}_image`);
-    if (!title || !imagePath) return [];
-    const fit = cmsText(cms, `portfolio.item${i}_fit`);
-    const badge = cmsText(cms, `portfolio.item${i}_badge`);
-    return [{
-      id: `portfolio-${i}`,
-      title,
-      brand: cmsText(cms, `portfolio.item${i}_brand`),
-      image: resolveCmsAssetUrl(imagePath, basePath),
-      badge: badge || null,
-      square: fit === "cover",
-    }];
-  });
+  const portfolioItems = parsePortfolioItems(cms, basePath);
 
   const workflowSteps = [1, 2, 3, 4, 5, 6].map((i) => ({
     icon: WORKFLOW_ICONS[i - 1],
@@ -124,101 +136,9 @@ function useLandingCmsData() {
     value: cmsText(cms, `workflow.metric${i}_value`),
   }));
 
-  const tutorialPreviews: TutorialItem[] = parseTutorialItems(cms).map((item) => {
-    const customImage = item.image?.trim() ? resolveCmsAssetUrl(item.image, basePath) : "";
-    const youtubeThumb = item.videoUrl ? youtubeThumbnailUrl(item.videoUrl) : null;
-    return {
-      title: item.title,
-      duration: item.duration,
-      image: customImage || youtubeThumb || "",
-      videoUrl: item.videoUrl,
-    };
-  });
+  const tutorialPreviews = buildTutorialPreviewItems(cms, basePath);
 
   return { cms, features, heroSlides, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
-}
-
-function FeatureCard({
-  index,
-  icon: Icon,
-  title,
-  description,
-  href,
-  bullets,
-  image,
-  className,
-}: FeatureItem & { className?: string }) {
-  const number = String(index).padStart(2, "0");
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex flex-col h-full items-stretch justify-between bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden",
-        className,
-      )}
-    >
-      <div className="flex flex-col flex-1 items-start justify-start p-4 sm:p-5 text-left">
-        <span className="text-[11px] font-bold text-orange-500 tracking-wide">{number}</span>
-
-        <div className="flex justify-start my-3 sm:my-4">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
-            <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" strokeWidth={1.75} />
-          </div>
-        </div>
-
-        <h3 className="text-left font-bold text-slate-900 text-sm sm:text-[15px] leading-snug mb-2">
-          {title}
-        </h3>
-        <p className="text-left text-xs sm:text-sm text-slate-500 leading-relaxed mb-4">
-          {description}
-        </p>
-
-        {bullets.length > 0 && (
-          <ul className="w-full space-y-2 mb-4">
-            {bullets.map((bullet) => (
-              <li key={bullet} className="flex items-start justify-start gap-2 text-left text-xs text-slate-600 leading-snug">
-                <Check className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" strokeWidth={2.5} />
-                <span>{bullet}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="mt-auto border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white p-3 sm:p-4">
-        {image ? (
-          <img
-            src={image}
-            alt={`${title} preview`}
-            className="w-full rounded-lg object-contain max-h-36 sm:max-h-40"
-            loading="lazy"
-          />
-        ) : (
-          <FeatureCardMockup index={index} />
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function FeatureCardsRow({ features }: { features: FeatureItem[] }) {
-  return (
-    <>
-      <div className="lg:hidden -mx-4 px-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-        <div className="flex gap-4 w-max pb-2">
-          {features.map((f) => (
-            <FeatureCard key={f.title} {...f} className="w-[min(82vw,280px)] snap-center shrink-0" />
-          ))}
-        </div>
-      </div>
-      <div className="hidden lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-5">
-        {features.map((f) => (
-          <FeatureCard key={f.title} {...f} />
-        ))}
-      </div>
-    </>
-  );
 }
 
 function PortfolioLightbox({
@@ -271,8 +191,8 @@ function PortfolioLightbox({
           />
         </div>
         <div className="px-4 sm:px-5 py-3 sm:py-4 border-t border-slate-200 bg-white shrink-0">
-          <p className="font-semibold text-slate-900">{item.title}</p>
-          <p className="text-sm text-slate-500 mt-0.5">{item.brand}</p>
+          {item.title && <p className="font-semibold text-slate-900">{item.title}</p>}
+          {item.brand && <p className={cn("text-sm text-slate-500", item.title && "mt-0.5")}>{item.brand}</p>}
         </div>
       </div>
     </div>,
@@ -311,8 +231,8 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
               </span>
             )}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-              <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>
-              <p className="text-xs text-white/80 mt-0.5">{item.brand}</p>
+              {item.title && <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>}
+              {item.brand && <p className={cn("text-xs text-white/80", item.title && "mt-0.5")}>{item.brand}</p>}
             </div>
           </button>
         ))}
@@ -323,173 +243,16 @@ function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
   );
 }
 
-function TutorialCard({
-  title,
-  duration,
-  image,
-  videoUrl,
-  layout = "grid",
-}: TutorialItem & { layout?: "grid" | "carousel" }) {
-  const [open, setOpen] = useState(false);
-  const isCarousel = layout === "carousel";
-  const embedUrl = videoUrl ? youtubeEmbedUrl(videoUrl) : null;
-  const hasVideo = Boolean(videoUrl?.trim());
-
-  if (hasVideo && embedUrl && !isCarousel) {
-    return (
-      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm h-full flex flex-col">
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            src={embedUrl}
-            title={title}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-        <div className="p-4">
-          <p className="font-semibold text-slate-800 text-base">{title}</p>
-          {duration && <p className="text-sm text-slate-500 mt-0.5">{duration}</p>}
-        </div>
-      </div>
-    );
-  }
-
-  const thumbnail = (
-    <div className={cn("relative overflow-hidden bg-slate-900", isCarousel ? "h-52 sm:h-56" : "h-44 sm:h-48 lg:h-52")}>
-      {image ? (
-        <img src={image} alt="" className="w-full h-full object-cover opacity-90" loading="lazy" />
-      ) : (
-        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />
-      )}
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div
-          className={cn(
-            "rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform",
-            isCarousel ? "w-16 h-16" : "w-14 h-14",
-          )}
-        >
-          <Play className={cn("text-orange-600 ml-0.5", isCarousel ? "w-7 h-7" : "w-6 h-6")} />
-        </div>
-      </div>
-      {duration && (
-        <span
-          className={cn(
-            "absolute bottom-3 right-3 bg-black/60 text-white font-medium px-2 py-1 rounded",
-            isCarousel ? "text-sm" : "text-xs",
-          )}
-        >
-          {duration}
-        </span>
-      )}
-    </div>
-  );
-
-  if (hasVideo) {
-    return (
-      <>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full w-full text-left"
-        >
-          {thumbnail}
-          <p className={cn("font-semibold text-slate-800", isCarousel ? "p-5 text-lg" : "p-4 text-base")}>{title}</p>
-        </button>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="max-w-4xl w-[calc(100vw-2rem)] p-0 gap-0 overflow-hidden">
-            <DialogTitle className="sr-only">{title}</DialogTitle>
-            <div className="aspect-video w-full bg-black">
-              {embedUrl ? (
-                <iframe
-                  src={embedUrl}
-                  title={title}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full h-full flex items-center justify-center text-sm font-medium text-white hover:bg-slate-900 transition-colors px-4 text-center"
-                >
-                  Open video in new tab
-                </a>
-              )}
-            </div>
-            <div className="px-4 py-3 border-t border-slate-200">
-              <p className="font-semibold text-slate-900">{title}</p>
-              {duration && <p className="text-sm text-slate-500 mt-0.5">{duration}</p>}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </>
-    );
-  }
-
-  return (
-    <Link
-      href="/tutorials"
-      className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full"
-    >
-      {thumbnail}
-      <p className={cn("font-semibold text-slate-800", isCarousel ? "p-5 text-lg" : "p-4 text-base")}>{title}</p>
-    </Link>
-  );
-}
-
-function TutorialCarousel({ tutorials }: { tutorials: TutorialItem[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scroll = (dir: -1 | 1) => {
-    const cardWidth = scrollRef.current?.firstElementChild?.clientWidth ?? 280;
-    scrollRef.current?.scrollBy({ left: dir * (cardWidth + 16), behavior: "smooth" });
-  };
-
-  return (
-    <div className="relative sm:hidden px-2">
-      <button
-        type="button"
-        onClick={() => scroll(-1)}
-        className="absolute left-0 top-[7rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Previous tutorial"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-600" />
-      </button>
-      <button
-        type="button"
-        onClick={() => scroll(1)}
-        className="absolute right-0 top-[7rem] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Next tutorial"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-600" />
-      </button>
-      <div
-        ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain"
-      >
-        {tutorials.map((t) => (
-          <div key={t.title} className="snap-start shrink-0 w-[min(92vw,22rem)] sm:w-[24rem]">
-            <TutorialCard {...t} layout="carousel" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function planDisplayFeatures(p: DbPlan): string[] {
   if (p.features.length > 0) return p.features;
 
-  const a = p.creditAllocations ?? {};
+  const counts = resolvePlanAllocationCounts(p);
   const derived = [
-    a.audit != null || p.auditCredits ? `${a.audit ?? p.auditCredits} listing audits/mo` : null,
-    a.content != null ? `${a.content} AI content credits` : p.aiCredits ? `${p.aiCredits} AI content credits` : null,
-    a.images != null || p.imageCredits ? `${a.images ?? p.imageCredits} image generation credits` : null,
-    a.ebc != null ? `${a.ebc} A+ / EBC content credits` : null,
-    a.competitors != null ? `${a.competitors} competitor analyses` : null,
+    counts.audit ? `${counts.audit >= 999 ? "Unlimited" : counts.audit} listing audits/mo` : null,
+    counts.content ? `${counts.content} AI content credits` : null,
+    counts.images ? `${counts.images} image generation credits` : null,
+    counts.ebc ? `${counts.ebc} A+ / EBC content credits` : null,
+    counts.competitors ? `${counts.competitors} competitor analyses` : null,
     p.teamMembers > 1 ? `${p.teamMembers} team members` : null,
   ].filter((item): item is string => Boolean(item));
 
@@ -520,7 +283,17 @@ function landingPlanGridClass(count: number) {
   return "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 }
 
-function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: boolean }) {
+function PricingPlanCard({
+  plan,
+  compact = false,
+  creditRules = [],
+  yearly = false,
+}: {
+  plan: DbPlan;
+  compact?: boolean;
+  creditRules?: { featureType: string; creditsRequired: number; isActive?: boolean }[];
+  yearly?: boolean;
+}) {
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const highlighted = plan.isHighlighted;
   const features = planDisplayFeatures(plan);
@@ -528,11 +301,12 @@ function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: bo
   const featureLimit = 5;
   const hasMoreFeatures = compact && features.length > featureLimit;
   const visibleFeatures = hasMoreFeatures && !showAllFeatures ? features.slice(0, featureLimit) : features;
+  const priceDisplay = resolvePlanPriceDisplay(plan, yearly);
 
   return (
     <div
       className={cn(
-        "rounded-2xl flex flex-col bg-white border relative h-full text-left",
+        "rounded-2xl flex flex-col bg-white border relative h-full w-full min-w-0 text-left",
         compact ? "p-5" : "p-6 sm:p-8",
         highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
       )}
@@ -546,10 +320,20 @@ function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: bo
       )}
       <p className="font-bold text-lg text-slate-900">{plan.name}</p>
       <p className={cn("text-sm text-slate-500 mt-1", compact ? "mb-3 line-clamp-2" : "mb-4")}>{plan.description}</p>
-      <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>
-        ${plan.priceMonthly}
-        <span className="text-base font-normal text-slate-400">/mo</span>
-      </p>
+      {priceDisplay.kind === "custom" ? (
+        <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>Custom</p>
+      ) : (
+        <div className={cn(compact ? "mb-4" : "mb-6")}>
+          <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl" : "text-4xl")}>
+            ${priceDisplay.amount}
+            <span className="text-base font-normal text-slate-400">{priceDisplay.period}</span>
+          </p>
+          {priceDisplay.billedYearly && (
+            <p className="text-xs text-slate-400 mt-1">billed annually</p>
+          )}
+        </div>
+      )}
+      <PlanCreditsTable plan={plan} creditRules={creditRules} compact={compact} />
       <ul className={cn("space-y-2.5 flex-1", compact ? "mb-5" : "space-y-3 mb-8")}>
         {visibleFeatures.map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
@@ -584,7 +368,15 @@ function PricingPlanCard({ plan, compact = false }: { plan: DbPlan; compact?: bo
   );
 }
 
-function PricingCarousel({ plans }: { plans: DbPlan[] }) {
+function PricingCarousel({
+  plans,
+  creditRules,
+  yearly,
+}: {
+  plans: DbPlan[];
+  creditRules: { featureType: string; creditsRequired: number; isActive?: boolean }[];
+  yearly: boolean;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const orderedPlans = sortPlansFromAdmin(plans);
   const scroll = (dir: -1 | 1) => {
@@ -593,40 +385,46 @@ function PricingCarousel({ plans }: { plans: DbPlan[] }) {
   };
 
   return (
-    <div className="relative sm:hidden px-2">
-      <button
-        type="button"
-        onClick={() => scroll(-1)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Previous plan"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-600" />
-      </button>
-      <button
-        type="button"
-        onClick={() => scroll(1)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-        aria-label="Next plan"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-600" />
-      </button>
+    <div className="sm:hidden space-y-3">
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide -mx-4 px-4 overscroll-x-contain items-stretch"
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide overscroll-x-contain -mx-1 px-1"
       >
         {orderedPlans.map((p) => (
-          <div key={p.id} className="snap-center shrink-0 w-[min(88vw,22rem)] flex">
-            <PricingPlanCard plan={p} compact />
+          <div
+            key={p.id}
+            className="snap-center shrink-0 w-[calc(100vw-2rem)] max-w-[28rem] flex"
+          >
+            <PricingPlanCard plan={p} compact creditRules={creditRules} yearly={yearly} />
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs text-slate-400 text-center">Swipe to compare plans</p>
+      <div className="flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => scroll(-1)}
+          className="w-9 h-9 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center hover:bg-slate-50 shrink-0"
+          aria-label="Previous plan"
+        >
+          <ChevronLeft className="w-5 h-5 text-slate-600" />
+        </button>
+        <p className="text-xs text-slate-400 text-center flex-1 min-w-0">Swipe to compare plans</p>
+        <button
+          type="button"
+          onClick={() => scroll(1)}
+          className="w-9 h-9 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center hover:bg-slate-50 shrink-0"
+          aria-label="Next plan"
+        >
+          <ChevronRight className="w-5 h-5 text-slate-600" />
+        </button>
+      </div>
     </div>
   );
 }
 
 function LandingPricingSection() {
   const cms = useHomepageCmsContext();
+  const [yearly, setYearly] = useState(false);
   const eyebrow = cmsText(cms, "pricing.eyebrow");
   const heading = cmsText(cms, "pricing.heading");
   const footerText = cmsText(cms, "pricing.footer_text");
@@ -641,9 +439,17 @@ function LandingPricingSection() {
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
+    staleTime: PUBLIC_DATA_STALE_MS,
+  });
+
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()).catch(() => []),
+    staleTime: PUBLIC_DATA_STALE_MS,
   });
 
   const plans = sortPlansFromAdmin(dbPlans);
+  const yearlySavingsPercent = maxPlanYearlySavingsPercent(plans);
 
   if (isLoading) {
     return (
@@ -673,11 +479,17 @@ function LandingPricingSection() {
     <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
       <div className="max-w-6xl mx-auto text-center">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-10">{heading}</h2>
-        <PricingCarousel plans={plans} />
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8">{heading}</h2>
+        <BillingCycleToggle
+          yearly={yearly}
+          onChange={setYearly}
+          savingsPercent={yearlySavingsPercent}
+          className="mb-8 sm:mb-10"
+        />
+        <PricingCarousel plans={plans} creditRules={creditRules} yearly={yearly} />
         <div className={cn("hidden sm:grid gap-6 text-left", landingPlanGridClass(plans.length))}>
           {plans.map((p) => (
-            <PricingPlanCard key={p.id} plan={p} />
+            <PricingPlanCard key={p.id} plan={p} creditRules={creditRules} yearly={yearly} />
           ))}
         </div>
         <p className="mt-5 sm:mt-6 text-sm text-slate-500">
@@ -715,6 +527,7 @@ function LandingTestimonialsSection() {
   const { data: items = [], isLoading } = useQuery<DbTestimonial[]>({
     queryKey: ["public-testimonials"],
     queryFn: () => fetch(`${basePath}/api/testimonials`).then((r) => r.json()).catch(() => []),
+    staleTime: PUBLIC_DATA_STALE_MS,
   });
 
   if (isLoading || items.length === 0) return null;
@@ -797,6 +610,7 @@ function LandingFaqSection() {
   const { data: dbFaqs = [] } = useQuery<DbFaq[]>({
     queryKey: ["public-faqs"],
     queryFn: () => fetch(`${basePath}/api/faqs`).then((r) => r.json()).catch(() => []),
+    staleTime: PUBLIC_DATA_STALE_MS,
   });
 
   const faqs = dbFaqs.length > 0
@@ -847,8 +661,6 @@ export default function Landing() {
     tutorialPreviews,
   } = useLandingCmsData();
 
-  const hasVideoHero = heroSlides.some(heroSlideIsVideo);
-
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
       <PublicNav />
@@ -860,15 +672,8 @@ export default function Landing() {
       />
 
       {cmsEnabled(cms, "hero") && (
-      <section
-        className={cn(
-          "relative w-full overflow-hidden pb-10 sm:pb-16 lg:pb-20",
-          hasVideoHero ? "pt-0" : "pt-6 sm:pt-12 lg:pt-16",
-        )}
-      >
-        {!hasVideoHero && (
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
-        )}
+      <section className="relative w-full overflow-hidden pt-3 sm:pt-12 lg:pt-16 pb-10 sm:pb-16 lg:pb-20">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.06),transparent_60%)]" />
         {heroSlides.length > 0 && (
           <div className="relative w-full">
             <HeroSlider
@@ -909,7 +714,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <FeatureCardsRow features={features} />
+          <InteractiveFeaturesSection features={features} />
 
           {cmsText(cms, "features.footer_text") && (
             <p className="mt-8 sm:mt-10 text-center text-sm text-slate-600 flex items-center justify-center gap-2">
@@ -1039,9 +844,21 @@ export default function Landing() {
       </section>
       )}
 
-      {cmsEnabled(cms, "pricing") && <LandingPricingSection />}
-      {cmsEnabled(cms, "social") && <LandingTestimonialsSection />}
-      {cmsEnabled(cms, "faq") && <LandingFaqSection />}
+      {cmsEnabled(cms, "pricing") && (
+        <LazyMount>
+          <LandingPricingSection />
+        </LazyMount>
+      )}
+      {cmsEnabled(cms, "social") && (
+        <LazyMount>
+          <LandingTestimonialsSection />
+        </LazyMount>
+      )}
+      {cmsEnabled(cms, "faq") && (
+        <LazyMount>
+          <LandingFaqSection />
+        </LazyMount>
+      )}
 
       {cmsEnabled(cms, "cta") && (
       <section className="px-4 sm:px-6 py-16 sm:py-20 text-center bg-white border-t border-slate-100">

@@ -1,5 +1,6 @@
-import { eq, and } from "drizzle-orm";
-import { db, creditsTable, creditTransactionsTable, creditRulesTable, notificationsTable, memberCreditsTable, teamMembersTable } from "@workspace/db";
+import { eq, and, gte, sql } from "drizzle-orm";
+import { db, creditsTable, creditTransactionsTable, creditRulesTable, memberCreditsTable, teamMembersTable } from "@workspace/db";
+import { createNotification } from "./notifications";
 
 export type CreditType = "ai" | "image" | "audit";
 
@@ -125,11 +126,21 @@ export async function deductCredits(
   }
 
   const now = new Date();
+  const balanceColumn = getColumn(type);
 
-  await db
+  const [updated] = await db
     .update(creditsTable)
-    .set({ [type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits"]: check.currentBalance - amount, updatedAt: now })
-    .where(eq(creditsTable.userId, userId));
+    .set({
+      [type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits"]:
+        sql`${balanceColumn} - ${amount}`,
+      updatedAt: now,
+    })
+    .where(and(eq(creditsTable.userId, userId), gte(balanceColumn, amount)))
+    .returning({ balance: balanceColumn });
+
+  if (!updated) {
+    return { success: false, remaining: check.currentBalance };
+  }
 
   await db.insert(creditTransactionsTable).values({
     userId,
@@ -141,24 +152,24 @@ export async function deductCredits(
     createdAt: now,
   });
 
-  const remaining = check.currentBalance - amount;
+  const remaining = updated.balance;
 
-  // Notify user when credits are depleted or running low
+  // Notify user when credits are depleted or running low (in-app + SMTP email)
   if (remaining === 0) {
-    await db.insert(notificationsTable).values({
+    await createNotification({
       userId,
       type: "credit_depleted",
       title: `${type.charAt(0).toUpperCase() + type.slice(1)} Credits Depleted`,
       message: `You have used all your ${type} credits. Purchase more to continue using this feature.`,
-      read: false,
+      link: "/billing",
     });
   } else if (remaining <= 5) {
-    await db.insert(notificationsTable).values({
+    await createNotification({
       userId,
       type: "credit_low",
       title: `Low ${type.charAt(0).toUpperCase() + type.slice(1)} Credits`,
       message: `Only ${remaining} ${type} credits remaining. Consider purchasing more to avoid interruptions.`,
-      read: false,
+      link: "/billing",
     });
   }
 

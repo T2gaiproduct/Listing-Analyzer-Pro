@@ -68,7 +68,7 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "portfolio.subheading": "Premium listing graphics, A+ content, and lifestyle assets created with SellerLens AI.",
   "portfolio.cta_text": "View More Works",
   "portfolio.cta_url": "/features",
-  "portfolio.item1_image": "/portfolio/product-hydration-kit.png",
+  "portfolio.item1_image": "/portfolio/product-hydration-kit.jpg",
   "portfolio.item1_title": "Product Images",
   "portfolio.item1_brand": "Home & Kitchen",
   "portfolio.item1_fit": "cover",
@@ -76,7 +76,7 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "portfolio.item2_title": "A+ Content",
   "portfolio.item2_brand": "TIMEWEAR",
   "portfolio.item2_fit": "contain",
-  "portfolio.item3_image": "/portfolio/lifestyle-timewear.png",
+  "portfolio.item3_image": "/portfolio/lifestyle-timewear.jpg",
   "portfolio.item3_title": "Lifestyle Images",
   "portfolio.item3_brand": "TIMEWEAR",
   "portfolio.item3_badge": "NEW",
@@ -131,21 +131,45 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
   "tutorials.heading": "Learn how to get the most out of SellerLens",
   "tutorials.cta_text": "View All Tutorials",
   "tutorials.cta_url": "/tutorials",
+  "tutorials_page.heading": "Help Center & Tutorials",
+  "tutorials_page.subheading": "Learn how to get the most out of SellerLens with step-by-step guides, video tutorials, and best practices.",
+  "tutorials_page.search_placeholder": "Search tutorials...",
+  "tutorials_page.cta_heading": "Still need help?",
+  "tutorials_page.cta_subheading": "Our support team is here to help you get the most out of SellerLens.",
+  "tutorials_page.cta_primary_text": "Contact Support",
+  "tutorials_page.cta_primary_url": "/contact",
+  "tutorials_page.cta_secondary_text": "Browse Help Center",
+  "tutorials_page.cta_secondary_url": "/help",
   "tutorials.item1_title": "Getting Started",
   "tutorials.item1_duration": "5:32",
   "tutorials.item1_image": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=240&fit=crop&q=80",
+  "tutorials.item1_description": "Learn how to paste any Amazon product URL and get a complete AI-powered audit in seconds.",
+  "tutorials.item1_category": "getting-started",
+  "tutorials.item1_steps": "4",
   "tutorials.item2_title": "Audit Your Listing",
   "tutorials.item2_duration": "7:15",
   "tutorials.item2_image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=240&fit=crop&q=80",
+  "tutorials.item2_description": "Break down the scoring categories and what each means for your listing performance.",
+  "tutorials.item2_category": "analytics",
+  "tutorials.item2_steps": "6",
   "tutorials.item3_title": "Optimize Content",
   "tutorials.item3_duration": "6:48",
   "tutorials.item3_image": "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=400&h=240&fit=crop&q=80",
+  "tutorials.item3_description": "Step-by-step guide to rewriting product titles and bullets that rank higher and convert better.",
+  "tutorials.item3_category": "optimization",
+  "tutorials.item3_steps": "5",
   "tutorials.item4_title": "Create A+ Content",
   "tutorials.item4_duration": "8:20",
   "tutorials.item4_image": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=240&fit=crop&q=80",
+  "tutorials.item4_description": "How our AI evaluates your product images and what you can do to improve your image score.",
+  "tutorials.item4_category": "images",
+  "tutorials.item4_steps": "4",
   "tutorials.item5_title": "Manage Ads",
   "tutorials.item5_duration": "9:05",
   "tutorials.item5_image": "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=240&fit=crop&q=80",
+  "tutorials.item5_description": "Optimize and scale your ad campaigns to maximize ROAS and sales.",
+  "tutorials.item5_category": "optimization",
+  "tutorials.item5_steps": "5",
 
   "sections.pricing.enabled": "true",
   "pricing.eyebrow": "Simple, Transparent Pricing",
@@ -200,7 +224,9 @@ export function mergeHomepageCms(data: HomepageCmsMap): HomepageCmsMap {
 
 export function cmsText(cms: HomepageCmsMap, key: string): string {
   const value = cms[key];
-  if (value === undefined || value === "") {
+  // Only fall back to defaults when the key was never set. An explicit empty string
+  // from admin CMS means "clear this field" and must not resurrect stock defaults.
+  if (value === undefined) {
     return HOMEPAGE_CMS_DEFAULTS[key] ?? "";
   }
   return value;

@@ -5,6 +5,7 @@ import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy }
 import {
   auditImageDir,
   ensureAuditImageDir,
+  saveReferenceImageUrls,
   imageUrlPath,
   resolveAuditImagePath,
 } from "./image-storage";
@@ -12,6 +13,16 @@ import {
 const MIN_FILE_SIZE = 1024;
 const REFERENCE_IMAGE_INSTRUCTION =
   "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted.";
+
+const QUALITY_PROMPT_SUFFIX: Record<string, string> = {
+  standard: "",
+  hd: " Ultra high resolution, maximum sharp detail, professional commercial photography quality.",
+};
+
+function applyQualityToPrompt(prompt: string, quality?: string): string {
+  const suffix = QUALITY_PROMPT_SUFFIX[quality ?? "standard"] ?? "";
+  return suffix ? `${prompt}${suffix}` : prompt;
+}
 
 export interface AplusModuleVersion {
   url: string;
@@ -231,6 +242,7 @@ export async function editAplusModule(data: {
   content: EbcContent;
   existing: AplusModule;
   editPrompt: string;
+  referenceImageUrls?: string[];
 }): Promise<AplusModule> {
   const spec = getModuleSpec(data.moduleId);
   if (!spec) throw new Error("Invalid A+ module");
@@ -243,9 +255,10 @@ export async function editAplusModule(data: {
 
   const dir = ensureAuditImageDir(data.auditId);
 
+  const refPaths = saveReferenceImageUrls(dir, data.referenceImageUrls);
   const filename = `aplus_${spec.id}_edit_${Date.now()}.png`;
   const filePath = path.join(dir, filename);
-  const buffer = await editImagesProxy([sourceFilePath], data.editPrompt.trim(), filePath);
+  const buffer = await editImagesProxy([sourceFilePath, ...refPaths], data.editPrompt.trim(), filePath);
   if (!buffer?.length) throw new Error("No image data returned from AI edit");
   fs.writeFileSync(filePath, buffer);
 
@@ -353,24 +366,44 @@ export async function generateAplusModuleImages(data: {
   content: EbcContent;
   imageUrls: string[];
   moduleIds: AplusModule["id"][];
+  imageCustomPrompt?: string;
+  promptReferenceImageUrls?: string[];
+  quality?: "standard" | "hd";
+  moduleConfigs?: Record<string, {
+    imageCustomPrompt?: string;
+    promptReferenceImageUrls?: string[];
+    quality?: "standard" | "hd";
+  }>;
   onModuleComplete?: (module: AplusModule, done: number, total: number) => void | Promise<void>;
 }): Promise<AplusModule[]> {
   const dir = ensureAuditImageDir(data.auditId);
 
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const sourcePath = await resolveSourceImage(data.auditId, data.imageUrls);
-  const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
 
   const specs = MODULE_SPECS.filter((spec) => data.moduleIds.includes(spec.id));
   const modules: AplusModule[] = [];
   const errors: string[] = [];
   const total = specs.length;
+  const globalImageDirection = data.imageCustomPrompt?.trim();
 
   for (const spec of specs) {
+    const moduleConfig = data.moduleConfigs?.[spec.id];
+    const mergedReferenceUrls = [
+      ...(moduleConfig?.promptReferenceImageUrls ?? data.promptReferenceImageUrls ?? []),
+      ...data.imageUrls,
+    ];
+    const sourcePath = await resolveSourceImage(data.auditId, mergedReferenceUrls);
+    const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+
     const filename = `aplus_${spec.id}_${Date.now()}.png`;
     const filePath = path.join(dir, filename);
     const imageUrl = urlPath(data.auditId, filename);
-    const prompt = spec.buildPrompt(productDesc, data.content);
+    const basePrompt = spec.buildPrompt(productDesc, data.content);
+    const imageDirection = moduleConfig?.imageCustomPrompt?.trim() || globalImageDirection;
+    const prompt = applyQualityToPrompt(
+      imageDirection ? `${basePrompt} Additional creative direction: ${imageDirection}` : basePrompt,
+      moduleConfig?.quality ?? data.quality,
+    );
 
     try {
       let buffer: Buffer;

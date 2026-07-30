@@ -29,6 +29,7 @@ export const Privacy = lazy(() => import("@/pages/privacy"));
 export const Tutorials = lazy(() => import("@/pages/tutorials"));
 
 export const Dashboard = lazy(() => import("@/pages/dashboard"));
+export const RecentProjectsPage = lazy(() => import("@/pages/recent-projects"));
 export const AuditNew = lazy(() => import("@/pages/audit-new"));
 export const AuditDetail = lazy(() => import("@/pages/audit-detail"));
 export const CompetitorNew = lazy(() => import("@/pages/competitor-new"));
@@ -46,8 +47,13 @@ export const NotificationsPage = lazy(() => import("@/pages/notifications"));
 export const VideosPage = lazy(() => import("@/pages/videos"));
 export const AdsPage = lazy(() => import("@/pages/ads"));
 export const SettingsPage = lazy(() => import("@/pages/settings"));
+export const WorkspacesPage = lazy(() => import("@/pages/workspaces"));
+export const WorkspaceDetailPage = lazy(() => import("@/pages/workspace-detail"));
+export const RolesPage = lazy(() => import("@/pages/roles"));
+export const WorkspaceMembersPage = lazy(() => import("@/pages/workspace-members"));
 
 export const AcceptInvite = lazy(() => import("@/pages/accept-invite"));
+export const AcceptWorkspaceInvite = lazy(() => import("@/pages/accept-workspace-invite"));
 export const AcceptAdminInvite = lazy(() => import("@/pages/accept-admin-invite"));
 export const Onboarding = lazy(() => import("@/pages/onboarding"));
 export const CheckoutSuccess = lazy(() => import("@/pages/checkout-success"));
@@ -73,6 +79,7 @@ export const AdminBuildBrandLogs = lazy(() => import("@/pages/admin/content/buil
 export const AdminContentDownloads = lazy(() => import("@/pages/admin/content/downloads"));
 export const AdminGraphicsLogs = lazy(() => import("@/pages/admin/content/graphics-logs"));
 export const AdminRoles = lazy(() => import("@/pages/admin/roles"));
+export const AdminAnnouncements = lazy(() => import("@/pages/admin/announcements"));
 export const AdminNotifications = lazy(() => import("@/pages/admin/notifications"));
 export const AdminTeamActivity = lazy(() => import("@/pages/admin/team-activity"));
 export const AdminArchivePage = lazy(() => import("@/pages/admin/archive"));
@@ -82,6 +89,7 @@ export const AdminSettingsAPI = lazy(() => import("@/pages/admin/settings/api"))
 export const AdminSettingsSecurity = lazy(() => import("@/pages/admin/settings/security"));
 export const AdminSettingsPaymentGateway = lazy(() => import("@/pages/admin/settings/payment-gateway"));
 export const AdminSettingsEmail = lazy(() => import("@/pages/admin/settings/email"));
+export const AdminSettingsAmazon = lazy(() => import("@/pages/admin/settings/amazon"));
 export const AdminMarketingHomepage = lazy(() => import("@/pages/admin/marketing/homepage"));
 export const AdminMarketingPages = lazy(() => import("@/pages/admin/marketing/pages"));
 export const AdminMarketingBlog = lazy(() => import("@/pages/admin/marketing/blog"));

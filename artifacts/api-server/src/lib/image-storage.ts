@@ -59,3 +59,26 @@ export function resolveAuditImagePath(auditId: number, imageUrl: string): string
 
   return null;
 }
+
+function saveBase64ImageData(base64Data: string, dir: string, filename: string): string | null {
+  const base64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+  const buffer = Buffer.from(base64, "base64");
+  if (buffer.length < MIN_FILE_SIZE) return null;
+  const filePath = path.join(dir, filename);
+  fs.writeFileSync(filePath, buffer);
+  return filePath;
+}
+
+/** Save data-URL reference images to disk for AI edit/generate calls. */
+export function saveReferenceImageUrls(parentDir: string, urls: string[] | undefined, subdir = "edit_refs"): string[] {
+  if (!urls?.length) return [];
+  const dir = path.join(parentDir, subdir);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const saved: string[] = [];
+  urls.forEach((img, idx) => {
+    const ext = img.startsWith("data:image/png") ? "png" : "jpg";
+    const filePath = saveBase64ImageData(img, dir, `ref_${Date.now()}_${idx}.${ext}`);
+    if (filePath) saved.push(filePath);
+  });
+  return saved;
+}

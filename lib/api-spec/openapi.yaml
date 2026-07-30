@@ -703,6 +703,12 @@ components:
           type: array
           items:
             type: string
+        customPrompt:
+          type: string
+        promptReferenceImageUrls:
+          type: array
+          items:
+            type: string
       required:
         - productName
         - title

@@ -12,10 +12,32 @@ import { useToast } from "@/hooks/use-toast";
 import { BrandingHead } from "@/components/branding-head";
 import { SiteLogo } from "@/components/site-logo";
 import { refetchCreditQueries } from "@/lib/credit-queries";
+import { fetchJson, isApiAuthReady } from "@/lib/api-fetch";
 import { COUNTRIES } from "@/lib/countries";
 import { useTeam } from "@/hooks/use-team";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function readApiError(res: Response, fallback: string): Promise<string> {
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    if (res.status === 401) {
+      return "Unauthorized — the server could not verify your session. Check that CLERK_SECRET_KEY matches your Clerk app.";
+    }
+    if (res.status === 503) {
+      return "API server is not reachable. Restart the dev stack and try again.";
+    }
+    return `${fallback} (server returned HTML, HTTP ${res.status})`;
+  }
+  try {
+    const body = (await res.json()) as { error?: string };
+    return body.error ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 async function syncClerkFullName(
   user: NonNullable<ReturnType<typeof useUser>["user"]>,
@@ -143,6 +165,7 @@ export default function Onboarding() {
     onboardingCompleted?: boolean;
     subscription?: { status?: string; planName?: string } | null;
     accountRole?: { type?: string };
+    pendingWorkspaceInvite?: { token: string; workspaceName: string } | null;
   }>({
     queryKey: ["user-profile-summary"],
     queryFn: () => fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
@@ -150,6 +173,24 @@ export default function Onboarding() {
   });
 
   const { isTeamMember, isLoading: teamLoading } = useTeam();
+  const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
+  const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
+
+  // Admins should never complete customer onboarding (profile + plan checkout)
+  useEffect(() => {
+    if (!adminLoaded || !permLoaded) return;
+    if (isAdmin) {
+      setLocation(defaultRoute, { replace: true });
+    }
+  }, [isAdmin, adminLoaded, permLoaded, defaultRoute, setLocation]);
+
+  // Workspace invitees should accept their invite — not complete owner onboarding
+  useEffect(() => {
+    const token = profileSummary?.pendingWorkspaceInvite?.token;
+    if (token) {
+      setLocation(`/accept-workspace-invite?token=${encodeURIComponent(token)}`, { replace: true });
+    }
+  }, [profileSummary, setLocation]);
 
   // Team members use the owner workspace — credits come from admin allocation, not plan checkout
   useEffect(() => {
@@ -242,10 +283,12 @@ export default function Onboarding() {
   });
 
   const saveProfileMutation = useMutation({
-    mutationFn: () =>
-      fetch(`${basePath}/api/profile`, {
+    mutationFn: () => {
+      if (!isApiAuthReady()) {
+        throw new Error("Still signing you in — wait a moment and try again.");
+      }
+      return fetchJson(`${basePath}/api/profile`, {
         method: "PATCH",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: profile.fullName,
@@ -256,10 +299,8 @@ export default function Onboarding() {
           websiteUrl: profile.websiteUrl || undefined,
           teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
         }),
-      }).then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error ?? "Failed to save profile");
-        return r.json();
-      }),
+      });
+    },
     onSuccess: async () => {
       if (user && profile.fullName.trim()) {
         await syncClerkFullName(user, profile.fullName);

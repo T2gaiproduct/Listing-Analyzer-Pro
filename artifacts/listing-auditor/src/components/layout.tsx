@@ -1,6 +1,4 @@
 import { ReactNode, useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { useActionDialog } from "@/components/ui/action-dialog";
 import { Link, useLocation } from "wouter";
 import {
   FilePlus2,
@@ -12,7 +10,6 @@ import {
   Archive,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronDown,
   ArrowLeft,
   Shield,
   X,
@@ -25,10 +22,6 @@ import {
   Folder,
   MessageSquare,
   Eye,
-  FileText as AuditIcon,
-  Image as GraphicsIcon,
-  Clapperboard as VideoIcon,
-  Target as AdsIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SiteLogo, SiteLogoMark, SiteLogoIcon } from "@/components/site-logo";
@@ -39,31 +32,30 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import {
+  ProjectShareMenu,
+  shareProjectToInstagram,
+  shareProjectToWhatsApp,
+  copyProjectShareLink,
+} from "@/components/project-share-menu";
+import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { SidebarProjectsContext } from "@/contexts/sidebar-projects";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-
-const adminUserIds = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
-  .split(",").map((s) => s.trim()).filter(Boolean);
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const mainNavItems = [
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new" },
-  { icon: FileSearch, label: "Audit Listings", href: "/audit-listings" },
+  { icon: FileSearch, label: "Audit Listing", href: "/audit-listings" },
   { icon: Palette, label: "Create Graphics", href: "/projects" },
-  { icon: Video, label: "Create Videos", href: "/videos" },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads" },
-];
-
-const contextMenuOptions = [
-  { icon: FilePlus2, label: "Open" },
-  { icon: Share2, label: "Share" },
-  { icon: PenLine, label: "Rename" },
-  { icon: Pin, label: "Pin project" },
-  { icon: Archive, label: "Archive" },
-  { icon: Trash2, label: "Delete", danger: true },
+  { icon: Video, label: "Create Video", href: "/videos", comingSoon: true },
+  { icon: Megaphone, label: "Manage Ads", href: "/ads", comingSoon: true },
+  { icon: Folder, label: "Recent Projects", href: "/recent-projects" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------
@@ -125,211 +117,10 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-// --- Type icon mapping for recent projects ----------------------------------
-const typeIconMap: Record<string, typeof AuditIcon> = {
-  audit: AuditIcon,
-  listing: AuditIcon,
-  graphics: GraphicsIcon,
-  video: VideoIcon,
-  ads: AdsIcon,
-};
-
-const typeLabelMap: Record<string, string> = {
-  audit: "Audit",
-  listing: "Build Your Brand",
-  graphics: "Graphics",
-  video: "Video",
-  ads: "Ads",
-};
-
-// --- Recent project item with type icon and context menu --------------------
-function RecentProjectItem({
-  item,
-  openMenu,
-  setOpenMenu,
-  onPin,
-  onRename,
-  onArchive,
-  onDelete,
-}: {
-  item: RecentItem;
-  openMenu: string | null;
-  setOpenMenu: (id: string | null) => void;
-  onPin: () => void;
-  onRename: (name: string) => Promise<void>;
-  onArchive: () => Promise<void>;
-  onDelete: () => Promise<void>;
-}) {
-  const [location] = useLocation();
-  const [hovered, setHovered] = useState(false);
-  const key = `${item.type}-${item.id}`;
-  const menuOpen = openMenu === key;
-  const ref = useRef<HTMLDivElement>(null);
-  const dotsRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const fullLocation = location + window.location.search;
-  const isActive = fullLocation === item.url;
-  const TypeIcon = typeIconMap[item.type] || AuditIcon;
-  const { trigger, dialog } = useActionDialog();
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handler(e: MouseEvent) {
-      if (
-        ref.current && !ref.current.contains(e.target as Node) &&
-        !(e.target as Element)?.closest?.("[data-recent-menu]")
-      ) {
-        setOpenMenu(null);
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen, setOpenMenu]);
-
-  function openDropdown(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (menuOpen) { setOpenMenu(null); return; }
-    const rect = dotsRef.current?.getBoundingClientRect();
-    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
-    setOpenMenu(key);
-  }
-
-  const [, navigateTo] = useLocation();
-  function handleMenuAction(label: string) {
-    setOpenMenu(null);
-    if (label === "Open") { navigateTo(item.url); return; }
-    if (label === "Pin project") { onPin(); return; }
-    if (label === "Rename") {
-      trigger(
-        async (name) => { await onRename(name); },
-        {
-          title: "Rename Project",
-          description: "Enter a new name for this project.",
-          confirmLabel: "Rename",
-          successTitle: "Renamed!",
-          successDescription: "Your project has been renamed successfully.",
-          inputField: { label: "Project name", placeholder: "Enter name…", defaultValue: item.name },
-        }
-      );
-      return;
-    }
-    if (label === "Archive") {
-      trigger(
-        async () => { await onArchive(); },
-        {
-          title: "Archive this project?",
-          description: "It will be moved to your Archive. You can restore it anytime.",
-          confirmLabel: "Archive",
-          successTitle: "Archived!",
-          successDescription: "Your project has been moved to the Archive.",
-        }
-      );
-      return;
-    }
-    if (label === "Delete") {
-      trigger(
-        async () => { await onDelete(); },
-        {
-          title: "Delete this project?",
-          description: "This action cannot be undone.",
-          confirmLabel: "Delete",
-          confirmVariant: "destructive",
-          successTitle: "Deleted",
-          successDescription: "Your project has been permanently deleted.",
-        }
-      );
-      return;
-    }
-  }
-
-  return (
-    <div
-      ref={ref}
-      className="relative"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div
-        className={cn(
-          "w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer",
-          isActive
-            ? "bg-orange-500 text-white font-medium"
-            : hovered || menuOpen
-            ? "bg-sidebar-accent/40 text-sidebar-foreground/90"
-            : "text-sidebar-foreground/60"
-        )}
-      >
-        <TypeIcon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
-
-        <Link href={item.url} className="truncate flex-1 text-left min-w-0">
-          {item.name}
-        </Link>
-
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          {(hovered || menuOpen || item.pinned) && (
-            <button
-              title={item.pinned ? "Unpin" : "Pin"}
-              className={cn(
-                "w-5 h-5 flex items-center justify-center rounded transition-colors",
-                isActive
-                  ? "text-white hover:text-white/80"
-                  : item.pinned
-                  ? "text-primary hover:text-primary/70"
-                  : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-              )}
-              onClick={(e) => { e.stopPropagation(); onPin(); }}
-            >
-              <Pin className={cn("w-3 h-3", item.pinned ? "fill-current" : "")} />
-            </button>
-          )}
-          <button
-            ref={dotsRef}
-            className={cn(
-              "w-5 h-5 flex items-center justify-center rounded transition-colors",
-              isActive
-                ? "text-white hover:text-white/80"
-                : menuOpen
-                ? "text-sidebar-foreground bg-sidebar-accent/60"
-                : "text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-            )}
-            onClick={openDropdown}
-          >
-            <MoreHorizontal className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
-
-      {menuOpen && menuPos && createPortal(
-        <div
-          data-recent-menu
-          style={{ position: "fixed", top: menuPos.top, left: Math.max(4, menuPos.left), zIndex: 9999 }}
-          className="w-44 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden py-1"
-        >
-          {contextMenuOptions.map(({ icon: Icon, label: optLabel, danger }) => (
-            <button
-              key={optLabel}
-              className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left",
-                danger ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-muted"
-              )}
-              onClick={(e) => { e.stopPropagation(); handleMenuAction(optLabel); }}
-            >
-              <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", danger ? "text-destructive" : "text-muted-foreground")} />
-              {optLabel === "Pin project" ? (item.pinned ? "Unpin" : "Pin project") : optLabel}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-
-      {dialog}
-    </div>
-  );
-}
-
 // --- Page title map ---------------------------------------------------------
 function getPageTitle(location: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
+  if (location === "/recent-projects") return "Recent Projects";
   if (location === "/audits/new") return "Create Listing";
   if (location === "/audits/workflow") return "Create Listing";
   if (location.startsWith("/audits/") && location.includes("/competitors/")) return "Add Competitor";
@@ -345,6 +136,10 @@ function getPageTitle(location: string): string {
   if (location === "/profile") return "Profile";
   if (location === "/settings") return "Settings";
   if (location === "/team") return "Team";
+  if (location === "/roles") return "Roles";
+  if (location === "/workspaces") return "Workspace Dashboard";
+  if (location.match(/^\/workspaces\/\d+\/members$/)) return "Workspace Members";
+  if (location.match(/^\/workspaces\/\d+$/)) return "Workspace";
   if (location === "/notifications") return "Notifications";
   if (location === "/archive") return "Archive";
   return "SellerLens";
@@ -362,18 +157,24 @@ function isRibbonVisible(location: string): boolean {
   if (location === "/profile") return false;
   if (location === "/settings") return false;
   if (location === "/team") return false;
+  if (location === "/roles") return false;
+  if (location === "/workspaces" || location.startsWith("/workspaces/")) return false;
   if (location === "/notifications") return false;
   if (location === "/archive") return false;
+  if (location === "/recent-projects") return false;
   return true;
 }
 
 // --- Project context from URL -----------------------------------------------
 function parseProjectContext(location: string): { type: string; id: number } | null {
-  const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
-  if (auditMatch) return { type: "audit", id: parseInt(auditMatch[1]) };
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const resumeId = searchParams.get("resume");
-  if (location === "/audits/workflow" && resumeId) return { type: "listing", id: parseInt(resumeId, 10) };
+  if (location === "/audits/workflow" && resumeId) {
+    const id = parseInt(resumeId, 10);
+    if (!isNaN(id)) return { type: "listing", id };
+  }
+  const auditMatch = location.match(/^\/audits\/(\d+)(?:\/|$)/);
+  if (auditMatch) return { type: "audit", id: parseInt(auditMatch[1]) };
   const projectMatch = location.match(/^\/projects\/(\d+)(?:\/|$)/);
   if (projectMatch) return { type: "graphics", id: parseInt(projectMatch[1]) };
   return null;
@@ -385,25 +186,17 @@ export function Layout({ children }: { children: ReactNode }) {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { toast } = useToast();
   useCreditPurchaseReturn();
-  const isAdmin = user ? adminUserIds.includes(user.id) : false;
+  const { isAdmin } = useIsAdmin();
+  const { defaultRoute, can } = useAdminPermissions();
+  const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin");
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [projectsOpen, setProjectsOpen] = useState(true);
-  const [recentProjectsHighlight, setRecentProjectsHighlight] = useState(false);
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const recentProjectsRef = useRef<HTMLDivElement>(null);
 
   const focusRecentProjects = useCallback(() => {
-    setCollapsed(false);
-    setProjectsOpen(true);
-    setRecentProjectsHighlight(true);
-    window.setTimeout(() => setRecentProjectsHighlight(false), 2000);
-    requestAnimationFrame(() => {
-      recentProjectsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
-  }, []);
+    navigate("/recent-projects");
+  }, [navigate]);
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -497,11 +290,12 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const { isTeamMember, memberCredits } = useTeam();
+  const { activeWorkspaceId } = useWorkspace();
 
-  const recentsReady = clerkLoaded && !!user;
+  const recentsReady = clerkLoaded && !!user && !!activeWorkspaceId;
 
-  // Fetch unified recents for sidebar (scope changes when team membership resolves)
-  const recentsScope = isTeamMember ? "member" : "owner";
+  // Fetch unified recents for sidebar (scoped to active workspace)
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${activeWorkspaceId ?? "none"}`;
   const { data: recentsData } = useGetRecents(
     { limit: 200 },
     {
@@ -526,8 +320,6 @@ export function Layout({ children }: { children: ReactNode }) {
     staleTime: 0,
   });
   const searchResults = (searchData?.items ?? []) as RecentItem[];
-
-  const displayItems = searchQuery.length > 0 ? searchResults : recents;
 
   // Close ribbon dots dropdown on outside click
   useEffect(() => {
@@ -558,11 +350,40 @@ export function Layout({ children }: { children: ReactNode }) {
     : (recents.find((r) => r.id === projectCtx?.id && r.type === projectCtx?.type)?.name ?? "");
 
   function handleShare() {
-    const url = window.location.href;
-    void navigator.clipboard.writeText(url).then(() => {
-      toast({ title: "Link copied", description: "Page URL copied to clipboard." });
-    }).catch(() => {
-      toast({ title: "Copy failed", description: "Could not copy — please copy the URL manually.", variant: "destructive" });
+    const url = buildProjectShareUrl(
+      window.location.origin,
+      basePath,
+      projectCtx,
+      window.location.href,
+    );
+    void copyProjectShareLink({
+      projectTitle: ribbonTitle || undefined,
+      shareUrl: url,
+      toast,
+    });
+  }
+
+  function handleShareWhatsApp() {
+    const url = buildProjectShareUrl(
+      window.location.origin,
+      basePath,
+      projectCtx,
+      window.location.href,
+    );
+    shareProjectToWhatsApp({ projectTitle: ribbonTitle || undefined, shareUrl: url });
+  }
+
+  async function handleShareInstagram() {
+    const url = buildProjectShareUrl(
+      window.location.origin,
+      basePath,
+      projectCtx,
+      window.location.href,
+    );
+    await shareProjectToInstagram({
+      projectTitle: ribbonTitle || undefined,
+      shareUrl: url,
+      toast,
     });
   }
 
@@ -726,7 +547,6 @@ export function Layout({ children }: { children: ReactNode }) {
     <SidebarProjectsContext.Provider value={{ focusRecentProjects }}>
     <div
       className="flex h-screen w-full bg-background overflow-hidden"
-      onClick={() => { setOpenMenu(null); }}
     >
       {/* Sidebar */}
       <TooltipProvider>
@@ -807,10 +627,10 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto overflow-x-visible py-4 flex flex-col">
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
-            {mainNavItems.map(({ icon: Icon, label, href }) => {
+            {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
               const isActive =
                 location === href ||
-                (href === "/dashboard" && location === "/") ||
+                (href === "/recent-projects" && location === "/recent-projects") ||
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
                 (href === "/videos" && location === "/videos") ||
@@ -844,82 +664,17 @@ export function Layout({ children }: { children: ReactNode }) {
                     )}
                   >
                     <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
-                    {label}
+                    <span className="flex-1 min-w-0 truncate">{label}</span>
+                    {comingSoon && !isActive && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
+                        Soon
+                      </span>
+                    )}
                   </button>
                 </Link>
               );
             })}
           </div>
-
-          {/* My Projects icon — collapsed mode only */}
-          {collapsed && (
-            <div className="px-2 mt-1">
-              <SidebarTooltip label="Recent Projects" side="right">
-                <button
-                  className="w-full flex items-center justify-center h-10 rounded-xl transition-colors text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  onClick={() => setCollapsed(false)}
-                >
-                  <Folder className="w-5 h-5" />
-                </button>
-              </SidebarTooltip>
-            </div>
-          )}
-
-          {/* Recent Projects section — only when expanded */}
-          {!collapsed && (
-            <>
-              <div className="mx-3 my-4 border-t border-sidebar-border/50" />
-
-              <div
-                ref={recentProjectsRef}
-                id="recent-projects"
-                className={cn(
-                  "px-3 rounded-xl transition-shadow duration-300",
-                  recentProjectsHighlight && "ring-2 ring-orange-400 ring-offset-2 ring-offset-white",
-                )}
-              >
-                <button
-                  className="flex items-center gap-2 px-3 mb-2 w-full group"
-                  onClick={() => setProjectsOpen((p) => !p)}
-                >
-                  <Folder className="w-3.5 h-3.5 text-sidebar-foreground/40" />
-                  <span className="text-xs font-bold text-sidebar-foreground/50 uppercase tracking-wider flex-1 text-left">
-                    {searchQuery ? "Search Results" : "Recent Projects"}
-                  </span>
-                  <span className="text-xs text-sidebar-foreground/30 tabular-nums">{displayItems.length}</span>
-                  <ChevronDown
-                    className={cn(
-                      "w-3.5 h-3.5 text-sidebar-foreground/40 transition-transform duration-200",
-                      projectsOpen ? "rotate-0" : "-rotate-90"
-                    )}
-                  />
-                </button>
-
-                {projectsOpen && (
-                  <div className="space-y-0.5 max-h-[60vh] overflow-y-auto">
-                    {displayItems.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-sidebar-foreground/40 italic">
-                        {searchQuery ? "No matches found" : "No projects yet"}
-                      </p>
-                    ) : (
-                      displayItems.map((item) => (
-                        <RecentProjectItem
-                          key={`${item.type}-${item.id}`}
-                          item={item}
-                          openMenu={openMenu}
-                          setOpenMenu={setOpenMenu}
-                          onPin={() => pinMutation.mutate({ type: item.type, id: item.id })}
-                          onRename={(name) => renameMutation.mutateAsync({ type: item.type, id: item.id, name })}
-                          onArchive={() => archiveMutation.mutateAsync({ type: item.type, id: item.id })}
-                          onDelete={() => deleteMutation.mutateAsync({ type: item.type, id: item.id })}
-                        />
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
 
           {/* Spacer */}
           <div className="flex-1" />
@@ -929,14 +684,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className={cn("mt-2", collapsed ? "px-2" : "px-3")}>
               {collapsed ? (
                 <SidebarTooltip label="Admin Panel" side="right">
-                  <Link href="/admin/dashboard">
+                  <Link href={adminHome}>
                     <button className="w-full flex items-center justify-center w-10 h-10 rounded-xl text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-primary transition-colors">
                       <Shield className="w-4 h-4 text-primary" />
                     </button>
                   </Link>
                 </SidebarTooltip>
               ) : (
-                <Link href="/admin/dashboard">
+                <Link href={adminHome}>
                   <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
                     <Shield className="w-4 h-4 text-primary flex-shrink-0" />
                     Admin Panel
@@ -985,9 +740,10 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              {mainNavItems.map(({ icon: Icon, label, href }) => {
+              {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
                 const isActive =
                   location === href ||
+                  (href === "/recent-projects" && location === "/recent-projects") ||
                   (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search)));
                 return (
                   <Link key={href} href={href}>
@@ -1002,32 +758,16 @@ export function Layout({ children }: { children: ReactNode }) {
                       )}
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
-                      {label}
+                      <span className="flex-1">{label}</span>
+                      {comingSoon && (
+                        <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
+                      )}
                     </button>
                   </Link>
                 );
               })}
-              <div className="my-3 border-t border-slate-200" />
-              <p className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                {searchQuery ? "Search Results" : "Recent Projects"}
-              </p>
-              {displayItems.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-slate-400 italic">No projects yet</p>
-              ) : (
-                displayItems.slice(0, 8).map((item) => (
-                  <Link key={`${item.type}-${item.id}`} href={item.url}>
-                    <button
-                      type="button"
-                      onClick={() => setMobileNavOpen(false)}
-                      className="w-full px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-lg truncate min-h-11"
-                    >
-                      {item.name}
-                    </button>
-                  </Link>
-                ))
-              )}
               {isAdmin && (
-                <Link href="/admin/dashboard">
+                <Link href={adminHome}>
                   <button
                     type="button"
                     onClick={() => setMobileNavOpen(false)}
@@ -1091,13 +831,11 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
 
             <div className="flex items-center gap-1 ml-auto z-10">
-              <button
-                onClick={handleShare}
-                title="Share"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
+              <ProjectShareMenu
+                projectCtx={projectCtx}
+                projectTitle={ribbonTitle || undefined}
+                onShared={() => setDotsOpen(false)}
+              />
 
             {/* Three-dots */}
             <div className="relative" ref={ribbonDotsRef}>
@@ -1116,15 +854,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
               {dotsOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
-                  {/* Share (also in dropdown) */}
-                  <button
-                    onClick={() => { setDotsOpen(false); handleShare(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                  >
-                    <Share2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    Share
-                  </button>
-
                   {/* Rename */}
                   <button
                     onClick={handleRibbonRename}

@@ -14,8 +14,12 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { useBranding } from "@/hooks/use-branding";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { useTeam } from "@/hooks/use-team";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
+import { ApiTokenBridge } from "@/components/api-token-bridge";
+import { fetchJson } from "@/lib/api-fetch";
+import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
   AdminLayout,
@@ -35,6 +39,7 @@ import {
   Privacy,
   Tutorials,
   Dashboard,
+  RecentProjectsPage,
   AuditNew,
   AuditDetail,
   CompetitorNew,
@@ -52,7 +57,12 @@ import {
   VideosPage,
   AdsPage,
   SettingsPage,
+  WorkspacesPage,
+  WorkspaceDetailPage,
+  RolesPage,
+  WorkspaceMembersPage,
   AcceptInvite,
+  AcceptWorkspaceInvite,
   AcceptAdminInvite,
   Onboarding,
   CheckoutSuccess,
@@ -77,6 +87,7 @@ import {
   AdminContentDownloads,
   AdminGraphicsLogs,
   AdminRoles,
+  AdminAnnouncements,
   AdminNotifications,
   AdminTeamActivity,
   AdminArchivePage,
@@ -86,6 +97,7 @@ import {
   AdminSettingsSecurity,
   AdminSettingsPaymentGateway,
   AdminSettingsEmail,
+  AdminSettingsAmazon,
   AdminMarketingHomepage,
   AdminMarketingPages,
   AdminMarketingBlog,
@@ -196,19 +208,25 @@ const clerkAppearanceBase = {
 };
 
 function SignInPage() {
-  const redirectParam = new URLSearchParams(window.location.search).get("redirect_url");
+  const params = new URLSearchParams(window.location.search);
+  const redirectParam = params.get("redirect_url");
+  const email = params.get("email") ?? undefined;
   const redirectUrl = redirectParam?.startsWith("/")
     ? `${basePath}${redirectParam}`
     : `${basePath}/dashboard`;
+  const signUpUrl = redirectParam
+    ? `${basePath}/sign-up?redirect_url=${encodeURIComponent(redirectParam)}${email ? `&email=${encodeURIComponent(email)}` : ""}`
+    : `${basePath}/sign-up`;
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
-        signUpUrl={`${basePath}/sign-up`}
+        signUpUrl={signUpUrl}
         fallbackRedirectUrl={redirectUrl}
         forceRedirectUrl={redirectUrl}
+        initialValues={email ? { emailAddress: email } : undefined}
       />
     </div>
   );
@@ -241,24 +259,29 @@ function useOnboardingSummary() {
   return useQuery({
     queryKey: ["user-profile-summary"],
     queryFn: () =>
-      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then(
-        (r) =>
-          r.json() as Promise<{
-            onboardingCompleted?: boolean;
-            accountRole?: { type?: string };
-          }>,
-      ),
+      fetchJson<{
+        onboardingCompleted?: boolean;
+        accountRole?: { type?: string };
+        pendingWorkspaceInvite?: { token: string; workspaceName: string; workspaceId: number } | null;
+      }>(`${basePath}/api/profile/summary`),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
-    retry: 1,
+    retry: 3,
   });
 }
 
-function requiresOnboarding(summary: { onboardingCompleted?: boolean; accountRole?: { type?: string } } | undefined) {
+function requiresOnboarding(summary: { onboardingCompleted?: boolean; accountRole?: { type?: string }; pendingWorkspaceInvite?: { token: string } | null } | undefined) {
   if (!summary) return false;
+  if (summary.pendingWorkspaceInvite?.token) return false;
   if (summary.onboardingCompleted) return false;
   if (summary.accountRole?.type === "team_member") return false;
   return true;
+}
+
+function pendingWorkspaceInviteRedirect(summary: { pendingWorkspaceInvite?: { token: string } | null } | undefined) {
+  const token = summary?.pendingWorkspaceInvite?.token;
+  if (!token) return null;
+  return `/accept-workspace-invite?token=${encodeURIComponent(token)}`;
 }
 
 function HomeRedirect() {
@@ -268,12 +291,13 @@ function HomeRedirect() {
   const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
   const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
   const { isTeamMember, isLoading: teamLoading } = useTeam();
-  if (!isLoaded) return <AuthLoading />;
+  if (!isLoaded) return <Landing />;
   if (!user) return <Landing />;
-  if (envAdmin) return <Redirect to="/admin/dashboard" />;
-  if (!adminLoaded || (isAdmin && !permLoaded)) return <AuthLoading />;
-  if (isAdmin) return <Redirect to={defaultRoute} />;
+  if (!adminLoaded || ((envAdmin || isAdmin) && !permLoaded)) return <AuthLoading />;
+  if (envAdmin || isAdmin) return <Redirect to={defaultRoute} />;
   if (summaryLoading || teamLoading) return <AuthLoading />;
+  const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
+  if (inviteRedirect) return <Redirect to={inviteRedirect} />;
   if (requiresOnboarding(summary) && !isTeamMember) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
@@ -286,7 +310,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isTeamMember, isLoading: teamLoading } = useTeam();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  if (user && !isAdminUser && (summaryLoading || teamLoading)) return <AuthLoading />;
+  const authContextLoading =
+    summaryLoading
+    || teamLoading
+    || (!envAdmin && !adminLoaded);
+  if (user && !isAdminUser && authContextLoading) return <AuthLoading />;
+  const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
+  if (user && !isAdminUser && inviteRedirect) return <Redirect to={inviteRedirect} />;
   if (user && !isAdminUser && requiresOnboarding(summary) && !isTeamMember) {
     return <Redirect to="/onboarding" />;
   }
@@ -306,7 +336,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, isLoaded } = useUser();
-  const { isAdmin, isLoaded: adminLoaded, isError } = useIsAdmin();
+  const { isAdmin, isLoaded: adminLoaded, isError, refetch } = useIsAdmin();
   const { canAccessRoute, isLoaded: permLoaded, defaultRoute } = useAdminPermissions();
   if (!isLoaded || !adminLoaded || !permLoaded) return <AuthLoading />;
   if (!user) {
@@ -318,20 +348,53 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
       <div className="min-h-[60vh] flex items-center justify-center p-6">
         <div className="max-w-md text-center space-y-3">
           <p className="text-lg font-semibold text-slate-900">Cannot reach admin API</p>
-          <p className="text-sm text-slate-500">The API server may be restarting. Wait a moment, then reload.</p>
-          <button
-            type="button"
-            className="text-sm font-medium text-orange-600 hover:text-orange-700"
-            onClick={() => window.location.reload()}
-          >
-            Reload page
-          </button>
+          <p className="text-sm text-slate-500">
+            The API server may be offline or the preview tunnel lost its connection to the backend.
+            If you are using a Cloudflare preview link, restart the dev stack so the tunnel routes through the API proxy.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              className="text-sm font-medium text-orange-600 hover:text-orange-700"
+              onClick={() => void refetch()}
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-orange-600 hover:text-orange-700"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </button>
+          </div>
         </div>
       </div>
     );
   }
-  if (!isAdmin) return <Redirect to="/dashboard" />;
+  if (!isAdmin) {
+    const email = user.emailAddresses?.[0]?.emailAddress ?? "your account";
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-4">
+          <p className="text-lg font-semibold text-slate-900">No admin access</p>
+          <p className="text-sm text-slate-500">
+            You&apos;re signed in as <span className="font-medium text-slate-700">{email}</span>, but this account
+            doesn&apos;t have an admin role yet. Ask a super admin to assign you in Admin → Roles.
+          </p>
+          <a href={`${basePath}/dashboard`} className="text-sm font-medium text-orange-600 hover:text-orange-700">
+            Go to dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
   if (!canAccessRoute(location)) {
+    const current = normalizeAdminPath(location);
+    const fallback = normalizeAdminPath(defaultRoute);
+    if (fallback !== current) {
+      return <Redirect to={defaultRoute} />;
+    }
     return (
       <ErrorBoundary title="Admin page failed to load">
         <AdminLayout>
@@ -430,6 +493,9 @@ function Router() {
       <Route path="/admin/roles">
         <AdminRoute><AdminRoles /></AdminRoute>
       </Route>
+      <Route path="/admin/announcements">
+        <AdminRoute><AdminAnnouncements /></AdminRoute>
+      </Route>
       <Route path="/admin/notifications">
         <AdminRoute><AdminNotifications /></AdminRoute>
       </Route>
@@ -456,6 +522,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/email">
         <AdminRoute><AdminSettingsEmail /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/amazon">
+        <AdminRoute><AdminSettingsAmazon /></AdminRoute>
       </Route>
 
       {/* Marketing */}
@@ -524,6 +593,9 @@ function Router() {
       <Route path="/accept-invite">
         <AcceptInvite />
       </Route>
+      <Route path="/accept-workspace-invite">
+        <AcceptWorkspaceInvite />
+      </Route>
       <Route path="/accept-admin-invite">
         <AcceptAdminInvite />
       </Route>
@@ -571,11 +643,29 @@ function Router() {
       <Route path="/team">
         <ProtectedRoute><Team /></ProtectedRoute>
       </Route>
+      <Route path="/roles">
+        <ProtectedRoute><RolesPage /></ProtectedRoute>
+      </Route>
+      <Route path="/workspaces">
+        <ProtectedRoute><WorkspacesPage /></ProtectedRoute>
+      </Route>
+      <Route path="/workspaces/:id/members">
+        {params => <ProtectedRoute><WorkspaceMembersPage /></ProtectedRoute>}
+      </Route>
+      <Route path="/workspaces/:id/roles">
+        <Redirect to="/roles" />
+      </Route>
+      <Route path="/workspaces/:id">
+        {params => <ProtectedRoute><WorkspaceDetailPage /></ProtectedRoute>}
+      </Route>
       <Route path="/profile">
         <ProtectedRoute><Profile /></ProtectedRoute>
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
+      </Route>
+      <Route path="/recent-projects">
+        <ProtectedRoute><RecentProjectsPage /></ProtectedRoute>
       </Route>
       <Route path="/audit-listings">
         <ProtectedRoute><AuditListings /></ProtectedRoute>
@@ -672,6 +762,8 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <ClerkQueryClientCacheInvalidator />
+      <ApiTokenBridge />
+      <WorkspaceProvider>
       <TooltipProvider>
         <Suspense fallback={<AuthLoading />}>
           <ErrorBoundary title="Application failed to load">
@@ -684,6 +776,7 @@ function ClerkProviderWithRoutes() {
         </Suspense>
         <WsNotificationListener />
       </TooltipProvider>
+      </WorkspaceProvider>
     </ClerkProvider>
   );
 }

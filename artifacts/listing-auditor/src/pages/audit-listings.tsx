@@ -9,15 +9,7 @@ import { parseListingFetchInput } from "@/lib/listing-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-
-const stores = [
-  { name: "Amazon" },
-  { name: "Shopify" },
-  { name: "Walmart" },
-  { name: "eBay" },
-  { name: "Etsy" },
-  { name: "+ More" },
-];
+import { MarketplaceLogos } from "@/components/marketplace-logos";
 
 const features = [
   {
@@ -283,29 +275,17 @@ export default function AuditListings() {
           </Button>
         </div>
         <p className="text-center text-sm text-muted-foreground mt-3">
-          Works with <span className="text-orange-500 font-medium">Amazon</span>,{" "}
-          <span className="text-orange-500 font-medium">Shopify</span>,{" "}
-          <span className="text-orange-500 font-medium">Walmart</span>,{" "}
-          <span className="text-orange-500 font-medium">eBay</span>,{" "}
-          <span className="text-orange-500 font-medium">Etsy</span>, and most product pages
+          Works with <span className="text-orange-500 font-medium">Amazon</span> and{" "}
+          <span className="text-orange-500 font-medium">Shopify</span> product pages
         </p>
       </div>
 
-      {/* Works With Any Store */}
+      {/* Supported channels */}
       <div className="space-y-5">
         <p className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-          Works With Any Store
+          Supported Channels
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          {stores.map(({ name }) => (
-            <div
-              key={name}
-              className="px-5 py-2 rounded-full text-sm font-semibold bg-card border border-border text-foreground hover:border-orange-300 transition-colors"
-            >
-              {name}
-            </div>
-          ))}
-        </div>
+        <MarketplaceLogos variant="pill" />
       </div>
 
       {/* What You Get */}

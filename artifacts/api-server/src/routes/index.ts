@@ -12,6 +12,9 @@ import graphicsRouter from "./graphics";
 import archiveRouter from "./archive";
 import recentsRouter from "./recents";
 import dashboardRouter from "./dashboard";
+import amazonRouter from "./amazon";
+import workspacesRouter from "./workspaces";
+import accountRolesRouter from "./account-roles";
 
 const router: IRouter = Router();
 
@@ -20,6 +23,9 @@ router.use(fetchListingRouter);
 router.use(adminRouter);
 router.use(publicRouter);
 router.use(teamRouter);
+router.use(accountRolesRouter);
+router.use(workspacesRouter);
+router.use(amazonRouter);
 router.use(auditsRouter);
 router.use(competitorsRouter);
 router.use(stripeRouter);

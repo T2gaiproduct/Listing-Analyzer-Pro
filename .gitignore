@@ -41,7 +41,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.cursor/rules/nx-rules.mdc
+.env
+.env.*
+!.env.example
 .github/instructions/nx.instructions.md
 
 # Replit

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
@@ -178,6 +179,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [editModule, setEditModule] = useState<AplusModuleItem | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
+  const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
   const [historyModule, setHistoryModule] = useState<AplusModuleItem | null>(null);
 
   const setLoading = (moduleId: string, loading: boolean) => {
@@ -224,12 +226,23 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
   });
 
   const editMutation = useMutation({
-    mutationFn: async ({ moduleId, prompt }: { moduleId: AplusModuleItem["id"]; prompt: string }) => {
+    mutationFn: async ({
+      moduleId,
+      prompt,
+      referenceImageUrls,
+    }: {
+      moduleId: AplusModuleItem["id"];
+      prompt: string;
+      referenceImageUrls?: string[];
+    }) => {
       const res = await fetch(`${basePath}/api/audits/${auditId}/aplus/${moduleId}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          prompt,
+          referenceImageUrls: referenceImageUrls?.length ? referenceImageUrls : undefined,
+        }),
       });
       let data: { error?: string } = {};
       const text = await res.text();
@@ -248,6 +261,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
       updateModuleInList(updated);
       setEditModule(null);
       setEditPrompt("");
+      setEditReferenceImages([]);
       void refreshCreditBalances(queryClient);
       toast({ title: "Edit applied", description: `${updated.title} was updated.` });
     },
@@ -291,6 +305,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
               onEdit={() => {
                 setEditModule(module);
                 setEditPrompt("");
+                setEditReferenceImages([]);
               }}
               onHistory={() => setHistoryModule(module)}
               onDownload={() => handleDownload(module.imageUrl, `aplus-${module.id}.png`)}
@@ -305,6 +320,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
           if (!open && editModule && !loadingIds.has(editModule.id)) {
             setEditModule(null);
             setEditPrompt("");
+            setEditReferenceImages([]);
           }
         }}
       >
@@ -352,6 +368,12 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                   className="resize-none"
                 />
               </div>
+              <ReferenceImageUploadField
+                images={editReferenceImages}
+                onImagesChange={setEditReferenceImages}
+                label="Reference images (optional)"
+                hint="Upload style or content references to guide the edit."
+              />
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button
                   variant="outline"
@@ -361,7 +383,13 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => editMutation.mutate({ moduleId: editModule.id, prompt: editPrompt })}
+                  onClick={() =>
+                    editMutation.mutate({
+                      moduleId: editModule.id,
+                      prompt: editPrompt,
+                      referenceImageUrls: editReferenceImages.length > 0 ? editReferenceImages : undefined,
+                    })
+                  }
                   disabled={!editPrompt.trim() || loadingIds.has(editModule.id)}
                   className="gap-2"
                 >

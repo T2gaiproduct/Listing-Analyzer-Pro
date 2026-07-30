@@ -15,6 +15,7 @@ interface AdminInviteDetails {
   role: string;
   permissions: string[];
   invitedAt: string;
+  accountExists?: boolean;
 }
 
 export default function AcceptAdminInvite() {
@@ -174,23 +175,43 @@ export default function AcceptAdminInvite() {
           </div>
 
           <p className="text-sm text-slate-600 text-center">
-            Create an account or sign in with <strong>{invite.email}</strong> to access admin.
+            {invite.accountExists ? (
+              <>Sign in with <strong>{invite.email}</strong> to accept this admin invitation.</>
+            ) : (
+              <>Create an account or sign in with <strong>{invite.email}</strong> to access admin.</>
+            )}
           </p>
 
           <div className="space-y-2">
-            <Button
-              className="w-full bg-orange-500 hover:bg-orange-600"
-              onClick={() => setLocation(`/sign-up?redirect_url=${authRedirect}&email=${encodeURIComponent(invite.email)}`)}
-            >
-              Create account <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setLocation(`/sign-in?redirect_url=${authRedirect}`)}
-            >
-              I already have an account
-            </Button>
+            {invite.accountExists ? (
+              <>
+                <Button
+                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  onClick={() => setLocation(`/sign-in?redirect_url=${authRedirect}&email=${encodeURIComponent(invite.email)}`)}
+                >
+                  Sign in to accept <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <p className="text-xs text-slate-500 text-center pt-1">
+                  This email already has an account. Use sign in — not create account.
+                </p>
+              </>
+            ) : (
+              <>
+                <Button
+                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  onClick={() => setLocation(`/sign-up?redirect_url=${authRedirect}&email=${encodeURIComponent(invite.email)}`)}
+                >
+                  Create account <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setLocation(`/sign-in?redirect_url=${authRedirect}&email=${encodeURIComponent(invite.email)}`)}
+                >
+                  I already have an account
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

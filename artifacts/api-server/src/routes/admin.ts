@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, count, avg, sql, desc, and, inArray, gte, isNull } from "drizzle-orm";
+import { eq, count, avg, sql, desc, and, inArray, gte, isNull, notInArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, plansTable, creditsTable, creditTransactionsTable, creditPacksTable, creditRulesTable,
@@ -26,13 +26,32 @@ import {
   isAdminUser,
   requireAdmin,
   requireAdminWithPermission,
+  sessionEmailFromClaims,
   type AdminRequest,
 } from "../lib/admin-auth";
+import { loadAmazonSpSettings, shouldAutoEnableAmazon, AMAZON_SETTINGS_CATEGORY, AMAZON_SETTING_KEYS, validateAmazonAwsCredentials } from "../lib/amazon-sp-settings.js";
+import { normalizeLwaClientSecret, testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
-import { normalizeAdminEmail, ensureAdminInviteToken } from "../lib/admin-invites.js";
-import { buildAdminInviteUrl, generateAdminInviteToken } from "../lib/admin-invite-token.js";
+import {
+  ADMIN_INVITES_MIGRATION_HINT,
+  ensureAdminInviteToken,
+  isAdminInvitesTableMissingError,
+  listPendingAdminInvites,
+  normalizeAdminEmail,
+  revokeAdminAccessForUser,
+  upsertAdminRoleInvite,
+} from "../lib/admin-invites.js";
+import { buildAdminInviteUrl } from "../lib/admin-invite-token.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
+import {
+  allKnownNotificationTypes,
+  enrichNotificationsForAdminLog,
+  notificationTypesForAdminCategory,
+} from "../lib/notification-preferences.js";
+import { createNotification, type NotificationType } from "../lib/notifications.js";
+import { wsSend } from "../lib/ws.js";
+import { sendSupportTicketReplyEmail } from "../lib/support-ticket-email.js";
 
 const router: IRouter = Router();
 
@@ -72,8 +91,23 @@ async function notifyAdminRoleAssignment(
 
   if (!toEmail) return { emailSent: false, emailError: "Recipient email not found" };
 
+  const [role] = await db
+    .select({ name: adminRolesTable.name })
+    .from(adminRolesTable)
+    .where(eq(adminRolesTable.id, opts.roleId))
+    .limit(1);
+  const roleName = role?.name ?? "Administrator";
+
   const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
   const assignedByName = assignerProfile?.name ?? "An administrator";
+
+  void createNotification({
+    userId: opts.userId,
+    type: opts.isUpdate ? "admin_role_updated" : "admin_role_assigned",
+    title: opts.isUpdate ? "Admin role updated" : "Admin access granted",
+    message: `${assignedByName} set your role to ${roleName}.`,
+    link: "/admin/dashboard",
+  });
 
   try {
     const result = await sendAdminRoleAssignedEmail({
@@ -115,7 +149,9 @@ router.get("/admin/is-admin", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) { res.json({ isAdmin: false }); return; }
-  const email = auth?.sessionClaims?.email as string | undefined;
+  const email =
+    sessionEmailFromClaims(auth?.sessionClaims as Record<string, unknown> | undefined)
+    ?? (auth?.sessionClaims?.email as string | undefined);
   const ok = await isAdminUser(userId, email);
   res.json({ isAdmin: ok });
 });
@@ -1071,15 +1107,22 @@ router.get("/admin/admin-users", requireAdmin, async (req, res): Promise<void> =
     return { ...u, role: roleMap[u.roleId] ?? null, clerkUser };
   }));
 
-  const invites = await db.select().from(adminInvitesTable).where(isNull(adminInvitesTable.acceptedAt));
+  const invites = await listPendingAdminInvites();
+  const appBaseUrl = resolveAppBaseUrl(req);
 
   res.json({
     users: enriched,
     invites: await Promise.all(invites.map(async (invite) => {
-      const token = invite.inviteToken ?? await ensureAdminInviteToken(invite.id);
+      let token = invite.inviteToken;
+      try {
+        token = token ?? await ensureAdminInviteToken(invite.id);
+      } catch (err) {
+        req.log?.warn?.({ err, inviteId: invite.id }, "Failed to ensure admin invite token");
+      }
       return {
         ...invite,
         inviteToken: token,
+        inviteUrl: token ? buildAdminInviteUrl(token, appBaseUrl) : null,
         role: roleMap[invite.roleId] ?? null,
         status: "pending" as const,
       };
@@ -1102,50 +1145,45 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
     return;
   }
 
-  // If email provided, look up in Clerk
+  // Email assignments always create a shareable accept-admin-invite link (sign in to accept).
   if (!targetUserId && email) {
     const normalizedEmail = normalizeAdminEmail(email);
     const result = await clerkFetch(`/users?email_address=${encodeURIComponent(normalizedEmail)}&limit=1`) as Record<string, unknown> | unknown[];
     const usersList = Array.isArray(result) ? result : ((result as Record<string, unknown>).data as unknown[] ?? []);
-
-    if (!usersList.length) {
-      const [existingInvite] = await db.select().from(adminInvitesTable)
-        .where(eq(adminInvitesTable.email, normalizedEmail)).limit(1);
-      const inviteToken = existingInvite?.inviteToken ?? generateAdminInviteToken();
-
-      const [invite] = await db.insert(adminInvitesTable).values({
-        email: normalizedEmail,
-        roleId,
-        inviteToken,
-        invitedByUserId: adminReq.admin.userId,
-      }).onConflictDoUpdate({
-        target: adminInvitesTable.email,
-        set: {
-          roleId,
-          invitedByUserId: adminReq.admin.userId,
-          acceptedAt: null,
-          acceptedUserId: null,
-          inviteToken,
-        },
-      }).returning();
-
-      const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
-      const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
-      const assignedByName = assignerProfile?.name ?? "An administrator";
-      const emailResult = await sendAdminRoleInviteEmail({
-        toEmail: normalizedEmail,
-        roleId,
-        assignedByName,
-        appBaseUrl: resolveAppBaseUrl(req),
-        inviteUrl,
-      });
-
-      res.status(201).json({ pending: true, invite, inviteUrl, ...emailResult });
-      return;
+    if (usersList.length) {
+      targetUserId = (usersList[0] as Record<string, unknown>).id as string;
+      await revokeAdminAccessForUser(targetUserId);
     }
 
-    targetUserId = (usersList[0] as Record<string, unknown>).id as string;
-    await db.delete(adminInvitesTable).where(eq(adminInvitesTable.email, normalizedEmail));
+    const { invite, inviteToken } = await upsertAdminRoleInvite({
+      email: normalizedEmail,
+      roleId,
+      invitedByUserId: adminReq.admin.userId,
+    });
+
+    const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
+    const assignerProfile = await getClerkUserEmailAndName(adminReq.admin.userId, clerkFetch);
+    const assignedByName = assignerProfile?.name ?? "An administrator";
+    const emailResult = await sendAdminRoleInviteEmail({
+      toEmail: normalizedEmail,
+      roleId,
+      assignedByName,
+      appBaseUrl: resolveAppBaseUrl(req),
+      inviteUrl,
+    });
+
+    if (targetUserId) {
+      void createNotification({
+        userId: targetUserId,
+        type: "admin_role_invite",
+        title: "Admin role invitation",
+        message: `${assignedByName} invited you to become an administrator.`,
+        link: `/accept-admin-invite?token=${invite.inviteToken ?? inviteToken}`,
+      });
+    }
+
+    res.status(201).json({ pending: true, invite, inviteUrl, ...emailResult });
+    return;
   }
 
   if (!targetUserId) { res.status(400).json({ error: "Provide email or userId" }); return; }
@@ -1167,20 +1205,61 @@ router.post("/admin/admin-users", requireAdmin, async (req, res): Promise<void> 
   res.status(201).json({ ...u, ...emailResult });
   } catch (err) {
     req.log?.error?.({ err }, "Failed to assign admin role");
-    const message = err instanceof Error ? err.message : "Failed to assign role";
-    if (message.includes("admin_invites") && message.includes("does not exist")) {
-      res.status(503).json({ error: "Database is missing admin_invites table. Run pnpm --filter @workspace/db run push." });
+    if (isAdminInvitesTableMissingError(err)) {
+      res.status(503).json({ error: ADMIN_INVITES_MIGRATION_HINT });
       return;
     }
+    const message = err instanceof Error ? err.message : "Failed to assign role";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/admin/admin-users/:id/invite-link", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const adminReq = req as AdminRequest;
+    const [assignment] = await db.select().from(adminUsersTable).where(eq(adminUsersTable.id, id)).limit(1);
+    if (!assignment) { res.status(404).json({ error: "Assignment not found" }); return; }
+
+    const profile = await getClerkUserEmailAndName(assignment.userId, clerkFetch);
+    if (!profile?.email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
+
+    await revokeAdminAccessForUser(assignment.userId);
+
+    const { invite, inviteToken } = await upsertAdminRoleInvite({
+      email: profile.email,
+      roleId: assignment.roleId,
+      invitedByUserId: adminReq.admin.userId,
+    });
+
+    const inviteUrl = buildAdminInviteUrl(invite.inviteToken ?? inviteToken, resolveAppBaseUrl(req));
+  res.status(201).json({ pending: true, invite, inviteUrl });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to generate admin invite link");
+    if (isAdminInvitesTableMissingError(err)) {
+      res.status(503).json({ error: ADMIN_INVITES_MIGRATION_HINT });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "Failed to generate invite link";
     res.status(500).json({ error: message });
   }
 });
 
 router.delete("/admin/admin-invites/:id", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(String(req.params.id ?? ""));
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  await db.delete(adminInvitesTable).where(eq(adminInvitesTable.id, id));
-  res.sendStatus(204);
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    await db.delete(adminInvitesTable).where(eq(adminInvitesTable.id, id));
+    res.sendStatus(204);
+  } catch (err) {
+    if (isAdminInvitesTableMissingError(err)) {
+      res.status(503).json({ error: ADMIN_INVITES_MIGRATION_HINT });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.patch("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<void> => {
@@ -1212,17 +1291,105 @@ router.delete("/admin/admin-users/:id", requireAdmin, async (req, res): Promise<
 
 router.get("/admin/notifications", requireAdmin, async (req, res): Promise<void> => {
   const limit = Math.min(Number(req.query.limit ?? 50), 200);
-  const type = (req.query.type as string | undefined) ?? "";
-  let q = db.select().from(notificationsTable).orderBy(desc(notificationsTable.sentAt)).limit(limit);
-  const all = await q;
-  const filtered = type ? all.filter((n) => n.type === type) : all;
-  res.json({ notifications: filtered });
+  const category = String(req.query.category ?? "").trim();
+  const type = String(req.query.type ?? "").trim();
+  const readFilter = String(req.query.read ?? "").trim();
+
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (type) {
+    conditions.push(eq(notificationsTable.type, type));
+  } else if (category === "other") {
+    conditions.push(notInArray(notificationsTable.type, allKnownNotificationTypes()));
+  } else {
+    const types = notificationTypesForAdminCategory(category);
+    if (types?.length) {
+      conditions.push(inArray(notificationsTable.type, types));
+    }
+  }
+  if (readFilter === "read") {
+    conditions.push(eq(notificationsTable.read, true));
+  } else if (readFilter === "unread") {
+    conditions.push(eq(notificationsTable.read, false));
+  }
+
+  const rows = await db
+    .select()
+    .from(notificationsTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(notificationsTable.sentAt))
+    .limit(limit);
+
+  const notifications = await enrichNotificationsForAdminLog(rows);
+  res.json({ notifications });
 });
 
 router.post("/admin/notifications", requireAdmin, async (req, res): Promise<void> => {
-  const { userId, type, title, message, link } = req.body;
-  const [n] = await db.insert(notificationsTable).values({ userId: userId ?? null, type, title, message, link }).returning();
-  res.status(201).json(n);
+  const { userId, type, title, message, link, force } = req.body as {
+    userId?: string | null;
+    type: string;
+    title: string;
+    message: string;
+    link?: string;
+    force?: boolean;
+  };
+
+  if (!type?.trim() || !title?.trim() || !message?.trim()) {
+    res.status(400).json({ error: "type, title, and message are required" });
+    return;
+  }
+
+  const targetUserId = userId?.trim() || null;
+
+  if (!targetUserId) {
+    const [n] = await db.insert(notificationsTable).values({
+      userId: null,
+      type,
+      title,
+      message,
+      link,
+    }).returning();
+    res.status(201).json(n);
+    return;
+  }
+
+  if (force) {
+    const [n] = await db.insert(notificationsTable).values({
+      userId: targetUserId,
+      type,
+      title,
+      message,
+      link,
+      read: false,
+      sentAt: new Date(),
+    }).returning();
+    wsSend(targetUserId, "notification", {
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      sentAt: n.sentAt,
+    });
+    res.status(201).json(n);
+    return;
+  }
+
+  const row = await createNotification({
+    userId: targetUserId,
+    type: type as NotificationType,
+    title,
+    message,
+    link,
+  });
+
+  if (!row) {
+    res.status(200).json({
+      skipped: true,
+      reason: "User has disabled this notification category in their preferences",
+    });
+    return;
+  }
+
+  res.status(201).json(row);
 });
 
 router.patch("/admin/notifications/:id/read", requireAdmin, async (req, res): Promise<void> => {
@@ -1243,7 +1410,7 @@ router.delete("/admin/notifications/:id", requireAdmin, async (req, res): Promis
 // SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/settings", async (req, res): Promise<void> => {
   const category = (req.query.category as string | undefined) ?? "";
   const all = await db.select().from(settingsTable);
   const filtered = category ? all.filter((s) => s.category === category) : all;
@@ -1252,8 +1419,14 @@ router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   res.json(map);
 });
 
-router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
-  const { category, settings } = req.body;
+router.put("/admin/settings", async (req, res): Promise<void> => {
+  const { category, settings } = req.body as { category?: string; settings?: Record<string, string> };
+  if (!category?.trim() || !settings || typeof settings !== "object") {
+    res.status(400).json({ error: "Invalid settings payload" });
+    return;
+  }
+
+  try {
 
   const SECRET_KEYS = new Set([
     "stripe_secret_key", "stripe_webhook_secret",
@@ -1261,8 +1434,9 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     "paypal_client_secret",
     "openai_api_key",
     "gemini_api_key",
-    "resend_api_key",
     "smtp_password",
+    "amazon_sp_client_secret",
+    "amazon_aws_secret_access_key",
   ]);
 
   // Enforce mutual exclusivity for payment gateway enabled flags
@@ -1293,10 +1467,33 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     }
   }
 
+  if (category === AMAZON_SETTINGS_CATEGORY) {
+    const s = settings as Record<string, string>;
+    if (s.amazon_sp_redirect_uri?.trim()) {
+      s.amazon_sp_redirect_uri = s.amazon_sp_redirect_uri.trim().replace(/([^:]\/)\/+/g, "$1");
+    }
+    if (s.amazon_sp_client_secret?.trim()) {
+      s.amazon_sp_client_secret = normalizeLwaClientSecret(s.amazon_sp_client_secret);
+    }
+    const awsError = validateAmazonAwsCredentials({
+      ...(await loadAmazonSpSettings()),
+      awsAccessKeyId: s.amazon_aws_access_key_id ?? "",
+      awsSecretAccessKey: s.amazon_aws_secret_access_key ?? "",
+      awsRoleArn: s.amazon_aws_role_arn ?? "",
+    } as Awaited<ReturnType<typeof loadAmazonSpSettings>>);
+    const touchesAws = Boolean(s.amazon_aws_access_key_id?.trim() || s.amazon_aws_secret_access_key?.trim());
+    if (touchesAws && awsError) {
+      (req as Request & { amazonAwsSaveWarning?: string }).amazonAwsSaveWarning = awsError;
+      delete s.amazon_aws_access_key_id;
+      delete s.amazon_aws_secret_access_key;
+    }
+  }
+
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
     if (value === "***") continue;
     const isSecret = SECRET_KEYS.has(key);
     const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+    if (isSecret && !value.trim() && existing?.value) continue;
     if (existing) {
       await db.update(settingsTable)
         .set({ value, category, isSecret, updatedAt: new Date() })
@@ -1319,12 +1516,58 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
     }
   }
 
-  res.json({ success: true });
+  if (category === AMAZON_SETTINGS_CATEGORY) {
+    const latest = await loadAmazonSpSettings();
+    if (shouldAutoEnableAmazon(latest) && !latest.enabled) {
+      const key = AMAZON_SETTING_KEYS.enabled;
+      const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+      if (existing) {
+        await db.update(settingsTable)
+          .set({ value: "true", category: AMAZON_SETTINGS_CATEGORY, updatedAt: new Date() })
+          .where(eq(settingsTable.key, key));
+      } else {
+        await db.insert(settingsTable).values({
+          key,
+          value: "true",
+          category: AMAZON_SETTINGS_CATEGORY,
+          isSecret: false,
+        });
+      }
+    }
+  }
+
+    res.json({
+      success: true,
+      warning: (req as Request & { amazonAwsSaveWarning?: string }).amazonAwsSaveWarning ?? undefined,
+    });
+  } catch (err) {
+    req.log?.error?.({ err, category }, "Failed to save admin settings");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to save settings" });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENHANCED DASHBOARD STATS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+router.post("/admin/test-amazon-sp", requireAdmin, async (req, res): Promise<void> => {
+  const body = req.body as {
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
+    sandbox?: boolean;
+  };
+  const saved = await loadAmazonSpSettings();
+  const settings = {
+    ...saved,
+    clientId: body.clientId?.trim() || saved.clientId,
+    clientSecret: normalizeLwaClientSecret(body.clientSecret?.trim() || saved.clientSecret),
+    redirectUri: body.redirectUri?.trim() || saved.redirectUri,
+    sandbox: typeof body.sandbox === "boolean" ? body.sandbox : saved.sandbox,
+  };
+  const result = await testAmazonSpConnection(settings);
+  res.status(result.ok ? 200 : 400).json(result);
+});
 
 router.post("/admin/test-openai-key", requireAdmin, async (req, res): Promise<void> => {
   const { key } = req.body as { key?: string };
@@ -1632,6 +1875,65 @@ router.delete("/admin/nav/:id", requireAdmin, async (req, res): Promise<void> =>
 // MARKETING — FORM SUBMISSIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+type FormSubmissionRow = typeof formSubmissions.$inferSelect;
+
+type SupportTicketReplyOutcome =
+  | { ok: true; ticket: FormSubmissionRow }
+  | { ok: false; status: number; error: string };
+
+async function processSupportTicketReply(id: number, message: string): Promise<SupportTicketReplyOutcome> {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return { ok: false, status: 400, error: "Reply message is required" };
+  }
+
+  const [ticket] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, id));
+  if (!ticket) {
+    return { ok: false, status: 404, error: "Ticket not found" };
+  }
+  if (!ticket.email?.trim()) {
+    return { ok: false, status: 400, error: "This ticket has no customer email" };
+  }
+
+  const data = (ticket.data ?? {}) as {
+    subject?: string;
+    message?: string;
+    replies?: Array<{ message: string; sentAt: string }>;
+  };
+  const originalSubject = data.subject?.trim() || "Support ticket";
+
+  const emailResult = await sendSupportTicketReplyEmail({
+    toEmail: ticket.email.trim(),
+    customerName: ticket.name,
+    originalSubject,
+    replyMessage: trimmed,
+  });
+
+  if (!emailResult.success) {
+    return {
+      ok: false,
+      status: 502,
+      error: emailResult.error ?? "Failed to send email. Check Admin → Email Settings (SMTP).",
+    };
+  }
+
+  const replies = [...(data.replies ?? []), { message: trimmed, sentAt: new Date().toISOString() }];
+  const [updated] = await db
+    .update(formSubmissions)
+    .set({
+      isRead: true,
+      data: { ...data, replies },
+    })
+    .where(eq(formSubmissions.id, id))
+    .returning();
+
+  if (!updated) {
+    return { ok: false, status: 500, error: "Failed to update ticket" };
+  }
+
+  return { ok: true, ticket: updated };
+}
+
 router.get("/admin/forms", requireAdmin, async (req, res): Promise<void> => {
   const type = String(req.query.type ?? "");
   let query = db.select().from(formSubmissions).$dynamic();
@@ -1641,10 +1943,56 @@ router.get("/admin/forms", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.patch("/admin/forms/:id/read", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(String(req.params.id ?? ""));
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const [item] = await db.update(formSubmissions).set({ isRead: true }).where(eq(formSubmissions.id, id)).returning();
-  res.json(item);
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const replyMessage =
+      typeof req.body?.replyMessage === "string"
+        ? req.body.replyMessage
+        : typeof req.body?.message === "string"
+          ? req.body.message
+          : "";
+
+    if (replyMessage.trim()) {
+      const result = await processSupportTicketReply(id, replyMessage);
+      if (!result.ok) {
+        res.status(result.status).json({ error: result.error });
+        return;
+      }
+      res.json({ ok: true, ticket: result.ticket });
+      return;
+    }
+
+    const [item] = await db.update(formSubmissions).set({ isRead: true }).where(eq(formSubmissions.id, id)).returning();
+    res.json(item);
+  } catch (err) {
+    req.log?.error?.({ err }, "Support ticket read/reply failed");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to update support ticket",
+    });
+  }
+});
+
+router.post("/admin/forms/:id/reply", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(String(req.params.id ?? ""));
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const message = typeof req.body?.message === "string" ? req.body.message : "";
+    const result = await processSupportTicketReply(id, message);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+
+    res.json({ ok: true, ticket: result.ticket });
+  } catch (err) {
+    req.log?.error?.({ err }, "Support ticket reply failed");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to send support ticket reply",
+    });
+  }
 });
 
 router.delete("/admin/forms/:id", requireAdmin, async (req, res): Promise<void> => {

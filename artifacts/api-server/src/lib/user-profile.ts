@@ -11,6 +11,7 @@ export interface UserProfileFields {
   teamSize?: number | null;
   onboardingCompleted?: boolean;
   stripeCustomerId?: string | null;
+  loginEmail?: string | null;
 }
 
 export function hasRequiredProfileFields(fields: Pick<UserProfileFields, "fullName" | "companyName" | "country">): boolean {
@@ -30,6 +31,7 @@ export async function upsertUserProfile(userId: string, fields: UserProfileField
   if (fields.teamSize !== undefined) updates.teamSize = fields.teamSize ?? null;
   if (fields.onboardingCompleted !== undefined) updates.onboardingCompleted = fields.onboardingCompleted;
   if (fields.stripeCustomerId !== undefined) updates.stripeCustomerId = fields.stripeCustomerId;
+  if (fields.loginEmail !== undefined) updates.loginEmail = fields.loginEmail?.trim().toLowerCase() || null;
 
   if (existing) {
     const [profile] = await db
@@ -45,4 +47,11 @@ export async function upsertUserProfile(userId: string, fields: UserProfileField
     .values({ userId, ...updates })
     .returning();
   return profile;
+}
+
+/** Keep login email on the profile so invite emails can respect prefs without Clerk lookups. */
+export async function syncUserLoginEmail(userId: string, email: string | null | undefined): Promise<void> {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) return;
+  await upsertUserProfile(userId, { loginEmail: normalized });
 }

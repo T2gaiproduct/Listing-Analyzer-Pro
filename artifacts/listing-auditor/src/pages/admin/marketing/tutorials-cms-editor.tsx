@@ -4,13 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import {
   MAX_TUTORIAL_ITEMS,
+  TUTORIAL_CATEGORIES,
   tutorialItemKeys,
   visibleTutorialItemCount,
 } from "@/lib/tutorials-cms";
+import { youtubeThumbnailUrl } from "@/lib/video-embed";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -32,6 +35,10 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
     onChange(keys.duration, "");
     onChange(keys.image, "");
     onChange(keys.videoUrl, "");
+    onChange(keys.description, "");
+    onChange(keys.category, "");
+    onChange(keys.steps, "");
+    onChange(keys.linkUrl, "");
   }
 
   function removeTutorialItem(index: number) {
@@ -44,6 +51,10 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
       onChange(current.duration, data[next.duration] ?? "");
       onChange(current.image, data[next.image] ?? "");
       onChange(current.videoUrl, data[next.videoUrl] ?? "");
+      onChange(current.description, data[next.description] ?? "");
+      onChange(current.category, data[next.category] ?? "");
+      onChange(current.steps, data[next.steps] ?? "");
+      onChange(current.linkUrl, data[next.linkUrl] ?? "");
     }
 
     clearTutorialItem(visibleCount);
@@ -61,7 +72,7 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
         <div>
           <CardTitle className="text-sm font-semibold text-slate-700">Tutorial videos</CardTitle>
           <p className="text-xs text-slate-500 mt-1">
-            Add YouTube or video links. Each tutorial needs a title; video URL opens in a player on the homepage.
+            Shown on the homepage and the View All Tutorials page. Add a YouTube link for inline playback and auto thumbnails.
           </p>
         </div>
         <Button
@@ -76,9 +87,13 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
       <CardContent className="space-y-4">
         {Array.from({ length: visibleCount }, (_, i) => i + 1).map((index) => {
           const keys = tutorialItemKeys(index);
-          const previewUrl = data[keys.image]
+          const customPreview = data[keys.image]
             ? resolveCmsAssetUrl(data[keys.image], basePath)
             : "";
+          const youtubePreview = data[keys.videoUrl]
+            ? youtubeThumbnailUrl(data[keys.videoUrl])
+            : null;
+          const previewUrl = customPreview || youtubePreview || "";
 
           return (
             <Card key={index} className="border border-slate-200 shadow-none">
@@ -120,6 +135,48 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
                   </div>
                 </div>
                 <div>
+                  <Label className="text-xs text-slate-500">Description (tutorials page)</Label>
+                  <Textarea
+                    className="mt-1 text-sm resize-none"
+                    rows={2}
+                    value={data[keys.description] ?? ""}
+                    onChange={(e) => onChange(keys.description, e.target.value)}
+                    placeholder="Short summary shown on the tutorials page"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs text-slate-500">Category</Label>
+                    <select
+                      className="mt-1 flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={data[keys.category] ?? "getting-started"}
+                      onChange={(e) => onChange(keys.category, e.target.value)}
+                    >
+                      {TUTORIAL_CATEGORIES.map((c) => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Steps count</Label>
+                    <Input
+                      className="mt-1 h-8 text-sm"
+                      value={data[keys.steps] ?? ""}
+                      onChange={(e) => onChange(keys.steps, e.target.value)}
+                      placeholder="4"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Fallback link URL</Label>
+                    <Input
+                      className="mt-1 h-8 text-sm"
+                      value={data[keys.linkUrl] ?? ""}
+                      onChange={(e) => onChange(keys.linkUrl, e.target.value)}
+                      placeholder="/help or https://..."
+                    />
+                  </div>
+                </div>
+                <div>
                   <Label className="text-xs text-slate-500 flex items-center gap-1">
                     <Video className="w-3 h-3" />
                     Video URL (YouTube or direct link)
@@ -131,16 +188,16 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
                     placeholder="https://www.youtube.com/watch?v=..."
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Supports YouTube watch, youtu.be, and embed links.
+                    YouTube links play inline on mobile and desktop. Thumbnail auto-fills from YouTube when no custom image is set.
                   </p>
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Thumbnail image URL</Label>
+                  <Label className="text-xs text-slate-500">Thumbnail image URL (optional)</Label>
                   <Input
                     className="mt-1 h-8 text-sm"
                     value={data[keys.image] ?? ""}
                     onChange={(e) => onChange(keys.image, e.target.value)}
-                    placeholder="https://... or /portfolio/example.jpg"
+                    placeholder="Leave blank to use YouTube thumbnail"
                   />
                   {previewUrl && (
                     <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 max-w-[200px]">

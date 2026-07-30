@@ -14,13 +14,29 @@ import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits } from "../lib/plan-credits";
-import { upsertUserProfile } from "../lib/user-profile";
+import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
+import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
 import { getGatewaySettings } from "./payment";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
+import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
+import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
+import { notifyAdminUsers } from "../lib/notify-admins.js";
+import { rateLimit } from "../lib/rate-limit";
+import { recordPendingGatewayPayment } from "../lib/gateway-payment";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  filterNotificationsByPreferences,
+  getUserNotificationPreferences,
+  isNotificationPreferencesColumnMissingError,
+  NOTIFICATION_PREFERENCE_CATEGORIES,
+  NOTIFICATION_PREFS_MIGRATION_HINT,
+  updateUserNotificationPreferences,
+  type NotificationPreferences,
+} from "../lib/notification-preferences.js";
 import {
   resolveCoupon,
   couponErrorMessage,
@@ -205,7 +221,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   });
 });
 
-router.post("/forms", async (req, res): Promise<void> => {
+router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max: 10 }), async (req, res): Promise<void> => {
   const { formType, email, name, data } = req.body ?? {};
 
   if (formType !== "support") {
@@ -228,6 +244,21 @@ router.post("/forms", async (req, res): Promise<void> => {
     name: typeof name === "string" && name.trim() ? name.trim() : null,
     data: { subject, message },
   }).returning();
+
+  void sendSupportTicketCreatedEmails({
+    ticketId: item.id,
+    email: trimmedEmail,
+    name: item.name,
+    subject,
+    message,
+  });
+
+  void notifyAdminUsers({
+    type: "support_ticket_new",
+    title: "New support ticket",
+    message: `${trimmedEmail}: ${subject}`,
+    link: "/admin/help/support-tickets",
+  });
 
   res.status(201).json(item);
 });
@@ -261,7 +292,11 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const isAdmin = await isAdminUser(userId, sessionEmail);
   const accountRole = await resolveUserAccountRole(userId);
 
-  // Self-heal: paid users, admins, and team members should never be sent back to onboarding
+  const pendingWorkspaceInvite = sessionEmail
+    ? await findPendingWorkspaceInviteForEmail(sessionEmail)
+    : null;
+
+  // Self-heal: paid users, admins, and team/workspace members should never be sent back to onboarding
   if (!onboardingCompleted && (hasActiveSubscription || isAdmin || accountRole.type === "team_member")) {
     await upsertUserProfile(userId, { onboardingCompleted: true });
     onboardingCompleted = true;
@@ -274,11 +309,17 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     subscription: sub,
     credits,
     accountRole,
+    pendingWorkspaceInvite,
   });
 });
 
 router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  if (sessionEmail) {
+    void syncUserLoginEmail(userId, sessionEmail);
+  }
   const [profile] = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
   const subRows = await db.select({
     id: subscriptionsTable.id,
@@ -314,12 +355,19 @@ router.get("/profile", requireAuth, async (req, res): Promise<void> => {
     .where(eq(paymentsTable.userId, userId))
     .orderBy(desc(paymentsTable.createdAt))
     .limit(20);
+  let notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES;
+  try {
+    notificationPreferences = await getUserNotificationPreferences(userId);
+  } catch (err) {
+    req.log?.warn?.({ err }, "Failed to load notification preferences for profile");
+  }
   res.json({
     profile: profile ?? null,
     subscription: subRows[0] ?? null,
     credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
     transactions,
     billingHistory,
+    notificationPreferences,
   });
 });
 
@@ -338,22 +386,58 @@ router.post("/auth/reset-password", requireAuth, async (req, res): Promise<void>
     res.status(400).json({ error: result.errors?.[0]?.message ?? "Failed to reset password" });
     return;
   }
-  res.json({ newPassword });
+  res.json({ ok: true });
 });
 
 router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize } = req.body as Record<string, string | number>;
-  const profile = await upsertUserProfile(userId, {
-    ...(fullName !== undefined && { fullName: String(fullName) }),
-    ...(companyName !== undefined && { companyName: String(companyName) }),
-    ...(phone !== undefined && { phone: String(phone) }),
-    ...(country !== undefined && { country: String(country) }),
-    ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
-    ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
-    ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
-  });
-  res.json(profile);
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const auth = getAuth(req);
+    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+    const body = req.body as Record<string, string | number | Partial<NotificationPreferences>>;
+    const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize, notificationPreferences } = body;
+
+    if (notificationPreferences && typeof notificationPreferences === "object") {
+      const patch: Partial<NotificationPreferences> = {};
+      for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+        if (typeof notificationPreferences[key] === "boolean") {
+          patch[key] = notificationPreferences[key];
+        }
+      }
+      if (Object.keys(patch).length > 0) {
+        await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
+      }
+    }
+
+    if (sessionEmail) {
+      await syncUserLoginEmail(userId, sessionEmail);
+    }
+
+    const profile = await upsertUserProfile(userId, {
+      ...(fullName !== undefined && { fullName: String(fullName) }),
+      ...(companyName !== undefined && { companyName: String(companyName) }),
+      ...(phone !== undefined && { phone: String(phone) }),
+      ...(country !== undefined && { country: String(country) }),
+      ...(gstNumber !== undefined && { gstNumber: String(gstNumber) }),
+      ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
+      ...(teamSize !== undefined && { teamSize: teamSize ? Number(teamSize) : null }),
+    });
+
+    const prefs = await getUserNotificationPreferences(userId);
+    res.json({ ...profile, notificationPreferences: prefs });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to update profile");
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      res.status(503).json({ error: NOTIFICATION_PREFS_MIGRATION_HINT });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "Failed to update profile";
+    if (message.includes(NOTIFICATION_PREFS_MIGRATION_HINT)) {
+      res.status(503).json({ error: message });
+      return;
+    }
+    res.status(500).json({ error: message });
+  }
 });
 
 const AVATARS_DIR = path.join(process.cwd(), "public", "images", "avatars");
@@ -792,6 +876,14 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     });
     const order = await orderRes.json() as { id?: string; links?: Array<{ rel: string; href: string }>; message?: string };
     if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
+    await recordPendingGatewayPayment({
+      userId,
+      gateway: "paypal",
+      gatewayOrderId: order.id,
+      amountCents: pack.priceCents,
+      currency: "USD",
+      intent: { type: "credit_pack", packId: pack.id },
+    });
     const s = await getGatewaySettings();
     const clientId = s.paypal_client_id ?? "";
     const approvalUrl = order.links?.find((l) => l.rel === "approve" || l.rel === "payer-action")?.href ?? "";
@@ -807,6 +899,14 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
     { amount: pack.priceCents, currency: "USD", receipt: `rcpt_${Date.now()}` },
   );
   if (order.error) { res.status(400).json({ error: order.error.description }); return; }
+  await recordPendingGatewayPayment({
+    userId,
+    gateway: "razorpay",
+    gatewayOrderId: order.id,
+    amountCents: pack.priceCents,
+    currency: "USD",
+    intent: { type: "credit_pack", packId: pack.id },
+  });
   res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId, packId: pack.id, packLabel: pack.label });
 });
 
@@ -877,6 +977,14 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
     });
     const order = await orderRes.json() as { id?: string; links?: Array<{ rel: string; href: string }>; message?: string };
     if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
+    await recordPendingGatewayPayment({
+      userId,
+      gateway: "paypal",
+      gatewayOrderId: order.id,
+      amountCents: priceCents,
+      currency: "USD",
+      intent: { type: "custom_credit", creditType: creditType as "ai" | "image" | "audit", creditAmount: amount },
+    });
     const s = await getGatewaySettings();
     const clientId = s.paypal_client_id ?? "";
     const approvalUrl = order.links?.find((l) => l.rel === "approve" || l.rel === "payer-action")?.href ?? "";
@@ -892,6 +1000,14 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
     { amount: priceCents, currency: "USD", receipt: `rcpt_${Date.now()}` },
   );
   if (order.error) { res.status(400).json({ error: order.error.description }); return; }
+  await recordPendingGatewayPayment({
+    userId,
+    gateway: "razorpay",
+    gatewayOrderId: order.id,
+    amountCents: priceCents,
+    currency: "USD",
+    intent: { type: "custom_credit", creditType: creditType as "ai" | "image" | "audit", creditAmount: amount },
+  });
   res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId, creditType, creditAmount: amount });
 });
 
@@ -996,13 +1112,60 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
 router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const limit = Math.min(Number(req.query.limit ?? 20), 100);
+  const preferences = await getUserNotificationPreferences(userId);
   const notifications = await db
     .select()
     .from(notificationsTable)
     .where(eq(notificationsTable.userId, userId))
     .orderBy(desc(notificationsTable.sentAt))
     .limit(limit);
-  res.json({ notifications });
+  res.json({ notifications: filterNotificationsByPreferences(notifications, preferences) });
+});
+
+router.get("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const preferences = await getUserNotificationPreferences(userId);
+    res.json({ preferences });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to load notification preferences");
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      res.status(503).json({ error: NOTIFICATION_PREFS_MIGRATION_HINT });
+      return;
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load notification preferences" });
+  }
+});
+
+router.patch("/profile/notification-preferences", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const auth = getAuth(req);
+    const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+    const body = req.body as Partial<NotificationPreferences>;
+    const patch: Partial<NotificationPreferences> = {};
+
+    for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+      if (typeof body[key] === "boolean") {
+        patch[key] = body[key];
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      res.status(400).json({ error: "No valid preference fields provided" });
+      return;
+    }
+
+    const preferences = await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
+    res.json({ preferences });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to update notification preferences");
+    if (isNotificationPreferencesColumnMissingError(err)) {
+      res.status(503).json({ error: NOTIFICATION_PREFS_MIGRATION_HINT });
+      return;
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to update notification preferences" });
+  }
 });
 
 router.patch("/notifications/:id/read", requireAuth, async (req, res): Promise<void> => {
@@ -1041,11 +1204,14 @@ router.get("/admin-role-invite/:token", async (req, res): Promise<void> => {
     return;
   }
 
+  const accountExists = await clerkAccountExistsForEmail(invite.email);
+
   res.json({
     email: invite.email,
     role: invite.roleName,
     permissions: invite.permissions ?? [],
     invitedAt: invite.createdAt,
+    accountExists,
   });
 });
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,40 +14,33 @@ import {
   ArrowLeft, Maximize2, AlertTriangle,
 } from "lucide-react";
 import {
-  CustomPromptGenerationPanel,
+  DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
   type GraphicsAspectRatio,
   type GraphicsQuality,
+  type ImageTypePromptConfig,
 } from "@/components/custom-prompt-generation-panel";
+import {
+  ImageTypeCustomizeDialog,
+  SelectedGraphicsTypesSummary,
+} from "@/components/graphics-type-customize-ui";
+import {
+  GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
+  GRAPHICS_IMAGE_TYPES,
+  GRAPHICS_PROMPT_MAX_CHARS,
+} from "@/lib/graphics-image-types";
+import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const IMAGE_TYPES = [
-  { id: "hero", label: "Hero Shot", desc: "White background, product centered", icon: "🏆" },
-  { id: "lifestyle", label: "Lifestyle In-Use", desc: "Product in use, real environment", icon: "🌅" },
-  { id: "callouts", label: "Feature Callouts", desc: "Numbered features, arrows", icon: "🔢" },
-  { id: "size", label: "Size Reference", desc: "Scale comparison with dimensions", icon: "📏" },
-  { id: "beforeafter", label: "Before / After", desc: "Transformation comparison", icon: "⚡" },
-  { id: "bundle", label: "Bundle Shot", desc: "All included items", icon: "📦" },
-  { id: "social", label: "Social Proof", desc: "Ratings & reviews", icon: "⭐" },
-  { id: "custom", label: "Generate Custom", desc: "Custom prompt", icon: "✨" },
-];
+const IMAGE_TYPES = GRAPHICS_IMAGE_TYPES;
+const PROMPT_MAX_CHARS = GRAPHICS_PROMPT_MAX_CHARS;
+const CUSTOM_EXAMPLES = GRAPHICS_CUSTOM_PROMPT_EXAMPLES;
 
-const PROMPT_MAX_CHARS = 1000;
-
-const CUSTOM_EXAMPLES = [
-  "Show the product in a modern kitchen setting with warm natural lighting",
-  "Create a minimalist product shot on a marble surface with soft shadows",
-  "Show product being used by a family on a beach during golden hour",
-  "Flat-lay overhead shot of product with complementary lifestyle props",
-  "Product on a clean desk setup with laptop and coffee, work-from-home aesthetic",
-];
-
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 
 const STEPS = [
   { id: 1, label: "Upload Product" },
   { id: 2, label: "Select Graphics" },
-  { id: 3, label: "Custom Prompt" },
 ];
 
 interface ImageVersion {
@@ -170,29 +163,87 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [uploadedImages, setUploadedImages] = useState<string[]>(imageUrls ?? []);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [promptReferenceImages, setPromptReferenceImages] = useState<string[]>([]);
-  const [graphicsAspectRatio, setGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
-  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>("standard");
+  const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [editRecord, setEditRecord] = useState<ImageRecord | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
+  const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
   const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
 
   // Generate More Images modal state
   const [showMore, setShowMore] = useState(false);
-  const [moreStep, setMoreStep] = useState<"select" | "custom" | "generating">("select");
   const [moreImageTypes, setMoreImageTypes] = useState<string[]>([]);
-  const [moreCustomPrompt, setMoreCustomPrompt] = useState("");
-  const [morePromptReferenceImages, setMorePromptReferenceImages] = useState<string[]>([]);
-  const [moreGraphicsAspectRatio, setMoreGraphicsAspectRatio] = useState<GraphicsAspectRatio>("1:1");
-  const [moreGraphicsQuality, setMoreGraphicsQuality] = useState<GraphicsQuality>("standard");
+  const [moreImageTypePromptConfigs, setMoreImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [moreCustomizeTypeId, setMoreCustomizeTypeId] = useState<string | null>(null);
   const [moreEtaSeconds, setMoreEtaSeconds] = useState(0);
   const [moreProgress, setMoreProgress] = useState(0);
+
+  const getImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...imageTypePromptConfigs[typeId],
+  }), [imageTypePromptConfigs]);
+
+  const updateImageTypeConfig = useCallback((typeId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setImageTypePromptConfigs((prev) => ({
+      ...prev,
+      [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
+    }));
+  }, []);
+
+  const graphicsTypeConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      customPrompt?: string;
+      aspectRatio: GraphicsAspectRatio;
+      quality: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }> = {};
+    for (const typeId of selectedImageTypes) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...imageTypePromptConfigs[typeId] };
+      configs[typeId] = {
+        customPrompt: config.customPrompt.trim() || undefined,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+      };
+    }
+    return configs;
+  }, [selectedImageTypes, imageTypePromptConfigs]);
+
+  const getMoreImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...moreImageTypePromptConfigs[typeId],
+  }), [moreImageTypePromptConfigs]);
+
+  const updateMoreImageTypeConfig = useCallback((typeId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setMoreImageTypePromptConfigs((prev) => ({
+      ...prev,
+      [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
+    }));
+  }, []);
+
+  const moreTypeConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      customPrompt?: string;
+      aspectRatio: GraphicsAspectRatio;
+      quality: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }> = {};
+    for (const typeId of moreImageTypes) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...moreImageTypePromptConfigs[typeId] };
+      configs[typeId] = {
+        customPrompt: config.customPrompt.trim() || undefined,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+      };
+    }
+    return configs;
+  }, [moreImageTypes, moreImageTypePromptConfigs]);
 
   const { data: existingProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId],
@@ -258,20 +309,30 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   }, []);
 
   const createProject = useMutation({
-    mutationFn: async (body: object) => {
+    mutationFn: async (input: {
+      createBody: object;
+      imageTypes: string[];
+      typeConfigs: Record<string, {
+        customPrompt?: string;
+        aspectRatio: GraphicsAspectRatio;
+        quality: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(body),
+        body: JSON.stringify(input.createBody),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Failed to create project (${res.status})`);
       }
-      return res.json();
+      const project = await res.json();
+      return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
     },
-    onSuccess: async (project) => {
+    onSuccess: async ({ project, imageTypes, typeConfigs }) => {
       setProjectId(project.id);
       creditsRefreshedRef.current = false;
       try {
@@ -280,11 +341,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            imageTypes: selectedImageTypes,
-            customPrompt: customPrompt.trim() || undefined,
-            aspectRatio: graphicsAspectRatio,
-            quality: graphicsQuality,
-            promptReferenceImageUrls: promptReferenceImages.length > 0 ? promptReferenceImages : undefined,
+            imageTypes,
+            typeConfigs,
           }),
         });
         if (!res.ok) {
@@ -332,12 +390,25 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   });
 
   const editMutation = useMutation({
-    mutationFn: async ({ imageId, pid, prompt }: { imageId: string; pid: number; prompt: string }) => {
+    mutationFn: async ({
+      imageId,
+      pid,
+      prompt,
+      referenceImageUrls,
+    }: {
+      imageId: string;
+      pid: number;
+      prompt: string;
+      referenceImageUrls?: string[];
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${pid}/images/${imageId}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          editPrompt: prompt,
+          referenceImageUrls: referenceImageUrls?.length ? referenceImageUrls : undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -350,6 +421,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       toast({ title: "Image edited" });
       setEditRecord(null);
       setEditPrompt("");
+      setEditReferenceImages([]);
       refetch();
     },
     onError: (err) => {
@@ -360,10 +432,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const generateMoreMutation = useMutation({
     mutationFn: async ({ pid, payload }: { pid: number; payload: {
       imageTypes?: string[];
-      customPrompt?: string;
-      aspectRatio?: GraphicsAspectRatio;
-      quality?: GraphicsQuality;
-      promptReferenceImageUrls?: string[];
+      typeConfigs?: Record<string, {
+        customPrompt?: string;
+        aspectRatio?: GraphicsAspectRatio;
+        quality?: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
     } }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${pid}/generate`, {
         method: "POST",
@@ -424,33 +498,28 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const canContinue = () => {
     if (step === 1) return productName.trim().length > 0;
-    if (step === 2) return selectedImageTypes.length > 0;
-    if (step === 3) return customPrompt.trim().length > 0;
+    if (step === 2) {
+      if (selectedImageTypes.length === 0) return false;
+      if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
+      return true;
+    }
     return true;
   };
 
   const handleContinue = () => {
-    if (step === 2 && !selectedImageTypes.includes("custom")) {
+    if (step === 2) {
       if (!requireImageCredits(selectedImageTypes.length)) return;
       createProject.mutate({
-        name: `${productName} Project`,
-        productName,
-        category: wizardCategory,
-        sourceImageUrls: uploadedImages,
+        createBody: {
+          name: `${productName} Project`,
+          productName,
+          category: wizardCategory,
+          sourceImageUrls: uploadedImages,
+          imageTypes: selectedImageTypes,
+          auditId,
+        },
         imageTypes: selectedImageTypes,
-        customPrompt: undefined,
-        auditId,
-      });
-    } else if (step === 3) {
-      if (!requireImageCredits(selectedImageTypes.length)) return;
-      createProject.mutate({
-        name: `${productName} Project`,
-        productName,
-        category: wizardCategory,
-        sourceImageUrls: uploadedImages,
-        imageTypes: selectedImageTypes,
-        customPrompt: customPrompt.trim() || undefined,
-        auditId,
+        typeConfigs: graphicsTypeConfigsPayload,
       });
     } else {
       setStep((s) => (s + 1) as Step);
@@ -479,13 +548,19 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const handleEdit = (record: ImageRecord) => {
     setEditRecord(record);
     setEditPrompt("");
+    setEditReferenceImages([]);
   };
 
   const handleEditSubmit = () => {
     if (!editRecord || !editPrompt.trim() || !activeProjectId) return;
     setLoading(editRecord.id, true);
     editMutation.mutate(
-      { imageId: editRecord.id, pid: activeProjectId, prompt: editPrompt },
+      {
+        imageId: editRecord.id,
+        pid: activeProjectId,
+        prompt: editPrompt,
+        referenceImageUrls: editReferenceImages.length > 0 ? editReferenceImages : undefined,
+      },
       { onSettled: () => setLoading(editRecord.id, false) },
     );
   };
@@ -524,9 +599,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         <div className="text-center space-y-6 max-w-md mx-auto">
           {/* Centered loader */}
           <div className="relative w-20 h-20 mx-auto">
-            <div className="absolute inset-0 rounded-full border-4 border-purple-100" />
-            <div className="absolute inset-0 rounded-full border-4 border-purple-600 border-t-transparent animate-spin" />
-            <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-purple-600 animate-spin" />
+            <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
+            <div className="absolute inset-0 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
+            <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-orange-500 animate-spin" />
           </div>
 
           {/* Status text */}
@@ -539,7 +614,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
           {/* Progress bar */}
           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-purple-600 transition-all duration-500" style={{ width: `${Math.min(progress, 95)}%` }} />
+            <div className="h-full rounded-full bg-orange-500 transition-all duration-500" style={{ width: `${Math.min(progress, 95)}%` }} />
           </div>
 
           {/* Percentage */}
@@ -561,14 +636,13 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           <div className="flex items-center gap-2">
             {canEdit && (
               <Button
-                className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+                className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
                 disabled={!canAffordImages(1)}
                 onClick={() => {
                   if (!requireImageCredits(1)) return;
                   setShowMore(true);
-                  setMoreStep("select");
-                  setSelectedImageTypes([]);
-                  setCustomPrompt("");
+                  setMoreImageTypes([]);
+                  setMoreImageTypePromptConfigs({});
                 }}
               >
                 <Sparkles className="w-4 h-4" />
@@ -602,7 +676,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         )}
 
         {/* Edit Dialog */}
-        <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); } }}>
+        <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); setEditReferenceImages([]); } }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -625,8 +699,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                       {loadingIds.has(editRecord.id) ? (
                         <>
                           <div className="relative">
-                            <div className="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
-                            <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-purple-600" />
+                            <div className="w-12 h-12 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+                            <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-orange-500" />
                           </div>
                           <div className="text-center px-4">
                             <p className="text-sm font-medium text-slate-700">Generating edit...</p>
@@ -652,6 +726,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     className="resize-none"
                   />
                 </div>
+                <ReferenceImageUploadField
+                  images={editReferenceImages}
+                  onImagesChange={setEditReferenceImages}
+                  label="Reference images (optional)"
+                  hint="Upload style or content references to guide the edit."
+                />
                 <div className="flex justify-end gap-2 pt-2 border-t">
                   <Button variant="outline" onClick={() => setEditRecord(null)} disabled={loadingIds.has(editRecord.id)}>
                     Cancel
@@ -725,22 +805,18 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         <Dialog open={showMore} onOpenChange={(o) => {
           if (!o) {
             setShowMore(false);
-            setMoreStep("select");
             setMoreImageTypes([]);
-            setMoreCustomPrompt("");
-            setMorePromptReferenceImages([]);
-            setMoreGraphicsAspectRatio("1:1");
-            setMoreGraphicsQuality("standard");
+            setMoreImageTypePromptConfigs({});
+            setMoreCustomizeTypeId(null);
           }
         }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Generate More Images</DialogTitle>
             </DialogHeader>
 
-            {/* Step 1: Select Image Types */}
-            {moreStep === "select" && (
-              <div className="space-y-4">
+            {/* Select image types and customize */}
+            <div className="space-y-4">
                 <p className="text-sm text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -759,13 +835,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                       <div
                         key={type.id}
                         onClick={() => {
-                          setMoreImageTypes((prev) =>
-                            prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                          );
+                          if (!moreImageTypes.includes(type.id)) {
+                            setMoreImageTypes((prev) => [...prev, type.id]);
+                          }
+                          setMoreCustomizeTypeId(type.id);
                         }}
                         className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
                           isSelected
-                            ? "border-purple-600 bg-purple-50/30"
+                            ? "border-orange-500 bg-orange-50/30"
                             : "border-slate-200 bg-white hover:border-slate-300"
                         }`}
                       >
@@ -773,12 +850,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                           <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                              <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
                                 {type.label}
                               </h3>
                               <div
                                 className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                  isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                                  isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
                                 }`}
                               >
                                 {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -794,102 +871,53 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
                 {moreImageTypes.length > 0 && (
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+                    <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
                       {moreImageTypes.length} selected
                     </span>
                     <span className="text-slate-400">~{moreImageTypes.length * 30}s total</span>
                   </div>
                 )}
 
+                {moreImageTypes.length > 0 && (
+                  <SelectedGraphicsTypesSummary
+                    imageTypes={IMAGE_TYPES}
+                    selectedTypeIds={moreImageTypes}
+                    getConfig={getMoreImageTypeConfig}
+                    onEdit={setMoreCustomizeTypeId}
+                    onRemove={(typeId) => {
+                      setMoreImageTypes((prev) => prev.filter((id) => id !== typeId));
+                      if (moreCustomizeTypeId === typeId) setMoreCustomizeTypeId(null);
+                    }}
+                  />
+                )}
+
+                <ImageTypeCustomizeDialog
+                  open={moreCustomizeTypeId !== null}
+                  onOpenChange={(open) => { if (!open) setMoreCustomizeTypeId(null); }}
+                  type={IMAGE_TYPES.find((t) => t.id === moreCustomizeTypeId) ?? null}
+                  config={moreCustomizeTypeId ? getMoreImageTypeConfig(moreCustomizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+                  onConfigChange={(patch) => {
+                    if (moreCustomizeTypeId) updateMoreImageTypeConfig(moreCustomizeTypeId, patch);
+                  }}
+                  promptMaxChars={PROMPT_MAX_CHARS}
+                  examplePrompts={moreCustomizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+                />
+
                 <div className="flex items-center justify-end gap-3 pt-4 border-t">
-                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => {
+                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg"                   onClick={() => {
                     setMoreImageTypes([]);
-                    setMoreCustomPrompt("");
+                    setMoreImageTypePromptConfigs({});
+                    setMoreCustomizeTypeId(null);
                   }}>
                     Clear
                   </Button>
                   <Button
-                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-                    disabled={moreImageTypes.length === 0 || !canAffordImages(moreImageTypes.length)}
-                    onClick={() => {
-                      if (!requireImageCredits(moreImageTypes.length)) return;
-                      if (moreImageTypes.includes("custom")) {
-                        setMoreStep("custom");
-                      } else {
-                        const pid = displayProject?.id ?? activeProjectId ?? 0;
-                        if (pid) {
-                          generateMoreMutation.mutate({
-                            pid,
-                            payload: {
-                              imageTypes: moreImageTypes,
-                            },
-                          });
-                        }
-                        setShowMore(false);
-                      }
-                    }}
-                  >
-                    {moreImageTypes.includes("custom") ? "Continue" : "Generate"}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Custom Prompt */}
-            {moreStep === "custom" && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-purple-600">
-                    <ArrowLeft className="w-4 h-4" />
-                  </span>
-                  <span className="font-medium text-slate-900">Custom Image</span>
-                </div>
-
-                <CustomPromptGenerationPanel
-                  customPrompt={moreCustomPrompt}
-                  onCustomPromptChange={setMoreCustomPrompt}
-                  referenceImages={morePromptReferenceImages}
-                  onReferenceImagesChange={setMorePromptReferenceImages}
-                  aspectRatio={moreGraphicsAspectRatio}
-                  onAspectRatioChange={setMoreGraphicsAspectRatio}
-                  quality={moreGraphicsQuality}
-                  onQualityChange={setMoreGraphicsQuality}
-                  promptMaxChars={PROMPT_MAX_CHARS}
-                />
-
-                {moreImageTypes.filter(s => s !== "custom").length > 0 && (
-                  <div className="pt-3 border-t border-slate-100">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Also generating:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {moreImageTypes.filter(s => s !== "custom").map((id) => {
-                        const type = [
-                          { id: "hero", label: "Hero Shot" },
-                          { id: "lifestyle", label: "Lifestyle" },
-                          { id: "callouts", label: "Callouts" },
-                          { id: "size", label: "Size Reference" },
-                          { id: "beforeafter", label: "Before/After" },
-                          { id: "bundle", label: "Bundle" },
-                          { id: "social", label: "Social Proof" },
-                        ].find((t) => t.id === id);
-                        return (
-                          <span key={id} className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
-                            {type?.label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setMoreStep("select")}>
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                  </Button>
-                  <Button
-                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-                    disabled={!moreCustomPrompt.trim() || !canAffordImages(moreImageTypes.length)}
+                    className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
+                    disabled={
+                      moreImageTypes.length === 0
+                      || !canAffordImages(moreImageTypes.length)
+                      || (moreImageTypes.includes("custom") && !getMoreImageTypeConfig("custom").customPrompt.trim())
+                    }
                     onClick={() => {
                       if (!requireImageCredits(moreImageTypes.length)) return;
                       const pid = displayProject?.id ?? activeProjectId ?? 0;
@@ -898,22 +926,18 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                           pid,
                           payload: {
                             imageTypes: moreImageTypes,
-                            customPrompt: moreCustomPrompt.trim(),
-                            aspectRatio: moreGraphicsAspectRatio,
-                            quality: moreGraphicsQuality,
-                            promptReferenceImageUrls: morePromptReferenceImages.length > 0 ? morePromptReferenceImages : undefined,
+                            typeConfigs: moreTypeConfigsPayload,
                           },
                         });
                       }
                       setShowMore(false);
                     }}
                   >
-                    Generate {moreImageTypes.length} Image{moreImageTypes.length > 1 ? "s" : ""}
+                    Generate {moreImageTypes.length > 0 ? `${moreImageTypes.length} Image${moreImageTypes.length > 1 ? "s" : ""}` : ""}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
               </div>
-            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -929,7 +953,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         <p className="text-sm text-red-400">{displayProject?.errorMessage || "Please try again or contact support."}</p>
         <Button
           variant="outline"
-          className="mt-2 gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+          className="mt-2 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
           onClick={() => {
             setProjectId(null);
             setStep(1);
@@ -972,7 +996,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {/* Step indicator — compact on mobile */}
       <div className="mb-6 sm:mb-8 w-full min-w-0">
         <div className="sm:hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
             Step {step} of {STEPS.length}
           </p>
           <p className="text-sm font-semibold text-slate-900 mt-0.5">
@@ -984,15 +1008,15 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             <div key={s.id} className="flex items-center flex-1 min-w-0">
               <div className="flex flex-col items-center min-w-0 px-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  s.id < step ? "bg-purple-600 text-white" :
-                  s.id === step ? "bg-purple-600 text-white" :
+                  s.id < step ? "bg-orange-500 text-white" :
+                  s.id === step ? "bg-orange-500 text-white" :
                   "bg-white text-slate-400 border-2 border-slate-200"
                 }`}>
                   {s.id < step ? <Check className="w-4 h-4" /> : s.id}
                 </div>
                 <div className="mt-2 text-center min-w-0">
-                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-purple-600" : "text-slate-400"}`}>
-                    Step {s.id} of 3
+                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.id === step ? "text-orange-600" : "text-slate-400"}`}>
+                    Step {s.id} of {STEPS.length}
                   </p>
                   <p className={`text-sm font-medium truncate max-w-[7rem] ${s.id === step ? "text-slate-900" : "text-slate-400"}`}>
                     {s.label}
@@ -1000,7 +1024,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 </div>
               </div>
               {idx < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-2 mb-6 min-w-[1rem] ${s.id < step ? "bg-purple-600" : "bg-slate-200"}`} />
+                <div className={`flex-1 h-0.5 mx-2 mb-6 min-w-[1rem] ${s.id < step ? "bg-orange-500" : "bg-slate-200"}`} />
               )}
             </div>
           ))}
@@ -1011,8 +1035,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {step === 1 && (
         <div className="space-y-6">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Upload className="w-5 h-5 text-purple-600" />
+            <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Upload className="w-5 h-5 text-orange-600" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900">Upload Product</h2>
@@ -1022,18 +1046,18 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
           {/* Upload area */}
           <div
-            className="border-2 border-dashed border-purple-200 rounded-xl p-12 text-center bg-purple-50/20 hover:bg-purple-50/30 transition-colors cursor-pointer"
+            className="border-2 border-dashed border-orange-200 rounded-xl p-12 text-center bg-orange-50/20 hover:bg-orange-50/30 transition-colors cursor-pointer"
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
           >
-            <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center mx-auto mb-4">
-              <Upload className="w-8 h-8 text-purple-400" />
+            <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-4">
+              <Upload className="w-8 h-8 text-orange-400" />
             </div>
             <p className="text-sm font-medium text-slate-700 mb-1">Drag & drop your product images here</p>
             <p className="text-sm text-slate-400 mb-4">or</p>
             <Button
-              className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
+              className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
               onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
             >
               <Upload className="w-4 h-4 mr-2" />
@@ -1091,7 +1115,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                         {AMAZON_CATEGORIES.filter((c) => c.toLowerCase().includes(categorySearch.toLowerCase())).map((c) => (
                           <div
                             key={c}
-                            className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-purple-50 ${wizardCategory === c ? "bg-purple-50 text-purple-700 font-medium" : "text-slate-700"}`}
+                            className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-orange-50 ${wizardCategory === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
                             onClick={() => { setWizardCategory(c); setCategorySearch(c); setShowCategoryDropdown(false); }}
                           >
                             {c}
@@ -1111,8 +1135,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {step === 2 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Wand2 className="w-4 h-4 text-purple-600" />
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Wand2 className="w-4 h-4 text-orange-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Select Graphics</h2>
@@ -1127,13 +1151,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                 <div
                   key={type.id}
                   onClick={() => {
-                    setSelectedImageTypes((prev) =>
-                      prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                    );
+                    if (!selectedImageTypes.includes(type.id)) {
+                      setSelectedImageTypes((prev) => [...prev, type.id]);
+                    }
+                    setCustomizeTypeId(type.id);
                   }}
                   className={`relative w-full rounded-xl border-2 p-4 sm:p-3 cursor-pointer transition-all ${
                     isSelected
-                      ? "border-purple-600 bg-purple-50/30"
+                      ? "border-orange-500 bg-orange-50/30"
                       : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
@@ -1141,12 +1166,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     <span className="text-xl leading-none mt-0.5">{type.icon}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
+                        <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
                           {type.label}
                         </h3>
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
+                            isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
                           }`}
                         >
                           {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -1162,28 +1187,38 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
           {selectedImageTypes.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
+              <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
                 {selectedImageTypes.length} selected
               </span>
               <span className="text-slate-400">~{selectedImageTypes.length * 30}s total</span>
             </div>
           )}
-        </div>
-      )}
 
-      {/* Step 3: Custom Prompt (only if custom selected) */}
-      {step === 3 && (
-        <CustomPromptGenerationPanel
-          customPrompt={customPrompt}
-          onCustomPromptChange={setCustomPrompt}
-          referenceImages={promptReferenceImages}
-          onReferenceImagesChange={setPromptReferenceImages}
-          aspectRatio={graphicsAspectRatio}
-          onAspectRatioChange={setGraphicsAspectRatio}
-          quality={graphicsQuality}
-          onQualityChange={setGraphicsQuality}
-          promptMaxChars={PROMPT_MAX_CHARS}
-        />
+          {selectedImageTypes.length > 0 && (
+            <SelectedGraphicsTypesSummary
+              imageTypes={IMAGE_TYPES}
+              selectedTypeIds={selectedImageTypes}
+              getConfig={getImageTypeConfig}
+              onEdit={setCustomizeTypeId}
+              onRemove={(typeId) => {
+                setSelectedImageTypes((prev) => prev.filter((id) => id !== typeId));
+                if (customizeTypeId === typeId) setCustomizeTypeId(null);
+              }}
+            />
+          )}
+
+          <ImageTypeCustomizeDialog
+            open={customizeTypeId !== null}
+            onOpenChange={(open) => { if (!open) setCustomizeTypeId(null); }}
+            type={IMAGE_TYPES.find((t) => t.id === customizeTypeId) ?? null}
+            config={customizeTypeId ? getImageTypeConfig(customizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+            onConfigChange={(patch) => {
+              if (customizeTypeId) updateImageTypeConfig(customizeTypeId, patch);
+            }}
+            promptMaxChars={PROMPT_MAX_CHARS}
+            examplePrompts={customizeTypeId === "custom" ? CUSTOM_EXAMPLES : undefined}
+          />
+        </div>
       )}
 
       {/* Actions */}
@@ -1196,12 +1231,11 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             </Button>
           )}
           <Button
-            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6 min-h-11"
+            className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6 min-h-11"
             disabled={
               !canContinue()
               || createProject.isPending
-              || ((step === 2 && !selectedImageTypes.includes("custom")) || step === 3)
-                && !canAffordImages(selectedImageTypes.length)
+              || (step === 2 && !canAffordImages(selectedImageTypes.length))
             }
             onClick={handleContinue}
           >
@@ -1212,7 +1246,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               </>
             ) : (
               <>
-                {step === 2 && !selectedImageTypes.includes("custom") ? "Generate" : step === 3 ? "Generate" : "Continue"}
+                {step === 2 ? "Generate" : "Continue"}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}

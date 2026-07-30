@@ -11,6 +11,7 @@ export async function generateListingContent(data: {
   currentBullets: string[];
   currentKeywords: string[];
   auditSummary?: string;
+  customPrompt?: string;
 }): Promise<GeneratedContent> {
   const prompt = `You are an expert Amazon listing copywriter and SEO specialist. Create Amazon-compliant, optimized listing content for the following product. You MUST follow every Amazon rule below exactly — non-compliant content may be suppressed by Amazon.
 
@@ -19,6 +20,7 @@ ${data.brandName ? `Brand: ${data.brandName}` : ""}
 ${data.asin ? `ASIN: ${data.asin}` : ""}
 ${data.category ? `Category: ${data.category}` : ""}
 ${data.imageUrls && data.imageUrls.length > 0 ? `Product Images: ${data.imageUrls.length} image(s) provided for reference` : ""}
+${data.customPrompt?.trim() ? `\nSeller creative direction (incorporate where appropriate without violating Amazon rules):\n${data.customPrompt.trim()}` : ""}
 
 Current Title: ${data.currentTitle}
 Current Bullet Points:

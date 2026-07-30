@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, avg, count, sql, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable, competitorsTable } from "@workspace/db";
+import { db, auditsTable, competitorsTable, graphicsProjectsTable } from "@workspace/db";
 import {
   CreateAuditBody,
   GetAuditParams,
@@ -32,6 +32,37 @@ import {
 } from "../lib/image-generator";
 import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import {
+  resolveTeamAndWorkspace,
+  getAccountOwnerId,
+  getActiveWorkspaceId,
+  getWorkspaceCtx,
+  requireWorkspaceAction,
+  loadWorkedProjects,
+  viewOwnIdFilter,
+  assertProjectViewAccess,
+  workspaceOwnerFilter,
+} from "../lib/workspace-route-helpers";
+import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
+import {
+  buildAuditExportBundle,
+  buildExcelBuffer,
+  buildZipBuffer,
+  exportFilename,
+} from "../lib/amazon-listing-export.js";
+import {
+  buildShopifyExportBundle,
+  buildShopifyCsvBuffer,
+  buildShopifyZipBuffer,
+  shopifyExportFilename,
+} from "../lib/shopify-listing-export.js";
+
+export type ExportPlatform = "amazon" | "shopify";
+
+function resolveExportPlatform(input: unknown): ExportPlatform {
+  const value = typeof input === "string" ? input.trim().toLowerCase() : "amazon";
+  return value === "shopify" ? "shopify" : "amazon";
+}
 
 const router: IRouter = Router();
 
@@ -56,29 +87,24 @@ function isAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
-async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const userId = (req as AuthedRequest).userId;
-  const team = await resolveTeamContext(userId);
-  (req as TeamAuthedRequest).team = team;
-  next();
-}
-
-function requireWriteAccess(req: Request, res: Response, next: NextFunction): void {
-  const team = (req as TeamAuthedRequest).team;
-  if (!team) {
-    res.status(401).json({ error: "Team context not resolved" });
-    return;
-  }
-  if (team.role === "viewer") {
-    res.status(403).json({ error: "Forbidden: viewers cannot modify data" });
-    return;
-  }
-  next();
-}
-
 function getEffectiveUserId(req: Request): string {
+  if ((req as { workspace?: unknown }).workspace) return getAccountOwnerId(req);
   const team = (req as TeamAuthedRequest).team;
   return team?.ownerUserId ?? (req as AuthedRequest).userId;
+}
+
+async function auditScopeWhere(req: Request, extra?: ReturnType<typeof and>) {
+  const ownerId = getEffectiveUserId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+  const worked = await loadWorkedProjects(req);
+  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "audits", worked, "audit", auditsTable);
+  const base = and(
+    workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
+    eq(auditsTable.isDeleted, 0),
+    ownFilter,
+    extra,
+  );
+  return base;
 }
 
 function getCreditCtx(req: Request): TeamAwareContext {
@@ -140,8 +166,8 @@ async function replaceAplusModule(
   return updated;
 }
 
-router.get("/audits", requireAuth, resolveTeam, async (req, res): Promise<void> => {
-  const ownerId = getEffectiveUserId(req);
+router.get("/audits", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const where = await auditScopeWhere(req);
   const audits = await db
     .select({
       id: auditsTable.id,
@@ -154,12 +180,12 @@ router.get("/audits", requireAuth, resolveTeam, async (req, res): Promise<void> 
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)))
+    .where(where)
     .orderBy(sql`${auditsTable.createdAt} DESC`);
   res.json(audits);
 });
 
-router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "create"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const parsed = CreateAuditBody.safeParse(req.body);
@@ -182,6 +208,7 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
     .insert(auditsTable)
     .values({
       userId: ownerId,
+      workspaceId: getActiveWorkspaceId(req),
       projectName: projectName ?? productName,
       productName,
       asin: asin ?? null,
@@ -242,7 +269,7 @@ router.post("/audits", requireAuth, resolveTeam, requireWriteAccess, async (req,
   }
 });
 
-router.post("/audits/draft", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "create"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const parsed = CreateAuditBody.safeParse(req.body);
   if (!parsed.success) {
@@ -256,6 +283,7 @@ router.post("/audits/draft", requireAuth, resolveTeam, requireWriteAccess, async
     .insert(auditsTable)
     .values({
       userId: ownerId,
+      workspaceId: getActiveWorkspaceId(req),
       projectName: projectName ?? productName,
       productName,
       asin: asin ?? null,
@@ -274,25 +302,25 @@ router.post("/audits/draft", requireAuth, resolveTeam, requireWriteAccess, async
   res.status(201).json(audit);
 });
 
-router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<void> => {
-  const ownerId = getEffectiveUserId(req);
+router.get("/audits/stats", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const scopeWhere = await auditScopeWhere(req);
   const [stats] = await db
     .select({
       totalAudits: count(),
       averageScore: avg(auditsTable.overallScore),
     })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+    .where(scopeWhere);
 
   const highScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.overallScore} >= 70`));
+    .where(await auditScopeWhere(req, sql`${auditsTable.overallScore} >= 70`));
 
   const lowScoreResult = await db
     .select({ c: count() })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0), sql`${auditsTable.overallScore} < 50`));
+    .where(await auditScopeWhere(req, sql`${auditsTable.overallScore} < 50`));
 
   const recentAudits = await db
     .select({
@@ -306,7 +334,7 @@ router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<
       updatedAt: auditsTable.updatedAt,
     })
     .from(auditsTable)
-    .where(and(eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)))
+    .where(scopeWhere)
     .orderBy(sql`${auditsTable.createdAt} DESC`)
     .limit(5);
 
@@ -319,9 +347,153 @@ router.get("/audits/stats", requireAuth, resolveTeam, async (req, res): Promise<
   });
 });
 
-router.get("/audits/:id", requireAuth, resolveTeam, async (req, res): Promise<void> => {
+function resolvePublicBaseUrl(req: Request): string {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const proto = typeof forwardedProto === "string" ? forwardedProto.split(",")[0]!.trim() : req.protocol;
+  const host = req.get("host") ?? "localhost";
+  return `${proto}://${host}`;
+}
+
+async function loadAuditForExport(req: Request, auditId: number) {
   const userId = (req as AuthedRequest).userId;
-  const ownerId = getEffectiveUserId(req);
+  const whereClause = isAdmin(userId)
+    ? and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0))
+    : await auditScopeWhere(req, eq(auditsTable.id, auditId));
+
+  const [audit] = await db.select().from(auditsTable).where(whereClause).limit(1);
+  if (!audit) return null;
+
+  const [graphicsProject] = await db
+    .select()
+    .from(graphicsProjectsTable)
+    .where(and(
+      eq(graphicsProjectsTable.auditId, auditId),
+      eq(graphicsProjectsTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  return { audit, graphicsProject: graphicsProject ?? null };
+}
+
+router.get("/audits/export/marketplaces", requireAuth, (_req, res): void => {
+  res.json({ marketplaces: AMAZON_MARKETPLACES });
+});
+
+router.get("/audits/:id/export/excel", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const auditId = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(auditId)) {
+    res.status(400).json({ error: "Invalid audit id" });
+    return;
+  }
+
+  const loaded = await loadAuditForExport(req, auditId);
+  if (!loaded) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const platform = resolveExportPlatform(req.query.platform);
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+
+  try {
+    if (platform === "shopify") {
+      const bundle = buildShopifyExportBundle({
+        audit: loaded.audit,
+        graphicsImageRecords,
+        publicBaseUrl,
+      });
+      const buffer = buildShopifyCsvBuffer(bundle);
+      const filename = shopifyExportFilename(bundle.filenameBase, "csv");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+      return;
+    }
+
+    const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+    const bundle = buildAuditExportBundle({
+      audit: loaded.audit,
+      marketplaceId: marketplace,
+      graphicsImageRecords,
+      publicBaseUrl,
+    });
+    const buffer = await buildExcelBuffer(bundle);
+    const filename = exportFilename(bundle.filenameBase, "xlsx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Export failed";
+    res.status(400).json({ error: message });
+  }
+});
+
+router.get("/audits/:id/export/zip", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const auditId = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(auditId)) {
+    res.status(400).json({ error: "Invalid audit id" });
+    return;
+  }
+
+  const loaded = await loadAuditForExport(req, auditId);
+  if (!loaded) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const platform = resolveExportPlatform(req.query.platform);
+  const publicBaseUrl = resolvePublicBaseUrl(req);
+  const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+  const graphicsProjectId = loaded.graphicsProject?.id ?? null;
+
+  try {
+    if (platform === "shopify") {
+      const bundle = buildShopifyExportBundle({
+        audit: loaded.audit,
+        graphicsImageRecords,
+        publicBaseUrl,
+      });
+      const csvBuffer = buildShopifyCsvBuffer(bundle);
+      const zipBuffer = await buildShopifyZipBuffer({
+        bundle,
+        csvBuffer,
+        auditId,
+        graphicsProjectId,
+      });
+      const filename = shopifyExportFilename(bundle.filenameBase, "zip");
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(zipBuffer);
+      return;
+    }
+
+    const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : "US";
+    const bundle = buildAuditExportBundle({
+      audit: loaded.audit,
+      marketplaceId: marketplace,
+      graphicsImageRecords,
+      publicBaseUrl,
+    });
+    const excelBuffer = await buildExcelBuffer(bundle);
+    const zipBuffer = await buildZipBuffer({
+      bundle,
+      excelBuffer,
+      auditId,
+      graphicsProjectId,
+    });
+    const filename = exportFilename(bundle.filenameBase, "zip");
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(zipBuffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Export failed";
+    res.status(400).json({ error: message });
+  }
+});
+
+router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = GetAuditParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -330,7 +502,7 @@ router.get("/audits/:id", requireAuth, resolveTeam, async (req, res): Promise<vo
 
   const whereClause = isAdmin(userId)
     ? and(eq(auditsTable.id, params.data.id), eq(auditsTable.isDeleted, 0))
-    : and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0));
+    : await auditScopeWhere(req, eq(auditsTable.id, params.data.id));
 
   const [audit] = await db
     .select()
@@ -361,8 +533,7 @@ router.get("/audits/:id", requireAuth, resolveTeam, async (req, res): Promise<vo
   });
 });
 
-router.delete("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
-  const ownerId = getEffectiveUserId(req);
+router.delete("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "delete"), async (req, res): Promise<void> => {
   const params = DeleteAuditParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -372,7 +543,7 @@ router.delete("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async
   const [audit] = await db
     .update(auditsTable)
     .set({ isDeleted: 1, deletedAt: new Date() })
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId)))
+    .where(await auditScopeWhere(req, eq(auditsTable.id, params.data.id)))
     .returning();
 
   if (!audit) {
@@ -383,7 +554,7 @@ router.delete("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async
   res.sendStatus(204);
 });
 
-router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -391,7 +562,7 @@ router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async 
   const [existing] = await db
     .select()
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+    .where(await auditScopeWhere(req, eq(auditsTable.id, id)));
 
   if (!existing) { res.status(404).json({ error: "Audit not found" }); return; }
 
@@ -427,7 +598,7 @@ router.patch("/audits/:id", requireAuth, resolveTeam, requireWriteAccess, async 
   res.json(updated);
 });
 
-router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -444,7 +615,7 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAc
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
@@ -464,12 +635,30 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeam, requireWriteAc
   }
 });
 
-router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { prompt: rawPrompt, moduleIds: rawModuleIds } = req.body as { prompt?: string; moduleIds?: string[] };
+  const {
+    prompt: rawPrompt,
+    moduleIds: rawModuleIds,
+    imageCustomPrompt,
+    promptReferenceImageUrls,
+    quality,
+    moduleConfigs,
+  } = req.body as {
+    prompt?: string;
+    moduleIds?: string[];
+    imageCustomPrompt?: string;
+    promptReferenceImageUrls?: string[];
+    quality?: "standard" | "hd";
+    moduleConfigs?: Record<string, {
+      imageCustomPrompt?: string;
+      promptReferenceImageUrls?: string[];
+      quality?: "standard" | "hd";
+    }>;
+  };
 
   let moduleIds: AplusModule["id"][];
   try {
@@ -479,7 +668,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const existingAplus = readLegacyGeneratedImages(audit).aplus;
@@ -564,6 +753,10 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
         content,
         imageUrls: audit.imageUrls as string[],
         moduleIds,
+        imageCustomPrompt: imageCustomPrompt?.trim() || undefined,
+        promptReferenceImageUrls,
+        quality,
+        moduleConfigs,
         onModuleComplete: async (module, done, total) => {
           newlyGenerated.push(module);
           const merged = mergeAplusModules(preservedModules, newlyGenerated);
@@ -604,7 +797,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeam, requireWrite
   })();
 });
 
-router.post("/generate-content", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
 
@@ -625,14 +818,19 @@ router.post("/generate-content", requireAuth, resolveTeam, requireWriteAccess, a
   await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "content", { userId: ownerId });
 
   try {
+    const imageUrls = [
+      ...(parsed.data.promptReferenceImageUrls ?? []),
+      ...(parsed.data.imageUrls ?? []),
+    ];
     const generatedContent = await generateListingContent({
       productName: parsed.data.productName,
       brandName: parsed.data.brandName,
       category: parsed.data.category,
-      imageUrls: parsed.data.imageUrls,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       currentTitle: parsed.data.title,
       currentBullets: parsed.data.bulletPoints,
       currentKeywords: parsed.data.targetKeywords,
+      customPrompt: parsed.data.customPrompt,
     });
     res.json(generatedContent);
   } catch (err) {
@@ -641,7 +839,7 @@ router.post("/generate-content", requireAuth, resolveTeam, requireWriteAccess, a
   }
 });
 
-router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -655,22 +853,32 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWri
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  const body = (req.body ?? {}) as {
+    customPrompt?: string;
+    promptReferenceImageUrls?: string[];
+  };
 
   await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
 
   try {
+    const imageUrls = [
+      ...(body.promptReferenceImageUrls ?? []),
+      ...((audit.imageUrls as string[]) ?? []),
+    ];
     const generatedContent = await generateListingContent({
       productName: audit.productName,
       asin: audit.asin,
       brandName: audit.brandName,
       category: audit.category,
-      imageUrls: audit.imageUrls as string[],
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       currentTitle: audit.title,
       currentBullets: audit.bulletPoints as string[],
       currentKeywords: audit.targetKeywords as string[],
       auditSummary: audit.result?.summary,
+      customPrompt: body.customPrompt,
     });
 
     await db.update(auditsTable)
@@ -684,7 +892,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeam, requireWri
   }
 });
 
-router.post("/audits/:id/generate-images", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-images", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -698,7 +906,7 @@ router.post("/audits/:id/generate-images", requireAuth, resolveTeam, requireWrit
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
@@ -756,7 +964,7 @@ function buildAllRecordsFromAudit(audit: typeof auditsTable.$inferSelect): Image
   return records;
 }
 
-router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -776,7 +984,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -814,7 +1022,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
   }
 });
 
-router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -834,7 +1042,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -846,7 +1054,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
     return;
   }
 
-  const body = req.body as { prompt: string; style?: ImageStyle; aspectRatio?: AspectRatio };
+  const body = req.body as { prompt: string; referenceImageUrls?: string[]; style?: ImageStyle; aspectRatio?: AspectRatio };
   if (!body?.prompt?.trim()) {
     res.status(400).json({ error: "prompt is required" });
     return;
@@ -861,6 +1069,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
       category: audit.category,
       existingRecord,
       editPrompt: body.prompt,
+      referenceImageUrls: body.referenceImageUrls,
       style: body.style,
       aspectRatio: body.aspectRatio,
     });
@@ -877,7 +1086,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeam, re
   }
 });
 
-router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
@@ -895,7 +1104,7 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeam, 
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const aplus = readLegacyGeneratedImages(audit).aplus;
@@ -944,11 +1153,11 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeam, 
   }
 });
 
-router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
-  const body = req.body as { prompt?: string };
+  const body = req.body as { prompt?: string; referenceImageUrls?: string[] };
 
   if (isNaN(id) || !["hero", "features", "comparison", "brand_story"].includes(moduleId)) {
     res.status(400).json({ error: "Invalid parameters" });
@@ -967,7 +1176,7 @@ router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeam, requir
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(and(eq(auditsTable.id, id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const aplus = readLegacyGeneratedImages(audit).aplus;
@@ -990,6 +1199,7 @@ router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeam, requir
       content,
       existing,
       editPrompt: body.prompt.trim(),
+      referenceImageUrls: body.referenceImageUrls,
     });
 
     const saved = await replaceAplusModule(id, moduleId, updated);

@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { PageSeo } from "@/components/page-seo";
 import { cn } from "@/lib/utils";
-import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
+import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
+import { PlanCreditsTable } from "@/components/plan-credits-table";
+import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
+import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -113,15 +116,15 @@ const FALLBACK_PLANS: DisplayPlan[] = [
 
 function dbPlanToDisplay(p: DbPlan): DisplayPlan {
   const isHighlighted = p.isHighlighted || p.tag === "Most Popular";
-  const a = p.creditAllocations ?? {};
+  const counts = resolvePlanAllocationCounts(p);
   const includedFeatures: { text: string; included: boolean }[] = p.features.length > 0
     ? p.features.map((f) => ({ text: f, included: true }))
     : [
-        { text: `${a.audit ?? p.auditCredits ?? 0} listing audits/mo`, included: true },
-        { text: `${a.content ?? 0} AI content credits`, included: true },
-        { text: `${a.images ?? p.imageCredits ?? 0} image generation credits`, included: true },
-        { text: `${a.ebc ?? 0} A+ / EBC content credits`, included: true },
-        { text: `${a.competitors ?? 0} competitor analysis credits`, included: true },
+        { text: `${counts.audit >= 999 ? "Unlimited" : counts.audit} listing audits/mo`, included: true },
+        { text: `${counts.content} AI content credits`, included: true },
+        { text: `${counts.images} image generation credits`, included: true },
+        { text: `${counts.ebc} A+ / EBC content credits`, included: true },
+        { text: `${counts.competitors} competitor analysis credits`, included: true },
         { text: `${p.teamMembers} team members`, included: true },
         { text: "Score breakdown & suggestions", included: true },
       ];
@@ -218,29 +221,23 @@ export default function Pricing() {
         </Badge>
         <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight mb-4">Choose your plan</h1>
         <p className="text-xl text-slate-500 max-w-xl mx-auto mb-10">Start free. Scale as you grow. No hidden fees.</p>
-        <div className="inline-flex items-center gap-3 bg-slate-100 rounded-full p-1">
-          <button onClick={() => setYearly(false)} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${!yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>Monthly</button>
-          <button onClick={() => setYearly(true)} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${yearly ? "bg-white shadow text-slate-900" : "text-slate-500"}`}>
-            Yearly <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">Save 20%</span>
-          </button>
-        </div>
+        <BillingCycleToggle
+          yearly={yearly}
+          onChange={setYearly}
+          savingsPercent={maxPlanYearlySavingsPercent(dbPlans)}
+        />
       </section>
 
       {/* Plans Grid */}
       <section className="px-6 pb-20 -mt-6">
         <div className={cn("max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6", planGridClass)}>
           {plans.map((plan) => {
-            const a = plan.creditAllocations ?? {};
-            const totalCredits = computePlanCreditsFromAllocations(a, creditRules).totalCredits;
-
-            const activityRows = [
-              { label: "Audit", value: a.audit, color: "text-orange-700" },
-              { label: "Text Content", value: a.content, color: "text-blue-700" },
-              { label: "Images", value: a.images, color: "text-purple-700" },
-              { label: "A+ / EBC Content", value: a.ebc, color: "text-emerald-700" },
-              { label: "Competitors Analysis", value: a.competitors, color: "text-slate-700" },
-              { label: "Team Members", value: a.teamMembers, color: "text-slate-700" },
-            ];
+            const dbPlan = dbPlans.find((p) => p.name === plan.name);
+            const priceFields = dbPlan ?? {
+              priceMonthly: plan.monthlyPrice ?? 0,
+              priceYearly: plan.yearlyPrice ?? 0,
+            };
+            const priceDisplay = resolvePlanPriceDisplay(priceFields, yearly);
 
             return (
               <div
@@ -260,57 +257,51 @@ export default function Pricing() {
                 <div className="mb-4">
                   <h3 className="text-lg font-bold text-slate-900 mb-1">{plan.name}</h3>
                   <p className="text-sm text-slate-500 mb-3">{plan.description}</p>
-                  {plan.monthlyPrice !== null ? (
-                    <div className="flex items-end gap-1">
-                      <span className="text-4xl font-extrabold text-slate-900">
-                        ${yearly && plan.yearlyPrice ? plan.yearlyPrice * 12 : plan.monthlyPrice}
-                      </span>
-                      <span className="text-slate-400 mb-1">{yearly && plan.yearlyPrice ? "/year" : "/mo"}</span>
-                    </div>
-                  ) : (
+                  {priceDisplay.kind === "custom" ? (
                     <div className="text-3xl font-extrabold text-slate-900">Custom</div>
-                  )}
-                </div>
-
-                <div className="space-y-2.5 flex-1 mb-5">
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium uppercase tracking-wide border-b border-slate-100 pb-1.5">
-                    <span>Item</span>
-                    <span>Credits / Mo</span>
-                  </div>
-                  {activityRows.map((row) => (
-                    <div key={row.label} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">{row.label}</span>
-                      <span className={`font-semibold ${row.color}`}>
-                        {typeof row.value === "number" ? row.value.toLocaleString() : "—"}
-                      </span>
-                    </div>
-                  ))}
-
-                  <div className="border-t border-slate-200 pt-3 mt-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600 font-medium">Total Monthly Credits</span>
-                      <span className="font-bold text-slate-900">{totalCredits.toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  {plan.features.length > 0 && (
-                    <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
-                      {plan.features.map((feat) => (
-                        <div
-                          key={feat.text}
-                          className={`flex items-start gap-2 text-sm ${feat.included ? "text-slate-600" : "text-slate-400"}`}
-                        >
-                          {feat.included ? (
-                            <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                          ) : (
-                            <X className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
-                          )}
-                          <span>{feat.text}</span>
-                        </div>
-                      ))}
+                  ) : (
+                    <div>
+                      <div className="flex items-end gap-1">
+                        <span className="text-4xl font-extrabold text-slate-900">
+                          ${priceDisplay.amount}
+                        </span>
+                        <span className="text-slate-400 mb-1">{priceDisplay.period}</span>
+                      </div>
+                      {priceDisplay.billedYearly && (
+                        <p className="text-xs text-slate-400 mt-1">billed annually</p>
+                      )}
                     </div>
                   )}
                 </div>
+
+                <PlanCreditsTable
+                  plan={dbPlan ?? {
+                    auditCredits: plan.auditCredits ?? 0,
+                    aiCredits: plan.aiCredits ?? 0,
+                    imageCredits: plan.imageCredits ?? 0,
+                    teamMembers: plan.teamMembers ?? 0,
+                    creditAllocations: plan.creditAllocations,
+                  }}
+                  creditRules={creditRules}
+                />
+
+                {plan.features.length > 0 && (
+                  <div className="border-t border-slate-200 pt-3 mt-3 mb-5 space-y-2">
+                    {plan.features.map((feat) => (
+                      <div
+                        key={feat.text}
+                        className={`flex items-start gap-2 text-sm ${feat.included ? "text-slate-600" : "text-slate-400"}`}
+                      >
+                        {feat.included ? (
+                          <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <X className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
+                        )}
+                        <span>{feat.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <Button
                   variant={plan.ctaVariant}

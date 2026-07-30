@@ -6,6 +6,16 @@ import type { GraphicsImageRecord } from "@workspace/db";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "../lib/openai-image";
 import { getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import {
+  resolveTeamAndWorkspace,
+  getAccountOwnerId,
+  getActiveWorkspaceId,
+  requireWorkspaceAction,
+  loadWorkedProjects,
+  viewOwnIdFilter,
+  getWorkspaceCtx,
+  workspaceOwnerFilter,
+} from "../lib/workspace-route-helpers";
 import * as fs from "fs";
 import * as path from "path";
 import pLimit from "p-limit";
@@ -23,13 +33,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const userId = auth?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   (req as AuthedRequest).userId = userId;
-  next();
-}
-
-async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const userId = (req as AuthedRequest).userId;
-  const team = await resolveTeamContext(userId);
-  (req as TeamAuthedRequest).team = team;
   next();
 }
 
@@ -56,11 +59,17 @@ async function isAdminUser(userId: string): Promise<boolean> {
   return !!row;
 }
 
-function requireWriteAccess(req: Request, res: Response, next: NextFunction): void {
-  const team = (req as TeamAuthedRequest).team;
-  if (!team) { res.status(401).json({ error: "Team context not resolved" }); return; }
-  if (team.role === "viewer") { res.status(403).json({ error: "Forbidden: viewers cannot modify data" }); return; }
-  next();
+async function graphicsScopeWhere(req: Request, extra?: ReturnType<typeof eq>) {
+  const ownerId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+  const worked = await loadWorkedProjects(req);
+  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "graphics", worked, "graphics", graphicsProjectsTable);
+  return and(
+    workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
+    eq(graphicsProjectsTable.isDeleted, 0),
+    ownFilter,
+    extra,
+  );
 }
 
 function ensureDir(dir: string): void {
@@ -96,6 +105,31 @@ interface GraphicsSpec {
   type: "lifestyle" | "feature";
   index: number;
   prompt: string;
+  imageType?: string;
+  aspectRatio?: string;
+  quality?: string;
+  promptReferenceImageUrls?: string[];
+}
+
+type ImageTypeGenerationConfig = {
+  customPrompt?: string;
+  aspectRatio?: string;
+  quality?: "standard" | "hd";
+  promptReferenceImageUrls?: string[];
+};
+
+function resolveTypeConfig(
+  typeConfigs: Record<string, ImageTypeGenerationConfig> | undefined,
+  imageType: string,
+  legacy?: ImageTypeGenerationConfig,
+): ImageTypeGenerationConfig {
+  const perType = typeConfigs?.[imageType];
+  return {
+    customPrompt: perType?.customPrompt?.trim() || legacy?.customPrompt?.trim() || undefined,
+    aspectRatio: perType?.aspectRatio ?? legacy?.aspectRatio,
+    quality: perType?.quality ?? legacy?.quality,
+    promptReferenceImageUrls: perType?.promptReferenceImageUrls ?? legacy?.promptReferenceImageUrls,
+  };
 }
 
 function buildGraphicsSpecs(
@@ -146,7 +180,8 @@ function buildNewImageSpecs(
   productName: string,
   category: string | null,
   imageTypes: string[],
-  customPrompt?: string,
+  typeConfigs?: Record<string, ImageTypeGenerationConfig>,
+  legacyCustomPrompt?: string,
   existingRecords?: GraphicsImageRecord[],
 ): GraphicsSpec[] {
   const productDesc = `${productName}${category ? `, a ${category} product` : ""}`;
@@ -156,27 +191,61 @@ function buildNewImageSpecs(
   const specs: GraphicsSpec[] = [];
   let lifestyleIndex = existingLifestyle;
   let featureIndex = existingFeature;
+  const legacyConfig = legacyCustomPrompt?.trim()
+    ? { customPrompt: legacyCustomPrompt.trim() }
+    : undefined;
 
   for (const type of imageTypes) {
+    const config = resolveTypeConfig(typeConfigs, type, legacyConfig);
     if (type === "custom") {
-      if (!customPrompt?.trim()) continue;
+      if (!config.customPrompt) continue;
       const idx = lifestyleIndex;
-      const prompt = `${customPrompt.trim()} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
-      specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
+      const prompt = `${config.customPrompt} Product: ${productDesc}. Professional commercial product photography. High-resolution.`;
+      specs.push({
+        id: `lifestyle_${idx}`,
+        type: "lifestyle",
+        index: idx,
+        prompt,
+        imageType: type,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.promptReferenceImageUrls,
+      });
       lifestyleIndex++;
       continue;
     }
     const promptBuilder = IMAGE_TYPE_PROMPTS[type];
     if (!promptBuilder) continue;
-    const prompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution.`;
+    const basePrompt = `${promptBuilder(productDesc)} Professional commercial product photography. High-resolution.`;
+    const prompt = config.customPrompt
+      ? `${basePrompt} Additional creative direction: ${config.customPrompt}`
+      : basePrompt;
     const isFeature = type === "callouts" || type === "social" || type === "size" || type === "beforeafter";
     if (isFeature) {
       const idx = featureIndex;
-      specs.push({ id: `feature_${idx}`, type: "feature", index: idx, prompt });
+      specs.push({
+        id: `feature_${idx}`,
+        type: "feature",
+        index: idx,
+        prompt,
+        imageType: type,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.promptReferenceImageUrls,
+      });
       featureIndex++;
     } else {
       const idx = lifestyleIndex;
-      specs.push({ id: `lifestyle_${idx}`, type: "lifestyle", index: idx, prompt });
+      specs.push({
+        id: `lifestyle_${idx}`,
+        type: "lifestyle",
+        index: idx,
+        prompt,
+        imageType: type,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.promptReferenceImageUrls,
+      });
       lifestyleIndex++;
     }
   }
@@ -299,19 +368,17 @@ async function generateNewImageTypes(
   productName: string,
   category: string | null,
   imageTypes: string[],
-  customPrompt: string | undefined,
   sourceImagePaths?: string[] | null,
-  aspectRatio?: string,
   existingRecords?: GraphicsImageRecord[],
   startIndex?: number,
-  promptReferencePaths?: string[] | null,
-  quality?: string,
+  typeConfigs?: Record<string, ImageTypeGenerationConfig>,
+  legacy?: ImageTypeGenerationConfig,
 ): Promise<GraphicsImageRecord[]> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   ensureDir(dir);
 
   const existing = existingRecords ?? [];
-  const specs = buildNewImageSpecs(productName, category, imageTypes, customPrompt, existing);
+  const specs = buildNewImageSpecs(productName, category, imageTypes, typeConfigs, legacy?.customPrompt, existing);
   const records: GraphicsImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
@@ -319,30 +386,35 @@ async function generateNewImageTypes(
 
   let generatedCount = startIndex ?? 0;
 
-  const referencePaths = await resolveReferencePaths(projectId, dir, promptReferencePaths ?? undefined, sourceImagePaths);
-
   async function generateOne(spec: GraphicsSpec): Promise<void> {
     const filename = versionedFilename(spec.type, spec.index);
     const filePath = path.join(dir, filename);
     const imgUrl = urlPath(projectId, filename);
 
     try {
-      const arKey = aspectRatio ?? "1:1";
+      const arKey = spec.aspectRatio ?? legacy?.aspectRatio ?? "1:1";
       const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
+      const quality = spec.quality ?? legacy?.quality ?? "standard";
       const prompt = applyQualityToPrompt(spec.prompt, quality);
+      const referencePaths = await resolveReferencePaths(
+        projectId,
+        dir,
+        spec.promptReferenceImageUrls ?? legacy?.promptReferenceImageUrls,
+        sourceImagePaths,
+      );
       let buffer: Buffer;
 
       if (referencePaths.length > 1) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
-        console.log(`[generateNewImageTypes] Using ${referencePaths.length} reference images for ${spec.id}`);
+        console.log(`[generateNewImageTypes] Using ${referencePaths.length} reference images for ${spec.id} (${spec.imageType})`);
         buffer = await editImagesProxy(referencePaths, referencePrompt, filePath);
       } else if (referencePaths.length === 1) {
         const referencePrompt = `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`;
-        console.log(`[generateNewImageTypes] Using reference image for ${spec.id}: ${referencePaths[0]}`);
+        console.log(`[generateNewImageTypes] Using reference image for ${spec.id} (${spec.imageType}): ${referencePaths[0]}`);
         buffer = await generateImageWithReferenceProxy(referencePrompt, referencePaths[0]!, size);
         fs.writeFileSync(filePath, buffer);
       } else {
-        console.log(`[generateNewImageTypes] No valid source image, generating without reference for ${spec.id}`);
+        console.log(`[generateNewImageTypes] No valid source image, generating without reference for ${spec.id} (${spec.imageType})`);
         buffer = await generateImageBuffer(prompt, size);
         fs.writeFileSync(filePath, buffer);
       }
@@ -386,7 +458,12 @@ async function generateNewImageTypes(
   return records;
 }
 
-async function editGraphicsImage(projectId: number, existingRecord: GraphicsImageRecord, editPrompt: string): Promise<GraphicsImageRecord> {
+async function editGraphicsImage(
+  projectId: number,
+  existingRecord: GraphicsImageRecord,
+  editPrompt: string,
+  referenceImageUrls?: string[],
+): Promise<GraphicsImageRecord> {
   const dir = path.join(IMAGES_DIR, String(projectId));
   const currentFilename = path.basename(existingRecord.currentUrl);
   const sourceFilePath = path.join(dir, currentFilename);
@@ -400,9 +477,10 @@ async function editGraphicsImage(projectId: number, existingRecord: GraphicsImag
   const destFilePath = path.join(dir, filename);
   const imgUrl = urlPath(projectId, filename);
 
+  const refPaths = savePromptReferenceImages(projectId, referenceImageUrls);
   const styleSuffix = DESIGN_STYLE_PROMPTS[existingRecord.style] ?? "";
   const fullPrompt = `${editPrompt} ${styleSuffix}`;
-  const buffer = await editImagesProxy([sourceFilePath], fullPrompt);
+  const buffer = await editImagesProxy([sourceFilePath, ...refPaths], fullPrompt);
   if (!buffer || buffer.length === 0) throw new Error("No image data returned from AI edit");
   fs.writeFileSync(destFilePath, buffer);
 
@@ -575,7 +653,7 @@ function buildRegeneratePrompt(
 }
 
 // ─── Create project ───────────────────────────────────────────────────────────
-router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "create"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number; imageTypes?: string[]; customPrompt?: string; auditId?: number };
 
@@ -589,6 +667,7 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
 
   const [project] = await db.insert(graphicsProjectsTable).values({
     userId,
+    workspaceId: getActiveWorkspaceId(req),
     auditId: body.auditId ?? null,
     name: body.name ?? "Untitled Project",
     productName: body.productName,
@@ -623,8 +702,7 @@ router.post("/graphics/projects", requireAuth, resolveTeam, requireWriteAccess, 
 });
 
 // ─── List projects ────────────────────────────────────────────────────────────
-router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Promise<void> => {
-  const userId = getEffectiveUserId(req);
+router.get("/graphics/projects", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const auditIdQuery = req.query.auditId ? parseInt(String(req.query.auditId)) : null;
 
   let projects;
@@ -632,14 +710,14 @@ router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Pro
     projects = await db
       .select()
       .from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.auditId, auditIdQuery), eq(graphicsProjectsTable.isDeleted, 0)))
+      .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.auditId, auditIdQuery)))
       .orderBy(desc(graphicsProjectsTable.updatedAt))
       .limit(100);
   } else {
     projects = await db
       .select()
       .from(graphicsProjectsTable)
-      .where(and(eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)))
+      .where(await graphicsScopeWhere(req))
       .orderBy(desc(graphicsProjectsTable.updatedAt))
       .limit(100);
   }
@@ -647,8 +725,8 @@ router.get("/graphics/projects", requireAuth, resolveTeam, async (req, res): Pro
 });
 
 // ─── Get project ──────────────────────────────────────────────────────────────
-router.get("/graphics/projects/:id", requireAuth, resolveTeam, async (req, res): Promise<void> => {
-  const userId = getEffectiveUserId(req);
+router.get("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -656,14 +734,14 @@ router.get("/graphics/projects/:id", requireAuth, resolveTeam, async (req, res):
 
   const [project] = admin
     ? await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.isDeleted, 0)))
-    : await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    : await db.select().from(graphicsProjectsTable).where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   res.json(project);
 });
 
 // ─── Update project ───────────────────────────────────────────────────────────
-router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -671,7 +749,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAcc
   const [existing] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -686,7 +764,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAcc
 });
 
 // ─── Generate images ──────────────────────────────────────────────────────────
-router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -694,7 +772,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -705,6 +783,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
     imageTypes?: string[];
     customPrompt?: string;
     promptReferenceImageUrls?: string[];
+    typeConfigs?: Record<string, ImageTypeGenerationConfig>;
     additionalLifestyleCount?: number;
     additionalFeatureCount?: number;
     customLifestylePrompt?: string;
@@ -769,9 +848,12 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
   (async () => {
     try {
       const generateStyle = body.style ?? "custom";
-      const generateAspectRatio = body.aspectRatio ?? "1:1";
-      const generateQuality = body.quality ?? "standard";
-      const promptReferencePaths = savePromptReferenceImages(id, body.promptReferenceImageUrls);
+      const legacyConfig: ImageTypeGenerationConfig = {
+        customPrompt: body.customPrompt,
+        aspectRatio: body.aspectRatio ?? "1:1",
+        quality: body.quality ?? "standard",
+        promptReferenceImageUrls: body.promptReferenceImageUrls,
+      };
       const existingRecords = (project.imageRecords ?? []) as GraphicsImageRecord[];
       const existingCount = existingRecords.length;
       let newRecords: GraphicsImageRecord[];
@@ -781,13 +863,11 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
           project.productName,
           project.category,
           body.imageTypes,
-          body.customPrompt,
           project.sourceImageUrls,
-          generateAspectRatio,
           existingRecords,
           existingCount,
-          promptReferencePaths,
-          generateQuality,
+          body.typeConfigs,
+          legacyConfig,
         );
       } else {
         const lifestyleCount = isAdditional ? (body.additionalLifestyleCount ?? 0) : project.lifestyleCount;
@@ -799,7 +879,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
           lifestyleCount,
           featureCount,
           project.sourceImageUrls,
-          generateAspectRatio,
+          legacyConfig.aspectRatio ?? "1:1",
           existingRecords,
           existingCount,
           body.customLifestylePrompt,
@@ -836,7 +916,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeam, require
 });
 
 // ─── Edit single image ────────────────────────────────────────────────────────
-router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const imageId = String(req.params.imageId ?? "");
@@ -845,7 +925,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -853,7 +933,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const existingRecord = records.find(r => r.id === imageId);
   if (!existingRecord) { res.status(404).json({ error: "Image not found" }); return; }
 
-  const body = req.body as { editPrompt: string };
+  const body = req.body as { editPrompt: string; referenceImageUrls?: string[] };
   if (!body.editPrompt?.trim()) { res.status(400).json({ error: "Edit prompt is required" }); return; }
 
   const cost = await getCreditCost("graphics_edit");
@@ -865,7 +945,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   }
 
   try {
-    const updatedRecord = await editGraphicsImage(id, existingRecord, body.editPrompt);
+    const updatedRecord = await editGraphicsImage(id, existingRecord, body.editPrompt, body.referenceImageUrls);
     await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, `Edit ${imageId}`, "graphics_edit", { projectId: id, imageId });
 
     const updatedRecords = records.map(r => r.id === imageId ? updatedRecord : r);
@@ -881,7 +961,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
 });
 
 // ─── Regenerate single image ──────────────────────────────────────────────────
-router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const imageId = String(req.params.imageId ?? "");
@@ -890,7 +970,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
   const [project] = await db
     .select()
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId), eq(graphicsProjectsTable.isDeleted, 0)));
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -963,7 +1043,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
 });
 
 // ─── Delete project ───────────────────────────────────────────────────────────
-router.delete("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.delete("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "delete"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -971,7 +1051,7 @@ router.delete("/graphics/projects/:id", requireAuth, resolveTeam, requireWriteAc
   const [project] = await db
     .update(graphicsProjectsTable)
     .set({ isDeleted: 1, deletedAt: new Date() })
-    .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.userId, userId)))
+    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)))
     .returning();
 
   if (!project) {

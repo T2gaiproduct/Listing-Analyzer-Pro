@@ -8,6 +8,12 @@ import {
 } from "@workspace/db";
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
+import { fetchClerkUserIdByEmail } from "../lib/clerk-user.js";
+import { createNotification } from "../lib/notifications.js";
+import {
+  shouldSendTeamInviteEmailToAddress,
+  shouldSendTeamWelcomeEmailToUser,
+} from "../lib/notification-preferences.js";
 import { setMemberCredits, getMemberCredits } from "../lib/credits.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import {
@@ -175,16 +181,40 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
     invite = inserted;
   }
 
-  // Send invitation email
+  // Send invitation email (respect invitee notification preferences for existing accounts)
   try {
-    const [profile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-    const inviterName = profile?.companyName ?? "Your team owner";
-    const companyName = profile?.companyName ?? "SellerLens";
-    const inviteUrl = `${process.env.APP_URL ?? "https://listingauditor.com"}/accept-invite?token=${token}`;
-    const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role, invitedName });
-    await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
+    const shouldEmail = await shouldSendTeamInviteEmailToAddress(invitedEmail);
+
+    if (shouldEmail) {
+      const [profile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+      const inviterName = profile?.companyName ?? "Your team owner";
+      const companyName = profile?.companyName ?? "SellerLens";
+      const inviteUrl = `${process.env.APP_URL ?? "https://listingauditor.com"}/accept-invite?token=${token}`;
+      const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role, invitedName });
+      await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
+    }
   } catch (emailErr) {
     req.log?.warn?.({ emailErr }, "Failed to send invite email");
+  }
+
+  try {
+    const inviteeUserId = await fetchClerkUserIdByEmail(invitedEmail);
+    if (inviteeUserId) {
+      const [profile] = await db
+        .select({ companyName: userProfilesTable.companyName })
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.userId, userId));
+      const inviterName = profile?.companyName ?? "Your team owner";
+      void createNotification({
+        userId: inviteeUserId,
+        type: "team_invite",
+        title: "Team invitation",
+        message: `${inviterName} invited you to join as ${role}.`,
+        link: `/accept-invite?token=${token}`,
+      });
+    }
+  } catch (notifyErr) {
+    req.log?.warn?.({ notifyErr }, "Failed to send team invite notification");
   }
 
   res.status(201).json({ invite, token });
@@ -272,15 +302,25 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   // Team members join an existing workspace — skip owner onboarding/plan selection
   await upsertUserProfile(userId, { onboardingCompleted: true });
 
-  // Send welcome email
+  // Send welcome email when team notifications are enabled for this user
   try {
-    const [ownerProfile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, invite.ownerUserId));
-    const companyName = ownerProfile?.companyName ?? "SellerLens";
-    const html = welcomeEmailTemplate({ companyName, memberName: invite.invitedName, role: invite.role });
-    await sendEmail({ to: invite.invitedEmail, subject: `Welcome to ${companyName}!`, html });
+    if (await shouldSendTeamWelcomeEmailToUser(userId)) {
+      const [ownerProfile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, invite.ownerUserId));
+      const companyName = ownerProfile?.companyName ?? "SellerLens";
+      const html = welcomeEmailTemplate({ companyName, memberName: invite.invitedName, role: invite.role });
+      await sendEmail({ to: invite.invitedEmail, subject: `Welcome to ${companyName}!`, html });
+    }
   } catch (emailErr) {
     req.log?.warn?.({ emailErr }, "Failed to send welcome email");
   }
+
+  void createNotification({
+    userId: invite.ownerUserId,
+    type: "team_invite_accepted",
+    title: "Team member joined",
+    message: `${invite.invitedName?.trim() || invite.invitedEmail} accepted your team invite (${invite.role}).`,
+    link: "/settings/team",
+  });
 
   res.json({ ok: true, ownerUserId: invite.ownerUserId, role: invite.role });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,9 +10,25 @@ import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import {
-  Download, RefreshCw, Wand2, ImageIcon, Loader2, ArrowLeft,
+  Download, RefreshCw, Wand2, ImageIcon, Loader2,
   Trash2, Clock, Sparkles, Maximize2, Plus, Check, ArrowRight,
 } from "lucide-react";
+import {
+  DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+  type GraphicsAspectRatio,
+  type GraphicsQuality,
+  type ImageTypePromptConfig,
+} from "@/components/custom-prompt-generation-panel";
+import {
+  ImageTypeCustomizeDialog,
+  SelectedGraphicsTypesSummary,
+} from "@/components/graphics-type-customize-ui";
+import {
+  GRAPHICS_CUSTOM_PROMPT_EXAMPLES,
+  GRAPHICS_IMAGE_TYPES,
+  GRAPHICS_PROMPT_MAX_CHARS,
+} from "@/lib/graphics-image-types";
+import { ReferenceImageUploadField } from "@/components/reference-image-upload-field";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -72,15 +88,47 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
 
   const [editRecord, setEditRecord] = useState<ImageRecord | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
+  const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
 
   const [historyRecord, setHistoryRecord] = useState<ImageRecord | null>(null);
   const [showDelete, setShowDelete] = useState(false);
 
   // Generate More modal
   const [showGenerateMore, setShowGenerateMore] = useState(false);
-  const [moreStep, setMoreStep] = useState<"select" | "custom">("select");
   const [moreImageTypes, setMoreImageTypes] = useState<string[]>([]);
-  const [moreCustomPrompt, setMoreCustomPrompt] = useState("");
+  const [moreImageTypePromptConfigs, setMoreImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
+  const [moreCustomizeTypeId, setMoreCustomizeTypeId] = useState<string | null>(null);
+
+  const getMoreImageTypeConfig = useCallback((typeId: string): ImageTypePromptConfig => ({
+    ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG,
+    ...moreImageTypePromptConfigs[typeId],
+  }), [moreImageTypePromptConfigs]);
+
+  const updateMoreImageTypeConfig = useCallback((typeId: string, patch: Partial<ImageTypePromptConfig>) => {
+    setMoreImageTypePromptConfigs((prev) => ({
+      ...prev,
+      [typeId]: { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...prev[typeId], ...patch },
+    }));
+  }, []);
+
+  const moreTypeConfigsPayload = useMemo(() => {
+    const configs: Record<string, {
+      customPrompt?: string;
+      aspectRatio: GraphicsAspectRatio;
+      quality: GraphicsQuality;
+      promptReferenceImageUrls?: string[];
+    }> = {};
+    for (const typeId of moreImageTypes) {
+      const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...moreImageTypePromptConfigs[typeId] };
+      configs[typeId] = {
+        customPrompt: config.customPrompt.trim() || undefined,
+        aspectRatio: config.aspectRatio,
+        quality: config.quality,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
+      };
+    }
+    return configs;
+  }, [moreImageTypes, moreImageTypePromptConfigs]);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["graphics-project", id],
@@ -102,7 +150,15 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   };
 
   const generateMutation = useMutation({
-    mutationFn: async (payload: { imageTypes?: string[]; customPrompt?: string } | undefined) => {
+    mutationFn: async (payload: {
+      imageTypes?: string[];
+      typeConfigs?: Record<string, {
+        customPrompt?: string;
+        aspectRatio?: GraphicsAspectRatio;
+        quality?: GraphicsQuality;
+        promptReferenceImageUrls?: string[];
+      }>;
+    } | undefined) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,12 +210,23 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   });
 
   const editMutation = useMutation({
-    mutationFn: async ({ imageId, prompt }: { imageId: string; prompt: string }) => {
+    mutationFn: async ({
+      imageId,
+      prompt,
+      referenceImageUrls,
+    }: {
+      imageId: string;
+      prompt: string;
+      referenceImageUrls?: string[];
+    }) => {
       const res = await fetch(`${basePath}/api/graphics/projects/${id}/images/${imageId}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ editPrompt: prompt }),
+        body: JSON.stringify({
+          editPrompt: prompt,
+          referenceImageUrls: referenceImageUrls?.length ? referenceImageUrls : undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -172,6 +239,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       refreshCreditBalances(qc);
       setEditRecord(null);
       setEditPrompt("");
+      setEditReferenceImages([]);
       toast({ title: "Image edited" });
     },
     onError: (err) => {
@@ -229,13 +297,18 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const handleOpenEdit = (record: ImageRecord) => {
     setEditRecord(record);
     setEditPrompt("");
+    setEditReferenceImages([]);
   };
 
   const handleEditSubmit = () => {
     if (!editRecord || !editPrompt.trim()) return;
     setLoading(editRecord.id, true);
     editMutation.mutate(
-      { imageId: editRecord.id, prompt: editPrompt },
+      {
+        imageId: editRecord.id,
+        prompt: editPrompt,
+        referenceImageUrls: editReferenceImages.length > 0 ? editReferenceImages : undefined,
+      },
       { onSettled: () => setLoading(editRecord.id, false) },
     );
   };
@@ -249,7 +322,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       {/* ── Action bar ── */}
       <div className="flex items-center justify-end gap-2 mb-6">
         {project?.status === "completed" && hasRecords && (
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer" onClick={handleDownloadAll}>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" onClick={handleDownloadAll}>
             <Download className="w-4 h-4 mr-2" />
             Download All
           </Button>
@@ -259,15 +332,15 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             onClick={() => {
               if (hasRecords) {
                 setShowGenerateMore(true);
-                setMoreStep("select");
                 setMoreImageTypes([]);
-                setMoreCustomPrompt("");
+                setMoreImageTypePromptConfigs({});
+                setMoreCustomizeTypeId(null);
               } else {
                 generateMutation.mutate(undefined);
               }
             }}
             disabled={generateMutation.isPending || isGenerating}
-            className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+            className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
           >
             {generateMutation.isPending || isGenerating ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -282,14 +355,14 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
         </div>
       )}
 
       {/* Generating state */}
       {!isLoading && isGenerating && (
         <div className="rounded-lg border bg-white p-8 text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto" />
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
           <p className="text-slate-700 font-medium">Generating your images...</p>
           <p className="text-sm text-slate-400">This may take a minute or two. The page will update automatically.</p>
         </div>
@@ -335,7 +408,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); } }}>
+      <Dialog open={!!editRecord} onOpenChange={(o) => { if (!o && !loadingIds.has(editRecord?.id ?? "")) { setEditRecord(null); setEditPrompt(""); setEditReferenceImages([]); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -359,8 +432,8 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                     {loadingIds.has(editRecord.id) ? (
                       <>
                         <div className="relative">
-                          <div className="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
-                          <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-purple-600" />
+                          <div className="w-12 h-12 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+                          <Wand2 className="absolute inset-0 m-auto h-5 w-5 text-orange-500" />
                         </div>
                         <div className="text-center px-4">
                           <p className="text-sm font-medium text-slate-700">Generating edit...</p>
@@ -389,6 +462,13 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                 />
               </div>
 
+              <ReferenceImageUploadField
+                images={editReferenceImages}
+                onImagesChange={setEditReferenceImages}
+                label="Reference images (optional)"
+                hint="Upload style or content references to guide the edit."
+              />
+
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button variant="outline" onClick={() => setEditRecord(null)} disabled={loadingIds.has(editRecord.id)} className="cursor-pointer">
                   Cancel
@@ -396,7 +476,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                 <Button
                   onClick={handleEditSubmit}
                   disabled={!editPrompt.trim() || loadingIds.has(editRecord.id)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer gap-2"
+                  className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
                 >
                   {loadingIds.has(editRecord.id) ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -440,7 +520,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
                     return (
                       <div
                         key={i}
-                        className={`rounded-lg border overflow-hidden ${isCurrent ? "ring-2 ring-purple-500" : ""}`}
+                        className={`rounded-lg border overflow-hidden ${isCurrent ? "ring-2 ring-orange-500" : ""}`}
                       >
                         <div className="aspect-square bg-slate-50">
                           <img
@@ -524,195 +604,125 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
       <Dialog open={showGenerateMore} onOpenChange={(o) => {
         if (!o) {
           setShowGenerateMore(false);
-          setMoreStep("select");
           setMoreImageTypes([]);
-          setMoreCustomPrompt("");
+          setMoreImageTypePromptConfigs({});
+          setMoreCustomizeTypeId(null);
         }
       }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generate More Images</DialogTitle>
           </DialogHeader>
 
-          {/* Step 1: Select Image Types */}
-          {moreStep === "select" && (
-            <div className="space-y-4">
-              <p className="text-sm text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500">Choose the image types you want to generate. You can select multiple.</p>
 
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { id: "hero", label: "Hero Shot", desc: "White background", icon: "🏆" },
-                  { id: "lifestyle", label: "Lifestyle In-Use", desc: "Product in use", icon: "🌅" },
-                  { id: "callouts", label: "Feature Callouts", desc: "Numbered features", icon: "🔢" },
-                  { id: "size", label: "Size Reference", desc: "Scale comparison", icon: "📏" },
-                  { id: "beforeafter", label: "Before / After", desc: "Transformation", icon: "⚡" },
-                  { id: "bundle", label: "Bundle Shot", desc: "All included items", icon: "📦" },
-                  { id: "social", label: "Social Proof", desc: "Ratings & reviews", icon: "⭐" },
-                  { id: "custom", label: "Generate Custom", desc: "Custom prompt", icon: "✨" },
-                ].map((type) => {
-                  const isSelected = moreImageTypes.includes(type.id);
-                  return (
-                    <div
-                      key={type.id}
-                      onClick={() => {
-                        setMoreImageTypes((prev) =>
-                          prev.includes(type.id) ? prev.filter((s) => s !== type.id) : [...prev, type.id]
-                        );
-                      }}
-                      className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
-                        isSelected
-                          ? "border-purple-600 bg-purple-50/30"
-                          : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <span className="text-xl leading-none mt-0.5">{type.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className={`text-sm font-semibold ${isSelected ? "text-purple-900" : "text-slate-900"}`}>
-                              {type.label}
-                            </h3>
-                            <div
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                isSelected ? "border-purple-600 bg-purple-600" : "border-slate-300"
-                              }`}
-                            >
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
-                            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {GRAPHICS_IMAGE_TYPES.map((type) => {
+                const isSelected = moreImageTypes.includes(type.id);
+                return (
+                  <div
+                    key={type.id}
+                    onClick={() => {
+                      if (!moreImageTypes.includes(type.id)) {
+                        setMoreImageTypes((prev) => [...prev, type.id]);
+                      }
+                      setMoreCustomizeTypeId(type.id);
+                    }}
+                    className={`relative rounded-xl border-2 p-3 cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-orange-500 bg-orange-50/30"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-xl leading-none mt-0.5">{type.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className={`text-sm font-semibold ${isSelected ? "text-orange-900" : "text-slate-900"}`}>
+                            {type.label}
+                          </h3>
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                              isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
                           </div>
-                          <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
                         </div>
+                        <p className="text-xs text-slate-400 mt-0.5 leading-tight">{type.desc}</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-
-              {moreImageTypes.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-xs">
-                    {moreImageTypes.length} selected
-                  </span>
-                  <span className="text-slate-400">~{moreImageTypes.length * 30}s total</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => {
-                  setMoreImageTypes([]);
-                  setMoreCustomPrompt("");
-                }}>
-                  Clear
-                </Button>
-                <Button
-                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-                  disabled={moreImageTypes.length === 0}
-                  onClick={() => {
-                    if (moreImageTypes.includes("custom")) {
-                      setMoreStep("custom");
-                    } else {
-                      generateMutation.mutate({
-                        imageTypes: moreImageTypes,
-                      });
-                      setShowGenerateMore(false);
-                    }
-                  }}
-                >
-                  {moreImageTypes.includes("custom") ? "Continue" : "Generate"}
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Custom Prompt */}
-          {moreStep === "custom" && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-purple-600">
-                  <ArrowLeft className="w-4 h-4" />
-                </span>
-                <span className="font-medium text-slate-900">Custom Image</span>
-              </div>
-              <p className="text-sm text-slate-500">Describe exactly what you want your custom image to look like.</p>
-
-              <Textarea
-                value={moreCustomPrompt}
-                onChange={(e) => setMoreCustomPrompt(e.target.value)}
-                placeholder="Describe your scene, lighting, composition, and background. Be specific and detailed."
-                rows={4}
-                className="resize-none text-sm"
-              />
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">{moreCustomPrompt.length} characters</span>
-                <span className={moreCustomPrompt.trim().length > 0 ? "text-purple-600" : "text-slate-400"}>
-                  {moreCustomPrompt.trim().length > 0 ? "Ready to generate" : "Add a prompt to continue"}
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Need inspiration? Try these:</p>
-                {[
-                  "A sleek coffee mug on a marble countertop with morning sunlight streaming through a window",
-                  "My product floating on a cloud against a pastel gradient background with soft shadows",
-                  "A 3D render of my product on a rotating pedestal with dramatic rim lighting",
-                ].map((ex, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setMoreCustomPrompt(ex)}
-                    className="w-full text-left p-3 rounded-lg border border-slate-200 bg-slate-50/50 text-sm text-slate-600 hover:border-purple-300 hover:bg-purple-50/30 transition-all"
-                  >
-                    <span className="text-purple-400">&ldquo;</span>{ex}<span className="text-purple-400">&rdquo;</span>
-                  </button>
-                ))}
-              </div>
-
-              {moreImageTypes.filter(s => s !== "custom").length > 0 && (
-                <div className="pt-3 border-t border-slate-100">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Also generating:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {moreImageTypes.filter(s => s !== "custom").map((tid) => {
-                      const type = [
-                        { id: "hero", label: "Hero Shot" },
-                        { id: "lifestyle", label: "Lifestyle" },
-                        { id: "callouts", label: "Callouts" },
-                        { id: "size", label: "Size Reference" },
-                        { id: "beforeafter", label: "Before/After" },
-                        { id: "bundle", label: "Bundle" },
-                        { id: "social", label: "Social Proof" },
-                      ].find((t) => t.id === tid);
-                      return (
-                        <span key={tid} className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
-                          {type?.label}
-                        </span>
-                      );
-                    })}
                   </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-4 border-t">
-                <Button variant="outline" className="text-slate-500 border-slate-200 rounded-lg" onClick={() => setMoreStep("select")}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-                <Button
-                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6"
-                  disabled={!moreCustomPrompt.trim()}
-                  onClick={() => {
-                    generateMutation.mutate({
-                      imageTypes: moreImageTypes,
-                      customPrompt: moreCustomPrompt.trim(),
-                    });
-                    setShowGenerateMore(false);
-                  }}
-                >
-                  Generate {moreImageTypes.length} Image{moreImageTypes.length > 1 ? "s" : ""}
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+                );
+              })}
             </div>
-          )}
+
+            {moreImageTypes.length > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold text-xs">
+                  {moreImageTypes.length} selected
+                </span>
+                <span className="text-slate-400">~{moreImageTypes.length * 30}s total</span>
+              </div>
+            )}
+
+            {moreImageTypes.length > 0 && (
+              <SelectedGraphicsTypesSummary
+                imageTypes={GRAPHICS_IMAGE_TYPES}
+                selectedTypeIds={moreImageTypes}
+                getConfig={getMoreImageTypeConfig}
+                onEdit={setMoreCustomizeTypeId}
+                onRemove={(typeId) => {
+                  setMoreImageTypes((prev) => prev.filter((id) => id !== typeId));
+                  if (moreCustomizeTypeId === typeId) setMoreCustomizeTypeId(null);
+                }}
+              />
+            )}
+
+            <ImageTypeCustomizeDialog
+              open={moreCustomizeTypeId !== null}
+              onOpenChange={(open) => { if (!open) setMoreCustomizeTypeId(null); }}
+              type={GRAPHICS_IMAGE_TYPES.find((t) => t.id === moreCustomizeTypeId) ?? null}
+              config={moreCustomizeTypeId ? getMoreImageTypeConfig(moreCustomizeTypeId) : DEFAULT_IMAGE_TYPE_PROMPT_CONFIG}
+              onConfigChange={(patch) => {
+                if (moreCustomizeTypeId) updateMoreImageTypeConfig(moreCustomizeTypeId, patch);
+              }}
+              promptMaxChars={GRAPHICS_PROMPT_MAX_CHARS}
+              examplePrompts={moreCustomizeTypeId === "custom" ? GRAPHICS_CUSTOM_PROMPT_EXAMPLES : undefined}
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                className="text-slate-500 border-slate-200 rounded-lg"
+                onClick={() => {
+                  setMoreImageTypes([]);
+                  setMoreImageTypePromptConfigs({});
+                  setMoreCustomizeTypeId(null);
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-6"
+                disabled={
+                  moreImageTypes.length === 0
+                  || (moreImageTypes.includes("custom") && !getMoreImageTypeConfig("custom").customPrompt.trim())
+                }
+                onClick={() => {
+                  generateMutation.mutate({
+                    imageTypes: moreImageTypes,
+                    typeConfigs: moreTypeConfigsPayload,
+                  });
+                  setShowGenerateMore(false);
+                }}
+              >
+                Generate {moreImageTypes.length > 0 ? `${moreImageTypes.length} Image${moreImageTypes.length > 1 ? "s" : ""}` : ""}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -748,7 +758,7 @@ function ImageCard({
         />
         {isLoading && (
           <div className="absolute inset-0 bg-white/75 flex flex-col items-center justify-center gap-2">
-            <RefreshCw className="h-6 w-6 animate-spin text-purple-500" />
+            <RefreshCw className="h-6 w-6 animate-spin text-orange-500" />
             <span className="text-xs text-slate-500">Generating...</span>
           </div>
         )}

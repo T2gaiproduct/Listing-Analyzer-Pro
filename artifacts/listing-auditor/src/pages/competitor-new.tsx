@@ -60,7 +60,7 @@ function CompetitorForm({
   const [keywordInput, setKeywordInput] = useState("");
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema as never),
     defaultValues: {
       productName: "",
       asin: "",

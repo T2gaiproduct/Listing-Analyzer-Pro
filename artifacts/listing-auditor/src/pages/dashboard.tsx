@@ -22,8 +22,9 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSidebarProjects } from "@/contexts/sidebar-projects";
 import { useTeam } from "@/hooks/use-team";
+
+import { fetchJson } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -151,19 +152,14 @@ function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; t
 
 export default function Dashboard() {
   const { user, isLoaded: clerkLoaded } = useUser();
-  const { focusRecentProjects } = useSidebarProjects();
   const { isTeamMember, memberCredits } = useTeam();
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
-    queryFn: async () => {
-      const r = await fetch(`${basePath}/api/dashboard`, { credentials: "include" });
-      if (!r.ok) throw new Error(`Failed to load dashboard (${r.status})`);
-      return r.json();
-    },
+    queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
     enabled: clerkLoaded && !!user,
     staleTime: 30_000,
-    retry: 2,
+    retry: 3,
   });
 
   if (isLoading) {
@@ -323,13 +319,12 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 gap-2">
               <h2 className="text-base sm:text-lg font-bold text-slate-900">Recent Projects</h2>
-              <button
-                type="button"
-                onClick={focusRecentProjects}
+              <Link
+                href="/recent-projects"
                 className="text-sm font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1"
               >
                 View All Projects <ChevronRight className="w-4 h-4" />
-              </button>
+              </Link>
             </div>
             {recentProjects.length === 0 ? (
               <div className="px-4 py-10 sm:px-6 sm:py-12 text-center text-slate-500 text-sm">

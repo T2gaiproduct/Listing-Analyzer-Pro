@@ -6,7 +6,7 @@ import {
   Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
   BadgePercent, ClipboardList,
-  Bell, BrainCircuit, KeyRound, Lock, Wallet,
+  BrainCircuit, KeyRound, Lock, Wallet, ShoppingCart,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
   Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import type { RecentItem } from "@workspace/api-client-react";
 import type { AdminPermission } from "@workspace/admin-permissions";
+import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -82,7 +83,7 @@ const navSections: Array<{
     label: "Marketing",
     collapsible: true,
     items: [
-      { href: "/admin/notifications", label: "Announcements", icon: Megaphone, permission: "manage_notifications" },
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone, permission: "manage_notifications" },
       { href: "/admin/billing/coupons", label: "Coupons", icon: BadgePercent, permission: "manage_coupons" },
     ],
   },
@@ -118,6 +119,7 @@ const navSections: Array<{
       { href: "/admin/settings/email", label: "Email Settings", icon: Mail, permission: "manage_settings" },
       { href: "/admin/settings/payment-gateway", label: "Payment Settings", icon: Wallet, permission: "manage_settings" },
       { href: "/admin/settings/security", label: "Security Settings", icon: Lock, permission: "manage_settings" },
+      { href: "/admin/settings/amazon", label: "Amazon Settings", icon: ShoppingCart, permission: "manage_settings" },
       { href: "/admin/team-activity", label: "Team Activity", icon: Users, permission: "manage_team_activity" },
     ],
   },
@@ -151,7 +153,7 @@ function getAdminSearchContext(location: string): { placeholder: string; scope: 
   ) {
     return { placeholder: "Search billing...", scope: "billing" };
   }
-  if (path.startsWith("/admin/marketing") || path === "/admin/notifications") {
+  if (path.startsWith("/admin/marketing") || path === "/admin/announcements" || path === "/admin/notifications") {
     return { placeholder: "Search marketing...", scope: "marketing" };
   }
   if (path.startsWith("/admin/content")) {
@@ -294,7 +296,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
   const { user, isLoaded: clerkLoaded } = useUser();
-  const { can } = useAdminPermissions();
+  const { can, defaultRoute } = useAdminPermissions();
+  const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin/dashboard");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -365,9 +368,12 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       <aside className={cn("hidden lg:flex flex-shrink-0 bg-slate-900 text-slate-100 flex-col shadow-2xl z-10 transition-[width] duration-200", collapsed ? "w-16" : "w-64")}>
         {collapsed ? (
           <div className="h-16 flex flex-col items-center justify-center gap-1 px-2 border-b border-slate-700/50">
-            <Link href="/admin/dashboard" aria-label="Dashboard">
+            <Link href={adminHome} aria-label="Dashboard">
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
+            <AdminNotificationBell
+              className="p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors touch-target"
+            />
             <button
               type="button"
               onClick={() => setCollapsed(false)}
@@ -381,20 +387,16 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         ) : (
           <div className="h-16 flex items-center gap-2 px-4 border-b border-slate-700/50">
             <Link
-              href="/admin/dashboard"
+              href={adminHome}
               aria-label="Admin dashboard"
               className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 hover:bg-slate-700 transition-colors"
             >
               <Shield className="w-5 h-5 text-orange-400" />
             </Link>
             <div className="flex-1" />
-            <Link
-              href="/admin/notifications"
-              aria-label="Notifications"
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
+            <AdminNotificationBell
+              className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            />
             <Link
               href="/admin/archive"
               aria-label="Archive"
@@ -443,17 +445,21 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-[min(100vw-3rem,18rem)] p-0 bg-slate-900 text-slate-100 border-slate-800 flex flex-col lg:hidden">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
-          <div className="h-14 flex items-center px-4 border-b border-slate-700/50">
+          <div className="h-14 flex items-center gap-2 px-4 border-b border-slate-700/50">
             <Link
-              href="/admin/dashboard"
+              href={adminHome}
               onClick={() => setMobileNavOpen(false)}
-              className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity flex-1"
             >
               <Shield className="w-5 h-5 text-orange-400 flex-shrink-0" />
               <span className="font-bold text-white truncate">
                 Super<span className="text-orange-400">Admin</span>
               </span>
             </Link>
+            <AdminNotificationBell
+              onNavigate={() => setMobileNavOpen(false)}
+              className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            />
           </div>
           <nav className="flex-1 py-4 overflow-y-auto px-3 space-y-5">
             <AdminNavSections

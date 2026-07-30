@@ -2,14 +2,22 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
+import fs from "node:fs";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { IMAGES_DIR, GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./lib/image-storage";
+import { IMAGES_DIR } from "./lib/image-storage";
 import { HERO_IMAGES_DIR } from "./lib/hero-image-storage";
 import { handleHeroVideoUpload } from "./lib/hero-video-upload";
 import { PORTFOLIO_IMAGES_DIR } from "./lib/portfolio-image-storage";
 import { WORKFLOW_IMAGES_DIR } from "./lib/workflow-image-storage";
+import {
+  requireAuditImageAccess,
+  requireGraphicsImageAccess,
+  sendAuditImage,
+  sendGraphicsImage,
+} from "./lib/protected-images";
+import { isAllowedOrigin } from "./lib/allowed-origins";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -57,7 +65,13 @@ app.post(
 );
 
 // ─── General middleware (after webhook) ──────────────────────────────────────
-app.use(cors({ credentials: true, origin: true, exposedHeaders: ["Upgrade"] }));
+app.use(cors({
+  credentials: true,
+  origin(origin, callback) {
+    callback(null, isAllowedOrigin(origin));
+  },
+  exposedHeaders: ["Upgrade"],
+}));
 
 // Hero video upload uses raw body (before JSON parser) — up to 50MB
 app.post(
@@ -65,6 +79,7 @@ app.post(
   express.raw({ type: ["video/*", "application/octet-stream"], limit: "50mb" }),
   clerkMiddleware({
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
   }),
   (req, res) => { void handleHeroVideoUpload(req, res); },
 );
@@ -75,30 +90,53 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(
   clerkMiddleware({
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
   }),
 );
 
-app.get("/api/images/:auditId/:filename", (req, res, next) => {
-  const auditId = parseInt(String(req.params.auditId ?? ""), 10);
-  const filename = String(req.params.filename ?? "");
-  if (isNaN(auditId) || !filename || filename.includes("..")) {
-    next();
-    return;
-  }
-  const resolved = resolveAuditImagePath(auditId, `/api/images/${auditId}/${filename}`);
-  if (resolved) {
-    res.sendFile(resolved);
-    return;
-  }
-  next();
-});
+app.get(
+  "/api/images/:auditId/:filename",
+  requireAuditImageAccess,
+  sendAuditImage,
+);
 
-app.use("/api/images", express.static(IMAGES_DIR));
-app.use("/api/images/graphics", express.static(GRAPHICS_IMAGES_DIR));
+app.get(
+  "/api/images/graphics/:projectId/:filename",
+  requireGraphicsImageAccess,
+  sendGraphicsImage,
+);
+
+app.use("/api/images/avatars", express.static(path.join(IMAGES_DIR, "avatars")));
+app.use("/api/images/branding", express.static(path.join(IMAGES_DIR, "branding")));
 app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api/images/portfolio", express.static(PORTFOLIO_IMAGES_DIR));
 app.use("/api/images/workflow", express.static(WORKFLOW_IMAGES_DIR));
 app.use("/api", router);
+
+// Express 5 HTML 404 pages break admin JSON clients — always return JSON for unknown /api routes.
+app.use("/api", (req, res) => {
+  res.status(404).json({
+    error: `API route not found (${req.method} ${req.originalUrl}). Restart the API server after deploying the latest code.`,
+  });
+});
+
+const frontendDist = process.env.FRONTEND_DIST
+  ?? path.resolve(process.cwd(), "artifacts/listing-auditor/dist/public");
+const shouldServeFrontend =
+  process.env.SERVE_FRONTEND === "1"
+  || process.env.SERVE_FRONTEND === "true"
+  || (process.env.NODE_ENV === "production" && fs.existsSync(path.join(frontendDist, "index.html")));
+
+if (shouldServeFrontend) {
+  app.use(express.static(frontendDist, { index: false }));
+  app.get(/^(?!\/api\/).*/, (req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      next();
+      return;
+    }
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 export default app;
 export const serverRef: { current: import("node:http").Server | null } = { current: null };

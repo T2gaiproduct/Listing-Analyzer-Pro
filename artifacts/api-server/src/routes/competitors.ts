@@ -9,8 +9,18 @@ import {
   DeleteCompetitorParams,
 } from "@workspace/api-zod";
 import { analyzeCompetitorWithAI } from "../lib/analyzer";
-import { deductCredits, hasCredits, getCreditCost, deductCreditsTeamAware, hasCreditsTeamAware, type TeamAwareContext } from "../lib/credits";
-import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import { deductCreditsTeamAware, hasCreditsTeamAware, getCreditCost, type TeamAwareContext } from "../lib/credits";
+import { type TeamAuthedRequest } from "../middlewares/team-auth";
+import {
+  resolveTeamAndWorkspace,
+  getAccountOwnerId,
+  getActiveWorkspaceId,
+  requireWorkspaceAction,
+  loadWorkedProjects,
+  viewOwnIdFilter,
+  getWorkspaceCtx,
+  workspaceOwnerFilter,
+} from "../lib/workspace-route-helpers";
 
 const router: IRouter = Router();
 
@@ -26,25 +36,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-async function resolveTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const userId = (req as AuthedRequest).userId;
-  const team = await resolveTeamContext(userId);
-  (req as TeamAuthedRequest).team = team;
-  next();
-}
-
-function requireWriteAccess(req: Request, res: Response, next: NextFunction): void {
-  const team = (req as TeamAuthedRequest).team;
-  if (!team) { res.status(401).json({ error: "Team context not resolved" }); return; }
-  if (team.role === "viewer") { res.status(403).json({ error: "Forbidden: viewers cannot modify data" }); return; }
-  next();
-}
-
-function getEffectiveUserId(req: Request): string {
-  const team = (req as TeamAuthedRequest).team;
-  return team?.ownerUserId ?? (req as AuthedRequest).userId;
-}
-
 function getCreditCtx(req: Request): TeamAwareContext {
   const team = (req as TeamAuthedRequest).team;
   const userId = (req as AuthedRequest).userId;
@@ -56,8 +47,20 @@ function getCreditCtx(req: Request): TeamAwareContext {
   };
 }
 
-router.get("/audits/:id/competitors", requireAuth, resolveTeam, async (req, res): Promise<void> => {
-  const ownerId = getEffectiveUserId(req);
+async function auditScopeWhere(req: Request, auditId: number) {
+  const ownerId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+  const worked = await loadWorkedProjects(req);
+  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "competitors", worked, "audit", auditsTable);
+  return and(
+    eq(auditsTable.id, auditId),
+    workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
+    eq(auditsTable.isDeleted, 0),
+    ownFilter,
+  );
+}
+
+router.get("/audits/:id/competitors", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const params = ListCompetitorsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -67,7 +70,7 @@ router.get("/audits/:id/competitors", requireAuth, resolveTeam, async (req, res)
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)));
+    .where(await auditScopeWhere(req, params.data.id));
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
     return;
@@ -81,9 +84,7 @@ router.get("/audits/:id/competitors", requireAuth, resolveTeam, async (req, res)
   res.json(competitors.map(c => ({ ...c, weaknesses: c.weaknesses ?? [] })));
 });
 
-router.post("/audits/:id/competitors", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const ownerId = getEffectiveUserId(req);
+router.post("/audits/:id/competitors", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("competitors", "create"), async (req, res): Promise<void> => {
   const params = AddCompetitorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -107,7 +108,7 @@ router.post("/audits/:id/competitors", requireAuth, resolveTeam, requireWriteAcc
   const [audit] = await db
     .select()
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, params.data.id), eq(auditsTable.userId, ownerId)));
+    .where(await auditScopeWhere(req, params.data.id));
 
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
@@ -147,23 +148,37 @@ router.post("/audits/:id/competitors", requireAuth, resolveTeam, requireWriteAcc
   res.status(201).json({ ...competitor, weaknesses: competitor.weaknesses ?? [] });
 });
 
-router.delete("/competitors/:id", requireAuth, resolveTeam, requireWriteAccess, async (req, res): Promise<void> => {
+router.delete("/competitors/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("competitors", "delete"), async (req, res): Promise<void> => {
+  const ownerId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
   const params = DeleteCompetitorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const [competitor] = await db
-    .update(competitorsTable)
-    .set({ isDeleted: 1, deletedAt: new Date() })
-    .where(eq(competitorsTable.id, params.data.id))
-    .returning();
+  const [owned] = await db
+    .select({ id: competitorsTable.id })
+    .from(competitorsTable)
+    .innerJoin(auditsTable, eq(competitorsTable.auditId, auditsTable.id))
+    .where(and(
+      eq(competitorsTable.id, params.data.id),
+      eq(auditsTable.userId, ownerId),
+      eq(auditsTable.workspaceId, workspaceId),
+      eq(competitorsTable.isDeleted, 0),
+      eq(auditsTable.isDeleted, 0),
+    ))
+    .limit(1);
 
-  if (!competitor) {
+  if (!owned) {
     res.status(404).json({ error: "Competitor not found" });
     return;
   }
+
+  await db
+    .update(competitorsTable)
+    .set({ isDeleted: 1, deletedAt: new Date() })
+    .where(eq(competitorsTable.id, params.data.id));
 
   res.sendStatus(204);
 });
