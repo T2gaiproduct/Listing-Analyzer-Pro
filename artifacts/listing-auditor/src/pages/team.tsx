@@ -593,7 +593,7 @@ export default function Team() {
                 <p className="text-slate-400 text-xs truncate">{m.invitedEmail}</p>
                 <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" />Invite sent {formatDistanceToNow(new Date(m.invitedAt), { addSuffix: true })}</p>
               </div>
-              <Badge className={`${roleColors[m.role] ?? "bg-slate-100 text-slate-600"} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
+              <Badge className={`${roleBadgeClass(m.roleId, accountRoles)} hover:bg-inherit flex-shrink-0`}>{m.role}</Badge>
               <Badge variant="outline" className="border-amber-200 text-amber-600 flex-shrink-0">Pending</Badge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

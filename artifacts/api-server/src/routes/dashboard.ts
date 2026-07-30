@@ -20,7 +20,10 @@ import {
   resolveTeamAndWorkspace,
   getActiveWorkspaceId,
   workspaceOwnerFilter,
+  getWorkspaceCtx,
+  canViewFeature,
 } from "../lib/workspace-route-helpers";
+import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod } from "../lib/team-stats";
@@ -634,14 +637,20 @@ router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Reque
     },
     creditBreakdown,
     recentProjects,
-    quickActions: [
-      { label: "Build Your Brand", href: "/audits/new", icon: "brand" },
-      { label: "Audit Listing", href: "/audit-listings", icon: "audit" },
-      { label: "Create Graphics", href: "/projects", icon: "graphics" },
-      { label: "Create Videos", href: "/videos", icon: "video" },
-      { label: "Manage Ads", href: "/ads", icon: "ads" },
-      { label: "View Projects", href: "/projects", icon: "projects" },
-    ],
+    quickActions: (() => {
+      const ctx = getWorkspaceCtx(req);
+      const all: Array<{ label: string; href: string; icon: string; feature: WorkspaceFeature }> = [
+        { label: "Build Your Brand", href: "/audits/new", icon: "brand", feature: "build_brand" },
+        { label: "Audit Listing", href: "/audit-listings", icon: "audit", feature: "audits" },
+        { label: "Create Graphics", href: "/projects", icon: "graphics", feature: "graphics" },
+        { label: "Create Videos", href: "/videos", icon: "video", feature: "videos" },
+        { label: "Manage Ads", href: "/ads", icon: "ads", feature: "ads" },
+        { label: "View Projects", href: "/recent-projects", icon: "projects", feature: "recent_projects" },
+      ];
+      return all
+        .filter((action) => canViewFeature(ctx, action.feature))
+        .map(({ label, href, icon }) => ({ label, href, icon }));
+    })(),
   });
   } catch (err) {
     console.error("[dashboard] failed to load", err);

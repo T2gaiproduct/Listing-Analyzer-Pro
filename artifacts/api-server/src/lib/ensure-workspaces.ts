@@ -1,5 +1,4 @@
 import { eq, and, isNull, sql } from "drizzle-orm";
-import { randomBytes } from "crypto";
 import {
   db,
   workspacesTable,
@@ -13,31 +12,7 @@ import {
   subscriptionsTable,
   teamMembersTable,
 } from "@workspace/db";
-
-const SYSTEM_ROLES = [
-  { name: "Viewer", legacyRoleKey: "viewer" },
-  { name: "Editor", legacyRoleKey: "editor" },
-  { name: "Admin", legacyRoleKey: "admin" },
-] as const;
-
-async function lookupLegacyRoleIds(workspaceId: number): Promise<Record<string, number>> {
-  const roleIds: Record<string, number> = {};
-  for (const def of SYSTEM_ROLES) {
-    const [existing] = await db
-      .select()
-      .from(workspaceRolesTable)
-      .where(and(
-        eq(workspaceRolesTable.workspaceId, workspaceId),
-        eq(workspaceRolesTable.legacyRoleKey, def.legacyRoleKey),
-      ))
-      .limit(1);
-
-    if (existing) {
-      roleIds[def.legacyRoleKey] = existing.id;
-    }
-  }
-  return roleIds;
-}
+import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
 
 /** Remove auto-seeded Viewer/Editor/Admin templates; members keep legacyRole fallback. */
 async function purgeLegacySystemRoles(): Promise<void> {
@@ -66,8 +41,6 @@ async function hasUnmigratedLegacyData(accountOwnerId: string): Promise<boolean>
       .where(and(eq(adsProjectsTable.userId, accountOwnerId), isNull(adsProjectsTable.workspaceId))).limit(1),
     db.select({ id: pinnedProjectsTable.id }).from(pinnedProjectsTable)
       .where(and(eq(pinnedProjectsTable.userId, accountOwnerId), isNull(pinnedProjectsTable.workspaceId))).limit(1),
-    db.select({ id: teamMembersTable.id }).from(teamMembersTable)
-      .where(and(eq(teamMembersTable.ownerUserId, accountOwnerId), eq(teamMembersTable.isDeleted, 0))).limit(1),
   ]);
 
   return unmigratedChecks.some(([row]) => row != null);
@@ -145,39 +118,25 @@ async function backfillWorkspaceData(accountOwnerId: string, workspaceId: number
     .where(and(eq(pinnedProjectsTable.userId, accountOwnerId), isNull(pinnedProjectsTable.workspaceId)));
 }
 
-async function migrateTeamMembersToWorkspace(accountOwnerId: string, workspaceId: number): Promise<void> {
-  const roleIds = await lookupLegacyRoleIds(workspaceId);
+async function migrateTeamMembersToWorkspace(accountOwnerId: string): Promise<void> {
   const members = await db
     .select()
     .from(teamMembersTable)
-    .where(and(eq(teamMembersTable.ownerUserId, accountOwnerId), eq(teamMembersTable.isDeleted, 0)));
+    .where(and(
+      eq(teamMembersTable.ownerUserId, accountOwnerId),
+      eq(teamMembersTable.status, "active"),
+      eq(teamMembersTable.isDeleted, 0),
+    ));
 
   for (const m of members) {
-    const legacyRole = (m.role === "admin" || m.role === "editor" || m.role === "viewer") ? m.role : "editor";
-    const [existing] = await db
-      .select()
-      .from(workspaceMembersTable)
-      .where(and(
-        eq(workspaceMembersTable.workspaceId, workspaceId),
-        m.memberUserId
-          ? eq(workspaceMembersTable.userId, m.memberUserId)
-          : eq(workspaceMembersTable.invitedEmail, m.invitedEmail),
-      ))
-      .limit(1);
-
-    if (existing) continue;
-
-    await db.insert(workspaceMembersTable).values({
-      workspaceId,
-      userId: m.memberUserId,
+    if (!m.memberUserId) continue;
+    await syncTeamMemberWorkspaceMemberships({
+      ownerUserId: accountOwnerId,
+      memberUserId: m.memberUserId,
       invitedEmail: m.invitedEmail,
       invitedName: m.invitedName,
-      roleId: roleIds[legacyRole] ?? null,
-      legacyRole,
-      status: m.status,
-      inviteToken: m.inviteToken || `mig_${randomBytes(16).toString("hex")}`,
-      invitedAt: m.invitedAt,
-      acceptedAt: m.acceptedAt,
+      roleId: m.roleId,
+      legacyRole: m.role,
     });
   }
 }
@@ -207,7 +166,7 @@ export async function ensureWorkspacesMigrated(): Promise<void> {
     if (!(await accountNeedsWorkspaceMigration(accountOwnerId))) continue;
     const workspaceId = await ensureDefaultWorkspace(accountOwnerId);
     await backfillWorkspaceData(accountOwnerId, workspaceId);
-    await migrateTeamMembersToWorkspace(accountOwnerId, workspaceId);
+    await migrateTeamMembersToWorkspace(accountOwnerId);
   }
 }
 

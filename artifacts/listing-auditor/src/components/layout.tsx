@@ -42,6 +42,7 @@ import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isWorkspaceAdminOverviewRoute } from "@/lib/workspace-routes";
+import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
@@ -53,13 +54,19 @@ import { Building2, ChevronRight } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const mainNavItems = [
-  { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new" },
-  { icon: FileSearch, label: "Audit Listing", href: "/audit-listings" },
-  { icon: Palette, label: "Create Graphics", href: "/projects" },
-  { icon: Video, label: "Create Video", href: "/videos" },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads" },
-  { icon: Folder, label: "Recent Projects", href: "/recent-projects" },
+const mainNavItems: Array<{
+  icon: typeof FilePlus2;
+  label: string;
+  href: string;
+  feature: WorkspaceFeature;
+  comingSoon?: boolean;
+}> = [
+  { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
+  { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
+  { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
+  { icon: Video, label: "Create Video", href: "/videos", feature: "videos" },
+  { icon: Megaphone, label: "Manage Ads", href: "/ads", feature: "ads" },
+  { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------
@@ -200,7 +207,10 @@ export function Layout({ children }: { children: ReactNode }) {
     isAccountOwner,
     workspaces,
     setActiveWorkspaceId,
+    canView,
   } = useWorkspace();
+
+  const visibleNavItems = mainNavItems.filter((item) => isAccountOwner || canView(item.feature));
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -651,7 +661,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto overflow-x-visible py-4 flex flex-col">
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
-            {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
+            {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
               const isActive =
                 location === href ||
                 (href === "/recent-projects" && location === "/recent-projects") ||
@@ -765,7 +775,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              {mainNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
+              {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
                 const isActive =
                   location === href ||
                   (href === "/recent-projects" && location === "/recent-projects") ||

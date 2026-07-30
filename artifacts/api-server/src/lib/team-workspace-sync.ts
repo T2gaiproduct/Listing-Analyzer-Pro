@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db, workspacesTable, workspaceMembersTable } from "@workspace/db";
 
 /** Mirror team membership into workspace_members so granular roles apply on every workspace. */
@@ -25,7 +25,10 @@ export async function syncTeamMemberWorkspaceMemberships(input: {
       .from(workspaceMembersTable)
       .where(and(
         eq(workspaceMembersTable.workspaceId, ws.id),
-        eq(workspaceMembersTable.userId, input.memberUserId),
+        or(
+          eq(workspaceMembersTable.userId, input.memberUserId),
+          eq(workspaceMembersTable.invitedEmail, input.invitedEmail.toLowerCase()),
+        ),
       ))
       .limit(1);
 
@@ -33,6 +36,9 @@ export async function syncTeamMemberWorkspaceMemberships(input: {
       await db.update(workspaceMembersTable)
         .set({
           status: "active",
+          userId: input.memberUserId,
+          invitedEmail: input.invitedEmail.toLowerCase(),
+          invitedName: input.invitedName,
           roleId: input.roleId,
           ...(input.legacyRole ? { legacyRole: input.legacyRole } : {}),
           acceptedAt: new Date(),

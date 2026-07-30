@@ -38,6 +38,7 @@ import {
   getActiveWorkspaceId,
   getWorkspaceCtx,
   requireWorkspaceAction,
+  requireWorkspaceActionAny,
   loadWorkedProjects,
   viewOwnIdFilter,
   assertProjectViewAccess,
@@ -269,7 +270,7 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
   }
 });
 
-router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "create"), async (req, res): Promise<void> => {
+router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "create"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const parsed = CreateAuditBody.safeParse(req.body);
   if (!parsed.success) {
