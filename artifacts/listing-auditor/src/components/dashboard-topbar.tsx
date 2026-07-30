@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useUser } from "@clerk/react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Search, Coins, ChevronDown, UserCircle, Receipt, Settings, HelpCircle,
   Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu, Building2, Shield,
@@ -16,7 +18,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 function profileMenuItems(
   isTeamMember: boolean,
   isOwner: boolean,
-  isAccountOwner: boolean,
+  canManageAccountRoles: boolean,
   variant: "customer" | "admin",
 ) {
   if (variant === "admin") {
@@ -29,8 +31,8 @@ function profileMenuItems(
     { icon: UserCircle, label: "Edit Profile", href: "/profile" },
     { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
     { icon: Users, label: "Team", href: "/team" },
-    ...(isAccountOwner ? [{ icon: Shield, label: "Roles", href: "/roles" }] : []),
-    { icon: Building2, label: "Workspace Dashboard", href: "/workspaces" },
+    ...(canManageAccountRoles ? [{ icon: Shield, label: "Roles", href: "/roles" }] : []),
+    { icon: Building2, label: "Workspaces", href: "/workspaces" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
 }
@@ -76,9 +78,21 @@ export function DashboardTopbar({
 }: DashboardTopbarProps) {
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
+  const { user, isLoaded } = useUser();
   const { isTeamMember, isOwner } = useTeam();
   const { isAccountOwner } = useWorkspace();
-  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant);
+  const { data: profileSummary } = useQuery<{
+    accountRole?: { type: string; label: string };
+  }>({
+    queryKey: ["user-profile-summary"],
+    queryFn: () =>
+      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isLoaded && !!user,
+    staleTime: 30_000,
+  });
+  const canManageAccountRoles =
+    profileSummary?.accountRole?.type === "user" || isAccountOwner;
+  const menuItems = profileMenuItems(isTeamMember, isOwner, canManageAccountRoles, variant);
   const showWorkspaceSwitcher = variant === "customer";
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
