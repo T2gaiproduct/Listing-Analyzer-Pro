@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
@@ -56,11 +57,24 @@ interface MemberStat {
   allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
 }
 
+interface WorkspaceMemberListItem {
+  id: number;
+  invitedEmail: string;
+  invitedName: string;
+  status: string;
+  userId: string | null;
+  roleName: string | null;
+  legacyRole: string | null;
+  invitedAt: string;
+  acceptedAt: string | null;
+}
+
 interface WorkspaceMemberSummary {
   totalMemberships: number;
   uniquePeople: number;
   activeMembers: number;
   pendingInvites: number;
+  scopedWorkspaceId: number | null;
   workspaces: Array<{
     id: number;
     name: string;
@@ -68,6 +82,7 @@ interface WorkspaceMemberSummary {
     memberCount: number;
     activeMemberCount: number;
     pendingMemberCount: number;
+    members: WorkspaceMemberListItem[];
   }>;
 }
 
@@ -103,10 +118,48 @@ function copyToClipboard(text: string, label: string, toast: (t: object) => void
   navigator.clipboard.writeText(text).then(() => toast({ title: `${label} copied!` }));
 }
 
+function WorkspaceMembersList({ members, emptyLabel }: { members: WorkspaceMemberListItem[]; emptyLabel?: string }) {
+  if (members.length === 0) {
+    return <p className="text-xs text-slate-500 py-2">{emptyLabel ?? "No members yet."}</p>;
+  }
+  return (
+    <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden bg-white">
+      {members.map((m) => (
+        <div key={m.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+          <div className="min-w-0">
+            <p className="font-medium text-slate-900 truncate">{m.invitedName || m.invitedEmail}</p>
+            <p className="text-xs text-slate-500 truncate">{m.invitedEmail}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge variant="outline" className="text-xs">{m.roleName ?? m.legacyRole ?? "Member"}</Badge>
+            <Badge
+              variant={m.status === "active" ? "secondary" : "outline"}
+              className={`text-xs capitalize ${m.status === "pending" ? "border-amber-200 text-amber-700" : ""}`}
+            >
+              {m.status}
+            </Badge>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Team() {
   const { user } = useUser();
   const { canManage, isTeamMember, isOwner, role, membership, memberCredits } = useTeam();
+  const {
+    featureWorkspaceId,
+    featureWorkspace,
+    isAccountOwner,
+    can,
+  } = useWorkspace();
   const [, setLocation] = useLocation();
+  const viewAllWorkspaces = typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("all") === "1";
+  const scopedWorkspaceId = isAccountOwner && viewAllWorkspaces ? null : featureWorkspaceId;
+  const isAdminTeamView = isAccountOwner && !scopedWorkspaceId;
+  const isWorkspaceTeamView = scopedWorkspaceId != null;
   const qc = useQueryClient();
   const { toast } = useToast();
   const [showInvite, setShowInvite] = useState(false);
@@ -116,7 +169,7 @@ export default function Team() {
   const { data: rolesData } = useQuery({
     queryKey: ["account-roles"],
     queryFn: () => fetchJson<{ roles: AccountRole[] }>(`${basePath}/api/account/roles`),
-    enabled: isOwner,
+    enabled: isAccountOwner,
   });
   const accountRoles = rolesData?.roles ?? [];
 
@@ -127,12 +180,33 @@ export default function Team() {
   }, [accountRoles, inviteForm.roleId]);
 
   const { data, isLoading } = useQuery<TeamData>({
-    queryKey: ["team"],
-    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => {
-      if (!r.ok) throw new Error("Failed to load team");
-      return r.json();
-    }),
-    enabled: isOwner,
+    queryKey: ["team", scopedWorkspaceId],
+    queryFn: () => {
+      const url = scopedWorkspaceId
+        ? `${basePath}/api/team?workspaceId=${scopedWorkspaceId}`
+        : `${basePath}/api/team`;
+      return fetch(url, { credentials: "include" }).then((r) => {
+        if (!r.ok) throw new Error("Failed to load team");
+        return r.json();
+      });
+    },
+    enabled: isAccountOwner,
+  });
+
+  const { data: scopedWorkspaceMembersData } = useQuery({
+    queryKey: ["workspace-members", scopedWorkspaceId],
+    queryFn: () => fetchJson<{ members: Array<{
+      id: number;
+      invitedEmail: string;
+      invitedName: string;
+      status: string;
+      userId: string | null;
+      roleName?: string;
+      legacyRole?: string | null;
+      invitedAt: string;
+      acceptedAt: string | null;
+    }> }>(`${basePath}/api/workspaces/${scopedWorkspaceId}/members`),
+    enabled: !isAccountOwner && isWorkspaceTeamView && scopedWorkspaceId != null && (can("team", "viewGlobal") || canManage),
   });
 
   const inviteMutation = useMutation({
@@ -188,6 +262,24 @@ export default function Team() {
   const activeMembers = members.filter((m) => m.status === "active");
   const pendingMembers = members.filter((m) => m.status === "pending");
 
+  const scopedWorkspaceMembers: WorkspaceMemberListItem[] = isAccountOwner
+    ? (data?.workspaceMembers?.workspaces[0]?.members ?? [])
+    : (scopedWorkspaceMembersData?.members ?? []).map((m) => ({
+      id: m.id,
+      invitedEmail: m.invitedEmail,
+      invitedName: m.invitedName,
+      status: m.status,
+      userId: m.userId,
+      roleName: m.roleName ?? null,
+      legacyRole: m.legacyRole ?? null,
+      invitedAt: m.invitedAt,
+      acceptedAt: m.acceptedAt,
+    }));
+
+  const scopedWorkspaceName = isAccountOwner
+    ? data?.workspaceMembers?.workspaces[0]?.name ?? featureWorkspace?.name
+    : featureWorkspace?.name;
+
   function getInviteUrl(token: string) {
     return `${window.location.origin}${basePath}/accept-invite?token=${token}`;
   }
@@ -233,12 +325,24 @@ export default function Team() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Team</h1>
-          <p className="text-slate-500 mt-1 text-sm">Manage who has access to your workspace.</p>
+          <p className="text-slate-500 mt-1 text-sm">
+            {isWorkspaceTeamView
+              ? `Members with access to ${scopedWorkspaceName ?? "this workspace"}.`
+              : isAdminTeamView
+                ? "All workspaces and their members across your account."
+                : "Manage who has access to your workspace."}
+          </p>
+          {isWorkspaceTeamView && isAccountOwner && (
+            <p className="text-xs text-slate-400 mt-1">
+              Scoped to the workspace selected in the switcher.{" "}
+              <Link href="/team?all=1" className="underline font-medium text-slate-600">View all workspaces</Link>
+            </p>
+          )}
           {isTeamMember && (
             <p className="text-xs text-slate-400 mt-1">Your role: <span className="font-medium capitalize">{role}</span></p>
           )}
         </div>
-        {canManage && (
+        {canManage && isAdminTeamView && (
           <Button
             className="bg-orange-500 hover:bg-orange-600 text-white"
             onClick={() => { setShowInvite(true); setCreatedInvite(null); }}
@@ -248,9 +352,18 @@ export default function Team() {
             Invite Member
           </Button>
         )}
+        {canManage && isWorkspaceTeamView && scopedWorkspaceId != null && (
+          <Link href={`/workspaces/${scopedWorkspaceId}/members`}>
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+              <Plus className="w-4 h-4" />
+              Invite to workspace
+            </Button>
+          </Link>
+        )}
       </div>
 
-      {/* Seat usage */}
+      {/* Seat usage (account billing) */}
+      {isAccountOwner && (
       <div className="bg-white border border-slate-200 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -283,21 +396,45 @@ export default function Team() {
           </p>
         )}
       </div>
+      )}
 
-      {/* Workspace access (members across workspaces) */}
-      {data?.workspaceMembers && (
+      {/* Workspace-scoped members */}
+      {isWorkspaceTeamView && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-orange-500" />
+              <h2 className="text-sm font-semibold text-slate-900">{scopedWorkspaceName ?? "Workspace"} members</h2>
+              {featureWorkspace?.isDefault && <Badge variant="secondary">Default</Badge>}
+            </div>
+            <Link href={`/workspaces/${scopedWorkspaceId}/members`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ChevronRight className="w-3.5 h-3.5" />
+                Manage members
+              </Button>
+            </Link>
+          </div>
+          <WorkspaceMembersList
+            members={scopedWorkspaceMembers}
+            emptyLabel="No members in this workspace yet. Invite someone from the workspace members page."
+          />
+        </div>
+      )}
+
+      {/* Admin: all workspaces with members */}
+      {isAdminTeamView && data?.workspaceMembers && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">Workspace access</h2>
+              <h2 className="text-sm font-semibold text-slate-900">All workspaces</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Member counts from workspace memberships (same person on multiple workspaces counts separately).
+                Each workspace lists only its own members. Totals count memberships across workspaces.
               </p>
             </div>
             <Link href="/workspaces">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Building2 className="w-3.5 h-3.5" />
-                All workspaces
+                Workspace hub
               </Button>
             </Link>
           </div>
@@ -357,6 +494,7 @@ export default function Team() {
                         <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
                       )}
                     </div>
+                    <WorkspaceMembersList members={ws.members} />
                     <Link href={`/workspaces/${ws.id}/members`}>
                       <Button variant="outline" size="sm" className="gap-1.5">
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -372,7 +510,7 @@ export default function Team() {
       )}
 
       {/* Role guide */}
-      {accountRoles.length > 0 ? (
+      {isAdminTeamView && accountRoles.length > 0 ? (
         <div className="bg-slate-50 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {accountRoles.map((role, idx) => (
             <div key={role.id} className="flex gap-3">
@@ -388,7 +526,7 @@ export default function Team() {
             </div>
           ))}
         </div>
-      ) : (
+      ) : isAdminTeamView ? (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -398,10 +536,10 @@ export default function Team() {
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Invite form */}
-      {showInvite && canManage && (
+      {isAdminTeamView && showInvite && canManage && (
         <div className="bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-semibold text-slate-900 flex items-center gap-2">
@@ -518,12 +656,18 @@ export default function Team() {
         </div>
       )}
 
-      {/* Owner card */}
+      {/* Account seats & credits (team_members billing) */}
+      {isAdminTeamView && (
+      <>
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900 text-sm">
-            {activePendingCount + pendingMembers.length} member{activePendingCount + pendingMembers.length !== 1 ? "s" : ""}
-          </h2>
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900 text-sm">Account seats & credits</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Billing seats and credit allocation for your account team.</p>
+        </div>
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="font-medium text-slate-800 text-sm">
+            {activePendingCount + pendingMembers.length} seat member{activePendingCount + pendingMembers.length !== 1 ? "s" : ""}
+          </h3>
         </div>
         <div className="divide-y divide-slate-100">
           {/* Owner (you) */}
@@ -738,7 +882,6 @@ export default function Team() {
         </div>
       </div>
 
-      {/* Activity of active members */}
       {activeMembers.length > 0 && (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-0">
@@ -790,6 +933,8 @@ export default function Team() {
             </ResponsiveTable>
           </CardContent>
         </Card>
+      )}
+      </>
       )}
     </div>
   );

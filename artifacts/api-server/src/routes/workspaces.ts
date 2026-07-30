@@ -103,7 +103,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     .orderBy(desc(workspacesTable.isDefault), workspacesTable.name);
 
   const roles = await listAccountRoles(accountOwnerId);
-  const summary = await getWorkspaceMemberSummaryForOwner(accountOwnerId);
+  const summary = await getWorkspaceMemberSummaryForOwner(accountOwnerId, { includeMembers: true });
   const ownedById = new Map(owned.map((w) => [w.id, w]));
 
   res.json({
@@ -124,6 +124,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
         memberCount: w.memberCount,
         activeMemberCount: w.activeMemberCount,
         pendingMemberCount: w.pendingMemberCount,
+        members: w.members,
       };
     }),
   });
