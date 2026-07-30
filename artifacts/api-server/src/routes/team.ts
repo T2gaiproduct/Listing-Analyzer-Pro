@@ -24,7 +24,7 @@ import {
 } from "../lib/team-stats.js";
 import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
 import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
-import { syncTeamMemberWorkspaceMemberships } from "../lib/team-workspace-sync.js";
+import { syncTeamMemberWorkspaceMemberships, syncPendingTeamInviteToWorkspaces } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { buildWorkspaceMemberStats } from "../lib/workspace-member-stats.js";
@@ -244,6 +244,27 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
       inviteToken: token,
     }).returning();
     invite = inserted;
+  }
+
+  try {
+    await syncPendingTeamInviteToWorkspaces({
+      ownerUserId: userId,
+      invitedEmail: invite.invitedEmail,
+      invitedName: invite.invitedName,
+      roleId: resolvedRoleId,
+      legacyRole,
+    });
+  } catch (syncErr) {
+    req.log?.error?.({ syncErr }, "Failed to sync team invite to workspace members");
+    if (revokedRecord) {
+      await db.update(teamMembersTable)
+        .set({ status: "revoked", memberUserId: null, isDeleted: 1, deletedAt: new Date() })
+        .where(eq(teamMembersTable.id, invite!.id));
+    } else {
+      await db.delete(teamMembersTable).where(eq(teamMembersTable.id, invite!.id));
+    }
+    res.status(500).json({ error: "Failed to add member to workspaces. Check Roles settings and try again." });
+    return;
   }
 
   // Send invitation email (respect invitee notification preferences for existing accounts)
