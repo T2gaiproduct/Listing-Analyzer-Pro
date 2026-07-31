@@ -22,7 +22,6 @@ import {
   Folder,
   MessageSquare,
   Eye,
-  LayoutGrid,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SiteLogo, SiteLogoMark, SiteLogoIcon } from "@/components/site-logo";
@@ -63,7 +62,6 @@ const mainNavItems: Array<{
   feature: WorkspaceFeature;
   comingSoon?: boolean;
 }> = [
-  { icon: LayoutGrid, label: "Dashboard", href: "/dashboard", feature: "dashboard" },
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
@@ -690,7 +688,6 @@ export function Layout({ children }: { children: ReactNode }) {
             {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
               const isActive =
                 location === href ||
-                (href === "/dashboard" && (location === "/" || location === "/dashboard")) ||
                 (href === "/recent-projects" && location === "/recent-projects") ||
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
