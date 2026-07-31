@@ -32,14 +32,15 @@ export function poolAvailableForMembers(pool: CreditTotals, memberAllocated: Cre
   };
 }
 
-/** Total credits in this workspace = assigned to members + unassigned in pool + used this period. */
-export function workspaceFundedCreditTotal(
-  pool: CreditTotals,
-  memberAllocated: CreditTotals,
-  usedInPeriod: number,
-): number {
-  const available = poolAvailableForMembers(pool, memberAllocated);
-  return sumCreditBalance(memberAllocated) + sumCreditBalance(available) + usedInPeriod;
+/** Total credits funded to this workspace = remaining pool balance + used this period. */
+export function workspaceFundedCreditTotal(pool: CreditTotals, usedInPeriod: number): number {
+  return sumCreditBalance(pool) + usedInPeriod;
+}
+
+/** Member balances only count toward workspace totals when the pool has been funded. */
+export function memberCreditsInWorkspace(pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
+  if (sumCreditBalance(pool) <= 0) return { ...ZERO };
+  return memberAllocated;
 }
 
 function keyForType(type: CreditType): "aiCredits" | "imageCredits" | "auditCredits" {

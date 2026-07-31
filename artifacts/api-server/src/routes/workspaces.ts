@@ -41,6 +41,7 @@ import {
   sumWorkspacePoolsForOwner,
   poolAvailableForMembers,
   workspaceFundedCreditTotal,
+  memberCreditsInWorkspace,
   sumCreditBalance,
 } from "../lib/workspace-credits.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
@@ -225,16 +226,19 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     const pool = await getWorkspaceCredits(w.id);
     const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
     const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
-    const poolAvailable = poolAvailableForMembers(pool, memberAllocated);
-    const memberAllocTotal = sumCreditTotals(memberAllocated);
+    const memberAllocatedInPool = memberCreditsInWorkspace(pool, memberAllocated);
+    const poolAvailable = poolAvailableForMembers(pool, memberAllocatedInPool);
     const poolUnassigned = sumCreditBalance(poolAvailable);
-    const fundedTotal = workspaceFundedCreditTotal(pool, memberAllocated, creditsUsedInPeriod);
+    const fundedTotal = workspaceFundedCreditTotal(pool, creditsUsedInPeriod);
+    const poolHasCredits = sumCreditBalance(pool) > 0;
 
     const membersWithCredits = await Promise.all(w.members.map(async (m) => {
       const allocated = creditsByMemberId.get(m.id);
-      const allocatedCredits = allocated
-        ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
-        : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+      const allocatedCredits = !poolHasCredits
+        ? { aiCredits: 0, imageCredits: 0, auditCredits: 0 }
+        : allocated
+          ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
+          : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
       const remainingTotal = sumCreditTotals(allocatedCredits);
       const creditsUsedInPeriodMember = m.userId
         ? await sumCreditsUsedInWorkspaceForUser(m.userId, w.id, periodStart, periodEnd)
@@ -258,7 +262,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       pendingMemberCount: w.pendingMemberCount,
       members: membersWithCredits,
       poolCredits: pool,
-      memberAllocatedCredits: memberAllocated,
+      memberAllocatedCredits: memberAllocatedInPool,
       creditsUsedInPeriod,
       fundedTotal,
       poolRemaining: poolUnassigned,

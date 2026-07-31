@@ -27,7 +27,7 @@ import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
-import { getWorkspaceCredits, sumAllocatedMemberCreditsForWorkspace, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
+import { getWorkspaceCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
 
 const router: IRouter = Router();
@@ -469,10 +469,9 @@ router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Reque
   if (workspaceId && wsCtx.isAccountOwner) {
     creditScope = "workspace_pool";
     displayCredits = await getWorkspaceCredits(workspaceId);
-    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
     const workspaceUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
-    // Total funded to workspace = member allocations + unassigned pool + spent (not pool + members).
-    creditsAllowance = workspaceFundedCreditTotal(displayCredits, memberAllocated, workspaceUsedInPeriod);
+    // Total funded to workspace = remaining pool balance + spent this period.
+    creditsAllowance = workspaceFundedCreditTotal(displayCredits, workspaceUsedInPeriod);
   } else if (team?.isTeamMember && team.memberId) {
     creditScope = "member";
     const memberCredits = await getMemberCredits(team.memberId, workspaceId);

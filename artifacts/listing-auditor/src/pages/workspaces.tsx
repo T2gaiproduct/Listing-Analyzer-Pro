@@ -98,11 +98,12 @@ function formatCreditBuckets(c: CreditBuckets): string {
 }
 
 function workspaceFundedTotal(ws: WorkspaceOverviewRow): number {
-  if (ws.fundedTotal != null && ws.fundedTotal > 0) return ws.fundedTotal;
-  const memberAlloc = sumCredits(ws.memberAllocatedCredits);
-  const poolUnassigned = sumCredits(ws.poolAvailableForMembers);
-  const used = ws.creditsUsedInPeriod ?? 0;
-  return memberAlloc + poolUnassigned + used;
+  if (ws.fundedTotal != null) return ws.fundedTotal;
+  return sumCredits(ws.poolCredits) + (ws.creditsUsedInPeriod ?? 0);
+}
+
+function memberCreditsTotal(ws: WorkspaceOverviewRow): number {
+  return sumCredits(ws.memberAllocatedCredits);
 }
 
 function poolUnassignedTotal(ws: WorkspaceOverviewRow): number {
@@ -157,7 +158,7 @@ export default function WorkspacesPage() {
   });
 
   const planCreditsTotal = useMemo(() => {
-    if (overview?.planCreditsTotal && overview.planCreditsTotal > 0) return overview.planCreditsTotal;
+    if (overview?.planCreditsTotal != null) return overview.planCreditsTotal;
     if (overview?.planCredits) {
       const fromOverview = sumCredits(overview.planCredits);
       if (fromOverview > 0) return fromOverview;
@@ -171,28 +172,19 @@ export default function WorkspacesPage() {
   }, [overview, sub, creditRules]);
 
   const accountUnallocatedTotal = useMemo(() => {
-    const fromBuckets = sumCredits(overview?.availableToFundWorkspaces ?? overview?.ownerCredits);
-    const fromApi = overview?.accountUnallocatedTotal;
-    if (fromApi != null && fromApi > 0) return fromApi;
-    return fromBuckets;
+    if (overview?.accountUnallocatedTotal != null) return overview.accountUnallocatedTotal;
+    return sumCredits(overview?.availableToFundWorkspaces ?? overview?.ownerCredits);
   }, [overview]);
 
   const inWorkspacePoolsTotal = useMemo(() => {
-    const fromWorkspaces = overview?.workspaces?.length
-      ? overview.workspaces.reduce(
-          (sum, ws) => sum + (ws.poolRemaining ?? sumCredits(ws.poolCredits)),
-          0,
-        )
+    if (overview?.inWorkspacePoolsTotal != null) return overview.inWorkspacePoolsTotal;
+    return overview?.workspaces?.length
+      ? overview.workspaces.reduce((sum, ws) => sum + sumCredits(ws.poolCredits), 0)
       : 0;
-    const fromApi = overview?.inWorkspacePoolsTotal;
-    if (fromApi != null && fromApi > 0) return fromApi;
-    return fromWorkspaces;
   }, [overview]);
 
   const accountCreditsTotal = useMemo(() => {
-    if (overview?.accountCreditsTotal != null && overview.accountCreditsTotal > 0) {
-      return overview.accountCreditsTotal;
-    }
+    if (overview?.accountCreditsTotal != null) return overview.accountCreditsTotal;
     return accountUnallocatedTotal + inWorkspacePoolsTotal;
   }, [overview, accountUnallocatedTotal, inWorkspacePoolsTotal]);
 
@@ -477,7 +469,7 @@ export default function WorkspacesPage() {
                     <tbody>
                       {displayWorkspaces.map((ws) => {
                         const expanded = expandedWorkspaceIds.has(ws.id);
-                        const memberAlloc = sumCredits(ws.memberAllocatedCredits);
+                        const memberAlloc = memberCreditsTotal(ws);
                         return (
                           <Fragment key={ws.id}>
                             <tr className="border-b border-slate-100 hover:bg-slate-50/80">
