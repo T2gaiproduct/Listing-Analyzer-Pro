@@ -58,6 +58,7 @@ export const AcceptAdminInvite = lazy(() => import("@/pages/accept-admin-invite"
 export const Onboarding = lazy(() => import("@/pages/onboarding"));
 export const CheckoutSuccess = lazy(() => import("@/pages/checkout-success"));
 export const CheckoutCancel = lazy(() => import("@/pages/checkout-cancel"));
+export const CheckoutPayPalReturn = lazy(() => import("@/pages/checkout/paypal-return"));
 export const CheckoutCardSuccess = lazy(() => import("@/pages/checkout-card-success"));
 
 export const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));

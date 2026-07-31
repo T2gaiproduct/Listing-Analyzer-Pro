@@ -455,6 +455,8 @@ export default function Onboarding() {
         amount: finalAmount,
         currency: paymentConfig?.currency ?? "USD",
         origin: window.location.origin,
+        returnUrl: `${window.location.origin}${basePath}/checkout/paypal-return?paypal_captured=1`,
+        cancelUrl: `${window.location.origin}${basePath}/checkout/paypal-return?paypal_cancelled=1`,
       });
     } else {
       checkoutMutation.mutate({

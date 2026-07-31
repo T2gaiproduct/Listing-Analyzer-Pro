@@ -269,7 +269,9 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
 router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const { reconcilePendingStripeSubscription } = await import("../lib/stripe-subscription-sync.js");
+  const { reconcilePendingPayPalPayments } = await import("../lib/paypal-payment-sync.js");
   await reconcilePendingStripeSubscription(userId);
+  await reconcilePendingPayPalPayments(userId);
   const [profile] = await db
     .select({
       fullName: userProfilesTable.fullName,

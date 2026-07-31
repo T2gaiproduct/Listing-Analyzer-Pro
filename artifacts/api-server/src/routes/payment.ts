@@ -197,10 +197,66 @@ export async function getPayPalAccessToken(): Promise<{ token: string; baseUrl: 
   return { token: d.access_token, baseUrl };
 }
 
+type PayPalCaptureResponse = {
+  status: string;
+  purchase_units?: Array<{
+    payments?: { captures?: Array<{ id: string; amount: { value: string; currency_code: string } }> };
+  }>;
+  payer?: { email_address?: string };
+  message?: string;
+};
+
+/** Capture (or fulfill) a PayPal order — used by API route and pending-payment reconciliation. */
+export async function capturePayPalOrderForUser(userId: string, orderId: string) {
+  let token: string, baseUrl: string;
+  ({ token, baseUrl } = await getPayPalAccessToken());
+
+  const orderRes = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const existing = await orderRes.json() as PayPalCaptureResponse;
+
+  let capture: PayPalCaptureResponse;
+  if (existing.status === "COMPLETED") {
+    capture = existing;
+  } else if (existing.status === "APPROVED") {
+    const captureRes = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    });
+    capture = await captureRes.json() as PayPalCaptureResponse;
+  } else {
+    throw new Error(`PayPal order not ready for capture (${existing.status ?? "unknown"})`);
+  }
+
+  if (capture.status !== "COMPLETED") {
+    throw new Error(capture.message ?? `PayPal capture failed: ${capture.status}`);
+  }
+
+  const captureUnit = capture.purchase_units?.[0]?.payments?.captures?.[0];
+  const paidAmountCents = Math.round(parseFloat(captureUnit?.amount?.value ?? "0") * 100);
+  const currency = captureUnit?.amount?.currency_code ?? "USD";
+  const payerEmail = capture.payer?.email_address ?? "";
+
+  return fulfillGatewayPaymentIntent({
+    userId,
+    gateway: "paypal",
+    gatewayPaymentId: captureUnit?.id ?? orderId,
+    gatewayOrderId: orderId,
+    paidAmountCents,
+    currency,
+    payerEmail,
+  });
+}
+
 router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth!.userId!;
-  const { origin } = req.body as { origin?: string };
+  const { origin, returnUrl, cancelUrl } = req.body as {
+    origin?: string;
+    returnUrl?: string;
+    cancelUrl?: string;
+  };
 
   let resolved;
   try {
@@ -213,6 +269,14 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
   const s = await getGatewaySettings();
   const clientId = s.paypal_client_id ?? "";
   const base = resolveAppBaseUrl(origin);
+  const paypalReturnUrl =
+    returnUrl && isAllowedRedirectUrl(returnUrl)
+      ? returnUrl
+      : `${base}/checkout/paypal-return?paypal_captured=1`;
+  const paypalCancelUrl =
+    cancelUrl && isAllowedRedirectUrl(cancelUrl)
+      ? cancelUrl
+      : `${base}/checkout/paypal-return?paypal_cancelled=1`;
 
   let token: string, baseUrl: string;
   try {
@@ -235,8 +299,8 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
       application_context: {
         brand_name: "SellerLens",
         user_action: "PAY_NOW",
-        return_url: `${base}/billing?paypal_captured=1`,
-        cancel_url: `${base}/billing?paypal_cancelled=1`,
+        return_url: paypalReturnUrl,
+        cancel_url: paypalCancelUrl,
       },
     }),
   });
@@ -268,48 +332,13 @@ router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void
   const { orderId } = req.body as { orderId: string };
   if (!orderId) { res.status(400).json({ error: "orderId is required" }); return; }
 
-  let token: string, baseUrl: string;
   try {
-    ({ token, baseUrl } = await getPayPalAccessToken());
-  } catch (err) {
-    res.status(400).json({ error: (err as Error).message }); return;
-  }
-
-  const captureRes = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-  });
-  const capture = await captureRes.json() as {
-    status: string;
-    purchase_units?: Array<{ payments?: { captures?: Array<{ id: string; amount: { value: string; currency_code: string } }> } }>;
-    payer?: { email_address?: string };
-    message?: string;
-  };
-
-  if (capture.status !== "COMPLETED") {
-    res.status(400).json({ error: capture.message ?? `PayPal capture failed: ${capture.status}` }); return;
-  }
-
-  const captureUnit = capture.purchase_units?.[0]?.payments?.captures?.[0];
-  const paidAmountCents = Math.round(parseFloat(captureUnit?.amount?.value ?? "0") * 100);
-  const currency = captureUnit?.amount?.currency_code ?? "USD";
-  const payerEmail = capture.payer?.email_address ?? "";
-
-  try {
-    const result = await fulfillGatewayPaymentIntent({
-      userId,
-      gateway: "paypal",
-      gatewayPaymentId: captureUnit?.id ?? orderId,
-      gatewayOrderId: orderId,
-      paidAmountCents,
-      currency,
-      payerEmail,
-    });
+    const result = await capturePayPalOrderForUser(userId, orderId);
 
     res.json({
       success: true,
       alreadyProcessed: result.alreadyProcessed,
-      payer: payerEmail,
+      payer: result.payer,
       ...(result.addedCredits !== undefined ? {
         addedCredits: result.addedCredits,
         newBalance: result.newBalance,

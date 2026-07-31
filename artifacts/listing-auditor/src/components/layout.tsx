@@ -226,7 +226,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const navReady = isAccountOwner || (activeWorkspaceId != null && !wsNavLoading);
   const visibleNavItems = navReady
-    ? mainNavItems.filter((item) => isAccountOwner || canView(item.feature))
+    ? mainNavItems.filter((item) =>
+        item.href === "/dashboard" || isAccountOwner || canView(item.feature),
+      )
     : [];
 
   const [collapsed, setCollapsed] = useState(false);
