@@ -29,6 +29,10 @@ if (!basePath) {
 const apiProxyTarget =
   process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8080";
 
+// Cloudflare / dev-proxy cannot forward Vite HMR websockets (see scripts/dev-proxy.mjs).
+const disableHmr =
+  process.env.VITE_DISABLE_HMR === "true" || Boolean(process.env.VITE_CLERK_PROXY_URL);
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -95,6 +99,7 @@ export default defineConfig({
     strictPort: true,
     host: "0.0.0.0",
     allowedHosts: true,
+    hmr: disableHmr ? false : undefined,
     fs: {
       strict: true,
     },
