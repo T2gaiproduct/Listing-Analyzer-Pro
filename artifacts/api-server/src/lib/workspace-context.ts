@@ -17,7 +17,7 @@ import {
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { displayWorkspaceRoleLabel } from "./role-display.js";
-import { getDefaultWorkspaceId, ensureTeamMembersSchema, ensureSubscriberDefaultWorkspace } from "./ensure-workspaces";
+import { getDefaultWorkspaceId, ensureTeamMembersSchema } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
 import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
 
@@ -66,9 +66,6 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
   await ensureTeamMembersSchema();
 
   const team = await resolveTeamContext(userId);
-  if (!team.isTeamMember) {
-    await ensureSubscriberDefaultWorkspace(userId);
-  }
   if (team.isTeamMember && team.memberId) {
     const [tm] = await db
       .select()
