@@ -227,6 +227,7 @@ export default function Dashboard() {
     isTeamMemberAccount,
     roleName,
     workspaces,
+    isWorkspaceApiScopeActive,
   } = useWorkspace();
 
   const hasSharedWorkspace = workspaces.some((w) => !w.isAccountOwner);
@@ -250,12 +251,27 @@ export default function Dashboard() {
     { href: "/ads", label: "Manage Ads", feature: "ads" as const },
   ].filter((item) => isAccountOwner || canView(item.feature));
 
+  const showWorkspacePoolCredits =
+    isAccountOwner && !isTeamMember && featureWorkspaceId != null && isWorkspaceApiScopeActive;
+
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard", featureWorkspaceId],
     queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
     enabled: clerkLoaded && !!user && !!featureWorkspaceId && (isAccountOwner || canView("dashboard")),
     staleTime: 30_000,
     retry: 3,
+  });
+
+  const { data: workspacePoolData } = useQuery<{
+    poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+  }>({
+    queryKey: ["workspace-pool-credits", featureWorkspaceId],
+    queryFn: () =>
+      fetchJson<{ poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number } }>(
+        `${basePath}/api/workspaces/${featureWorkspaceId}/members`,
+      ),
+    enabled: clerkLoaded && !!user && showWorkspacePoolCredits,
+    staleTime: 30_000,
   });
 
   const memberName =
@@ -351,10 +367,33 @@ export default function Dashboard() {
 
   const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const memberBalance = memberPool.auditCredits + memberPool.aiCredits + memberPool.imageCredits;
-  const showMemberCredits = isTeamMember || stats.isTeamMember;
+  const showMemberCredits =
+    stats.creditScope === "member" || (!isAccountOwner && (isTeamMember || stats.isTeamMember));
 
-  const creditsBalance = showMemberCredits ? memberBalance : stats.creditsBalance;
+  const workspacePoolCredits = workspacePoolData?.poolCredits;
+  const workspacePoolBalance = workspacePoolCredits
+    ? workspacePoolCredits.auditCredits + workspacePoolCredits.aiCredits + workspacePoolCredits.imageCredits
+    : null;
+
+  const creditsBalance = showMemberCredits
+    ? memberBalance
+    : showWorkspacePoolCredits && workspacePoolBalance != null
+      ? workspacePoolBalance
+      : stats.creditsBalance;
   const creditsAllowance = showMemberCredits ? (stats.creditsAllowance ?? 0) : stats.creditsAllowance;
+  const creditScopeLabel = showMemberCredits
+    ? "member"
+    : showWorkspacePoolCredits && (workspacePoolBalance != null || stats.creditScope === "workspace_pool")
+      ? "workspace_pool"
+      : stats.creditScope ?? "account";
+
+  const workspacePoolBreakdown = workspacePoolCredits
+    ? [
+        { key: "audit", label: "Audit Credits", balance: workspacePoolCredits.auditCredits, color: "#f97316" },
+        { key: "graphic", label: "Graphic Credits", balance: workspacePoolCredits.imageCredits, color: "#1e293b" },
+        { key: "brand", label: "Brand Credits", balance: workspacePoolCredits.aiCredits, color: "#94a3b8" },
+      ]
+    : null;
 
   const creditBreakdown = showMemberCredits
     ? [
@@ -367,7 +406,14 @@ export default function Dashboard() {
           const total = memberBalance || 1;
           return { ...seg, pct: Math.round((seg.balance / total) * 100) };
         })
-    : dashboard.creditBreakdown;
+    : showWorkspacePoolCredits && workspacePoolBreakdown
+      ? workspacePoolBreakdown
+          .filter((seg) => seg.balance > 0)
+          .map((seg) => {
+            const total = workspacePoolBalance || 1;
+            return { ...seg, pct: Math.round((seg.balance / total) * 100) };
+          })
+      : dashboard.creditBreakdown;
 
   return (
     <div className={cn("space-y-4 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0", isFetching && "opacity-90")}>
@@ -428,7 +474,7 @@ export default function Dashboard() {
               ? creditsAllowance > 0
                 ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
                 : "No credits allocated yet"
-              : stats.creditScope === "workspace_pool"
+              : creditScopeLabel === "workspace_pool"
                 ? creditsAllowance > 0
                   ? `Workspace pool · of ${creditsAllowance.toLocaleString()} funded`
                   : "Fund this workspace on Manage workspaces"
