@@ -33,6 +33,28 @@ export async function sumCreditsUsedInPeriod(
   return Number(row?.total ?? 0);
 }
 
+/** Credits consumed from a workspace pool in a billing period (all members + owner). */
+export async function sumCreditsUsedForWorkspace(
+  workspaceId: number,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
+    })
+    .from(creditTransactionsTable)
+    .where(
+      and(
+        eq(creditTransactionsTable.workspaceId, workspaceId),
+        sql`${creditTransactionsTable.amount} < 0`,
+        gte(creditTransactionsTable.createdAt, periodStart),
+        lte(creditTransactionsTable.createdAt, periodEnd),
+      ),
+    );
+  return Number(row?.total ?? 0);
+}
+
 export async function countAuditActivity(
   userId: string,
   periodStart?: Date,

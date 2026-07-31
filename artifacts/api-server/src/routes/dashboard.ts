@@ -26,7 +26,8 @@ import {
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
-import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod } from "../lib/team-stats";
+import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
+import { getWorkspaceCredits } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
 
 const router: IRouter = Router();
@@ -460,8 +461,10 @@ router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Reque
 
   let displayCredits: CreditBalances;
   let creditsAllowance: number;
+  let creditScope: "member" | "workspace_pool" | "account" = "account";
 
   if (team?.isTeamMember && team.memberId) {
+    creditScope = "member";
     const memberCredits = await getMemberCredits(team.memberId, workspaceId);
     displayCredits = memberCredits ?? zeroCredits;
     const memberUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
@@ -470,30 +473,40 @@ router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Reque
     // Total assigned by owner = remaining + spent this billing period
     creditsAllowance = memberRemaining + memberUsedInPeriod;
   } else {
-    displayCredits = ownerCredits[0]
-      ? {
-          aiCredits: ownerCredits[0].aiCredits,
-          imageCredits: ownerCredits[0].imageCredits,
-          auditCredits: ownerCredits[0].auditCredits,
-        }
-      : zeroCredits;
-    const alloc = (subRow?.creditAllocations ?? {}) as Record<string, number>;
-    if (Object.keys(alloc).length > 0) {
-      const pools = await resolvePlanCreditPools({
-        aiCredits: subRow?.planAiCredits ?? 0,
-        imageCredits: subRow?.planImageCredits ?? 0,
-        auditCredits: subRow?.planAuditCredits ?? 0,
-        creditAllocations: alloc,
-      });
-      creditsAllowance = pools.auditCredits + pools.aiCredits + pools.imageCredits;
-    } else {
-      creditsAllowance = (subRow?.planAuditCredits ?? 0)
-        + (subRow?.planAiCredits ?? 0)
-        + (subRow?.planImageCredits ?? 0);
-    }
-    if (creditsAllowance <= 0) {
-      creditsAllowance =
+    const wsCtx = getWorkspaceCtx(req);
+    if (workspaceId && wsCtx.isAccountOwner && userId === ownerId) {
+      creditScope = "workspace_pool";
+      displayCredits = await getWorkspaceCredits(workspaceId);
+      const workspaceUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
+      const poolRemaining =
         displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+      creditsAllowance = poolRemaining + workspaceUsedInPeriod;
+    } else {
+      displayCredits = ownerCredits[0]
+        ? {
+            aiCredits: ownerCredits[0].aiCredits,
+            imageCredits: ownerCredits[0].imageCredits,
+            auditCredits: ownerCredits[0].auditCredits,
+          }
+        : zeroCredits;
+      const alloc = (subRow?.creditAllocations ?? {}) as Record<string, number>;
+      if (Object.keys(alloc).length > 0) {
+        const pools = await resolvePlanCreditPools({
+          aiCredits: subRow?.planAiCredits ?? 0,
+          imageCredits: subRow?.planImageCredits ?? 0,
+          auditCredits: subRow?.planAuditCredits ?? 0,
+          creditAllocations: alloc,
+        });
+        creditsAllowance = pools.auditCredits + pools.aiCredits + pools.imageCredits;
+      } else {
+        creditsAllowance = (subRow?.planAuditCredits ?? 0)
+          + (subRow?.planAiCredits ?? 0)
+          + (subRow?.planImageCredits ?? 0);
+      }
+      if (creditsAllowance <= 0) {
+        creditsAllowance =
+          displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+      }
     }
   }
 
@@ -626,6 +639,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Reque
       timeSavedThisWeek,
       creditsBalance,
       creditsAllowance,
+      creditScope,
       isTeamMember: !!team?.isTeamMember,
       teamCreditsUsedInPeriod,
       memberCreditsAllocated,

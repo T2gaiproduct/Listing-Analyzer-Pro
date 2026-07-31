@@ -9,7 +9,9 @@ export async function refetchCreditQueries(queryClient: QueryClient): Promise<vo
     queryClient.refetchQueries({ queryKey: ["team-membership-credits"] }),
     queryClient.refetchQueries({ queryKey: ["credit-usage"] }),
     queryClient.refetchQueries({ queryKey: ["team-overview"] }),
-    queryClient.refetchQueries({ queryKey: ["user-subscription"] }),
+    queryClient.refetchQueries({ queryKey: ["dashboard"] }),
+    queryClient.refetchQueries({ queryKey: ["workspace-pool-credits"] }),
+    queryClient.refetchQueries({ queryKey: ["workspace-members"] }),
   ]);
 }
 

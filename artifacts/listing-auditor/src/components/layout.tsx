@@ -543,6 +543,22 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchOnMount: "always",
   });
 
+  const showWorkspacePoolCredits =
+    isAccountOwner && !isTeamMember && featureWorkspaceId != null && isWorkspaceApiScopeActive;
+
+  const { data: workspacePoolData } = useQuery<{
+    poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+  }>({
+    queryKey: ["workspace-pool-credits", featureWorkspaceId],
+    queryFn: () =>
+      fetch(`${basePath}/api/workspaces/${featureWorkspaceId}/members`, { credentials: "include" }).then(
+        (r) => r.json(),
+      ),
+    enabled: clerkLoaded && !!user && showWorkspacePoolCredits,
+    staleTime: 30_000,
+    refetchOnMount: "always",
+  });
+
   // Full profile for display name (same source as /profile page)
   const { data: fullProfileData } = useQuery<{
     profile: { fullName: string | null } | null;
@@ -567,9 +583,17 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const workspacePoolCredits = workspacePoolData?.poolCredits;
   const displayCredits = isTeamMember
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-    : ownerCredits;
+    : showWorkspacePoolCredits && workspacePoolCredits
+      ? workspacePoolCredits
+      : ownerCredits;
+  const creditsScopeLabel = showWorkspacePoolCredits && workspacePoolCredits
+    ? "workspace"
+    : isTeamMember
+      ? "member"
+      : "account";
 
   const profileName =
     fullProfileData?.profile?.fullName?.trim() ||
@@ -868,6 +892,7 @@ export function Layout({ children }: { children: ReactNode }) {
           planLabel={planLabel}
           roleLabel={roleLabel}
           credits={displayCredits}
+          creditsScopeLabel={creditsScopeLabel}
           onMenuClick={() => setMobileNavOpen(true)}
         />
 

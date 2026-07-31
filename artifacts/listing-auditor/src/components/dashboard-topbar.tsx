@@ -45,6 +45,7 @@ interface DashboardTopbarProps {
   planLabel: string;
   roleLabel: string;
   credits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+  creditsScopeLabel?: "workspace" | "member" | "account";
   onMenuClick?: () => void;
   variant?: "customer" | "admin";
   searchPlaceholder?: string;
@@ -60,6 +61,7 @@ export function DashboardTopbar({
   planLabel,
   roleLabel,
   credits,
+  creditsScopeLabel = "account",
   onMenuClick,
   variant = "customer",
   searchPlaceholder = "Search projects, listings...",
@@ -220,7 +222,9 @@ export function DashboardTopbar({
           >
             <Coins className="w-4 h-4 text-amber-500 flex-shrink-0" />
             <div className="text-left hidden sm:block">
-              <p className="text-[10px] font-medium text-slate-500 leading-none">Credit Balance</p>
+              <p className="text-[10px] font-medium text-slate-500 leading-none">
+                {creditsScopeLabel === "workspace" ? "Workspace credits" : "Credit Balance"}
+              </p>
               <p className="text-sm font-bold text-slate-900 leading-tight">{totalCredits.toLocaleString()} Credits</p>
             </div>
             <span className="sm:hidden text-sm font-bold text-slate-900 tabular-nums">{totalCredits.toLocaleString()}</span>
@@ -233,7 +237,11 @@ export function DashboardTopbar({
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Credit balance</p>
                 <p className="text-lg font-bold text-slate-900 mt-0.5">{totalCredits.toLocaleString()} total</p>
                 <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                  Your available credits across all types. Unused credits roll over; purchases add to one pool below.
+                  {creditsScopeLabel === "workspace"
+                    ? "Credits funded to this workspace pool (switch workspace to see others)."
+                    : creditsScopeLabel === "member"
+                      ? "Credits allocated to you in this workspace by your admin."
+                      : "Your available credits across all types. Unused credits roll over; purchases add to one pool below."}
                 </p>
               </div>
               <div className="px-4 py-2 space-y-1.5 text-sm">

@@ -49,6 +49,7 @@ interface DashboardData {
     timeSavedThisWeek: number;
     creditsBalance: number;
     creditsAllowance: number;
+    creditScope?: "member" | "workspace_pool" | "account";
     isTeamMember?: boolean;
     teamCreditsUsedInPeriod?: number;
     memberCreditsAllocated?: number;
@@ -427,9 +428,13 @@ export default function Dashboard() {
               ? creditsAllowance > 0
                 ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
                 : "No credits allocated yet"
-              : (stats.teamCreditsUsedInPeriod ?? 0) > 0
-                ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
-                : `of ${creditsAllowance.toLocaleString()} credits`
+              : stats.creditScope === "workspace_pool"
+                ? creditsAllowance > 0
+                  ? `Workspace pool · of ${creditsAllowance.toLocaleString()} funded`
+                  : "Fund this workspace on Manage workspaces"
+                : (stats.teamCreditsUsedInPeriod ?? 0) > 0
+                  ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
+                  : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
         />
