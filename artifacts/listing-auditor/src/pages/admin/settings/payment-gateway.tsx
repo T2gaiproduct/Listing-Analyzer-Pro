@@ -53,7 +53,7 @@ function SecretInput({
       </div>
       {hasSavedValue && value === "" && (
         <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-          <CheckCircle2 className="h-3 w-3" /> A value is saved. Leave blank to keep it, or type a new one to replace it.
+          <CheckCircle2 className="h-3 w-3" /> Client Secret is stored securely (hidden). Leave blank to keep it, or type a new value to replace it.
         </p>
       )}
     </div>
@@ -103,6 +103,20 @@ export default function AdminSettingsPaymentGateway() {
     },
     onSuccess: () => toast({ title: "Payment gateway settings saved" }),
     onError: () => toast({ title: "Failed to save settings", variant: "destructive" }),
+  });
+
+  const testPaypal = useMutation({
+    mutationFn: () =>
+      fetch(`${basePath}/api/admin/settings/test-paypal`, {
+        method: "POST",
+        credentials: "include",
+      }).then(async (r) => {
+        const d = await r.json() as { ok?: boolean; message?: string; error?: string };
+        if (!r.ok || !d.ok) throw new Error(d.error ?? "PayPal test failed");
+        return d.message ?? "PayPal credentials are valid";
+      }),
+    onSuccess: (message) => toast({ title: "PayPal OK", description: message }),
+    onError: (e: Error) => toast({ title: "PayPal test failed", description: e.message, variant: "destructive" }),
   });
 
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
@@ -248,6 +262,20 @@ export default function AdminSettingsPaymentGateway() {
                   onChange={set("paypal_client_secret")}
                   hasSavedValue={maskedFields.has("paypal_client_secret")}
                 />
+                {form.paypal_mode === "sandbox" && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                    Sandbox mode: customers must pay with a PayPal <strong>sandbox buyer</strong> account. Real PayPal logins will not complete checkout.
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={testPaypal.isPending}
+                  onClick={() => testPaypal.mutate()}
+                >
+                  {testPaypal.isPending ? "Testing…" : "Test PayPal connection"}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

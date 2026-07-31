@@ -226,6 +226,41 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
     onSuccess: () => { toast({ title: "Customer deleted" }); setLocation("/admin/customers"); },
   });
 
+  const reconcilePayPalMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${basePath}/api/admin/customers/${userId}/reconcile-paypal`, {
+        method: "POST",
+        credentials: "include",
+      }).then(async (r) => {
+        const d = await r.json() as {
+          success?: boolean;
+          results?: Array<{ orderId: string; success: boolean; error?: string; paypalStatus?: string }>;
+          error?: string;
+        };
+        if (!r.ok) throw new Error(d.error ?? "Reconcile failed");
+        return d;
+      }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-customer", userId] });
+      qc.invalidateQueries({ queryKey: ["admin-customer-payments", userId] });
+      const results = data.results ?? [];
+      const completed = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success);
+      if (completed > 0) {
+        toast({ title: "PayPal payments synced", description: `${completed} payment(s) completed.` });
+      } else if (failed.length > 0) {
+        toast({
+          title: "No payments captured",
+          description: failed[0]?.error ?? `PayPal status: ${failed[0]?.paypalStatus ?? "unknown"}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "No pending PayPal payments" });
+      }
+    },
+    onError: (e: Error) => toast({ title: "PayPal sync failed", description: e.message, variant: "destructive" }),
+  });
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>;
   }
@@ -235,6 +270,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
   const invoices: Array<{ id: number; amount: number; currency: string; status: string; dueDate: string | null; createdAt: string }> = billingData?.invoices ?? [];
 
   const totalSpend = payments.filter((p) => p.status === "completed").reduce((s, p) => s + p.amount, 0);
+  const hasPendingPayPal = payments.some((p) => p.status === "pending" && p.gateway === "paypal");
 
   return (
     <div className="space-y-6">
@@ -729,10 +765,27 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
         <TabsContent value="payments">
           <Card className="border-0 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
                 <DollarSign className="w-4 h-4 text-orange-500" /> Payment History
                 <Badge variant="outline" className="ml-auto">{payments.length} payments · ${totalSpend.toFixed(2)} total</Badge>
+                {hasPendingPaypal && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-2"
+                    disabled={reconcilePayPalMutation.isPending}
+                    onClick={() => reconcilePayPalMutation.mutate()}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${reconcilePayPalMutation.isPending ? "animate-spin" : ""}`} />
+                    Sync PayPal payments
+                  </Button>
+                )}
               </CardTitle>
+              {hasPendingPaypal && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Pending PayPal rows mean checkout started but capture did not finish. Click Sync to retry capture with PayPal (customer must have approved payment on PayPal).
+                </p>
+              )}
             </CardHeader>
             <CardContent className="p-0">
               {payments.length === 0 ? (

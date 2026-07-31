@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db, paymentsTable } from "@workspace/db";
-import { getPayPalAccessToken } from "./paypal-client";
+import { getPayPalAccessToken, getGatewaySettings } from "./paypal-client";
 import { fulfillGatewayPaymentIntent } from "./gateway-payment";
 import { logger } from "./logger";
 
@@ -16,13 +16,33 @@ type PayPalOrder = {
   }>;
   payer?: { email_address?: string };
   message?: string;
+  name?: string;
+  details?: Array<{ issue?: string; description?: string }>;
+};
+
+export type PayPalReconcileRow = {
+  orderId: string;
+  success: boolean;
+  error?: string;
+  paypalStatus?: string;
+  alreadyProcessed?: boolean;
 };
 
 async function fetchPayPalOrder(token: string, baseUrl: string, orderId: string): Promise<PayPalOrder> {
   const res = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return await res.json() as PayPalOrder;
+  const data = await res.json() as PayPalOrder;
+  if (!res.ok) {
+    const detail = data.details?.[0]?.description ?? data.message ?? data.name;
+    throw new Error(detail ?? `PayPal API error (${res.status})`);
+  }
+  return data;
+}
+
+function formatPayPalError(order: PayPalOrder, fallback: string): string {
+  const detail = order.details?.[0]?.description ?? order.details?.[0]?.issue;
+  return detail ?? order.message ?? order.name ?? fallback;
 }
 
 /** Capture an approved PayPal order or return details when already completed. */
@@ -38,11 +58,13 @@ export async function resolvePayPalOrderCapture(
   }
 
   if (order.status === "VOIDED" || order.status === "SAVED") {
-    throw new Error(`PayPal order not payable: ${order.status}`);
+    throw new Error(`PayPal order not payable (${order.status})`);
   }
 
-  if (order.status === "CREATED") {
-    throw new Error("PayPal payment was not approved yet");
+  if (order.status === "CREATED" || order.status === "PAYER_ACTION_REQUIRED") {
+    throw new Error(
+      "PayPal checkout was not completed — the customer must approve payment on PayPal before capture.",
+    );
   }
 
   const captureRes = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
@@ -55,19 +77,30 @@ export async function resolvePayPalOrderCapture(
     return capture;
   }
 
-  // Order may already be captured — refresh from PayPal
+  if (!captureRes.ok) {
+    throw new Error(formatPayPalError(capture, `PayPal capture failed (${captureRes.status})`));
+  }
+
   const refreshed = await fetchPayPalOrder(token, baseUrl, orderId);
   if (refreshed.status === "COMPLETED") {
     return refreshed;
   }
 
-  throw new Error(capture.message ?? `PayPal capture failed: ${capture.status}`);
+  throw new Error(formatPayPalError(capture, `PayPal capture failed: ${capture.status}`));
 }
 
 export async function fulfillPayPalOrderForUser(
   userId: string,
   orderId: string,
 ): Promise<Awaited<ReturnType<typeof fulfillGatewayPaymentIntent>> | null> {
+  const outcome = await tryFulfillPayPalOrder(userId, orderId);
+  return outcome.success ? outcome.result ?? null : null;
+}
+
+export async function tryFulfillPayPalOrder(
+  userId: string,
+  orderId: string,
+): Promise<PayPalReconcileRow & { result?: Awaited<ReturnType<typeof fulfillGatewayPaymentIntent>> }> {
   try {
     const { token, baseUrl } = await getPayPalAccessToken();
     const capture = await resolvePayPalOrderCapture(token, baseUrl, orderId);
@@ -93,7 +126,7 @@ export async function fulfillPayPalOrderForUser(
       }
     }
 
-    return await fulfillGatewayPaymentIntent({
+    const result = await fulfillGatewayPaymentIntent({
       userId,
       gateway: "paypal",
       gatewayPaymentId,
@@ -102,14 +135,32 @@ export async function fulfillPayPalOrderForUser(
       currency,
       payerEmail,
     });
+
+    return {
+      orderId,
+      success: true,
+      paypalStatus: capture.status,
+      alreadyProcessed: result.alreadyProcessed,
+      result,
+    };
   } catch (err) {
-    logger.warn({ err, userId, orderId }, "PayPal order fulfillment failed");
-    return null;
+    let paypalStatus: string | undefined;
+    try {
+      const { token, baseUrl } = await getPayPalAccessToken();
+      const order = await fetchPayPalOrder(token, baseUrl, orderId);
+      paypalStatus = order.status;
+    } catch {
+      /* ignore status probe errors */
+    }
+
+    const message = err instanceof Error ? err.message : "PayPal fulfillment failed";
+    logger.warn({ err, userId, orderId, paypalStatus }, "PayPal order fulfillment failed");
+    return { orderId, success: false, error: message, paypalStatus };
   }
 }
 
 /** Retry capture + fulfillment for pending PayPal rows (e.g. user paid but never hit success page). */
-export async function reconcileUserPendingPayPalPayments(userId: string): Promise<void> {
+export async function reconcileUserPendingPayPalPayments(userId: string): Promise<PayPalReconcileRow[]> {
   const pendingRows = await db
     .select({ gatewayPaymentId: paymentsTable.gatewayPaymentId })
     .from(paymentsTable)
@@ -119,9 +170,32 @@ export async function reconcileUserPendingPayPalPayments(userId: string): Promis
       eq(paymentsTable.status, "pending"),
     ));
 
+  const results: PayPalReconcileRow[] = [];
   for (const row of pendingRows) {
     const orderId = row.gatewayPaymentId;
     if (!orderId) continue;
-    await fulfillPayPalOrderForUser(userId, orderId);
+    const outcome = await tryFulfillPayPalOrder(userId, orderId);
+    results.push({
+      orderId: outcome.orderId,
+      success: outcome.success,
+      error: outcome.error,
+      paypalStatus: outcome.paypalStatus,
+      alreadyProcessed: outcome.alreadyProcessed,
+    });
   }
+  return results;
+}
+
+/** Verify stored PayPal client id + secret can obtain an access token. */
+export async function testPayPalCredentials(): Promise<{ ok: true; mode: string }> {
+  const s = await getGatewaySettings();
+  const mode = s.paypal_mode ?? "sandbox";
+  if (s.paypal_enabled !== "true") {
+    throw new Error("PayPal is not enabled in payment gateway settings");
+  }
+  if (!s.paypal_client_id?.trim() || !s.paypal_client_secret?.trim()) {
+    throw new Error("PayPal Client ID and Client Secret must both be saved");
+  }
+  await getPayPalAccessToken();
+  return { ok: true, mode };
 }
