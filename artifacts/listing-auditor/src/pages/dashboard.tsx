@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { format } from "date-fns";
@@ -228,11 +229,23 @@ export default function Dashboard() {
     roleName,
     workspaces,
     isWorkspaceApiScopeActive,
+    refetch: refetchWorkspaces,
   } = useWorkspace();
 
+  const dashboardWorkspaceId = featureWorkspaceId ?? activeWorkspaceId;
   const hasSharedWorkspace = workspaces.some((w) => !w.isAccountOwner);
-  const memberWorkspaceId = featureWorkspaceId ?? activeWorkspaceId;
+  const memberWorkspaceId = dashboardWorkspaceId;
+  const needsAutoWorkspace =
+    isAccountOwner && !isTeamMemberAccount && workspaces.length === 0 && !wsLoading;
+  const [workspaceProvisionAttempted, setWorkspaceProvisionAttempted] = useState(false);
+  const provisioningWorkspace = needsAutoWorkspace && !workspaceProvisionAttempted;
   const isMemberView = isTeamMemberAccount || (isTeamMember && hasSharedWorkspace);
+
+  useEffect(() => {
+    if (!needsAutoWorkspace || workspaceProvisionAttempted) return;
+    setWorkspaceProvisionAttempted(true);
+    void refetchWorkspaces();
+  }, [needsAutoWorkspace, workspaceProvisionAttempted, refetchWorkspaces]);
 
   const memberActions = [
     { href: "/audits/new", label: "Build Your Brand", feature: "build_brand" as const },
@@ -255,9 +268,9 @@ export default function Dashboard() {
     isAccountOwner && !isTeamMember && featureWorkspaceId != null && isWorkspaceApiScopeActive;
 
   const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard", featureWorkspaceId],
+    queryKey: ["dashboard", dashboardWorkspaceId],
     queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
-    enabled: clerkLoaded && !!user && !!featureWorkspaceId && (isAccountOwner || canView("dashboard")),
+    enabled: clerkLoaded && !!user && !!dashboardWorkspaceId && (isAccountOwner || canView("dashboard")),
     staleTime: 30_000,
     retry: 3,
   });
@@ -293,7 +306,7 @@ export default function Dashboard() {
     );
   }
 
-  if (wsLoading || (isLoading && memberWorkspaceId)) {
+  if (wsLoading || provisioningWorkspace || (isLoading && memberWorkspaceId)) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
@@ -309,7 +322,7 @@ export default function Dashboard() {
   }
 
   if ((!memberWorkspaceId && !isMemberView) || (needsWorkspaceSelection && !isMemberView)) {
-    if (wsLoading) {
+    if (wsLoading || provisioningWorkspace) {
       return (
         <div className="space-y-4 sm:space-y-6 animate-in fade-in">
           <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />

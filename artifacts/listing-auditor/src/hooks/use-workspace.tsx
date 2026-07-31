@@ -135,6 +135,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const hasOnlySharedWorkspaces = workspaces.length > 0 && !ownsAnyWorkspace;
   const profileTeamMember = profileSummary?.accountRole?.type === "team_member";
   const isTeamMemberAccount = profileTeamMember || hasOnlySharedWorkspaces;
+  const isBillingAccountOwnerProfile = profileSummary?.accountRole?.type === "user" && !profileTeamMember;
+  const isMainDashboardRoute = location === "/dashboard" || location === "/";
 
   useEffect(() => {
     if (listLoading) return;
@@ -210,7 +212,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
-  const isBillingAccountOwner = profileSummary?.accountRole?.type === "user" && ownsAnyWorkspace;
+  const isBillingAccountOwner = isBillingAccountOwnerProfile;
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
@@ -225,18 +227,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isWorkspaceAccountOwner =
     permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
   const isAccountOwner =
-    isWorkspaceAccountOwner || (ownsAnyWorkspace && !isTeamMemberAccount && profileSummary?.accountRole?.type === "user");
+    isWorkspaceAccountOwner || isBillingAccountOwner;
+
+  const withholdWorkspaceScope =
+    isBillingAccountOwner
+    && ownsAnyWorkspace
+    && !workspaceScopeCommitted
+    && !isMainDashboardRoute;
 
   const featureWorkspaceId = workspaceApiScopeActive
-    ? (isBillingAccountOwner && ownsAnyWorkspace && !workspaceScopeCommitted ? null : activeWorkspaceId)
+    ? (withholdWorkspaceScope ? null : activeWorkspaceId)
     : null;
   const featureWorkspace = featureWorkspaceId
     ? workspaces.find((w) => w.id === featureWorkspaceId) ?? null
     : null;
-  const needsWorkspaceSelection = isBillingAccountOwner
-    && ownsAnyWorkspace
+  const needsWorkspaceSelection = withholdWorkspaceScope
     && workspaceApiScopeActive
-    && !workspaceScopeCommitted
     && parseWorkspaceRouteId(location) == null;
 
   useEffect(() => {

@@ -14,6 +14,7 @@ import { isGatewayPaymentProcessed } from "./subscription-fulfillment";
 import { addCredits, type CreditType } from "./credits";
 import { planRowToGrantCredits } from "./plan-credits";
 import { upsertUserProfile } from "./user-profile";
+import { ensureSubscriberDefaultWorkspace } from "./ensure-workspaces.js";
 import { incrementCouponUsage } from "./coupon-validation.js";
 
 export const CUSTOM_CREDIT_CENTS = 10;
@@ -411,6 +412,8 @@ export async function fulfillGatewayPaymentIntent(params: {
     ...(intent.profile?.teamSize !== undefined && { teamSize: intent.profile.teamSize }),
     onboardingCompleted: true,
   });
+
+  await ensureSubscriberDefaultWorkspace(params.userId);
 
   if (intent.couponCode) {
     const couponResult = await resolveCoupon(intent.couponCode);
