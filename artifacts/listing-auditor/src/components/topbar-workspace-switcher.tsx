@@ -129,9 +129,13 @@ export function TopbarWorkspaceSwitcher() {
         navigate(`/workspaces/${id}`);
         return;
       }
-      if (/^\/workspaces\/\d+/.test(location)) {
-        navigate(`/workspaces/${id}`);
+      const wsRouteMatch = location.match(/^\/workspaces\/(\d+)(\/.*)?$/);
+      if (wsRouteMatch) {
+        const suffix = wsRouteMatch[2] ?? "";
+        navigate(`/workspaces/${id}${suffix}`);
+        return;
       }
+      navigate("/dashboard");
       return;
     }
 
@@ -148,7 +152,11 @@ export function TopbarWorkspaceSwitcher() {
   const openActiveWorkspace = () => {
     setOpen(false);
     if (isAccountOwner) {
-      navigate("/workspaces");
+      if (onWorkspaceDashboard) {
+        navigate("/workspaces");
+        return;
+      }
+      navigate("/dashboard");
       return;
     }
     setOpen((v) => !v);
@@ -342,7 +350,7 @@ export function TopbarWorkspaceSwitcher() {
         type="button"
         className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0 hover:border-orange-400 hover:bg-orange-50/40 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
         onClick={() => {
-          if (isAccountOwner) {
+          if (isAccountOwner && onWorkspaceDashboard) {
             navigate("/workspaces");
           } else {
             setSeeAllOpen(true);
