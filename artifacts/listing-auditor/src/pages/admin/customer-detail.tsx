@@ -768,7 +768,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
               <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
                 <DollarSign className="w-4 h-4 text-orange-500" /> Payment History
                 <Badge variant="outline" className="ml-auto">{payments.length} payments · ${totalSpend.toFixed(2)} total</Badge>
-                {hasPendingPaypal && (
+                {hasPendingPayPal && (
                   <Button
                     size="sm"
                     variant="outline"
