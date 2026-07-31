@@ -33,6 +33,7 @@ import { loadAmazonSpSettings, shouldAutoEnableAmazon, AMAZON_SETTINGS_CATEGORY,
 import { normalizeLwaClientSecret, testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
+import { reconcileUserPendingPayPalPayments, testPayPalCredentials } from "../lib/paypal-capture";
 import {
   ADMIN_INVITES_MIGRATION_HINT,
   ensureAdminInviteToken,
@@ -477,6 +478,29 @@ router.get("/admin/customers/:userId/payments", requireAdmin, async (req, res): 
     .orderBy(desc(invoicesTable.createdAt))
     .limit(20);
   res.json({ payments: userPayments, invoices: userInvoices });
+});
+
+router.post("/admin/customers/:userId/reconcile-paypal", requireAdmin, async (req, res): Promise<void> => {
+  const userId = String(req.params.userId);
+  try {
+    const results = await reconcileUserPendingPayPalPayments(userId);
+    const anySuccess = results.some((r) => r.success);
+    res.json({ success: anySuccess, results });
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+router.post("/admin/settings/test-paypal", requireAdmin, async (_req, res): Promise<void> => {
+  try {
+    const { mode } = await testPayPalCredentials();
+    res.json({
+      ok: true,
+      message: `PayPal credentials are valid (${mode} mode).`,
+    });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: (err as Error).message });
+  }
 });
 
 router.delete("/admin/customers/:userId", requireAdmin, async (req, res): Promise<void> => {
