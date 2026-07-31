@@ -16,7 +16,7 @@ import { refetchCreditQueries } from "@/lib/credit-queries";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { useTeam } from "@/hooks/use-team";
 import { ResponsiveTable } from "@/components/responsive-table";
-import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
+import { computePlanCreditsForSubscription } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -638,15 +638,7 @@ export default function Billing() {
   const credits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const planPools = useMemo(() => {
     if (!sub) return null;
-    const computed = computePlanCreditsFromAllocations(sub.creditAllocations, creditRules);
-    if (computed.totalCredits > 0) return computed;
-    return {
-      auditCredits: sub.planAuditCredits,
-      aiCredits: sub.planAiCredits,
-      imageCredits: sub.planImageCredits,
-      totalCredits: sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits,
-      allocations: { audit: 0, content: 0, images: 0, ebc: 0, competitors: 0 },
-    };
+    return computePlanCreditsForSubscription(sub, creditRules);
   }, [sub, creditRules]);
   const totalAi = planPools?.aiCredits ?? 0;
   const totalImage = planPools?.imageCredits ?? 0;

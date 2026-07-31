@@ -12,6 +12,22 @@ import {
 
 export type CreditType = "ai" | "image" | "audit";
 
+/** Admin credit rules may use shorthand keys (ai, img) alongside canonical API keys (content, graphics). */
+export const CREDIT_RULE_FEATURE_ALIASES: Record<string, string[]> = {
+  audit: ["audit"],
+  content: ["content", "ai"],
+  ai: ["content", "ai"],
+  graphics: ["graphics", "img", "images"],
+  images: ["graphics", "img", "images"],
+  img: ["graphics", "img", "images"],
+  ebc: ["ebc"],
+  competitors: ["competitors"],
+};
+
+export function creditRuleLookupTypes(featureType: string): string[] {
+  return CREDIT_RULE_FEATURE_ALIASES[featureType] ?? [featureType];
+}
+
 export interface CreditCheckResult {
   hasCredits: boolean;
   currentBalance: number;
@@ -41,17 +57,19 @@ function getMemberColumn(type: CreditType) {
  * Falls back to defaults if no rule or inactive rule exists.
  */
 export async function getCreditCost(featureType: string): Promise<{ creditType: CreditType; creditsRequired: number; activityName: string }> {
-  const [rule] = await db
-    .select()
-    .from(creditRulesTable)
-    .where(eq(creditRulesTable.featureType, featureType));
+  for (const lookupType of creditRuleLookupTypes(featureType)) {
+    const [rule] = await db
+      .select()
+      .from(creditRulesTable)
+      .where(eq(creditRulesTable.featureType, lookupType));
 
-  if (rule && rule.isActive) {
-    return {
-      creditType: (rule.creditType as CreditType) ?? "audit",
-      creditsRequired: rule.creditsRequired,
-      activityName: rule.activityName,
-    };
+    if (rule && rule.isActive) {
+      return {
+        creditType: (rule.creditType as CreditType) ?? "audit",
+        creditsRequired: rule.creditsRequired,
+        activityName: rule.activityName,
+      };
+    }
   }
 
   // Fallback defaults

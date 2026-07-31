@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import {
-  computePlanCreditsFromAllocations,
+  computePlanCreditsForSubscription,
   formatPlanAllocationsSummary,
 } from "@/lib/plan-credits";
 
@@ -323,21 +323,15 @@ export function BillingOverview({
 
   const planAllocations = sub.creditAllocations ?? currentPlan?.creditAllocations ?? null;
   const planCredits = useMemo(() => {
-    const fromAllocations = computePlanCreditsFromAllocations(planAllocations, creditRules);
-    if (fromAllocations.totalCredits > 0) return fromAllocations;
-    return {
-      auditCredits: sub.planAuditCredits,
-      aiCredits: sub.planAiCredits,
-      imageCredits: sub.planImageCredits,
-      totalCredits: sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits,
-      allocations: {
-        audit: sub.planAuditCredits,
-        content: sub.planAiCredits,
-        images: sub.planImageCredits,
-        ebc: 0,
-        competitors: 0,
+    return computePlanCreditsForSubscription(
+      {
+        planAuditCredits: sub.planAuditCredits,
+        planAiCredits: sub.planAiCredits,
+        planImageCredits: sub.planImageCredits,
+        creditAllocations: planAllocations,
       },
-    };
+      creditRules,
+    );
   }, [planAllocations, creditRules, sub.planAiCredits, sub.planImageCredits, sub.planAuditCredits]);
 
   const planTotalCredits = planCredits.totalCredits;
