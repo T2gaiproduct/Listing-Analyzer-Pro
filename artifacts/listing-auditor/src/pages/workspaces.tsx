@@ -62,6 +62,7 @@ interface WorkspaceOverviewRow {
   pendingMemberCount: number;
   members: WorkspaceMemberListItem[];
   poolCredits?: CreditBuckets;
+  poolCreditsTotal?: number;
   memberAllocatedCredits?: CreditBuckets;
   toMembersTotal?: number;
   poolAvailableForMembers?: CreditBuckets;
@@ -84,6 +85,7 @@ interface WorkspaceOverview {
   accountCreditsTotal?: number;
   accountUnallocatedTotal?: number;
   inWorkspacePoolsTotal?: number;
+  inWorkspacePools?: CreditBuckets;
   ownerCredits?: CreditBuckets;
   availableToFundWorkspaces?: CreditBuckets;
   workspaces: WorkspaceOverviewRow[];
@@ -98,9 +100,9 @@ function formatCreditBuckets(c: CreditBuckets): string {
   return `${c.auditCredits} audit · ${c.aiCredits} text · ${c.imageCredits} img`;
 }
 
-function workspaceFundedTotal(ws: WorkspaceOverviewRow): number {
-  if (ws.fundedTotal != null) return ws.fundedTotal;
-  return sumCredits(ws.poolCredits) + (ws.creditsUsedInPeriod ?? 0);
+function workspacePoolTotal(ws: WorkspaceOverviewRow): number {
+  if (ws.poolCreditsTotal != null) return ws.poolCreditsTotal;
+  return sumCredits(ws.poolCredits);
 }
 
 function memberCreditsTotal(ws: WorkspaceOverviewRow): number {
@@ -183,9 +185,25 @@ export default function WorkspacesPage() {
   const inWorkspacePoolsTotal = useMemo(() => {
     if (overview?.inWorkspacePoolsTotal != null) return overview.inWorkspacePoolsTotal;
     return overview?.workspaces?.length
-      ? overview.workspaces.reduce((sum, ws) => sum + sumCredits(ws.poolCredits), 0)
+      ? overview.workspaces.reduce((sum, ws) => sum + workspacePoolTotal(ws), 0)
       : 0;
   }, [overview]);
+
+  const workspacePoolsBreakdown = useMemo(() => {
+    if (!overview?.workspaces?.length) return "";
+    const parts = overview.workspaces
+      .filter((ws) => workspacePoolTotal(ws) > 0)
+      .map((ws) => `${ws.name} ${workspacePoolTotal(ws).toLocaleString()}`);
+    return parts.join(" + ");
+  }, [overview]);
+
+  const fundingPoolTotal = useMemo(() => {
+    return (
+      Math.max(0, parseInt(poolForm.auditCredits, 10) || 0) +
+      Math.max(0, parseInt(poolForm.aiCredits, 10) || 0) +
+      Math.max(0, parseInt(poolForm.imageCredits, 10) || 0)
+    );
+  }, [poolForm]);
 
   const accountCreditsTotal = useMemo(() => {
     if (overview?.accountCreditsTotal != null) return overview.accountCreditsTotal;
@@ -427,7 +445,13 @@ export default function WorkspacesPage() {
                   {overviewLoading ? "—" : inWorkspacePoolsTotal.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  {overview?.totalWorkspaces ?? 0} workspace{overview?.totalWorkspaces === 1 ? "" : "s"}
+                  {overview?.inWorkspacePools
+                    ? formatCreditBuckets(overview.inWorkspacePools)
+                    : null}
+                  {overview?.inWorkspacePools && workspacePoolsBreakdown ? " · " : null}
+                  {workspacePoolsBreakdown
+                    ? `${workspacePoolsBreakdown} = ${inWorkspacePoolsTotal.toLocaleString()}`
+                    : `${overview?.totalWorkspaces ?? 0} workspace${overview?.totalWorkspaces === 1 ? "" : "s"}`}
                 </p>
               </CardContent>
             </Card>
@@ -465,7 +489,7 @@ export default function WorkspacesPage() {
                       <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
                         <th className="py-3 pr-3 w-8" />
                         <th className="py-3 pr-4">Workspace</th>
-                        <th className="py-3 pr-4">Assigned</th>
+                        <th className="py-3 pr-4">Funded (pool)</th>
                         <th className="py-3 pr-4">To members</th>
                         <th className="py-3 pr-4">Used</th>
                         <th className="py-3 pr-4">Unassigned in pool</th>
@@ -508,7 +532,7 @@ export default function WorkspacesPage() {
                                 </div>
                               </td>
                               <td className="py-3 pr-4 font-medium text-slate-800">
-                                {workspaceFundedTotal(ws).toLocaleString()}
+                                {workspacePoolTotal(ws).toLocaleString()}
                               </td>
                               <td className="py-3 pr-4 text-slate-600">{memberAlloc.toLocaleString()}</td>
                               <td className="py-3 pr-4 text-slate-600">
@@ -705,6 +729,24 @@ export default function WorkspacesPage() {
               Unallocated in account: {formatCreditBuckets(overview.availableToFundWorkspaces)}
             </p>
           )}
+          {fundingWorkspace && (
+            <p className="text-sm font-medium text-slate-800">
+              This workspace pool: <span className="text-orange-600">{fundingPoolTotal.toLocaleString()}</span> credits total
+              {fundingWorkspace.poolCredits && (
+                <span className="text-xs font-normal text-slate-500">
+                  {" "}
+                  ({formatCreditBuckets({
+                    auditCredits: Math.max(0, parseInt(poolForm.auditCredits, 10) || 0),
+                    aiCredits: Math.max(0, parseInt(poolForm.aiCredits, 10) || 0),
+                    imageCredits: Math.max(0, parseInt(poolForm.imageCredits, 10) || 0),
+                  })})
+                </span>
+              )}
+            </p>
+          )}
+          <p className="text-xs text-slate-500">
+            Each field is a credit type. Total pool = audit + text + images (e.g. 20 + 20 + 20 = 60 for this workspace).
+          </p>
           <div className="grid grid-cols-3 gap-3 py-2">
             <div>
               <Label className="text-xs">Audit</Label>

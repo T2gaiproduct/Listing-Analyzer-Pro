@@ -271,6 +271,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       pendingMemberCount: w.pendingMemberCount,
       members: membersWithCredits,
       poolCredits: pool,
+      poolCreditsTotal: sumCreditBalance(pool),
       memberAllocatedCredits: memberAllocatedInPool,
       toMembersTotal,
       creditsUsedInPeriod,
