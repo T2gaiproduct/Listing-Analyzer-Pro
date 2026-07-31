@@ -42,7 +42,7 @@ import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { projectTypeToFeature } from "@/lib/workspace-route-access";
-import { isWorkspaceAdminOverviewRoute } from "@/lib/workspace-routes";
+import { isWorkspaceAdminOverviewRoute, isAccountScopedRoute } from "@/lib/workspace-routes";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
@@ -535,6 +535,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const { data: creditsData } = useQuery<{
     credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+    accountCreditSummary?: {
+      unallocatedTotal: number;
+      inPoolsTotal: number;
+      accountTotal: number;
+    };
   }>({
     queryKey: ["user-credits"],
     queryFn: () => fetch(`${basePath}/api/credits`, { credentials: "include" }).then((r) => r.json()),
@@ -542,6 +547,9 @@ export function Layout({ children }: { children: ReactNode }) {
     staleTime: 30_000,
     refetchOnMount: "always",
   });
+
+  const isAccountHubRoute = isAccountScopedRoute(location);
+  const accountCreditSummary = creditsData?.accountCreditSummary;
 
   const showWorkspacePoolCredits =
     isAccountOwner && !isTeamMember && featureWorkspaceId != null && isWorkspaceApiScopeActive;
@@ -593,7 +601,9 @@ export function Layout({ children }: { children: ReactNode }) {
     ? "workspace"
     : isTeamMember
       ? "member"
-      : "account";
+      : isAccountHubRoute && accountCreditSummary
+        ? "account_hub"
+        : "account";
 
   const profileName =
     fullProfileData?.profile?.fullName?.trim() ||
@@ -893,6 +903,7 @@ export function Layout({ children }: { children: ReactNode }) {
           roleLabel={roleLabel}
           credits={displayCredits}
           creditsScopeLabel={creditsScopeLabel}
+          accountCreditSummary={accountCreditSummary}
           onMenuClick={() => setMobileNavOpen(true)}
         />
 

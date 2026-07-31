@@ -51,6 +51,7 @@ import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summa
 import { createNotification } from "../lib/notifications.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import { resolvePlanCreditPools, computePlanCreditsFromAllocations } from "../lib/plan-credits.js";
+import { ensureSubscriptionCredits } from "../lib/subscription-credits.js";
 import {
   sumCreditsUsedInPeriod,
   sumCreditsUsedForWorkspace,
@@ -124,6 +125,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     return;
   }
 
+  await ensureSubscriptionCredits(accountOwnerId);
   const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, accountOwnerId));
   const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const inWorkspacePools = await sumWorkspacePoolsForOwner(accountOwnerId);

@@ -410,6 +410,8 @@ export default function WorkspacesPage() {
                   {overview?.availableToFundWorkspaces
                     ? formatCreditBuckets(overview.availableToFundWorkspaces)
                     : "Available to fund workspaces"}
+                  {" · "}
+                  matches top bar unallocated balance
                 </p>
               </CardContent>
             </Card>

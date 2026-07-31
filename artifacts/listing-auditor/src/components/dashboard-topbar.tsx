@@ -45,7 +45,12 @@ interface DashboardTopbarProps {
   planLabel: string;
   roleLabel: string;
   credits?: { aiCredits: number; imageCredits: number; auditCredits: number };
-  creditsScopeLabel?: "workspace" | "member" | "account";
+  creditsScopeLabel?: "workspace" | "member" | "account" | "account_hub";
+  accountCreditSummary?: {
+    unallocatedTotal: number;
+    inPoolsTotal: number;
+    accountTotal: number;
+  };
   onMenuClick?: () => void;
   variant?: "customer" | "admin";
   searchPlaceholder?: string;
@@ -62,6 +67,7 @@ export function DashboardTopbar({
   roleLabel,
   credits,
   creditsScopeLabel = "account",
+  accountCreditSummary,
   onMenuClick,
   variant = "customer",
   searchPlaceholder = "Search projects, listings...",
@@ -85,6 +91,16 @@ export function DashboardTopbar({
   const [helpOpen, setHelpOpen] = useState(false);
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
+  const creditBalanceLabel =
+    creditsScopeLabel === "workspace"
+      ? "Workspace credits"
+      : creditsScopeLabel === "account_hub"
+        ? "Unallocated credits"
+        : "Credit Balance";
+  const creditBalanceHeadline =
+    creditsScopeLabel === "account_hub" && accountCreditSummary
+      ? accountCreditSummary.unallocatedTotal
+      : totalCredits;
   const profileSubtitle = variant === "admin"
     ? roleLabel
     : planLabel && planLabel !== "No plan"
@@ -218,31 +234,54 @@ export function DashboardTopbar({
             type="button"
             onClick={() => { setCreditsOpen((o) => !o); setProfileOpen(false); }}
             className="flex items-center gap-2 h-11 pl-2.5 sm:pl-3 pr-2.5 rounded-xl bg-orange-50 border border-orange-100 hover:bg-orange-100/80 transition-colors touch-target"
-            aria-label={`${totalCredits} credits`}
+            aria-label={`${creditBalanceHeadline} credits`}
           >
             <Coins className="w-4 h-4 text-amber-500 flex-shrink-0" />
             <div className="text-left hidden sm:block">
               <p className="text-[10px] font-medium text-slate-500 leading-none">
-                {creditsScopeLabel === "workspace" ? "Workspace credits" : "Credit Balance"}
+                {creditBalanceLabel}
               </p>
-              <p className="text-sm font-bold text-slate-900 leading-tight">{totalCredits.toLocaleString()} Credits</p>
+              <p className="text-sm font-bold text-slate-900 leading-tight">{creditBalanceHeadline.toLocaleString()} Credits</p>
             </div>
-            <span className="sm:hidden text-sm font-bold text-slate-900 tabular-nums">{totalCredits.toLocaleString()}</span>
+            <span className="sm:hidden text-sm font-bold text-slate-900 tabular-nums">{creditBalanceHeadline.toLocaleString()}</span>
             <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform hidden sm:block", creditsOpen && "rotate-180")} />
           </button>
 
           {creditsOpen && (
             <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,14rem)] sm:w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2">
               <div className="px-4 py-2 border-b border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Credit balance</p>
-                <p className="text-lg font-bold text-slate-900 mt-0.5">{totalCredits.toLocaleString()} total</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  {creditsScopeLabel === "account_hub" ? "Unallocated (account)" : "Credit balance"}
+                </p>
+                <p className="text-lg font-bold text-slate-900 mt-0.5">
+                  {creditBalanceHeadline.toLocaleString()}
+                  {creditsScopeLabel === "account_hub" ? " unallocated" : " total"}
+                </p>
                 <p className="text-[11px] text-slate-500 mt-1 leading-snug">
                   {creditsScopeLabel === "workspace"
                     ? "Credits funded to this workspace pool (switch workspace to see others)."
                     : creditsScopeLabel === "member"
                       ? "Credits allocated to you in this workspace by your admin."
-                      : "Your available credits across all types. Unused credits roll over; purchases add to one pool below."}
+                      : creditsScopeLabel === "account_hub"
+                        ? "Credits on your account not yet moved into workspace pools. Fund a workspace to assign them."
+                        : "Your available credits across all types. Unused credits roll over; purchases add to one pool below."}
                 </p>
+                {accountCreditSummary && (creditsScopeLabel === "account_hub" || creditsScopeLabel === "account") && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px] text-slate-600">
+                    <div className="flex justify-between gap-2">
+                      <span>In workspace pools</span>
+                      <span className="font-semibold text-slate-800 tabular-nums">
+                        {accountCreditSummary.inPoolsTotal.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span>Total in account</span>
+                      <span className="font-semibold text-slate-800 tabular-nums">
+                        {accountCreditSummary.accountTotal.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="px-4 py-2 space-y-1.5 text-sm">
                 <div className="flex justify-between text-slate-600">
