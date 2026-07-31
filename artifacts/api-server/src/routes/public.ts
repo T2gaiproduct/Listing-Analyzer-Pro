@@ -268,6 +268,8 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
 /** Lightweight profile for shell/topbar — avoids transactions + billing history. */
 router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const { reconcilePendingStripeSubscription } = await import("../lib/stripe-subscription-sync.js");
+  await reconcilePendingStripeSubscription(userId);
   const [profile] = await db
     .select({
       fullName: userProfilesTable.fullName,

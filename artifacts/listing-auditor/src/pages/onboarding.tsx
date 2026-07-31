@@ -210,6 +210,26 @@ export default function Onboarding() {
     }
   }, [profileSummary, setLocation]);
 
+  // Stripe paid but fulfillment missed — sync from stored checkout session on load
+  useEffect(() => {
+    if (!profileSummary?.subscription || profileSummary.subscription.status !== "pending_payment") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetch(`${basePath}/api/stripe/sync-subscription`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!cancelled) {
+          await queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
+        }
+      } catch {
+        /* best effort */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profileSummary?.subscription?.status, queryClient]);
+
   const displayPlans = Array.isArray(plans) ? plans : [];
 
   // Pre-fill profile from existing data for returning customers

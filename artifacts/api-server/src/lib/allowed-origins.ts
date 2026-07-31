@@ -23,9 +23,8 @@ export function getAllowedOrigins(): string[] {
 export function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   if (getAllowedOrigins().includes(origin)) return true;
-  if (process.env.NODE_ENV !== "production" && origin.endsWith(".trycloudflare.com")) {
-    return true;
-  }
+  // Cloudflare quick tunnels (dev previews) — needed for Stripe success/cancel URLs
+  if (origin.endsWith(".trycloudflare.com")) return true;
   return false;
 }
 

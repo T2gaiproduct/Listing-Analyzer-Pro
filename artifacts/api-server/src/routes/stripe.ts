@@ -8,6 +8,7 @@ import {
 import { getUncachableStripeClient } from "../stripeClient";
 import { hasRequiredProfileFields, upsertUserProfile } from "../lib/user-profile";
 import { fulfillStripeSubscriptionCheckout } from "../lib/subscription-fulfillment";
+import { reconcilePendingStripeSubscription } from "../lib/stripe-subscription-sync";
 import {
   resolveCoupon,
   couponErrorMessage,
@@ -216,6 +217,31 @@ router.get("/stripe/session-status", requireAuth, async (req, res): Promise<void
   }
 
   res.json({ status: "paid", activated: result.activated, alreadyProcessed: result.alreadyProcessed });
+});
+
+// ─── POST /stripe/sync-subscription ─────────────────────────────────────────────
+// Reconcile pending_payment when Stripe already collected payment but fulfillment
+// never ran (e.g. user closed tab before /checkout/success).
+router.post("/stripe/sync-subscription", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  try {
+    const synced = await reconcilePendingStripeSubscription(userId);
+    const [sub] = await db
+      .select({
+        planName: plansTable.name,
+        status: subscriptionsTable.status,
+      })
+      .from(subscriptionsTable)
+      .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+      .where(eq(subscriptionsTable.userId, userId));
+    res.json({
+      synced,
+      subscription: sub ?? null,
+    });
+  } catch (err) {
+    req.log?.error?.({ err }, "Stripe sync-subscription failed");
+    res.status(502).json({ error: "Could not sync subscription with Stripe. Please try again shortly." });
+  }
 });
 
 // ─── POST /stripe/portal ──────────────────────────────────────────────────────
