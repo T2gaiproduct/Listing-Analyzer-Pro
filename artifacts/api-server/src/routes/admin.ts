@@ -647,13 +647,16 @@ router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> =
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
-  const setObj: Record<string, unknown> = { name, description, priceMonthly, priceYearly, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() };
+  const setObj: Record<string, unknown> = { name, description, priceMonthly, priceYearly, teamMembers, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() };
   if (creditAllocations !== undefined) {
     setObj.creditAllocations = creditAllocations;
     const pools = await computePlanPoolsFromAllocations(creditAllocations);
     setObj.aiCredits = pools.aiCredits;
     setObj.imageCredits = pools.imageCredits;
     setObj.auditCredits = pools.auditCredits;
+  }
+  if (features !== undefined) {
+    setObj.features = features;
   }
   const [plan] = await db
     .update(plansTable)

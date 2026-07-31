@@ -1,7 +1,8 @@
 import {
   buildPlanActivityRows,
-  computePlanCreditsFromPlan,
-  formatPlanAllocationDisplayValue,
+  formatPlanCreditAllowanceValue,
+  formatPlanMonthlyCreditTotal,
+  resolvePlanAllocationCounts,
   type CreditRuleLike,
   type PlanRowForAllocations,
 } from "@/lib/plan-credits";
@@ -16,8 +17,9 @@ export function PlanCreditsTable({
   creditRules?: CreditRuleLike[];
   compact?: boolean;
 }) {
-  const activityRows = buildPlanActivityRows(plan);
-  const totalCredits = computePlanCreditsFromPlan(plan, creditRules).totalCredits;
+  const counts = resolvePlanAllocationCounts(plan, creditRules);
+  const activityRows = buildPlanActivityRows(plan, creditRules);
+  const totalLabel = formatPlanMonthlyCreditTotal(counts);
 
   return (
     <div className={cn("space-y-2.5", compact ? "mb-4" : "mb-5")}>
@@ -29,14 +31,14 @@ export function PlanCreditsTable({
         <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center text-sm">
           <span className="text-slate-600 min-w-0">{row.label}</span>
           <span className={cn("font-semibold shrink-0 tabular-nums", row.color)}>
-            {formatPlanAllocationDisplayValue(row.value)}
+            {formatPlanCreditAllowanceValue(row.value)}
           </span>
         </div>
       ))}
       <div className="border-t border-slate-200 pt-3 mt-3">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center text-sm">
           <span className="text-slate-600 font-medium min-w-0">Total Monthly Credits</span>
-          <span className="font-bold text-slate-900 shrink-0 tabular-nums">{totalCredits.toLocaleString()}</span>
+          <span className="font-bold text-slate-900 shrink-0 tabular-nums">{totalLabel}</span>
         </div>
       </div>
     </div>

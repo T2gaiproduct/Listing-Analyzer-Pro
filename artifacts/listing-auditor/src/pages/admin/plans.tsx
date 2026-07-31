@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import {
+  resolvePlanAllocationCounts,
+} from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -125,6 +128,7 @@ function PlanForm({
       <div className="col-span-2">
         <Label className="text-xs flex items-center gap-1.5"><Check className="w-3 h-3 text-green-500" />Included Features (comma-separated)</Label>
         <Input className="mt-1 h-8 text-sm" value={form.featuresText} onChange={f("featuresText")} placeholder="Competitor comparison, Score breakdown, Priority support" />
+        <p className="text-xs text-slate-400 mt-1">Optional marketing bullets for the pricing page. Monthly credits are shown in the table above — they are not added here automatically.</p>
       </div>
       <div className="col-span-2">
         <Label className="text-xs flex items-center gap-1.5"><X className="w-3 h-3 text-slate-400" />Excluded / Not Included (comma-separated)</Label>
@@ -218,6 +222,11 @@ export default function AdminPlans() {
     queryFn: () => fetch(`${basePath}/api/admin/plans`, { credentials: "include" }).then((r) => r.json()),
   });
 
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
+    queryKey: ["admin-credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/admin/credit-rules`, { credentials: "include" }).then((r) => r.json()),
+  });
+
   const createMutation = useMutation({
     mutationFn: (body: object) =>
       fetch(`${basePath}/api/admin/plans`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
@@ -267,6 +276,30 @@ export default function AdminPlans() {
     };
   }
 
+  function planToFormInitial(plan: Plan) {
+    const counts = resolvePlanAllocationCounts(plan, creditRules);
+    return {
+      name: plan.name,
+      description: plan.description ?? "",
+      priceMonthly: plan.priceMonthly,
+      priceYearly: plan.priceYearly,
+      auditCredits: counts.audit,
+      textContentCredits: counts.content,
+      imageCredits: counts.images,
+      ebcCredits: counts.ebc,
+      competitorCredits: counts.competitors,
+      teamMembers: counts.teamMembers,
+      featuresText: (plan.features ?? []).join(", "),
+      excludedFeaturesText: (plan.excludedFeatures ?? []).join(", "),
+      isTrial: plan.isTrial,
+      trialDays: plan.trialDays || 14,
+      tag: plan.tag ?? "",
+      sortOrder: plan.sortOrder ?? 0,
+      isHighlighted: plan.isHighlighted ?? false,
+      ctaText: plan.ctaText ?? "",
+    };
+  }
+
   const sorted = (Array.isArray(plans) ? [...plans] : []).sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
@@ -309,26 +342,7 @@ export default function AdminPlans() {
           editingId === plan.id ? (
             <div key={plan.id} className="col-span-full">
               <PlanForm
-                initial={{
-                  name: plan.name,
-                  description: plan.description ?? "",
-                  priceMonthly: plan.priceMonthly,
-                  priceYearly: plan.priceYearly,
-                  auditCredits: (plan.creditAllocations as Record<string, number> | null)?.audit ?? plan.auditCredits ?? 0,
-                  textContentCredits: (plan.creditAllocations as Record<string, number> | null)?.content ?? 0,
-                  imageCredits: (plan.creditAllocations as Record<string, number> | null)?.images ?? plan.imageCredits ?? 0,
-                  ebcCredits: (plan.creditAllocations as Record<string, number> | null)?.ebc ?? 0,
-                  competitorCredits: (plan.creditAllocations as Record<string, number> | null)?.competitors ?? 0,
-                  teamMembers: plan.teamMembers,
-                  featuresText: plan.features.join(", "),
-                  excludedFeaturesText: (plan.excludedFeatures ?? []).join(", "),
-                  isTrial: plan.isTrial,
-                  trialDays: plan.trialDays || 14,
-                  tag: plan.tag ?? "",
-                  sortOrder: plan.sortOrder ?? 0,
-                  isHighlighted: plan.isHighlighted ?? false,
-                  ctaText: plan.ctaText ?? "",
-                }}
+                initial={planToFormInitial(plan)}
                 onSave={(form) => updateMutation.mutate({ id: plan.id, ...buildPayload(form) })}
                 onCancel={() => setEditingId(null)}
                 isPending={updateMutation.isPending}
@@ -374,14 +388,14 @@ export default function AdminPlans() {
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {(() => {
-                    const a = plan.creditAllocations ?? {};
+                    const counts = resolvePlanAllocationCounts(plan, creditRules);
                     const items = [
-                      { label: "Audit Credits", value: a.audit ?? plan.auditCredits ?? 0 },
-                      { label: "Text Content", value: a.content ?? 0 },
-                      { label: "Image Credits", value: a.images ?? plan.imageCredits ?? 0 },
-                      { label: "A+ / EBC", value: a.ebc ?? 0 },
-                      { label: "Competitors", value: a.competitors ?? 0 },
-                      { label: "Team Members", value: plan.teamMembers },
+                      { label: "Audit Credits", value: counts.audit },
+                      { label: "Text Content", value: counts.content },
+                      { label: "Image Credits", value: counts.images },
+                      { label: "A+ / EBC", value: counts.ebc },
+                      { label: "Competitors", value: counts.competitors },
+                      { label: "Team Members", value: counts.teamMembers },
                     ];
                     return items.map((c) => (
                       <div key={c.label} className="bg-slate-50 rounded-lg p-2">

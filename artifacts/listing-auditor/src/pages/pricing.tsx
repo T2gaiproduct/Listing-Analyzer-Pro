@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { PageSeo } from "@/components/page-seo";
 import { cn } from "@/lib/utils";
-import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
@@ -116,18 +115,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
 
 function dbPlanToDisplay(p: DbPlan): DisplayPlan {
   const isHighlighted = p.isHighlighted || p.tag === "Most Popular";
-  const counts = resolvePlanAllocationCounts(p);
-  const includedFeatures: { text: string; included: boolean }[] = p.features.length > 0
-    ? p.features.map((f) => ({ text: f, included: true }))
-    : [
-        { text: `${counts.audit >= 999 ? "Unlimited" : counts.audit} listing audits/mo`, included: true },
-        { text: `${counts.content} AI content credits`, included: true },
-        { text: `${counts.images} image generation credits`, included: true },
-        { text: `${counts.ebc} A+ / EBC content credits`, included: true },
-        { text: `${counts.competitors} competitor analysis credits`, included: true },
-        { text: `${p.teamMembers} team members`, included: true },
-        { text: "Score breakdown & suggestions", included: true },
-      ];
+  const includedFeatures: { text: string; included: boolean }[] = (p.features ?? []).map((f) => ({ text: f, included: true }));
   const excludedFeatures: { text: string; included: boolean }[] = (p.excludedFeatures ?? []).map((f) => ({ text: f, included: false }));
   return {
     name: p.name,
