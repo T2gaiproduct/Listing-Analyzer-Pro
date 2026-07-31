@@ -13,7 +13,7 @@ import {
 import { fulfillStripeCreditCheckout } from "../lib/stripe-credit-checkout";
 import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/credit-usage-net";
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
-import { planRowToGrantCredits } from "../lib/plan-credits";
+import { planRowToGrantCredits, serializePlanForPublic } from "../lib/plan-credits";
 import { resolveAccountOwnerId } from "../lib/workspace-context.js";
 import { sumWorkspacePoolsForOwner, computeAccountCreditSummary } from "../lib/workspace-credits.js";
 import { sumCreditTotals } from "../lib/team-stats.js";
@@ -73,7 +73,8 @@ router.get("/plans", async (_req, res): Promise<void> => {
   const plans = await db.select().from(plansTable)
     .where(eq(plansTable.isActive, true))
     .orderBy(plansTable.sortOrder);
-  res.json(plans);
+  const serialized = await Promise.all(plans.map((plan) => serializePlanForPublic(plan)));
+  res.json(serialized);
 });
 
 router.get("/faqs", async (_req, res): Promise<void> => {

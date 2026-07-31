@@ -17,6 +17,7 @@ import { COUNTRIES } from "@/lib/countries";
 import { useTeam } from "@/hooks/use-team";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { isUnlimitedPlanCreditValue } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -604,7 +605,7 @@ export default function Onboarding() {
                       <div className="space-y-1 text-xs">
                         <div className="flex items-center gap-1.5 text-blue-700"><Zap className="w-3 h-3" />{plan.aiCredits} AI credits</div>
                         <div className="flex items-center gap-1.5 text-purple-700"><Image className="w-3 h-3" />{plan.imageCredits} image credits</div>
-                        <div className="flex items-center gap-1.5 text-orange-700"><BarChart3 className="w-3 h-3" />{plan.auditCredits === 999 ? "Unlimited" : plan.auditCredits} audits</div>
+                        <div className="flex items-center gap-1.5 text-orange-700"><BarChart3 className="w-3 h-3" />{isUnlimitedPlanCreditValue(plan.auditCredits) ? "Unlimited" : plan.auditCredits.toLocaleString()} audits</div>
                       </div>
                       {plan.isTrial && plan.trialDays > 0 && (
                         <div className="mt-3 bg-green-50 text-green-700 text-xs rounded-lg px-2.5 py-1.5 font-medium">
@@ -778,7 +779,7 @@ export default function Onboarding() {
                     <p className="font-semibold text-slate-700">Includes:</p>
                     <div className="flex items-center gap-1.5"><Zap className="w-3 h-3 text-blue-500" />{selectedPlan?.aiCredits} AI credits/mo</div>
                     <div className="flex items-center gap-1.5"><Image className="w-3 h-3 text-purple-500" />{selectedPlan?.imageCredits} image credits/mo</div>
-                    <div className="flex items-center gap-1.5"><BarChart3 className="w-3 h-3 text-orange-500" />{selectedPlan?.auditCredits === 999 ? "Unlimited" : selectedPlan?.auditCredits} audit credits/mo</div>
+                    <div className="flex items-center gap-1.5"><BarChart3 className="w-3 h-3 text-orange-500" />{selectedPlan && isUnlimitedPlanCreditValue(selectedPlan.auditCredits) ? "Unlimited" : selectedPlan?.auditCredits.toLocaleString()} audit credits/mo</div>
                   </div>
                 </div>
               </div>
