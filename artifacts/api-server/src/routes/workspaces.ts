@@ -43,6 +43,13 @@ import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { createNotification } from "../lib/notifications.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
+import { resolvePlanCreditPools } from "../lib/plan-credits.js";
+import {
+  sumCreditsUsedInPeriod,
+  sumCreditsUsedForWorkspace,
+  sumCreditsUsedInWorkspaceForUser,
+  sumCreditTotals,
+} from "../lib/team-stats.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 
 const router: IRouter = Router();
@@ -113,11 +120,45 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, accountOwnerId));
   const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const inWorkspacePools = await sumWorkspacePoolsForOwner(accountOwnerId);
+  // Account balance already excludes credits moved into workspace pools.
   const availableToFundWorkspaces = {
-    aiCredits: Math.max(0, ownerCredits.aiCredits - inWorkspacePools.aiCredits),
-    imageCredits: Math.max(0, ownerCredits.imageCredits - inWorkspacePools.imageCredits),
-    auditCredits: Math.max(0, ownerCredits.auditCredits - inWorkspacePools.auditCredits),
+    aiCredits: ownerCredits.aiCredits,
+    imageCredits: ownerCredits.imageCredits,
+    auditCredits: ownerCredits.auditCredits,
   };
+
+  const [subRow] = await db
+    .select({
+      currentPeriodStart: subscriptionsTable.currentPeriodStart,
+      currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+      planName: plansTable.name,
+      planAiCredits: plansTable.aiCredits,
+      planImageCredits: plansTable.imageCredits,
+      planAuditCredits: plansTable.auditCredits,
+      creditAllocations: plansTable.creditAllocations,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, accountOwnerId));
+
+  const periodStart = subRow?.currentPeriodStart
+    ? new Date(subRow.currentPeriodStart)
+    : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const periodEnd = subRow?.currentPeriodEnd
+    ? new Date(subRow.currentPeriodEnd)
+    : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+
+  const planPools = await resolvePlanCreditPools({
+    aiCredits: subRow?.planAiCredits ?? 0,
+    imageCredits: subRow?.planImageCredits ?? 0,
+    auditCredits: subRow?.planAuditCredits ?? 0,
+    creditAllocations: (subRow?.creditAllocations ?? {}) as Record<string, number>,
+  });
+
+  const accountUsedInPeriod = await sumCreditsUsedInPeriod(accountOwnerId, periodStart, periodEnd);
+  const accountUnallocatedTotal = sumCreditTotals(ownerCredits);
+  const inPoolsTotal = sumCreditTotals(inWorkspacePools);
+  const accountCreditsTotal = accountUnallocatedTotal + inPoolsTotal;
 
   const owned = await db
     .select()
@@ -129,10 +170,38 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   const summary = await getWorkspaceMemberSummaryForOwner(accountOwnerId, { includeMembers: true });
   const ownedById = new Map(owned.map((w) => [w.id, w]));
 
+  const allMemberIds = summary.workspaces.flatMap((w) => w.members.map((m) => m.id));
+  const memberCreditRows = allMemberIds.length > 0
+    ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.workspaceMemberId, allMemberIds))
+    : [];
+  const creditsByMemberId = new Map(memberCreditRows.map((c) => [c.workspaceMemberId, c]));
+
   const workspacesWithPools = await Promise.all(summary.workspaces.map(async (w) => {
     const meta = ownedById.get(w.id);
     const pool = await getWorkspaceCredits(w.id);
     const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
+    const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
+    const poolRemaining = sumCreditTotals(pool);
+    const memberAllocTotal = sumCreditTotals(memberAllocated);
+    const fundedTotal = poolRemaining + memberAllocTotal + creditsUsedInPeriod;
+
+    const membersWithCredits = await Promise.all(w.members.map(async (m) => {
+      const allocated = creditsByMemberId.get(m.id);
+      const allocatedCredits = allocated
+        ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
+        : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+      const remainingTotal = sumCreditTotals(allocatedCredits);
+      const creditsUsedInPeriodMember = m.userId
+        ? await sumCreditsUsedInWorkspaceForUser(m.userId, w.id, periodStart, periodEnd)
+        : 0;
+      return {
+        ...m,
+        allocatedCredits,
+        remainingCredits: allocatedCredits,
+        creditsUsedInPeriod: creditsUsedInPeriodMember,
+      };
+    }));
+
     return {
       id: w.id,
       name: w.name,
@@ -142,9 +211,12 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       memberCount: w.memberCount,
       activeMemberCount: w.activeMemberCount,
       pendingMemberCount: w.pendingMemberCount,
-      members: w.members,
+      members: membersWithCredits,
       poolCredits: pool,
       memberAllocatedCredits: memberAllocated,
+      creditsUsedInPeriod,
+      fundedTotal,
+      poolRemaining,
       poolAvailableForMembers: {
         aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
         imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
@@ -160,6 +232,21 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     activeMembers: summary.activeMembers,
     pendingInvites: summary.pendingInvites,
     totalRoles: roles.length,
+    planName: subRow?.planName ?? null,
+    planCreditsTotal: planPools.auditCredits + planPools.aiCredits + planPools.imageCredits,
+    planCredits: {
+      auditCredits: planPools.auditCredits,
+      aiCredits: planPools.aiCredits,
+      imageCredits: planPools.imageCredits,
+    },
+    billingPeriod: {
+      start: periodStart.toISOString(),
+      end: periodEnd.toISOString(),
+    },
+    accountUsedInPeriod,
+    accountCreditsTotal,
+    accountUnallocatedTotal,
+    inWorkspacePoolsTotal: inPoolsTotal,
     ownerCredits: {
       aiCredits: ownerCredits.aiCredits,
       imageCredits: ownerCredits.imageCredits,

@@ -265,10 +265,7 @@ export async function checkCreditsTeamAware(
   if (ctx.workspaceId != null && !ctx.isTeamMember) {
     const pool = await getWorkspaceCredits(ctx.workspaceId);
     const currentBalance = pool[type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits"];
-    if (currentBalance >= amount) {
-      return { hasCredits: true, currentBalance, needed: amount };
-    }
-    return checkCredits(ctx.userId, type, amount);
+    return { hasCredits: currentBalance >= amount, currentBalance, needed: amount };
   }
 
   if (ctx.isTeamMember && ctx.memberId != null) {
@@ -309,7 +306,7 @@ export async function deductCreditsTeamAware(
   }
 
   if (ctx.workspaceId != null && !ctx.isTeamMember) {
-    const poolResult = await deductWorkspacePoolForOwner(
+    return deductWorkspacePoolForOwner(
       ctx.workspaceId,
       ctx.userId,
       type,
@@ -318,8 +315,6 @@ export async function deductCreditsTeamAware(
       featureType,
       metadata,
     );
-    if (poolResult.success) return poolResult;
-    return deductCredits(ctx.userId, type, amount, reason, featureType, metadata);
   }
 
   if (ctx.isTeamMember && ctx.memberId != null) {
