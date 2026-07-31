@@ -53,7 +53,6 @@ export function TopbarWorkspaceSwitcher() {
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("az");
-  const [pendingId, setPendingId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", description: "", clientLabel: "" });
 
   const canCreate = isAccountOwner || can("workspaces", "create");
@@ -71,11 +70,10 @@ export function TopbarWorkspaceSwitcher() {
 
   useEffect(() => {
     if (seeAllOpen) {
-      setPendingId(featureWorkspaceId);
       setSearch("");
       setSort("az");
     }
-  }, [seeAllOpen, featureWorkspaceId]);
+  }, [seeAllOpen]);
 
   const sortedWorkspaces = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -160,6 +158,16 @@ export function TopbarWorkspaceSwitcher() {
       return;
     }
     setOpen((v) => !v);
+  };
+
+  const workspaceListLabel = (ws: { name: string; clientLabel?: string | null }) => {
+    const client = ws.clientLabel?.trim();
+    return client ? `${ws.name} | ${client}` : ws.name;
+  };
+
+  const openSeeAll = () => {
+    setOpen(false);
+    setSeeAllOpen(true);
   };
 
   const toggleDropdown = () => setOpen((v) => !v);
@@ -299,7 +307,7 @@ export function TopbarWorkspaceSwitcher() {
                     onClick={() => selectWorkspace(ws.id)}
                   >
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span className="truncate flex-1 font-medium">{ws.name}</span>
+                    <span className="truncate flex-1 font-medium">{workspaceListLabel(ws)}</span>
                     {highlightedWorkspaceId === ws.id && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
                   </button>
                 ))
@@ -310,14 +318,7 @@ export function TopbarWorkspaceSwitcher() {
                 <button
                   type="button"
                   className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
-                  onClick={() => {
-                    setOpen(false);
-                    if (isAccountOwner) {
-                      navigate("/workspaces");
-                    } else {
-                      setSeeAllOpen(true);
-                    }
-                  }}
+                  onClick={openSeeAll}
                 >
                   See all
                 </button>
@@ -328,14 +329,7 @@ export function TopbarWorkspaceSwitcher() {
                 <button
                   type="button"
                   className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
-                  onClick={() => {
-                    setOpen(false);
-                    if (isAccountOwner) {
-                      navigate("/workspaces");
-                    } else {
-                      setSeeAllOpen(true);
-                    }
-                  }}
+                  onClick={openSeeAll}
                 >
                   See all
                 </button>
@@ -353,7 +347,7 @@ export function TopbarWorkspaceSwitcher() {
           if (isAccountOwner && onWorkspaceDashboard) {
             navigate("/workspaces");
           } else {
-            setSeeAllOpen(true);
+            openSeeAll();
           }
         }}
         aria-label={onWorkspaceDashboard ? "All workspaces" : `Workspace: ${pillName}`}
@@ -369,93 +363,104 @@ export function TopbarWorkspaceSwitcher() {
       </button>
 
       <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col gap-0 p-0">
-          <DialogHeader className="px-6 pt-6 pb-2">
-            <DialogTitle>Select a workspace</DialogTitle>
-            <p className="text-sm text-slate-500 font-normal pt-1">
-              Switch between your available workspaces. You can change this at any time from the top bar.
-            </p>
-          </DialogHeader>
-          <div className="px-6 pb-3 flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col gap-0 p-0 border border-slate-200 shadow-xl sm:rounded-lg overflow-hidden bg-white">
+          <div className="px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
+            <p className="text-xs text-slate-600 mt-0.5">Projects and data are scoped to the selected workspace.</p>
+          </div>
+
+          <div className="px-3 py-2 border-b border-slate-100">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search for a workspace"
-                className="pl-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
+                placeholder="Search workspaces…"
+                className="h-9 pl-9 text-sm border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
               />
             </div>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortMode)}
-              className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
-            >
-              <option value="az">Alphabetical (A–Z)</option>
-              <option value="za">Alphabetical (Z–A)</option>
-            </select>
           </div>
-          <div className="flex-1 overflow-y-auto border-y border-slate-200 mx-6 mb-4 min-h-[200px] max-h-[50vh]">
-            {sortedWorkspaces.length === 0 ? (
+
+          {isAccountOwner && (
+            <button
+              type="button"
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors border-b border-slate-100",
+                onWorkspaceDashboard && "bg-orange-50 text-orange-800",
+              )}
+              onClick={() => {
+                setSeeAllOpen(false);
+                navigate("/workspaces");
+              }}
+            >
+              <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
+              <span className="truncate flex-1 font-medium">All workspaces</span>
+              {onWorkspaceDashboard && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+            </button>
+          )}
+
+          <div className="flex-1 overflow-y-auto min-h-[min(320px,50vh)] max-h-[55vh] py-1">
+            {isLoading && workspaces.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-slate-500 text-center">Loading workspaces…</p>
+            ) : sortedWorkspaces.length === 0 ? (
               <p className="px-4 py-8 text-sm text-slate-500 text-center">No workspaces match your search.</p>
             ) : (
               sortedWorkspaces.map((ws) => {
-                const selected = pendingId === ws.id;
-                const isCurrent = featureWorkspaceId != null && ws.id === featureWorkspaceId;
+                const isCurrent = highlightedWorkspaceId === ws.id;
                 return (
                   <button
                     key={ws.id}
                     type="button"
-                    onClick={() => setPendingId(ws.id)}
+                    onClick={() => selectWorkspace(ws.id)}
                     className={cn(
-                      "w-full flex items-center gap-2 px-4 py-3 text-sm text-left border-b border-slate-100 last:border-0 hover:bg-orange-50 transition-colors",
-                      selected && "bg-orange-50 ring-1 ring-inset ring-orange-300",
+                      "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors",
+                      isCurrent && "bg-orange-50 text-orange-800",
                     )}
                   >
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <Building2 className={cn("w-4 h-4 flex-shrink-0", selected ? "text-orange-500" : "text-slate-500")} />
-                    <span className="flex-1 truncate font-medium text-slate-800">
-                      {ws.name}
-                      {isCurrent && <span className="text-slate-500 font-normal"> (current)</span>}
-                    </span>
-                    {ws.clientLabel && (
-                      <span className="text-xs text-slate-400 truncate max-w-[6rem]">{ws.clientLabel}</span>
-                    )}
+                    <span className="truncate flex-1 font-medium text-slate-800">{workspaceListLabel(ws)}</span>
+                    {isCurrent && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
                   </button>
                 );
               })
             )}
           </div>
-          <DialogFooter className="px-6 py-4 border-t bg-slate-50/50 flex-row justify-between gap-2">
-            {canCreate ? (
-              <Button
-                variant="outline"
+
+          <div className="border-t border-slate-100 py-2.5 text-center shrink-0 bg-white">
+            {isAccountOwner ? (
+              <button
+                type="button"
+                className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                onClick={() => {
+                  setSeeAllOpen(false);
+                  navigate("/workspaces");
+                }}
+              >
+                Manage workspaces
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                onClick={() => setSeeAllOpen(false)}
+              >
+                Close
+              </button>
+            )}
+            {canCreate && (
+              <button
+                type="button"
+                className="text-sm font-medium text-slate-600 hover:text-orange-600 ml-4 hover:underline"
                 onClick={() => {
                   setSeeAllOpen(false);
                   setForm({ name: "", description: "", clientLabel: "" });
                   setCreateOpen(true);
                 }}
               >
-                <Plus className="w-4 h-4 mr-1" />
                 New workspace
-              </Button>
-            ) : (
-              <span />
+              </button>
             )}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setSeeAllOpen(false)}>Cancel</Button>
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={!pendingId}
-                onClick={() => {
-                  if (!pendingId) return;
-                  selectWorkspace(pendingId);
-                }}
-              >
-                Select workspace
-              </Button>
-            </div>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
