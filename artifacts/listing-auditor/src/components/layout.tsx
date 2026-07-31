@@ -41,6 +41,7 @@ import {
 import { buildProjectShareUrl } from "@/lib/project-share";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { projectTypeToFeature } from "@/lib/workspace-route-access";
 import { isWorkspaceAdminOverviewRoute } from "@/lib/workspace-routes";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -198,8 +199,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   useCreditPurchaseReturn();
   const { isAdmin } = useIsAdmin();
-  const { defaultRoute, can } = useAdminPermissions();
-  const adminHome = can("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin");
+  const { defaultRoute, can: adminCan } = useAdminPermissions();
+  const adminHome = adminCan("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin");
   const {
     featureWorkspaceId,
     isWorkspaceApiScopeActive,
@@ -211,8 +212,15 @@ export function Layout({ children }: { children: ReactNode }) {
     workspaces,
     setActiveWorkspaceId,
     canView,
+    can: wsCan,
+    canEdit: wsCanEdit,
+    canDelete: wsCanDelete,
     roleName,
   } = useWorkspace();
+
+  const canViewArchive = isAccountOwner || canView("archive");
+  const canViewNotifications = isAccountOwner || canView("notifications");
+  const canViewBilling = isAccountOwner || canView("billing");
 
   const navReady = isAccountOwner || (activeWorkspaceId != null && !wsNavLoading);
   const visibleNavItems = navReady
@@ -374,6 +382,13 @@ export function Layout({ children }: { children: ReactNode }) {
 
   /* ── Ribbon action handlers ── */
   const projectCtx = parseProjectContext(location);
+  const ribbonFeature = projectCtx ? projectTypeToFeature(projectCtx.type) : null;
+  const canEditRibbonProject =
+    isAccountOwner || (ribbonFeature != null && wsCanEdit(ribbonFeature));
+  const canArchiveRibbonProject =
+    isAccountOwner || wsCan("archive", "edit") || (ribbonFeature != null && wsCanEdit(ribbonFeature));
+  const canDeleteRibbonProject =
+    isAccountOwner || (ribbonFeature != null && wsCanDelete(ribbonFeature));
 
   // For audit/listing pages, fetch the audit to get product/project name for ribbon
   const isAuditPage = projectCtx?.type === "audit";
@@ -623,9 +638,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
               <div className="flex items-center shrink-0">
                 {/* Notifications */}
-                <NotificationIcon collapsed={false} />
+                {canViewNotifications && <NotificationIcon collapsed={false} />}
 
                 {/* Archive */}
+                {canViewArchive && (
                 <SidebarTooltip label="Archive" side="bottom">
                   <Link href="/archive">
                     <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">
@@ -633,6 +649,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     </button>
                   </Link>
                 </SidebarTooltip>
+                )}
 
                 {/* Divider */}
                 <div className="w-px h-5 bg-slate-200 mx-1.5" />
@@ -751,7 +768,8 @@ export function Layout({ children }: { children: ReactNode }) {
             collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-4"
           )}
         >
-          {collapsed ? (
+          {canViewBilling && (
+          collapsed ? (
             <SidebarTooltip label="Upgrade" side="right">
               <Link href="/billing">
                 <button className="w-9 h-9 flex items-center justify-center rounded-xl text-sidebar-foreground/70 hover:text-primary hover:bg-primary/10 border border-sidebar-border/60 transition-colors">
@@ -765,6 +783,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 Upgrade
               </button>
             </Link>
+          )
           )}
         </div>
         </aside>
@@ -898,10 +917,10 @@ export function Layout({ children }: { children: ReactNode }) {
                   {/* Rename */}
                   <button
                     onClick={handleRibbonRename}
-                    disabled={!projectCtx}
+                    disabled={!projectCtx || !canEditRibbonProject}
                     className={cn(
                       "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left",
-                      projectCtx
+                      projectCtx && canEditRibbonProject
                         ? "text-slate-700 hover:bg-slate-50"
                         : "text-slate-300 cursor-not-allowed"
                     )}
@@ -914,10 +933,10 @@ export function Layout({ children }: { children: ReactNode }) {
                   {/* Pin project */}
                   <button
                     onClick={handleRibbonPin}
-                    disabled={!projectCtx}
+                    disabled={!projectCtx || !canEditRibbonProject}
                     className={cn(
                       "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left",
-                      projectCtx
+                      projectCtx && canEditRibbonProject
                         ? "text-slate-700 hover:bg-slate-50"
                         : "text-slate-300 cursor-not-allowed"
                     )}
@@ -928,6 +947,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   </button>
 
                   {/* Archive */}
+                  {canArchiveRibbonProject && (
                   <button
                     onClick={handleRibbonArchive}
                     disabled={!projectCtx}
@@ -942,10 +962,12 @@ export function Layout({ children }: { children: ReactNode }) {
                     Archive
                     {!projectCtx && <span className="ml-auto text-[10px] text-slate-300">project only</span>}
                   </button>
+                  )}
 
-                  <div className="my-1 border-t border-slate-100" />
+                  {canDeleteRibbonProject && <div className="my-1 border-t border-slate-100" />}
 
                   {/* Delete */}
+                  {canDeleteRibbonProject && (
                   <button
                     onClick={handleRibbonDelete}
                     disabled={!projectCtx}
@@ -960,6 +982,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     Delete
                     {!projectCtx && <span className="ml-auto text-[10px] text-slate-300">project only</span>}
                   </button>
+                  )}
                 </div>
               )}
             </div>

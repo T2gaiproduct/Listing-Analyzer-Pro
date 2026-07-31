@@ -2,7 +2,6 @@ import { Suspense, useEffect, useRef, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { ClerkProvider, SignIn, AuthenticateWithRedirectCallback, Show, useClerk, useUser } from "@clerk/react";
 import { useWsNotifications } from "@/hooks/use-ws-notifications";
-import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,9 +15,11 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { useTeam } from "@/hooks/use-team";
+import { WorkspacePermissionGate } from "@/components/workspace-permission-gate";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
@@ -159,53 +160,6 @@ if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
 }
 
-const clerkAppearanceBase = {
-  theme: shadcn,
-  cssLayerName: "clerk",
-  options: {
-    logoPlacement: "inside" as const,
-    logoLinkUrl: basePath || "/",
-  },
-  variables: {
-    colorPrimary: "#ff8000",
-    colorForeground: "#0e1929",
-    colorMutedForeground: "#657280",
-    colorDanger: "#ef4444",
-    colorBackground: "#ffffff",
-    colorInput: "#f0f5fa",
-    colorInputForeground: "#0e1929",
-    colorNeutral: "#dce6f0",
-    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-    borderRadius: "0.5rem",
-  },
-  elements: {
-    rootBox: "w-full flex justify-center",
-    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl border border-slate-200",
-    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    headerTitle: "text-slate-900 font-bold",
-    headerSubtitle: "text-slate-500",
-    socialButtonsBlockButtonText: "text-slate-700 font-medium",
-    formFieldLabel: "text-slate-700 font-medium",
-    footerActionLink: "text-orange-500 hover:text-orange-600 font-semibold",
-    footerActionText: "text-slate-500",
-    dividerText: "text-slate-400",
-    identityPreviewEditButton: "text-orange-500",
-    formFieldSuccessText: "text-green-600",
-    alertText: "text-slate-700",
-    logoBox: "mb-1",
-    logoImage: "h-8 w-auto",
-    socialButtonsBlockButton: "border-slate-200 hover:bg-slate-50",
-    formButtonPrimary: "bg-orange-500 hover:bg-orange-600 text-white",
-    formFieldInput: "border-slate-200 bg-slate-50 text-slate-900",
-    footerAction: "bg-slate-50",
-    dividerLine: "bg-slate-200",
-    alert: "bg-red-50 border-red-200",
-    otpCodeFieldInput: "border-slate-300",
-    formFieldRow: "",
-    main: "",
-  },
-};
 
 function SignInPage() {
   const params = new URLSearchParams(window.location.search);
@@ -334,6 +288,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function WorkspaceProtectedRoute({
+  requireCreate,
+  children,
+}: {
+  requireCreate?: boolean;
+  children: React.ReactNode;
+}) {
+  const [location] = useLocation();
+  return (
+    <ProtectedRoute>
+      <WorkspacePermissionGate path={location} requireCreate={requireCreate}>
+        {children}
+      </WorkspacePermissionGate>
+    </ProtectedRoute>
+  );
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, isLoaded } = useUser();
@@ -426,7 +397,7 @@ function Router() {
     <Switch>
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
-      <Route path="/sign-up" component={SignUpPage} />
+      <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/sso-callback">
         <div className="flex min-h-[100dvh] items-center justify-center">
           <AuthenticateWithRedirectCallback />
@@ -639,84 +610,84 @@ function Router() {
 
       {/* Protected customer pages */}
       <Route path="/billing">
-        <ProtectedRoute><Billing /></ProtectedRoute>
+        <WorkspaceProtectedRoute><Billing /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/team">
-        <ProtectedRoute><Team /></ProtectedRoute>
+        <WorkspaceProtectedRoute><Team /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/roles">
         <ProtectedRoute><RolesPage /></ProtectedRoute>
       </Route>
       <Route path="/workspaces">
-        <ProtectedRoute><WorkspacesPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><WorkspacesPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/workspaces/:id/members">
-        {params => <ProtectedRoute><WorkspaceMembersPage /></ProtectedRoute>}
+        {params => <WorkspaceProtectedRoute><WorkspaceMembersPage /></WorkspaceProtectedRoute>}
       </Route>
       <Route path="/workspaces/:id/roles">
         <Redirect to="/roles" />
       </Route>
       <Route path="/workspaces/:id">
-        {params => <ProtectedRoute><WorkspaceDetailPage /></ProtectedRoute>}
+        {params => <WorkspaceProtectedRoute><WorkspaceDetailPage /></WorkspaceProtectedRoute>}
       </Route>
       <Route path="/profile">
-        <ProtectedRoute><Profile /></ProtectedRoute>
+        <WorkspaceProtectedRoute><Profile /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
       </Route>
       <Route path="/recent-projects">
-        <ProtectedRoute><RecentProjectsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><RecentProjectsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audit-listings">
-        <ProtectedRoute><AuditListings /></ProtectedRoute>
+        <WorkspaceProtectedRoute><AuditListings /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/videos">
-        <ProtectedRoute><VideosPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><VideosPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads">
-        <ProtectedRoute><AdsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><AdsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/settings">
-        <ProtectedRoute><SettingsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><SettingsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/new">
-        <ProtectedRoute><AuditNew /></ProtectedRoute>
+        <WorkspaceProtectedRoute requireCreate><AuditNew /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/workflow">
-        <ProtectedRoute><AuditWorkflow /></ProtectedRoute>
+        <WorkspaceProtectedRoute requireCreate><AuditWorkflow /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/:id">
         {params => (
-          <ProtectedRoute><AuditDetail id={parseInt(params.id)} /></ProtectedRoute>
+          <WorkspaceProtectedRoute><AuditDetail id={parseInt(params.id)} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/audits/:id/competitors/new">
         {params => (
-          <ProtectedRoute><CompetitorNew id={parseInt(params.id)} /></ProtectedRoute>
+          <WorkspaceProtectedRoute requireCreate><CompetitorNew id={parseInt(params.id)} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/projects">
-        <ProtectedRoute><ProjectsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><ProjectsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/projects/create">
-        <ProtectedRoute><CreateProject /></ProtectedRoute>
+        <WorkspaceProtectedRoute requireCreate><CreateProject /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/projects/:id/generating">
         {params => (
-          <ProtectedRoute><GeneratingPage params={{ id: params.id }} /></ProtectedRoute>
+          <WorkspaceProtectedRoute><GeneratingPage params={{ id: params.id }} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/projects/:id">
         {params => (
-          <ProtectedRoute><ProjectDetail params={{ id: params.id }} /></ProtectedRoute>
+          <WorkspaceProtectedRoute><ProjectDetail params={{ id: params.id }} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/archive">
-        <ProtectedRoute><ArchivePage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><ArchivePage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/notifications">
-        <ProtectedRoute><NotificationsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><NotificationsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>
@@ -729,9 +700,9 @@ function ClerkProviderWithRoutes() {
 
   const appearance = useMemo(
     () => ({
-      ...clerkAppearanceBase,
+      ...clerkAppearance,
       options: {
-        ...clerkAppearanceBase.options,
+        ...clerkAppearance.options,
         logoImageUrl: logoUrl,
       },
     }),

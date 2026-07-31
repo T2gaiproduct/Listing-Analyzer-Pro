@@ -99,7 +99,7 @@ function ModuleDescription({ body }: { body: string }) {
 function AplusImageCard({
   module,
   isLoading,
-  canEdit,
+  canEditAudits,
   onView,
   onRegenerate,
   onEdit,
@@ -108,7 +108,7 @@ function AplusImageCard({
 }: {
   module: AplusModuleItem;
   isLoading: boolean;
-  canEdit: boolean;
+  canEditAudits: boolean;
   onView: () => void;
   onRegenerate: () => void;
   onEdit: () => void;
@@ -135,7 +135,7 @@ function AplusImageCard({
         {!isLoading && (
           <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
-            {canEdit && (
+            {canEditAudits && (
               <>
                 <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
                 <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
@@ -175,7 +175,7 @@ interface AplusModuleGalleryProps {
 export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightbox }: AplusModuleGalleryProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canEdit } = useTeam();
+  const { canEditAudits } = useTeam();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [editModule, setEditModule] = useState<AplusModuleItem | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
@@ -299,7 +299,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
               key={module.id}
               module={module}
               isLoading={loadingIds.has(module.id)}
-              canEdit={canEdit}
+              canEditAudits={canEditAudits}
               onView={() => onLightbox(module.imageUrl)}
               onRegenerate={() => regenerateMutation.mutate(module.id)}
               onEdit={() => {

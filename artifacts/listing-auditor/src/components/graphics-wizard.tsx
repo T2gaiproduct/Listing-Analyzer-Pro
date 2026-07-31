@@ -127,7 +127,7 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
 export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords }: GraphicsWizardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canEdit, isTeamMember, memberCredits } = useTeam();
+  const { canEditGraphics, isTeamMember, memberCredits } = useTeam();
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
@@ -634,7 +634,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             <p className="text-sm text-slate-500">{displayProject.productName}</p>
           </div>
           <div className="flex items-center gap-2">
-            {canEdit && (
+            {canEditGraphics && (
               <Button
                 className="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer gap-2"
                 disabled={!canAffordImages(1)}
@@ -663,7 +663,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
               <ImageCard
                 key={record.id}
                 record={record}
-                canEdit={canEdit}
+                canEditGraphics={canEditGraphics}
                 isLoading={loadingIds.has(record.id)}
                 onRegenerate={() => handleRegenerate(record)}
                 onEdit={() => handleEdit(record)}
@@ -1258,7 +1258,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 }
 
 /* ─── Image Card sub-component ─── */
-function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, onView, canEdit }: {
+function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, onView, canEditGraphics }: {
   record: ImageRecord;
   isLoading: boolean;
   onRegenerate: () => void;
@@ -1266,7 +1266,7 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
   onHistory: () => void;
   onDownload: () => void;
   onView: () => void;
-  canEdit: boolean;
+  canEditGraphics: boolean;
 }) {
   return (
     <div className="group relative rounded-lg border overflow-hidden bg-white">
@@ -1281,7 +1281,7 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
         {!isLoading && (
           <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
-            {canEdit && (
+            {canEditGraphics && (
               <>
                 <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
                 <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
