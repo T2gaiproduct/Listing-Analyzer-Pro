@@ -14,12 +14,16 @@ import { useBranding } from "@/hooks/use-branding";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
-import { useTeam } from "@/hooks/use-team";
 import { WorkspacePermissionGate } from "@/components/workspace-permission-gate";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import {
+  pendingWorkspaceInviteRedirect,
+  requiresOnboarding,
+  type ProfileSummaryForGate,
+} from "@/lib/onboarding-gate";
 import { normalizeAdminPath } from "@workspace/admin-permissions";
 import {
   Layout,
@@ -143,6 +147,36 @@ function AuthLoading() {
   );
 }
 
+function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center p-6">
+      <div className="max-w-md space-y-3 text-center">
+        <p className="text-lg font-semibold text-slate-900">Cannot load your account</p>
+        <p className="text-sm text-slate-500">
+          We could not verify your profile from the API. The server may be offline or the preview tunnel lost its
+          connection to the backend.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            className="text-sm font-medium text-orange-600 hover:text-orange-700"
+            onClick={() => void onRetry()}
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            className="text-sm font-medium text-orange-600 hover:text-orange-700"
+            onClick={() => window.location.reload()}
+          >
+            Reload page
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -213,29 +247,12 @@ function useOnboardingSummary() {
   return useQuery({
     queryKey: ["user-profile-summary"],
     queryFn: () =>
-      fetchJson<{
-        onboardingCompleted?: boolean;
-        accountRole?: { type?: string };
-        pendingWorkspaceInvite?: { token: string; workspaceName: string; workspaceId: number } | null;
-      }>(`${basePath}/api/profile/summary`),
+      fetchJson<ProfileSummaryForGate>(`${basePath}/api/profile/summary`),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
     retry: 3,
+    refetchOnWindowFocus: false,
   });
-}
-
-function requiresOnboarding(summary: { onboardingCompleted?: boolean; accountRole?: { type?: string }; pendingWorkspaceInvite?: { token: string } | null } | undefined) {
-  if (!summary) return false;
-  if (summary.pendingWorkspaceInvite?.token) return false;
-  if (summary.onboardingCompleted) return false;
-  if (summary.accountRole?.type === "team_member") return false;
-  return true;
-}
-
-function pendingWorkspaceInviteRedirect(summary: { pendingWorkspaceInvite?: { token: string } | null } | undefined) {
-  const token = summary?.pendingWorkspaceInvite?.token;
-  if (!token) return null;
-  return `/accept-workspace-invite?token=${encodeURIComponent(token)}`;
 }
 
 function HomeRedirect() {
@@ -243,16 +260,23 @@ function HomeRedirect() {
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
   const { defaultRoute, isLoaded: permLoaded } = useAdminPermissions();
-  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
-  const { isTeamMember, isLoading: teamLoading } = useTeam();
+  const {
+    data: summary,
+    isFetched: summaryFetched,
+    isError: summaryError,
+    refetch: refetchSummary,
+  } = useOnboardingSummary();
   if (!isLoaded) return <Landing />;
   if (!user) return <Landing />;
   if (!adminLoaded || ((envAdmin || isAdmin) && !permLoaded)) return <AuthLoading />;
   if (envAdmin || isAdmin) return <Redirect to={defaultRoute} />;
-  if (summaryLoading || teamLoading) return <AuthLoading />;
+  if (!summaryFetched) return <AuthLoading />;
+  if (summaryError || !summary) {
+    return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
+  }
   const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
   if (inviteRedirect) return <Redirect to={inviteRedirect} />;
-  if (requiresOnboarding(summary) && !isTeamMember) return <Redirect to="/onboarding" />;
+  if (requiresOnboarding(summary)) return <Redirect to="/onboarding" />;
   return <Redirect to="/dashboard" />;
 }
 
@@ -260,18 +284,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
   const { isAdmin, isLoaded: adminLoaded } = useIsAdmin();
-  const { data: summary, isLoading: summaryLoading } = useOnboardingSummary();
-  const { isTeamMember, isLoading: teamLoading } = useTeam();
+  const {
+    data: summary,
+    isFetched: summaryFetched,
+    isError: summaryError,
+    refetch: refetchSummary,
+  } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  const authContextLoading =
-    summaryLoading
-    || teamLoading
-    || (!envAdmin && !adminLoaded);
-  if (user && !isAdminUser && authContextLoading) return <AuthLoading />;
-  const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
+  if (user && !isAdminUser && !adminLoaded) return <AuthLoading />;
+  if (user && !isAdminUser && !summaryFetched) return <AuthLoading />;
+  if (user && !isAdminUser && (summaryError || !summary)) {
+    return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
+  }
+  const inviteRedirect = summary ? pendingWorkspaceInviteRedirect(summary) : null;
   if (user && !isAdminUser && inviteRedirect) return <Redirect to={inviteRedirect} />;
-  if (user && !isAdminUser && requiresOnboarding(summary) && !isTeamMember) {
+  if (user && !isAdminUser && summary && requiresOnboarding(summary)) {
     return <Redirect to="/onboarding" />;
   }
   // Customer SaaS routes always use the customer shell (workspace switcher, sidebar).
