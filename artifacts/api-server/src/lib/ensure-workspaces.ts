@@ -164,8 +164,7 @@ export async function ensureTeamMembersSchema(): Promise<void> {
 }
 
 /**
- * New subscribers get a default workspace so dashboard and project flows work on first login.
- * Skips accounts that deleted all workspaces intentionally (any workspace row ever existed).
+ * Active subscribers without an active workspace get a default workspace (e.g. after payment or if all were deleted).
  */
 export async function ensureSubscriberDefaultWorkspace(accountOwnerId: string): Promise<number | null> {
   const [activeWs] = await db
@@ -177,13 +176,6 @@ export async function ensureSubscriberDefaultWorkspace(accountOwnerId: string): 
     ))
     .limit(1);
   if (activeWs) return activeWs.id;
-
-  const [everHadWorkspace] = await db
-    .select({ id: workspacesTable.id })
-    .from(workspacesTable)
-    .where(eq(workspacesTable.accountOwnerId, accountOwnerId))
-    .limit(1);
-  if (everHadWorkspace) return null;
 
   const [sub] = await db
     .select({ status: subscriptionsTable.status })

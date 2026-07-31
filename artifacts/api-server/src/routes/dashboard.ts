@@ -299,11 +299,12 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
   const team = (req as TeamAuthedRequest).team;
   const workspaceId = getActiveWorkspaceId(req);
   const wsCtx = getWorkspaceCtx(req);
+  const hasExplicitWorkspace = Boolean(req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id"));
   const accountOverview =
-    req.query.scope === "account"
-    && wsCtx.isAccountOwner
+    wsCtx.isAccountOwner
     && userId === ownerId
-    && !team?.isTeamMember;
+    && !team?.isTeamMember
+    && (req.query.scope === "account" || !hasExplicitWorkspace);
   const statsWorkspaceId: number | null = accountOverview ? null : workspaceId;
 
   const now = new Date();

@@ -275,7 +275,7 @@ export default function Dashboard() {
     && featureWorkspaceId != null
     && isWorkspaceApiScopeActive;
 
-  const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
+  const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard", isBillingAccountOwner ? "account" : featureWorkspaceId],
     queryFn: () =>
       fetchJson<DashboardData>(
@@ -378,12 +378,19 @@ export default function Dashboard() {
       );
     }
     return (
-      <div className="text-center py-16 text-slate-500">
+      <div className="text-center py-16 text-slate-500 px-4">
         <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />
         <p>Could not load dashboard data.</p>
+        {error instanceof Error && error.message && (
+          <p className="text-xs text-slate-400 mt-2 max-w-md mx-auto">{error.message}</p>
+        )}
+        <p className="text-xs text-slate-400 mt-2">Restart the API server after deploying the latest code.</p>
         <button
           type="button"
-          onClick={() => void refetch()}
+          onClick={() => {
+            void refetchWorkspaces();
+            void refetch();
+          }}
           className="mt-4 text-sm font-medium text-orange-500 hover:text-orange-600"
         >
           Try again

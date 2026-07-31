@@ -4,6 +4,7 @@ import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { ownerPermissions } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { resolveWorkspace, type WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
+import { WORKSPACE_HEADER } from "./workspace-context";
 import {
   canViewInWorkspace,
   canWriteInWorkspace,
@@ -56,9 +57,14 @@ export async function resolveTeamAndDashboardScope(
   const team = await resolveTeamContext(userId);
   (req as TeamAuthedRequest).team = team;
 
-  const accountScope = req.query.scope === "account";
   const ownerId = team.ownerUserId;
-  if (accountScope && !team.isTeamMember && userId === ownerId) {
+  const headerVal = req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id");
+  const queryWorkspaceId = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
+  const hasExplicitWorkspace = Boolean(headerVal || queryWorkspaceId);
+  const accountScope = req.query.scope === "account";
+  const billingOwner = !team.isTeamMember && userId === ownerId;
+
+  if (billingOwner && (accountScope || !hasExplicitWorkspace)) {
     await ensureSubscriberDefaultWorkspace(ownerId);
     const defaultId = await getDefaultWorkspaceId(ownerId);
     if (defaultId) {
