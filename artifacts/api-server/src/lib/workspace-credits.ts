@@ -43,6 +43,32 @@ export function memberCreditsInWorkspace(pool: CreditTotals, memberAllocated: Cr
   return memberAllocated;
 }
 
+/** Sum of member credit balances that count within a funded workspace pool. */
+export function memberCreditsTotalInWorkspace(pool: CreditTotals, memberAllocated: CreditTotals): number {
+  return sumCreditBalance(memberCreditsInWorkspace(pool, memberAllocated));
+}
+
+/** Zero orphaned member_credits rows when the workspace pool has no balance. */
+export async function reconcileStaleMemberCreditsWithPool(workspaceId: number): Promise<void> {
+  const pool = await getWorkspaceCredits(workspaceId);
+  if (sumCreditBalance(pool) > 0) return;
+
+  const rows = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.workspaceId, workspaceId));
+  const hasStale = rows.some(
+    (r) => Number(r.aiCredits) > 0 || Number(r.imageCredits) > 0 || Number(r.auditCredits) > 0,
+  );
+  if (!hasStale) return;
+
+  const now = new Date();
+  await db
+    .update(memberCreditsTable)
+    .set({ aiCredits: 0, imageCredits: 0, auditCredits: 0, updatedAt: now })
+    .where(eq(memberCreditsTable.workspaceId, workspaceId));
+}
+
 function keyForType(type: CreditType): "aiCredits" | "imageCredits" | "auditCredits" {
   if (type === "ai") return "aiCredits";
   if (type === "image") return "imageCredits";

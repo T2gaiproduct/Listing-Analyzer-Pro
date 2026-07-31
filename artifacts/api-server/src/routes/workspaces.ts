@@ -42,6 +42,8 @@ import {
   poolAvailableForMembers,
   workspaceFundedCreditTotal,
   memberCreditsInWorkspace,
+  memberCreditsTotalInWorkspace,
+  reconcileStaleMemberCreditsWithPool,
   sumCreditBalance,
 } from "../lib/workspace-credits.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
@@ -223,6 +225,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
 
   const workspacesWithPools = await Promise.all(summary.workspaces.map(async (w) => {
     const meta = ownedById.get(w.id);
+    await reconcileStaleMemberCreditsWithPool(w.id);
     const pool = await getWorkspaceCredits(w.id);
     const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
     const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
@@ -230,6 +233,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     const poolAvailable = poolAvailableForMembers(pool, memberAllocatedInPool);
     const poolUnassigned = sumCreditBalance(poolAvailable);
     const fundedTotal = workspaceFundedCreditTotal(pool, creditsUsedInPeriod);
+    const toMembersTotal = memberCreditsTotalInWorkspace(pool, memberAllocated);
     const poolHasCredits = sumCreditBalance(pool) > 0;
 
     const membersWithCredits = await Promise.all(w.members.map(async (m) => {
@@ -263,6 +267,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       members: membersWithCredits,
       poolCredits: pool,
       memberAllocatedCredits: memberAllocatedInPool,
+      toMembersTotal,
       creditsUsedInPeriod,
       fundedTotal,
       poolRemaining: poolUnassigned,
@@ -538,10 +543,15 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
     .orderBy(desc(workspaceMembersTable.invitedAt));
 
   const canViewCredits = ctx.isAccountOwner || checkPerm(ctx, "credits", "viewGlobal");
+  await reconcileStaleMemberCreditsWithPool(ctx.workspaceId);
   const pool = canViewCredits ? await getWorkspaceCredits(ctx.workspaceId) : null;
-  const memberAllocated = canViewCredits
+  const memberAllocatedRaw = canViewCredits
     ? await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId)
     : null;
+  const memberAllocated = pool && memberAllocatedRaw
+    ? memberCreditsInWorkspace(pool, memberAllocatedRaw)
+    : null;
+  const poolHasCredits = pool ? sumCreditBalance(pool) > 0 : false;
 
   const memberIds = members.map((m) => m.member.id);
   const creditRows = memberIds.length > 0
@@ -553,20 +563,21 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
     poolCredits: pool,
     memberAllocatedCredits: memberAllocated,
     poolAvailableForMembers: pool && memberAllocated
-      ? {
-          aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
-          imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
-          auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
-        }
+      ? poolAvailableForMembers(pool, memberAllocated)
       : null,
+    toMembersTotal: pool && memberAllocatedRaw
+      ? memberCreditsTotalInWorkspace(pool, memberAllocatedRaw)
+      : 0,
     members: members.map((m) => {
       const allocated = creditsByMember.get(m.member.id);
       return {
         ...m.member,
         roleName: m.roleName ?? null,
-        allocatedCredits: canViewCredits && allocated
+        allocatedCredits: canViewCredits && poolHasCredits && allocated
           ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
-          : undefined,
+          : canViewCredits
+            ? { aiCredits: 0, imageCredits: 0, auditCredits: 0 }
+            : undefined,
       };
     }),
   });
@@ -630,17 +641,15 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
       auditCredits ?? 0,
     );
     const pool = await getWorkspaceCredits(ctx.workspaceId);
-    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
+    const memberAllocatedRaw = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
+    const memberAllocated = memberCreditsInWorkspace(pool, memberAllocatedRaw);
     res.json({
       workspaceMemberId: memberId,
       credits,
       poolCredits: pool,
       memberAllocatedCredits: memberAllocated,
-      poolAvailableForMembers: {
-        aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
-        imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
-        auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
-      },
+      toMembersTotal: memberCreditsTotalInWorkspace(pool, memberAllocatedRaw),
+      poolAvailableForMembers: poolAvailableForMembers(pool, memberAllocated),
     });
   } catch (err) {
     const e = err as Error & { code?: string };

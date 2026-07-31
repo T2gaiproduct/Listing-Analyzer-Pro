@@ -63,6 +63,7 @@ interface WorkspaceOverviewRow {
   members: WorkspaceMemberListItem[];
   poolCredits?: CreditBuckets;
   memberAllocatedCredits?: CreditBuckets;
+  toMembersTotal?: number;
   poolAvailableForMembers?: CreditBuckets;
   creditsUsedInPeriod?: number;
   fundedTotal?: number;
@@ -103,6 +104,9 @@ function workspaceFundedTotal(ws: WorkspaceOverviewRow): number {
 }
 
 function memberCreditsTotal(ws: WorkspaceOverviewRow): number {
+  if (ws.toMembersTotal != null) return ws.toMembersTotal;
+  const poolTotal = sumCredits(ws.poolCredits);
+  if (poolTotal <= 0) return 0;
   return sumCredits(ws.memberAllocatedCredits);
 }
 
