@@ -159,7 +159,7 @@ export function buildPlanCreditFeatureLines(
   if (counts.audit > 0) {
     const auditsPerMonth = auditCost > 0 ? Math.floor(counts.audit / auditCost) : counts.audit;
     lines.push(
-      auditsPerMonth >= 999
+      isUnlimitedPlanCreditValue(auditsPerMonth)
         ? "Unlimited listing audits"
         : `${auditsPerMonth.toLocaleString()} listing audits/mo`,
     );
@@ -216,9 +216,21 @@ export function buildPlanActivityRows(
   }));
 }
 
-export function formatPlanAllocationDisplayValue(value: number): string {
-  if (value >= 999) return "∞";
+/** Sentinel for unlimited monthly allowance (seed plans use 999). */
+export const PLAN_UNLIMITED_CREDIT_VALUE = 999;
+
+export function isUnlimitedPlanCreditValue(value: number): boolean {
+  return value === PLAN_UNLIMITED_CREDIT_VALUE || value >= 999999;
+}
+
+export function formatPlanCreditAllowanceValue(value: number): string {
+  if (isUnlimitedPlanCreditValue(value)) return "∞";
   return value.toLocaleString();
+}
+
+/** @deprecated Use formatPlanCreditAllowanceValue */
+export function formatPlanAllocationDisplayValue(value: number): string {
+  return formatPlanCreditAllowanceValue(value);
 }
 
 export function computePlanPoolsFromAllocationCredits(
@@ -239,7 +251,7 @@ export function computePlanPoolsFromAllocationCredits(
 
 export function sumPlanMonthlyCreditAllowances(counts: PlanAllocationCounts): number | null {
   const parts = [counts.audit, counts.content, counts.images, counts.ebc, counts.competitors];
-  if (parts.some((n) => n >= 999)) return null;
+  if (parts.some((n) => isUnlimitedPlanCreditValue(n))) return null;
   return parts.reduce((sum, n) => sum + n, 0);
 }
 

@@ -160,6 +160,12 @@ export function isAutoCreditFeatureLine(text: string): boolean {
 }
 
 /** Feature bullets mirror admin credit fields (monthly allowances). */
+export const PLAN_UNLIMITED_CREDIT_VALUE = 999;
+
+export function isUnlimitedPlanCreditValue(value: number): boolean {
+  return value === PLAN_UNLIMITED_CREDIT_VALUE || value >= 999999;
+}
+
 export function buildPlanCreditFeatureLines(
   counts: PlanAllocationCounts,
   rules: CreditRuleLike[] = [],
@@ -170,7 +176,7 @@ export function buildPlanCreditFeatureLines(
   if (counts.audit > 0) {
     const auditsPerMonth = auditCost > 0 ? Math.floor(counts.audit / auditCost) : counts.audit;
     lines.push(
-      auditsPerMonth >= 999
+      isUnlimitedPlanCreditValue(auditsPerMonth)
         ? "Unlimited listing audits"
         : `${auditsPerMonth.toLocaleString()} listing audits/mo`,
     );

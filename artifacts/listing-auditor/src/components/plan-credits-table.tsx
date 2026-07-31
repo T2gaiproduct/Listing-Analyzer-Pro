@@ -1,5 +1,6 @@
 import {
   buildPlanActivityRows,
+  formatPlanCreditAllowanceValue,
   formatPlanMonthlyCreditTotal,
   resolvePlanAllocationCounts,
   type CreditRuleLike,
@@ -30,7 +31,7 @@ export function PlanCreditsTable({
         <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center text-sm">
           <span className="text-slate-600 min-w-0">{row.label}</span>
           <span className={cn("font-semibold shrink-0 tabular-nums", row.color)}>
-            {row.value >= 999 ? "∞" : row.value.toLocaleString()}
+            {formatPlanCreditAllowanceValue(row.value)}
           </span>
         </div>
       ))}
