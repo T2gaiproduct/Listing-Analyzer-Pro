@@ -16,7 +16,7 @@ import { refetchCreditQueries } from "@/lib/credit-queries";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { useTeam } from "@/hooks/use-team";
 import { ResponsiveTable } from "@/components/responsive-table";
-import { computePlanCreditsForSubscription } from "@/lib/plan-credits";
+import { computePlanCreditsForSubscription, isUnlimitedPlanCreditValue } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -766,7 +766,7 @@ export default function Billing() {
                       <div className="space-y-1 text-sm text-slate-600">
                         <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.aiCredits} AI credits</div>
                         <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.imageCredits} image credits</div>
-                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{p.auditCredits === 999 ? "Unlimited" : p.auditCredits} audit credits</div>
+                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{isUnlimitedPlanCreditValue(p.auditCredits) ? "Unlimited" : p.auditCredits.toLocaleString()} audit credits</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

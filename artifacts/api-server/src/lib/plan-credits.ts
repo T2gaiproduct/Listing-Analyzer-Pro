@@ -283,3 +283,19 @@ export async function planRowToGrantCredits(plan: {
   const pools = await resolvePlanCreditPools(plan);
   return { id: plan.id, name: plan.name, ...pools };
 }
+
+/** Public/onboarding API: credit columns aligned with credit_allocations. */
+export async function serializePlanForPublic<T extends {
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
+  creditAllocations?: PlanAllocations | Record<string, number> | null;
+}>(plan: T): Promise<T> {
+  const pools = await resolvePlanCreditPools(plan);
+  return {
+    ...plan,
+    aiCredits: pools.aiCredits,
+    imageCredits: pools.imageCredits,
+    auditCredits: pools.auditCredits,
+  };
+}
