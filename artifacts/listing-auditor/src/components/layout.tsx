@@ -539,6 +539,8 @@ export function Layout({ children }: { children: ReactNode }) {
       unallocatedTotal: number;
       inPoolsTotal: number;
       accountTotal: number;
+      unallocated: { aiCredits: number; imageCredits: number; auditCredits: number };
+      accountTotalBuckets?: { aiCredits: number; imageCredits: number; auditCredits: number };
     };
   }>({
     queryKey: ["user-credits"],
@@ -596,12 +598,12 @@ export function Layout({ children }: { children: ReactNode }) {
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : showWorkspacePoolCredits && workspacePoolCredits
       ? workspacePoolCredits
-      : ownerCredits;
+      : accountCreditSummary?.unallocated ?? ownerCredits;
   const creditsScopeLabel = showWorkspacePoolCredits && workspacePoolCredits
     ? "workspace"
     : isTeamMember
       ? "member"
-      : isAccountHubRoute && accountCreditSummary
+      : isAccountOwner && isAccountHubRoute
         ? "account_hub"
         : "account";
 

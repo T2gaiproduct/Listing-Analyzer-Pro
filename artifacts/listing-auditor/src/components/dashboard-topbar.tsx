@@ -50,6 +50,8 @@ interface DashboardTopbarProps {
     unallocatedTotal: number;
     inPoolsTotal: number;
     accountTotal: number;
+    unallocated?: { aiCredits: number; imageCredits: number; auditCredits: number };
+    accountTotalBuckets?: { aiCredits: number; imageCredits: number; auditCredits: number };
   };
   onMenuClick?: () => void;
   variant?: "customer" | "admin";
@@ -91,6 +93,7 @@ export function DashboardTopbar({
   const [helpOpen, setHelpOpen] = useState(false);
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
+  const breakdownCredits = accountCreditSummary?.unallocated ?? credits;
   const creditBalanceLabel =
     creditsScopeLabel === "workspace"
       ? "Workspace credits"
@@ -100,7 +103,9 @@ export function DashboardTopbar({
   const creditBalanceHeadline =
     creditsScopeLabel === "account_hub" && accountCreditSummary
       ? accountCreditSummary.unallocatedTotal
-      : totalCredits;
+      : accountCreditSummary && creditsScopeLabel === "account"
+        ? accountCreditSummary.unallocatedTotal
+        : totalCredits;
   const profileSubtitle = variant === "admin"
     ? roleLabel
     : planLabel && planLabel !== "No plan"
@@ -286,16 +291,33 @@ export function DashboardTopbar({
               <div className="px-4 py-2 space-y-1.5 text-sm">
                 <div className="flex justify-between text-slate-600">
                   <span>Audit</span>
-                  <span className="font-semibold text-slate-900">{credits?.auditCredits ?? 0}</span>
+                  <span className="font-semibold text-slate-900">{breakdownCredits?.auditCredits ?? 0}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Text Content</span>
-                  <span className="font-semibold text-slate-900">{credits?.aiCredits ?? 0}</span>
+                  <span className="font-semibold text-slate-900">{breakdownCredits?.aiCredits ?? 0}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Images</span>
-                  <span className="font-semibold text-slate-900">{credits?.imageCredits ?? 0}</span>
+                  <span className="font-semibold text-slate-900">{breakdownCredits?.imageCredits ?? 0}</span>
                 </div>
+                {accountCreditSummary?.accountTotalBuckets && (creditsScopeLabel === "account_hub" || creditsScopeLabel === "account") && (
+                  <div className="pt-2 mt-1 border-t border-slate-100 space-y-1 text-[11px] text-slate-500">
+                    <p className="font-medium text-slate-600">Total in account (all types)</p>
+                    <div className="flex justify-between gap-2">
+                      <span>Audit</span>
+                      <span className="tabular-nums">{accountCreditSummary.accountTotalBuckets.auditCredits.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span>Text</span>
+                      <span className="tabular-nums">{accountCreditSummary.accountTotalBuckets.aiCredits.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span>Images</span>
+                      <span className="tabular-nums">{accountCreditSummary.accountTotalBuckets.imageCredits.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="px-2 pt-1 border-t border-slate-100">
                 <button

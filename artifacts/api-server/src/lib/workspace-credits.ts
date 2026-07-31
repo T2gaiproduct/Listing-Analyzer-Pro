@@ -48,6 +48,72 @@ export function memberCreditsTotalInWorkspace(pool: CreditTotals, memberAllocate
   return sumCreditBalance(memberCreditsInWorkspace(pool, memberAllocated));
 }
 
+export interface AccountCreditSummary {
+  unallocated: CreditTotals;
+  unallocatedTotal: number;
+  inWorkspacePools: CreditTotals;
+  inPoolsTotal: number;
+  accountTotal: number;
+  accountTotalBuckets: CreditTotals;
+}
+
+function normalizeCreditTotals(c: CreditTotals): CreditTotals {
+  return {
+    aiCredits: Number(c.aiCredits ?? 0),
+    imageCredits: Number(c.imageCredits ?? 0),
+    auditCredits: Number(c.auditCredits ?? 0),
+  };
+}
+
+/**
+ * Agency account credits: unallocated (account row) + in workspace pools = total in account.
+ * Unallocated per bucket = total bucket − allocated to workspace pools.
+ */
+export function computeAccountCreditSummary(
+  accountRow: CreditTotals,
+  inWorkspacePools: CreditTotals,
+): AccountCreditSummary {
+  const row = normalizeCreditTotals(accountRow);
+  const pools = normalizeCreditTotals(inWorkspacePools);
+  const inPoolsTotal = sumCreditBalance(pools);
+  const rowSum = sumCreditBalance(row);
+
+  const subtractUnallocated: CreditTotals = {
+    aiCredits: Math.max(0, row.aiCredits - pools.aiCredits),
+    imageCredits: Math.max(0, row.imageCredits - pools.imageCredits),
+    auditCredits: Math.max(0, row.auditCredits - pools.auditCredits),
+  };
+  const subtractSum = sumCreditBalance(subtractUnallocated);
+
+  let accountTotalBuckets: CreditTotals;
+  let unallocated: CreditTotals;
+
+  // Row stores full account total when subtracting pools reproduces the row sum.
+  if (inPoolsTotal > 0 && subtractSum + inPoolsTotal === rowSum) {
+    accountTotalBuckets = { ...row };
+    unallocated = subtractUnallocated;
+  } else {
+    accountTotalBuckets = {
+      aiCredits: row.aiCredits + pools.aiCredits,
+      imageCredits: row.imageCredits + pools.imageCredits,
+      auditCredits: row.auditCredits + pools.auditCredits,
+    };
+    unallocated = { ...row };
+  }
+
+  const accountTotal = sumCreditBalance(accountTotalBuckets);
+  const unallocatedTotal = sumCreditBalance(unallocated);
+
+  return {
+    unallocated,
+    unallocatedTotal,
+    inWorkspacePools: pools,
+    inPoolsTotal,
+    accountTotal,
+    accountTotalBuckets,
+  };
+}
+
 /** Zero orphaned member_credits rows when the workspace pool has no balance. */
 export async function reconcileStaleMemberCreditsWithPool(workspaceId: number): Promise<void> {
   const pool = await getWorkspaceCredits(workspaceId);

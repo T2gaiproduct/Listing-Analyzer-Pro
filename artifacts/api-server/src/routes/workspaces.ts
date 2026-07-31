@@ -44,6 +44,7 @@ import {
   memberCreditsInWorkspace,
   memberCreditsTotalInWorkspace,
   reconcileStaleMemberCreditsWithPool,
+  computeAccountCreditSummary,
   sumCreditBalance,
 } from "../lib/workspace-credits.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
@@ -127,8 +128,10 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
 
   await ensureSubscriptionCredits(accountOwnerId);
   const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, accountOwnerId));
-  const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const ownerCreditsRaw = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const inWorkspacePools = await sumWorkspacePoolsForOwner(accountOwnerId);
+  const accountCreditSummary = computeAccountCreditSummary(ownerCreditsRaw, inWorkspacePools);
+  const ownerCredits = accountCreditSummary.unallocated;
   // Account balance already excludes credits moved into workspace pools.
   const availableToFundWorkspaces = {
     aiCredits: Number(ownerCredits.aiCredits ?? 0),
@@ -205,9 +208,9 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
         };
 
   const accountUsedInPeriod = await sumCreditsUsedInPeriod(accountOwnerId, periodStart, periodEnd);
-  const accountUnallocatedTotal = sumCreditTotals(ownerCredits);
-  const inPoolsTotal = sumCreditTotals(inWorkspacePools);
-  const accountCreditsTotal = accountUnallocatedTotal + inPoolsTotal;
+  const accountUnallocatedTotal = accountCreditSummary.unallocatedTotal;
+  const inPoolsTotal = accountCreditSummary.inPoolsTotal;
+  const accountCreditsTotal = accountCreditSummary.accountTotal;
 
   const owned = await db
     .select()

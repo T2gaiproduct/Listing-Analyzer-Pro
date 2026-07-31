@@ -15,7 +15,7 @@ import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/cr
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits } from "../lib/plan-credits";
 import { resolveAccountOwnerId } from "../lib/workspace-context.js";
-import { sumWorkspacePoolsForOwner } from "../lib/workspace-credits.js";
+import { sumWorkspacePoolsForOwner, computeAccountCreditSummary } from "../lib/workspace-credits.js";
 import { sumCreditTotals } from "../lib/team-stats.js";
 import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
@@ -529,7 +529,7 @@ router.post("/profile/avatar", requireAuth, async (req, res): Promise<void> => {
 router.get("/credits", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const credits = await ensureSubscriptionCredits(userId);
-  const balances = credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  let balances = credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
 
   let accountCreditSummary: {
     unallocatedTotal: number;
@@ -537,20 +537,22 @@ router.get("/credits", requireAuth, async (req, res): Promise<void> => {
     accountTotal: number;
     unallocated: typeof balances;
     inWorkspacePools: { aiCredits: number; imageCredits: number; auditCredits: number };
+    accountTotalBuckets: typeof balances;
   } | null = null;
 
   const accountOwnerId = await resolveAccountOwnerId(userId);
   if (accountOwnerId === userId) {
     const inWorkspacePools = await sumWorkspacePoolsForOwner(userId);
-    const unallocatedTotal = sumCreditTotals(balances);
-    const inPoolsTotal = sumCreditTotals(inWorkspacePools);
+    const summary = computeAccountCreditSummary(balances, inWorkspacePools);
     accountCreditSummary = {
-      unallocatedTotal,
-      inPoolsTotal,
-      accountTotal: unallocatedTotal + inPoolsTotal,
-      unallocated: balances,
-      inWorkspacePools,
+      unallocatedTotal: summary.unallocatedTotal,
+      inPoolsTotal: summary.inPoolsTotal,
+      accountTotal: summary.accountTotal,
+      unallocated: summary.unallocated,
+      inWorkspacePools: summary.inWorkspacePools,
+      accountTotalBuckets: summary.accountTotalBuckets,
     };
+    balances = summary.unallocated;
   }
 
   const transactions = await db.select().from(creditTransactionsTable)
