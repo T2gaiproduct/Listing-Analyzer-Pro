@@ -19,6 +19,122 @@ export interface CreditTotals {
 
 const ZERO: CreditTotals = { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
 
+export function sumCreditBalance(c: CreditTotals): number {
+  return Number(c.aiCredits ?? 0) + Number(c.imageCredits ?? 0) + Number(c.auditCredits ?? 0);
+}
+
+/** Pool balance not yet assigned to members (members are allocated from the pool, not added on top). */
+export function poolAvailableForMembers(pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
+  return {
+    aiCredits: Math.max(0, Number(pool.aiCredits ?? 0) - Number(memberAllocated.aiCredits ?? 0)),
+    imageCredits: Math.max(0, Number(pool.imageCredits ?? 0) - Number(memberAllocated.imageCredits ?? 0)),
+    auditCredits: Math.max(0, Number(pool.auditCredits ?? 0) - Number(memberAllocated.auditCredits ?? 0)),
+  };
+}
+
+/** Total credits funded to this workspace = remaining pool balance + used this period. */
+export function workspaceFundedCreditTotal(pool: CreditTotals, usedInPeriod: number): number {
+  return sumCreditBalance(pool) + usedInPeriod;
+}
+
+/** Member balances only count toward workspace totals when the pool has been funded. */
+export function memberCreditsInWorkspace(pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
+  if (sumCreditBalance(pool) <= 0) return { ...ZERO };
+  return memberAllocated;
+}
+
+/** Sum of member credit balances that count within a funded workspace pool. */
+export function memberCreditsTotalInWorkspace(pool: CreditTotals, memberAllocated: CreditTotals): number {
+  return sumCreditBalance(memberCreditsInWorkspace(pool, memberAllocated));
+}
+
+export interface AccountCreditSummary {
+  unallocated: CreditTotals;
+  unallocatedTotal: number;
+  inWorkspacePools: CreditTotals;
+  inPoolsTotal: number;
+  accountTotal: number;
+  accountTotalBuckets: CreditTotals;
+}
+
+function normalizeCreditTotals(c: CreditTotals): CreditTotals {
+  return {
+    aiCredits: Number(c.aiCredits ?? 0),
+    imageCredits: Number(c.imageCredits ?? 0),
+    auditCredits: Number(c.auditCredits ?? 0),
+  };
+}
+
+/**
+ * Agency account credits: unallocated (account row) + in workspace pools = total in account.
+ * Unallocated per bucket = total bucket − allocated to workspace pools.
+ */
+export function computeAccountCreditSummary(
+  accountRow: CreditTotals,
+  inWorkspacePools: CreditTotals,
+): AccountCreditSummary {
+  const row = normalizeCreditTotals(accountRow);
+  const pools = normalizeCreditTotals(inWorkspacePools);
+  const inPoolsTotal = sumCreditBalance(pools);
+  const rowSum = sumCreditBalance(row);
+
+  const subtractUnallocated: CreditTotals = {
+    aiCredits: Math.max(0, row.aiCredits - pools.aiCredits),
+    imageCredits: Math.max(0, row.imageCredits - pools.imageCredits),
+    auditCredits: Math.max(0, row.auditCredits - pools.auditCredits),
+  };
+  const subtractSum = sumCreditBalance(subtractUnallocated);
+
+  let accountTotalBuckets: CreditTotals;
+  let unallocated: CreditTotals;
+
+  // Row stores full account total when subtracting pools reproduces the row sum.
+  if (inPoolsTotal > 0 && subtractSum + inPoolsTotal === rowSum) {
+    accountTotalBuckets = { ...row };
+    unallocated = subtractUnallocated;
+  } else {
+    accountTotalBuckets = {
+      aiCredits: row.aiCredits + pools.aiCredits,
+      imageCredits: row.imageCredits + pools.imageCredits,
+      auditCredits: row.auditCredits + pools.auditCredits,
+    };
+    unallocated = { ...row };
+  }
+
+  const accountTotal = sumCreditBalance(accountTotalBuckets);
+  const unallocatedTotal = sumCreditBalance(unallocated);
+
+  return {
+    unallocated,
+    unallocatedTotal,
+    inWorkspacePools: pools,
+    inPoolsTotal,
+    accountTotal,
+    accountTotalBuckets,
+  };
+}
+
+/** Zero orphaned member_credits rows when the workspace pool has no balance. */
+export async function reconcileStaleMemberCreditsWithPool(workspaceId: number): Promise<void> {
+  const pool = await getWorkspaceCredits(workspaceId);
+  if (sumCreditBalance(pool) > 0) return;
+
+  const rows = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.workspaceId, workspaceId));
+  const hasStale = rows.some(
+    (r) => Number(r.aiCredits) > 0 || Number(r.imageCredits) > 0 || Number(r.auditCredits) > 0,
+  );
+  if (!hasStale) return;
+
+  const now = new Date();
+  await db
+    .update(memberCreditsTable)
+    .set({ aiCredits: 0, imageCredits: 0, auditCredits: 0, updatedAt: now })
+    .where(eq(memberCreditsTable.workspaceId, workspaceId));
+}
+
 function keyForType(type: CreditType): "aiCredits" | "imageCredits" | "auditCredits" {
   if (type === "ai") return "aiCredits";
   if (type === "image") return "imageCredits";

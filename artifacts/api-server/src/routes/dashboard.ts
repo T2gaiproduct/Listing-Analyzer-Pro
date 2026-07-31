@@ -27,7 +27,7 @@ import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
-import { getWorkspaceCredits, sumAllocatedMemberCreditsForWorkspace } from "../lib/workspace-credits.js";
+import { getWorkspaceCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
 
 const router: IRouter = Router();
@@ -469,14 +469,9 @@ router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Reque
   if (workspaceId && wsCtx.isAccountOwner) {
     creditScope = "workspace_pool";
     displayCredits = await getWorkspaceCredits(workspaceId);
-    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
     const workspaceUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
-    const poolRemaining =
-      displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
-    const memberAllocTotal =
-      memberAllocated.auditCredits + memberAllocated.aiCredits + memberAllocated.imageCredits;
-    // Total admin assigned to this workspace = pool remaining + member allocations + spent this period.
-    creditsAllowance = poolRemaining + memberAllocTotal + workspaceUsedInPeriod;
+    // Total funded to workspace = remaining pool balance + spent this period.
+    creditsAllowance = workspaceFundedCreditTotal(displayCredits, workspaceUsedInPeriod);
   } else if (team?.isTeamMember && team.memberId) {
     creditScope = "member";
     const memberCredits = await getMemberCredits(team.memberId, workspaceId);

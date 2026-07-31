@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,14 +7,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, Building2, ChevronRight, LayoutGrid, Zap } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Users,
+  Building2,
+  ChevronRight,
+  ChevronDown,
+  LayoutGrid,
+  Zap,
+  Wallet,
+  Layers,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-header";
+import { ResponsiveTable } from "@/components/responsive-table";
+import { format } from "date-fns";
+import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
+
+interface CreditBuckets {
+  aiCredits: number;
+  imageCredits: number;
+  auditCredits: number;
+}
 
 interface WorkspaceMemberListItem {
   id: number;
@@ -22,7 +44,31 @@ interface WorkspaceMemberListItem {
   invitedName: string;
   status: string;
   roleName: string | null;
-  legacyRole: string | null;
+  legacyRole?: string | null;
+  userId?: string | null;
+  allocatedCredits?: CreditBuckets;
+  remainingCredits?: CreditBuckets;
+  creditsUsedInPeriod?: number;
+}
+
+interface WorkspaceOverviewRow {
+  id: number;
+  name: string;
+  description: string | null;
+  clientLabel: string | null;
+  isDefault: boolean;
+  memberCount: number;
+  activeMemberCount: number;
+  pendingMemberCount: number;
+  members: WorkspaceMemberListItem[];
+  poolCredits?: CreditBuckets;
+  poolCreditsTotal?: number;
+  memberAllocatedCredits?: CreditBuckets;
+  toMembersTotal?: number;
+  poolAvailableForMembers?: CreditBuckets;
+  creditsUsedInPeriod?: number;
+  fundedTotal?: number;
+  poolRemaining?: number;
 }
 
 interface WorkspaceOverview {
@@ -31,21 +77,45 @@ interface WorkspaceOverview {
   activeMembers: number;
   pendingInvites: number;
   totalRoles: number;
-  ownerCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
-  availableToFundWorkspaces?: { aiCredits: number; imageCredits: number; auditCredits: number };
-  workspaces: Array<{
-    id: number;
-    name: string;
-    description: string | null;
-    clientLabel: string | null;
-    isDefault: boolean;
-    memberCount: number;
-    activeMemberCount: number;
-    pendingMemberCount: number;
-    members: WorkspaceMemberListItem[];
-    poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
-    poolAvailableForMembers?: { aiCredits: number; imageCredits: number; auditCredits: number };
-  }>;
+  planName?: string | null;
+  planCreditsTotal?: number;
+  planCredits?: CreditBuckets;
+  billingPeriod?: { start: string; end: string };
+  accountUsedInPeriod?: number;
+  accountCreditsTotal?: number;
+  accountUnallocatedTotal?: number;
+  accountBalancePlusUsed?: number;
+  inWorkspacePoolsTotal?: number;
+  inWorkspacePools?: CreditBuckets;
+  ownerCredits?: CreditBuckets;
+  availableToFundWorkspaces?: CreditBuckets;
+  workspaces: WorkspaceOverviewRow[];
+}
+
+function sumCredits(c?: CreditBuckets | null): number {
+  if (!c) return 0;
+  return c.aiCredits + c.imageCredits + c.auditCredits;
+}
+
+function formatCreditBuckets(c: CreditBuckets): string {
+  return `${c.auditCredits} audit · ${c.aiCredits} text · ${c.imageCredits} img`;
+}
+
+function workspacePoolTotal(ws: WorkspaceOverviewRow): number {
+  if (ws.poolCreditsTotal != null) return ws.poolCreditsTotal;
+  return sumCredits(ws.poolCredits);
+}
+
+function memberCreditsTotal(ws: WorkspaceOverviewRow): number {
+  if (ws.toMembersTotal != null) return ws.toMembersTotal;
+  const poolTotal = sumCredits(ws.poolCredits);
+  if (poolTotal <= 0) return 0;
+  return sumCredits(ws.memberAllocatedCredits);
+}
+
+function poolUnassignedTotal(ws: WorkspaceOverviewRow): number {
+  if (ws.poolRemaining != null) return ws.poolRemaining;
+  return sumCredits(ws.poolAvailableForMembers);
 }
 
 export default function WorkspacesPage() {
@@ -56,8 +126,9 @@ export default function WorkspacesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<typeof workspaces[0] | null>(null);
   const [form, setForm] = useState({ name: "", description: "", clientLabel: "" });
-  const [fundingWorkspace, setFundingWorkspace] = useState<WorkspaceOverview["workspaces"][0] | null>(null);
+  const [fundingWorkspace, setFundingWorkspace] = useState<WorkspaceOverviewRow | null>(null);
   const [poolForm, setPoolForm] = useState({ aiCredits: "0", imageCredits: "0", auditCredits: "0" });
+  const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<Set<number>>(new Set());
 
   const canCreate = isAccountOwner || can("workspaces", "create");
   const canEdit = isAccountOwner || can("workspaces", "edit");
@@ -67,7 +138,101 @@ export default function WorkspacesPage() {
     queryKey: ["workspaces-overview"],
     queryFn: () => fetchJson<WorkspaceOverview>(`${basePath}/api/workspaces/overview`),
     enabled: isAccountOwner,
+    staleTime: 15_000,
+    refetchOnMount: "always",
   });
+
+  const { data: sub } = useQuery<{
+    planName: string | null;
+    planAiCredits: number;
+    planImageCredits: number;
+    planAuditCredits: number;
+    creditAllocations?: Record<string, number> | null;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+  } | null>({
+    queryKey: ["user-subscription"],
+    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isAccountOwner,
+    staleTime: 30_000,
+  });
+
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
+    enabled: isAccountOwner,
+    staleTime: 60_000,
+  });
+
+  const planCreditsTotal = useMemo(() => {
+    if (overview?.planCreditsTotal != null) return overview.planCreditsTotal;
+    if (overview?.planCredits) {
+      const fromOverview = sumCredits(overview.planCredits);
+      if (fromOverview > 0) return fromOverview;
+    }
+    if (sub) {
+      const computed = computePlanCreditsFromAllocations(sub.creditAllocations, creditRules);
+      if (computed.totalCredits > 0) return computed.totalCredits;
+      return sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits;
+    }
+    return 0;
+  }, [overview, sub, creditRules]);
+
+  const accountUnallocatedTotal = useMemo(() => {
+    if (overview?.accountUnallocatedTotal != null) return overview.accountUnallocatedTotal;
+    return sumCredits(overview?.availableToFundWorkspaces ?? overview?.ownerCredits);
+  }, [overview]);
+
+  const inWorkspacePoolsTotal = useMemo(() => {
+    if (overview?.inWorkspacePoolsTotal != null) return overview.inWorkspacePoolsTotal;
+    return overview?.workspaces?.length
+      ? overview.workspaces.reduce((sum, ws) => sum + workspacePoolTotal(ws), 0)
+      : 0;
+  }, [overview]);
+
+  const workspacePoolsBreakdown = useMemo(() => {
+    if (!overview?.workspaces?.length) return "";
+    const parts = overview.workspaces
+      .filter((ws) => workspacePoolTotal(ws) > 0)
+      .map((ws) => `${ws.name} ${workspacePoolTotal(ws).toLocaleString()}`);
+    return parts.join(" + ");
+  }, [overview]);
+
+  const fundingPoolTotal = useMemo(() => {
+    return (
+      Math.max(0, parseInt(poolForm.auditCredits, 10) || 0) +
+      Math.max(0, parseInt(poolForm.aiCredits, 10) || 0) +
+      Math.max(0, parseInt(poolForm.imageCredits, 10) || 0)
+    );
+  }, [poolForm]);
+
+  const accountCreditsTotal = useMemo(() => {
+    if (overview?.accountCreditsTotal != null) return overview.accountCreditsTotal;
+    return accountUnallocatedTotal + inWorkspacePoolsTotal;
+  }, [overview, accountUnallocatedTotal, inWorkspacePoolsTotal]);
+
+  const accountUsedInPeriod = overview?.accountUsedInPeriod ?? 0;
+
+  const accountBalancePlusUsed = useMemo(() => {
+    if (overview?.accountBalancePlusUsed != null) return overview.accountBalancePlusUsed;
+    return accountCreditsTotal + accountUsedInPeriod;
+  }, [overview, accountCreditsTotal, accountUsedInPeriod]);
+
+  const planDisplayName = overview?.planName ?? sub?.planName ?? "Your plan";
+  const billingPeriod = overview?.billingPeriod ?? (
+    sub?.currentPeriodStart && sub?.currentPeriodEnd
+      ? { start: sub.currentPeriodStart, end: sub.currentPeriodEnd }
+      : null
+  );
+
+  const toggleExpanded = (id: number) => {
+    setExpandedWorkspaceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -177,15 +342,15 @@ export default function WorkspacesPage() {
       });
     },
     onSuccess: () => {
+      void refetchCreditQueries(qc);
       qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
-      qc.invalidateQueries({ queryKey: ["user-credits"] });
       setFundingWorkspace(null);
       toast({ title: "Workspace credit pool updated" });
     },
     onError: (err: Error) => toast({ title: "Failed to update pool", description: err.message, variant: "destructive" }),
   });
 
-  const openFundPool = (ws: WorkspaceOverview["workspaces"][0]) => {
+  const openFundPool = (ws: WorkspaceOverviewRow) => {
     setFundingWorkspace(ws);
     setPoolForm({
       aiCredits: String(ws.poolCredits?.aiCredits ?? 0),
@@ -194,7 +359,7 @@ export default function WorkspacesPage() {
     });
   };
 
-  const displayWorkspaces: WorkspaceOverview["workspaces"] = isAccountOwner && overview
+  const displayWorkspaces: WorkspaceOverviewRow[] = isAccountOwner && overview
     ? overview.workspaces.map((ws) => ({
         ...ws,
         members: ws.members ?? [],
@@ -212,7 +377,7 @@ export default function WorkspacesPage() {
       }));
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -221,7 +386,7 @@ export default function WorkspacesPage() {
           </div>
           <p className="text-sm text-slate-500 mt-1">
             {isAccountOwner
-              ? "Admin overview of all your client workspaces. Select one to view details."
+              ? "Agency account hub — plan credits, workspace pools, member allocation, and usage."
               : "Manage client workspaces and members."}
           </p>
         </div>
@@ -234,163 +399,318 @@ export default function WorkspacesPage() {
       </div>
 
       {isAccountOwner && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
+                  <Wallet className="w-4 h-4" />
+                  Plan credits / month
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">
+                  {overviewLoading ? "—" : planCreditsTotal.toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {planDisplayName}
+                  {billingPeriod && (
+                    <>
+                      {" · "}
+                      {format(new Date(billingPeriod.start), "MMM d")} –{" "}
+                      {format(new Date(billingPeriod.end), "MMM d")}
+                    </>
+                  )}
+                  {!overviewLoading && planCreditsTotal > 0 && (
+                    <>
+                      <br />
+                      Plan allocation for this billing period (not your current balance).
+                    </>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Unallocated (account)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-orange-600">
+                  {overviewLoading ? "—" : accountUnallocatedTotal.toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {overview?.availableToFundWorkspaces
+                    ? formatCreditBuckets(overview.availableToFundWorkspaces)
+                    : "Available to fund workspaces"}
+                  {" · "}
+                  matches top bar unallocated balance
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4" />
+                  In workspace pools
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">
+                  {overviewLoading ? "—" : inWorkspacePoolsTotal.toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {overview?.inWorkspacePools
+                    ? formatCreditBuckets(overview.inWorkspacePools)
+                    : null}
+                  {overview?.inWorkspacePools && workspacePoolsBreakdown ? " · " : null}
+                  {workspacePoolsBreakdown
+                    ? `${workspacePoolsBreakdown} = ${inWorkspacePoolsTotal.toLocaleString()}`
+                    : `${overview?.totalWorkspaces ?? 0} workspace${overview?.totalWorkspaces === 1 ? "" : "s"}`}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Used this period</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">
+                  {overviewLoading ? "—" : accountUsedInPeriod.toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  In account + workspaces this period
+                  <br />
+                  Total in account: {accountCreditsTotal.toLocaleString()}
+                  <br />
+                  {accountCreditsTotal.toLocaleString()} remaining + {accountUsedInPeriod.toLocaleString()} used ={" "}
+                  {accountBalancePlusUsed.toLocaleString()}
+                  {planCreditsTotal > 0 && accountBalancePlusUsed === planCreditsTotal
+                    ? " (matches plan)"
+                    : planCreditsTotal > 0
+                      ? ` · plan grants ${planCreditsTotal.toLocaleString()}`
+                      : ""}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Total workspaces</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-slate-900">
-                {overviewLoading ? "—" : overview?.totalWorkspaces ?? workspaces.length}
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold text-slate-900">Workspace credits & usage</CardTitle>
+              <p className="text-sm text-slate-500 mt-1">
+                Credits you funded to each client workspace. Members can only use what you assign from each pool.
               </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Total members</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-slate-900">
-                {overviewLoading ? "—" : overview?.totalMembers ?? 0}
-              </p>
-              {!overviewLoading && overview && (
-                <p className="text-xs text-slate-500 mt-1">{overview.activeMembers} active</p>
+            <CardContent className="p-0 sm:px-6 sm:pb-6">
+              {overviewLoading ? (
+                <p className="text-sm text-slate-500 px-6 pb-6">Loading…</p>
+              ) : displayWorkspaces.length === 0 ? (
+                <p className="text-sm text-slate-500 px-6 pb-6">No workspaces yet. Create one to fund client pools.</p>
+              ) : (
+                <ResponsiveTable minWidth="52rem">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        <th className="py-3 pr-3 w-8" />
+                        <th className="py-3 pr-4">Workspace</th>
+                        <th className="py-3 pr-4">Funded (pool)</th>
+                        <th className="py-3 pr-4">To members</th>
+                        <th className="py-3 pr-4">Used</th>
+                        <th className="py-3 pr-4">Unassigned in pool</th>
+                        <th className="py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayWorkspaces.map((ws) => {
+                        const expanded = expandedWorkspaceIds.has(ws.id);
+                        const memberAlloc = memberCreditsTotal(ws);
+                        return (
+                          <Fragment key={ws.id}>
+                            <tr className="border-b border-slate-100 hover:bg-slate-50/80">
+                              <td className="py-3 pr-3">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpanded(ws.id)}
+                                  className="p-1 rounded hover:bg-slate-100"
+                                  aria-expanded={expanded}
+                                >
+                                  {expanded ? (
+                                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-slate-500" />
+                                  )}
+                                </button>
+                              </td>
+                              <td className="py-3 pr-4">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Building2 className="w-4 h-4 text-orange-500 shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-slate-900 truncate">{ws.name}</p>
+                                    {ws.clientLabel && (
+                                      <p className="text-xs text-slate-500 truncate">{ws.clientLabel}</p>
+                                    )}
+                                  </div>
+                                  {ws.isDefault && (
+                                    <Badge variant="secondary" className="text-[10px] shrink-0">Default</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 pr-4 font-medium text-slate-800">
+                                {workspacePoolTotal(ws).toLocaleString()}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-600">{memberAlloc.toLocaleString()}</td>
+                              <td className="py-3 pr-4 text-slate-600">
+                                {(ws.creditsUsedInPeriod ?? 0).toLocaleString()}
+                              </td>
+                              <td className="py-3 pr-4 font-medium text-slate-800">
+                                {poolUnassignedTotal(ws).toLocaleString()}
+                              </td>
+                              <td className="py-3 text-right">
+                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                                  <Button variant="ghost" size="sm" className="h-8 text-orange-600" onClick={() => openFundPool(ws)}>
+                                    Fund
+                                  </Button>
+                                  <Link href={`/workspaces/${ws.id}/members`}>
+                                    <Button variant="ghost" size="sm" className="h-8">Members</Button>
+                                  </Link>
+                                  {canEdit && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8"
+                                      onClick={() => openEdit(workspaces.find((w) => w.id === ws.id)!)}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                  {canDelete && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 text-red-600"
+                                      onClick={() => {
+                                        const message = ws.isDefault
+                                          ? `Delete default workspace "${ws.name}"?`
+                                          : `Delete workspace "${ws.name}"?`;
+                                        if (confirm(message)) deleteWorkspace.mutate(ws.id);
+                                      }}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {expanded && (
+                              <tr className="bg-slate-50/60">
+                                <td colSpan={7} className="px-4 py-3">
+                                  {ws.members.length === 0 ? (
+                                    <p className="text-xs text-slate-500">No members yet.</p>
+                                  ) : (
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="text-slate-500">
+                                          <th className="py-2 pr-3 text-left font-medium">Member</th>
+                                          <th className="py-2 pr-3 text-left font-medium">Role</th>
+                                          <th className="py-2 pr-3 text-left font-medium">Status</th>
+                                          <th className="py-2 pr-3 text-right font-medium">Allocated</th>
+                                          <th className="py-2 pr-3 text-right font-medium">Used</th>
+                                          <th className="py-2 text-right font-medium">Remaining</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {ws.members.map((m) => (
+                                          <tr key={m.id} className="border-t border-slate-100">
+                                            <td className="py-2 pr-3 text-slate-800">
+                                              {m.invitedName || m.invitedEmail}
+                                            </td>
+                                            <td className="py-2 pr-3 text-slate-600">{m.roleName ?? "—"}</td>
+                                            <td className="py-2 pr-3 capitalize text-slate-600">{m.status}</td>
+                                            <td className="py-2 pr-3 text-right text-slate-800">
+                                              {sumCredits(m.allocatedCredits).toLocaleString()}
+                                            </td>
+                                            <td className="py-2 pr-3 text-right text-slate-600">
+                                              {(m.creditsUsedInPeriod ?? 0).toLocaleString()}
+                                            </td>
+                                            <td className="py-2 text-right font-medium text-slate-800">
+                                              {sumCredits(m.remainingCredits).toLocaleString()}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  )}
+                                  {ws.poolCredits && (
+                                    <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
+                                      <Zap className="w-3 h-3" />
+                                      Pool detail: {formatCreditBuckets(ws.poolCredits)}
+                                    </p>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </ResponsiveTable>
               )}
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Pending invites</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-slate-900">
-                {overviewLoading ? "—" : overview?.pendingInvites ?? 0}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Total roles</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-slate-900">
-                {overviewLoading ? "—" : overview?.totalRoles ?? 0}
-              </p>
-            </CardContent>
-          </Card>
+
+          <div className="grid gap-4 sm:grid-cols-4 text-center sm:text-left">
+            <div className="text-xs text-slate-500">
+              <span className="font-medium text-slate-700">{overview?.totalMembers ?? 0}</span> total members
+            </div>
+            <div className="text-xs text-slate-500">
+              <span className="font-medium text-slate-700">{overview?.activeMembers ?? 0}</span> active
+            </div>
+            <div className="text-xs text-slate-500">
+              <span className="font-medium text-slate-700">{overview?.pendingInvites ?? 0}</span> pending invites
+            </div>
+            <div className="text-xs text-slate-500">
+              <span className="font-medium text-slate-700">{overview?.totalRoles ?? 0}</span> roles
+            </div>
+          </div>
         </div>
       )}
 
-      {isAccountOwner && overview?.availableToFundWorkspaces && (
-        <p className="text-xs text-slate-500">
-          Account credits available to fund workspace pools:{" "}
-          <span className="font-medium text-slate-700">
-            {overview.availableToFundWorkspaces.auditCredits} audit · {overview.availableToFundWorkspaces.aiCredits} text · {overview.availableToFundWorkspaces.imageCredits} images
-          </span>
-        </p>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {displayWorkspaces.map((ws) => (
-          <Card key={ws.id}>
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Building2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                  <CardTitle className="text-lg truncate">{ws.name}</CardTitle>
-                </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  {ws.isDefault && <Badge variant="secondary">Default</Badge>}
-                </div>
-              </div>
-              {ws.clientLabel && (
-                <p className="text-xs text-slate-500">Client: {ws.clientLabel}</p>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {ws.description && <p className="text-sm text-slate-600 line-clamp-2">{ws.description}</p>}
-              {isAccountOwner && (
-                <div className="text-xs text-slate-500 flex flex-wrap gap-2 items-center">
-                  <Zap className="w-3.5 h-3.5 text-blue-500" />
-                  <span>
-                    Pool: {ws.poolCredits?.auditCredits ?? 0} audit · {ws.poolCredits?.aiCredits ?? 0} text · {ws.poolCredits?.imageCredits ?? 0} images
-                  </span>
-                  {ws.poolAvailableForMembers && (
-                    <span className="text-slate-400">
-                      ({ws.poolAvailableForMembers.auditCredits} audit unassigned to members)
-                    </span>
-                  )}
-                  <Button variant="link" size="sm" className="h-auto p-0 text-orange-600" onClick={() => openFundPool(ws as WorkspaceOverview["workspaces"][0])}>
-                    Fund pool
-                  </Button>
-                </div>
-              )}
-              {isAccountOwner && (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                    <span>{ws.memberCount} members</span>
-                    {ws.pendingMemberCount > 0 && (
-                      <span className="text-amber-700">{ws.pendingMemberCount} pending</span>
-                    )}
+      {!isAccountOwner && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {displayWorkspaces.map((ws) => (
+            <Card key={ws.id}>
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                    <CardTitle className="text-lg truncate">{ws.name}</CardTitle>
                   </div>
-                  {ws.members.length > 0 && (
-                    <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden text-xs">
-                      {ws.members.slice(0, 5).map((m) => (
-                        <div key={m.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                          <span className="truncate text-slate-700">{m.invitedName || m.invitedEmail}</span>
-                          <Badge variant="outline" className="text-[10px] capitalize shrink-0">{m.status}</Badge>
-                        </div>
-                      ))}
-                      {ws.members.length > 5 && (
-                        <p className="px-3 py-2 text-slate-400">+{ws.members.length - 5} more</p>
-                      )}
-                    </div>
-                  )}
                 </div>
-              )}
-              {!isAccountOwner && (
-                <p className="text-xs text-slate-400">Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Unassigned"}</p>
-              )}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Link href={`/workspaces/${ws.id}`}>
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                    {isAccountOwner ? "View workspace" : "Open"}
-                  </Button>
-                </Link>
-                <Link href={`/workspaces/${ws.id}/members`}>
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <Users className="w-3.5 h-3.5" />
-                    Members
-                  </Button>
-                </Link>
-                {canEdit && (
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(workspaces.find((w) => w.id === ws.id)!)} className="gap-1.5">
-                    <Pencil className="w-3.5 h-3.5" />
-                    Edit
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600 gap-1.5"
-                    onClick={() => {
-                      const message = ws.isDefault
-                        ? `Delete default workspace "${ws.name}"? It will be removed from this dashboard and moved to Archive → Workspaces. Another workspace will become the new default.`
-                        : `Delete workspace "${ws.name}"? It will be removed from this dashboard and moved to Archive → Workspaces.`;
-                      if (confirm(message)) deleteWorkspace.mutate(ws.id);
-                    }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-slate-400">
+                  Your role: {workspaces.find((w) => w.id === ws.id)?.roleName ?? "Unassigned"}
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Link href={`/workspaces/${ws.id}`}>
+                    <Button variant="outline" size="sm" className="gap-1.5">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                      Open
+                    </Button>
+                  </Link>
+                  <Link href={`/workspaces/${ws.id}/members`}>
+                    <Button variant="outline" size="sm" className="gap-1.5">
+                      <Users className="w-3.5 h-3.5" />
+                      Members
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -426,13 +746,31 @@ export default function WorkspacesPage() {
             <DialogTitle>Fund workspace pool — {fundingWorkspace?.name}</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-slate-500">
-            Move credits from your account balance into this workspace pool. Workspace admins assign from the pool to members.
+            Move credits from your unallocated account balance into this workspace pool. Members are assigned only from this pool.
           </p>
           {overview?.availableToFundWorkspaces && (
             <p className="text-xs text-slate-500">
-              Available in account: {overview.availableToFundWorkspaces.auditCredits} audit · {overview.availableToFundWorkspaces.aiCredits} text · {overview.availableToFundWorkspaces.imageCredits} images
+              Unallocated in account: {formatCreditBuckets(overview.availableToFundWorkspaces)}
             </p>
           )}
+          {fundingWorkspace && (
+            <p className="text-sm font-medium text-slate-800">
+              This workspace pool: <span className="text-orange-600">{fundingPoolTotal.toLocaleString()}</span> credits total
+              {fundingWorkspace.poolCredits && (
+                <span className="text-xs font-normal text-slate-500">
+                  {" "}
+                  ({formatCreditBuckets({
+                    auditCredits: Math.max(0, parseInt(poolForm.auditCredits, 10) || 0),
+                    aiCredits: Math.max(0, parseInt(poolForm.aiCredits, 10) || 0),
+                    imageCredits: Math.max(0, parseInt(poolForm.imageCredits, 10) || 0),
+                  })})
+                </span>
+              )}
+            </p>
+          )}
+          <p className="text-xs text-slate-500">
+            Each field is a credit type. Total pool = audit + text + images (e.g. 20 + 20 + 20 = 60 for this workspace).
+          </p>
           <div className="grid grid-cols-3 gap-3 py-2">
             <div>
               <Label className="text-xs">Audit</Label>

@@ -13,6 +13,7 @@ import {
   creditsTable,
   teamMembersTable,
   memberCreditsTable,
+  creditRulesTable,
 } from "@workspace/db";
 import {
   WORKSPACE_FEATURES,
@@ -38,11 +39,27 @@ import {
   sumAllocatedMemberCreditsForWorkspace,
   getWorkspaceMemberCredits,
   sumWorkspacePoolsForOwner,
+  poolAvailableForMembers,
+  workspaceFundedCreditTotal,
+  memberCreditsInWorkspace,
+  memberCreditsTotalInWorkspace,
+  reconcileStaleMemberCreditsWithPool,
+  computeAccountCreditSummary,
+  sumCreditBalance,
 } from "../lib/workspace-credits.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { createNotification } from "../lib/notifications.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
+import { resolvePlanCreditPools, computePlanCreditsFromAllocations } from "../lib/plan-credits.js";
+import { ensureSubscriptionCredits } from "../lib/subscription-credits.js";
+import {
+  sumCreditsUsedInPeriod,
+  sumCreditsUsedForAccountOwner,
+  sumCreditsUsedForWorkspace,
+  sumCreditsUsedInWorkspaceForUser,
+  sumCreditTotals,
+} from "../lib/team-stats.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 
 const router: IRouter = Router();
@@ -110,14 +127,92 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     return;
   }
 
+  await ensureSubscriptionCredits(accountOwnerId);
   const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, accountOwnerId));
-  const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const ownerCreditsRaw = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const inWorkspacePools = await sumWorkspacePoolsForOwner(accountOwnerId);
+  const accountCreditSummary = computeAccountCreditSummary(ownerCreditsRaw, inWorkspacePools);
+  const ownerCredits = accountCreditSummary.unallocated;
+  // Account balance already excludes credits moved into workspace pools.
   const availableToFundWorkspaces = {
-    aiCredits: Math.max(0, ownerCredits.aiCredits - inWorkspacePools.aiCredits),
-    imageCredits: Math.max(0, ownerCredits.imageCredits - inWorkspacePools.imageCredits),
-    auditCredits: Math.max(0, ownerCredits.auditCredits - inWorkspacePools.auditCredits),
+    aiCredits: Number(ownerCredits.aiCredits ?? 0),
+    imageCredits: Number(ownerCredits.imageCredits ?? 0),
+    auditCredits: Number(ownerCredits.auditCredits ?? 0),
   };
+
+  const subRows = await db
+    .select({
+      status: subscriptionsTable.status,
+      currentPeriodStart: subscriptionsTable.currentPeriodStart,
+      currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+      planName: plansTable.name,
+      planAiCredits: plansTable.aiCredits,
+      planImageCredits: plansTable.imageCredits,
+      planAuditCredits: plansTable.auditCredits,
+      creditAllocations: plansTable.creditAllocations,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+    .where(eq(subscriptionsTable.userId, accountOwnerId))
+    .orderBy(desc(subscriptionsTable.id));
+
+  const subRow = subRows.find((s) => s.status === "active" || s.status === "trialing") ?? subRows[0];
+
+  const creditRules = await db
+    .select({
+      featureType: creditRulesTable.featureType,
+      creditsRequired: creditRulesTable.creditsRequired,
+      isActive: creditRulesTable.isActive,
+    })
+    .from(creditRulesTable);
+
+  const periodStart = subRow?.currentPeriodStart
+    ? new Date(subRow.currentPeriodStart)
+    : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const periodEnd = subRow?.currentPeriodEnd
+    ? new Date(subRow.currentPeriodEnd)
+    : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+
+  const planFromAllocations = subRow
+    ? computePlanCreditsFromAllocations(
+        (subRow.creditAllocations ?? {}) as Record<string, number>,
+        creditRules,
+      )
+    : null;
+
+  const planPools = await resolvePlanCreditPools({
+    aiCredits: subRow?.planAiCredits ?? 0,
+    imageCredits: subRow?.planImageCredits ?? 0,
+    auditCredits: subRow?.planAuditCredits ?? 0,
+    creditAllocations: (subRow?.creditAllocations ?? {}) as Record<string, number>,
+  });
+
+  const planColumnTotal =
+    (subRow?.planAuditCredits ?? 0) + (subRow?.planAiCredits ?? 0) + (subRow?.planImageCredits ?? 0);
+  const planPoolsTotal = planPools.auditCredits + planPools.aiCredits + planPools.imageCredits;
+  const planCreditsTotal = Math.max(
+    planFromAllocations?.totalCredits ?? 0,
+    planPoolsTotal,
+    planColumnTotal,
+  );
+  const planCredits =
+    planFromAllocations && planFromAllocations.totalCredits > 0
+      ? {
+          auditCredits: planFromAllocations.auditCredits,
+          aiCredits: planFromAllocations.aiCredits,
+          imageCredits: planFromAllocations.imageCredits,
+        }
+      : {
+          auditCredits: planPools.auditCredits,
+          aiCredits: planPools.aiCredits,
+          imageCredits: planPools.imageCredits,
+        };
+
+  const accountUsedInPeriod = await sumCreditsUsedForAccountOwner(accountOwnerId, periodStart, periodEnd);
+  const accountUnallocatedTotal = accountCreditSummary.unallocatedTotal;
+  const inPoolsTotal = accountCreditSummary.inPoolsTotal;
+  const accountCreditsTotal = accountCreditSummary.accountTotal;
+  const accountBalancePlusUsed = accountCreditsTotal + accountUsedInPeriod;
 
   const owned = await db
     .select()
@@ -129,10 +224,44 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   const summary = await getWorkspaceMemberSummaryForOwner(accountOwnerId, { includeMembers: true });
   const ownedById = new Map(owned.map((w) => [w.id, w]));
 
+  const allMemberIds = summary.workspaces.flatMap((w) => w.members.map((m) => m.id));
+  const memberCreditRows = allMemberIds.length > 0
+    ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.workspaceMemberId, allMemberIds))
+    : [];
+  const creditsByMemberId = new Map(memberCreditRows.map((c) => [c.workspaceMemberId, c]));
+
   const workspacesWithPools = await Promise.all(summary.workspaces.map(async (w) => {
     const meta = ownedById.get(w.id);
+    await reconcileStaleMemberCreditsWithPool(w.id);
     const pool = await getWorkspaceCredits(w.id);
     const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
+    const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
+    const memberAllocatedInPool = memberCreditsInWorkspace(pool, memberAllocated);
+    const poolAvailable = poolAvailableForMembers(pool, memberAllocatedInPool);
+    const poolUnassigned = sumCreditBalance(poolAvailable);
+    const fundedTotal = workspaceFundedCreditTotal(pool, creditsUsedInPeriod);
+    const toMembersTotal = memberCreditsTotalInWorkspace(pool, memberAllocated);
+    const poolHasCredits = sumCreditBalance(pool) > 0;
+
+    const membersWithCredits = await Promise.all(w.members.map(async (m) => {
+      const allocated = creditsByMemberId.get(m.id);
+      const allocatedCredits = !poolHasCredits
+        ? { aiCredits: 0, imageCredits: 0, auditCredits: 0 }
+        : allocated
+          ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
+          : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+      const remainingTotal = sumCreditTotals(allocatedCredits);
+      const creditsUsedInPeriodMember = m.userId
+        ? await sumCreditsUsedInWorkspaceForUser(m.userId, w.id, periodStart, periodEnd)
+        : 0;
+      return {
+        ...m,
+        allocatedCredits,
+        remainingCredits: allocatedCredits,
+        creditsUsedInPeriod: creditsUsedInPeriodMember,
+      };
+    }));
+
     return {
       id: w.id,
       name: w.name,
@@ -142,14 +271,15 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       memberCount: w.memberCount,
       activeMemberCount: w.activeMemberCount,
       pendingMemberCount: w.pendingMemberCount,
-      members: w.members,
+      members: membersWithCredits,
       poolCredits: pool,
-      memberAllocatedCredits: memberAllocated,
-      poolAvailableForMembers: {
-        aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
-        imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
-        auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
-      },
+      poolCreditsTotal: sumCreditBalance(pool),
+      memberAllocatedCredits: memberAllocatedInPool,
+      toMembersTotal,
+      creditsUsedInPeriod,
+      fundedTotal,
+      poolRemaining: poolUnassigned,
+      poolAvailableForMembers: poolAvailable,
     };
   }));
 
@@ -160,6 +290,22 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     activeMembers: summary.activeMembers,
     pendingInvites: summary.pendingInvites,
     totalRoles: roles.length,
+    planName: subRow?.planName ?? null,
+    planCreditsTotal,
+    planCredits: {
+      auditCredits: planCredits.auditCredits,
+      aiCredits: planCredits.aiCredits,
+      imageCredits: planCredits.imageCredits,
+    },
+    billingPeriod: {
+      start: periodStart.toISOString(),
+      end: periodEnd.toISOString(),
+    },
+    accountUsedInPeriod,
+    accountCreditsTotal,
+    accountUnallocatedTotal,
+    accountBalancePlusUsed,
+    inWorkspacePoolsTotal: inPoolsTotal,
     ownerCredits: {
       aiCredits: ownerCredits.aiCredits,
       imageCredits: ownerCredits.imageCredits,
@@ -406,10 +552,15 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
     .orderBy(desc(workspaceMembersTable.invitedAt));
 
   const canViewCredits = ctx.isAccountOwner || checkPerm(ctx, "credits", "viewGlobal");
+  await reconcileStaleMemberCreditsWithPool(ctx.workspaceId);
   const pool = canViewCredits ? await getWorkspaceCredits(ctx.workspaceId) : null;
-  const memberAllocated = canViewCredits
+  const memberAllocatedRaw = canViewCredits
     ? await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId)
     : null;
+  const memberAllocated = pool && memberAllocatedRaw
+    ? memberCreditsInWorkspace(pool, memberAllocatedRaw)
+    : null;
+  const poolHasCredits = pool ? sumCreditBalance(pool) > 0 : false;
 
   const memberIds = members.map((m) => m.member.id);
   const creditRows = memberIds.length > 0
@@ -421,20 +572,21 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
     poolCredits: pool,
     memberAllocatedCredits: memberAllocated,
     poolAvailableForMembers: pool && memberAllocated
-      ? {
-          aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
-          imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
-          auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
-        }
+      ? poolAvailableForMembers(pool, memberAllocated)
       : null,
+    toMembersTotal: pool && memberAllocatedRaw
+      ? memberCreditsTotalInWorkspace(pool, memberAllocatedRaw)
+      : 0,
     members: members.map((m) => {
       const allocated = creditsByMember.get(m.member.id);
       return {
         ...m.member,
         roleName: m.roleName ?? null,
-        allocatedCredits: canViewCredits && allocated
+        allocatedCredits: canViewCredits && poolHasCredits && allocated
           ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
-          : undefined,
+          : canViewCredits
+            ? { aiCredits: 0, imageCredits: 0, auditCredits: 0 }
+            : undefined,
       };
     }),
   });
@@ -498,17 +650,15 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
       auditCredits ?? 0,
     );
     const pool = await getWorkspaceCredits(ctx.workspaceId);
-    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
+    const memberAllocatedRaw = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
+    const memberAllocated = memberCreditsInWorkspace(pool, memberAllocatedRaw);
     res.json({
       workspaceMemberId: memberId,
       credits,
       poolCredits: pool,
       memberAllocatedCredits: memberAllocated,
-      poolAvailableForMembers: {
-        aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
-        imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
-        auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
-      },
+      toMembersTotal: memberCreditsTotalInWorkspace(pool, memberAllocatedRaw),
+      poolAvailableForMembers: poolAvailableForMembers(pool, memberAllocated),
     });
   } catch (err) {
     const e = err as Error & { code?: string };
