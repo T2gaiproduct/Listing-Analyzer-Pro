@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Wallet, Save, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Wallet, Save, Eye, EyeOff, CheckCircle2, PlugZap } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -121,6 +121,9 @@ export default function AdminSettingsPaymentGateway() {
 
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
 
+  const paypalEnabled = form.paypal_enabled === "true";
+  const defaultGatewayTab = paypalEnabled ? "paypal" : form.stripe_enabled === "true" ? "stripe" : form.razorpay_enabled === "true" ? "razorpay" : "stripe";
+
   const GatewayBadge = ({ enabled }: { enabled: boolean }) =>
     enabled
       ? <Badge className="ml-2 bg-orange-100 text-orange-700"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge>
@@ -146,7 +149,7 @@ export default function AdminSettingsPaymentGateway() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="stripe">
+        <Tabs defaultValue={defaultGatewayTab} key={defaultGatewayTab}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="stripe">Stripe<GatewayBadge enabled={form.stripe_enabled === "true"} /></TabsTrigger>
             <TabsTrigger value="razorpay">Razorpay<GatewayBadge enabled={form.razorpay_enabled === "true"} /></TabsTrigger>
@@ -270,20 +273,40 @@ export default function AdminSettingsPaymentGateway() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
                   disabled={testPaypal.isPending}
                   onClick={() => testPaypal.mutate()}
                 >
-                  {testPaypal.isPending ? "Testing…" : "Test PayPal connection"}
+                  <PlugZap className="h-4 w-4 mr-2" />
+                  {testPaypal.isPending ? "Testing PayPal…" : "Test PayPal connection"}
                 </Button>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
 
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>
-          <Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save Gateway Settings"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            <Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save Gateway Settings"}
+          </Button>
+          {paypalEnabled && (
+            <Button
+              type="button"
+              variant="outline"
+              className="border-orange-200 text-orange-700 hover:bg-orange-50"
+              disabled={testPaypal.isPending}
+              onClick={() => testPaypal.mutate()}
+            >
+              <PlugZap className="h-4 w-4 mr-2" />
+              {testPaypal.isPending ? "Testing PayPal…" : "Test PayPal connection"}
+            </Button>
+          )}
+        </div>
+        {paypalEnabled && (
+          <p className="text-xs text-slate-500">
+            Use <strong>Test PayPal connection</strong> to verify Client ID and Client Secret against PayPal (secret stays hidden in the form).
+          </p>
+        )}
       </div>
     </>
   );
