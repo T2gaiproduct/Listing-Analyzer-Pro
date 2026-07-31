@@ -149,7 +149,7 @@ function getPageTitle(location: string): string {
   if (location === "/settings") return "Settings";
   if (location === "/team") return "Team";
   if (location === "/roles") return "Roles";
-  if (location === "/workspaces") return "Workspace Dashboard";
+  if (location === "/workspaces") return "All workspaces";
   if (location.match(/^\/workspaces\/\d+\/members$/)) return "Workspace Members";
   if (location.match(/^\/workspaces\/\d+$/)) return "Workspace";
   if (location === "/notifications") return "Notifications";

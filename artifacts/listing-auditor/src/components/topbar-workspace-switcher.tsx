@@ -179,7 +179,7 @@ export function TopbarWorkspaceSwitcher() {
   const scopedWorkspace = viewedWorkspace ?? activeWorkspace ?? featureWorkspace;
 
   const pillName = onWorkspaceDashboard
-    ? "Workspace dashboard"
+    ? "All workspaces"
     : accountPill?.name
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.name ?? scopedWorkspace?.name ?? "Workspace")
@@ -187,7 +187,7 @@ export function TopbarWorkspaceSwitcher() {
           ? "Select workspace"
           : scopedWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
-    ? "All workspaces"
+    ? "Manage pools & members"
     : accountPill?.subtitle
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.clientLabel?.trim() || scopedWorkspace?.clientLabel?.trim() || null)
@@ -212,8 +212,8 @@ export function TopbarWorkspaceSwitcher() {
             type="button"
             onClick={openActiveWorkspace}
             className="flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none hover:bg-orange-50/50 transition-colors"
-            aria-label={onWorkspaceDashboard ? "Workspace dashboard" : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
-            title={isAccountOwner ? "Open workspace dashboard" : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
+            aria-label={onWorkspaceDashboard ? "All workspaces" : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
+            title={isAccountOwner ? "Manage all workspaces" : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
           >
             {onWorkspaceDashboard ? (
               <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -280,7 +280,7 @@ export function TopbarWorkspaceSwitcher() {
                 onClick={openWorkspaceHub}
               >
                 <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                <span className="truncate flex-1 font-medium">Workspace dashboard</span>
+                <span className="truncate flex-1 font-medium">All workspaces</span>
                 {onWorkspaceDashboard && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
               </button>
             )}
@@ -356,13 +356,13 @@ export function TopbarWorkspaceSwitcher() {
             setSeeAllOpen(true);
           }
         }}
-        aria-label={onWorkspaceDashboard ? "Workspace dashboard" : `Workspace: ${pillName}`}
-        title={onWorkspaceDashboard ? "Workspace dashboard" : `Workspace: ${pillName}`}
+        aria-label={onWorkspaceDashboard ? "All workspaces" : `Workspace: ${pillName}`}
+        title={onWorkspaceDashboard ? "All workspaces" : `Workspace: ${pillName}`}
       >
         <Building2 className="w-4 h-4 text-orange-500" />
         <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 leading-none mt-0.5">Workspace</span>
         {onWorkspaceDashboard ? (
-          <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">Dashboard</span>
+          <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">All</span>
         ) : (
           <span className="text-[9px] font-semibold text-slate-800 leading-none truncate max-w-[4.5rem]">{pillName}</span>
         )}

@@ -82,7 +82,7 @@ function RecoverButton({ type, id }: { type: string; id: number }) {
       {
         title: isWorkspace ? "Restore this workspace?" : "Restore this item?",
         description: isWorkspace
-          ? "It will reappear on your Workspace Dashboard."
+          ? "It will reappear on All workspaces."
           : "It will reappear in your Recent Projects feed.",
         confirmLabel: "Restore",
         successTitle: "Restored!",

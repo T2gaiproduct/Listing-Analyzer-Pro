@@ -217,7 +217,7 @@ export default function WorkspacesPage() {
         <div>
           <div className="flex items-center gap-2">
             <LayoutGrid className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold text-slate-900">Workspace Dashboard</h1>
+            <h1 className="text-2xl font-bold text-slate-900">All workspaces</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
             {isAccountOwner

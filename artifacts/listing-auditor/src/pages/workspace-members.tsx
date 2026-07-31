@@ -238,8 +238,8 @@ export default function WorkspaceMembersPage() {
             )}
             {isAccountOwner && (
               <p className="text-xs text-slate-500">
-                Fund this pool from your account on the{" "}
-                <Link href="/workspaces" className="underline font-medium">Workspaces</Link> dashboard, then assign credits to members in the table below.
+                Fund this pool from your account on{" "}
+                <Link href="/workspaces" className="underline font-medium">Manage workspaces</Link>, then assign credits to members in the table below.
               </p>
             )}
           </CardContent>

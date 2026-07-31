@@ -88,7 +88,7 @@ export default function WorkspaceDetailPage() {
     return (
       <div className="p-6">
         <p className="text-slate-500">Workspace not found.</p>
-        <Link href="/workspaces"><Button variant="link" className="px-0">Workspace dashboard</Button></Link>
+        <Link href="/workspaces"><Button variant="link" className="px-0">All workspaces</Button></Link>
       </div>
     );
   }
@@ -99,7 +99,7 @@ export default function WorkspaceDetailPage() {
         <Link href="/workspaces">
           <Button variant="ghost" size="sm" className="gap-1.5">
             <ArrowLeft className="w-4 h-4" />
-            Workspace dashboard
+            All workspaces
           </Button>
         </Link>
       </div>

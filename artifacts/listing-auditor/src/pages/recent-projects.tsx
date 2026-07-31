@@ -262,10 +262,10 @@ export default function RecentProjectsPage() {
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
         <h2 className="text-lg font-semibold text-slate-900">Select a workspace</h2>
         <p className="text-sm text-slate-500 mt-2 max-w-md">
-          Projects are scoped to a workspace. Choose one in the top bar, or create a workspace from the workspace dashboard.
+          Projects are scoped to a workspace. Choose one in the top bar, or create a workspace from Manage workspaces.
         </p>
         <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
-          <Link href="/workspaces">Open workspace dashboard</Link>
+          <Link href="/workspaces">Manage workspaces</Link>
         </Button>
       </div>
     );
