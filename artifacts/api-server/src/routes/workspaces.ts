@@ -743,12 +743,42 @@ router.delete("/workspaces/:workspaceId/members/:memberId", requireAuth, require
   }
 
   const memberId = Number(req.params.memberId);
-  await db.update(workspaceMembersTable)
-    .set({ isDeleted: 1, deletedAt: new Date(), status: "revoked" })
+  if (!memberId || Number.isNaN(memberId)) {
+    res.status(400).json({ error: "Invalid member id" });
+    return;
+  }
+
+  const [workspace] = await db
+    .select({ accountOwnerId: workspacesTable.accountOwnerId })
+    .from(workspacesTable)
+    .where(eq(workspacesTable.id, ctx.workspaceId))
+    .limit(1);
+  if (!workspace) {
+    res.status(404).json({ error: "Workspace not found" });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(workspaceMembersTable)
     .where(and(
       eq(workspaceMembersTable.id, memberId),
       eq(workspaceMembersTable.workspaceId, ctx.workspaceId),
-    ));
+      eq(workspaceMembersTable.isDeleted, 0),
+    ))
+    .limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+  if (existing.userId && existing.userId === workspace.accountOwnerId) {
+    res.status(400).json({ error: "Cannot remove the workspace owner" });
+    return;
+  }
+
+  await db.update(workspaceMembersTable)
+    .set({ isDeleted: 1, deletedAt: new Date(), status: "revoked" })
+    .where(eq(workspaceMembersTable.id, memberId));
 
   res.sendStatus(204);
 });

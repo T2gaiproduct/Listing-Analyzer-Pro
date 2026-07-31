@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Copy, Mail, UserPlus, Zap } from "lucide-react";
+import { ArrowLeft, Copy, Mail, Trash2, UserPlus, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -63,6 +63,7 @@ export default function WorkspaceMembersPage() {
   const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});
 
   const canInvite = isAccountOwner || can("team", "create");
+  const canRemoveMember = isAccountOwner || can("team", "delete");
   const canAllocateCredits = !isAccountOwner && can("credits", "edit");
   const canViewCredits = isAccountOwner || can("credits", "viewGlobal");
 
@@ -162,6 +163,38 @@ export default function WorkspaceMembersPage() {
     onError: (err: Error) =>
       toast({ title: "Failed to invite member", description: err.message, variant: "destructive" }),
   });
+
+  const removeMember = useMutation({
+    mutationFn: async (memberId: number) => {
+      const r = await fetch(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? "Failed to remove member");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
+      void qc.invalidateQueries({ queryKey: ["workspaces"] });
+      void qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
+      void qc.invalidateQueries({ queryKey: ["team"] });
+      toast({ title: "Member removed from workspace" });
+    },
+    onError: (err: Error) =>
+      toast({ title: "Failed to remove member", description: err.message, variant: "destructive" }),
+  });
+
+  function confirmRemoveMember(m: MemberRow) {
+    const label = m.invitedName?.trim() || m.invitedEmail;
+    const verb = m.status === "pending" ? "Revoke the invite for" : "Remove";
+    const message =
+      m.status === "pending"
+        ? `${verb} ${label}? They will not be able to accept this invitation.`
+        : `${verb} ${label} from "${ws?.name ?? "this workspace"}"? They will lose access to this workspace.`;
+    if (confirm(message)) removeMember.mutate(m.id);
+  }
 
   if (!ws) {
     return (
@@ -267,6 +300,7 @@ export default function WorkspaceMembersPage() {
                   <TableHead>Status</TableHead>
                   {canViewCredits && <TableHead>Credits</TableHead>}
                   {canInvite && <TableHead className="w-[11rem]">Invite</TableHead>}
+                  {canRemoveMember && <TableHead className="w-[7rem]">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -367,6 +401,20 @@ export default function WorkspaceMembersPage() {
                         ) : (
                           <span className="text-slate-300">—</span>
                         )}
+                      </TableCell>
+                    )}
+                    {canRemoveMember && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => confirmRemoveMember(m)}
+                          disabled={removeMember.isPending}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {m.status === "pending" ? "Revoke" : "Remove"}
+                        </Button>
                       </TableCell>
                     )}
                   </TableRow>
