@@ -9,7 +9,7 @@ export interface CreditTotals {
 }
 
 export function sumCreditTotals(c: CreditTotals): number {
-  return c.aiCredits + c.imageCredits + c.auditCredits;
+  return Number(c.aiCredits ?? 0) + Number(c.imageCredits ?? 0) + Number(c.auditCredits ?? 0);
 }
 
 export async function sumCreditsUsedInPeriod(

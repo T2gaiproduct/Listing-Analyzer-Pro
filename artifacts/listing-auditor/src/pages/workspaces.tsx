@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, Fragment, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import { refetchCreditQueries } from "@/lib/credit-queries";
 import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-header";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format } from "date-fns";
+import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
@@ -96,6 +97,14 @@ function formatCreditBuckets(c: CreditBuckets): string {
   return `${c.auditCredits} audit · ${c.aiCredits} text · ${c.imageCredits} img`;
 }
 
+function workspaceFundedTotal(ws: WorkspaceOverviewRow): number {
+  if (ws.fundedTotal != null && ws.fundedTotal > 0) return ws.fundedTotal;
+  const pool = ws.poolRemaining ?? sumCredits(ws.poolCredits);
+  const memberAlloc = sumCredits(ws.memberAllocatedCredits);
+  const used = ws.creditsUsedInPeriod ?? 0;
+  return pool + memberAlloc + used;
+}
+
 export default function WorkspacesPage() {
   const { workspaces, activeWorkspaceId, isAccountOwner, can, refetch, setActiveWorkspaceId } = useWorkspace();
   const [, navigate] = useLocation();
@@ -116,7 +125,78 @@ export default function WorkspacesPage() {
     queryKey: ["workspaces-overview"],
     queryFn: () => fetchJson<WorkspaceOverview>(`${basePath}/api/workspaces/overview`),
     enabled: isAccountOwner,
+    staleTime: 15_000,
+    refetchOnMount: "always",
   });
+
+  const { data: sub } = useQuery<{
+    planName: string | null;
+    planAiCredits: number;
+    planImageCredits: number;
+    planAuditCredits: number;
+    creditAllocations?: Record<string, number> | null;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+  } | null>({
+    queryKey: ["user-subscription"],
+    queryFn: () => fetch(`${basePath}/api/subscription`, { credentials: "include" }).then((r) => r.json()),
+    enabled: isAccountOwner,
+    staleTime: 30_000,
+  });
+
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
+    enabled: isAccountOwner,
+    staleTime: 60_000,
+  });
+
+  const planCreditsTotal = useMemo(() => {
+    if (overview?.planCreditsTotal && overview.planCreditsTotal > 0) return overview.planCreditsTotal;
+    if (overview?.planCredits) {
+      const fromOverview = sumCredits(overview.planCredits);
+      if (fromOverview > 0) return fromOverview;
+    }
+    if (sub) {
+      const computed = computePlanCreditsFromAllocations(sub.creditAllocations, creditRules);
+      if (computed.totalCredits > 0) return computed.totalCredits;
+      return sub.planAiCredits + sub.planImageCredits + sub.planAuditCredits;
+    }
+    return 0;
+  }, [overview, sub, creditRules]);
+
+  const accountUnallocatedTotal = useMemo(() => {
+    const fromBuckets = sumCredits(overview?.availableToFundWorkspaces ?? overview?.ownerCredits);
+    const fromApi = overview?.accountUnallocatedTotal;
+    if (fromApi != null && fromApi > 0) return fromApi;
+    return fromBuckets;
+  }, [overview]);
+
+  const inWorkspacePoolsTotal = useMemo(() => {
+    const fromWorkspaces = overview?.workspaces?.length
+      ? overview.workspaces.reduce(
+          (sum, ws) => sum + (ws.poolRemaining ?? sumCredits(ws.poolCredits)),
+          0,
+        )
+      : 0;
+    const fromApi = overview?.inWorkspacePoolsTotal;
+    if (fromApi != null && fromApi > 0) return fromApi;
+    return fromWorkspaces;
+  }, [overview]);
+
+  const accountCreditsTotal = useMemo(() => {
+    if (overview?.accountCreditsTotal != null && overview.accountCreditsTotal > 0) {
+      return overview.accountCreditsTotal;
+    }
+    return accountUnallocatedTotal + inWorkspacePoolsTotal;
+  }, [overview, accountUnallocatedTotal, inWorkspacePoolsTotal]);
+
+  const planDisplayName = overview?.planName ?? sub?.planName ?? "Your plan";
+  const billingPeriod = overview?.billingPeriod ?? (
+    sub?.currentPeriodStart && sub?.currentPeriodEnd
+      ? { start: sub.currentPeriodStart, end: sub.currentPeriodEnd }
+      : null
+  );
 
   const toggleExpanded = (id: number) => {
     setExpandedWorkspaceIds((prev) => {
@@ -303,15 +383,15 @@ export default function WorkspacesPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-slate-900">
-                  {overviewLoading ? "—" : (overview?.planCreditsTotal ?? 0).toLocaleString()}
+                  {overviewLoading ? "—" : planCreditsTotal.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  {overview?.planName ?? "Your plan"}
-                  {overview?.billingPeriod && (
+                  {planDisplayName}
+                  {billingPeriod && (
                     <>
                       {" · "}
-                      {format(new Date(overview.billingPeriod.start), "MMM d")} –{" "}
-                      {format(new Date(overview.billingPeriod.end), "MMM d")}
+                      {format(new Date(billingPeriod.start), "MMM d")} –{" "}
+                      {format(new Date(billingPeriod.end), "MMM d")}
                     </>
                   )}
                 </p>
@@ -323,7 +403,7 @@ export default function WorkspacesPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-orange-600">
-                  {overviewLoading ? "—" : (overview?.accountUnallocatedTotal ?? 0).toLocaleString()}
+                  {overviewLoading ? "—" : accountUnallocatedTotal.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
                   {overview?.availableToFundWorkspaces
@@ -341,7 +421,7 @@ export default function WorkspacesPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-slate-900">
-                  {overviewLoading ? "—" : (overview?.inWorkspacePoolsTotal ?? 0).toLocaleString()}
+                  {overviewLoading ? "—" : inWorkspacePoolsTotal.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
                   {overview?.totalWorkspaces ?? 0} workspace{overview?.totalWorkspaces === 1 ? "" : "s"}
@@ -357,7 +437,7 @@ export default function WorkspacesPage() {
                   {overviewLoading ? "—" : (overview?.accountUsedInPeriod ?? 0).toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Total in account: {(overview?.accountCreditsTotal ?? 0).toLocaleString()} credits
+                  Total in account: {accountCreditsTotal.toLocaleString()} credits
                 </p>
               </CardContent>
             </Card>
@@ -425,7 +505,7 @@ export default function WorkspacesPage() {
                                 </div>
                               </td>
                               <td className="py-3 pr-4 font-medium text-slate-800">
-                                {(ws.fundedTotal ?? 0).toLocaleString()}
+                                {workspaceFundedTotal(ws).toLocaleString()}
                               </td>
                               <td className="py-3 pr-4 text-slate-600">{memberAlloc.toLocaleString()}</td>
                               <td className="py-3 pr-4 text-slate-600">

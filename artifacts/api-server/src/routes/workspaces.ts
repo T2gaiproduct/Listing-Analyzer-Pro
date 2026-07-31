@@ -13,6 +13,7 @@ import {
   creditsTable,
   teamMembersTable,
   memberCreditsTable,
+  creditRulesTable,
 } from "@workspace/db";
 import {
   WORKSPACE_FEATURES,
@@ -43,7 +44,7 @@ import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { createNotification } from "../lib/notifications.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
-import { resolvePlanCreditPools } from "../lib/plan-credits.js";
+import { resolvePlanCreditPools, computePlanCreditsFromAllocations } from "../lib/plan-credits.js";
 import {
   sumCreditsUsedInPeriod,
   sumCreditsUsedForWorkspace,
@@ -122,13 +123,14 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   const inWorkspacePools = await sumWorkspacePoolsForOwner(accountOwnerId);
   // Account balance already excludes credits moved into workspace pools.
   const availableToFundWorkspaces = {
-    aiCredits: ownerCredits.aiCredits,
-    imageCredits: ownerCredits.imageCredits,
-    auditCredits: ownerCredits.auditCredits,
+    aiCredits: Number(ownerCredits.aiCredits ?? 0),
+    imageCredits: Number(ownerCredits.imageCredits ?? 0),
+    auditCredits: Number(ownerCredits.auditCredits ?? 0),
   };
 
-  const [subRow] = await db
+  const subRows = await db
     .select({
+      status: subscriptionsTable.status,
       currentPeriodStart: subscriptionsTable.currentPeriodStart,
       currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
       planName: plansTable.name,
@@ -139,7 +141,18 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     })
     .from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
-    .where(eq(subscriptionsTable.userId, accountOwnerId));
+    .where(eq(subscriptionsTable.userId, accountOwnerId))
+    .orderBy(desc(subscriptionsTable.id));
+
+  const subRow = subRows.find((s) => s.status === "active" || s.status === "trialing") ?? subRows[0];
+
+  const creditRules = await db
+    .select({
+      featureType: creditRulesTable.featureType,
+      creditsRequired: creditRulesTable.creditsRequired,
+      isActive: creditRulesTable.isActive,
+    })
+    .from(creditRulesTable);
 
   const periodStart = subRow?.currentPeriodStart
     ? new Date(subRow.currentPeriodStart)
@@ -148,12 +161,40 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     ? new Date(subRow.currentPeriodEnd)
     : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
 
+  const planFromAllocations = subRow
+    ? computePlanCreditsFromAllocations(
+        (subRow.creditAllocations ?? {}) as Record<string, number>,
+        creditRules,
+      )
+    : null;
+
   const planPools = await resolvePlanCreditPools({
     aiCredits: subRow?.planAiCredits ?? 0,
     imageCredits: subRow?.planImageCredits ?? 0,
     auditCredits: subRow?.planAuditCredits ?? 0,
     creditAllocations: (subRow?.creditAllocations ?? {}) as Record<string, number>,
   });
+
+  const planColumnTotal =
+    (subRow?.planAuditCredits ?? 0) + (subRow?.planAiCredits ?? 0) + (subRow?.planImageCredits ?? 0);
+  const planPoolsTotal = planPools.auditCredits + planPools.aiCredits + planPools.imageCredits;
+  const planCreditsTotal = Math.max(
+    planFromAllocations?.totalCredits ?? 0,
+    planPoolsTotal,
+    planColumnTotal,
+  );
+  const planCredits =
+    planFromAllocations && planFromAllocations.totalCredits > 0
+      ? {
+          auditCredits: planFromAllocations.auditCredits,
+          aiCredits: planFromAllocations.aiCredits,
+          imageCredits: planFromAllocations.imageCredits,
+        }
+      : {
+          auditCredits: planPools.auditCredits,
+          aiCredits: planPools.aiCredits,
+          imageCredits: planPools.imageCredits,
+        };
 
   const accountUsedInPeriod = await sumCreditsUsedInPeriod(accountOwnerId, periodStart, periodEnd);
   const accountUnallocatedTotal = sumCreditTotals(ownerCredits);
@@ -233,11 +274,11 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     pendingInvites: summary.pendingInvites,
     totalRoles: roles.length,
     planName: subRow?.planName ?? null,
-    planCreditsTotal: planPools.auditCredits + planPools.aiCredits + planPools.imageCredits,
+    planCreditsTotal,
     planCredits: {
-      auditCredits: planPools.auditCredits,
-      aiCredits: planPools.aiCredits,
-      imageCredits: planPools.imageCredits,
+      auditCredits: planCredits.auditCredits,
+      aiCredits: planCredits.aiCredits,
+      imageCredits: planCredits.imageCredits,
     },
     billingPeriod: {
       start: periodStart.toISOString(),
