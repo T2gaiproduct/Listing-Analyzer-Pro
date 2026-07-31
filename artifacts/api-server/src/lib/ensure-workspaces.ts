@@ -163,6 +163,46 @@ export async function ensureTeamMembersSchema(): Promise<void> {
   await ensureTeamMembersRoleId();
 }
 
+/**
+ * New subscribers get a default workspace so the dashboard and project flows work immediately.
+ * Skips accounts that deleted all workspaces intentionally (any workspace row ever existed).
+ */
+export async function ensureSubscriberDefaultWorkspace(accountOwnerId: string): Promise<number | null> {
+  const [activeWs] = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.isDeleted, 0),
+    ))
+    .limit(1);
+  if (activeWs) return activeWs.id;
+
+  const [everHadWorkspace] = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(eq(workspacesTable.accountOwnerId, accountOwnerId))
+    .limit(1);
+  if (everHadWorkspace) return null;
+
+  const [sub] = await db
+    .select({ status: subscriptionsTable.status })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userId, accountOwnerId))
+    .limit(1);
+  if (!sub || sub.status !== "active") return null;
+
+  const [ws] = await db.insert(workspacesTable).values({
+    accountOwnerId,
+    name: "My Workspace",
+    description: null,
+    isDefault: true,
+    preserveLegacyPermissions: true,
+  }).returning();
+
+  return ws!.id;
+}
+
 export async function getDefaultWorkspaceId(accountOwnerId: string): Promise<number | null> {
   const [defaultWs] = await db
     .select({ id: workspacesTable.id })
