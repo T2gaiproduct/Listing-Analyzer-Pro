@@ -150,11 +150,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (valid) return;
 
     const billingAccountOwner = profileSummary?.accountRole?.type === "user";
-    // Billing owners who own workspaces pick from the hub; everyone else auto-selects.
     if (ownsAnyWorkspace && billingAccountOwner && !profileTeamMember) {
-      if (selectedId != null) {
-        setSelectedId(null);
-        localStorage.removeItem(STORAGE_KEY);
+      const owned = workspaces.filter((w) => w.isAccountOwner);
+      const fallback = owned.find((w) => w.isDefault) ?? owned[0];
+      if (fallback && selectedId !== fallback.id) {
+        setSelectedId(fallback.id);
+        localStorage.setItem(STORAGE_KEY, String(fallback.id));
       }
       return;
     }
@@ -174,6 +175,26 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
     if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
   }, [isTeamMemberAccount, workspaces, selectedId, workspaceScopeCommitted]);
+
+  // Billing owners: opening the main dashboard should show default workspace overview (logo → /dashboard).
+  useEffect(() => {
+    if (location !== "/dashboard" && location !== "/") return;
+    if (!workspaces.length) return;
+    const owns = workspaces.some((w) => w.isAccountOwner);
+    const billing = profileSummary?.accountRole?.type === "user";
+    if (!owns || !billing) return;
+
+    const owned = workspaces.filter((w) => w.isAccountOwner);
+    let id = selectedId;
+    if (id == null || !workspaces.some((w) => w.id === id)) {
+      const fallback = owned.find((w) => w.isDefault) ?? owned[0];
+      if (!fallback) return;
+      id = fallback.id;
+      setSelectedId(id);
+      localStorage.setItem(STORAGE_KEY, String(id));
+    }
+    if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
+  }, [location, workspaces, selectedId, profileSummary?.accountRole?.type, workspaceScopeCommitted]);
 
   useEffect(() => {
     if (isTeamMemberAccount && workspaces.length === 0 && !listLoading) {
