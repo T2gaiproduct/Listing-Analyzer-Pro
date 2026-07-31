@@ -130,7 +130,7 @@ function PlanForm({
       <div className="col-span-2">
         <Label className="text-xs flex items-center gap-1.5"><Check className="w-3 h-3 text-green-500" />Included Features (comma-separated)</Label>
         <Input className="mt-1 h-8 text-sm" value={form.featuresText} onChange={f("featuresText")} placeholder="Competitor comparison, Score breakdown, Priority support" />
-        <p className="text-xs text-slate-400 mt-1">Credit lines (audits, AI content, images) are auto-generated from allocations and credit rules on save.</p>
+        <p className="text-xs text-slate-400 mt-1">Credit lines (audits, AI content, images) are auto-generated from the monthly credit fields above on save. Credit rules apply when customers use features, not when granting plan credits.</p>
       </div>
       <div className="col-span-2">
         <Label className="text-xs flex items-center gap-1.5"><X className="w-3 h-3 text-slate-400" />Excluded / Not Included (comma-separated)</Label>

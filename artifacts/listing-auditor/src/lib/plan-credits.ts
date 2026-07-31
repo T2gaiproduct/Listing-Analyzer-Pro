@@ -116,29 +116,21 @@ export function isAutoCreditFeatureLine(text: string): boolean {
   return AUTO_CREDIT_FEATURE_PATTERNS.some((pattern) => pattern.test(text.trim()));
 }
 
-export function inferAllocationCountsFromLegacyPools(
-  plan: PlanRowForAllocations,
-  rules: CreditRuleLike[] = [],
-): PlanAllocationCounts {
-  const auditCost = ruleCostFromList("audit", rules, 1);
-  const contentCost = ruleCostFromList("content", rules, 1);
-  const imageCost = ruleCostFromList("graphics", rules, ruleCostFromList("images", rules, 8));
-  const div = (pool: number, cost: number) => (cost > 0 ? Math.floor(pool / cost) : 0);
-
+/** Admin fields are monthly credit allowances; legacy columns are credit pools. */
+export function allocationCountsFromLegacyPools(plan: PlanRowForAllocations): PlanAllocationCounts {
   return {
-    audit: div(plan.auditCredits, auditCost),
-    content: div(plan.aiCredits, contentCost),
-    images: div(plan.imageCredits, imageCost),
+    audit: plan.auditCredits,
+    content: plan.aiCredits,
+    images: plan.imageCredits,
     ebc: 0,
     competitors: 0,
     teamMembers: plan.teamMembers,
   };
 }
 
-/** Monthly activity counts from creditAllocations, with legacy pool columns + credit rules fallback. */
 export function resolvePlanAllocationCounts(
   plan: PlanRowForAllocations,
-  rules: CreditRuleLike[] = [],
+  _rules: CreditRuleLike[] = [],
 ): PlanAllocationCounts {
   const a = plan.creditAllocations ?? {};
   const hasStoredAllocations = Object.keys(a).length > 0;
@@ -154,40 +146,31 @@ export function resolvePlanAllocationCounts(
     };
   }
 
-  if (rules.length > 0) {
-    return inferAllocationCountsFromLegacyPools(plan, rules);
-  }
-
-  return {
-    audit: plan.auditCredits,
-    content: plan.aiCredits,
-    images: plan.imageCredits,
-    ebc: 0,
-    competitors: 0,
-    teamMembers: plan.teamMembers,
-  };
+  return allocationCountsFromLegacyPools(plan);
 }
 
 export function buildPlanCreditFeatureLines(
   counts: PlanAllocationCounts,
-  pools: PlanCreditPools,
+  rules: CreditRuleLike[] = [],
 ): string[] {
   const lines: string[] = [];
+  const auditCost = ruleCostFromList("audit", rules, 1);
 
   if (counts.audit > 0) {
+    const auditsPerMonth = auditCost > 0 ? Math.floor(counts.audit / auditCost) : counts.audit;
     lines.push(
-      counts.audit >= 999
+      auditsPerMonth >= 999
         ? "Unlimited listing audits"
-        : `${counts.audit.toLocaleString()} listing audits/mo`,
+        : `${auditsPerMonth.toLocaleString()} listing audits/mo`,
     );
   }
 
-  if (pools.aiCredits > 0) {
-    lines.push(`${pools.aiCredits.toLocaleString()} AI content credits`);
+  if (counts.content > 0) {
+    lines.push(`${counts.content.toLocaleString()} AI content credits`);
   }
 
-  if (pools.imageCredits > 0) {
-    lines.push(`${pools.imageCredits.toLocaleString()} image generation credits`);
+  if (counts.images > 0) {
+    lines.push(`${counts.images.toLocaleString()} image generation credits`);
   }
 
   if (counts.ebc > 0) {
@@ -217,8 +200,7 @@ export function resolvePlanDisplayFeatures(
   rules: CreditRuleLike[] = [],
 ): string[] {
   const counts = resolvePlanAllocationCounts(plan, rules);
-  const pools = computePlanCreditsFromAllocations(counts, rules);
-  const creditLines = buildPlanCreditFeatureLines(counts, pools);
+  const creditLines = buildPlanCreditFeatureLines(counts, rules);
   return mergePlanFeatureLists(creditLines, plan.features ?? []);
 }
 
@@ -239,6 +221,22 @@ export function formatPlanAllocationDisplayValue(value: number): string {
   return value.toLocaleString();
 }
 
+export function computePlanPoolsFromAllocationCredits(
+  allocations: PlanAllocations | Record<string, number>,
+): PlanCreditPools {
+  const audit = allocations.audit ?? 0;
+  const content = allocations.content ?? allocations.ai ?? 0;
+  const images = allocations.images ?? allocations.image ?? 0;
+  const ebc = allocations.ebc ?? 0;
+  const competitors = allocations.competitors ?? 0;
+
+  return {
+    auditCredits: audit + competitors,
+    aiCredits: content + ebc,
+    imageCredits: images,
+  };
+}
+
 export function computePlanCreditsFromPlan(
   plan: PlanRowForAllocations,
   rules: CreditRuleLike[] = [],
@@ -249,36 +247,28 @@ export function computePlanCreditsFromPlan(
 
 export function computePlanCreditsFromAllocations(
   allocations: PlanAllocations | Record<string, number> | null | undefined,
-  rules: CreditRuleLike[] = [],
+  _rules: CreditRuleLike[] = [],
 ): PlanCreditsComputed {
   const a = allocations ?? {};
-  const auditCount = a.audit ?? 0;
-  const contentCount = a.content ?? a.ai ?? 0;
-  const imageCount = a.images ?? a.image ?? 0;
-  const ebcCount = a.ebc ?? 0;
-  const competitorCount = a.competitors ?? 0;
-
-  const auditCost = ruleCostFromList("audit", rules, 1);
-  const contentCost = ruleCostFromList("content", rules, 1);
-  const ebcCost = ruleCostFromList("ebc", rules, 1);
-  const competitorCost = ruleCostFromList("competitors", rules, 1);
-  const imageCost = ruleCostFromList("graphics", rules, ruleCostFromList("images", rules, 8));
-
-  const auditCredits = auditCount * auditCost + competitorCount * competitorCost;
-  const aiCredits = contentCount * contentCost + ebcCount * ebcCost;
-  const imageCredits = imageCount * imageCost;
+  const audit = a.audit ?? 0;
+  const content = a.content ?? a.ai ?? 0;
+  const images = a.images ?? a.image ?? 0;
+  const ebc = a.ebc ?? 0;
+  const competitors = a.competitors ?? 0;
+  const pools =
+    Object.keys(a).length > 0
+      ? computePlanPoolsFromAllocationCredits(a)
+      : { auditCredits: audit + competitors, aiCredits: content + ebc, imageCredits: images };
 
   return {
-    auditCredits,
-    aiCredits,
-    imageCredits,
-    totalCredits: auditCredits + aiCredits + imageCredits,
+    ...pools,
+    totalCredits: pools.auditCredits + pools.aiCredits + pools.imageCredits,
     allocations: {
-      audit: auditCount,
-      content: contentCount,
-      images: imageCount,
-      ebc: ebcCount,
-      competitors: competitorCount,
+      audit,
+      content,
+      images,
+      ebc,
+      competitors,
     },
   };
 }
@@ -306,7 +296,7 @@ export function computePlanCreditsForSubscription(
     teamMembers: 1,
     creditAllocations: null,
   };
-  const allocations = inferAllocationCountsFromLegacyPools(legacyPlan, rules);
+  const counts = allocationCountsFromLegacyPools(legacyPlan);
 
   return {
     auditCredits: legacyPlan.auditCredits,
@@ -314,11 +304,11 @@ export function computePlanCreditsForSubscription(
     imageCredits: legacyPlan.imageCredits,
     totalCredits: legacyPlan.auditCredits + legacyPlan.aiCredits + legacyPlan.imageCredits,
     allocations: {
-      audit: allocations.audit,
-      content: allocations.content,
-      images: allocations.images,
-      ebc: allocations.ebc,
-      competitors: allocations.competitors,
+      audit: counts.audit,
+      content: counts.content,
+      images: counts.images,
+      ebc: counts.ebc,
+      competitors: counts.competitors,
     },
   };
 }

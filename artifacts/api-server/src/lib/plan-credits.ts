@@ -93,6 +93,26 @@ function poolsFromLegacyColumns(plan: {
   };
 }
 
+/**
+ * Admin plan fields are monthly credit allowances (not activity counts).
+ * Credit rules apply when users consume credits, not when granting plan pools.
+ */
+export function computePlanPoolsFromAllocationCredits(
+  allocations: PlanAllocations | Record<string, number>,
+): PlanCreditPools {
+  const audit = allocations.audit ?? 0;
+  const content = allocations.content ?? allocations.ai ?? 0;
+  const images = allocations.images ?? allocations.image ?? 0;
+  const ebc = allocations.ebc ?? 0;
+  const competitors = allocations.competitors ?? 0;
+
+  return {
+    auditCredits: audit + competitors,
+    aiCredits: content + ebc,
+    imageCredits: images,
+  };
+}
+
 export function allocationCountsFromRecord(
   allocations: PlanAllocations | Record<string, number>,
   teamMembers = 1,
@@ -108,27 +128,17 @@ export function allocationCountsFromRecord(
   };
 }
 
-/** Infer monthly activity limits from legacy credit pool columns using credit rules. */
-export async function inferAllocationCountsFromLegacyPools(
-  plan: {
-    auditCredits: number;
-    aiCredits: number;
-    imageCredits: number;
-    teamMembers: number;
-  },
-): Promise<PlanAllocationCounts> {
-  const [auditCost, contentCost, graphicsCost] = await Promise.all([
-    getCreditCost("audit"),
-    getCreditCost("content"),
-    getCreditCost("graphics"),
-  ]);
-
-  const div = (pool: number, cost: number) => (cost > 0 ? Math.floor(pool / cost) : 0);
-
+/** Legacy plan columns already store monthly credit pools. */
+export function allocationCountsFromLegacyPools(plan: {
+  auditCredits: number;
+  aiCredits: number;
+  imageCredits: number;
+  teamMembers: number;
+}): PlanAllocationCounts {
   return {
-    audit: div(plan.auditCredits, auditCost.creditsRequired),
-    content: div(plan.aiCredits, contentCost.creditsRequired),
-    images: div(plan.imageCredits, graphicsCost.creditsRequired),
+    audit: plan.auditCredits,
+    content: plan.aiCredits,
+    images: plan.imageCredits,
     ebc: 0,
     competitors: 0,
     teamMembers: plan.teamMembers,
@@ -149,26 +159,29 @@ export function isAutoCreditFeatureLine(text: string): boolean {
   return AUTO_CREDIT_FEATURE_PATTERNS.some((pattern) => pattern.test(text.trim()));
 }
 
+/** Feature bullets mirror admin credit fields (monthly allowances). */
 export function buildPlanCreditFeatureLines(
   counts: PlanAllocationCounts,
-  pools: PlanCreditPools,
+  rules: CreditRuleLike[] = [],
 ): string[] {
   const lines: string[] = [];
+  const auditCost = ruleCostFromList("audit", rules, 1);
 
   if (counts.audit > 0) {
+    const auditsPerMonth = auditCost > 0 ? Math.floor(counts.audit / auditCost) : counts.audit;
     lines.push(
-      counts.audit >= 999
+      auditsPerMonth >= 999
         ? "Unlimited listing audits"
-        : `${counts.audit.toLocaleString()} listing audits/mo`,
+        : `${auditsPerMonth.toLocaleString()} listing audits/mo`,
     );
   }
 
-  if (pools.aiCredits > 0) {
-    lines.push(`${pools.aiCredits.toLocaleString()} AI content credits`);
+  if (counts.content > 0) {
+    lines.push(`${counts.content.toLocaleString()} AI content credits`);
   }
 
-  if (pools.imageCredits > 0) {
-    lines.push(`${pools.imageCredits.toLocaleString()} image generation credits`);
+  if (counts.images > 0) {
+    lines.push(`${counts.images.toLocaleString()} image generation credits`);
   }
 
   if (counts.ebc > 0) {
@@ -199,72 +212,45 @@ export async function syncPlanFeaturesForSave(
   teamMembers: number,
   existingFeatures: string[] | undefined,
 ): Promise<string[]> {
-  const pools = await computePlanPoolsFromAllocations(allocations);
   const counts = allocationCountsFromRecord(allocations, teamMembers);
-  const creditLines = buildPlanCreditFeatureLines(counts, pools);
+  const auditCost = await getCreditCost("audit");
+  const creditLines = buildPlanCreditFeatureLines(counts, [
+    { featureType: "audit", creditsRequired: auditCost.creditsRequired },
+  ]);
   return mergePlanFeatureLists(creditLines, existingFeatures ?? []);
 }
 
 /** Sync compute for UI when credit rules are already loaded. */
 export function computePlanCreditsFromAllocations(
   allocations: PlanAllocations | Record<string, number> | null | undefined,
-  rules: CreditRuleLike[] = [],
+  _rules: CreditRuleLike[] = [],
 ): PlanCreditsComputed {
   const a = allocations ?? {};
-  const auditCount = a.audit ?? 0;
-  const contentCount = a.content ?? a.ai ?? 0;
-  const imageCount = a.images ?? a.image ?? 0;
-  const ebcCount = a.ebc ?? 0;
-  const competitorCount = a.competitors ?? 0;
-
-  const auditCost = ruleCostFromList("audit", rules, 1);
-  const contentCost = ruleCostFromList("content", rules, 1);
-  const ebcCost = ruleCostFromList("ebc", rules, 1);
-  const competitorCost = ruleCostFromList("competitors", rules, 1);
-  const imageCost = ruleCostFromList("graphics", rules, ruleCostFromList("images", rules, 8));
-
-  const auditCredits = auditCount * auditCost + competitorCount * competitorCost;
-  const aiCredits = contentCount * contentCost + ebcCount * ebcCost;
-  const imageCredits = imageCount * imageCost;
+  const audit = a.audit ?? 0;
+  const content = a.content ?? a.ai ?? 0;
+  const images = a.images ?? a.image ?? 0;
+  const ebc = a.ebc ?? 0;
+  const competitors = a.competitors ?? 0;
+  const pools = computePlanPoolsFromAllocationCredits(a);
 
   return {
-    auditCredits,
-    aiCredits,
-    imageCredits,
-    totalCredits: auditCredits + aiCredits + imageCredits,
+    ...pools,
+    totalCredits: pools.auditCredits + pools.aiCredits + pools.imageCredits,
     allocations: {
-      audit: auditCount,
-      content: contentCount,
-      images: imageCount,
-      ebc: ebcCount,
-      competitors: competitorCount,
+      audit,
+      content,
+      images,
+      ebc,
+      competitors,
     },
   };
 }
 
-/** DB-backed compute using admin credit rules. */
+/** DB-backed: sum admin credit allowances into grant pools. */
 export async function computePlanPoolsFromAllocations(
   allocations: PlanAllocations | Record<string, number>,
 ): Promise<PlanCreditPools> {
-  const [auditCost, contentCost, ebcCost, competitorCost, graphicsCost] = await Promise.all([
-    getCreditCost("audit"),
-    getCreditCost("content"),
-    getCreditCost("ebc"),
-    getCreditCost("competitors"),
-    getCreditCost("graphics"),
-  ]);
-
-  const auditCount = allocations.audit ?? 0;
-  const contentCount = allocations.content ?? allocations.ai ?? 0;
-  const imageCount = allocations.images ?? allocations.image ?? 0;
-  const ebcCount = allocations.ebc ?? 0;
-  const competitorCount = allocations.competitors ?? 0;
-
-  return {
-    auditCredits: auditCount * auditCost.creditsRequired + competitorCount * competitorCost.creditsRequired,
-    aiCredits: contentCount * contentCost.creditsRequired + ebcCount * ebcCost.creditsRequired,
-    imageCredits: imageCount * graphicsCost.creditsRequired,
-  };
+  return computePlanPoolsFromAllocationCredits(allocations);
 }
 
 export async function resolvePlanCreditPools(plan: {
