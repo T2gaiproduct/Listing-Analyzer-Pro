@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   db,
   plansTable,
@@ -23,7 +23,10 @@ export async function isGatewayPaymentProcessed(gatewayPaymentId: string): Promi
   const [existing] = await db
     .select({ id: paymentsTable.id })
     .from(paymentsTable)
-    .where(eq(paymentsTable.gatewayPaymentId, gatewayPaymentId))
+    .where(and(
+      eq(paymentsTable.gatewayPaymentId, gatewayPaymentId),
+      eq(paymentsTable.status, "completed"),
+    ))
     .limit(1);
   return !!existing;
 }

@@ -204,7 +204,7 @@ export async function findPendingGatewayPayment(
 }
 
 function paymentAmountMatches(expectedCents: number, paidCents: number): boolean {
-  return paidCents + 1 >= expectedCents;
+  return Math.abs(paidCents - expectedCents) <= 2;
 }
 
 export async function fulfillGatewayPaymentIntent(params: {
@@ -236,7 +236,7 @@ export async function fulfillGatewayPaymentIntent(params: {
     throw new Error("Payment order not found or already fulfilled");
   }
 
-  const expectedCents = Math.round(pending.amount * 100);
+  const expectedCents = Math.round(Number(pending.amount) * 100);
   if (!paymentAmountMatches(expectedCents, params.paidAmountCents)) {
     throw new Error("Payment amount mismatch");
   }

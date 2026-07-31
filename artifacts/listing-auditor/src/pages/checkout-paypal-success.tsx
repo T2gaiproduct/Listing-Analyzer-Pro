@@ -67,9 +67,36 @@ export default function CheckoutPayPalSuccess() {
     if (capturedRef.current) return;
 
     const context = readPayPalReturnContext();
+
+    async function tryReconcileAndRedirect(): Promise<boolean> {
+      const reconcileRes = await fetch(`${basePath}/api/paypal/reconcile-pending`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!reconcileRes.ok) return false;
+      const summaryRes = await fetch(`${basePath}/api/profile/summary`, { credentials: "include" });
+      if (!summaryRes.ok) return false;
+      const summary = await summaryRes.json() as {
+        subscription?: { status?: string } | null;
+      };
+      const active = summary.subscription?.status === "active" || summary.subscription?.status === "trial";
+      if (!active) return false;
+      clearPayPalReturnStorage();
+      setStatus("success");
+      await markCheckoutComplete(queryClient);
+      setTimeout(() => setLocation("/dashboard"), 1200);
+      return true;
+    }
+
     if (!context.orderId) {
-      setStatus("failed");
-      setErrorMessage("PayPal order not found. If you were charged, contact support with your PayPal receipt.");
+      capturedRef.current = true;
+      void tryReconcileAndRedirect().then((ok) => {
+        if (!ok) {
+          setStatus("failed");
+          setErrorMessage("PayPal order not found. If you were charged, sign out and sign in again to sync your subscription.");
+        }
+      });
       return;
     }
 
@@ -90,14 +117,16 @@ export default function CheckoutPayPalSuccess() {
           creditType?: string;
         };
 
-        clearPayPalReturnStorage();
-
         if (!res.ok || !data.success) {
-          setStatus("failed");
-          setErrorMessage(data.error ?? "PayPal capture failed. Please contact support if you were charged.");
+          const reconciled = await tryReconcileAndRedirect();
+          if (!reconciled) {
+            setStatus("failed");
+            setErrorMessage(data.error ?? "PayPal capture failed. Please contact support if you were charged.");
+          }
           return;
         }
 
+        clearPayPalReturnStorage();
         setStatus("success");
         await markCheckoutComplete(queryClient);
 
@@ -109,9 +138,12 @@ export default function CheckoutPayPalSuccess() {
 
         setTimeout(() => setLocation(redirectPath), 1200);
       } catch {
-        clearPayPalReturnStorage();
-        setStatus("failed");
-        setErrorMessage("Could not verify PayPal payment. Check your email for a receipt or contact support.");
+        const reconciled = await tryReconcileAndRedirect();
+        if (!reconciled) {
+          clearPayPalReturnStorage();
+          setStatus("failed");
+          setErrorMessage("Could not verify PayPal payment. Sign out and sign in again, or contact support.");
+        }
       }
     }
 
