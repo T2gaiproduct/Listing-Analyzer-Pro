@@ -39,6 +39,9 @@ import {
   sumAllocatedMemberCreditsForWorkspace,
   getWorkspaceMemberCredits,
   sumWorkspacePoolsForOwner,
+  poolAvailableForMembers,
+  workspaceFundedCreditTotal,
+  sumCreditBalance,
 } from "../lib/workspace-credits.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
@@ -222,9 +225,10 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     const pool = await getWorkspaceCredits(w.id);
     const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
     const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
-    const poolRemaining = sumCreditTotals(pool);
+    const poolAvailable = poolAvailableForMembers(pool, memberAllocated);
     const memberAllocTotal = sumCreditTotals(memberAllocated);
-    const fundedTotal = poolRemaining + memberAllocTotal + creditsUsedInPeriod;
+    const poolUnassigned = sumCreditBalance(poolAvailable);
+    const fundedTotal = workspaceFundedCreditTotal(pool, memberAllocated, creditsUsedInPeriod);
 
     const membersWithCredits = await Promise.all(w.members.map(async (m) => {
       const allocated = creditsByMemberId.get(m.id);
@@ -257,12 +261,8 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       memberAllocatedCredits: memberAllocated,
       creditsUsedInPeriod,
       fundedTotal,
-      poolRemaining,
-      poolAvailableForMembers: {
-        aiCredits: Math.max(0, pool.aiCredits - memberAllocated.aiCredits),
-        imageCredits: Math.max(0, pool.imageCredits - memberAllocated.imageCredits),
-        auditCredits: Math.max(0, pool.auditCredits - memberAllocated.auditCredits),
-      },
+      poolRemaining: poolUnassigned,
+      poolAvailableForMembers: poolAvailable,
     };
   }));
 

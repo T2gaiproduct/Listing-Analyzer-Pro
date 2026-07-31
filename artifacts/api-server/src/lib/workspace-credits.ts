@@ -19,6 +19,29 @@ export interface CreditTotals {
 
 const ZERO: CreditTotals = { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
 
+export function sumCreditBalance(c: CreditTotals): number {
+  return Number(c.aiCredits ?? 0) + Number(c.imageCredits ?? 0) + Number(c.auditCredits ?? 0);
+}
+
+/** Pool balance not yet assigned to members (members are allocated from the pool, not added on top). */
+export function poolAvailableForMembers(pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
+  return {
+    aiCredits: Math.max(0, Number(pool.aiCredits ?? 0) - Number(memberAllocated.aiCredits ?? 0)),
+    imageCredits: Math.max(0, Number(pool.imageCredits ?? 0) - Number(memberAllocated.imageCredits ?? 0)),
+    auditCredits: Math.max(0, Number(pool.auditCredits ?? 0) - Number(memberAllocated.auditCredits ?? 0)),
+  };
+}
+
+/** Total credits in this workspace = assigned to members + unassigned in pool + used this period. */
+export function workspaceFundedCreditTotal(
+  pool: CreditTotals,
+  memberAllocated: CreditTotals,
+  usedInPeriod: number,
+): number {
+  const available = poolAvailableForMembers(pool, memberAllocated);
+  return sumCreditBalance(memberAllocated) + sumCreditBalance(available) + usedInPeriod;
+}
+
 function keyForType(type: CreditType): "aiCredits" | "imageCredits" | "auditCredits" {
   if (type === "ai") return "aiCredits";
   if (type === "image") return "imageCredits";

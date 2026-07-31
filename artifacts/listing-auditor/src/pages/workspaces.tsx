@@ -99,10 +99,15 @@ function formatCreditBuckets(c: CreditBuckets): string {
 
 function workspaceFundedTotal(ws: WorkspaceOverviewRow): number {
   if (ws.fundedTotal != null && ws.fundedTotal > 0) return ws.fundedTotal;
-  const pool = ws.poolRemaining ?? sumCredits(ws.poolCredits);
   const memberAlloc = sumCredits(ws.memberAllocatedCredits);
+  const poolUnassigned = sumCredits(ws.poolAvailableForMembers);
   const used = ws.creditsUsedInPeriod ?? 0;
-  return pool + memberAlloc + used;
+  return memberAlloc + poolUnassigned + used;
+}
+
+function poolUnassignedTotal(ws: WorkspaceOverviewRow): number {
+  if (ws.poolRemaining != null) return ws.poolRemaining;
+  return sumCredits(ws.poolAvailableForMembers);
 }
 
 export default function WorkspacesPage() {
@@ -465,7 +470,7 @@ export default function WorkspacesPage() {
                         <th className="py-3 pr-4">Assigned</th>
                         <th className="py-3 pr-4">To members</th>
                         <th className="py-3 pr-4">Used</th>
-                        <th className="py-3 pr-4">Pool left</th>
+                        <th className="py-3 pr-4">Unassigned in pool</th>
                         <th className="py-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -512,7 +517,7 @@ export default function WorkspacesPage() {
                                 {(ws.creditsUsedInPeriod ?? 0).toLocaleString()}
                               </td>
                               <td className="py-3 pr-4 font-medium text-slate-800">
-                                {(ws.poolRemaining ?? sumCredits(ws.poolCredits)).toLocaleString()}
+                                {poolUnassignedTotal(ws).toLocaleString()}
                               </td>
                               <td className="py-3 text-right">
                                 <div className="flex items-center justify-end gap-1 flex-wrap">
