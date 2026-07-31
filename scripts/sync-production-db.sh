@@ -32,7 +32,7 @@ if [[ "${SKIP_PUSH:-}" != "1" ]]; then
 fi
 
 if [[ "${SKIP_DATA:-}" != "1" ]]; then
-  echo "==> Data backfill (workspace credit pools + member_credits scope)"
+  echo "==> Data backfill (workspace credits + plan credit columns from allocations)"
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-data-migration.sql
 else
   echo "==> SKIP_DATA=1 — data backfill skipped (API boot will run ensureWorkspaceCreditsMigrated)"

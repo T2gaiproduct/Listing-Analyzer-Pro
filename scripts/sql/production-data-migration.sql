@@ -54,6 +54,14 @@ WHERE mc.id = paired.mc_id
 
 COMMIT;
 
+-- Plan packages: align legacy credit columns with credit_allocations (onboarding/checkout display + grants).
+-- Safe to re-run after admin plan edits.
+UPDATE plans SET
+  audit_credits = COALESCE((credit_allocations->>'audit')::int, 0) + COALESCE((credit_allocations->>'competitors')::int, 0),
+  ai_credits = COALESCE((credit_allocations->>'content')::int, 0) + COALESCE((credit_allocations->>'ebc')::int, 0),
+  image_credits = COALESCE((credit_allocations->>'images')::int, 0)
+WHERE credit_allocations IS NOT NULL AND credit_allocations::text <> '{}';
+
 -- Verification (run manually after COMMIT):
 --   SELECT COUNT(*) FROM workspace_credits;
 --   SELECT COUNT(*) FROM member_credits WHERE workspace_member_id IS NULL AND member_id IS NOT NULL;
