@@ -73,6 +73,7 @@ import {
   CheckoutSuccess,
   CheckoutCancel,
   CheckoutCardSuccess,
+  CheckoutPayPalSuccess,
   AdminDashboard,
   AdminCustomers,
   AdminCustomerDetail,
@@ -630,6 +631,14 @@ function Router() {
       <Route path="/checkout/card-success">
         <Show when="signed-in">
           <CheckoutCardSuccess />
+        </Show>
+        <Show when="signed-out">
+          <Redirect to="/sign-in" />
+        </Show>
+      </Route>
+      <Route path="/checkout/paypal-success">
+        <Show when="signed-in">
+          <CheckoutPayPalSuccess />
         </Show>
         <Show when="signed-out">
           <Redirect to="/sign-in" />

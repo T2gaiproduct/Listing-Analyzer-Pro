@@ -201,13 +201,13 @@ export default function Onboarding() {
     }
   }, [isTeamMember, teamLoading, profileSummary, setLocation]);
 
-  // Paid users who already completed checkout should not land back on plan selection
+  // Paid users should not land back on plan selection or profile after checkout
   useEffect(() => {
     if (!profileSummary) return;
     const subStatus = profileSummary.subscription?.status;
     const hasActivePlan = subStatus === "active" || subStatus === "trial";
-    if (profileSummary.onboardingCompleted && hasActivePlan) {
-      setLocation("/dashboard");
+    if (hasActivePlan) {
+      setLocation("/dashboard", { replace: true });
     }
   }, [profileSummary, setLocation]);
 
@@ -274,9 +274,13 @@ export default function Onboarding() {
       if (data.url) {
         window.location.href = data.url;
       } else if (data.approvalUrl) {
-        localStorage.setItem("paypal_order_id", data.orderId ?? "");
+        const orderId = data.orderId ?? "";
+        localStorage.setItem("paypal_order_id", orderId);
+        sessionStorage.setItem("paypal_order_id", orderId);
         localStorage.setItem("paypal_plan_id", String(selectedPlan.id));
+        sessionStorage.setItem("paypal_plan_id", String(selectedPlan.id));
         localStorage.setItem("paypal_billing_cycle", yearly ? "yearly" : "monthly");
+        sessionStorage.setItem("paypal_billing_cycle", yearly ? "yearly" : "monthly");
         window.location.href = data.approvalUrl;
       }
     },
@@ -436,6 +440,8 @@ export default function Onboarding() {
         amount: finalAmount,
         currency: paymentConfig?.currency ?? "USD",
         origin: window.location.origin,
+        returnUrl: `${window.location.origin}${basePath}/checkout/paypal-success`,
+        cancelUrl: `${window.location.origin}${basePath}/checkout/cancel`,
       });
     } else {
       checkoutMutation.mutate({

@@ -20,6 +20,16 @@ import { computePlanCreditsForSubscription, isUnlimitedPlanCreditValue } from "@
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+const paypalSuccessUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${basePath}/checkout/paypal-success`;
+const paypalCancelUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${basePath}/checkout/cancel`;
+
+function storePayPalCheckout(keys: Record<string, string>) {
+  for (const [key, value] of Object.entries(keys)) {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Subscription {
@@ -118,9 +128,11 @@ function CustomCreditsSection({ balance, config }: { balance: { ai: number; imag
 
       if (gateway === "paypal") {
         if (d.approvalUrl) {
-          localStorage.setItem("paypal_order_id", d.orderId ?? "");
-          localStorage.setItem("paypal_credit_type", creditType);
-          localStorage.setItem("paypal_credit_amount", String(quantity));
+          storePayPalCheckout({
+            paypal_order_id: d.orderId ?? "",
+            paypal_credit_type: creditType,
+            paypal_credit_amount: String(quantity),
+          });
           window.location.href = d.approvalUrl;
         } else {
           toast({ title: "Purchase failed", description: "No PayPal approval URL.", variant: "destructive" });
@@ -346,14 +358,21 @@ function PaymentMethodSection({ sub, config, onSuccess }: PaymentSectionProps) {
     try {
       const res = await fetch(`${basePath}/api/paypal/create-order`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ amount: 1, currency: config.currency, origin: window.location.origin }),
+        credentials: "include",
+        body: JSON.stringify({
+          amount: 1,
+          currency: config.currency,
+          origin: window.location.origin,
+          returnUrl: paypalSuccessUrl,
+          cancelUrl: paypalCancelUrl,
+        }),
       });
       const d = await res.json() as { orderId?: string; approvalUrl?: string; error?: string };
       if (!res.ok || !d.approvalUrl) {
         toast({ title: "PayPal setup failed", description: d.error ?? "Please try again.", variant: "destructive" });
         setLoading(false); return;
       }
-      localStorage.setItem("paypal_order_id", d.orderId ?? "");
+      storePayPalCheckout({ paypal_order_id: d.orderId ?? "" });
       window.location.href = d.approvalUrl;
     } catch {
       toast({ title: "Network error", description: "Please check your connection.", variant: "destructive" });
@@ -624,9 +643,16 @@ export default function Billing() {
             if (d.addedCredits) {
               toast({ title: "Credit purchase successful", description: `Added ${d.addedCredits} ${d.creditType} credits.` });
             } else {
-              toast({ title: planId ? "Subscription activated" : "PayPal payment method added", description: d.payer ? `Linked to ${d.payer}` : undefined });
+              toast({
+                title: planId ? "Subscription activated" : "PayPal payment method added",
+                description: d.payer ? `Linked to ${d.payer}` : undefined,
+              });
             }
+            void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
             void refetchCreditQueries(queryClient);
+            if (planId) {
+              setTimeout(() => setLocation("/dashboard"), 800);
+            }
           } else {
             toast({ title: "PayPal capture failed", description: d.error, variant: "destructive" });
           }
@@ -856,17 +882,22 @@ export default function Billing() {
                           fetch(`${basePath}/api/paypal/create-order`, {
                             method: "POST", headers: { "Content-Type": "application/json" },
                             credentials: "include", body: JSON.stringify({
-                              amount: newPlanPrice,
+                              planId: changePlanId,
+                              billingCycle: changePlanCycle,
                               currency: "USD",
                               origin: window.location.origin,
+                              returnUrl: paypalSuccessUrl,
+                              cancelUrl: paypalCancelUrl,
                             }),
                           })
                             .then((r) => r.json() as Promise<{ orderId?: string; approvalUrl?: string; error?: string }>)
                             .then((d) => {
                               if (d.approvalUrl) {
-                                localStorage.setItem("paypal_order_id", d.orderId ?? "");
-                                localStorage.setItem("paypal_plan_id", String(changePlanId));
-                                localStorage.setItem("paypal_billing_cycle", changePlanCycle);
+                                storePayPalCheckout({
+                                  paypal_order_id: d.orderId ?? "",
+                                  paypal_plan_id: String(changePlanId),
+                                  paypal_billing_cycle: changePlanCycle,
+                                });
                                 window.location.href = d.approvalUrl;
                               } else {
                                 toast({ title: "Could not start checkout", description: d.error ?? "No PayPal approval URL.", variant: "destructive" });
@@ -955,8 +986,10 @@ export default function Billing() {
 
                         if (gateway === "paypal") {
                           if (d.approvalUrl) {
-                            localStorage.setItem("paypal_order_id", d.orderId ?? "");
-                            localStorage.setItem("paypal_pack_id", String(pack.id));
+                            storePayPalCheckout({
+                              paypal_order_id: d.orderId ?? "",
+                              paypal_pack_id: String(pack.id),
+                            });
                             window.location.href = d.approvalUrl;
                           } else {
                             toast({ title: "Purchase failed", description: "No PayPal approval URL.", variant: "destructive" });

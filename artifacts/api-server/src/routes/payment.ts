@@ -9,7 +9,11 @@ import {
   recordPendingGatewayPayment,
   resolveGatewayOrder,
 } from "../lib/gateway-payment";
-import { isAllowedOrigin } from "../lib/allowed-origins";
+import { isAllowedOrigin, isAllowedRedirectUrl } from "../lib/allowed-origins";
+import { getGatewaySettings, getPayPalAccessToken } from "../lib/paypal-client";
+import { fulfillPayPalOrderForUser, reconcileUserPendingPayPalPayments } from "../lib/paypal-capture";
+
+export { getGatewaySettings, getPayPalAccessToken };
 
 const router: IRouter = Router();
 
@@ -25,16 +29,6 @@ async function getSetting(key: string): Promise<string> {
     .from(settingsTable)
     .where(eq(settingsTable.key, key));
   return row?.value ?? "";
-}
-
-export async function getGatewaySettings(): Promise<Record<string, string>> {
-  const rows = await db
-    .select()
-    .from(settingsTable)
-    .where(eq(settingsTable.category, "payment_gateway"));
-  const m: Record<string, string> = {};
-  for (const r of rows) m[r.key] = r.value;
-  return m;
 }
 
 function resolveAppBaseUrl(origin: string | undefined): string {
@@ -176,31 +170,14 @@ router.post("/razorpay/verify-payment", requireAuth, async (req, res): Promise<v
 
 // ─── PayPal ───────────────────────────────────────────────────────────────────
 
-export async function getPayPalAccessToken(): Promise<{ token: string; baseUrl: string }> {
-  const s = await getGatewaySettings();
-  const clientId = s.paypal_client_id ?? "";
-  const secret = s.paypal_client_secret ?? "";
-  const mode = s.paypal_mode ?? "sandbox";
-  if (!clientId || !secret) throw new Error("PayPal credentials not configured");
-
-  const baseUrl = mode === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
-  const r = await fetch(`${baseUrl}/v1/oauth2/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(`${clientId}:${secret}`).toString("base64")}`,
-    },
-    body: "grant_type=client_credentials",
-  });
-  const d = await r.json() as { access_token?: string; error?: string };
-  if (!d.access_token) throw new Error(`PayPal auth failed: ${d.error ?? "unknown"}`);
-  return { token: d.access_token, baseUrl };
-}
-
 router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth!.userId!;
-  const { origin } = req.body as { origin?: string };
+  const { origin, returnUrl, cancelUrl } = req.body as {
+    origin?: string;
+    returnUrl?: string;
+    cancelUrl?: string;
+  };
 
   let resolved;
   try {
@@ -213,6 +190,10 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
   const s = await getGatewaySettings();
   const clientId = s.paypal_client_id ?? "";
   const base = resolveAppBaseUrl(origin);
+  const defaultReturn = `${base}/checkout/paypal-success`;
+  const defaultCancel = `${base}/checkout/cancel`;
+  const finalReturnUrl = returnUrl && isAllowedRedirectUrl(returnUrl) ? returnUrl : defaultReturn;
+  const finalCancelUrl = cancelUrl && isAllowedRedirectUrl(cancelUrl) ? cancelUrl : defaultCancel;
 
   let token: string, baseUrl: string;
   try {
@@ -235,8 +216,8 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
       application_context: {
         brand_name: "SellerLens",
         user_action: "PAY_NOW",
-        return_url: `${base}/billing?paypal_captured=1`,
-        cancel_url: `${base}/billing?paypal_cancelled=1`,
+        return_url: finalReturnUrl,
+        cancel_url: finalCancelUrl,
       },
     }),
   });
@@ -268,56 +249,32 @@ router.post("/paypal/capture-order", requireAuth, async (req, res): Promise<void
   const { orderId } = req.body as { orderId: string };
   if (!orderId) { res.status(400).json({ error: "orderId is required" }); return; }
 
-  let token: string, baseUrl: string;
-  try {
-    ({ token, baseUrl } = await getPayPalAccessToken());
-  } catch (err) {
-    res.status(400).json({ error: (err as Error).message }); return;
+  const result = await fulfillPayPalOrderForUser(userId, orderId);
+  if (!result) {
+    res.status(400).json({ error: "Unable to capture or fulfill this PayPal order" });
+    return;
   }
 
-  const captureRes = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  res.json({
+    success: true,
+    alreadyProcessed: result.alreadyProcessed,
+    payer: result.payer,
+    ...(result.addedCredits !== undefined ? {
+      addedCredits: result.addedCredits,
+      newBalance: result.newBalance,
+      creditType: result.creditType,
+    } : {}),
   });
-  const capture = await captureRes.json() as {
-    status: string;
-    purchase_units?: Array<{ payments?: { captures?: Array<{ id: string; amount: { value: string; currency_code: string } }> } }>;
-    payer?: { email_address?: string };
-    message?: string;
-  };
+});
 
-  if (capture.status !== "COMPLETED") {
-    res.status(400).json({ error: capture.message ?? `PayPal capture failed: ${capture.status}` }); return;
-  }
-
-  const captureUnit = capture.purchase_units?.[0]?.payments?.captures?.[0];
-  const paidAmountCents = Math.round(parseFloat(captureUnit?.amount?.value ?? "0") * 100);
-  const currency = captureUnit?.amount?.currency_code ?? "USD";
-  const payerEmail = capture.payer?.email_address ?? "";
-
+router.post("/paypal/reconcile-pending", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth!.userId!;
   try {
-    const result = await fulfillGatewayPaymentIntent({
-      userId,
-      gateway: "paypal",
-      gatewayPaymentId: captureUnit?.id ?? orderId,
-      gatewayOrderId: orderId,
-      paidAmountCents,
-      currency,
-      payerEmail,
-    });
-
-    res.json({
-      success: true,
-      alreadyProcessed: result.alreadyProcessed,
-      payer: payerEmail,
-      ...(result.addedCredits !== undefined ? {
-        addedCredits: result.addedCredits,
-        newBalance: result.newBalance,
-        creditType: result.creditType,
-      } : {}),
-    });
+    await reconcileUserPendingPayPalPayments(userId);
+    res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 

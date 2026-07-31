@@ -21,6 +21,7 @@ import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
 import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
 import { getGatewaySettings } from "./payment";
+import { reconcileUserPendingPayPalPayments } from "../lib/paypal-capture";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
@@ -272,6 +273,14 @@ router.post("/forms", rateLimit({ route: "forms", windowMs: 60 * 60 * 1000, max:
 /** Lightweight profile for shell/topbar — avoids transactions + billing history. */
 router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+
+  // Self-heal stuck PayPal checkouts (paid on PayPal but capture never ran)
+  try {
+    await reconcileUserPendingPayPalPayments(userId);
+  } catch {
+    /* non-fatal — continue with summary */
+  }
+
   const [profile] = await db
     .select({
       fullName: userProfilesTable.fullName,
@@ -899,8 +908,8 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
         application_context: {
           brand_name: "SellerLens",
           user_action: "PAY_NOW",
-          return_url: `${base}/billing?paypal_captured=1`,
-          cancel_url: `${base}/billing?paypal_cancelled=1`,
+          return_url: `${base}/checkout/paypal-success`,
+          cancel_url: `${base}/checkout/cancel`,
         },
       }),
     });
@@ -1000,8 +1009,8 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
         application_context: {
           brand_name: "SellerLens",
           user_action: "PAY_NOW",
-          return_url: `${base}/billing?paypal_captured=1`,
-          cancel_url: `${base}/billing?paypal_cancelled=1`,
+          return_url: `${base}/checkout/paypal-success`,
+          cancel_url: `${base}/checkout/cancel`,
         },
       }),
     });
