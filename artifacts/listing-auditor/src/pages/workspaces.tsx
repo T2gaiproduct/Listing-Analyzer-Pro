@@ -84,6 +84,7 @@ interface WorkspaceOverview {
   accountUsedInPeriod?: number;
   accountCreditsTotal?: number;
   accountUnallocatedTotal?: number;
+  accountBalancePlusUsed?: number;
   inWorkspacePoolsTotal?: number;
   inWorkspacePools?: CreditBuckets;
   ownerCredits?: CreditBuckets;
@@ -209,6 +210,13 @@ export default function WorkspacesPage() {
     if (overview?.accountCreditsTotal != null) return overview.accountCreditsTotal;
     return accountUnallocatedTotal + inWorkspacePoolsTotal;
   }, [overview, accountUnallocatedTotal, inWorkspacePoolsTotal]);
+
+  const accountUsedInPeriod = overview?.accountUsedInPeriod ?? 0;
+
+  const accountBalancePlusUsed = useMemo(() => {
+    if (overview?.accountBalancePlusUsed != null) return overview.accountBalancePlusUsed;
+    return accountCreditsTotal + accountUsedInPeriod;
+  }, [overview, accountCreditsTotal, accountUsedInPeriod]);
 
   const planDisplayName = overview?.planName ?? sub?.planName ?? "Your plan";
   const billingPeriod = overview?.billingPeriod ?? (
@@ -413,6 +421,12 @@ export default function WorkspacesPage() {
                       {format(new Date(billingPeriod.end), "MMM d")}
                     </>
                   )}
+                  {!overviewLoading && planCreditsTotal > 0 && (
+                    <>
+                      <br />
+                      Plan allocation for this billing period (not your current balance).
+                    </>
+                  )}
                 </p>
               </CardContent>
             </Card>
@@ -461,10 +475,20 @@ export default function WorkspacesPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-slate-900">
-                  {overviewLoading ? "—" : (overview?.accountUsedInPeriod ?? 0).toLocaleString()}
+                  {overviewLoading ? "—" : accountUsedInPeriod.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Total in account: {accountCreditsTotal.toLocaleString()} credits
+                  In account + workspaces this period
+                  <br />
+                  Total in account: {accountCreditsTotal.toLocaleString()}
+                  <br />
+                  {accountCreditsTotal.toLocaleString()} remaining + {accountUsedInPeriod.toLocaleString()} used ={" "}
+                  {accountBalancePlusUsed.toLocaleString()}
+                  {planCreditsTotal > 0 && accountBalancePlusUsed === planCreditsTotal
+                    ? " (matches plan)"
+                    : planCreditsTotal > 0
+                      ? ` · plan grants ${planCreditsTotal.toLocaleString()}`
+                      : ""}
                 </p>
               </CardContent>
             </Card>

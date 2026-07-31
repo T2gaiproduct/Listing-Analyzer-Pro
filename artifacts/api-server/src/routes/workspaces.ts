@@ -55,6 +55,7 @@ import { resolvePlanCreditPools, computePlanCreditsFromAllocations } from "../li
 import { ensureSubscriptionCredits } from "../lib/subscription-credits.js";
 import {
   sumCreditsUsedInPeriod,
+  sumCreditsUsedForAccountOwner,
   sumCreditsUsedForWorkspace,
   sumCreditsUsedInWorkspaceForUser,
   sumCreditTotals,
@@ -207,10 +208,11 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
           imageCredits: planPools.imageCredits,
         };
 
-  const accountUsedInPeriod = await sumCreditsUsedInPeriod(accountOwnerId, periodStart, periodEnd);
+  const accountUsedInPeriod = await sumCreditsUsedForAccountOwner(accountOwnerId, periodStart, periodEnd);
   const accountUnallocatedTotal = accountCreditSummary.unallocatedTotal;
   const inPoolsTotal = accountCreditSummary.inPoolsTotal;
   const accountCreditsTotal = accountCreditSummary.accountTotal;
+  const accountBalancePlusUsed = accountCreditsTotal + accountUsedInPeriod;
 
   const owned = await db
     .select()
@@ -302,6 +304,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     accountUsedInPeriod,
     accountCreditsTotal,
     accountUnallocatedTotal,
+    accountBalancePlusUsed,
     inWorkspacePoolsTotal: inPoolsTotal,
     ownerCredits: {
       aiCredits: ownerCredits.aiCredits,
