@@ -1,13 +1,21 @@
 export interface ProfileSummaryForGate {
   onboardingCompleted?: boolean;
+  subscription?: { status?: string } | null;
   accountRole?: { type?: string };
   pendingWorkspaceInvite?: { token: string; workspaceName?: string; workspaceId?: number } | null;
+}
+
+/** Subscription statuses that mean checkout finished — skip owner onboarding. */
+export function hasPaidOrActiveSubscription(summary: ProfileSummaryForGate): boolean {
+  const status = summary.subscription?.status;
+  return status === "active" || status === "trial" || status === "trialing";
 }
 
 /** Account owners must finish onboarding unless summary marks them exempt. */
 export function requiresOnboarding(summary: ProfileSummaryForGate): boolean {
   if (summary.pendingWorkspaceInvite?.token) return false;
   if (summary.onboardingCompleted) return false;
+  if (hasPaidOrActiveSubscription(summary)) return false;
   if (summary.accountRole?.type === "team_member") return false;
   if (summary.accountRole?.type === "platform_admin") return false;
   return true;
