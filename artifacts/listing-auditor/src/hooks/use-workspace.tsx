@@ -55,6 +55,9 @@ interface WorkspaceContextValue {
   isWorkspaceApiScopeActive: boolean;
   /** Account owner must pick a workspace after visiting the workspace admin hub. */
   needsWorkspaceSelection: boolean;
+  /** Billing customer (accountRole user), including before first workspace exists. */
+  isBillingAccountOwner: boolean;
+  profileLoading: boolean;
   refetch: () => void;
 }
 
@@ -90,7 +93,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const workspaces = listData?.workspaces ?? [];
 
-  const { data: profileSummary } = useQuery<{
+  const { data: profileSummary, isLoading: profileLoading } = useQuery<{
     accountRole?: { type: string; label: string };
   }>({
     queryKey: ["user-profile-summary"],
@@ -297,7 +300,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     roleName,
     isAccountOwner,
     isTeamMemberAccount,
-    isLoading: listLoading || permLoading || !isLoaded,
+    isLoading: listLoading || permLoading || profileLoading || !isLoaded,
     setActiveWorkspaceId: setWorkspace,
     can,
     canView,
@@ -306,10 +309,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     canManageWorkspaces: isAccountOwner || can("workspaces", "viewGlobal"),
     isWorkspaceApiScopeActive: workspaceApiScopeActive,
     needsWorkspaceSelection,
+    isBillingAccountOwner,
+    profileLoading,
     refetch: () => { void refetchList(); },
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
-    permissions, roleName, isAccountOwner, isTeamMemberAccount,
+    permissions, roleName, isAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
     listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection,
   ]);

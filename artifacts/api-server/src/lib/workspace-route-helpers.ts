@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
+import { ownerPermissions } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { resolveWorkspace, type WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 import {
@@ -9,7 +10,9 @@ import {
   requireWorkspacePerm,
   workspacePermOpts,
   type WorkspaceContext,
+  resolveWorkspaceContext,
 } from "./workspace-context";
+import { getDefaultWorkspaceId, ensureSubscriberDefaultWorkspace } from "./ensure-workspaces.js";
 import {
   getMemberWorkedProjects,
   memberHasProjectAccess,
@@ -36,6 +39,51 @@ export async function resolveTeamAndWorkspace(
   }
   const team = await resolveTeamContext(userId);
   (req as TeamAuthedRequest).team = team;
+  await resolveWorkspace(req, res, next);
+}
+
+/** Dashboard account overview: allow billing owners without x-workspace-id. */
+export async function resolveTeamAndDashboardScope(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const userId = (req as AuthedRequest).userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const team = await resolveTeamContext(userId);
+  (req as TeamAuthedRequest).team = team;
+
+  const accountScope = req.query.scope === "account";
+  const ownerId = team.ownerUserId;
+  if (accountScope && !team.isTeamMember && userId === ownerId) {
+    await ensureSubscriberDefaultWorkspace(ownerId);
+    const defaultId = await getDefaultWorkspaceId(ownerId);
+    if (defaultId) {
+      const ctx = await resolveWorkspaceContext(userId, defaultId);
+      if (ctx) {
+        (req as WorkspaceAuthedRequest).workspace = ctx;
+        next();
+        return;
+      }
+    }
+    (req as WorkspaceAuthedRequest).workspace = {
+      workspaceId: defaultId ?? 0,
+      workspaceName: "Account",
+      accountOwnerId: ownerId,
+      isAccountOwner: true,
+      permissions: ownerPermissions(),
+      legacyRole: "owner",
+      preserveLegacyPermissions: true,
+      useLegacy: false,
+      team,
+    };
+    next();
+    return;
+  }
+
   await resolveWorkspace(req, res, next);
 }
 

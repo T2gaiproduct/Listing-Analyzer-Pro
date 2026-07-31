@@ -232,9 +232,10 @@ export default function Dashboard() {
     workspaces,
     isWorkspaceApiScopeActive,
     refetch: refetchWorkspaces,
+    isBillingAccountOwner,
+    profileLoading,
   } = useWorkspace();
 
-  const isBillingAccountOwner = isAccountOwner && !isTeamMemberAccount;
   const needsAutoWorkspace =
     isBillingAccountOwner && workspaces.length === 0 && !wsLoading;
   const [workspaceProvisionAttempted, setWorkspaceProvisionAttempted] = useState(false);
@@ -283,7 +284,12 @@ export default function Dashboard() {
           : `${basePath}/api/dashboard`,
         { skipWorkspaceHeader: isBillingAccountOwner },
       ),
-    enabled: clerkLoaded && !!user && (isBillingAccountOwner || !!featureWorkspaceId) && (isAccountOwner || canView("dashboard")),
+    enabled:
+      clerkLoaded
+      && !!user
+      && !profileLoading
+      && (isBillingAccountOwner || !!featureWorkspaceId)
+      && (isAccountOwner || canView("dashboard")),
     staleTime: 30_000,
     retry: 3,
   });
@@ -319,7 +325,7 @@ export default function Dashboard() {
     );
   }
 
-  if (wsLoading || provisioningWorkspace || (isLoading && (isBillingAccountOwner || memberWorkspaceId))) {
+  if (wsLoading || provisioningWorkspace || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />

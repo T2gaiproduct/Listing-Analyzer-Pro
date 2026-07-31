@@ -19,6 +19,7 @@ import {
 import { type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndWorkspace,
+  resolveTeamAndDashboardScope,
   getActiveWorkspaceId,
   ownerProjectFilter,
   getWorkspaceCtx,
@@ -291,7 +292,7 @@ function computeTimeSavedHours(transactions: { featureType: string | null; amoun
   return Math.round((minutes / 60) * 10) / 10;
 }
 
-router.get("/dashboard", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: Request, res: Response): Promise<void> => {
   try {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getOwnerId(req);
