@@ -127,7 +127,7 @@ function proxyRequest(req, res, attempt = 0) {
 
 function proxyUpgrade(req, socket, head) {
   const path = req.url?.split("?")[0] ?? "/";
-  // Only proxy API websockets. Forwarding Vite HMR websockets from Cloudflare crashes Vite (WS_ERR_EXPECTED_MASK).
+  // Only proxy API websockets. Vite HMR is disabled when using dev-proxy / Cloudflare tunnel.
   if (!path.startsWith("/api/ws")) {
     socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
     socket.destroy();

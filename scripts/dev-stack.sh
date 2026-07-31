@@ -232,6 +232,7 @@ tmux_cmd kill-session -t vite-test 2>/dev/null || true
 tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
   export PORT=19145
   export BASE_PATH=/
+  export VITE_DISABLE_HMR=true
   export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
   export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
   while true; do
@@ -292,6 +293,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
   tmux_cmd new-session -d -s frontend-live -c "$ROOT" -- bash -lc "
     export PORT=19145
     export BASE_PATH=/
+    export VITE_DISABLE_HMR=true
     export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
     export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'
     export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
