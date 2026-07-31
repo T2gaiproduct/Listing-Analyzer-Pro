@@ -17,7 +17,8 @@ async function isSubscriptionAlreadyActive(): Promise<boolean> {
     };
     return Boolean(
       data.onboardingCompleted
-      || (data.subscription && ["active", "trial", "trialing"].includes(data.subscription.status ?? "")),
+      && data.subscription
+      && ["active", "trial"].includes(data.subscription.status ?? ""),
     );
   } catch {
     return false;
@@ -29,32 +30,11 @@ async function markCheckoutComplete(queryClient: QueryClient) {
     onboardingCompleted?: boolean;
     subscription?: { status?: string; planName?: string } | null;
   } | undefined) => ({
-    ...(prev ?? {}),
+    ...prev,
     onboardingCompleted: true,
     subscription: { ...(prev?.subscription ?? {}), status: "active" },
   }));
-  try {
-    await queryClient.refetchQueries({ queryKey: ["user-profile-summary"] });
-  } catch {
-    /* keep optimistic summary if refetch fails */
-  }
-  // Never let a stale summary send the user back to onboarding after payment.
-  queryClient.setQueryData(["user-profile-summary"], (prev: {
-    onboardingCompleted?: boolean;
-    subscription?: { status?: string; planName?: string } | null;
-  } | undefined) => ({
-    ...(prev ?? {}),
-    onboardingCompleted: true,
-    subscription: {
-      ...(prev?.subscription ?? {}),
-      status:
-        prev?.subscription?.status === "active"
-        || prev?.subscription?.status === "trial"
-        || prev?.subscription?.status === "trialing"
-          ? prev.subscription.status
-          : "active",
-    },
-  }));
+  await queryClient.refetchQueries({ queryKey: ["user-profile-summary"] });
   await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
   await queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
   await refetchCreditQueries(queryClient);

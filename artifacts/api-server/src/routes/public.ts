@@ -284,7 +284,7 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
   const sub = subRows[0] ?? null;
-  const hasActiveSubscription = sub != null && ["active", "trial", "trialing"].includes(sub.status);
+  const hasActiveSubscription = sub != null && ["active", "trial"].includes(sub.status);
   let onboardingCompleted = profile?.onboardingCompleted ?? false;
 
   const auth = getAuth(req);
