@@ -40,6 +40,20 @@ if [[ "${LEGACY_MEMBER_CREDITS}" != "0" ]]; then
   echo "    WARN: run scripts/sql/production-data-migration.sql or restart API after workspace member sync"
 fi
 
+STALE_PLAN_CREDITS="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -A -c \
+  "SELECT COUNT(*) FROM plans
+   WHERE credit_allocations IS NOT NULL
+     AND credit_allocations::text <> '{}'
+     AND (
+       audit_credits <> COALESCE((credit_allocations->>'audit')::int, 0) + COALESCE((credit_allocations->>'competitors')::int, 0)
+       OR ai_credits <> COALESCE((credit_allocations->>'content')::int, 0) + COALESCE((credit_allocations->>'ebc')::int, 0)
+       OR image_credits <> COALESCE((credit_allocations->>'images')::int, 0)
+     );")"
+echo "==> Plans with stale credit columns vs credit_allocations: ${STALE_PLAN_CREDITS}"
+if [[ "${STALE_PLAN_CREDITS}" != "0" ]]; then
+  echo "    WARN: run scripts/sql/production-data-migration.sql or scripts/sync-plan-credit-columns.sql"
+fi
+
 echo "==> API health"
 curl -sf "$API_URL/api/healthz" | head -c 200
 echo ""
