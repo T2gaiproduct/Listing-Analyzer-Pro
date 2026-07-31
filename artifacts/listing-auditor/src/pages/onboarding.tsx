@@ -17,6 +17,7 @@ import { COUNTRIES } from "@/lib/countries";
 import { useTeam } from "@/hooks/use-team";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { hasPaidOrActiveSubscription } from "@/lib/onboarding-gate";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -203,10 +204,9 @@ export default function Onboarding() {
   // Paid users who already completed checkout should not land back on plan selection
   useEffect(() => {
     if (!profileSummary) return;
-    const subStatus = profileSummary.subscription?.status;
-    const hasActivePlan = subStatus === "active" || subStatus === "trial";
-    if (profileSummary.onboardingCompleted && hasActivePlan) {
-      setLocation("/dashboard");
+    const hasActivePlan = hasPaidOrActiveSubscription(profileSummary);
+    if (hasActivePlan || profileSummary.onboardingCompleted) {
+      setLocation("/dashboard", { replace: true });
     }
   }, [profileSummary, setLocation]);
 
