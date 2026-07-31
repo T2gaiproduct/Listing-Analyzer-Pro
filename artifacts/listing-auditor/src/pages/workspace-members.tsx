@@ -64,7 +64,7 @@ export default function WorkspaceMembersPage() {
 
   const canInvite = isAccountOwner || can("team", "create");
   const canRemoveMember = isAccountOwner || can("team", "delete");
-  const canAllocateCredits = !isAccountOwner && can("credits", "edit");
+  const canAllocateCredits = isAccountOwner || can("credits", "edit");
   const canViewCredits = isAccountOwner || can("credits", "viewGlobal");
 
   const { data: membersData, isLoading } = useQuery({
@@ -239,7 +239,7 @@ export default function WorkspaceMembersPage() {
             {isAccountOwner && (
               <p className="text-xs text-slate-500">
                 Fund this pool from your account on the{" "}
-                <Link href="/workspaces" className="underline font-medium">Workspaces</Link> dashboard.
+                <Link href="/workspaces" className="underline font-medium">Workspaces</Link> dashboard, then assign credits to members in the table below.
               </p>
             )}
           </CardContent>

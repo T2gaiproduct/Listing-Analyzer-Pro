@@ -651,7 +651,7 @@ export default function Team() {
             members={scopedWorkspaceMembers}
             stats={workspaceMemberStats}
             roles={accountRoles}
-            canManageCredits={!isAccountOwner && can("credits", "edit")}
+            canManageCredits={isAccountOwner || can("credits", "edit")}
             availableToAllocate={workspacePoolAvailable ?? data?.availableToAllocate}
             editingCredits={editingCredits}
             setEditingCredits={setEditingCredits}
