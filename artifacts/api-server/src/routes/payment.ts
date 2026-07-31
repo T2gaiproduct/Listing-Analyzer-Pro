@@ -9,7 +9,7 @@ import {
   recordPendingGatewayPayment,
   resolveGatewayOrder,
 } from "../lib/gateway-payment";
-import { isAllowedOrigin } from "../lib/allowed-origins";
+import { isAllowedOrigin, isAllowedRedirectUrl } from "../lib/allowed-origins";
 
 const router: IRouter = Router();
 
@@ -200,7 +200,11 @@ export async function getPayPalAccessToken(): Promise<{ token: string; baseUrl: 
 router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth!.userId!;
-  const { origin } = req.body as { origin?: string };
+  const { origin, returnUrl, cancelUrl } = req.body as {
+    origin?: string;
+    returnUrl?: string;
+    cancelUrl?: string;
+  };
 
   let resolved;
   try {
@@ -213,6 +217,10 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
   const s = await getGatewaySettings();
   const clientId = s.paypal_client_id ?? "";
   const base = resolveAppBaseUrl(origin);
+  const defaultReturn = `${base}/checkout/paypal-success`;
+  const defaultCancel = `${base}/checkout/cancel`;
+  const finalReturnUrl = returnUrl && isAllowedRedirectUrl(returnUrl) ? returnUrl : defaultReturn;
+  const finalCancelUrl = cancelUrl && isAllowedRedirectUrl(cancelUrl) ? cancelUrl : defaultCancel;
 
   let token: string, baseUrl: string;
   try {
@@ -235,8 +243,8 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
       application_context: {
         brand_name: "SellerLens",
         user_action: "PAY_NOW",
-        return_url: `${base}/billing?paypal_captured=1`,
-        cancel_url: `${base}/billing?paypal_cancelled=1`,
+        return_url: finalReturnUrl,
+        cancel_url: finalCancelUrl,
       },
     }),
   });

@@ -899,8 +899,8 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
         application_context: {
           brand_name: "SellerLens",
           user_action: "PAY_NOW",
-          return_url: `${base}/billing?paypal_captured=1`,
-          cancel_url: `${base}/billing?paypal_cancelled=1`,
+          return_url: `${base}/checkout/paypal-success`,
+          cancel_url: `${base}/checkout/cancel`,
         },
       }),
     });
@@ -1000,8 +1000,8 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
         application_context: {
           brand_name: "SellerLens",
           user_action: "PAY_NOW",
-          return_url: `${base}/billing?paypal_captured=1`,
-          cancel_url: `${base}/billing?paypal_cancelled=1`,
+          return_url: `${base}/checkout/paypal-success`,
+          cancel_url: `${base}/checkout/cancel`,
         },
       }),
     });

@@ -401,18 +401,16 @@ export async function fulfillGatewayPaymentIntent(params: {
     { userId: params.userId, creditType: "audit", amount: grantCredits.auditCredits, reason: `${plan.name} plan — ${params.gateway} payment confirmed`, featureType: "subscription" },
   ]);
 
-  if (intent.profile) {
-    await upsertUserProfile(params.userId, {
-      ...(intent.profile.fullName !== undefined && { fullName: intent.profile.fullName }),
-      ...(intent.profile.companyName !== undefined && { companyName: intent.profile.companyName }),
-      ...(intent.profile.phone !== undefined && { phone: intent.profile.phone }),
-      ...(intent.profile.country !== undefined && { country: intent.profile.country }),
-      ...(intent.profile.gstNumber !== undefined && { gstNumber: intent.profile.gstNumber }),
-      ...(intent.profile.websiteUrl !== undefined && { websiteUrl: intent.profile.websiteUrl }),
-      ...(intent.profile.teamSize !== undefined && { teamSize: intent.profile.teamSize }),
-      onboardingCompleted: true,
-    });
-  }
+  await upsertUserProfile(params.userId, {
+    ...(intent.profile?.fullName !== undefined && { fullName: intent.profile.fullName }),
+    ...(intent.profile?.companyName !== undefined && { companyName: intent.profile.companyName }),
+    ...(intent.profile?.phone !== undefined && { phone: intent.profile.phone }),
+    ...(intent.profile?.country !== undefined && { country: intent.profile.country }),
+    ...(intent.profile?.gstNumber !== undefined && { gstNumber: intent.profile.gstNumber }),
+    ...(intent.profile?.websiteUrl !== undefined && { websiteUrl: intent.profile.websiteUrl }),
+    ...(intent.profile?.teamSize !== undefined && { teamSize: intent.profile.teamSize }),
+    onboardingCompleted: true,
+  });
 
   if (intent.couponCode) {
     const couponResult = await resolveCoupon(intent.couponCode);
