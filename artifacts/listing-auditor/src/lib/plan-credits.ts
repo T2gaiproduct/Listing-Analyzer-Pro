@@ -237,12 +237,43 @@ export function computePlanPoolsFromAllocationCredits(
   };
 }
 
+export function sumPlanMonthlyCreditAllowances(counts: PlanAllocationCounts): number | null {
+  const parts = [counts.audit, counts.content, counts.images, counts.ebc, counts.competitors];
+  if (parts.some((n) => n >= 999)) return null;
+  return parts.reduce((sum, n) => sum + n, 0);
+}
+
+export function formatPlanMonthlyCreditTotal(counts: PlanAllocationCounts): string {
+  const total = sumPlanMonthlyCreditAllowances(counts);
+  if (total === null) return "∞";
+  return total.toLocaleString();
+}
+
 export function computePlanCreditsFromPlan(
   plan: PlanRowForAllocations,
   rules: CreditRuleLike[] = [],
 ): PlanCreditsComputed {
   const counts = resolvePlanAllocationCounts(plan, rules);
-  return computePlanCreditsFromAllocations(counts, rules);
+  const pools = computePlanPoolsFromAllocationCredits({
+    audit: counts.audit,
+    content: counts.content,
+    images: counts.images,
+    ebc: counts.ebc,
+    competitors: counts.competitors,
+  });
+  const total = sumPlanMonthlyCreditAllowances(counts);
+
+  return {
+    ...pools,
+    totalCredits: total ?? pools.auditCredits + pools.aiCredits + pools.imageCredits,
+    allocations: {
+      audit: counts.audit,
+      content: counts.content,
+      images: counts.images,
+      ebc: counts.ebc,
+      competitors: counts.competitors,
+    },
+  };
 }
 
 export function computePlanCreditsFromAllocations(
@@ -259,10 +290,18 @@ export function computePlanCreditsFromAllocations(
     Object.keys(a).length > 0
       ? computePlanPoolsFromAllocationCredits(a)
       : { auditCredits: audit + competitors, aiCredits: content + ebc, imageCredits: images };
+  const allowanceTotal = sumPlanMonthlyCreditAllowances({
+    audit,
+    content,
+    images,
+    ebc,
+    competitors,
+    teamMembers: a.teamMembers ?? 1,
+  });
 
   return {
     ...pools,
-    totalCredits: pools.auditCredits + pools.aiCredits + pools.imageCredits,
+    totalCredits: allowanceTotal ?? pools.auditCredits + pools.aiCredits + pools.imageCredits,
     allocations: {
       audit,
       content,

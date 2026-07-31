@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { PageSeo } from "@/components/page-seo";
 import { cn } from "@/lib/utils";
-import { resolvePlanAllocationCounts, resolvePlanDisplayFeatures } from "@/lib/plan-credits";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
@@ -114,10 +113,9 @@ const FALLBACK_PLANS: DisplayPlan[] = [
   },
 ];
 
-function dbPlanToDisplay(p: DbPlan, creditRules: { featureType: string; creditsRequired: number; isActive?: boolean }[] = []): DisplayPlan {
+function dbPlanToDisplay(p: DbPlan): DisplayPlan {
   const isHighlighted = p.isHighlighted || p.tag === "Most Popular";
-  const displayFeatures = resolvePlanDisplayFeatures(p, creditRules);
-  const includedFeatures: { text: string; included: boolean }[] = displayFeatures.map((f) => ({ text: f, included: true }));
+  const includedFeatures: { text: string; included: boolean }[] = (p.features ?? []).map((f) => ({ text: f, included: true }));
   const excludedFeatures: { text: string; included: boolean }[] = (p.excludedFeatures ?? []).map((f) => ({ text: f, included: false }));
   return {
     name: p.name,
@@ -186,7 +184,7 @@ export default function Pricing() {
   const faqs = dbFaqs.length > 0 ? dbFaqs.map((f) => ({ q: f.question, a: f.answer })) : defaultFaqs;
 
   const plans: DisplayPlan[] = dbPlans.length > 0
-    ? dbPlans.map((p) => dbPlanToDisplay(p, creditRules))
+    ? dbPlans.map((p) => dbPlanToDisplay(p))
     : FALLBACK_PLANS;
 
   const planGridClass =

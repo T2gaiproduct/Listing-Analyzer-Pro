@@ -9,9 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import {
-  isAutoCreditFeatureLine,
   resolvePlanAllocationCounts,
-  resolvePlanDisplayFeatures,
 } from "@/lib/plan-credits";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -130,7 +128,7 @@ function PlanForm({
       <div className="col-span-2">
         <Label className="text-xs flex items-center gap-1.5"><Check className="w-3 h-3 text-green-500" />Included Features (comma-separated)</Label>
         <Input className="mt-1 h-8 text-sm" value={form.featuresText} onChange={f("featuresText")} placeholder="Competitor comparison, Score breakdown, Priority support" />
-        <p className="text-xs text-slate-400 mt-1">Credit lines (audits, AI content, images) are auto-generated from the monthly credit fields above on save. Credit rules apply when customers use features, not when granting plan credits.</p>
+        <p className="text-xs text-slate-400 mt-1">Optional marketing bullets for the pricing page. Monthly credits are shown in the table above — they are not added here automatically.</p>
       </div>
       <div className="col-span-2">
         <Label className="text-xs flex items-center gap-1.5"><X className="w-3 h-3 text-slate-400" />Excluded / Not Included (comma-separated)</Label>
@@ -280,7 +278,6 @@ export default function AdminPlans() {
 
   function planToFormInitial(plan: Plan) {
     const counts = resolvePlanAllocationCounts(plan, creditRules);
-    const manualFeatures = (plan.features ?? []).filter((line) => !isAutoCreditFeatureLine(line));
     return {
       name: plan.name,
       description: plan.description ?? "",
@@ -292,7 +289,7 @@ export default function AdminPlans() {
       ebcCredits: counts.ebc,
       competitorCredits: counts.competitors,
       teamMembers: counts.teamMembers,
-      featuresText: manualFeatures.join(", "),
+      featuresText: (plan.features ?? []).join(", "),
       excludedFeaturesText: (plan.excludedFeatures ?? []).join(", "),
       isTrial: plan.isTrial,
       trialDays: plan.trialDays || 14,
@@ -408,20 +405,16 @@ export default function AdminPlans() {
                     ));
                   })()}
                 </div>
-                {(() => {
-                  const displayFeatures = resolvePlanDisplayFeatures(plan, creditRules);
-                  if (displayFeatures.length === 0) return null;
-                  return (
+                {plan.features.length > 0 && (
                   <ul className="space-y-1">
-                    {displayFeatures.slice(0, 4).map((feat) => (
+                    {plan.features.slice(0, 4).map((feat) => (
                       <li key={feat} className="flex items-center gap-1.5 text-xs text-slate-600">
                         <Check className="w-3 h-3 text-green-500 flex-shrink-0" />{feat}
                       </li>
                     ))}
-                    {displayFeatures.length > 4 && <li className="text-xs text-slate-400">+{displayFeatures.length - 4} more</li>}
+                    {plan.features.length > 4 && <li className="text-xs text-slate-400">+{plan.features.length - 4} more</li>}
                   </ul>
-                  );
-                })()}
+                )}
                 <div className="flex gap-2 pt-2 border-t border-slate-100">
                   <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => setEditingId(plan.id)}>
                     <Pencil className="w-3 h-3 mr-1" /> Edit

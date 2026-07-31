@@ -43,7 +43,7 @@ import {
   upsertAdminRoleInvite,
 } from "../lib/admin-invites.js";
 import { buildAdminInviteUrl } from "../lib/admin-invite-token.js";
-import { computePlanPoolsFromAllocations, planRowToGrantCredits, syncPlanFeaturesForSave } from "../lib/plan-credits.js";
+import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 import {
   allKnownNotificationTypes,
   enrichNotificationsForAdminLog,
@@ -621,7 +621,6 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
   const allocations = creditAllocations ?? {};
   const pools = await computePlanPoolsFromAllocations(allocations);
-  const syncedFeatures = await syncPlanFeaturesForSave(allocations, teamMembers ?? 1, features);
   const [plan] = await db
     .insert(plansTable)
     .values({
@@ -631,7 +630,7 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
       auditCredits: pools.auditCredits,
       teamMembers: teamMembers ?? 1,
       creditAllocations: allocations,
-      features: syncedFeatures,
+      features: features ?? [],
       excludedFeatures: excludedFeatures ?? [],
       isTrial: isTrial ?? false,
       trialDays: trialDays ?? 0,
@@ -655,12 +654,8 @@ router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> =
     setObj.aiCredits = pools.aiCredits;
     setObj.imageCredits = pools.imageCredits;
     setObj.auditCredits = pools.auditCredits;
-    setObj.features = await syncPlanFeaturesForSave(
-      creditAllocations,
-      teamMembers ?? 1,
-      features,
-    );
-  } else if (features !== undefined) {
+  }
+  if (features !== undefined) {
     setObj.features = features;
   }
   const [plan] = await db
