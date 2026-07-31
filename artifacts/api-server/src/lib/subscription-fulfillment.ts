@@ -12,6 +12,7 @@ import { grantPlanCreditsDelta, subscriptionGrantsTotal, type PlanCredits } from
 import { planRowToGrantCredits } from "./plan-credits";
 import { hasRequiredProfileFields, upsertUserProfile } from "./user-profile";
 import { incrementCouponUsage, loadActiveCoupon } from "./coupon-validation.js";
+import { ensureSubscriberDefaultWorkspace } from "./ensure-workspaces.js";
 
 export interface SubscriptionFulfillmentResult {
   activated: boolean;
@@ -131,6 +132,8 @@ export async function fulfillStripeSubscriptionCheckout(
       ...(needsProfileBackfill ? profileFromMeta : {}),
     });
 
+    await ensureSubscriberDefaultWorkspace(userId);
+
     if (existingSub.stripeCheckoutSessionId !== sessionId || !existingSub.stripeSubscriptionId) {
       const stripeSub = session.subscription as Stripe.Subscription | null;
       const stripeSubId = stripeSub && typeof stripeSub === "object" ? stripeSub.id : null;
@@ -224,6 +227,8 @@ export async function fulfillStripeSubscriptionCheckout(
     stripeCustomerId: customerId ?? profileRow?.stripeCustomerId ?? null,
     ...(needsProfileBackfill ? profileFromMeta : {}),
   });
+
+  await ensureSubscriberDefaultWorkspace(userId);
 
   const cc = session.metadata?.couponCode;
   if (cc) {
