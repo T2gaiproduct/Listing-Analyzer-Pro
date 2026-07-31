@@ -449,7 +449,7 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
     return;
   }
 
-  const canAllocate = ctx.isAccountOwner || checkPerm(ctx, "credits", "edit");
+  const canAllocate = checkPerm(ctx, "credits", "edit");
   if (!canAllocate) {
     res.status(403).json({ error: "Forbidden" });
     return;
