@@ -48,6 +48,7 @@ export async function sumCreditsUsedForWorkspace(
       and(
         eq(creditTransactionsTable.workspaceId, workspaceId),
         sql`${creditTransactionsTable.amount} < 0`,
+        sql`coalesce(${creditTransactionsTable.featureType}, '') != 'subscription'`,
         gte(creditTransactionsTable.createdAt, periodStart),
         lte(creditTransactionsTable.createdAt, periodEnd),
       ),

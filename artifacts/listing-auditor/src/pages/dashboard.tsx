@@ -264,12 +264,14 @@ export default function Dashboard() {
 
   const { data: workspacePoolData } = useQuery<{
     poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+    memberAllocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
   }>({
     queryKey: ["workspace-pool-credits", featureWorkspaceId],
     queryFn: () =>
-      fetchJson<{ poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number } }>(
-        `${basePath}/api/workspaces/${featureWorkspaceId}/members`,
-      ),
+      fetchJson<{
+        poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+        memberAllocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
+      }>(`${basePath}/api/workspaces/${featureWorkspaceId}/members`),
     enabled: clerkLoaded && !!user && showWorkspacePoolCredits,
     staleTime: 30_000,
   });
@@ -476,8 +478,8 @@ export default function Dashboard() {
                 : "No credits allocated yet"
               : creditScopeLabel === "workspace_pool"
                 ? creditsAllowance > 0
-                  ? `Workspace pool · of ${creditsAllowance.toLocaleString()} funded`
-                  : "Fund this workspace on Manage workspaces"
+                  ? `of ${creditsAllowance.toLocaleString()} assigned to this workspace`
+                  : "No credits assigned — fund on Manage workspaces"
                 : (stats.teamCreditsUsedInPeriod ?? 0) > 0
                   ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
                   : `of ${creditsAllowance.toLocaleString()} credits`
