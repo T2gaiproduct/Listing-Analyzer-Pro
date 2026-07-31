@@ -173,3 +173,16 @@ export function workspaceOwnerFilter(
     eq(workspaceColumn.workspaceId as never, workspaceId),
   )!;
 }
+
+/** All projects for an account owner, or scoped to one workspace when workspaceId is set. */
+export function ownerProjectFilter(
+  ownerColumn: { userId: unknown },
+  workspaceColumn: { workspaceId: unknown },
+  ownerId: string,
+  workspaceId: number | null,
+): SQL {
+  if (workspaceId == null) {
+    return eq(ownerColumn.userId as never, ownerId);
+  }
+  return workspaceOwnerFilter(ownerColumn, workspaceColumn, ownerId, workspaceId);
+}

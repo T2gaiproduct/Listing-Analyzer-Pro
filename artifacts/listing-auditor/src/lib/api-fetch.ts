@@ -44,12 +44,16 @@ async function resolveAuthToken(): Promise<string | null> {
   }
 }
 
-async function authHeaders(init?: RequestInit): Promise<Headers> {
+type ApiFetchInit = RequestInit & { skipWorkspaceHeader?: boolean };
+
+async function authHeaders(init?: ApiFetchInit): Promise<Headers> {
   const headers = new Headers(init?.headers);
   const token = await resolveAuthToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const workspaceId = getActiveWorkspaceId();
-  if (workspaceId) headers.set(WORKSPACE_HEADER, String(workspaceId));
+  if (!init?.skipWorkspaceHeader) {
+    const workspaceId = getActiveWorkspaceId();
+    if (workspaceId) headers.set(WORKSPACE_HEADER, String(workspaceId));
+  }
   return headers;
 }
 
@@ -98,7 +102,7 @@ export function uninstallApiAuthFetch(): void {
 
 export async function fetchJson<T>(
   url: string,
-  init?: RequestInit,
+  init?: ApiFetchInit,
 ): Promise<T> {
   const headers = await authHeaders(init);
   const res = await fetch(url, { credentials: "include", ...init, headers });
