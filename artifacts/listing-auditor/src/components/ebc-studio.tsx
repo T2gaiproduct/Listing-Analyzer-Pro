@@ -446,7 +446,7 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
 
   const productImage = audit.imageUrls[0];
 
-  const { canEdit } = useTeam();
+  const { canEditAudits } = useTeam();
 
   return (
     <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">
@@ -457,13 +457,13 @@ export function EbcStudio({ audit, auditId }: EbcStudioProps) {
           <p className="text-sm text-muted-foreground mt-0.5">Design Amazon-style Enhanced Brand Content and export as JPG</p>
         </div>
         <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-wrap sm:w-auto sm:justify-end shrink-0">
-          {canEdit && (
+          {canEditAudits && (
             <Button variant="outline" size="sm" onClick={handleReset} title="Reset all content to AI defaults" className="w-full sm:w-auto">
               <RefreshCw className="w-3.5 h-3.5 sm:mr-1.5" />
               <span className="hidden sm:inline">Reset</span>
             </Button>
           )}
-          {canEdit && (
+          {canEditAudits && (
             <Button
               variant="outline" size="sm"
               onClick={() => { setShowAiPrompt(!showAiPrompt); setShowColorPicker(false); }}

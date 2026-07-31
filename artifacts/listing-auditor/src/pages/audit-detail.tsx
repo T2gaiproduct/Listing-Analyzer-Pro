@@ -117,7 +117,7 @@ export default function AuditDetail({ id }: { id: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/";
-  const { canEdit, isTeamMember, role, memberCredits, memberCreditsLoading } = useTeam();
+  const { canEditAudits, isTeamMember, role, memberCredits, memberCreditsLoading } = useTeam();
 
   const { data: audit, isLoading } = useGetAudit(id, {
     query: { enabled: !!id, queryKey: getGetAuditQueryKey(id) },
@@ -368,7 +368,7 @@ export default function AuditDetail({ id }: { id: number }) {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 mt-2">
-                  {canEdit && (
+                  {canEditAudits && (
                     <Button onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow} size="lg">
                       {generateContent.isPending ? (
                         <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
@@ -386,7 +386,7 @@ export default function AuditDetail({ id }: { id: number }) {
                   ) : (
                     <Badge variant="secondary" className="text-xs font-normal">1 text credit</Badge>
                   )}
-                  {!canEdit && (
+                  {!canEditAudits && (
                     <Badge variant="outline" className="text-xs font-normal">Read-only — contact your team admin</Badge>
                   )}
                 </div>
@@ -400,7 +400,7 @@ export default function AuditDetail({ id }: { id: number }) {
                   Amazon-Ready Content
                 </h2>
                 <div className="flex items-center gap-3">
-                  {canEdit && (
+                  {canEditAudits && (
                     <Button variant="outline" size="sm" onClick={handleGenerateContent} disabled={generateContent.isPending || aiLow}>
                       {generateContent.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Regenerating...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Regenerate</>}
                     </Button>
@@ -527,7 +527,7 @@ export default function AuditDetail({ id }: { id: number }) {
               <Users className="w-5 h-5 text-muted-foreground" />Competitor Analysis
             </h2>
             <div className="flex items-center gap-3">
-              {canEdit && (
+              {canEditAudits && (
                 <Button asChild size="sm" variant="outline" disabled={auditLow}>
                   <Link href={auditLow ? "/billing" : `/audits/${id}/competitors/new`}>
                     <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Competitor
@@ -552,7 +552,7 @@ export default function AuditDetail({ id }: { id: number }) {
                 <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                 <p className="font-semibold text-foreground/70 mb-1">No competitors added</p>
                 <p className="text-sm text-muted-foreground mb-4">Compare your listing against top competitors to find gaps.</p>
-                {canEdit && (
+                {canEditAudits && (
                   <Button asChild size="sm" variant="outline">
                     <Link href={`/audits/${id}/competitors/new`}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Competitor</Link>
                   </Button>
@@ -597,7 +597,7 @@ export default function AuditDetail({ id }: { id: number }) {
                         ))}
                       </div>
                     </div>
-                    {canEdit && (
+                    {canEditAudits && (
                       <div className="flex justify-end mt-3 border-t pt-3">
                         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 text-xs"
                           onClick={() => handleDeleteCompetitor(competitor.id)} disabled={deleteCompetitor.isPending}>

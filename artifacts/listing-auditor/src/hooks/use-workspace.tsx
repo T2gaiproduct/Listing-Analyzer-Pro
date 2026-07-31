@@ -49,6 +49,7 @@ interface WorkspaceContextValue {
   can: (feature: WorkspaceFeature, action: WorkspaceAction) => boolean;
   canView: (feature: WorkspaceFeature) => boolean;
   canEdit: (feature: WorkspaceFeature) => boolean;
+  canDelete: (feature: WorkspaceFeature) => boolean;
   canManageWorkspaces: boolean;
   /** False on workspace admin hub and account routes — project APIs should not run. */
   isWorkspaceApiScopeActive: boolean;
@@ -239,6 +240,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [can],
   );
 
+  const canDelete = useCallback(
+    (feature: WorkspaceFeature) => can(feature, "delete"),
+    [can],
+  );
+
   const setWorkspace = useCallback((id: number) => {
     setSelectedId(id);
     setWorkspaceScopeCommitted(true);
@@ -269,6 +275,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     can,
     canView,
     canEdit,
+    canDelete,
     canManageWorkspaces: isAccountOwner || can("workspaces", "viewGlobal"),
     isWorkspaceApiScopeActive: workspaceApiScopeActive,
     needsWorkspaceSelection,
@@ -276,7 +283,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
     permissions, roleName, isAccountOwner, isTeamMemberAccount,
-    listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, refetchList,
+    listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection,
   ]);
 

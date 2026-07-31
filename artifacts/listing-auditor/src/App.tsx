@@ -16,6 +16,7 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { useTeam } from "@/hooks/use-team";
+import { WorkspacePermissionGate } from "@/components/workspace-permission-gate";
 import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
@@ -334,6 +335,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function WorkspaceProtectedRoute({
+  requireCreate,
+  children,
+}: {
+  requireCreate?: boolean;
+  children: React.ReactNode;
+}) {
+  const [location] = useLocation();
+  return (
+    <ProtectedRoute>
+      <WorkspacePermissionGate path={location} requireCreate={requireCreate}>
+        {children}
+      </WorkspacePermissionGate>
+    </ProtectedRoute>
+  );
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, isLoaded } = useUser();
@@ -639,84 +657,84 @@ function Router() {
 
       {/* Protected customer pages */}
       <Route path="/billing">
-        <ProtectedRoute><Billing /></ProtectedRoute>
+        <WorkspaceProtectedRoute><Billing /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/team">
-        <ProtectedRoute><Team /></ProtectedRoute>
+        <WorkspaceProtectedRoute><Team /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/roles">
         <ProtectedRoute><RolesPage /></ProtectedRoute>
       </Route>
       <Route path="/workspaces">
-        <ProtectedRoute><WorkspacesPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><WorkspacesPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/workspaces/:id/members">
-        {params => <ProtectedRoute><WorkspaceMembersPage /></ProtectedRoute>}
+        {params => <WorkspaceProtectedRoute><WorkspaceMembersPage /></WorkspaceProtectedRoute>}
       </Route>
       <Route path="/workspaces/:id/roles">
         <Redirect to="/roles" />
       </Route>
       <Route path="/workspaces/:id">
-        {params => <ProtectedRoute><WorkspaceDetailPage /></ProtectedRoute>}
+        {params => <WorkspaceProtectedRoute><WorkspaceDetailPage /></WorkspaceProtectedRoute>}
       </Route>
       <Route path="/profile">
-        <ProtectedRoute><Profile /></ProtectedRoute>
+        <WorkspaceProtectedRoute><Profile /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
       </Route>
       <Route path="/recent-projects">
-        <ProtectedRoute><RecentProjectsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><RecentProjectsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audit-listings">
-        <ProtectedRoute><AuditListings /></ProtectedRoute>
+        <WorkspaceProtectedRoute><AuditListings /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/videos">
-        <ProtectedRoute><VideosPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><VideosPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads">
-        <ProtectedRoute><AdsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><AdsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/settings">
-        <ProtectedRoute><SettingsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><SettingsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/new">
-        <ProtectedRoute><AuditNew /></ProtectedRoute>
+        <WorkspaceProtectedRoute requireCreate><AuditNew /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/workflow">
-        <ProtectedRoute><AuditWorkflow /></ProtectedRoute>
+        <WorkspaceProtectedRoute requireCreate><AuditWorkflow /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/audits/:id">
         {params => (
-          <ProtectedRoute><AuditDetail id={parseInt(params.id)} /></ProtectedRoute>
+          <WorkspaceProtectedRoute><AuditDetail id={parseInt(params.id)} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/audits/:id/competitors/new">
         {params => (
-          <ProtectedRoute><CompetitorNew id={parseInt(params.id)} /></ProtectedRoute>
+          <WorkspaceProtectedRoute requireCreate><CompetitorNew id={parseInt(params.id)} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/projects">
-        <ProtectedRoute><ProjectsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><ProjectsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/projects/create">
-        <ProtectedRoute><CreateProject /></ProtectedRoute>
+        <WorkspaceProtectedRoute requireCreate><CreateProject /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/projects/:id/generating">
         {params => (
-          <ProtectedRoute><GeneratingPage params={{ id: params.id }} /></ProtectedRoute>
+          <WorkspaceProtectedRoute><GeneratingPage params={{ id: params.id }} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/projects/:id">
         {params => (
-          <ProtectedRoute><ProjectDetail params={{ id: params.id }} /></ProtectedRoute>
+          <WorkspaceProtectedRoute><ProjectDetail params={{ id: params.id }} /></WorkspaceProtectedRoute>
         )}
       </Route>
       <Route path="/archive">
-        <ProtectedRoute><ArchivePage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><ArchivePage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/notifications">
-        <ProtectedRoute><NotificationsPage /></ProtectedRoute>
+        <WorkspaceProtectedRoute><NotificationsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

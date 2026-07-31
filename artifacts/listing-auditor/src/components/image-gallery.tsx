@@ -88,7 +88,7 @@ interface ImageCardProps {
   onView: () => void;
 }
 
-function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, onView, canEdit }: ImageCardProps & { canEdit: boolean }) {
+function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownload, onView, canEditAudits }: ImageCardProps & { canEditAudits: boolean }) {
   return (
     <div className="group relative rounded-lg border overflow-hidden bg-muted/20">
       <div className="aspect-square relative overflow-hidden">
@@ -106,7 +106,7 @@ function ImageCard({ record, isLoading, onRegenerate, onEdit, onHistory, onDownl
         {!isLoading && (
           <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
-            {canEdit && (
+            {canEditAudits && (
               <>
                 <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
                 <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />
@@ -237,7 +237,7 @@ export function ImageGallery({
   generatedImages,
 }: ImageGalleryProps) {
   const queryClient = useQueryClient();
-  const { canEdit } = useTeam();
+  const { canEditAudits } = useTeam();
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
@@ -379,7 +379,7 @@ export function ImageGallery({
               : "Generate studio-quality product images with AI"}
           </p>
         </div>
-        {canEdit && (
+        {canEditAudits && (
           <Button
             onClick={handleGenerateAll}
             disabled={isGeneratingAll || loadingIds.size > 0}
@@ -426,7 +426,7 @@ export function ImageGallery({
                     key={record.id}
                     record={record}
                     isLoading={loadingIds.has(record.id) || isGeneratingAll}
-                    canEdit={canEdit}
+                    canEditAudits={canEditAudits}
                     onRegenerate={() => handleRegenerateOne(record)}
                     onEdit={() => handleOpenEdit(record)}
                     onHistory={() => setHistoryRecord(record)}

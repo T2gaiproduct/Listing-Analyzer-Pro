@@ -80,7 +80,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
   const [, nav] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { canEdit } = useTeam();
+  const { canEditGraphics } = useTeam();
 
   const returnTo = new URLSearchParams(window.location.search).get("returnTo") || "/projects";
 
@@ -327,7 +327,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             Download All
           </Button>
         )}
-        {canEdit && !isGenerating && (
+        {canEditGraphics && !isGenerating && (
           <Button
             onClick={() => {
               if (hasRecords) {
@@ -385,7 +385,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
             <ImageCard
               key={record.id}
               record={record}
-              canEdit={canEdit}
+              canEditGraphics={canEditGraphics}
               isLoading={loadingIds.has(record.id)}
               onRegenerate={() => handleRegenerate(record)}
               onEdit={() => handleOpenEdit(record)}
@@ -731,7 +731,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
 
 function ImageCard({
   record,
-  canEdit,
+  canEditGraphics,
   isLoading,
   onRegenerate,
   onEdit,
@@ -740,7 +740,7 @@ function ImageCard({
   onView,
 }: {
   record: ImageRecord;
-  canEdit: boolean;
+  canEditGraphics: boolean;
   isLoading: boolean;
   onRegenerate: () => void;
   onEdit: () => void;
@@ -765,7 +765,7 @@ function ImageCard({
         {!isLoading && (
           <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <ActionBtn icon={<Maximize2 className="h-4 w-4" />} title="View full screen" onClick={onView} />
-            {canEdit && (
+            {canEditGraphics && (
               <>
                 <ActionBtn icon={<RefreshCw className="h-4 w-4" />} title="Regenerate" onClick={onRegenerate} />
                 <ActionBtn icon={<Wand2 className="h-4 w-4" />} title="Edit with AI" onClick={onEdit} />

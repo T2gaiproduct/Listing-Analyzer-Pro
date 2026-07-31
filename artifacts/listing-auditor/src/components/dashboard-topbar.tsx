@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { buildProfileMenuItems } from "@/lib/profile-menu-items";
 import { TopbarWorkspaceSwitcher } from "@/components/topbar-workspace-switcher";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -18,21 +19,10 @@ function profileMenuItems(
   isOwner: boolean,
   isAccountOwner: boolean,
   variant: "customer" | "admin",
+  canView: ReturnType<typeof useWorkspace>["canView"],
+  can: ReturnType<typeof useWorkspace>["can"],
 ) {
-  if (variant === "admin") {
-    return [
-      { icon: Settings, label: "Admin Settings", href: "/admin/settings/platform" },
-      { icon: UserCircle, label: "My Profile", href: "/profile" },
-    ];
-  }
-  return [
-    { icon: UserCircle, label: "Edit Profile", href: "/profile" },
-    { icon: Receipt, label: isTeamMember && !isOwner ? "My Usage" : "Billing", href: "/billing" },
-    { icon: Users, label: "Team", href: "/team" },
-    ...(isAccountOwner ? [{ icon: Shield, label: "Roles", href: "/roles" }] : []),
-    { icon: Building2, label: "Workspaces", href: "/workspaces" },
-    { icon: Settings, label: "Settings", href: "/settings" },
-  ];
+  return buildProfileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can);
 }
 
 const helpSubmenuItems = [
@@ -77,8 +67,8 @@ export function DashboardTopbar({
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
-  const { isAccountOwner } = useWorkspace();
-  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant);
+  const { isAccountOwner, canView, can } = useWorkspace();
+  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can);
   const showWorkspaceSwitcher = variant === "customer";
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
