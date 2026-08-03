@@ -603,12 +603,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const displayCredits = isTeamMember
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-    : showWorkspacePoolCredits && workspacePoolCredits
-      ? workspacePoolCredits
+    : showWorkspacePoolCredits
+      ? (workspacePoolCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
       : isAccountDashboardRoute && accountCreditSummary?.accountTotalBuckets
         ? accountCreditSummary.accountTotalBuckets
         : accountCreditSummary?.unallocated ?? ownerCredits;
-  const creditsScopeLabel = showWorkspacePoolCredits && workspacePoolCredits
+  const creditsScopeLabel = showWorkspacePoolCredits
     ? "workspace"
     : isTeamMember
       ? "member"

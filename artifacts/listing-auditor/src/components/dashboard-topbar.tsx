@@ -97,9 +97,11 @@ export function DashboardTopbar({
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
   const breakdownCredits =
-    creditsScopeLabel === "account_total" && accountCreditSummary?.accountTotalBuckets
-      ? accountCreditSummary.accountTotalBuckets
-      : accountCreditSummary?.unallocated ?? credits;
+    creditsScopeLabel === "workspace"
+      ? credits
+      : creditsScopeLabel === "account_total" && accountCreditSummary?.accountTotalBuckets
+        ? accountCreditSummary.accountTotalBuckets
+        : accountCreditSummary?.unallocated ?? credits;
   const creditBalanceLabel =
     creditsScopeLabel === "workspace"
       ? "Workspace credits"
