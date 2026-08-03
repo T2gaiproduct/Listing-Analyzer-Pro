@@ -38,59 +38,59 @@ function TutorialFanCard({
     <div
       className={cn(
         "group flex flex-col w-[190px] sm:w-[220px] md:w-[250px] lg:w-[270px] xl:w-[290px] rounded-2xl overflow-hidden bg-white transition-all duration-1000 ease-out",
-        "border shadow-sm hover:shadow-md",
+        "shadow-sm hover:shadow-md",
         isCenter
-          ? "border-orange-400 shadow-lg shadow-orange-100/80 ring-1 ring-orange-200/60"
-          : "border-slate-200",
+          ? "border-2 border-orange-400 shadow-lg shadow-orange-100/80"
+          : "border border-slate-200/80",
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10",
       )}
     >
-      <div className="relative aspect-[4/5] bg-slate-100 overflow-hidden">
+      <div className="relative aspect-[5/6] bg-slate-100 overflow-hidden">
         {item.image ? (
           <img
             src={item.image}
             alt={item.title}
-            className="absolute inset-0 w-full h-full object-cover opacity-95 group-hover:scale-[1.02] transition-transform duration-500"
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
             loading="lazy"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
         )}
-        <div className="absolute inset-0 bg-black/15 group-hover:bg-black/10 transition-colors" />
+        <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div
             className={cn(
-              "rounded-full bg-white/95 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform",
+              "rounded-full bg-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform",
               isCenter ? "w-14 h-14 sm:w-16 sm:h-16" : "w-12 h-12 sm:w-14 sm:h-14",
             )}
           >
             <Play
               className={cn(
-                "text-orange-600 ml-0.5",
+                "fill-none stroke-orange-500 stroke-[2.5] ml-0.5",
                 isCenter ? "w-6 h-6 sm:w-7 sm:h-7" : "w-5 h-5 sm:w-6 sm:h-6",
               )}
             />
           </div>
         </div>
         {item.duration && (
-          <span className="absolute bottom-3 right-3 bg-black/60 text-white text-xs font-medium px-2 py-1 rounded">
+          <span className="absolute bottom-2.5 right-2.5 bg-black/75 text-white text-xs font-medium px-2 py-0.5 rounded-md">
             {item.duration}
           </span>
         )}
       </div>
 
-      <div className="p-4 sm:p-5 flex flex-col min-h-[5.5rem]">
+      <div className="flex flex-col flex-1 bg-white p-4 sm:p-5 min-h-[6rem]">
         {category && (
-          <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded mb-2 self-start">
+          <span className="text-xs font-medium text-orange-500 mb-1.5 self-start">
             {category}
           </span>
         )}
-        <p className="font-semibold text-slate-800 text-sm sm:text-base leading-snug line-clamp-2">
+        <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug line-clamp-2">
           {item.title}
         </p>
         {item.steps && (
-          <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-            <Clock className="w-3 h-3 shrink-0" />
+          <p className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
             {item.steps} steps
           </p>
         )}
@@ -234,28 +234,24 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
 
         <div
           className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 overflow-x-auto overflow-y-visible scrollbar-hide md:overflow-x-visible mb-2 sm:mb-4"
+          style={{ perspective: "1700px", perspectiveOrigin: "50% 100%" }}
         >
-          <div
-            className="mx-auto rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white/70 backdrop-blur-sm shadow-sm max-w-[min(100%,82rem)]"
-            style={{ perspective: "1700px", perspectiveOrigin: "50% 100%" }}
-          >
-            <div className="flex justify-center items-end py-10 sm:py-12 min-h-[400px] sm:min-h-[480px] lg:min-h-[520px]">
-              <div
-                className="inline-flex items-end justify-center origin-bottom scale-[0.8] sm:scale-[0.88] md:scale-[0.94] lg:scale-[0.98] xl:scale-100 px-6 sm:px-10"
-                style={{ transformStyle: "preserve-3d" }}
-              >
-                {phoneItems.map((item, index) => (
-                  <FanSlot
-                    key={`${item.title}-${index}`}
-                    item={item}
-                    index={index}
-                    layout={FAN_LAYOUT[index] ?? FAN_LAYOUT[2]}
-                    visible={visible}
-                    isCenter={index === 2}
-                    reduceMotion={reduceMotion}
-                  />
-                ))}
-              </div>
+          <div className="flex justify-center items-end py-8 sm:py-10 min-h-[400px] sm:min-h-[480px] lg:min-h-[520px]">
+            <div
+              className="inline-flex items-end justify-center origin-bottom scale-[0.8] sm:scale-[0.88] md:scale-[0.94] lg:scale-[0.98] xl:scale-100 px-4 sm:px-8"
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              {phoneItems.map((item, index) => (
+                <FanSlot
+                  key={`${item.title}-${index}`}
+                  item={item}
+                  index={index}
+                  layout={FAN_LAYOUT[index] ?? FAN_LAYOUT[2]}
+                  visible={visible}
+                  isCenter={index === 2}
+                  reduceMotion={reduceMotion}
+                />
+              ))}
             </div>
           </div>
         </div>
