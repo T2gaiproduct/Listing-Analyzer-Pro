@@ -33,7 +33,7 @@ export function buildProfileMenuItems(
   if (variant === "admin") {
     return [
       { icon: Settings, label: "Admin Settings", href: "/admin/settings/platform" },
-      { icon: UserCircle, label: "My Profile", href: "/profile" },
+      { icon: UserCircle, label: "My Profile", href: "/admin/profile" },
     ];
   }
 

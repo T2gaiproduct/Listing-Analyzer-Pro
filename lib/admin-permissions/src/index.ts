@@ -180,6 +180,8 @@ export function canAccessAdminRoute(
   permissions: readonly string[] | null | undefined,
   opts?: { isSuperAdmin?: boolean; roleName?: string | null },
 ): boolean {
+  const path = normalizeAdminPath(pathname);
+  if (path === "/admin/profile") return true;
   const required = resolveAdminRoutePermission(pathname);
   if (!required) return opts?.isSuperAdmin === true || isSuperAdminRoleName(opts?.roleName);
   return hasAdminPermission(permissions, required, opts);

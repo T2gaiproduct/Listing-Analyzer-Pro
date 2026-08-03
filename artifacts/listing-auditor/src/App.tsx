@@ -317,6 +317,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ProfilePageRoute() {
+  const { isAdmin, isLoaded } = useIsAdmin();
+  if (!isLoaded) return <AuthLoading />;
+  if (isAdmin) return <Redirect to="/admin/profile" />;
+  return (
+    <WorkspaceProtectedRoute>
+      <Profile />
+    </WorkspaceProtectedRoute>
+  );
+}
+
 function WorkspaceProtectedRoute({
   requireCreate,
   children,
@@ -506,6 +517,9 @@ function Router() {
       <Route path="/admin/team-activity">
         <AdminRoute><AdminTeamActivity /></AdminRoute>
       </Route>
+      <Route path="/admin/profile">
+        <AdminRoute><Profile /></AdminRoute>
+      </Route>
       <Route path="/admin/settings/platform">
         <AdminRoute><AdminSettingsPlatform /></AdminRoute>
       </Route>
@@ -668,7 +682,7 @@ function Router() {
         {params => <WorkspaceProtectedRoute><WorkspaceDetailPage /></WorkspaceProtectedRoute>}
       </Route>
       <Route path="/profile">
-        <WorkspaceProtectedRoute><Profile /></WorkspaceProtectedRoute>
+        <ProfilePageRoute />
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
