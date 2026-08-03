@@ -43,7 +43,7 @@ import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { projectTypeToFeature } from "@/lib/workspace-route-access";
 import { isWorkspaceAdminOverviewRoute, isAccountScopedRoute } from "@/lib/workspace-routes";
-import { WORKSPACES_HUB_LABEL, WORKSPACES_HUB_PATH } from "@/lib/workspaces-hub";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
@@ -220,7 +220,7 @@ export function Layout({ children }: { children: ReactNode }) {
     isBillingAccountOwner,
   } = useWorkspace();
 
-  const homeHref = isBillingAccountOwner ? WORKSPACES_HUB_PATH : "/dashboard";
+  const homeHref = "/dashboard";
   const canViewArchive = isAccountOwner || canView("archive");
   const canViewNotifications = isAccountOwner || canView("notifications");
   const canViewBilling = isAccountOwner || canView("billing");

@@ -155,7 +155,11 @@ export function TopbarWorkspaceSwitcher() {
   const openActiveWorkspace = () => {
     setOpen(false);
     if (isAccountOwner) {
-      navigate(WORKSPACES_HUB_PATH);
+      if (onWorkspaceDashboard) {
+        navigate("/dashboard");
+        return;
+      }
+      navigate("/dashboard");
       return;
     }
     setOpen((v) => !v);
@@ -174,6 +178,7 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
+  const onAccountDashboard = location === "/dashboard" && isBillingAccountOwner;
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const viewedWorkspaceId = parseWorkspaceRouteId(location);
@@ -189,7 +194,9 @@ export function TopbarWorkspaceSwitcher() {
 
   const pillName = onWorkspaceDashboard
     ? WORKSPACES_HUB_LABEL
-    : accountPill?.name
+    : onAccountDashboard
+      ? "Dashboard"
+      : accountPill?.name
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.name ?? scopedWorkspace?.name ?? "Workspace")
         : needsWorkspaceSelection
@@ -197,7 +204,9 @@ export function TopbarWorkspaceSwitcher() {
           : scopedWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
     ? "Manage pools & members"
-    : accountPill?.subtitle
+    : onAccountDashboard
+      ? "Account overview"
+      : accountPill?.subtitle
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.clientLabel?.trim() || scopedWorkspace?.clientLabel?.trim() || null)
         : needsWorkspaceSelection

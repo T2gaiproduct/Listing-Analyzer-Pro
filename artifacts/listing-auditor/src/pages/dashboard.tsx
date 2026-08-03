@@ -1,4 +1,4 @@
-import { Link, Redirect } from "wouter";
+import { Link } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -333,10 +333,6 @@ export default function Dashboard() {
     user?.firstName ?? user?.fullName?.split(" ")[0] ?? user?.primaryEmailAddress?.emailAddress?.split("@")[0] ?? "there";
   const memberCreditTotal =
     (memberCredits?.auditCredits ?? 0) + (memberCredits?.aiCredits ?? 0) + (memberCredits?.imageCredits ?? 0);
-
-  if (isBillingAccountOwner && !profileLoading && !wsLoading) {
-    return <Redirect to="/workspaces" />;
-  }
 
   if (isMemberView && memberWorkspaceId && !canView("dashboard") && !isAccountOwner) {
     return (
