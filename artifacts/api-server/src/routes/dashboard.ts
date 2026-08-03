@@ -505,7 +505,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       creditsAllowance =
         displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
     }
-  } else if (workspaceId && wsCtx.isAccountOwner) {
+  } else if (workspaceId && wsCtx.isAccountOwner && !wsCtx.isDefault) {
     creditScope = "workspace_pool";
     displayCredits = await getWorkspaceCredits(workspaceId);
     const workspaceUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);

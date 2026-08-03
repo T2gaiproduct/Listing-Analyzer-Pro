@@ -80,6 +80,7 @@ export async function resolveTeamAndDashboardScope(
       workspaceName: "Account",
       accountOwnerId: ownerId,
       isAccountOwner: true,
+      isDefault: true,
       permissions: ownerPermissions(),
       legacyRole: "owner",
       preserveLegacyPermissions: true,
@@ -213,6 +214,7 @@ export function buildTeamAwareCreditCtx(req: Request): import("./credits.js").Te
     workspaceId: ws.workspaceId,
     workspaceMemberId: ws.workspaceMemberId,
     isAccountOwner: ws.isAccountOwner,
+    isDefaultWorkspace: ws.isDefault,
   };
 }
 

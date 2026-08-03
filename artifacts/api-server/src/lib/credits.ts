@@ -258,6 +258,7 @@ export interface TeamAwareContext {
   workspaceId?: number;
   workspaceMemberId?: number;
   isAccountOwner?: boolean;
+  isDefaultWorkspace?: boolean;
 }
 
 async function resolveWorkspaceMemberId(ctx: TeamAwareContext): Promise<number | null> {
@@ -280,7 +281,7 @@ export async function checkCreditsTeamAware(
     return { hasCredits: currentBalance >= amount, currentBalance, needed: amount };
   }
 
-  if (ctx.workspaceId != null && !ctx.isTeamMember) {
+  if (ctx.workspaceId != null && !ctx.isTeamMember && !ctx.isDefaultWorkspace) {
     const pool = await getWorkspaceCredits(ctx.workspaceId);
     const currentBalance = pool[type === "ai" ? "aiCredits" : type === "image" ? "imageCredits" : "auditCredits"];
     return { hasCredits: currentBalance >= amount, currentBalance, needed: amount };
@@ -323,7 +324,7 @@ export async function deductCreditsTeamAware(
     );
   }
 
-  if (ctx.workspaceId != null && !ctx.isTeamMember) {
+  if (ctx.workspaceId != null && !ctx.isTeamMember && !ctx.isDefaultWorkspace) {
     return deductWorkspacePoolForOwner(
       ctx.workspaceId,
       ctx.userId,
