@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const DROPDOWN_PREVIEW_LIMIT = 8;
@@ -47,6 +48,8 @@ export function TopbarWorkspaceSwitcher() {
     needsWorkspaceSelection,
     isBillingAccountOwner,
   } = useWorkspace();
+  const { workspacesEnabled, upgradeShort } = useWorkspacesPlan();
+  const workspacesLocked = isAccountOwner && !workspacesEnabled;
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -58,7 +61,7 @@ export function TopbarWorkspaceSwitcher() {
   const [sort, setSort] = useState<SortMode>("az");
   const [form, setForm] = useState({ name: "", description: "", clientLabel: "" });
 
-  const canCreate = isAccountOwner || can("workspaces", "create");
+  const canCreate = !workspacesLocked && (isAccountOwner || can("workspaces", "create"));
 
   useEffect(() => {
     if (!open) return;
@@ -262,7 +265,7 @@ export function TopbarWorkspaceSwitcher() {
           >
             <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform", open && "rotate-180")} />
           </button>
-          {canCreate && (
+          {canCreate ? (
             <>
               <div className="w-px h-5 bg-slate-200 flex-shrink-0" />
               <button
@@ -278,7 +281,20 @@ export function TopbarWorkspaceSwitcher() {
                 <Plus className="w-4 h-4" />
               </button>
             </>
-          )}
+          ) : workspacesLocked ? (
+            <>
+              <div className="w-px h-5 bg-slate-200 flex-shrink-0" />
+              <button
+                type="button"
+                title={upgradeShort}
+                disabled
+                className="flex items-center justify-center w-9 h-full text-slate-300 cursor-not-allowed rounded-r-lg"
+                onClick={() => toast({ title: "Upgrade required", description: upgradeShort })}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </>
+          ) : null}
         </div>
 
         {open && (

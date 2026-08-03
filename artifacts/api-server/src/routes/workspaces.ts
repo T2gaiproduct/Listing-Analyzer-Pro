@@ -22,6 +22,10 @@ import {
   WORKSPACE_FEATURE_GROUP_ORDER,
 } from "@workspace/workspace-permissions";
 import {
+  accountWorkspacesEnabled,
+  workspacesPlanGateBody,
+} from "../lib/plan-workspaces.js";
+import {
   listAccessibleWorkspaces,
   resolveWorkspaceContext,
   resolveAccountOwnerId,
@@ -126,6 +130,8 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     res.status(403).json({ error: "Only the account owner can view workspace overview" });
     return;
   }
+
+  const workspacesEnabled = await accountWorkspacesEnabled(accountOwnerId);
 
   await ensureSubscriptionCredits(accountOwnerId);
   const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, accountOwnerId));
@@ -314,6 +320,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     inWorkspacePools,
     availableToFundWorkspaces,
     workspaces: workspacesWithPools,
+    workspacesEnabled,
   });
 });
 
@@ -325,6 +332,11 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
   const accountOwnerId = await resolveAccountOwnerId(userId);
   if (accountOwnerId !== userId) {
     res.status(403).json({ error: "Only the account owner can create workspaces" });
+    return;
+  }
+
+  if (!await accountWorkspacesEnabled(accountOwnerId)) {
+    res.status(403).json(workspacesPlanGateBody());
     return;
   }
 
@@ -374,6 +386,11 @@ router.patch("/workspaces/:id/credits", requireAuth, requireWorkspaceAccess, asy
   const userId = (req as AuthedRequest).userId;
   if (!ctx.isAccountOwner || userId !== ctx.accountOwnerId) {
     res.status(403).json({ error: "Only the account owner can fund workspace credit pools" });
+    return;
+  }
+
+  if (!await accountWorkspacesEnabled(ctx.accountOwnerId)) {
+    res.status(403).json(workspacesPlanGateBody());
     return;
   }
 

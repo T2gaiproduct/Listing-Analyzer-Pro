@@ -14,6 +14,8 @@ export interface ProfileMenuItem {
   icon: LucideIcon;
   label: string;
   href: string;
+  locked?: boolean;
+  lockedHint?: string;
 }
 
 type CanFn = (feature: WorkspaceFeature, action: WorkspaceAction) => boolean;
@@ -26,6 +28,7 @@ export function buildProfileMenuItems(
   variant: "customer" | "admin",
   canView: CanViewFn,
   can: CanFn,
+  workspacesPlanLocked = false,
 ): ProfileMenuItem[] {
   if (variant === "admin") {
     return [
@@ -57,7 +60,13 @@ export function buildProfileMenuItems(
   }
 
   if (isAccountOwner || canView("workspaces")) {
-    items.push({ icon: Building2, label: WORKSPACES_HUB_LABEL, href: "/workspaces" });
+    items.push({
+      icon: Building2,
+      label: WORKSPACES_HUB_LABEL,
+      href: "/workspaces",
+      locked: isAccountOwner && workspacesPlanLocked,
+      lockedHint: workspacesPlanLocked ? "Upgrade to unlock" : undefined,
+    });
   }
 
   if (isAccountOwner || canView("settings")) {

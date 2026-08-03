@@ -28,6 +28,7 @@ import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
 import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
+import { planIncludesWorkspaces } from "@workspace/workspace-permissions";
 import { notifyAdminUsers } from "../lib/notify-admins.js";
 import { rateLimit } from "../lib/rate-limit";
 import { recordPendingGatewayPayment } from "../lib/gateway-payment";
@@ -319,7 +320,9 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   res.json({
     profile: profile ?? null,
     onboardingCompleted,
-    subscription: sub,
+    subscription: sub
+      ? { ...sub, workspacesEnabled: planIncludesWorkspaces(sub.planName) }
+      : null,
     credits,
     accountRole,
     pendingWorkspaceInvite,
@@ -599,7 +602,15 @@ router.get("/subscription", requireAuth, async (req, res): Promise<void> => {
   }).from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
     .where(eq(subscriptionsTable.userId, userId));
-  res.json(rows[0] ?? null);
+  const row = rows[0] ?? null;
+  if (!row) {
+    res.json(null);
+    return;
+  }
+  res.json({
+    ...row,
+    workspacesEnabled: planIncludesWorkspaces(row.planName),
+  });
 });
 
 router.post("/subscription/cancel", requireAuth, async (req, res): Promise<void> => {
