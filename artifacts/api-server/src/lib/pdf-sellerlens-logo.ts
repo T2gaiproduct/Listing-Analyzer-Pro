@@ -37,8 +37,8 @@ export function drawSellerLensLogo(
   const textY = y + 26 * scale;
   const fontSize = 22 * scale;
   doc.font("Helvetica-Bold").fontSize(fontSize);
-  doc.fillColor(SLATE).text("Seller", textX, textY, { continued: true });
-  doc.fillColor(BRAND).text("Lens");
+  doc.fillColor(SLATE).text("Seller", textX, textY, { continued: true, lineBreak: false });
+  doc.fillColor(BRAND).text("Lens", { continued: false, lineBreak: false });
   doc.restore();
 
   return height;

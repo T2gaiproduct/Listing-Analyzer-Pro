@@ -32,6 +32,26 @@ function formatCurrency(amount: number, currency: string): string {
   return `${symbol[s] ?? s} ${amount.toFixed(2)}`;
 }
 
+/** Draw single-line text at fixed coordinates without affecting PDFKit's text flow cursor. */
+function textAt(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  x: number,
+  y: number,
+  opts: { width?: number; align?: "left" | "center" | "right"; font?: string; size?: number; color?: string },
+): void {
+  doc.save();
+  doc.fillColor(opts.color ?? "#0f172a");
+  doc.font(opts.font ?? "Helvetica").fontSize(opts.size ?? 10);
+  doc.text(text, x, y, {
+    width: opts.width,
+    align: opts.align,
+    lineBreak: false,
+    continued: false,
+  });
+  doc.restore();
+}
+
 export async function buildReceipt(paymentId: number): Promise<Buffer> {
   const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
   if (!payment) throw new Error("Payment not found");
@@ -79,49 +99,45 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
   const slate400 = "#94a3b8";
   const slate100 = "#f1f5f9";
 
-  const labelColWidth = 130;
-  const valueColX = m + labelColWidth + 12;
-  const valueColWidth = contentWidth - labelColWidth - 12;
+  const labelColWidth = 120;
+  const valueColX = m + labelColWidth + 16;
+  const valueColWidth = contentWidth - labelColWidth - 16;
   const amountColWidth = 90;
   const amountColX = pageWidth - m - amountColWidth;
   const qtyColWidth = 40;
   const qtyColX = amountColX - qtyColWidth - 16;
   const descColWidth = qtyColX - m - 8;
+  const rowGap = 18;
 
   function sectionTitle(title: string, y: number): number {
-    doc.fillColor(slate900).font("Helvetica-Bold").fontSize(12).text(title, m, y);
+    textAt(doc, title, m, y, { font: "Helvetica-Bold", size: 12, color: slate900 });
     const lineY = y + 18;
     doc.moveTo(m, lineY).lineTo(pageWidth - m, lineY).strokeColor(slate100).stroke();
     return lineY + 14;
   }
 
   function detailRow(label: string, value: string, y: number): number {
-    const rowHeight = 16;
-    doc.fillColor(slate600).font("Helvetica").fontSize(10).text(label, m, y, {
-      width: labelColWidth,
-      lineBreak: false,
-    });
-    doc.fillColor(slate900).font("Helvetica-Bold").fontSize(10).text(value, valueColX, y, {
-      width: valueColWidth,
-      lineBreak: false,
-    });
-    return y + rowHeight;
+    textAt(doc, label, m, y, { width: labelColWidth, color: slate600 });
+    textAt(doc, value, valueColX, y, { width: valueColWidth, font: "Helvetica-Bold", color: slate900 });
+    return y + rowGap;
   }
 
   // ─── Header ─────────────────────────────────────────────────────────────────
   const headerTop = m + 8;
   drawSellerLensLogo(doc, m + 8, headerTop, 36);
-  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(16).text("RECEIPT", m, headerTop + 8, {
+  textAt(doc, "RECEIPT", m, headerTop + 8, {
     width: contentWidth,
     align: "right",
-    lineBreak: false,
+    font: "Helvetica-Bold",
+    size: 16,
+    color: slate900,
   });
-  doc.fillColor(slate400).font("Helvetica").fontSize(11).text(
-    "AI-powered Amazon listing optimization",
-    m,
-    headerTop + 30,
-    { width: contentWidth, align: "right", lineBreak: false },
-  );
+  textAt(doc, "AI-powered Amazon listing optimization", m, headerTop + 30, {
+    width: contentWidth,
+    align: "right",
+    size: 11,
+    color: slate400,
+  });
   const headerBottom = headerTop + 52;
   doc.moveTo(m, headerBottom).lineTo(pageWidth - m, headerBottom).strokeColor(brand).lineWidth(2).stroke();
 
@@ -140,25 +156,24 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
   // ─── Bill to ────────────────────────────────────────────────────────────────
   y = sectionTitle("Bill To", y + 10);
   if (data.customerName) {
-    doc.fillColor(slate900).font("Helvetica-Bold").fontSize(11).text(data.customerName, m, y, { lineBreak: false });
+    textAt(doc, data.customerName, m, y, { font: "Helvetica-Bold", size: 11, color: slate900 });
     y += 16;
   }
   if (data.companyName) {
-    doc.fillColor(slate600).font("Helvetica").fontSize(10).text(data.companyName, m, y, { lineBreak: false });
+    textAt(doc, data.companyName, m, y, { size: 10, color: slate600 });
     y += 16;
   }
   if (data.email) {
-    doc.fillColor(slate400).font("Helvetica").fontSize(10).text(data.email, m, y, { lineBreak: false });
+    textAt(doc, data.email, m, y, { size: 10, color: slate400 });
     y += 16;
   }
 
   // ─── Items table ────────────────────────────────────────────────────────────
   y = sectionTitle("Items", y + 8);
 
-  doc.fillColor(slate600).font("Helvetica-Bold").fontSize(10);
-  doc.text("Description", m, y, { width: descColWidth, lineBreak: false });
-  doc.text("Qty", qtyColX, y, { width: qtyColWidth, align: "center", lineBreak: false });
-  doc.text("Amount", amountColX, y, { width: amountColWidth, align: "right", lineBreak: false });
+  textAt(doc, "Description", m, y, { width: descColWidth, font: "Helvetica-Bold", color: slate600 });
+  textAt(doc, "Qty", qtyColX, y, { width: qtyColWidth, align: "center", font: "Helvetica-Bold", color: slate600 });
+  textAt(doc, "Amount", amountColX, y, { width: amountColWidth, align: "right", font: "Helvetica-Bold", color: slate600 });
   y += 14;
   doc.moveTo(m, y).lineTo(pageWidth - m, y).strokeColor(slate100).stroke();
   y += 10;
@@ -168,24 +183,37 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
     : "Payment";
   const amountText = formatCurrency(data.amount, data.currency);
 
+  doc.save();
   doc.fillColor(slate900).font("Helvetica").fontSize(10);
-  doc.text(description, m, y, { width: descColWidth });
-  const itemRowBottom = doc.y;
-  doc.text("1", qtyColX, y, { width: qtyColWidth, align: "center", lineBreak: false });
-  doc.text(amountText, amountColX, y, { width: amountColWidth, align: "right", lineBreak: false });
-  y = Math.max(itemRowBottom, y + 14) + 8;
+  const descBottom = doc.heightOfString(description, { width: descColWidth });
+  doc.text(description, m, y, { width: descColWidth, lineGap: 2 });
+  doc.restore();
+  textAt(doc, "1", qtyColX, y, { width: qtyColWidth, align: "center", color: slate900 });
+  textAt(doc, amountText, amountColX, y, { width: amountColWidth, align: "right", color: slate900 });
+  y += Math.max(18, descBottom + 4);
   doc.moveTo(m, y).lineTo(pageWidth - m, y).strokeColor(slate100).stroke();
   y += 14;
 
-  // ─── Totals (aligned to amount column) ───────────────────────────────────────
+  // ─── Totals ─────────────────────────────────────────────────────────────────
   const totalsLabelX = amountColX - 100;
   const totalsLabelWidth = 100;
 
   function totalRow(label: string, value: string, bold = false): void {
-    doc.fillColor(slate600).font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(bold ? 12 : 10);
-    doc.text(label, totalsLabelX, y, { width: totalsLabelWidth, align: "right", lineBreak: false });
-    doc.fillColor(bold ? brand : slate900).font("Helvetica-Bold").fontSize(bold ? 12 : 10);
-    doc.text(value, amountColX, y, { width: amountColWidth, align: "right", lineBreak: false });
+    const size = bold ? 12 : 10;
+    textAt(doc, label, totalsLabelX, y, {
+      width: totalsLabelWidth,
+      align: "right",
+      font: bold ? "Helvetica-Bold" : "Helvetica",
+      size,
+      color: slate600,
+    });
+    textAt(doc, value, amountColX, y, {
+      width: amountColWidth,
+      align: "right",
+      font: "Helvetica-Bold",
+      size,
+      color: bold ? brand : slate900,
+    });
     y += bold ? 20 : 16;
   }
 
@@ -195,21 +223,22 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
   y += 4;
   totalRow("TOTAL", amountText, true);
 
-  // ─── Footer (fixed to bottom of page) ───────────────────────────────────────
+  // ─── Footer ─────────────────────────────────────────────────────────────────
   const footerLineY = pageHeight - m - 52;
   const footerTextY = footerLineY + 10;
   doc.moveTo(m, footerLineY).lineTo(pageWidth - m, footerLineY).strokeColor(slate100).stroke();
-  doc.fillColor(slate400).font("Helvetica").fontSize(9);
-  doc.text(
+  textAt(
+    doc,
     "Thank you for your business. If you have questions, contact support@listingauditor.com.",
     m,
     footerTextY,
-    { width: contentWidth, align: "center", lineBreak: false },
+    { width: contentWidth, align: "center", size: 9, color: slate400 },
   );
-  doc.text("SellerLens · listingauditor.com", m, footerTextY + 14, {
+  textAt(doc, "SellerLens · listingauditor.com", m, footerTextY + 14, {
     width: contentWidth,
     align: "center",
-    lineBreak: false,
+    size: 9,
+    color: slate400,
   });
 
   doc.end();
