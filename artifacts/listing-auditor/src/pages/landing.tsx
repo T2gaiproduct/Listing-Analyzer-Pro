@@ -266,10 +266,10 @@ function sortPlansFromAdmin(plans: DbPlan[]) {
 
 function landingPlanGridClass(count: number) {
   if (count <= 1) return "grid-cols-1 max-w-md mx-auto";
-  if (count === 2) return "grid-cols-2 max-w-3xl mx-auto";
-  if (count === 3) return "grid-cols-3";
-  if (count === 4) return "grid-cols-2 xl:grid-cols-4";
-  return "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+  if (count === 2) return "grid-cols-1 sm:grid-cols-2 max-w-4xl mx-auto";
+  if (count === 3) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+  if (count === 4) return "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4";
+  return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4";
 }
 
 function PricingPlanCard({
@@ -295,8 +295,8 @@ function PricingPlanCard({
   return (
     <div
       className={cn(
-        "rounded-2xl flex flex-col bg-white border relative h-full w-full min-w-0 text-left",
-        compact ? "p-5" : "p-6 sm:p-8",
+        "rounded-2xl flex flex-col bg-white border relative h-full w-full min-w-[260px] text-left",
+        compact ? "p-5" : "p-6 lg:p-7",
         highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
       )}
     >
@@ -308,7 +308,9 @@ function PricingPlanCard({
         </div>
       )}
       <p className="font-bold text-lg text-slate-900">{plan.name}</p>
-      <p className={cn("text-sm text-slate-500 mt-1", compact ? "mb-3 line-clamp-2" : "mb-4")}>{plan.description}</p>
+      <p className={cn("text-sm text-slate-500 mt-1 leading-relaxed", compact ? "mb-3 line-clamp-2" : "mb-4")}>
+        {plan.description}
+      </p>
       {priceDisplay.kind === "custom" ? (
         <p className={cn("font-extrabold text-slate-900", compact ? "text-3xl mb-4" : "text-4xl mb-6")}>Custom</p>
       ) : (
@@ -442,8 +444,8 @@ function LandingPricingSection() {
 
   if (isLoading) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
-        <div className="max-w-6xl mx-auto text-center">
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
+        <div className="max-w-[1400px] mx-auto text-center w-full">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">{heading}</h2>
           <p className="text-sm text-slate-500">Loading plans from Admin…</p>
@@ -454,8 +456,8 @@ function LandingPricingSection() {
 
   if (plans.length === 0) {
     return (
-      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
-        <div className="max-w-6xl mx-auto text-center">
+      <section id="pricing" className="bg-slate-50 px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
+        <div className="max-w-[1400px] mx-auto text-center w-full">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">{heading}</h2>
           <p className="text-slate-500">Plans are configured in Admin → Plans.</p>
@@ -465,8 +467,8 @@ function LandingPricingSection() {
   }
 
   return (
-    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
-      <div className="max-w-6xl mx-auto text-center">
+    <section id="pricing" className="bg-slate-50 px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
+      <div className="max-w-[1400px] mx-auto text-center w-full">
         <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8">{heading}</h2>
         <BillingCycleToggle
@@ -476,7 +478,7 @@ function LandingPricingSection() {
           className="mb-8 sm:mb-10"
         />
         <PricingCarousel plans={plans} creditRules={creditRules} yearly={yearly} />
-        <div className={cn("hidden sm:grid gap-6 text-left", landingPlanGridClass(plans.length))}>
+        <div className={cn("hidden sm:grid gap-5 lg:gap-6 xl:gap-8 text-left w-full", landingPlanGridClass(plans.length))}>
           {plans.map((p) => (
             <PricingPlanCard key={p.id} plan={p} creditRules={creditRules} yearly={yearly} />
           ))}
