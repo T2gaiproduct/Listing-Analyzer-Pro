@@ -72,7 +72,7 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
         <div>
           <CardTitle className="text-sm font-semibold text-slate-700">Tutorial videos</CardTitle>
           <p className="text-xs text-slate-500 mt-1">
-            Shown on the homepage and the View All Tutorials page. Add a YouTube link for inline playback and auto thumbnails.
+            Shown on the homepage fan and tutorials page. Add a YouTube URL on every tutorial you want playing inline (homepage cards autoplay muted; click opens full player with sound).
           </p>
         </div>
         <Button

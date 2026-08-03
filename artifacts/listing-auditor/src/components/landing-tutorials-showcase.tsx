@@ -12,6 +12,7 @@ import {
   tutorialHasPlayableVideo,
   type TutorialPreviewItem,
 } from "@/lib/tutorials-cms";
+import { youtubePreviewEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -28,17 +29,24 @@ function TutorialFanCard({
   item,
   visible,
   isCenter,
+  reduceMotion,
   onPlayVideo,
 }: {
   item: TutorialPreviewItem;
   visible: boolean;
   isCenter: boolean;
+  reduceMotion: boolean;
   onPlayVideo: (item: TutorialPreviewItem) => void;
 }) {
   const href = item.linkUrl?.trim() || "/tutorials";
   const isExternal = href.startsWith("http");
   const category = tutorialCategoryLabel(item.category || "getting-started");
   const hasPlayableVideo = tutorialHasPlayableVideo(item);
+  const previewEmbedUrl =
+    hasPlayableVideo && visible && !reduceMotion
+      ? youtubePreviewEmbedUrl(item.videoUrl)
+      : null;
+  const showRunningPreview = Boolean(previewEmbedUrl);
 
   const shell = (
     <div
@@ -61,8 +69,17 @@ function TutorialFanCard({
       role={hasPlayableVideo ? "button" : undefined}
       tabIndex={hasPlayableVideo ? 0 : undefined}
     >
-      <div className="relative aspect-[5/6] bg-slate-100 overflow-hidden">
-        {item.image ? (
+      <div className="relative aspect-[5/6] bg-slate-900 overflow-hidden">
+        {showRunningPreview && previewEmbedUrl ? (
+          <iframe
+            src={previewEmbedUrl}
+            title={item.title}
+            className="absolute inset-0 w-full h-full pointer-events-none scale-[1.4] origin-center"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+            tabIndex={-1}
+          />
+        ) : item.image ? (
           <img
             src={item.image}
             alt={item.title}
@@ -72,9 +89,21 @@ function TutorialFanCard({
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
         )}
-        <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
+        <div
+          className={cn(
+            "absolute inset-0 transition-colors",
+            showRunningPreview
+              ? "bg-black/15 group-hover:bg-black/25"
+              : "bg-black/10 group-hover:bg-black/5",
+          )}
+        />
         {hasPlayableVideo && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div
+            className={cn(
+              "absolute inset-0 flex items-center justify-center transition-opacity",
+              showRunningPreview ? "opacity-0 group-hover:opacity-100" : "opacity-100",
+            )}
+          >
             <div
               className={cn(
                 "rounded-full bg-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform",
@@ -173,7 +202,13 @@ function FanSlot({
         className={cn(visible && !reduceMotion && "tutorials-fan-float")}
         style={{ animationDelay: `${index * 0.35}s` }}
       >
-        <TutorialFanCard item={item} visible={visible} isCenter={isCenter} onPlayVideo={onPlayVideo} />
+        <TutorialFanCard
+          item={item}
+          visible={visible}
+          isCenter={isCenter}
+          reduceMotion={reduceMotion}
+          onPlayVideo={onPlayVideo}
+        />
       </div>
     </div>
   );

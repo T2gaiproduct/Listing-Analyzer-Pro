@@ -39,6 +39,9 @@ export function youtubeVideoId(url: string): string | null {
 
 type YoutubeEmbedOptions = {
   autoplay?: boolean;
+  mute?: boolean;
+  loop?: boolean;
+  controls?: boolean;
   origin?: string;
 };
 
@@ -54,10 +57,31 @@ export function youtubeEmbedUrl(url: string, opts?: YoutubeEmbedOptions): string
   });
 
   if (opts?.autoplay) params.set("autoplay", "1");
+  if (opts?.mute) params.set("mute", "1");
+  if (opts?.loop) {
+    params.set("loop", "1");
+    params.set("playlist", id);
+  }
+  if (opts?.controls === false) {
+    params.set("controls", "0");
+    params.set("disablekb", "1");
+    params.set("fs", "0");
+    params.set("iv_load_policy", "3");
+  }
   const origin = opts?.origin ?? (typeof window !== "undefined" ? window.location.origin : "");
   if (origin) params.set("origin", origin);
 
   return `https://www.youtube.com/embed/${id}?${params.toString()}`;
+}
+
+/** Muted looping preview for card thumbnails (browser autoplay policy friendly). */
+export function youtubePreviewEmbedUrl(url: string): string | null {
+  return youtubeEmbedUrl(url, {
+    autoplay: true,
+    mute: true,
+    loop: true,
+    controls: false,
+  });
 }
 
 /** YouTube poster image for a watch/share URL. */
