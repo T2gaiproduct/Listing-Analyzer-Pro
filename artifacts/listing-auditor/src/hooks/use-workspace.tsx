@@ -181,25 +181,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
   }, [isTeamMemberAccount, workspaces, selectedId, workspaceScopeCommitted]);
 
-  // Billing owners: opening the main dashboard should show default workspace overview (logo → /dashboard).
+  // Billing owners on /dashboard: auto-select default workspace for sidebar/tools (dashboard uses account scope).
   useEffect(() => {
     if (location !== "/dashboard" && location !== "/") return;
+    if (!isBillingAccountOwnerProfile) return;
     if (!workspaces.length) return;
-    const owns = workspaces.some((w) => w.isAccountOwner);
-    const billing = profileSummary?.accountRole?.type === "user";
-    if (!owns || !billing) return;
 
     const owned = workspaces.filter((w) => w.isAccountOwner);
-    let id = selectedId;
-    if (id == null || !workspaces.some((w) => w.id === id)) {
-      const fallback = owned.find((w) => w.isDefault) ?? owned[0];
-      if (!fallback) return;
-      id = fallback.id;
-      setSelectedId(id);
-      localStorage.setItem(STORAGE_KEY, String(id));
+    const fallback = owned.find((w) => w.isDefault) ?? owned[0];
+    if (!fallback) return;
+
+    if (selectedId == null || !workspaces.some((w) => w.id === selectedId)) {
+      setSelectedId(fallback.id);
+      localStorage.setItem(STORAGE_KEY, String(fallback.id));
     }
     if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
-  }, [location, workspaces, selectedId, profileSummary?.accountRole?.type, workspaceScopeCommitted]);
+  }, [
+    location,
+    workspaces,
+    selectedId,
+    isBillingAccountOwnerProfile,
+    workspaceScopeCommitted,
+  ]);
 
   useEffect(() => {
     if (isTeamMemberAccount && workspaces.length === 0 && !listLoading) {

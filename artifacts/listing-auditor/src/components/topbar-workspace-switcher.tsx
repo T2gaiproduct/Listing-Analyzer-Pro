@@ -43,6 +43,7 @@ export function TopbarWorkspaceSwitcher() {
     refetch,
     isLoading,
     needsWorkspaceSelection,
+    isBillingAccountOwner,
   } = useWorkspace();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -173,6 +174,7 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
+  const onCustomerDashboard = location === "/dashboard" && isBillingAccountOwner;
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const viewedWorkspaceId = parseWorkspaceRouteId(location);
@@ -188,7 +190,9 @@ export function TopbarWorkspaceSwitcher() {
 
   const pillName = onWorkspaceDashboard
     ? "All workspaces"
-    : accountPill?.name
+    : onCustomerDashboard
+      ? "Account overview"
+      : accountPill?.name
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.name ?? scopedWorkspace?.name ?? "Workspace")
         : needsWorkspaceSelection
@@ -196,14 +200,16 @@ export function TopbarWorkspaceSwitcher() {
           : scopedWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
     ? "Manage pools & members"
-    : accountPill?.subtitle
+    : onCustomerDashboard
+      ? (scopedWorkspace?.name ?? "All workspaces")
+      : accountPill?.subtitle
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.clientLabel?.trim() || scopedWorkspace?.clientLabel?.trim() || null)
         : needsWorkspaceSelection
           ? "Choose a workspace to continue"
           : (scopedWorkspace?.clientLabel?.trim() || null));
 
-  if (!workspaces.length && !canCreate && !isLoading) return null;
+  if (!workspaces.length && !canCreate && !isLoading && !isBillingAccountOwner) return null;
 
   return (
     <>

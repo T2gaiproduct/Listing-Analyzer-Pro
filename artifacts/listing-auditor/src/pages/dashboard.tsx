@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 
-import { fetchJson } from "@/lib/api-fetch";
+import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -268,6 +268,29 @@ export default function Dashboard() {
     { href: "/ads", label: "Manage Ads", feature: "ads" as const },
   ].filter((item) => isAccountOwner || canView(item.feature));
 
+  const defaultOwnedWorkspaceId =
+    workspaces.find((w) => w.isAccountOwner && w.isDefault)?.id
+    ?? workspaces.find((w) => w.isAccountOwner)?.id
+    ?? activeWorkspaceId;
+
+  async function loadDashboardData(): Promise<DashboardData> {
+    if (isBillingAccountOwner) {
+      try {
+        return await fetchJson<DashboardData>(
+          `${basePath}/api/dashboard?scope=account`,
+          { skipWorkspaceHeader: true },
+        );
+      } catch (err) {
+        const wsId = defaultOwnedWorkspaceId ?? activeWorkspaceId;
+        if (wsId != null && err instanceof ApiFetchError && err.status >= 400) {
+          return await fetchJson<DashboardData>(`${basePath}/api/dashboard`);
+        }
+        throw err;
+      }
+    }
+    return await fetchJson<DashboardData>(`${basePath}/api/dashboard`);
+  }
+
   const showWorkspacePoolCredits =
     !isBillingAccountOwner
     && isAccountOwner
@@ -276,22 +299,19 @@ export default function Dashboard() {
     && isWorkspaceApiScopeActive;
 
   const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard", isBillingAccountOwner ? "account" : featureWorkspaceId],
-    queryFn: () =>
-      fetchJson<DashboardData>(
-        isBillingAccountOwner
-          ? `${basePath}/api/dashboard?scope=account`
-          : `${basePath}/api/dashboard`,
-        { skipWorkspaceHeader: isBillingAccountOwner },
-      ),
+    queryKey: ["dashboard", isBillingAccountOwner ? "account" : featureWorkspaceId, defaultOwnedWorkspaceId],
+    queryFn: () => loadDashboardData(),
     enabled:
       clerkLoaded
       && !!user
       && !profileLoading
       && (isBillingAccountOwner || !!featureWorkspaceId)
-      && (isAccountOwner || canView("dashboard")),
+      && (isBillingAccountOwner || isAccountOwner || canView("dashboard")),
     staleTime: 30_000,
-    retry: 3,
+    retry: (failureCount, err) => {
+      if (err instanceof ApiFetchError && err.status >= 400) return failureCount < 1;
+      return failureCount < 3;
+    },
   });
 
   const { data: workspacePoolData } = useQuery<{
