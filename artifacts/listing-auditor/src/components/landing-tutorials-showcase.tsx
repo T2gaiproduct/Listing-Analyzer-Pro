@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ArrowRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TutorialVideoDialog } from "@/components/tutorial-video-dialog";
@@ -25,18 +25,51 @@ const FAN_LAYOUT = [
   { rotateY: -22, translateZ: -70, scale: 0.88, zIndex: 1 },
 ] as const;
 
+function resolveFanSlotAtPoint(
+  slotRefs: Array<HTMLDivElement | null>,
+  clientX: number,
+  clientY: number,
+): number | null {
+  let best: { index: number; distance: number } | null = null;
+
+  for (let i = 0; i < slotRefs.length; i++) {
+    const el = slotRefs[i];
+    if (!el) continue;
+
+    const rect = el.getBoundingClientRect();
+    if (
+      clientX < rect.left
+      || clientX > rect.right
+      || clientY < rect.top
+      || clientY > rect.bottom
+    ) {
+      continue;
+    }
+
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top + rect.height / 2);
+    const distance = dx * dx + dy * dy;
+
+    if (!best || distance < best.distance) {
+      best = { index: i, distance };
+    }
+  }
+
+  return best?.index ?? null;
+}
+
 function TutorialFanCard({
   item,
   visible,
   isCenter,
   reduceMotion,
-  onPlayVideo,
+  isHovered,
 }: {
   item: TutorialPreviewItem;
   visible: boolean;
   isCenter: boolean;
   reduceMotion: boolean;
-  onPlayVideo: (item: TutorialPreviewItem) => void;
+  isHovered: boolean;
 }) {
   const href = item.linkUrl?.trim() || "/tutorials";
   const isExternal = href.startsWith("http");
@@ -47,8 +80,9 @@ function TutorialFanCard({
   const shell = (
     <div
       className={cn(
-        "group flex flex-col w-[190px] sm:w-[220px] md:w-[250px] lg:w-[270px] xl:w-[290px] rounded-2xl overflow-hidden bg-white transition-all duration-1000 ease-out",
-        "shadow-sm hover:shadow-md",
+        "group flex flex-col w-[190px] sm:w-[220px] md:w-[250px] lg:w-[270px] xl:w-[290px] rounded-2xl overflow-hidden bg-white transition-all duration-1000 ease-out pointer-events-none",
+        "shadow-sm",
+        isHovered && "shadow-md",
         isCenter
           ? "border-2 border-orange-400 shadow-lg shadow-orange-100/80"
           : "border border-slate-200/80",
@@ -61,12 +95,16 @@ function TutorialFanCard({
           videoUrl={item.videoUrl}
           image={item.image}
           duration={item.duration}
-          onClick={() => onPlayVideo(item)}
           aspectClassName="aspect-[5/6]"
           playSize={isCenter ? "lg" : "sm"}
           showPreview={showPreview}
-          playOverlayClassName={showPreview ? undefined : "opacity-100"}
+          playOverlayClassName={
+            showPreview
+              ? isHovered ? "opacity-100" : undefined
+              : "opacity-100"
+          }
           className="rounded-none"
+          interactive={false}
         />
       ) : (
         <div className="relative aspect-[5/6] bg-slate-100 overflow-hidden">
@@ -113,14 +151,14 @@ function TutorialFanCard({
 
   if (isExternal) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className="block">
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block pointer-events-auto">
         {shell}
       </a>
     );
   }
 
   return (
-    <Link href={href} className="block">
+    <Link href={href} className="block pointer-events-auto">
       {shell}
     </Link>
   );
@@ -133,7 +171,9 @@ function FanSlot({
   visible,
   isCenter,
   reduceMotion,
-  onPlayVideo,
+  slotRef,
+  stackZIndex,
+  isHovered,
 }: {
   item: TutorialPreviewItem;
   index: number;
@@ -141,7 +181,9 @@ function FanSlot({
   visible: boolean;
   isCenter: boolean;
   reduceMotion: boolean;
-  onPlayVideo: (item: TutorialPreviewItem) => void;
+  slotRef: (el: HTMLDivElement | null) => void;
+  stackZIndex: number;
+  isHovered: boolean;
 }) {
   const transform = visible
     ? `rotateY(${layout.rotateY}deg) translateZ(${layout.translateZ}px) scale(${layout.scale})`
@@ -150,26 +192,32 @@ function FanSlot({
   return (
     <div
       className={cn(
-        "shrink-0 transition-all duration-1000 ease-out relative hover:!z-[20] focus-within:!z-[30]",
+        "shrink-0 relative pointer-events-none",
         index > 0 && "-ml-10 sm:-ml-12 md:-ml-14 lg:-ml-16",
       )}
       style={{
-        transform,
-        transformOrigin: "50% 100%",
-        zIndex: layout.zIndex,
+        zIndex: stackZIndex,
         transitionDelay: `${index * 100}ms`,
       }}
     >
       <div
-        className={cn(visible && !reduceMotion && "tutorials-fan-float")}
-        style={{ animationDelay: `${index * 0.35}s` }}
+        ref={slotRef}
+        className={cn(
+          "transition-all duration-300 ease-out",
+          visible && !reduceMotion && "tutorials-fan-float",
+        )}
+        style={{
+          transform,
+          transformOrigin: "50% 100%",
+          animationDelay: `${index * 0.35}s`,
+        }}
       >
         <TutorialFanCard
           item={item}
           visible={visible}
           isCenter={isCenter}
           reduceMotion={reduceMotion}
-          onPlayVideo={onPlayVideo}
+          isHovered={isHovered}
         />
       </div>
     </div>
@@ -179,10 +227,13 @@ function FanSlot({
 export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
   const tutorials = buildTutorialPreviewItems(cms, basePath);
   const sectionRef = useRef<HTMLElement>(null);
+  const slotRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [, navigate] = useLocation();
   const [visible, setVisible] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [videoItem, setVideoItem] = useState<TutorialPreviewItem | null>(null);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [hoveredSlot, setHoveredSlot] = useState<number | null>(null);
 
   const heading = cmsText(cms, "tutorials.heading");
   const subheading = cmsText(cms, "tutorials.subheading");
@@ -234,6 +285,27 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
     }
   }
 
+  function handleFanPointerMove(clientX: number, clientY: number) {
+    const idx = resolveFanSlotAtPoint(slotRefs.current, clientX, clientY);
+    setHoveredSlot(idx);
+  }
+
+  function handleFanClick(clientX: number, clientY: number) {
+    const idx = resolveFanSlotAtPoint(slotRefs.current, clientX, clientY);
+    if (idx === null) return;
+    const item = phoneItems[idx];
+    if (tutorialHasPlayableVideo(item)) {
+      openVideo(item);
+      return;
+    }
+    const href = item.linkUrl?.trim() || "/tutorials";
+    if (href.startsWith("http")) {
+      window.open(href, "_blank", "noopener,noreferrer");
+    } else if (href.startsWith("/")) {
+      navigate(href);
+    }
+  }
+
   return (
     <section
       ref={sectionRef}
@@ -271,21 +343,36 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
         >
           <div className="flex justify-center items-end py-8 sm:py-10 min-h-[400px] sm:min-h-[480px] lg:min-h-[520px]">
             <div
-              className="inline-flex items-end justify-center origin-bottom scale-[0.8] sm:scale-[0.88] md:scale-[0.94] lg:scale-[0.98] xl:scale-100 px-4 sm:px-8"
+              className="inline-flex items-end justify-center origin-bottom scale-[0.8] sm:scale-[0.88] md:scale-[0.94] lg:scale-[0.98] xl:scale-100 px-4 sm:px-8 cursor-pointer"
               style={{ transformStyle: "preserve-3d" }}
+              onPointerMove={(e) => handleFanPointerMove(e.clientX, e.clientY)}
+              onPointerLeave={() => setHoveredSlot(null)}
+              onClick={(e) => {
+                e.preventDefault();
+                handleFanClick(e.clientX, e.clientY);
+              }}
             >
-              {phoneItems.map((item, index) => (
-                <FanSlot
-                  key={`${item.title}-${index}`}
-                  item={item}
-                  index={index}
-                  layout={FAN_LAYOUT[index] ?? FAN_LAYOUT[2]}
-                  visible={visible}
-                  isCenter={index === 2}
-                  reduceMotion={reduceMotion}
-                  onPlayVideo={openVideo}
-                />
-              ))}
+              {phoneItems.map((item, index) => {
+                const layout = FAN_LAYOUT[index] ?? FAN_LAYOUT[2];
+                const stackZIndex = hoveredSlot === index ? 50 : layout.zIndex;
+
+                return (
+                  <FanSlot
+                    key={`${item.title}-${index}`}
+                    item={item}
+                    index={index}
+                    layout={layout}
+                    visible={visible}
+                    isCenter={index === 2}
+                    reduceMotion={reduceMotion}
+                    stackZIndex={stackZIndex}
+                    isHovered={hoveredSlot === index}
+                    slotRef={(el) => {
+                      slotRefs.current[index] = el;
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>

@@ -7,12 +7,13 @@ type TutorialVideoThumbnailProps = {
   videoUrl: string;
   image?: string;
   duration?: string;
-  onClick: () => void;
+  onClick?: () => void;
   className?: string;
   aspectClassName?: string;
   playSize?: "sm" | "md" | "lg";
   showPreview?: boolean;
   playOverlayClassName?: string;
+  interactive?: boolean;
 };
 
 export function TutorialVideoThumbnail({
@@ -26,6 +27,7 @@ export function TutorialVideoThumbnail({
   playSize = "md",
   showPreview = true,
   playOverlayClassName,
+  interactive = true,
 }: TutorialVideoThumbnailProps) {
   const previewEmbedUrl = showPreview ? youtubePreviewEmbedUrl(videoUrl) : null;
 
@@ -35,17 +37,15 @@ export function TutorialVideoThumbnail({
     lg: { shell: "w-16 h-16", icon: "w-7 h-7" },
   }[playSize];
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Play video: ${title}`}
-      className={cn(
-        "group/thumb relative block w-full overflow-hidden bg-slate-900 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2",
-        aspectClassName,
-        className,
-      )}
-    >
+  const shellClass = cn(
+    "group/thumb relative block w-full overflow-hidden bg-slate-900 text-left",
+    interactive && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2",
+    aspectClassName,
+    className,
+  );
+
+  const content = (
+    <>
       {previewEmbedUrl ? (
         <iframe
           src={previewEmbedUrl}
@@ -95,6 +95,25 @@ export function TutorialVideoThumbnail({
           {duration}
         </span>
       )}
-    </button>
+    </>
+  );
+
+  if (interactive) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`Play video: ${title}`}
+        className={shellClass}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={shellClass} aria-hidden="true">
+      {content}
+    </div>
   );
 }
