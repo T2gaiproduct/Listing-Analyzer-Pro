@@ -32,8 +32,27 @@ function formatCurrency(amount: number, currency: string): string {
   return `${symbol[s] ?? s} ${amount.toFixed(2)}`;
 }
 
+/** Draw single-line text at fixed coordinates without affecting PDFKit's text flow cursor. */
+function textAt(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  x: number,
+  y: number,
+  opts: { width?: number; align?: "left" | "center" | "right"; font?: string; size?: number; color?: string },
+): void {
+  doc.save();
+  doc.fillColor(opts.color ?? "#0f172a");
+  doc.font(opts.font ?? "Helvetica").fontSize(opts.size ?? 10);
+  doc.text(text, x, y, {
+    width: opts.width,
+    align: opts.align,
+    lineBreak: false,
+    continued: false,
+  });
+  doc.restore();
+}
+
 export async function buildReceipt(paymentId: number): Promise<Buffer> {
-  // Fetch payment + plan + profile
   const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
   if (!payment) throw new Error("Payment not found");
 
@@ -62,125 +81,165 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
     billingCycle,
     customerName: profile?.fullName ?? null,
     companyName: profile?.companyName ?? null,
-    email: null, // filled by caller if available
+    email: null,
   };
 
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   const buffers: Buffer[] = [];
   doc.on("data", (chunk) => buffers.push(chunk));
 
-  const w = doc.page.width;
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
   const m = 50;
+  const contentWidth = pageWidth - m * 2;
 
-  // Brand color
-  const brand = "#f97316"; // orange-500
+  const brand = "#f97316";
   const slate900 = "#0f172a";
   const slate600 = "#475569";
   const slate400 = "#94a3b8";
   const slate100 = "#f1f5f9";
 
-  // ─── Header with SellerLens logo ─────────────────────────────────────────────
-  const headerTop = m + 16;
-  drawSellerLensLogo(doc, m + 8, headerTop, 36);
-  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(16).text("RECEIPT", m, headerTop + 8, {
-    width: w - m * 2,
-    align: "right",
-  });
-  doc.fillColor(slate400).font("Helvetica").fontSize(11).text(
-    "AI-powered Amazon listing optimization",
-    m,
-    headerTop + 30,
-    { width: w - m * 2, align: "right" },
-  );
-  const headerBottom = headerTop + 52;
-  doc.moveTo(m, headerBottom).lineTo(w - m, headerBottom).strokeColor(brand).lineWidth(2).stroke();
+  const labelColWidth = 120;
+  const valueColX = m + labelColWidth + 16;
+  const valueColWidth = contentWidth - labelColWidth - 16;
+  const amountColWidth = 90;
+  const amountColX = pageWidth - m - amountColWidth;
+  const qtyColWidth = 40;
+  const qtyColX = amountColX - qtyColWidth - 16;
+  const descColWidth = qtyColX - m - 8;
+  const rowGap = 18;
 
-  // ─── Receipt details ───────────────────────────────────────────────────────
-  let y = headerBottom + 28;
-  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(12).text("Receipt Details", m, y);
-  doc.moveTo(m, y + 18).lineTo(w - m, y + 18).stroke(slate100);
-
-  y += 28;
-  const labelStyle = { width: 140, continued: true } as const;
-  const detailStyle = { align: "left" } as const;
-
-  function row(label: string, value: string) {
-    doc.fillColor(slate600).font("Helvetica").fontSize(10).text(label, m, y, labelStyle);
-    doc.fillColor(slate900).font("Helvetica-Bold").fontSize(10).text(value, m + 150, y, detailStyle);
-    y += 18;
+  function sectionTitle(title: string, y: number): number {
+    textAt(doc, title, m, y, { font: "Helvetica-Bold", size: 12, color: slate900 });
+    const lineY = y + 18;
+    doc.moveTo(m, lineY).lineTo(pageWidth - m, lineY).strokeColor(slate100).stroke();
+    return lineY + 14;
   }
 
-  row("Receipt No:", `R-${String(data.id).padStart(6, "0")}`);
-  row("Transaction ID:", data.gatewayPaymentId ? data.gatewayPaymentId : `TXN-${String(data.id).padStart(6, "0")}`);
-  row("Date:", formatDate(data.createdAt));
-  row("Payment Gateway:", data.gateway.charAt(0).toUpperCase() + data.gateway.slice(1));
-  row("Status:", data.status.charAt(0).toUpperCase() + data.status.slice(1));
+  function detailRow(label: string, value: string, y: number): number {
+    textAt(doc, label, m, y, { width: labelColWidth, color: slate600 });
+    textAt(doc, value, valueColX, y, { width: valueColWidth, font: "Helvetica-Bold", color: slate900 });
+    return y + rowGap;
+  }
 
-  // ─── Bill to ─────────────────────────────────────────────────────────────────
-  y += 12;
-  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(12).text("Bill To", m, y);
-  doc.moveTo(m, y + 18).lineTo(w - m, y + 18).stroke(slate100);
-  y += 28;
+  // ─── Header ─────────────────────────────────────────────────────────────────
+  const headerTop = m + 8;
+  drawSellerLensLogo(doc, m + 8, headerTop, 36);
+  textAt(doc, "RECEIPT", m, headerTop + 8, {
+    width: contentWidth,
+    align: "right",
+    font: "Helvetica-Bold",
+    size: 16,
+    color: slate900,
+  });
+  textAt(doc, "AI-powered Amazon listing optimization", m, headerTop + 30, {
+    width: contentWidth,
+    align: "right",
+    size: 11,
+    color: slate400,
+  });
+  const headerBottom = headerTop + 52;
+  doc.moveTo(m, headerBottom).lineTo(pageWidth - m, headerBottom).strokeColor(brand).lineWidth(2).stroke();
 
+  // ─── Receipt details ────────────────────────────────────────────────────────
+  let y = sectionTitle("Receipt Details", headerBottom + 24);
+  y = detailRow("Receipt No:", `R-${String(data.id).padStart(6, "0")}`, y);
+  y = detailRow(
+    "Transaction ID:",
+    data.gatewayPaymentId ? data.gatewayPaymentId : `TXN-${String(data.id).padStart(6, "0")}`,
+    y,
+  );
+  y = detailRow("Date:", formatDate(data.createdAt), y);
+  y = detailRow("Payment Gateway:", data.gateway.charAt(0).toUpperCase() + data.gateway.slice(1), y);
+  y = detailRow("Status:", data.status.charAt(0).toUpperCase() + data.status.slice(1), y);
+
+  // ─── Bill to ────────────────────────────────────────────────────────────────
+  y = sectionTitle("Bill To", y + 10);
   if (data.customerName) {
-    doc.fillColor(slate900).font("Helvetica-Bold").fontSize(11).text(data.customerName, m, y);
+    textAt(doc, data.customerName, m, y, { font: "Helvetica-Bold", size: 11, color: slate900 });
     y += 16;
   }
   if (data.companyName) {
-    doc.fillColor(slate600).font("Helvetica").fontSize(10).text(data.companyName, m, y);
+    textAt(doc, data.companyName, m, y, { size: 10, color: slate600 });
     y += 16;
   }
   if (data.email) {
-    doc.fillColor(slate400).font("Helvetica").fontSize(10).text(data.email, m, y);
+    textAt(doc, data.email, m, y, { size: 10, color: slate400 });
     y += 16;
   }
 
-  // ─── Line items table ────────────────────────────────────────────────────────
-  y += 18;
-  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(12).text("Items", m, y);
-  doc.moveTo(m, y + 18).lineTo(w - m, y + 18).stroke(slate100);
-  y += 28;
+  // ─── Items table ────────────────────────────────────────────────────────────
+  y = sectionTitle("Items", y + 8);
 
-  // Table header
-  const colX = { desc: m, qty: m + 320, amount: w - m - 80 };
-  doc.fillColor(slate600).font("Helvetica-Bold").fontSize(10)
-    .text("Description", colX.desc, y)
-    .text("Qty", colX.qty, y)
-    .text("Amount", colX.amount, y, { width: 80, align: "right" });
-  y += 20;
-  doc.moveTo(m, y - 4).lineTo(w - m, y - 4).stroke(slate100);
+  textAt(doc, "Description", m, y, { width: descColWidth, font: "Helvetica-Bold", color: slate600 });
+  textAt(doc, "Qty", qtyColX, y, { width: qtyColWidth, align: "center", font: "Helvetica-Bold", color: slate600 });
+  textAt(doc, "Amount", amountColX, y, { width: amountColWidth, align: "right", font: "Helvetica-Bold", color: slate600 });
+  y += 14;
+  doc.moveTo(m, y).lineTo(pageWidth - m, y).strokeColor(slate100).stroke();
+  y += 10;
 
-  // Item row
   const description = data.planName
     ? `${data.planName} Plan — ${data.billingCycle === "yearly" ? "Yearly" : "Monthly"} Subscription`
     : "Payment";
-  doc.fillColor(slate900).font("Helvetica").fontSize(10)
-    .text(description, colX.desc, y, { width: 300 });
-  doc.text("1", colX.qty, y);
-  doc.text(formatCurrency(data.amount, data.currency), colX.amount, y, { width: 80, align: "right" });
-  y += 28;
-  doc.moveTo(m, y - 4).lineTo(w - m, y - 4).stroke(slate100);
+  const amountText = formatCurrency(data.amount, data.currency);
 
-  // ─── Totals ──────────────────────────────────────────────────────────────────
-  y += 10;
-  const totalCol = w - m - 140;
-  doc.fillColor(slate600).font("Helvetica").fontSize(10).text("Subtotal", totalCol, y, { width: 80, align: "right" });
-  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(10).text(formatCurrency(data.amount, data.currency), w - m - 60, y, { width: 60, align: "right" });
-  y += 18;
-  doc.fillColor(slate600).font("Helvetica").fontSize(10).text("Tax", totalCol, y, { width: 80, align: "right" });
-  doc.fillColor(slate900).font("Helvetica-Bold").fontSize(10).text(formatCurrency(0, data.currency), w - m - 60, y, { width: 60, align: "right" });
-  y += 18;
-  doc.moveTo(totalCol - 10, y - 2).lineTo(w - m, y - 2).stroke(slate100);
-  y += 6;
-  doc.fillColor(brand).font("Helvetica-Bold").fontSize(14).text("TOTAL", totalCol, y, { width: 80, align: "right" });
-  doc.fillColor(brand).font("Helvetica-Bold").fontSize(14).text(formatCurrency(data.amount, data.currency), w - m - 80, y, { width: 80, align: "right" });
-  y += 32;
+  doc.save();
+  doc.fillColor(slate900).font("Helvetica").fontSize(10);
+  const descBottom = doc.heightOfString(description, { width: descColWidth });
+  doc.text(description, m, y, { width: descColWidth, lineGap: 2 });
+  doc.restore();
+  textAt(doc, "1", qtyColX, y, { width: qtyColWidth, align: "center", color: slate900 });
+  textAt(doc, amountText, amountColX, y, { width: amountColWidth, align: "right", color: slate900 });
+  y += Math.max(18, descBottom + 4);
+  doc.moveTo(m, y).lineTo(pageWidth - m, y).strokeColor(slate100).stroke();
+  y += 14;
 
-  // ─── Footer ────────────────────────────────────────────────────────────────────
-  doc.moveTo(m, w - m - 90).lineTo(w - m, w - m - 90).stroke(slate100);
-  doc.fillColor(slate400).font("Helvetica").fontSize(9)
-    .text("Thank you for your business. If you have questions, contact support@listingauditor.com.", m, w - m - 78, { width: w - m * 2, align: "center" });
-  doc.text("SellerLens · listingauditor.com", m, w - m - 62, { width: w - m * 2, align: "center" });
+  // ─── Totals ─────────────────────────────────────────────────────────────────
+  const totalsLabelX = amountColX - 100;
+  const totalsLabelWidth = 100;
+
+  function totalRow(label: string, value: string, bold = false): void {
+    const size = bold ? 12 : 10;
+    textAt(doc, label, totalsLabelX, y, {
+      width: totalsLabelWidth,
+      align: "right",
+      font: bold ? "Helvetica-Bold" : "Helvetica",
+      size,
+      color: slate600,
+    });
+    textAt(doc, value, amountColX, y, {
+      width: amountColWidth,
+      align: "right",
+      font: "Helvetica-Bold",
+      size,
+      color: bold ? brand : slate900,
+    });
+    y += bold ? 20 : 16;
+  }
+
+  totalRow("Subtotal", amountText);
+  totalRow("Tax", formatCurrency(0, data.currency));
+  doc.moveTo(totalsLabelX, y - 4).lineTo(pageWidth - m, y - 4).strokeColor(slate100).stroke();
+  y += 4;
+  totalRow("TOTAL", amountText, true);
+
+  // ─── Footer ─────────────────────────────────────────────────────────────────
+  const footerLineY = pageHeight - m - 52;
+  const footerTextY = footerLineY + 10;
+  doc.moveTo(m, footerLineY).lineTo(pageWidth - m, footerLineY).strokeColor(slate100).stroke();
+  textAt(
+    doc,
+    "Thank you for your business. If you have questions, contact support@listingauditor.com.",
+    m,
+    footerTextY,
+    { width: contentWidth, align: "center", size: 9, color: slate400 },
+  );
+  textAt(doc, "SellerLens · listingauditor.com", m, footerTextY + 14, {
+    width: contentWidth,
+    align: "center",
+    size: 9,
+    color: slate400,
+  });
 
   doc.end();
 
