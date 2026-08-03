@@ -23,6 +23,7 @@ import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { TutorialCarousel } from "@/components/tutorial-carousel";
 import { TutorialCard } from "@/components/tutorial-card";
+import { LandingTutorialsShowcase } from "@/components/landing-tutorials-showcase";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
@@ -824,24 +825,7 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "tutorials") && tutorialPreviews.length > 0 && (
-      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-20 bg-slate-50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-6 sm:mb-10">
-            {cmsText(cms, "tutorials.heading")}
-          </h2>
-          <TutorialCarousel tutorials={tutorialPreviews} />
-          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-            {tutorialPreviews.map((t) => (
-              <TutorialCard key={t.title} {...t} />
-            ))}
-          </div>
-          <div className="text-center mt-5 sm:mt-8">
-            <Link href={cmsText(cms, "tutorials.cta_url")} className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
-              {cmsText(cms, "tutorials.cta_text")} <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
+        <LandingTutorialsShowcase cms={cms} />
       )}
 
       {cmsEnabled(cms, "pricing") && (
