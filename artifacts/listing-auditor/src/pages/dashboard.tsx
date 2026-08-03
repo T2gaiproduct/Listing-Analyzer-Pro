@@ -329,7 +329,8 @@ export default function Dashboard() {
     && isAccountOwner
     && !isTeamMember
     && featureWorkspaceId != null
-    && isWorkspaceApiScopeActive;
+    && isWorkspaceApiScopeActive
+    && !featureWorkspace?.isDefault;
 
   const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard", isBillingAccountOwner ? "account" : featureWorkspaceId, defaultOwnedWorkspaceId],

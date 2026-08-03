@@ -204,6 +204,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const adminHome = adminCan("view_dashboard") ? "/admin/dashboard" : (defaultRoute || "/admin");
   const {
     featureWorkspaceId,
+    featureWorkspace,
     isWorkspaceApiScopeActive,
     needsWorkspaceSelection,
     isAccountOwner,
@@ -556,12 +557,16 @@ export function Layout({ children }: { children: ReactNode }) {
   const isAccountDashboardRoute = location === "/dashboard" || location === "/";
   const accountCreditSummary = creditsData?.accountCreditSummary;
 
+  const isDefaultOwnerWorkspace =
+    isAccountOwner && featureWorkspace?.isDefault === true;
+
   const showWorkspacePoolCredits =
     isAccountOwner
     && !isTeamMember
     && featureWorkspaceId != null
     && isWorkspaceApiScopeActive
-    && !isAccountDashboardRoute;
+    && !isAccountDashboardRoute
+    && !isDefaultOwnerWorkspace;
 
   const { data: workspacePoolData } = useQuery<{
     poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };

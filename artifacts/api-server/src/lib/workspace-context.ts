@@ -35,6 +35,7 @@ export interface WorkspaceContext {
   workspaceName: string;
   accountOwnerId: string;
   isAccountOwner: boolean;
+  isDefault: boolean;
   workspaceMemberId?: number;
   teamMemberId?: number;
   roleId?: number | null;
@@ -231,6 +232,7 @@ export async function resolveWorkspaceContext(
       workspaceName: workspace.name,
       accountOwnerId: workspace.accountOwnerId,
       isAccountOwner: true,
+      isDefault: Boolean(workspace.isDefault),
       permissions: ownerPermissions(),
       legacyRole: "owner",
       preserveLegacyPermissions: workspace.preserveLegacyPermissions,
@@ -301,6 +303,7 @@ export async function resolveWorkspaceContext(
         workspaceName: workspace.name,
         accountOwnerId: workspace.accountOwnerId,
         isAccountOwner: false,
+        isDefault: Boolean(workspace.isDefault),
         workspaceMemberId,
         teamMemberId: team.memberId,
         roleId,
@@ -330,6 +333,7 @@ export async function resolveWorkspaceContext(
     workspaceName: workspace.name,
     accountOwnerId: workspace.accountOwnerId,
     isAccountOwner: false,
+    isDefault: Boolean(workspace.isDefault),
     workspaceMemberId: membership.member.id,
     teamMemberId: team.memberId,
     roleId: membership.member.roleId,
