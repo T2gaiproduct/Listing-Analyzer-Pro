@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Play } from "lucide-react";
 import { TutorialVideoDialog } from "@/components/tutorial-video-dialog";
+import { TutorialVideoThumbnail } from "@/components/tutorial-video-thumbnail";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 import type { TutorialPreviewItem } from "@/lib/tutorials-cms";
@@ -25,43 +26,51 @@ export function TutorialCard({
 }: TutorialCardProps & { categoryLabel?: string }) {
   const [open, setOpen] = useState(false);
   const embedUrl = videoUrl ? youtubeEmbedUrl(videoUrl) : null;
-  const hasVideo = Boolean(videoUrl?.trim());
+  const hasPlayableVideo = Boolean(videoUrl?.trim() && embedUrl);
   const isCarousel = layout === "carousel";
   const isPage = layout === "page";
   const externalHref = linkUrl?.trim() || fallbackHref;
 
-  if (hasVideo && embedUrl) {
+  if (hasPlayableVideo) {
     return (
-      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm h-full flex flex-col">
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            src={embedUrl}
+      <>
+        <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm h-full flex flex-col">
+          <TutorialVideoThumbnail
             title={title}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="strict-origin-when-cross-origin"
+            videoUrl={videoUrl}
+            image={image}
+            duration={duration}
+            onClick={() => setOpen(true)}
+            aspectClassName={isCarousel ? "aspect-video" : isPage ? "h-44" : "h-44 sm:h-48 lg:h-52"}
+            playSize={isCarousel ? "lg" : "md"}
+            showPreview={isCarousel}
           />
-        </div>
-        <div className={cn(isPage ? "p-6" : isCarousel ? "p-5" : "p-4")}>
-          {categoryLabel && (
-            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
-              {categoryLabel}
-            </span>
-          )}
-          <p className={cn("font-semibold text-slate-800", isCarousel ? "text-lg mt-2" : "text-base", categoryLabel && !isCarousel && "mt-2")}>
-            {title}
-          </p>
-          {description && isPage && (
-            <p className="text-sm text-slate-500 mt-2 leading-relaxed">{description}</p>
-          )}
-          <div className={cn("flex items-center gap-3", (description || duration) && "mt-2")}>
-            {duration && <p className="text-sm text-slate-500">{duration}</p>}
-            {steps && isPage && <span className="text-xs text-slate-400">{steps} steps</span>}
+          <div className={cn(isPage ? "p-6" : isCarousel ? "p-5" : "p-4")}>
+            {categoryLabel && (
+              <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
+                {categoryLabel}
+              </span>
+            )}
+            <p className={cn("font-semibold text-slate-800", isCarousel ? "text-lg mt-2" : "text-base", categoryLabel && !isCarousel && "mt-2")}>
+              {title}
+            </p>
+            {description && isPage && (
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">{description}</p>
+            )}
+            <div className={cn("flex items-center gap-3", (description || duration) && "mt-2")}>
+              {duration && !isCarousel && <p className="text-sm text-slate-500">{duration}</p>}
+              {steps && isPage && <span className="text-xs text-slate-400">{steps} steps</span>}
+            </div>
           </div>
         </div>
-      </div>
+        <TutorialVideoDialog
+          open={open}
+          onOpenChange={setOpen}
+          title={title}
+          duration={duration}
+          videoUrl={videoUrl}
+        />
+      </>
     );
   }
 
@@ -98,40 +107,6 @@ export function TutorialCard({
       )}
     </div>
   );
-
-  if (hasVideo) {
-    return (
-      <>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="group block rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow h-full w-full text-left"
-        >
-          {thumbnail}
-          <div className={cn(isPage ? "p-6" : isCarousel ? "p-5" : "p-4")}>
-            {categoryLabel && (
-              <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
-                {categoryLabel}
-              </span>
-            )}
-            <p className={cn("font-semibold text-slate-800", isCarousel ? "text-lg" : "text-base", categoryLabel && "mt-2")}>
-              {title}
-            </p>
-            {description && isPage && (
-              <p className="text-sm text-slate-500 mt-2 leading-relaxed">{description}</p>
-            )}
-          </div>
-        </button>
-        <TutorialVideoDialog
-          open={open}
-          onOpenChange={setOpen}
-          title={title}
-          duration={duration}
-          videoUrl={videoUrl}
-        />
-      </>
-    );
-  }
 
   const cardBody = (
     <>

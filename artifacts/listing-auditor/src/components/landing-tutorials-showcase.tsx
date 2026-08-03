@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Clock, Play } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TutorialVideoDialog } from "@/components/tutorial-video-dialog";
+import { TutorialVideoThumbnail } from "@/components/tutorial-video-thumbnail";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { cmsText } from "@/lib/homepage-cms";
 import {
@@ -12,7 +13,6 @@ import {
   tutorialHasPlayableVideo,
   type TutorialPreviewItem,
 } from "@/lib/tutorials-cms";
-import { youtubePreviewEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -42,11 +42,7 @@ function TutorialFanCard({
   const isExternal = href.startsWith("http");
   const category = tutorialCategoryLabel(item.category || "getting-started");
   const hasPlayableVideo = tutorialHasPlayableVideo(item);
-  const previewEmbedUrl =
-    hasPlayableVideo && visible && !reduceMotion
-      ? youtubePreviewEmbedUrl(item.videoUrl)
-      : null;
-  const showRunningPreview = Boolean(previewEmbedUrl);
+  const showPreview = visible && !reduceMotion;
 
   const shell = (
     <div
@@ -57,74 +53,40 @@ function TutorialFanCard({
           ? "border-2 border-orange-400 shadow-lg shadow-orange-100/80"
           : "border border-slate-200/80",
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10",
-        hasPlayableVideo && "cursor-pointer",
       )}
-      onClick={hasPlayableVideo ? () => onPlayVideo(item) : undefined}
-      onKeyDown={hasPlayableVideo ? (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onPlayVideo(item);
-        }
-      } : undefined}
-      role={hasPlayableVideo ? "button" : undefined}
-      tabIndex={hasPlayableVideo ? 0 : undefined}
     >
-      <div className="relative aspect-[5/6] bg-slate-900 overflow-hidden">
-        {showRunningPreview && previewEmbedUrl ? (
-          <iframe
-            src={previewEmbedUrl}
-            title={item.title}
-            className="absolute inset-0 w-full h-full pointer-events-none scale-[1.4] origin-center"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            referrerPolicy="strict-origin-when-cross-origin"
-            tabIndex={-1}
-          />
-        ) : item.image ? (
-          <img
-            src={item.image}
-            alt={item.title}
-            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
-            loading="lazy"
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
-        )}
-        <div
-          className={cn(
-            "absolute inset-0 transition-colors",
-            showRunningPreview
-              ? "bg-black/15 group-hover:bg-black/25"
-              : "bg-black/10 group-hover:bg-black/5",
-          )}
+      {hasPlayableVideo ? (
+        <TutorialVideoThumbnail
+          title={item.title}
+          videoUrl={item.videoUrl}
+          image={item.image}
+          duration={item.duration}
+          onClick={() => onPlayVideo(item)}
+          aspectClassName="aspect-[5/6]"
+          playSize={isCenter ? "lg" : "sm"}
+          showPreview={showPreview}
+          playOverlayClassName={showPreview ? undefined : "opacity-100"}
+          className="rounded-none"
         />
-        {hasPlayableVideo && (
-          <div
-            className={cn(
-              "absolute inset-0 flex items-center justify-center transition-opacity",
-              showRunningPreview ? "opacity-0 group-hover:opacity-100" : "opacity-100",
-            )}
-          >
-            <div
-              className={cn(
-                "rounded-full bg-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform",
-                isCenter ? "w-14 h-14 sm:w-16 sm:h-16" : "w-12 h-12 sm:w-14 sm:h-14",
-              )}
-            >
-              <Play
-                className={cn(
-                  "fill-none stroke-orange-500 stroke-[2.5] ml-0.5",
-                  isCenter ? "w-6 h-6 sm:w-7 sm:h-7" : "w-5 h-5 sm:w-6 sm:h-6",
-                )}
-              />
-            </div>
-          </div>
-        )}
-        {item.duration && (
-          <span className="absolute bottom-2.5 right-2.5 bg-black/75 text-white text-xs font-medium px-2 py-0.5 rounded-md">
-            {item.duration}
-          </span>
-        )}
-      </div>
+      ) : (
+        <div className="relative aspect-[5/6] bg-slate-100 overflow-hidden">
+          {item.image ? (
+            <img
+              src={item.image}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
+          )}
+          {item.duration && (
+            <span className="absolute bottom-2.5 right-2.5 bg-black/75 text-white text-xs font-medium px-2 py-0.5 rounded-md">
+              {item.duration}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col flex-1 bg-white p-4 sm:p-5 min-h-[6rem]">
         {category && (
@@ -188,7 +150,7 @@ function FanSlot({
   return (
     <div
       className={cn(
-        "shrink-0 transition-all duration-1000 ease-out relative hover:!z-[20] focus-within:!z-[20]",
+        "shrink-0 transition-all duration-1000 ease-out relative hover:!z-[20] focus-within:!z-[30]",
         index > 0 && "-ml-10 sm:-ml-12 md:-ml-14 lg:-ml-16",
       )}
       style={{
@@ -267,7 +229,9 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
 
   function closeVideo(open: boolean) {
     setVideoOpen(open);
-    if (!open) setVideoItem(null);
+    if (!open) {
+      window.setTimeout(() => setVideoItem(null), 250);
+    }
   }
 
   return (
@@ -342,15 +306,13 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
         )}
       </div>
 
-      {videoItem?.videoUrl && (
-        <TutorialVideoDialog
-          open={videoOpen}
-          onOpenChange={closeVideo}
-          title={videoItem.title}
-          duration={videoItem.duration}
-          videoUrl={videoItem.videoUrl}
-        />
-      )}
+      <TutorialVideoDialog
+        open={videoOpen}
+        onOpenChange={closeVideo}
+        title={videoItem?.title ?? ""}
+        duration={videoItem?.duration}
+        videoUrl={videoItem?.videoUrl ?? ""}
+      />
     </section>
   );
 }

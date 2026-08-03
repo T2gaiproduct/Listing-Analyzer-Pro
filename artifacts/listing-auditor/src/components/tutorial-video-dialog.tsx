@@ -14,11 +14,13 @@ export function TutorialVideoDialog({
   duration?: string;
   videoUrl: string;
 }) {
-  const embedUrl = open ? youtubeEmbedUrl(videoUrl, { autoplay: true }) : null;
+  const embedUrl = open && videoUrl ? youtubeEmbedUrl(videoUrl, { autoplay: true }) : null;
+
+  if (!videoUrl) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[calc(100vw-2rem)] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-4xl w-[calc(100vw-2rem)] p-0 gap-0 overflow-hidden z-[200]">
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <div className="aspect-video w-full bg-black">
           {embedUrl ? (
