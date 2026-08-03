@@ -8,6 +8,7 @@ import { fetchJson } from "@/lib/api-fetch";
 import {
   isAccountScopedRoute,
   isWorkspaceAdminOverviewRoute,
+  isWorkspaceApiScopeActive,
   parseWorkspaceRouteId,
 } from "@/lib/workspace-routes";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,7 +45,6 @@ export function TopbarWorkspaceSwitcher() {
     isLoading,
     needsWorkspaceSelection,
     isBillingAccountOwner,
-    workspaceScopeCommitted,
   } = useWorkspace();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -135,7 +135,14 @@ export function TopbarWorkspaceSwitcher() {
         navigate(`/workspaces/${id}${suffix}`);
         return;
       }
-      navigate("/dashboard");
+      if (location === "/dashboard" || location === "/") {
+        navigate(`/workspaces/${id}`);
+        return;
+      }
+      if (isWorkspaceApiScopeActive(location)) {
+        return;
+      }
+      navigate(`/workspaces/${id}`);
       return;
     }
 
@@ -175,7 +182,7 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
-  const onCustomerDashboard = location === "/dashboard" && isBillingAccountOwner && !workspaceScopeCommitted;
+  const onCustomerDashboard = location === "/dashboard" && isBillingAccountOwner;
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const viewedWorkspaceId = parseWorkspaceRouteId(location);

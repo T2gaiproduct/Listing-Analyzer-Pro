@@ -126,6 +126,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!workspaces.length || workspaceScopeCommitted || overviewVisitedThisSession.current) return;
     if (isWorkspaceAdminOverviewRoute(location)) return;
+    if (isBillingAccountOwnerProfile && (location === "/dashboard" || location === "/")) return;
     const owns = workspaces.some((w) => w.isAccountOwner);
     const billing = profileSummary?.accountRole?.type === "user";
     const sharedOnly = workspaces.length > 0 && !owns;
@@ -182,29 +183,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
     if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
   }, [isTeamMemberAccount, workspaces, selectedId, workspaceScopeCommitted]);
-
-  // Billing owners on /dashboard: auto-select default workspace for sidebar/tools (dashboard uses account scope).
-  useEffect(() => {
-    if (location !== "/dashboard" && location !== "/") return;
-    if (!isBillingAccountOwnerProfile) return;
-    if (!workspaces.length) return;
-
-    const owned = workspaces.filter((w) => w.isAccountOwner);
-    const fallback = owned.find((w) => w.isDefault) ?? owned[0];
-    if (!fallback) return;
-
-    if (selectedId == null || !workspaces.some((w) => w.id === selectedId)) {
-      setSelectedId(fallback.id);
-      localStorage.setItem(STORAGE_KEY, String(fallback.id));
-    }
-    if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
-  }, [
-    location,
-    workspaces,
-    selectedId,
-    isBillingAccountOwnerProfile,
-    workspaceScopeCommitted,
-  ]);
 
   useEffect(() => {
     if (isTeamMemberAccount && workspaces.length === 0 && !listLoading) {
