@@ -129,6 +129,7 @@ export const HOMEPAGE_CMS_DEFAULTS: HomepageCmsMap = {
 
   "sections.tutorials.enabled": "true",
   "tutorials.heading": "Learn how to get the most out of SellerLens",
+  "tutorials.subheading": "Step-by-step video guides for audits, content, images, and A+ — built for Amazon sellers.",
   "tutorials.cta_text": "View All Tutorials",
   "tutorials.cta_url": "/tutorials",
   "tutorials_page.heading": "Help Center & Tutorials",

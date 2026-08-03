@@ -71,7 +71,8 @@ export const HOMEPAGE_CMS_SECTIONS: Record<string, CmsSection[]> = {
       title: "Tutorials section (homepage)",
       fields: [
         { key: "tutorials.heading", label: "Section heading" },
-        { key: "tutorials.cta_text", label: "View all link text" },
+        { key: "tutorials.subheading", label: "Section subheading", type: "textarea", rows: 2 },
+        { key: "tutorials.cta_text", label: "View all button text" },
         { key: "tutorials.cta_url", label: "View all link URL", type: "url" },
       ],
     },
