@@ -1,5 +1,4 @@
-import type PDFDocument from "pdfkit";
-import { drawSellerLensLogo } from "./pdf-sellerlens-logo.js";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from "pdf-lib";
 
 export interface ReceiptPdfInput {
   id: number;
@@ -16,13 +15,14 @@ export interface ReceiptPdfInput {
   email: string | null;
 }
 
-type PdfDoc = InstanceType<typeof PDFDocument>;
+const PAGE_W = 595.28;
+const PAGE_H = 841.89;
 
-const brand = "#f97316";
-const slate900 = "#0f172a";
-const slate600 = "#475569";
-const slate400 = "#94a3b8";
-const slate100 = "#f1f5f9";
+const orange: RGB = rgb(0.976, 0.451, 0.086);
+const slate900: RGB = rgb(0.059, 0.09, 0.165);
+const slate600: RGB = rgb(0.28, 0.33, 0.39);
+const slate400: RGB = rgb(0.58, 0.64, 0.72);
+const slate100: RGB = rgb(0.945, 0.961, 0.976);
 
 function formatDate(dateStr: string | Date): string {
   const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
@@ -37,170 +37,188 @@ function formatCurrency(amount: number, currency: string): string {
   return `${symbol[s] ?? s} ${amount.toFixed(2)}`;
 }
 
-/** Draw one line at exact coordinates; never rely on PDFKit text flow cursor. */
-function line(
-  doc: PdfDoc,
-  text: string,
-  x: number,
-  y: number,
-  opts: { font?: string; size?: number; color?: string },
-): void {
-  doc.font(opts.font ?? "Helvetica").fontSize(opts.size ?? 10);
-  doc.fillColor(opts.color ?? slate900);
-  doc.text(text, x, y, { lineBreak: false, continued: false });
+function baselineFromTop(top: number, fontSize: number): number {
+  return PAGE_H - top - fontSize;
 }
 
-/** Right-align a single line ending at rightX. */
-function lineRight(
-  doc: PdfDoc,
-  text: string,
-  rightX: number,
-  y: number,
-  opts: { font?: string; size?: number; color?: string },
-): void {
-  doc.font(opts.font ?? "Helvetica").fontSize(opts.size ?? 10);
-  const w = doc.widthOfString(text);
-  line(doc, text, rightX - w, y, opts);
-}
+export async function buildReceiptPdfBytes(data: ReceiptPdfInput): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([PAGE_W, PAGE_H]);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-/** Center a single line in [left, right]. */
-function lineCenter(
-  doc: PdfDoc,
-  text: string,
-  left: number,
-  right: number,
-  y: number,
-  opts: { font?: string; size?: number; color?: string },
-): void {
-  doc.font(opts.font ?? "Helvetica").fontSize(opts.size ?? 10);
-  const w = doc.widthOfString(text);
-  const x = left + (right - left - w) / 2;
-  line(doc, text, x, y, opts);
-}
+  const margin = 50;
+  const contentRight = PAGE_W - margin;
+  const labelX = margin;
+  const valueX = margin + 150;
+  const rowStep = 22;
 
-export function buildReceiptPdf(doc: PdfDoc, data: ReceiptPdfInput): void {
-  const pageWidth = doc.page.width;
-  const pageHeight = doc.page.height;
-  const m = 50;
-  const right = pageWidth - m;
-  const contentWidth = right - m;
-
-  const labelX = m;
-  const valueX = m + 132;
-  const detailRowH = 20;
-  const amountColRight = right;
-  const amountColWidth = 88;
-  const amountColLeft = amountColRight - amountColWidth;
-  const qtyColCenter = amountColLeft - 28;
-  const qtyColWidth = 36;
-  const descMaxRight = qtyColCenter - qtyColWidth / 2 - 12;
-
-  function sectionTitle(title: string, y: number): number {
-    line(doc, title, labelX, y, { font: "Helvetica-Bold", size: 12, color: slate900 });
-    const lineY = y + 16;
-    doc.moveTo(m, lineY).lineTo(right, lineY).strokeColor(slate100).stroke();
-    return lineY + 12;
+  function drawText(
+    text: string,
+    x: number,
+    top: number,
+    opts: { size?: number; font?: PDFFont; color?: RGB } = {},
+  ): void {
+    const size = opts.size ?? 10;
+    const f = opts.font ?? font;
+    page.drawText(text, {
+      x,
+      y: baselineFromTop(top, size),
+      size,
+      font: f,
+      color: opts.color ?? slate900,
+    });
   }
 
-  function detailRow(label: string, value: string, y: number): number {
-    line(doc, label, labelX, y, { color: slate600 });
-    line(doc, value, valueX, y, { font: "Helvetica-Bold", color: slate900 });
-    return y + detailRowH;
+  function drawTextRight(
+    text: string,
+    rightX: number,
+    top: number,
+    opts: { size?: number; font?: PDFFont; color?: RGB } = {},
+  ): void {
+    const size = opts.size ?? 10;
+    const f = opts.font ?? font;
+    const w = f.widthOfTextAtSize(text, size);
+    drawText(text, rightX - w, top, { ...opts, font: f, size });
+  }
+
+  function drawTextCenter(
+    text: string,
+    left: number,
+    right: number,
+    top: number,
+    opts: { size?: number; font?: PDFFont; color?: RGB } = {},
+  ): void {
+    const size = opts.size ?? 10;
+    const f = opts.font ?? font;
+    const w = f.widthOfTextAtSize(text, size);
+    drawText(text, left + (right - left - w) / 2, top, { ...opts, font: f, size });
+  }
+
+  function hLine(top: number): void {
+    const y = baselineFromTop(top, 0);
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: contentRight, y },
+      thickness: 1,
+      color: slate100,
+    });
+  }
+
+  function thickHLine(top: number): void {
+    const y = baselineFromTop(top, 0);
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: contentRight, y },
+      thickness: 2,
+      color: orange,
+    });
+  }
+
+  function sectionTitle(title: string, top: number): number {
+    drawText(title, labelX, top, { size: 12, font: fontBold });
+    hLine(top + 16);
+    return top + 28;
+  }
+
+  function detailRow(label: string, value: string, top: number): number {
+    drawText(label, labelX, top, { size: 10, color: slate600 });
+    drawText(value, valueX, top, { size: 10, font: fontBold });
+    return top + rowStep;
   }
 
   // ─── Header ───────────────────────────────────────────────────────────────
-  const headerTop = m + 6;
-  drawSellerLensLogo(doc, m + 4, headerTop, 34);
-  lineRight(doc, "RECEIPT", right, headerTop + 6, { font: "Helvetica-Bold", size: 16, color: slate900 });
-  lineRight(doc, "AI-powered Amazon listing optimization", right, headerTop + 26, { size: 10, color: slate400 });
-  const headerBottom = headerTop + 48;
-  doc.moveTo(m, headerBottom).lineTo(right, headerBottom).strokeColor(brand).lineWidth(2).stroke();
+  let top = 52;
+  const brandSize = 20;
+  const sellerW = fontBold.widthOfTextAtSize("Seller", brandSize);
+  drawText("Seller", labelX, top, { size: brandSize, font: fontBold, color: slate900 });
+  drawText("Lens", labelX + sellerW, top, { size: brandSize, font: fontBold, color: orange });
+  drawTextRight("RECEIPT", contentRight, top, { size: 16, font: fontBold });
+  drawTextRight("AI-powered Amazon listing optimization", contentRight, top + 20, { size: 10, color: slate400 });
+  thickHLine(top + 46);
 
-  // ─── Receipt details ─────────────────────────────────────────────────────
-  let y = sectionTitle("Receipt Details", headerBottom + 20);
-  y = detailRow("Receipt No:", `R-${String(data.id).padStart(6, "0")}`, y);
-  y = detailRow(
+  // ─── Receipt details ────────────────────────────────────────────────────────
+  top = sectionTitle("Receipt Details", top + 58);
+  top = detailRow("Receipt No:", `R-${String(data.id).padStart(6, "0")}`, top);
+  top = detailRow(
     "Transaction ID:",
     data.gatewayPaymentId ?? `TXN-${String(data.id).padStart(6, "0")}`,
-    y,
+    top,
   );
-  y = detailRow("Date:", formatDate(data.createdAt), y);
-  y = detailRow("Payment Gateway:", data.gateway.charAt(0).toUpperCase() + data.gateway.slice(1), y);
-  y = detailRow("Status:", data.status.charAt(0).toUpperCase() + data.status.slice(1), y);
+  top = detailRow("Date:", formatDate(data.createdAt), top);
+  top = detailRow("Payment Gateway:", data.gateway.charAt(0).toUpperCase() + data.gateway.slice(1), top);
+  top = detailRow("Status:", data.status.charAt(0).toUpperCase() + data.status.slice(1), top);
 
-  // ─── Bill to ─────────────────────────────────────────────────────────────
-  y = sectionTitle("Bill To", y + 8);
+  // ─── Bill to ──────────────────────────────────────────────────────────────
+  top = sectionTitle("Bill To", top + 8);
   if (data.customerName) {
-    line(doc, data.customerName, labelX, y, { font: "Helvetica-Bold", size: 11, color: slate900 });
-    y += 16;
+    drawText(data.customerName, labelX, top, { size: 11, font: fontBold });
+    top += 18;
   }
   if (data.companyName) {
-    line(doc, data.companyName, labelX, y, { color: slate600 });
-    y += 16;
+    drawText(data.companyName, labelX, top, { size: 10, color: slate600 });
+    top += 18;
   }
   if (data.email) {
-    line(doc, data.email, labelX, y, { color: slate400 });
-    y += 16;
+    drawText(data.email, labelX, top, { size: 10, color: slate400 });
+    top += 18;
   }
 
-  // ─── Items ───────────────────────────────────────────────────────────────
-  y = sectionTitle("Items", y + 6);
-  const tableHeaderY = y;
-  line(doc, "Description", labelX, tableHeaderY, { font: "Helvetica-Bold", color: slate600 });
-  lineCenter(doc, "Qty", qtyColCenter - qtyColWidth / 2, qtyColCenter + qtyColWidth / 2, tableHeaderY, {
-    font: "Helvetica-Bold",
-    color: slate600,
-  });
-  lineRight(doc, "Amount", amountColRight, tableHeaderY, { font: "Helvetica-Bold", color: slate600 });
-  y += 12;
-  doc.moveTo(m, y).lineTo(right, y).strokeColor(slate100).stroke();
-  y += 10;
+  // ─── Items ────────────────────────────────────────────────────────────────
+  top = sectionTitle("Items", top + 6);
+  const qtyRight = contentRight - 100;
+  drawText("Description", labelX, top, { size: 10, font: fontBold, color: slate600 });
+  drawTextRight("Qty", qtyRight, top, { size: 10, font: fontBold, color: slate600 });
+  drawTextRight("Amount", contentRight, top, { size: 10, font: fontBold, color: slate600 });
+  hLine(top + 14);
+  top += 22;
 
   const description = data.planName
     ? `${data.planName} Plan — ${data.billingCycle === "yearly" ? "Yearly" : "Monthly"} Subscription`
     : "Payment";
   const amountText = formatCurrency(data.amount, data.currency);
 
-  doc.font("Helvetica").fontSize(10);
-  const descHeight = doc.heightOfString(description, { width: descMaxRight - labelX, lineGap: 2 });
-  doc.fillColor(slate900).text(description, labelX, y, {
-    width: descMaxRight - labelX,
-    lineGap: 2,
-    continued: false,
-  });
-  lineCenter(doc, "1", qtyColCenter - qtyColWidth / 2, qtyColCenter + qtyColWidth / 2, y, { color: slate900 });
-  lineRight(doc, amountText, amountColRight, y, { color: slate900 });
-  y += Math.max(18, descHeight + 4);
-  doc.moveTo(m, y).lineTo(right, y).strokeColor(slate100).stroke();
-  y += 12;
+  drawText(description, labelX, top, { size: 10 });
+  drawTextRight("1", qtyRight, top, { size: 10 });
+  drawTextRight(amountText, contentRight, top, { size: 10 });
+  hLine(top + 16);
+  top += 28;
 
-  // ─── Totals ──────────────────────────────────────────────────────────────
-  const totalsLabelRight = amountColLeft - 8;
+  // ─── Totals ───────────────────────────────────────────────────────────────
+  const totalsLabelRight = contentRight - 110;
 
   function totalRow(label: string, value: string, bold = false): void {
     const size = bold ? 12 : 10;
-    const font = bold ? "Helvetica-Bold" : "Helvetica";
-    lineRight(doc, label, totalsLabelRight, y, { font, size, color: slate600 });
-    lineRight(doc, value, amountColRight, y, { font: "Helvetica-Bold", size, color: bold ? brand : slate900 });
-    y += bold ? 18 : 16;
+    const labelFont = bold ? fontBold : font;
+    drawTextRight(label, totalsLabelRight, top, { size, font: labelFont, color: slate600 });
+    drawTextRight(value, contentRight, top, {
+      size,
+      font: fontBold,
+      color: bold ? orange : slate900,
+    });
+    top += bold ? 20 : 18;
   }
 
   totalRow("Subtotal", amountText);
   totalRow("Tax", formatCurrency(0, data.currency));
-  doc.moveTo(totalsLabelRight - 60, y - 2).lineTo(right, y - 2).strokeColor(slate100).stroke();
-  y += 6;
+  hLine(top - 2);
+  top += 6;
   totalRow("TOTAL", amountText, true);
 
-  // ─── Footer ──────────────────────────────────────────────────────────────
-  const footerLineY = pageHeight - m - 48;
-  doc.moveTo(m, footerLineY).lineTo(right, footerLineY).strokeColor(slate100).stroke();
-  lineCenter(
-    doc,
+  // ─── Footer ───────────────────────────────────────────────────────────────
+  const footerLineTop = PAGE_H - margin - 42;
+  hLine(footerLineTop);
+  drawTextCenter(
     "Thank you for your business. If you have questions, contact support@listingauditor.com.",
-    m,
-    right,
-    footerLineY + 10,
+    margin,
+    contentRight,
+    footerLineTop + 14,
     { size: 9, color: slate400 },
   );
-  lineCenter(doc, "SellerLens · listingauditor.com", m, right, footerLineY + 22, { size: 9, color: slate400 });
+  drawTextCenter("SellerLens · listingauditor.com", margin, contentRight, footerLineTop + 26, {
+    size: 9,
+    color: slate400,
+  });
+
+  return pdf.save();
 }
