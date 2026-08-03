@@ -10,104 +10,74 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const WORKFLOW_ICONS = [Upload, Search, Wand2, Image, Download, Globe];
 
-const BEFORE_BARS = [40, 55, 45, 50, 42, 48];
-const AFTER_BARS = [55, 62, 70, 78, 88, 96];
-
-function ComparisonCard({
-  variant,
-  image,
-  score,
-  label,
-  badge,
-}: {
-  variant: "before" | "after";
-  image: string;
-  score: string;
-  label: string;
-  badge?: string;
-}) {
-  const isAfter = variant === "after";
-  const bars = isAfter ? AFTER_BARS : BEFORE_BARS;
-
-  return (
-    <div
-      className={cn(
-        "relative flex flex-col w-[150px] sm:w-[170px] md:w-[190px] rounded-2xl bg-white p-3.5 sm:p-4 shadow-sm shrink-0",
-        isAfter ? "border-2 border-orange-200 shadow-md" : "border border-red-100",
-      )}
-    >
-      {badge && (
-        <span className="absolute -top-2.5 left-3 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-          {badge}
-        </span>
-      )}
-      <p
-        className={cn(
-          "text-[10px] font-bold uppercase mb-2.5",
-          isAfter ? "text-orange-600 mt-0.5" : "text-red-500",
-        )}
-      >
-        {label}
-      </p>
-      <div className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 mb-3">
-        {image ? (
-          <img src={image} alt="" className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200" />
-        )}
-      </div>
-      <p
-        className={cn(
-          "text-2xl sm:text-3xl font-extrabold leading-none",
-          isAfter ? "text-orange-600" : "text-slate-800",
-        )}
-      >
-        {score}
-        <span className="text-sm text-slate-400 font-semibold">/100</span>
-      </p>
-      <div className="mt-2 flex items-end gap-0.5 h-7">
-        {bars.map((h, i) => (
-          <div
-            key={i}
-            className={cn("flex-1 rounded-sm", isAfter ? "bg-orange-400" : "bg-red-200")}
-            style={{ height: `${h}%` }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MarqueePair({
+function MarqueeCard({
   item,
   beforeLabel,
   afterLabel,
-  afterBadge,
 }: {
   item: ReturnType<typeof parseWorkflowMarqueeItems>[number];
   beforeLabel: string;
   afterLabel: string;
-  afterBadge: string;
 }) {
+  const afterSrc = item.afterImage || item.beforeImage;
+  const hasAfter = Boolean(item.afterImage?.trim());
+
   return (
-    <div className="flex flex-col shrink-0">
-      <div className="flex gap-3 sm:gap-4">
-        <ComparisonCard
-          variant="before"
-          image={item.beforeImage}
-          score={item.beforeScore}
-          label={beforeLabel}
-        />
-        <ComparisonCard
-          variant="after"
-          image={item.afterImage || item.beforeImage}
-          score={item.afterScore}
-          label={afterLabel}
-          badge={afterBadge}
-        />
+    <div className="flex flex-col shrink-0 w-[min(92vw,340px)] sm:w-[380px] md:w-[420px] lg:w-[480px]">
+      <div
+        className={cn(
+          "group relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-800",
+          hasAfter && "cursor-pointer",
+        )}
+      >
+        {item.beforeImage ? (
+          <img
+            src={item.beforeImage}
+            alt=""
+            className={cn(
+              "absolute inset-0 w-full h-full object-cover transition-opacity duration-500",
+              hasAfter && "group-hover:opacity-0",
+            )}
+            loading="lazy"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900" />
+        )}
+        {afterSrc && (
+          <img
+            src={afterSrc}
+            alt=""
+            className={cn(
+              "absolute inset-0 w-full h-full object-cover transition-opacity duration-500",
+              hasAfter ? "opacity-0 group-hover:opacity-100" : "opacity-100",
+            )}
+            loading="lazy"
+          />
+        )}
+        <span
+          className={cn(
+            "absolute bottom-3 left-3 text-[10px] font-semibold uppercase tracking-wide text-white",
+            "px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm",
+            "transition-opacity duration-300",
+            hasAfter && "group-hover:opacity-0",
+          )}
+        >
+          {beforeLabel}
+        </span>
+        {hasAfter && (
+          <span
+            className={cn(
+              "absolute bottom-3 right-3 text-[10px] font-semibold uppercase tracking-wide text-white",
+              "px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm",
+              "opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+            )}
+          >
+            {afterLabel}
+          </span>
+        )}
       </div>
       {item.caption && (
-        <p className="mt-3 text-xs sm:text-sm text-slate-500 text-center max-w-[340px] sm:max-w-[400px] mx-auto leading-snug">
+        <p className="mt-3 text-sm text-slate-400 leading-snug text-left">
           {item.caption}
         </p>
       )}
@@ -122,30 +92,23 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
   const heading = cmsText(cms, "workflow.heading");
   const beforeLabel = cmsText(cms, "workflow.before_label");
   const afterLabel = cmsText(cms, "workflow.after_label");
-  const afterBadge = cmsText(cms, "workflow.after_badge");
-  const metricsHeading = cmsText(cms, "workflow.metrics_heading");
 
   const workflowSteps = [1, 2, 3, 4, 5, 6].map((i) => ({
     icon: WORKFLOW_ICONS[i - 1],
     label: cmsText(cms, `workflow.step${i}_label`),
   }));
 
-  const workflowMetrics = [1, 2, 3, 4].map((i) => ({
-    label: cmsText(cms, `workflow.metric${i}_label`),
-    value: cmsText(cms, `workflow.metric${i}_value`),
-  }));
-
   const loopItems = items.length > 1 ? [...items, ...items] : items;
 
   return (
-    <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20 bg-white border-t border-slate-100">
+    <section className="pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20 bg-white border-t border-slate-100">
       <style>{`
         @keyframes workflow-marquee-kf {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
         .workflow-marquee-track {
-          animation: workflow-marquee-kf 45s linear infinite;
+          animation: workflow-marquee-kf 50s linear infinite;
         }
         .workflow-marquee-track:hover {
           animation-play-state: paused;
@@ -155,7 +118,7 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
         }
       `}</style>
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center">
           {heading}
         </h2>
@@ -177,41 +140,24 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
             ))}
           </div>
         </div>
+      </div>
 
-        <div className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 overflow-hidden py-2 sm:py-4">
-          <div
-            className={cn(
-              "flex gap-6 sm:gap-8 px-4 sm:px-8",
-              items.length > 1 && "workflow-marquee-track w-max",
-            )}
-          >
-            {loopItems.map((item, index) => (
-              <MarqueePair
-                key={`${item.id}-${index}`}
-                item={item}
-                beforeLabel={beforeLabel}
-                afterLabel={afterLabel}
-                afterBadge={afterBadge}
-              />
-            ))}
-          </div>
+      <div className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 bg-slate-950 py-10 sm:py-12 lg:py-14 overflow-hidden">
+        <div
+          className={cn(
+            "flex gap-5 sm:gap-7 md:gap-8 px-4 sm:px-8",
+            items.length > 1 && "workflow-marquee-track w-max",
+          )}
+        >
+          {loopItems.map((item, index) => (
+            <MarqueeCard
+              key={`${item.id}-${index}`}
+              item={item}
+              beforeLabel={beforeLabel}
+              afterLabel={afterLabel}
+            />
+          ))}
         </div>
-
-        {metricsHeading && (
-          <div className="mt-6 sm:mt-10 rounded-2xl bg-slate-50 p-4 sm:p-5 max-w-4xl mx-auto">
-            <p className="text-sm font-bold text-slate-900 mb-3 sm:mb-4 text-center">
-              {metricsHeading}
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {workflowMetrics.map((m) => (
-                <div key={m.label} className="text-center">
-                  <p className="text-lg sm:text-xl font-extrabold text-orange-600">{m.value}</p>
-                  <p className="text-xs text-slate-500">{m.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );

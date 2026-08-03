@@ -248,34 +248,14 @@ export function WorkflowCmsEditor({ data, onChange }: WorkflowCmsEditorProps) {
                     onImageChange={(url) => onChange(keys.afterImage, url)}
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs text-slate-500">Before score</Label>
-                    <Input
-                      className="mt-1 h-8 text-sm"
-                      value={data[keys.beforeScore] ?? ""}
-                      onChange={(e) => onChange(keys.beforeScore, e.target.value)}
-                      placeholder="62"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-slate-500">After score</Label>
-                    <Input
-                      className="mt-1 h-8 text-sm"
-                      value={data[keys.afterScore] ?? ""}
-                      onChange={(e) => onChange(keys.afterScore, e.target.value)}
-                      placeholder="96"
-                    />
-                  </div>
-                  <div className="sm:col-span-1">
-                    <Label className="text-xs text-slate-500">Caption (optional)</Label>
-                    <Input
-                      className="mt-1 h-8 text-sm"
-                      value={data[keys.caption] ?? ""}
-                      onChange={(e) => onChange(keys.caption, e.target.value)}
-                      placeholder="Sneakers — cluttered to clean studio"
-                    />
-                  </div>
+                <div>
+                  <Label className="text-xs text-slate-500">Caption (optional)</Label>
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    value={data[keys.caption] ?? ""}
+                    onChange={(e) => onChange(keys.caption, e.target.value)}
+                    placeholder="Sneakers — cluttered to clean studio"
+                  />
                 </div>
               </CardContent>
             </Card>
