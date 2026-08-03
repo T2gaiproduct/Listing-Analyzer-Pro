@@ -217,7 +217,6 @@ export function Layout({ children }: { children: ReactNode }) {
     canEdit: wsCanEdit,
     canDelete: wsCanDelete,
     roleName,
-    isBillingAccountOwner,
   } = useWorkspace();
 
   const homeHref = "/dashboard";

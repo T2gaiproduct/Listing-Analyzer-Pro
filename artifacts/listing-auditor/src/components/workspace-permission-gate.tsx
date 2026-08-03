@@ -29,7 +29,7 @@ function AccessDenied({ title, description }: { title: string; description: stri
 export function WorkspacePermissionGate({ path, requireCreate, children }: WorkspacePermissionGateProps) {
   const { isAccountOwner, isLoading, can, canView } = useWorkspace();
 
-  if (isLoading) {
+  if (isLoading && !isAccountOwner) {
     return (
       <div className="space-y-4 p-6">
         <Skeleton className="h-10 w-64" />

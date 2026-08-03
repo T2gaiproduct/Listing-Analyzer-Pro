@@ -199,6 +199,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
   const isBillingAccountOwner = isBillingAccountOwnerProfile;
+  const skipPermLoadingForNav =
+    isBillingAccountOwnerProfile || (profileSummary?.accountRole?.type === "platform_admin");
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
@@ -259,9 +261,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 
   const setWorkspace = useCallback((id: number) => {
+    const changed = selectedId !== id;
     setSelectedId(id);
     setWorkspaceScopeCommitted(true);
     localStorage.setItem(STORAGE_KEY, String(id));
+    if (!changed) return;
     void qc.invalidateQueries({ queryKey: ["workspace-permissions"] });
     void qc.invalidateQueries({ queryKey: ["audits"] });
     void qc.invalidateQueries({ queryKey: ["graphics-projects"] });
@@ -271,7 +275,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void qc.invalidateQueries({ queryKey: ["archive"] });
     void qc.invalidateQueries({ queryKey: ["search-projects"] });
     void qc.removeQueries({ queryKey: ["workspace-permissions"], exact: false });
-  }, [qc]);
+  }, [qc, selectedId]);
 
   const value = useMemo<WorkspaceContextValue>(() => ({
     workspaces,
@@ -283,7 +287,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     roleName,
     isAccountOwner,
     isTeamMemberAccount,
-    isLoading: listLoading || permLoading || profileLoading || !isLoaded,
+    isLoading: listLoading || (!skipPermLoadingForNav && permLoading) || profileLoading || !isLoaded,
     setActiveWorkspaceId: setWorkspace,
     can,
     canView,
@@ -299,7 +303,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
     permissions, roleName, isAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
-    listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
+    listLoading, permLoading, skipPermLoadingForNav, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection, workspaceScopeCommitted,
   ]);
 
