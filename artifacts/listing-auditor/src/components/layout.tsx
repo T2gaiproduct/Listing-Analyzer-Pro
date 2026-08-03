@@ -553,10 +553,15 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const isAccountHubRoute = isAccountScopedRoute(location);
+  const isAccountDashboardRoute = location === "/dashboard" || location === "/";
   const accountCreditSummary = creditsData?.accountCreditSummary;
 
   const showWorkspacePoolCredits =
-    isAccountOwner && !isTeamMember && featureWorkspaceId != null && isWorkspaceApiScopeActive;
+    isAccountOwner
+    && !isTeamMember
+    && featureWorkspaceId != null
+    && isWorkspaceApiScopeActive
+    && !isAccountDashboardRoute;
 
   const { data: workspacePoolData } = useQuery<{
     poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
@@ -600,14 +605,18 @@ export function Layout({ children }: { children: ReactNode }) {
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : showWorkspacePoolCredits && workspacePoolCredits
       ? workspacePoolCredits
-      : accountCreditSummary?.unallocated ?? ownerCredits;
+      : isAccountDashboardRoute && accountCreditSummary?.accountTotalBuckets
+        ? accountCreditSummary.accountTotalBuckets
+        : accountCreditSummary?.unallocated ?? ownerCredits;
   const creditsScopeLabel = showWorkspacePoolCredits && workspacePoolCredits
     ? "workspace"
     : isTeamMember
       ? "member"
-      : isAccountOwner && isAccountHubRoute
-        ? "account_hub"
-        : "account";
+      : isAccountOwner && isAccountDashboardRoute
+        ? "account_total"
+        : isAccountOwner && isAccountHubRoute
+          ? "account_hub"
+          : "account";
 
   const profileName =
     fullProfileData?.profile?.fullName?.trim() ||
