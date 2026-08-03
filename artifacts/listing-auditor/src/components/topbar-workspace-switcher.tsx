@@ -44,6 +44,7 @@ export function TopbarWorkspaceSwitcher() {
     isLoading,
     needsWorkspaceSelection,
     isBillingAccountOwner,
+    workspaceScopeCommitted,
   } = useWorkspace();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -174,7 +175,7 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
-  const onCustomerDashboard = location === "/dashboard" && isBillingAccountOwner;
+  const onCustomerDashboard = location === "/dashboard" && isBillingAccountOwner && !workspaceScopeCommitted;
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const viewedWorkspaceId = parseWorkspaceRouteId(location);

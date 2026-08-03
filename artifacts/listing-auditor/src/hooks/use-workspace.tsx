@@ -57,6 +57,8 @@ interface WorkspaceContextValue {
   needsWorkspaceSelection: boolean;
   /** Billing customer (accountRole user), including before first workspace exists. */
   isBillingAccountOwner: boolean;
+  /** Billing owner picked a workspace for scoped dashboard / project APIs (false after visiting workspace hub). */
+  workspaceScopeCommitted: boolean;
   profileLoading: boolean;
   refetch: () => void;
 }
@@ -313,13 +315,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isWorkspaceApiScopeActive: workspaceApiScopeActive,
     needsWorkspaceSelection,
     isBillingAccountOwner,
+    workspaceScopeCommitted,
     profileLoading,
     refetch: () => { void refetchList(); },
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
     permissions, roleName, isAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
     listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
-    workspaceApiScopeActive, needsWorkspaceSelection,
+    workspaceApiScopeActive, needsWorkspaceSelection, workspaceScopeCommitted,
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

@@ -233,8 +233,17 @@ export default function Dashboard() {
     isWorkspaceApiScopeActive,
     refetch: refetchWorkspaces,
     isBillingAccountOwner,
+    workspaceScopeCommitted,
     profileLoading,
   } = useWorkspace();
+
+  const useAccountDashboard =
+    isBillingAccountOwner
+    && !workspaceScopeCommitted;
+  const useWorkspaceDashboard =
+    isBillingAccountOwner
+    && workspaceScopeCommitted
+    && activeWorkspaceId != null;
 
   const needsAutoWorkspace =
     isBillingAccountOwner && workspaces.length === 0 && !wsLoading;
@@ -248,7 +257,9 @@ export default function Dashboard() {
   }, [needsAutoWorkspace, workspaceProvisionAttempted, refetchWorkspaces]);
 
   const hasSharedWorkspace = workspaces.some((w) => !w.isAccountOwner);
-  const memberWorkspaceId = isBillingAccountOwner ? null : (featureWorkspaceId ?? activeWorkspaceId);
+  const memberWorkspaceId = useAccountDashboard
+    ? null
+    : (featureWorkspaceId ?? activeWorkspaceId);
   const isMemberView = isTeamMemberAccount || (isTeamMember && hasSharedWorkspace);
 
   const memberActions = [
@@ -274,7 +285,7 @@ export default function Dashboard() {
     ?? activeWorkspaceId;
 
   async function loadDashboardData(): Promise<DashboardData> {
-    if (isBillingAccountOwner) {
+    if (useAccountDashboard) {
       try {
         return await fetchJson<DashboardData>(
           `${basePath}/api/dashboard?scope=account`,
@@ -292,21 +303,28 @@ export default function Dashboard() {
   }
 
   const showWorkspacePoolCredits =
-    !isBillingAccountOwner
-    && isAccountOwner
-    && !isTeamMember
-    && featureWorkspaceId != null
-    && isWorkspaceApiScopeActive;
+    useWorkspaceDashboard
+    || (
+      !isBillingAccountOwner
+      && isAccountOwner
+      && !isTeamMember
+      && featureWorkspaceId != null
+      && isWorkspaceApiScopeActive
+    );
 
   const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard", isBillingAccountOwner ? "account" : featureWorkspaceId, defaultOwnedWorkspaceId],
+    queryKey: [
+      "dashboard",
+      useAccountDashboard ? "account" : "workspace",
+      useAccountDashboard ? defaultOwnedWorkspaceId : (featureWorkspaceId ?? activeWorkspaceId),
+    ],
     queryFn: () => loadDashboardData(),
     enabled:
       clerkLoaded
       && !!user
       && !profileLoading
-      && (isBillingAccountOwner || !!featureWorkspaceId)
-      && (isBillingAccountOwner || isAccountOwner || canView("dashboard")),
+      && (useAccountDashboard || !!featureWorkspaceId || !!activeWorkspaceId)
+      && (useAccountDashboard || isAccountOwner || canView("dashboard")),
     staleTime: 30_000,
     retry: (failureCount, err) => {
       if (err instanceof ApiFetchError && err.status >= 400) return failureCount < 1;
@@ -345,7 +363,7 @@ export default function Dashboard() {
     );
   }
 
-  if (wsLoading || provisioningWorkspace || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))) {
+  if (wsLoading || provisioningWorkspace || (isLoading && !isError && (useAccountDashboard || memberWorkspaceId))) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
@@ -360,7 +378,7 @@ export default function Dashboard() {
     );
   }
 
-  if ((!memberWorkspaceId && !isMemberView && !isBillingAccountOwner) || (needsWorkspaceSelection && !isMemberView)) {
+  if ((!memberWorkspaceId && !isMemberView && !useAccountDashboard) || (needsWorkspaceSelection && !isMemberView)) {
     if (wsLoading || provisioningWorkspace) {
       return (
         <div className="space-y-4 sm:space-y-6 animate-in fade-in">
@@ -485,7 +503,7 @@ export default function Dashboard() {
             Welcome back, {name}! 👋
           </h1>
           <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">
-            {isBillingAccountOwner || dashboard.viewMode === "account"
+            {useAccountDashboard || dashboard.viewMode === "account"
               ? "Account overview across all your workspaces."
               : <>Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.</>}
           </p>
@@ -524,18 +542,18 @@ export default function Dashboard() {
           icon={TrendingUp}
         />
         <StatCard
-          title={isBillingAccountOwner ? "Number of Workspaces" : "Time Saved"}
+          title={useAccountDashboard ? "Number of Workspaces" : "Time Saved"}
           value={
-            isBillingAccountOwner
+            useAccountDashboard
               ? (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length)
               : formatHours(stats.timeSavedHours)
           }
           subtext={
-            isBillingAccountOwner
+            useAccountDashboard
               ? stats.workspaceCount === 1 ? "Active workspace" : "Active workspaces"
               : "From AI tasks completed"
           }
-          icon={isBillingAccountOwner ? LayoutGrid : Clock}
+          icon={useAccountDashboard ? LayoutGrid : Clock}
         />
         <StatCard
           title="Credits Balance"
