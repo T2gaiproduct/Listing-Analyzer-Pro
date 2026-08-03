@@ -210,8 +210,8 @@ export function WorkflowCmsEditor({ data, onChange }: WorkflowCmsEditorProps) {
         <div>
           <CardTitle className="text-sm font-semibold text-slate-700">Before &amp; After marquee pairs</CardTitle>
           <p className="text-sm text-slate-500 mt-1">
-            Upload before and after images for each comparison pair. Pairs scroll in the homepage workflow marquee.
-            Save changes after uploading.
+          Upload before and after images for each pair. Hovering a card on the homepage reveals the after image.
+          Save changes after uploading.
           </p>
         </div>
         <Button
