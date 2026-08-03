@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, Clock, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TutorialVideoDialog } from "@/components/tutorial-video-dialog";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { cmsText } from "@/lib/homepage-cms";
 import {
@@ -9,6 +10,7 @@ import {
   tutorialCategoryLabel,
   type TutorialPreviewItem,
 } from "@/lib/tutorials-cms";
+import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -25,14 +27,17 @@ function TutorialFanCard({
   item,
   visible,
   isCenter,
+  onPlayVideo,
 }: {
   item: TutorialPreviewItem;
   visible: boolean;
   isCenter: boolean;
+  onPlayVideo: (item: TutorialPreviewItem) => void;
 }) {
   const href = item.linkUrl?.trim() || "/tutorials";
   const isExternal = href.startsWith("http");
   const category = tutorialCategoryLabel(item.category || "getting-started");
+  const hasPlayableVideo = Boolean(item.videoUrl?.trim() && youtubeEmbedUrl(item.videoUrl));
 
   const shell = (
     <div
@@ -43,7 +48,17 @@ function TutorialFanCard({
           ? "border-2 border-orange-400 shadow-lg shadow-orange-100/80"
           : "border border-slate-200/80",
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10",
+        hasPlayableVideo && "cursor-pointer",
       )}
+      onClick={hasPlayableVideo ? () => onPlayVideo(item) : undefined}
+      onKeyDown={hasPlayableVideo ? (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onPlayVideo(item);
+        }
+      } : undefined}
+      role={hasPlayableVideo ? "button" : undefined}
+      tabIndex={hasPlayableVideo ? 0 : undefined}
     >
       <div className="relative aspect-[5/6] bg-slate-100 overflow-hidden">
         {item.image ? (
@@ -98,6 +113,10 @@ function TutorialFanCard({
     </div>
   );
 
+  if (hasPlayableVideo) {
+    return shell;
+  }
+
   if (isExternal) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className="block">
@@ -120,6 +139,7 @@ function FanSlot({
   visible,
   isCenter,
   reduceMotion,
+  onPlayVideo,
 }: {
   item: TutorialPreviewItem;
   index: number;
@@ -127,6 +147,7 @@ function FanSlot({
   visible: boolean;
   isCenter: boolean;
   reduceMotion: boolean;
+  onPlayVideo: (item: TutorialPreviewItem) => void;
 }) {
   const transform = visible
     ? `rotateY(${layout.rotateY}deg) translateZ(${layout.translateZ}px) scale(${layout.scale})`
@@ -149,7 +170,7 @@ function FanSlot({
         className={cn(visible && !reduceMotion && "tutorials-fan-float")}
         style={{ animationDelay: `${index * 0.35}s` }}
       >
-        <TutorialFanCard item={item} visible={visible} isCenter={isCenter} />
+        <TutorialFanCard item={item} visible={visible} isCenter={isCenter} onPlayVideo={onPlayVideo} />
       </div>
     </div>
   );
@@ -160,6 +181,8 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [videoItem, setVideoItem] = useState<TutorialPreviewItem | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   const heading = cmsText(cms, "tutorials.heading");
   const subheading = cmsText(cms, "tutorials.subheading");
@@ -200,6 +223,12 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
   }, [reduceMotion]);
 
   if (tutorials.length === 0) return null;
+
+  function openVideo(item: TutorialPreviewItem) {
+    if (!item.videoUrl?.trim() || !youtubeEmbedUrl(item.videoUrl)) return;
+    setVideoItem(item);
+    setVideoOpen(true);
+  }
 
   return (
     <section
@@ -250,6 +279,7 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
                   visible={visible}
                   isCenter={index === 2}
                   reduceMotion={reduceMotion}
+                  onPlayVideo={openVideo}
                 />
               ))}
             </div>
@@ -271,6 +301,16 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
           </div>
         )}
       </div>
+
+      {videoItem?.videoUrl && (
+        <TutorialVideoDialog
+          open={videoOpen}
+          onOpenChange={setVideoOpen}
+          title={videoItem.title}
+          duration={videoItem.duration}
+          videoUrl={videoItem.videoUrl}
+        />
+      )}
     </section>
   );
 }

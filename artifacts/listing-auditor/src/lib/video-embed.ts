@@ -1,7 +1,19 @@
+/** Trim and ensure a scheme for pasted URLs (admin often pastes without https). */
+export function normalizeVideoUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  return `https://${trimmed}`;
+}
+
 /** Extract a YouTube video id from common URL formats. */
 export function youtubeVideoId(url: string): string | null {
+  const normalized = normalizeVideoUrl(url);
+  if (!normalized) return null;
+
   try {
-    const parsed = new URL(url.trim());
+    const parsed = new URL(normalized);
     const host = parsed.hostname.replace(/^www\./, "");
 
     if (host === "youtube.com" || host === "m.youtube.com") {
@@ -11,11 +23,12 @@ export function youtubeVideoId(url: string): string | null {
       const parts = parsed.pathname.split("/").filter(Boolean);
       if (parts[0] === "embed" && parts[1]) return parts[1];
       if (parts[0] === "shorts" && parts[1]) return parts[1];
+      if (parts[0] === "live" && parts[1]) return parts[1];
     }
 
     if (host === "youtu.be") {
       const id = parsed.pathname.replace(/^\//, "").split("/")[0];
-      if (id) return id;
+      if (id) return id.split("?")[0];
     }
   } catch {
     return null;
@@ -24,10 +37,27 @@ export function youtubeVideoId(url: string): string | null {
   return null;
 }
 
+type YoutubeEmbedOptions = {
+  autoplay?: boolean;
+  origin?: string;
+};
+
 /** Convert common YouTube watch/share URLs to an embeddable iframe src. */
-export function youtubeEmbedUrl(url: string): string | null {
+export function youtubeEmbedUrl(url: string, opts?: YoutubeEmbedOptions): string | null {
   const id = youtubeVideoId(url);
-  return id ? `https://www.youtube.com/embed/${id}` : null;
+  if (!id) return null;
+
+  const params = new URLSearchParams({
+    rel: "0",
+    modestbranding: "1",
+    playsinline: "1",
+  });
+
+  if (opts?.autoplay) params.set("autoplay", "1");
+  const origin = opts?.origin ?? (typeof window !== "undefined" ? window.location.origin : "");
+  if (origin) params.set("origin", origin);
+
+  return `https://www.youtube.com/embed/${id}?${params.toString()}`;
 }
 
 /** YouTube poster image for a watch/share URL. */

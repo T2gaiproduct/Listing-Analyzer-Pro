@@ -1,6 +1,6 @@
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { HOMEPAGE_CMS_DEFAULTS, cmsText, resolveCmsAssetUrl } from "@/lib/homepage-cms";
-import { youtubeThumbnailUrl } from "@/lib/video-embed";
+import { youtubeThumbnailUrl, normalizeVideoUrl } from "@/lib/video-embed";
 
 export const MAX_TUTORIAL_ITEMS = 12;
 export const DEFAULT_TUTORIAL_VISIBLE = 5;
@@ -61,7 +61,7 @@ export function parseTutorialItems(cms: HomepageCmsMap): TutorialCmsItem[] {
       title,
       duration: cmsText(cms, `tutorials.item${i}_duration`),
       image: cmsText(cms, `tutorials.item${i}_image`),
-      videoUrl: (cms[`tutorials.item${i}_video_url`] ?? "").trim(),
+      videoUrl: (cms[tutorialItemKeys(i).videoUrl] ?? "").trim(),
       description: cmsText(cms, `tutorials.item${i}_description`),
       category: cmsText(cms, `tutorials.item${i}_category`) || "getting-started",
       steps: cmsText(cms, `tutorials.item${i}_steps`),
@@ -110,7 +110,7 @@ export function buildTutorialPreviewItems(cms: HomepageCmsMap, basePath: string)
     title: item.title,
     duration: item.duration,
     image: resolveTutorialPreviewImage(cms, item, basePath),
-    videoUrl: item.videoUrl,
+    videoUrl: normalizeVideoUrl(item.videoUrl),
     description: item.description,
     category: item.category,
     steps: item.steps,

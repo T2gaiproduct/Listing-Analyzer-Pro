@@ -13,7 +13,7 @@ import {
   tutorialItemKeys,
   visibleTutorialItemCount,
 } from "@/lib/tutorials-cms";
-import { youtubeThumbnailUrl } from "@/lib/video-embed";
+import { youtubeThumbnailUrl, youtubeEmbedUrl } from "@/lib/video-embed";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -92,6 +92,9 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
             : "";
           const youtubePreview = data[keys.videoUrl]
             ? youtubeThumbnailUrl(data[keys.videoUrl])
+            : null;
+          const embedPreview = data[keys.videoUrl]
+            ? youtubeEmbedUrl(data[keys.videoUrl])
             : null;
           const previewUrl = customPreview || youtubePreview || "";
 
@@ -202,6 +205,23 @@ export function TutorialsCmsEditor({ data, onChange }: TutorialsCmsEditorProps) 
                   {previewUrl && (
                     <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 max-w-[200px]">
                       <img src={previewUrl} alt="" className="w-full h-auto rounded-md object-contain max-h-28" />
+                    </div>
+                  )}
+                  {embedPreview && (
+                    <div className="mt-3 rounded-lg border border-slate-200 overflow-hidden bg-black max-w-md">
+                      <p className="text-[10px] font-medium text-slate-500 px-2 py-1 bg-slate-50 border-b border-slate-200">
+                        Video preview (after Save, this plays on the site)
+                      </p>
+                      <div className="aspect-video">
+                        <iframe
+                          src={embedPreview}
+                          title="Tutorial video preview"
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                          referrerPolicy="strict-origin-when-cross-origin"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

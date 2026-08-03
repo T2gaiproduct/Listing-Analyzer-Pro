@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Play } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { TutorialVideoDialog } from "@/components/tutorial-video-dialog";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 import type { TutorialPreviewItem } from "@/lib/tutorials-cms";
@@ -122,35 +122,13 @@ export function TutorialCard({
             )}
           </div>
         </button>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="max-w-4xl w-[calc(100vw-2rem)] p-0 gap-0 overflow-hidden">
-            <DialogTitle className="sr-only">{title}</DialogTitle>
-            <div className="aspect-video w-full bg-black">
-              {embedUrl ? (
-                <iframe
-                  src={embedUrl}
-                  title={title}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              ) : (
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full h-full flex items-center justify-center text-sm font-medium text-white hover:bg-slate-900 transition-colors px-4 text-center"
-                >
-                  Open video in new tab
-                </a>
-              )}
-            </div>
-            <div className="px-4 py-3 border-t border-slate-200">
-              <p className="font-semibold text-slate-900">{title}</p>
-              {duration && <p className="text-sm text-slate-500 mt-0.5">{duration}</p>}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <TutorialVideoDialog
+          open={open}
+          onOpenChange={setOpen}
+          title={title}
+          duration={duration}
+          videoUrl={videoUrl}
+        />
       </>
     );
   }
