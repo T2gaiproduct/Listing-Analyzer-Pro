@@ -9,17 +9,17 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-    "dependencies": {
+  "dependencies": {
     "@clerk/backend": "^3.4.7",
     "@clerk/express": "^2.1.15",
     "@clerk/shared": "^4.10.2",
     "@google/genai": "^2.8.0",
     "@types/ws": "^8.18.1",
     "@workspace/admin-permissions": "workspace:*",
-    "@workspace/workspace-permissions": "workspace:*",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
+    "@workspace/workspace-permissions": "workspace:*",
     "archiver": "^8.0.0",
     "cheerio": "^1.2.0",
     "cookie-parser": "^1.4.7",
@@ -28,12 +28,13 @@
     "exceljs": "^4.4.0",
     "express": "^5",
     "http-proxy-middleware": "^4.0.0",
+    "nodemailer": "^7.0.6",
     "openai": "^6.36.0",
     "p-limit": "^7.3.0",
+    "pdf-lib": "^1.17.1",
     "pdfkit": "^0.18.0",
     "pino": "^9",
     "pino-http": "^10",
-    "nodemailer": "^7.0.6",
     "ws": "^8.21.0"
   },
   "devDependencies": {

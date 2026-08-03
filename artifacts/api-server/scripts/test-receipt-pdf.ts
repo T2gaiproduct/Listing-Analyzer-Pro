@@ -1,12 +1,10 @@
 /**
  * Generate sample receipt PDF for layout check.
- * Run: cd artifacts/api-server && pnpm exec tsx ../../scripts/src/test-receipt-pdf.ts
+ * Run: cd artifacts/api-server && pnpm exec tsx scripts/test-receipt-pdf.ts
  */
-import PDFDocument from "pdfkit";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildReceiptPdf, type ReceiptPdfInput } from "../src/lib/receipt-pdf-layout.js";
+import { buildReceiptPdfBytes, type ReceiptPdfInput } from "../src/lib/receipt-pdf-layout.js";
 
 const sample: ReceiptPdfInput = {
   id: 5,
@@ -23,10 +21,7 @@ const sample: ReceiptPdfInput = {
   email: null,
 };
 
-const doc = new PDFDocument({ size: "A4", margin: 50 });
 const out = path.join("/tmp", "receipt-test-000005.pdf");
-const stream = fs.createWriteStream(out);
-doc.pipe(stream);
-buildReceiptPdf(doc, sample);
-doc.end();
-stream.on("finish", () => console.log("Written:", out));
+const bytes = await buildReceiptPdfBytes(sample);
+fs.writeFileSync(out, bytes);
+console.log("Written:", out, bytes.length, "bytes");

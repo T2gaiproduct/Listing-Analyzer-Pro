@@ -1,7 +1,6 @@
-import PDFDocument from "pdfkit";
 import { eq } from "drizzle-orm";
 import { db, paymentsTable, plansTable, userProfilesTable } from "@workspace/db";
-import { buildReceiptPdf, type ReceiptPdfInput } from "./receipt-pdf-layout.js";
+import { buildReceiptPdfBytes, type ReceiptPdfInput } from "./receipt-pdf-layout.js";
 
 export async function buildReceipt(paymentId: number): Promise<Buffer> {
   const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, paymentId));
@@ -34,15 +33,6 @@ export async function buildReceipt(paymentId: number): Promise<Buffer> {
     email: null,
   };
 
-  const doc = new PDFDocument({ size: "A4", margin: 50 });
-  const buffers: Buffer[] = [];
-  doc.on("data", (chunk) => buffers.push(chunk));
-
-  buildReceiptPdf(doc, data);
-  doc.end();
-
-  return new Promise((resolve, reject) => {
-    doc.on("end", () => resolve(Buffer.concat(buffers)));
-    doc.on("error", reject);
-  });
+  const bytes = await buildReceiptPdfBytes(data);
+  return Buffer.from(bytes);
 }

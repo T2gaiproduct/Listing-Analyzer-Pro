@@ -935,6 +935,8 @@ router.get("/admin/receipts/:paymentId", requireAdmin, async (req, res): Promise
     const { buildReceipt } = await import("../lib/receipt.js");
     const pdf = await buildReceipt(paymentId);
     res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.setHeader("Content-Disposition", `attachment; filename="receipt-${String(paymentId).padStart(6, "0")}.pdf"`);
     res.setHeader("Content-Length", pdf.length);
     res.send(pdf);
