@@ -21,6 +21,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
 import { refetchCreditQueries } from "@/lib/credit-queries";
@@ -29,6 +30,8 @@ import { ResponsiveTable } from "@/components/responsive-table";
 import { format } from "date-fns";
 import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
+import { WorkspacesPlanUpgradeBanner } from "@/components/workspaces-plan-upgrade";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
@@ -91,6 +94,7 @@ interface WorkspaceOverview {
   ownerCredits?: CreditBuckets;
   availableToFundWorkspaces?: CreditBuckets;
   workspaces: WorkspaceOverviewRow[];
+  workspacesEnabled?: boolean;
 }
 
 function sumCredits(c?: CreditBuckets | null): number {
@@ -121,6 +125,8 @@ function poolUnassignedTotal(ws: WorkspaceOverviewRow): number {
 
 export default function WorkspacesPage() {
   const { workspaces, activeWorkspaceId, isAccountOwner, can, refetch, setActiveWorkspaceId } = useWorkspace();
+  const { workspacesEnabled, upgradeShort } = useWorkspacesPlan();
+  const workspacesLocked = isAccountOwner && !workspacesEnabled;
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -131,9 +137,10 @@ export default function WorkspacesPage() {
   const [poolForm, setPoolForm] = useState({ aiCredits: "0", imageCredits: "0", auditCredits: "0" });
   const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<Set<number>>(new Set());
 
-  const canCreate = isAccountOwner || can("workspaces", "create");
-  const canEdit = isAccountOwner || can("workspaces", "edit");
-  const canDelete = isAccountOwner;
+  const canCreate = !workspacesLocked && (isAccountOwner || can("workspaces", "create"));
+  const canEdit = !workspacesLocked && (isAccountOwner || can("workspaces", "edit"));
+  const canDelete = !workspacesLocked && isAccountOwner;
+  const canFundPools = !workspacesLocked && isAccountOwner;
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ["workspaces-overview"],
@@ -397,7 +404,15 @@ export default function WorkspacesPage() {
             New workspace
           </Button>
         )}
+        {workspacesLocked && (
+          <Button variant="outline" disabled className="gap-2 cursor-not-allowed opacity-70" title={upgradeShort}>
+            <Plus className="w-4 h-4" />
+            New workspace
+          </Button>
+        )}
       </div>
+
+      {workspacesLocked && <WorkspacesPlanUpgradeBanner />}
 
       {isAccountOwner && (
         <div className="space-y-4">
@@ -502,7 +517,17 @@ export default function WorkspacesPage() {
                 Credits you funded to each client workspace. Members can only use what you assign from each pool.
               </p>
             </CardHeader>
-            <CardContent className="p-0 sm:px-6 sm:pb-6">
+            <CardContent className={cn("p-0 sm:px-6 sm:pb-6", workspacesLocked && "relative")}>
+              {workspacesLocked && (
+                <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[1px] flex items-center justify-center p-6">
+                  <div className="max-w-md text-center space-y-3">
+                    <p className="text-sm text-slate-700 font-medium">{upgradeShort}</p>
+                    <Button asChild size="sm" className="bg-orange-500 hover:bg-orange-600">
+                      <Link href="/billing">Upgrade plan</Link>
+                    </Button>
+                  </div>
+                </div>
+              )}
               {overviewLoading ? (
                 <p className="text-sm text-slate-500 px-6 pb-6">Loading…</p>
               ) : displayWorkspaces.length === 0 ? (

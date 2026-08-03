@@ -36,6 +36,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -106,6 +107,8 @@ function StatCard({
   subtextPositive,
   icon: Icon,
   href,
+  locked,
+  lockedHref,
 }: {
   title: string;
   value: string | number;
@@ -113,12 +116,15 @@ function StatCard({
   subtextPositive?: boolean;
   icon: typeof Folder;
   href?: string;
+  locked?: boolean;
+  lockedHref?: string;
 }) {
   const card = (
     <div
       className={cn(
         "bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-5 min-w-0",
-        href && "hover:border-orange-300 hover:shadow-md hover:bg-orange-50/30 transition-all cursor-pointer",
+        !locked && href && "hover:border-orange-300 hover:shadow-md hover:bg-orange-50/30 transition-all cursor-pointer",
+        locked && "opacity-90 border-dashed border-amber-200 bg-amber-50/20",
       )}
     >
       <div className="flex items-center gap-2 sm:block">
@@ -130,14 +136,22 @@ function StatCard({
       <p className="text-xl sm:text-3xl font-bold text-slate-900 mt-1 sm:mt-1 tracking-tight">{value}</p>
       <p className={cn(
         "text-[10px] sm:text-xs mt-1 sm:mt-2 line-clamp-2 leading-snug",
-        subtextPositive ? "text-emerald-600" : "text-slate-400",
+        locked ? "text-amber-700" : subtextPositive ? "text-emerald-600" : "text-slate-400",
       )}>
         {subtext}
       </p>
     </div>
   );
 
-  if (href) {
+  if (locked && lockedHref) {
+    return (
+      <Link href={lockedHref} className="block min-w-0 rounded-xl sm:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+        {card}
+      </Link>
+    );
+  }
+
+  if (href && !locked) {
     return (
       <Link href={href} className="block min-w-0 rounded-xl sm:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
         {card}
@@ -253,6 +267,7 @@ export default function Dashboard() {
     isBillingAccountOwner,
     profileLoading,
   } = useWorkspace();
+  const { workspacesEnabled, includedPlansLabel } = useWorkspacesPlan();
 
   const needsAutoWorkspace =
     isBillingAccountOwner && workspaces.length === 0 && !wsLoading;
@@ -550,10 +565,15 @@ export default function Dashboard() {
           }
           subtext={
             isBillingAccountOwner
-              ? stats.workspaceCount === 1 ? "Active workspace" : "Active workspaces"
+              ? workspacesEnabled
+                ? stats.workspaceCount === 1 ? "Active workspace" : "Active workspaces"
+                : `Upgrade to ${includedPlansLabel} to manage multiple workspaces`
               : "From AI tasks completed"
           }
           icon={isBillingAccountOwner ? LayoutGrid : Clock}
+          href={isBillingAccountOwner && workspacesEnabled ? "/workspaces" : undefined}
+          locked={isBillingAccountOwner && !workspacesEnabled}
+          lockedHref={isBillingAccountOwner && !workspacesEnabled ? "/billing" : undefined}
         />
         <StatCard
           title="Credits Balance"

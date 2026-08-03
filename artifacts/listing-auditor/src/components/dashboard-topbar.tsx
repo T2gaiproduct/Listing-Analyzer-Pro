@@ -10,6 +10,7 @@ import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { buildProfileMenuItems } from "@/lib/profile-menu-items";
+import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { TopbarWorkspaceSwitcher } from "@/components/topbar-workspace-switcher";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -21,8 +22,9 @@ function profileMenuItems(
   variant: "customer" | "admin",
   canView: ReturnType<typeof useWorkspace>["canView"],
   can: ReturnType<typeof useWorkspace>["can"],
+  workspacesPlanLocked: boolean,
 ) {
-  return buildProfileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can);
+  return buildProfileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can, workspacesPlanLocked);
 }
 
 const helpSubmenuItems = [
@@ -78,7 +80,8 @@ export function DashboardTopbar({
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
   const { isAccountOwner, canView, can } = useWorkspace();
-  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can);
+  const { workspacesPlanLocked } = useWorkspacesPlan();
+  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can, workspacesPlanLocked);
   const showWorkspaceSwitcher = variant === "customer";
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -94,9 +97,11 @@ export function DashboardTopbar({
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
   const breakdownCredits =
-    creditsScopeLabel === "account_total" && accountCreditSummary?.accountTotalBuckets
-      ? accountCreditSummary.accountTotalBuckets
-      : accountCreditSummary?.unallocated ?? credits;
+    creditsScopeLabel === "workspace"
+      ? credits
+      : creditsScopeLabel === "account_total" && accountCreditSummary?.accountTotalBuckets
+        ? accountCreditSummary.accountTotalBuckets
+        : accountCreditSummary?.unallocated ?? credits;
   const creditBalanceLabel =
     creditsScopeLabel === "workspace"
       ? "Workspace credits"
@@ -403,17 +408,34 @@ export function DashboardTopbar({
                 </button>
               </div>
               <div className="py-1.5">
-                {menuItems.map(({ icon: Icon, label, href }) => (
-                  <Link key={label} href={href}>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left min-h-11"
-                      onClick={() => setProfileOpen(false)}
+                {menuItems.map(({ icon: Icon, label, href, locked, lockedHint }) => (
+                  locked ? (
+                    <div
+                      key={label}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-400 cursor-not-allowed min-h-11"
+                      title={lockedHint ?? "Upgrade your plan to unlock"}
                     >
-                      <Icon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      {label}
-                    </button>
-                  </Link>
+                      <Icon className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                      <span className="flex-1 min-w-0">
+                        {label}
+                        {lockedHint && (
+                          <span className="block text-[10px] text-amber-700 font-medium mt-0.5">{lockedHint}</span>
+                        )}
+                      </span>
+                      <Lock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                    </div>
+                  ) : (
+                    <Link key={label} href={href}>
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left min-h-11"
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        <Icon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        {label}
+                      </button>
+                    </Link>
+                  )
                 ))}
                 {variant === "customer" && (
                 <div className="relative">

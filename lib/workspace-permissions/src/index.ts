@@ -227,3 +227,11 @@ export function mergePermissionsFromForm(
   }
   return out;
 }
+
+export {
+  planIncludesWorkspaces,
+  normalizePlanName,
+  WORKSPACES_INCLUDED_PLANS_LABEL,
+  WORKSPACES_UPGRADE_MESSAGE,
+  WORKSPACES_UPGRADE_SHORT,
+} from "./plan-workspaces.js";
