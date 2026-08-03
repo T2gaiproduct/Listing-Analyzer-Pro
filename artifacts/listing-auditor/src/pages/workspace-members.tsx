@@ -52,10 +52,14 @@ export default function WorkspaceMembersPage() {
   const ws = workspaces.find((w) => w.id === workspaceId);
 
   useEffect(() => {
-    if (Number.isFinite(workspaceId) && workspaceId > 0) {
+    if (
+      Number.isFinite(workspaceId)
+      && workspaceId > 0
+      && activeWorkspaceId !== workspaceId
+    ) {
       setActiveWorkspaceId(workspaceId);
     }
-  }, [workspaceId, setActiveWorkspaceId]);
+  }, [workspaceId, activeWorkspaceId, setActiveWorkspaceId]);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [email, setEmail] = useState("");

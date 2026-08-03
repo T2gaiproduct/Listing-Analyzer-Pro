@@ -186,7 +186,7 @@ export function TopbarWorkspaceSwitcher() {
     ? workspaces.find((w) => w.id === viewedWorkspaceId) ?? null
     : null;
 
-  const highlightedWorkspaceId = onWorkspaceDashboard
+  const highlightedWorkspaceId = onWorkspaceDashboard || onAccountDashboard
     ? null
     : viewedWorkspaceId ?? (onAccountScopedPage ? null : (activeWorkspaceId ?? featureWorkspaceId));
 
