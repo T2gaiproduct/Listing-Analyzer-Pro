@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { accountRoleLabel } from "@/lib/role-display";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -239,7 +240,7 @@ export default function WorkspaceMembersPage() {
             {isAccountOwner && (
               <p className="text-xs text-slate-500">
                 Fund this pool from your account on{" "}
-                <Link href="/workspaces" className="underline font-medium">Manage workspaces</Link>, then assign credits to members in the table below.
+                <Link href="/workspaces" className="underline font-medium">{WORKSPACES_HUB_LABEL}</Link>, then assign credits to members in the table below.
               </p>
             )}
           </CardContent>

@@ -8,6 +8,7 @@ import {
   Shield,
 } from "lucide-react";
 import type { WorkspaceAction, WorkspaceFeature } from "@workspace/workspace-permissions";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 
 export interface ProfileMenuItem {
   icon: LucideIcon;
@@ -56,7 +57,7 @@ export function buildProfileMenuItems(
   }
 
   if (isAccountOwner || canView("workspaces")) {
-    items.push({ icon: Building2, label: "Workspaces", href: "/workspaces" });
+    items.push({ icon: Building2, label: WORKSPACES_HUB_LABEL, href: "/workspaces" });
   }
 
   if (isAccountOwner || canView("settings")) {

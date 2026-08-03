@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -35,6 +35,7 @@ import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -333,6 +334,10 @@ export default function Dashboard() {
   const memberCreditTotal =
     (memberCredits?.auditCredits ?? 0) + (memberCredits?.aiCredits ?? 0) + (memberCredits?.imageCredits ?? 0);
 
+  if (isBillingAccountOwner && !profileLoading && !wsLoading) {
+    return <Redirect to="/workspaces" />;
+  }
+
   if (isMemberView && memberWorkspaceId && !canView("dashboard") && !isAccountOwner) {
     return (
       <MemberHomePanel
@@ -379,7 +384,7 @@ export default function Dashboard() {
           Pick a workspace in the top bar to view its overview, or manage all workspaces to fund pools and members.
         </p>
         <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
-          <Link href="/workspaces">Manage workspaces</Link>
+          <Link href="/workspaces">{WORKSPACES_HUB_LABEL}</Link>
         </Button>
       </div>
     );
@@ -548,7 +553,7 @@ export default function Dashboard() {
               : creditScopeLabel === "workspace_pool"
                 ? creditsAllowance > 0
                   ? `of ${creditsAllowance.toLocaleString()} assigned to this workspace`
-                  : "No credits assigned — fund on Manage workspaces"
+                  : `No credits assigned — fund on ${WORKSPACES_HUB_LABEL}`
                 : (stats.teamCreditsUsedInPeriod ?? 0) > 0
                   ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
                   : `of ${creditsAllowance.toLocaleString()} credits`

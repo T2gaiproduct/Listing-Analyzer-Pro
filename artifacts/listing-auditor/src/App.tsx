@@ -278,6 +278,7 @@ function HomeRedirect() {
   const inviteRedirect = pendingWorkspaceInviteRedirect(summary);
   if (inviteRedirect) return <Redirect to={inviteRedirect} />;
   if (requiresOnboarding(summary)) return <Redirect to="/onboarding" />;
+  if (summary.accountRole?.type === "user") return <Redirect to="/workspaces" />;
   return <Redirect to="/dashboard" />;
 }
 

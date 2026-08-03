@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { accountRoleLabel } from "@/lib/role-display";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { fetchJson } from "@/lib/api-fetch";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
@@ -625,7 +626,7 @@ export default function Team() {
               {data.availableToAllocate.auditCredits} audit · {data.availableToAllocate.aiCredits} text · {data.availableToAllocate.imageCredits} images
             </span>
             . Fund pools on the{" "}
-            <Link href="/workspaces" className="underline font-medium">Workspaces</Link> page.
+            <Link href="/workspaces" className="underline font-medium">{WORKSPACES_HUB_LABEL}</Link> page.
           </p>
         )}
       </div>
@@ -667,7 +668,7 @@ export default function Team() {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">All workspaces</h2>
+              <h2 className="text-lg font-semibold text-slate-900">{WORKSPACES_HUB_LABEL}</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Each workspace shows only its own members.
               </p>
@@ -675,7 +676,7 @@ export default function Team() {
             <Link href="/workspaces">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Building2 className="w-3.5 h-3.5" />
-                Workspace hub
+                {WORKSPACES_HUB_LABEL}
               </Button>
             </Link>
           </div>

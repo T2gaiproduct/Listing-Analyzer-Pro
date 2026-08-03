@@ -8,6 +8,7 @@ import { Package, Search, Image, Users, RotateCcw, Trash2, AlertCircle, Video, M
 import { formatDistanceToNow } from "date-fns";
 import { useActionDialog } from "@/components/ui/action-dialog";
 import { fetchJson } from "@/lib/api-fetch";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 
 interface ArchivedItem {
   id: number;
@@ -82,7 +83,7 @@ function RecoverButton({ type, id }: { type: string; id: number }) {
       {
         title: isWorkspace ? "Restore this workspace?" : "Restore this item?",
         description: isWorkspace
-          ? "It will reappear on All workspaces."
+          ? `It will reappear on ${WORKSPACES_HUB_LABEL}.`
           : "It will reappear in your Recent Projects feed.",
         confirmLabel: "Restore",
         successTitle: "Restored!",

@@ -9,6 +9,7 @@ import { ArrowLeft, Building2, Shield, Users, UserPlus, ChevronRight } from "luc
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { accountRoleLabel } from "@/lib/role-display";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -88,7 +89,7 @@ export default function WorkspaceDetailPage() {
     return (
       <div className="p-6">
         <p className="text-slate-500">Workspace not found.</p>
-        <Link href="/workspaces"><Button variant="link" className="px-0">All workspaces</Button></Link>
+        <Link href="/workspaces"><Button variant="link" className="px-0">{WORKSPACES_HUB_LABEL}</Button></Link>
       </div>
     );
   }
@@ -99,7 +100,7 @@ export default function WorkspaceDetailPage() {
         <Link href="/workspaces">
           <Button variant="ghost" size="sm" className="gap-1.5">
             <ArrowLeft className="w-4 h-4" />
-            All workspaces
+            {WORKSPACES_HUB_LABEL}
           </Button>
         </Link>
       </div>

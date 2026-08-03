@@ -11,6 +11,7 @@ import {
   isWorkspaceApiScopeActive,
   parseWorkspaceRouteId,
 } from "@/lib/workspace-routes";
+import { WORKSPACES_HUB_LABEL, WORKSPACES_HUB_PATH } from "@/lib/workspaces-hub";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,19 +152,10 @@ export function TopbarWorkspaceSwitcher() {
     }
   };
 
-  const openWorkspaceHub = () => {
-    setOpen(false);
-    navigate("/workspaces");
-  };
-
   const openActiveWorkspace = () => {
     setOpen(false);
     if (isAccountOwner) {
-      if (onWorkspaceDashboard) {
-        navigate("/workspaces");
-        return;
-      }
-      navigate("/dashboard");
+      navigate(WORKSPACES_HUB_PATH);
       return;
     }
     setOpen((v) => !v);
@@ -182,7 +174,6 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
-  const onCustomerDashboard = location === "/dashboard" && isBillingAccountOwner;
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const viewedWorkspaceId = parseWorkspaceRouteId(location);
@@ -197,10 +188,8 @@ export function TopbarWorkspaceSwitcher() {
   const scopedWorkspace = viewedWorkspace ?? activeWorkspace ?? featureWorkspace;
 
   const pillName = onWorkspaceDashboard
-    ? "All workspaces"
-    : onCustomerDashboard
-      ? "Account overview"
-      : accountPill?.name
+    ? WORKSPACES_HUB_LABEL
+    : accountPill?.name
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.name ?? scopedWorkspace?.name ?? "Workspace")
         : needsWorkspaceSelection
@@ -208,9 +197,7 @@ export function TopbarWorkspaceSwitcher() {
           : scopedWorkspace?.name ?? "Select workspace");
   const pillSubtitle = onWorkspaceDashboard
     ? "Manage pools & members"
-    : onCustomerDashboard
-      ? (scopedWorkspace?.name ?? "All workspaces")
-      : accountPill?.subtitle
+    : accountPill?.subtitle
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.clientLabel?.trim() || scopedWorkspace?.clientLabel?.trim() || null)
         : needsWorkspaceSelection
@@ -234,8 +221,8 @@ export function TopbarWorkspaceSwitcher() {
             type="button"
             onClick={openActiveWorkspace}
             className="flex items-center gap-2 pl-2.5 pr-1 h-full min-w-0 max-w-[10rem] md:max-w-[12rem] lg:max-w-[14rem] rounded-l-lg focus:outline-none focus-visible:outline-none hover:bg-orange-50/50 transition-colors"
-            aria-label={onWorkspaceDashboard ? "All workspaces" : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
-            title={isAccountOwner ? "Manage all workspaces" : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
+            aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? `, ${pillSubtitle}` : ""}`}
+            title={isAccountOwner ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}${pillSubtitle ? ` (${pillSubtitle})` : ""}`}
           >
             {onWorkspaceDashboard ? (
               <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -292,20 +279,6 @@ export function TopbarWorkspaceSwitcher() {
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
               <p className="text-xs text-slate-600 mt-0.5">Projects and data are scoped to the selected workspace.</p>
             </div>
-            {isAccountOwner && (
-              <button
-                type="button"
-                className={cn(
-                  "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors border-b border-slate-100",
-                  onWorkspaceDashboard && "bg-orange-50 text-orange-800",
-                )}
-                onClick={openWorkspaceHub}
-              >
-                <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                <span className="truncate flex-1 font-medium">All workspaces</span>
-                {onWorkspaceDashboard && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
-              </button>
-            )}
             <div className="relative max-h-80 overflow-y-auto py-1">
               {isLoading && workspaces.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-slate-500">Loading workspaces…</p>
@@ -359,13 +332,13 @@ export function TopbarWorkspaceSwitcher() {
         className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0 hover:border-orange-400 hover:bg-orange-50/40 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
         onClick={() => {
           if (isAccountOwner && onWorkspaceDashboard) {
-            navigate("/workspaces");
+            navigate(WORKSPACES_HUB_PATH);
           } else {
             openSeeAll();
           }
         }}
-        aria-label={onWorkspaceDashboard ? "All workspaces" : `Workspace: ${pillName}`}
-        title={onWorkspaceDashboard ? "All workspaces" : `Workspace: ${pillName}`}
+        aria-label={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}`}
+        title={onWorkspaceDashboard ? WORKSPACES_HUB_LABEL : `Workspace: ${pillName}`}
       >
         <Building2 className="w-4 h-4 text-orange-500" />
         <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 leading-none mt-0.5">Workspace</span>
@@ -404,11 +377,11 @@ export function TopbarWorkspaceSwitcher() {
               )}
               onClick={() => {
                 setSeeAllOpen(false);
-                navigate("/workspaces");
+                navigate(WORKSPACES_HUB_PATH);
               }}
             >
               <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
-              <span className="truncate flex-1 font-medium">All workspaces</span>
+              <span className="truncate flex-1 font-medium">{WORKSPACES_HUB_LABEL}</span>
               {onWorkspaceDashboard && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
             </button>
           )}
@@ -447,10 +420,10 @@ export function TopbarWorkspaceSwitcher() {
                 className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
                 onClick={() => {
                   setSeeAllOpen(false);
-                  navigate("/workspaces");
+                  navigate(WORKSPACES_HUB_PATH);
                 }}
               >
-                Manage workspaces
+                {WORKSPACES_HUB_LABEL}
               </button>
             ) : (
               <button

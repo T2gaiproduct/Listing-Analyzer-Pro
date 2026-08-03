@@ -28,6 +28,7 @@ import { setActiveWorkspaceId as setHeaderWorkspaceId } from "@/lib/workspace-he
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format } from "date-fns";
 import { computePlanCreditsFromAllocations } from "@/lib/plan-credits";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
@@ -382,7 +383,7 @@ export default function WorkspacesPage() {
         <div>
           <div className="flex items-center gap-2">
             <LayoutGrid className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold text-slate-900">All workspaces</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{WORKSPACES_HUB_LABEL}</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
             {isAccountOwner

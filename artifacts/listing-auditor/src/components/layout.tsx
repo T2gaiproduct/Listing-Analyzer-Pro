@@ -43,6 +43,7 @@ import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { projectTypeToFeature } from "@/lib/workspace-route-access";
 import { isWorkspaceAdminOverviewRoute, isAccountScopedRoute } from "@/lib/workspace-routes";
+import { WORKSPACES_HUB_LABEL, WORKSPACES_HUB_PATH } from "@/lib/workspaces-hub";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
@@ -149,7 +150,7 @@ function getPageTitle(location: string): string {
   if (location === "/settings") return "Settings";
   if (location === "/team") return "Team";
   if (location === "/roles") return "Roles";
-  if (location === "/workspaces") return "All workspaces";
+  if (location === "/workspaces") return WORKSPACES_HUB_LABEL;
   if (location.match(/^\/workspaces\/\d+\/members$/)) return "Workspace Members";
   if (location.match(/^\/workspaces\/\d+$/)) return "Workspace";
   if (location === "/notifications") return "Notifications";
@@ -216,8 +217,10 @@ export function Layout({ children }: { children: ReactNode }) {
     canEdit: wsCanEdit,
     canDelete: wsCanDelete,
     roleName,
+    isBillingAccountOwner,
   } = useWorkspace();
 
+  const homeHref = isBillingAccountOwner ? WORKSPACES_HUB_PATH : "/dashboard";
   const canViewArchive = isAccountOwner || canView("archive");
   const canViewNotifications = isAccountOwner || canView("notifications");
   const canViewBilling = isAccountOwner || canView("billing");
@@ -658,7 +661,7 @@ export function Layout({ children }: { children: ReactNode }) {
         >
           {/* Logo — lens mark when collapsed, full wordmark when expanded */}
           <Link
-            href="/dashboard"
+            href={homeHref}
             className="cursor-pointer hover:opacity-90 transition-opacity min-w-0 shrink"
           >
             {collapsed ? (
@@ -829,7 +832,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <SheetTitle className="sr-only">Navigation menu</SheetTitle>
             <div className="px-4 py-4 border-b border-slate-200">
               <Link
-                href="/dashboard"
+                href={homeHref}
                 onClick={() => setMobileNavOpen(false)}
                 className="flex items-center gap-3 min-w-0 hover:opacity-90 transition-opacity"
               >

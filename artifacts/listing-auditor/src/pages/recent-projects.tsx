@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useRecentProjectMutations } from "@/hooks/use-recent-project-mutations";
 import { RecentProjectMenu, type EnrichedRecentItem } from "@/components/recent-project-menu";
 
@@ -262,10 +263,10 @@ export default function RecentProjectsPage() {
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
         <h2 className="text-lg font-semibold text-slate-900">Select a workspace</h2>
         <p className="text-sm text-slate-500 mt-2 max-w-md">
-          Projects are scoped to a workspace. Choose one in the top bar, or create a workspace from Manage workspaces.
+          Projects are scoped to a workspace. Choose one in the top bar, or create a workspace from {WORKSPACES_HUB_LABEL}.
         </p>
         <Button asChild className="mt-6 bg-orange-500 hover:bg-orange-600">
-          <Link href="/workspaces">Manage workspaces</Link>
+          <Link href="/workspaces">{WORKSPACES_HUB_LABEL}</Link>
         </Button>
       </div>
     );
