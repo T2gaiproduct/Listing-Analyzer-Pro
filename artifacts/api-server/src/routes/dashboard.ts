@@ -18,7 +18,6 @@ import {
 } from "@workspace/db";
 import { type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
-  resolveTeamAndWorkspace,
   resolveTeamAndDashboardScope,
   getActiveWorkspaceId,
   ownerProjectFilter,
@@ -31,6 +30,7 @@ import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/membe
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
 import { getWorkspaceCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
+import { WORKSPACE_HEADER } from "../lib/workspace-context";
 
 const router: IRouter = Router();
 
