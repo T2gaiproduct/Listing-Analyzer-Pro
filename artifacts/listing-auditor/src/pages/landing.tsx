@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
-  TrendingUp, Users, Search, Star, X,
+  TrendingUp, Users, Search, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
@@ -18,7 +17,6 @@ import { cmsText, cmsEnabled, resolveCmsAssetUrl } from "@/lib/homepage-cms";
 import { parseFeatureBullets } from "@/lib/features-cms";
 import { InteractiveFeaturesSection, type FeatureItem } from "@/components/interactive-features-section";
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
-import { parsePortfolioItems } from "@/lib/portfolio-cms";
 import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { TutorialCarousel } from "@/components/tutorial-carousel";
@@ -27,6 +25,8 @@ import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
 import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
+import { LandingShowcaseSection } from "@/components/landing-showcase-section";
+import { LandingTransformationSection } from "@/components/landing-transformation-section";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -92,15 +92,7 @@ interface DbPlan {
 const FEATURE_ICONS = [ClipboardList, PenLine, Box, Video, Megaphone];
 const HERO_STAT_ICONS = [BarChart3, Image, TrendingUp, Users];
 const WORKFLOW_ICONS = [Upload, Search, Wand2, Image, Download, Globe];
-
-type PortfolioItem = {
-  id: string;
-  title: string;
-  brand: string;
-  image: string;
-  badge: string | null;
-  square: boolean;
-};
+const WORKFLOW_MACRO_ICONS = [Upload, Wand2, Download];
 
 
 function useLandingCmsData() {
@@ -124,11 +116,14 @@ function useLandingCmsData() {
     label: cmsText(cms, `hero.stat${i}_label`),
   }));
 
-  const portfolioItems = parsePortfolioItems(cms, basePath);
-
   const workflowSteps = [1, 2, 3, 4, 5, 6].map((i) => ({
     icon: WORKFLOW_ICONS[i - 1],
     label: cmsText(cms, `workflow.step${i}_label`),
+  }));
+
+  const workflowMacroSteps = [1, 2, 3].map((i) => ({
+    icon: WORKFLOW_MACRO_ICONS[i - 1],
+    label: cmsText(cms, `workflow.macro_step${i}_label`),
   }));
 
   const workflowMetrics = [1, 2, 3, 4].map((i) => ({
@@ -138,109 +133,7 @@ function useLandingCmsData() {
 
   const tutorialPreviews = buildTutorialPreviewItems(cms, basePath);
 
-  return { cms, features, heroSlides, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
-}
-
-function PortfolioLightbox({
-  item,
-  onClose,
-}: {
-  item: PortfolioItem;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[200] bg-black/85 flex items-center justify-center p-4 sm:p-8"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${item.title} — ${item.brand}`}
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl overflow-hidden bg-white shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
-          aria-label="Close preview"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        <div className="flex-1 min-h-0 bg-slate-100 flex items-center justify-center">
-          <img
-            src={item.image}
-            alt={`${item.title} — ${item.brand}`}
-            className="max-h-[calc(92vh-5rem)] w-full object-contain"
-          />
-        </div>
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-t border-slate-200 bg-white shrink-0">
-          {item.title && <p className="font-semibold text-slate-900">{item.title}</p>}
-          {item.brand && <p className={cn("text-sm text-slate-500", item.title && "mt-0.5")}>{item.brand}</p>}
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function PortfolioGrid({ items }: { items: PortfolioItem[] }) {
-  const [selected, setSelected] = useState<PortfolioItem | null>(null);
-
-  return (
-    <>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-        {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setSelected(item)}
-            className="group relative w-full aspect-square rounded-2xl sm:rounded-[1.25rem] overflow-hidden border border-slate-200/80 bg-slate-50 shadow-sm hover:shadow-lg transition-shadow duration-300 cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
-            aria-label={`View ${item.title} — ${item.brand}`}
-          >
-            <img
-              src={item.image}
-              alt={`${item.title} — ${item.brand}`}
-              className={cn(
-                "absolute inset-0 w-full h-full object-center pointer-events-none",
-                item.square ? "object-cover" : "object-contain p-2 sm:p-3",
-              )}
-              loading={index < 4 ? "eager" : "lazy"}
-              decoding="async"
-              fetchPriority={index < 4 ? "high" : "auto"}
-            />
-            {item.badge && (
-              <span className="pointer-events-none absolute top-3 right-3 z-10 bg-pink-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
-                {item.badge}
-              </span>
-            )}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pt-10 pb-3 sm:px-4 sm:pb-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-              {item.title && <p className="font-semibold text-white text-sm leading-tight">{item.title}</p>}
-              {item.brand && <p className={cn("text-xs text-white/80", item.title && "mt-0.5")}>{item.brand}</p>}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {selected && <PortfolioLightbox item={selected} onClose={() => setSelected(null)} />}
-    </>
-  );
+  return { cms, features, heroSlides, heroStats, workflowSteps, workflowMacroSteps, workflowMetrics, tutorialPreviews };
 }
 
 function planDisplayFeatures(p: DbPlan): string[] {
@@ -308,7 +201,7 @@ function PricingPlanCard({
       className={cn(
         "rounded-2xl flex flex-col bg-white border relative h-full w-full min-w-0 text-left",
         compact ? "p-5" : "p-6 sm:p-8",
-        highlighted ? "border-orange-400 shadow-xl shadow-orange-100" : "border-slate-200 shadow-sm",
+        highlighted ? "border-orange-400 shadow-xl shadow-orange-100 ring-1 ring-orange-200/60" : "border-slate-200/90 shadow-sm hover:shadow-md transition-shadow",
       )}
     >
       {highlighted && plan.tag && (
@@ -541,7 +434,7 @@ function LandingTestimonialsSection() {
           {items.map((t) => {
             const embedUrl = t.isVideo && t.videoUrl ? youtubeEmbedUrl(t.videoUrl) : null;
             return (
-            <div key={t.id} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm h-full flex flex-col">
+            <div key={t.id} className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
               {t.isVideo && t.videoUrl && (
                 <div className="aspect-video rounded-xl overflow-hidden mb-4 bg-slate-900">
                   {embedUrl ? (
@@ -621,9 +514,9 @@ function LandingFaqSection() {
 
   return (
     <section className="px-4 sm:px-6 pt-4 pb-12 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-24 bg-white">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-6 sm:mb-10">{heading}</h2>
-        <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white">
+        <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
           {faqs.map((faq, i) => (
             <div key={faq.id}>
               <button
@@ -655,11 +548,15 @@ export default function Landing() {
     features,
     heroSlides,
     heroStats,
-    portfolioItems,
     workflowSteps,
+    workflowMacroSteps,
     workflowMetrics,
     tutorialPreviews,
   } = useLandingCmsData();
+
+  const showDemo = cmsEnabled(cms, "demo");
+  const showPortfolioGrid = cmsEnabled(cms, "portfolio");
+  const showShowcase = showDemo || showPortfolioGrid;
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col overflow-x-clip">
@@ -684,10 +581,10 @@ export default function Landing() {
           </div>
         )}
         <div className="relative px-4 sm:px-6 lg:px-10 max-w-6xl mx-auto">
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10">
+          <div className="grid grid-cols-4 gap-2 sm:gap-4 max-w-md mx-auto lg:max-w-none lg:mx-0 mt-8 sm:mt-10 p-4 sm:p-6 rounded-2xl bg-white/80 border border-slate-100 shadow-sm backdrop-blur-sm">
             {heroStats.map((s) => (
               <div key={s.label} className="flex flex-col items-center lg:items-start text-center lg:text-left min-w-0">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-50 flex items-center justify-center mb-1.5 shrink-0">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-50 flex items-center justify-center mb-1.5 shrink-0 ring-1 ring-orange-100">
                   <s.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
                 </div>
                 <p className="text-base sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-tight">{s.value}</p>
@@ -697,6 +594,14 @@ export default function Landing() {
           </div>
         </div>
       </section>
+      )}
+
+      {showShowcase && (
+        <LandingShowcaseSection
+          cms={cms}
+          showDemo={showDemo}
+          showGrid={showPortfolioGrid}
+        />
       )}
 
       {cmsEnabled(cms, "features") && features.length > 0 && (
@@ -726,38 +631,42 @@ export default function Landing() {
       </section>
       )}
 
-      {cmsEnabled(cms, "portfolio") && portfolioItems.length > 0 && (
-      <section className="px-4 sm:px-6 lg:px-10 pt-12 pb-4 sm:pt-20 sm:pb-6 lg:pb-8 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 text-center mb-3 sm:mb-4">
-            {cmsText(cms, "portfolio.heading")}
-          </h2>
-          <p className="text-sm sm:text-base text-slate-500 text-center max-w-2xl mx-auto mb-8 sm:mb-12">
-            {cmsText(cms, "portfolio.subheading")}
-          </p>
-          <PortfolioGrid items={portfolioItems} />
-          <div className="text-center mt-5 sm:mt-6">
-            <Link href={cmsText(cms, "portfolio.cta_url")} className="text-sm font-medium text-orange-600 hover:text-orange-700 inline-flex items-center gap-1">
-              {cmsText(cms, "portfolio.cta_text")} <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
-      )}
-
       {cmsEnabled(cms, "workflow") && (
-      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20">
+      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20 bg-slate-50/50">
         <div className="max-w-6xl mx-auto">
+          {cmsText(cms, "workflow.macro_heading") && (
+            <div className="mb-8 sm:mb-10 text-center lg:text-left">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-600 mb-3">How it works</p>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8">
+                {cmsText(cms, "workflow.macro_heading")}
+              </h2>
+              <div className="grid sm:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto lg:mx-0">
+                {workflowMacroSteps.filter((s) => s.label).map((step, i) => (
+                  <div
+                    key={step.label}
+                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm text-center sm:text-left"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center mx-auto sm:mx-0 mb-3">
+                      <step.icon className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <p className="text-xs font-bold text-orange-600 uppercase tracking-wide mb-1">Step {i + 1}</p>
+                    <p className="font-semibold text-slate-900 text-sm sm:text-base">{step.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-start">
             <div className="min-w-0">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center lg:text-left">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center lg:text-left">
                 {cmsText(cms, "workflow.heading")}
-              </h2>
+              </h3>
               <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
                 <div className="flex sm:justify-between gap-3 sm:gap-0 min-w-max sm:min-w-0 sm:w-full relative">
                   {workflowSteps.map((step, i) => (
                     <div key={step.label} className="flex flex-col items-center w-20 sm:flex-1 sm:min-w-0 relative">
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center mb-2 z-10">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white border-2 border-orange-200 flex items-center justify-center mb-2 z-10 shadow-sm">
                         <step.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
                       </div>
                       <span className="text-[10px] sm:text-xs font-medium text-slate-600 text-center leading-tight max-w-[4.5rem] sm:max-w-none">
@@ -779,7 +688,7 @@ export default function Landing() {
                   <img
                     src={resolveCmsAssetUrl(cmsText(cms, "workflow.before_image"), basePath)}
                     alt=""
-                    className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover bg-slate-100"
+                    className="w-full h-28 sm:h-32 rounded-lg mb-3 object-cover bg-slate-100"
                     loading="lazy"
                   />
                   <p className="text-3xl font-extrabold text-slate-800">{cmsText(cms, "workflow.before_score")}<span className="text-lg text-slate-400">/100</span></p>
@@ -795,7 +704,7 @@ export default function Landing() {
                   <img
                     src={resolveCmsAssetUrl(cmsText(cms, "workflow.after_image"), basePath)}
                     alt=""
-                    className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover"
+                    className="w-full h-28 sm:h-32 rounded-lg mb-3 object-cover"
                     loading="lazy"
                   />
                   <p className="text-3xl font-extrabold text-orange-600">{cmsText(cms, "workflow.after_score")}<span className="text-lg text-slate-400">/100</span></p>
@@ -806,7 +715,7 @@ export default function Landing() {
                   </div>
                 </div>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 sm:p-5">
+              <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-5 shadow-sm">
                 <p className="text-sm font-bold text-slate-900 mb-3 sm:mb-4 text-center sm:text-left">{cmsText(cms, "workflow.metrics_heading")}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4">
                   {workflowMetrics.map((m) => (
@@ -821,6 +730,10 @@ export default function Landing() {
           </div>
         </div>
       </section>
+      )}
+
+      {cmsEnabled(cms, "transformation") && (
+        <LandingTransformationSection cms={cms} />
       )}
 
       {cmsEnabled(cms, "tutorials") && tutorialPreviews.length > 0 && (
@@ -861,8 +774,10 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "cta") && (
-      <section className="px-4 sm:px-6 py-16 sm:py-20 text-center bg-white border-t border-slate-100">
-        <div className="max-w-2xl mx-auto">
+      <section className="relative px-4 sm:px-6 py-16 sm:py-20 text-center overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-slate-50" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_20%,rgba(255,102,0,0.08),transparent_55%)]" />
+        <div className="relative max-w-2xl mx-auto">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
             {cmsText(cms, "cta.heading")}
           </h2>
