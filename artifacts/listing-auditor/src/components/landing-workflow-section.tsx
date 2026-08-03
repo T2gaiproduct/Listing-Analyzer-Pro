@@ -23,10 +23,11 @@ function MarqueeCard({
   const hasAfter = Boolean(item.afterImage?.trim());
 
   return (
-    <div className="flex flex-col shrink-0 w-[min(92vw,340px)] sm:w-[380px] md:w-[420px] lg:w-[480px]">
+    <div className="flex flex-col shrink-0 w-[min(85vw,280px)] sm:w-[300px] md:w-[340px] lg:w-[380px]">
       <div
         className={cn(
-          "group relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-800",
+          "group relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100",
+          "border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow",
           hasAfter && "cursor-pointer",
         )}
       >
@@ -41,7 +42,7 @@ function MarqueeCard({
             loading="lazy"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
         )}
         {afterSrc && (
           <img
@@ -56,8 +57,8 @@ function MarqueeCard({
         )}
         <span
           className={cn(
-            "absolute bottom-3 left-3 text-[10px] font-semibold uppercase tracking-wide text-white",
-            "px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm",
+            "absolute bottom-2.5 left-2.5 text-[10px] font-semibold uppercase tracking-wide text-white",
+            "px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm",
             "transition-opacity duration-300",
             hasAfter && "group-hover:opacity-0",
           )}
@@ -67,8 +68,8 @@ function MarqueeCard({
         {hasAfter && (
           <span
             className={cn(
-              "absolute bottom-3 right-3 text-[10px] font-semibold uppercase tracking-wide text-white",
-              "px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm",
+              "absolute bottom-2.5 right-2.5 text-[10px] font-semibold uppercase tracking-wide",
+              "px-2.5 py-1 rounded-full bg-orange-500 text-white shadow-sm",
               "opacity-0 group-hover:opacity-100 transition-opacity duration-300",
             )}
           >
@@ -77,7 +78,7 @@ function MarqueeCard({
         )}
       </div>
       {item.caption && (
-        <p className="mt-3 text-sm text-slate-400 leading-snug text-left">
+        <p className="mt-2.5 text-sm text-slate-500 leading-snug text-left">
           {item.caption}
         </p>
       )}
@@ -101,7 +102,8 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
   const loopItems = items.length > 1 ? [...items, ...items] : items;
 
   return (
-    <section className="pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20 bg-white border-t border-slate-100">
+    <section className="relative pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20 bg-white border-t border-slate-100">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.05),transparent_55%)] pointer-events-none" />
       <style>{`
         @keyframes workflow-marquee-kf {
           0% { transform: translateX(0); }
@@ -118,7 +120,7 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
         }
       `}</style>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 relative">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center">
           {heading}
         </h2>
@@ -142,10 +144,10 @@ export function LandingWorkflowSection({ cms }: { cms: HomepageCmsMap }) {
         </div>
       </div>
 
-      <div className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 bg-slate-950 py-10 sm:py-12 lg:py-14 overflow-hidden">
+      <div className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 bg-white py-6 sm:py-8 overflow-hidden">
         <div
           className={cn(
-            "flex gap-5 sm:gap-7 md:gap-8 px-4 sm:px-8",
+            "flex gap-4 sm:gap-6 px-4 sm:px-8",
             items.length > 1 && "workflow-marquee-track w-max",
           )}
         >
