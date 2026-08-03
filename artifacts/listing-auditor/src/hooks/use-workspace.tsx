@@ -55,6 +55,9 @@ interface WorkspaceContextValue {
   isWorkspaceApiScopeActive: boolean;
   /** Account owner must pick a workspace after visiting the workspace admin hub. */
   needsWorkspaceSelection: boolean;
+  /** Billing customer (accountRole user), including before first workspace exists. */
+  isBillingAccountOwner: boolean;
+  profileLoading: boolean;
   refetch: () => void;
 }
 
@@ -90,7 +93,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const workspaces = listData?.workspaces ?? [];
 
-  const { data: profileSummary } = useQuery<{
+  const { data: profileSummary, isLoading: profileLoading } = useQuery<{
     accountRole?: { type: string; label: string };
   }>({
     queryKey: ["user-profile-summary"],
@@ -135,6 +138,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const hasOnlySharedWorkspaces = workspaces.length > 0 && !ownsAnyWorkspace;
   const profileTeamMember = profileSummary?.accountRole?.type === "team_member";
   const isTeamMemberAccount = profileTeamMember || hasOnlySharedWorkspaces;
+  const isBillingAccountOwnerProfile = profileSummary?.accountRole?.type === "user" && !profileTeamMember;
+  const isMainDashboardRoute = location === "/dashboard" || location === "/";
 
   useEffect(() => {
     if (listLoading) return;
@@ -210,7 +215,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const activeWorkspaceId = selectedId;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
-  const isBillingAccountOwner = profileSummary?.accountRole?.type === "user" && ownsAnyWorkspace;
+  const isBillingAccountOwner = isBillingAccountOwnerProfile;
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
@@ -225,18 +230,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isWorkspaceAccountOwner =
     permData?.isAccountOwner ?? activeWorkspace?.isAccountOwner ?? false;
   const isAccountOwner =
-    isWorkspaceAccountOwner || (ownsAnyWorkspace && !isTeamMemberAccount && profileSummary?.accountRole?.type === "user");
+    isWorkspaceAccountOwner || isBillingAccountOwner;
+
+  const withholdWorkspaceScope =
+    isBillingAccountOwner
+    && ownsAnyWorkspace
+    && !workspaceScopeCommitted
+    && !isMainDashboardRoute;
 
   const featureWorkspaceId = workspaceApiScopeActive
-    ? (isBillingAccountOwner && ownsAnyWorkspace && !workspaceScopeCommitted ? null : activeWorkspaceId)
+    ? (withholdWorkspaceScope ? null : activeWorkspaceId)
     : null;
   const featureWorkspace = featureWorkspaceId
     ? workspaces.find((w) => w.id === featureWorkspaceId) ?? null
     : null;
-  const needsWorkspaceSelection = isBillingAccountOwner
-    && ownsAnyWorkspace
+  const needsWorkspaceSelection = withholdWorkspaceScope
     && workspaceApiScopeActive
-    && !workspaceScopeCommitted
     && parseWorkspaceRouteId(location) == null;
 
   useEffect(() => {
@@ -291,7 +300,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     roleName,
     isAccountOwner,
     isTeamMemberAccount,
-    isLoading: listLoading || permLoading || !isLoaded,
+    isLoading: listLoading || permLoading || profileLoading || !isLoaded,
     setActiveWorkspaceId: setWorkspace,
     can,
     canView,
@@ -300,10 +309,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     canManageWorkspaces: isAccountOwner || can("workspaces", "viewGlobal"),
     isWorkspaceApiScopeActive: workspaceApiScopeActive,
     needsWorkspaceSelection,
+    isBillingAccountOwner,
+    profileLoading,
     refetch: () => { void refetchList(); },
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
-    permissions, roleName, isAccountOwner, isTeamMemberAccount,
+    permissions, roleName, isAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
     listLoading, permLoading, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection,
   ]);

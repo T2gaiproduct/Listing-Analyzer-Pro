@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { format } from "date-fns";
@@ -53,7 +54,9 @@ interface DashboardData {
     isTeamMember?: boolean;
     teamCreditsUsedInPeriod?: number;
     memberCreditsAllocated?: number;
+    workspaceCount?: number;
   };
+  viewMode?: "account" | "workspace";
   impact: {
     listingsOptimized: number;
     issuesIdentified: number;
@@ -228,10 +231,24 @@ export default function Dashboard() {
     roleName,
     workspaces,
     isWorkspaceApiScopeActive,
+    refetch: refetchWorkspaces,
+    isBillingAccountOwner,
+    profileLoading,
   } = useWorkspace();
 
+  const needsAutoWorkspace =
+    isBillingAccountOwner && workspaces.length === 0 && !wsLoading;
+  const [workspaceProvisionAttempted, setWorkspaceProvisionAttempted] = useState(false);
+  const provisioningWorkspace = needsAutoWorkspace && !workspaceProvisionAttempted;
+
+  useEffect(() => {
+    if (!needsAutoWorkspace || workspaceProvisionAttempted) return;
+    setWorkspaceProvisionAttempted(true);
+    void refetchWorkspaces();
+  }, [needsAutoWorkspace, workspaceProvisionAttempted, refetchWorkspaces]);
+
   const hasSharedWorkspace = workspaces.some((w) => !w.isAccountOwner);
-  const memberWorkspaceId = featureWorkspaceId ?? activeWorkspaceId;
+  const memberWorkspaceId = isBillingAccountOwner ? null : (featureWorkspaceId ?? activeWorkspaceId);
   const isMemberView = isTeamMemberAccount || (isTeamMember && hasSharedWorkspace);
 
   const memberActions = [
@@ -252,12 +269,27 @@ export default function Dashboard() {
   ].filter((item) => isAccountOwner || canView(item.feature));
 
   const showWorkspacePoolCredits =
-    isAccountOwner && !isTeamMember && featureWorkspaceId != null && isWorkspaceApiScopeActive;
+    !isBillingAccountOwner
+    && isAccountOwner
+    && !isTeamMember
+    && featureWorkspaceId != null
+    && isWorkspaceApiScopeActive;
 
-  const { data: dashboard, isLoading, isFetching, isError, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard", featureWorkspaceId],
-    queryFn: () => fetchJson<DashboardData>(`${basePath}/api/dashboard`),
-    enabled: clerkLoaded && !!user && !!featureWorkspaceId && (isAccountOwner || canView("dashboard")),
+  const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery<DashboardData>({
+    queryKey: ["dashboard", isBillingAccountOwner ? "account" : featureWorkspaceId],
+    queryFn: () =>
+      fetchJson<DashboardData>(
+        isBillingAccountOwner
+          ? `${basePath}/api/dashboard?scope=account`
+          : `${basePath}/api/dashboard`,
+        { skipWorkspaceHeader: isBillingAccountOwner },
+      ),
+    enabled:
+      clerkLoaded
+      && !!user
+      && !profileLoading
+      && (isBillingAccountOwner || !!featureWorkspaceId)
+      && (isAccountOwner || canView("dashboard")),
     staleTime: 30_000,
     retry: 3,
   });
@@ -293,7 +325,7 @@ export default function Dashboard() {
     );
   }
 
-  if (wsLoading || (isLoading && memberWorkspaceId)) {
+  if (wsLoading || provisioningWorkspace || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
@@ -308,8 +340,8 @@ export default function Dashboard() {
     );
   }
 
-  if ((!memberWorkspaceId && !isMemberView) || (needsWorkspaceSelection && !isMemberView)) {
-    if (wsLoading) {
+  if ((!memberWorkspaceId && !isMemberView && !isBillingAccountOwner) || (needsWorkspaceSelection && !isMemberView)) {
+    if (wsLoading || provisioningWorkspace) {
       return (
         <div className="space-y-4 sm:space-y-6 animate-in fade-in">
           <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
@@ -346,12 +378,19 @@ export default function Dashboard() {
       );
     }
     return (
-      <div className="text-center py-16 text-slate-500">
+      <div className="text-center py-16 text-slate-500 px-4">
         <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />
         <p>Could not load dashboard data.</p>
+        {error instanceof Error && error.message && (
+          <p className="text-xs text-slate-400 mt-2 max-w-md mx-auto">{error.message}</p>
+        )}
+        <p className="text-xs text-slate-400 mt-2">Restart the API server after deploying the latest code.</p>
         <button
           type="button"
-          onClick={() => void refetch()}
+          onClick={() => {
+            void refetchWorkspaces();
+            void refetch();
+          }}
           className="mt-4 text-sm font-medium text-orange-500 hover:text-orange-600"
         >
           Try again
@@ -426,7 +465,9 @@ export default function Dashboard() {
             Welcome back, {name}! 👋
           </h1>
           <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">
-            Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.
+            {isBillingAccountOwner || dashboard.viewMode === "account"
+              ? "Account overview across all your workspaces."
+              : <>Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.</>}
           </p>
         </div>
         <DropdownMenu>
@@ -463,10 +504,18 @@ export default function Dashboard() {
           icon={TrendingUp}
         />
         <StatCard
-          title="Time Saved"
-          value={formatHours(stats.timeSavedHours)}
-          subtext="From AI tasks completed"
-          icon={Clock}
+          title={isBillingAccountOwner ? "Number of Workspaces" : "Time Saved"}
+          value={
+            isBillingAccountOwner
+              ? (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length)
+              : formatHours(stats.timeSavedHours)
+          }
+          subtext={
+            isBillingAccountOwner
+              ? stats.workspaceCount === 1 ? "Active workspace" : "Active workspaces"
+              : "From AI tasks completed"
+          }
+          icon={isBillingAccountOwner ? LayoutGrid : Clock}
         />
         <StatCard
           title="Credits Balance"

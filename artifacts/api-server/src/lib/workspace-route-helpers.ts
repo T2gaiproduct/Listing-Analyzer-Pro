@@ -1,15 +1,19 @@
 import type { Request, Response, NextFunction } from "express";
 import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
+import { ownerPermissions } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { resolveWorkspace, type WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
+import { WORKSPACE_HEADER } from "./workspace-context";
 import {
   canViewInWorkspace,
   canWriteInWorkspace,
   requireWorkspacePerm,
   workspacePermOpts,
   type WorkspaceContext,
+  resolveWorkspaceContext,
 } from "./workspace-context";
+import { getDefaultWorkspaceId, ensureSubscriberDefaultWorkspace } from "./ensure-workspaces.js";
 import {
   getMemberWorkedProjects,
   memberHasProjectAccess,
@@ -36,6 +40,56 @@ export async function resolveTeamAndWorkspace(
   }
   const team = await resolveTeamContext(userId);
   (req as TeamAuthedRequest).team = team;
+  await resolveWorkspace(req, res, next);
+}
+
+/** Dashboard account overview: allow billing owners without x-workspace-id. */
+export async function resolveTeamAndDashboardScope(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const userId = (req as AuthedRequest).userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const team = await resolveTeamContext(userId);
+  (req as TeamAuthedRequest).team = team;
+
+  const ownerId = team.ownerUserId;
+  const headerVal = req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id");
+  const queryWorkspaceId = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
+  const hasExplicitWorkspace = Boolean(headerVal || queryWorkspaceId);
+  const accountScope = req.query.scope === "account";
+  const billingOwner = !team.isTeamMember && userId === ownerId;
+
+  if (billingOwner && (accountScope || !hasExplicitWorkspace)) {
+    await ensureSubscriberDefaultWorkspace(ownerId);
+    const defaultId = await getDefaultWorkspaceId(ownerId);
+    if (defaultId) {
+      const ctx = await resolveWorkspaceContext(userId, defaultId);
+      if (ctx) {
+        (req as WorkspaceAuthedRequest).workspace = ctx;
+        next();
+        return;
+      }
+    }
+    (req as WorkspaceAuthedRequest).workspace = {
+      workspaceId: defaultId ?? 0,
+      workspaceName: "Account",
+      accountOwnerId: ownerId,
+      isAccountOwner: true,
+      permissions: ownerPermissions(),
+      legacyRole: "owner",
+      preserveLegacyPermissions: true,
+      useLegacy: false,
+      team,
+    };
+    next();
+    return;
+  }
+
   await resolveWorkspace(req, res, next);
 }
 
@@ -172,4 +226,17 @@ export function workspaceOwnerFilter(
     eq(ownerColumn.userId as never, ownerId),
     eq(workspaceColumn.workspaceId as never, workspaceId),
   )!;
+}
+
+/** All projects for an account owner, or scoped to one workspace when workspaceId is set. */
+export function ownerProjectFilter(
+  ownerColumn: { userId: unknown },
+  workspaceColumn: { workspaceId: unknown },
+  ownerId: string,
+  workspaceId: number | null,
+): SQL {
+  if (workspaceId == null) {
+    return eq(ownerColumn.userId as never, ownerId);
+  }
+  return workspaceOwnerFilter(ownerColumn, workspaceColumn, ownerId, workspaceId);
 }
