@@ -3,10 +3,10 @@ import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ClipboardList, PenLine, Box, Video, BarChart3, Megaphone,
+  ClipboardList, PenLine, Box, Video, BarChart3, Megaphone, Image,
   Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-  ArrowRight, Upload, Wand2, Image, Download, Globe, Play,
-  TrendingUp, Users, Search, Star, X,
+  ArrowRight, Play,
+  TrendingUp, Users, Star, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
@@ -23,6 +23,7 @@ import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
 import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { TutorialCarousel } from "@/components/tutorial-carousel";
 import { TutorialCard } from "@/components/tutorial-card";
+import { LandingWorkflowSection } from "@/components/landing-workflow-section";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
@@ -91,7 +92,6 @@ interface DbPlan {
 
 const FEATURE_ICONS = [ClipboardList, PenLine, Box, Video, Megaphone];
 const HERO_STAT_ICONS = [BarChart3, Image, TrendingUp, Users];
-const WORKFLOW_ICONS = [Upload, Search, Wand2, Image, Download, Globe];
 
 type PortfolioItem = {
   id: string;
@@ -126,19 +126,9 @@ function useLandingCmsData() {
 
   const portfolioItems = parsePortfolioItems(cms, basePath);
 
-  const workflowSteps = [1, 2, 3, 4, 5, 6].map((i) => ({
-    icon: WORKFLOW_ICONS[i - 1],
-    label: cmsText(cms, `workflow.step${i}_label`),
-  }));
-
-  const workflowMetrics = [1, 2, 3, 4].map((i) => ({
-    label: cmsText(cms, `workflow.metric${i}_label`),
-    value: cmsText(cms, `workflow.metric${i}_value`),
-  }));
-
   const tutorialPreviews = buildTutorialPreviewItems(cms, basePath);
 
-  return { cms, features, heroSlides, heroStats, portfolioItems, workflowSteps, workflowMetrics, tutorialPreviews };
+  return { cms, features, heroSlides, heroStats, portfolioItems, tutorialPreviews };
 }
 
 function PortfolioLightbox({
@@ -656,8 +646,6 @@ export default function Landing() {
     heroSlides,
     heroStats,
     portfolioItems,
-    workflowSteps,
-    workflowMetrics,
     tutorialPreviews,
   } = useLandingCmsData();
 
@@ -746,81 +734,7 @@ export default function Landing() {
       )}
 
       {cmsEnabled(cms, "workflow") && (
-      <section className="px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-8 lg:pt-10 sm:pb-16 lg:pb-20">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-start">
-            <div className="min-w-0">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 lg:mb-8 text-center lg:text-left">
-                {cmsText(cms, "workflow.heading")}
-              </h2>
-              <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
-                <div className="flex sm:justify-between gap-3 sm:gap-0 min-w-max sm:min-w-0 sm:w-full relative">
-                  {workflowSteps.map((step, i) => (
-                    <div key={step.label} className="flex flex-col items-center w-20 sm:flex-1 sm:min-w-0 relative">
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center mb-2 z-10">
-                        <step.icon className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-                      </div>
-                      <span className="text-[10px] sm:text-xs font-medium text-slate-600 text-center leading-tight max-w-[4.5rem] sm:max-w-none">
-                        {step.label}
-                      </span>
-                      {i < workflowSteps.length - 1 && (
-                        <div className="hidden sm:block absolute top-5 sm:top-[1.375rem] left-[60%] w-[80%] h-0.5 bg-orange-100" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 min-w-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white border border-red-100 rounded-2xl p-4 sm:p-5 shadow-sm">
-                  <p className="text-xs font-bold text-red-500 uppercase mb-3">{cmsText(cms, "workflow.before_label")}</p>
-                  <img
-                    src={resolveCmsAssetUrl(cmsText(cms, "workflow.before_image"), basePath)}
-                    alt=""
-                    className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover bg-slate-100"
-                    loading="lazy"
-                  />
-                  <p className="text-3xl font-extrabold text-slate-800">{cmsText(cms, "workflow.before_score")}<span className="text-lg text-slate-400">/100</span></p>
-                  <div className="mt-2 flex items-end gap-0.5 h-8">
-                    {[40, 55, 45, 50, 42, 48].map((h, i) => (
-                      <div key={i} className="flex-1 bg-red-200 rounded-sm" style={{ height: `${h}%` }} />
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-white border-2 border-orange-200 rounded-2xl p-4 sm:p-5 shadow-lg relative">
-                  <span className="absolute -top-2.5 left-4 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{cmsText(cms, "workflow.after_badge")}</span>
-                  <p className="text-xs font-bold text-orange-600 uppercase mb-3 mt-1">{cmsText(cms, "workflow.after_label")}</p>
-                  <img
-                    src={resolveCmsAssetUrl(cmsText(cms, "workflow.after_image"), basePath)}
-                    alt=""
-                    className="w-full h-24 sm:h-28 rounded-lg mb-3 object-cover"
-                    loading="lazy"
-                  />
-                  <p className="text-3xl font-extrabold text-orange-600">{cmsText(cms, "workflow.after_score")}<span className="text-lg text-slate-400">/100</span></p>
-                  <div className="mt-2 flex items-end gap-0.5 h-8">
-                    {[55, 62, 70, 78, 88, 96].map((h, i) => (
-                      <div key={i} className="flex-1 bg-orange-400 rounded-sm" style={{ height: `${h}%` }} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 sm:p-5">
-                <p className="text-sm font-bold text-slate-900 mb-3 sm:mb-4 text-center sm:text-left">{cmsText(cms, "workflow.metrics_heading")}</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-                  {workflowMetrics.map((m) => (
-                    <div key={m.label} className="text-center sm:text-left">
-                      <p className="text-lg sm:text-xl font-extrabold text-orange-600">{m.value}</p>
-                      <p className="text-xs text-slate-500">{m.label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+        <LandingWorkflowSection cms={cms} />
       )}
 
       {cmsEnabled(cms, "tutorials") && tutorialPreviews.length > 0 && (
