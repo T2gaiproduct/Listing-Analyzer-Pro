@@ -6,11 +6,12 @@ import { TutorialVideoDialog } from "@/components/tutorial-video-dialog";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { cmsText } from "@/lib/homepage-cms";
 import {
+  arrangeTutorialsForFan,
   buildTutorialPreviewItems,
   tutorialCategoryLabel,
+  tutorialHasPlayableVideo,
   type TutorialPreviewItem,
 } from "@/lib/tutorials-cms";
-import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -37,7 +38,7 @@ function TutorialFanCard({
   const href = item.linkUrl?.trim() || "/tutorials";
   const isExternal = href.startsWith("http");
   const category = tutorialCategoryLabel(item.category || "getting-started");
-  const hasPlayableVideo = Boolean(item.videoUrl?.trim() && youtubeEmbedUrl(item.videoUrl));
+  const hasPlayableVideo = tutorialHasPlayableVideo(item);
 
   const shell = (
     <div
@@ -72,21 +73,23 @@ function TutorialFanCard({
           <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
         )}
         <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            className={cn(
-              "rounded-full bg-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform",
-              isCenter ? "w-14 h-14 sm:w-16 sm:h-16" : "w-12 h-12 sm:w-14 sm:h-14",
-            )}
-          >
-            <Play
+        {hasPlayableVideo && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
               className={cn(
-                "fill-none stroke-orange-500 stroke-[2.5] ml-0.5",
-                isCenter ? "w-6 h-6 sm:w-7 sm:h-7" : "w-5 h-5 sm:w-6 sm:h-6",
+                "rounded-full bg-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform",
+                isCenter ? "w-14 h-14 sm:w-16 sm:h-16" : "w-12 h-12 sm:w-14 sm:h-14",
               )}
-            />
+            >
+              <Play
+                className={cn(
+                  "fill-none stroke-orange-500 stroke-[2.5] ml-0.5",
+                  isCenter ? "w-6 h-6 sm:w-7 sm:h-7" : "w-5 h-5 sm:w-6 sm:h-6",
+                )}
+              />
+            </div>
           </div>
-        </div>
+        )}
         {item.duration && (
           <span className="absolute bottom-2.5 right-2.5 bg-black/75 text-white text-xs font-medium px-2 py-0.5 rounded-md">
             {item.duration}
@@ -156,7 +159,7 @@ function FanSlot({
   return (
     <div
       className={cn(
-        "shrink-0 transition-all duration-1000 ease-out",
+        "shrink-0 transition-all duration-1000 ease-out relative hover:!z-[20] focus-within:!z-[20]",
         index > 0 && "-ml-10 sm:-ml-12 md:-ml-14 lg:-ml-16",
       )}
       style={{
@@ -189,10 +192,7 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
   const ctaText = cmsText(cms, "tutorials.cta_text");
   const ctaUrl = cmsText(cms, "tutorials.cta_url");
 
-  const phoneItems = tutorials.slice(0, 5);
-  while (phoneItems.length < 5 && tutorials.length > 0) {
-    phoneItems.push(tutorials[phoneItems.length % tutorials.length]);
-  }
+  const phoneItems = arrangeTutorialsForFan(tutorials);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -225,9 +225,14 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
   if (tutorials.length === 0) return null;
 
   function openVideo(item: TutorialPreviewItem) {
-    if (!item.videoUrl?.trim() || !youtubeEmbedUrl(item.videoUrl)) return;
+    if (!tutorialHasPlayableVideo(item)) return;
     setVideoItem(item);
     setVideoOpen(true);
+  }
+
+  function closeVideo(open: boolean) {
+    setVideoOpen(open);
+    if (!open) setVideoItem(null);
   }
 
   return (
@@ -305,7 +310,7 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
       {videoItem?.videoUrl && (
         <TutorialVideoDialog
           open={videoOpen}
-          onOpenChange={setVideoOpen}
+          onOpenChange={closeVideo}
           title={videoItem.title}
           duration={videoItem.duration}
           videoUrl={videoItem.videoUrl}

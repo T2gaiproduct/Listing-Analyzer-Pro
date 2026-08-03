@@ -1,6 +1,6 @@
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { HOMEPAGE_CMS_DEFAULTS, cmsText, resolveCmsAssetUrl } from "@/lib/homepage-cms";
-import { youtubeThumbnailUrl, normalizeVideoUrl } from "@/lib/video-embed";
+import { youtubeThumbnailUrl, normalizeVideoUrl, youtubeEmbedUrl } from "@/lib/video-embed";
 
 export const MAX_TUTORIAL_ITEMS = 12;
 export const DEFAULT_TUTORIAL_VISIBLE = 5;
@@ -116,6 +116,32 @@ export function buildTutorialPreviewItems(cms: HomepageCmsMap, basePath: string)
     steps: item.steps,
     linkUrl: item.linkUrl,
   }));
+}
+
+export function tutorialHasPlayableVideo(item: TutorialPreviewItem): boolean {
+  return Boolean(item.videoUrl?.trim() && youtubeEmbedUrl(item.videoUrl));
+}
+
+/** Fan carousel always highlights slot index 2 — rotate so the first playable tutorial is centered. */
+export function arrangeTutorialsForFan(
+  items: TutorialPreviewItem[],
+  slotCount = 5,
+  centerSlot = 2,
+): TutorialPreviewItem[] {
+  if (items.length === 0) return [];
+
+  const playableIndex = items.findIndex((item) => tutorialHasPlayableVideo(item));
+  const pivot = playableIndex >= 0 ? playableIndex : 0;
+  const n = items.length;
+
+  const slots: TutorialPreviewItem[] = [];
+  for (let slot = 0; slot < slotCount; slot++) {
+    const offset = slot - centerSlot;
+    const sourceIndex = ((pivot + offset) % n + n) % n;
+    slots.push(items[sourceIndex]);
+  }
+
+  return slots;
 }
 
 export function tutorialCategoryLabel(categoryId: string): string {

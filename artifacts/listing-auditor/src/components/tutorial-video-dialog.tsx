@@ -14,7 +14,7 @@ export function TutorialVideoDialog({
   duration?: string;
   videoUrl: string;
 }) {
-  const embedUrl = youtubeEmbedUrl(videoUrl, { autoplay: true });
+  const embedUrl = open ? youtubeEmbedUrl(videoUrl, { autoplay: true }) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -23,6 +23,7 @@ export function TutorialVideoDialog({
         <div className="aspect-video w-full bg-black">
           {embedUrl ? (
             <iframe
+              key={embedUrl}
               src={embedUrl}
               title={title}
               className="w-full h-full"
@@ -30,7 +31,7 @@ export function TutorialVideoDialog({
               allowFullScreen
               referrerPolicy="strict-origin-when-cross-origin"
             />
-          ) : (
+          ) : open ? (
             <a
               href={videoUrl}
               target="_blank"
@@ -39,7 +40,7 @@ export function TutorialVideoDialog({
             >
               Open video in new tab
             </a>
-          )}
+          ) : null}
         </div>
         <div className="px-4 py-3 border-t border-slate-200 bg-white">
           <p className="font-semibold text-slate-900">{title}</p>
