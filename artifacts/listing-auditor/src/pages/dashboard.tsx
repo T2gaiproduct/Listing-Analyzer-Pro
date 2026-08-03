@@ -105,15 +105,22 @@ function StatCard({
   subtext,
   subtextPositive,
   icon: Icon,
+  href,
 }: {
   title: string;
   value: string | number;
   subtext: string;
   subtextPositive?: boolean;
   icon: typeof Folder;
+  href?: string;
 }) {
-  return (
-    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-5 min-w-0">
+  const card = (
+    <div
+      className={cn(
+        "bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-5 min-w-0",
+        href && "hover:border-orange-300 hover:shadow-md hover:bg-orange-50/30 transition-all cursor-pointer",
+      )}
+    >
       <div className="flex items-center gap-2 sm:block">
         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
           <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
@@ -129,6 +136,16 @@ function StatCard({
       </p>
     </div>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block min-w-0 rounded-xl sm:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+        {card}
+      </Link>
+    );
+  }
+
+  return card;
 }
 
 function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; total: number }) {
