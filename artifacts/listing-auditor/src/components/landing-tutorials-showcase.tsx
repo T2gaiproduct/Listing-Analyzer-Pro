@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, BookOpen, Clock, Play } from "lucide-react";
+import { ArrowRight, Clock, Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { HomepageCmsMap } from "@/lib/homepage-cms";
 import { cmsText } from "@/lib/homepage-cms";
 import {
@@ -36,70 +37,77 @@ function TutorialFanCard({
   const shell = (
     <div
       className={cn(
-        "relative w-[190px] sm:w-[220px] md:w-[250px] lg:w-[270px] xl:w-[290px] aspect-[9/16] rounded-[1.5rem] sm:rounded-[1.65rem] bg-white overflow-hidden transition-all duration-1000 ease-out",
-        "border-[3px] shadow-xl",
+        "group flex flex-col w-[190px] sm:w-[220px] md:w-[250px] lg:w-[270px] xl:w-[290px] rounded-2xl overflow-hidden bg-white transition-all duration-1000 ease-out",
+        "border shadow-sm hover:shadow-md",
         isCenter
-          ? "border-orange-400 ring-2 ring-orange-200/70 shadow-orange-100/60"
-          : "border-slate-200/90 shadow-slate-200/80",
+          ? "border-orange-400 shadow-lg shadow-orange-100/80 ring-1 ring-orange-200/60"
+          : "border-slate-200",
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10",
       )}
     >
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-slate-200 z-20" />
-      {item.image ? (
-        <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/92 via-slate-900/20 to-transparent" />
-
-      <div className="absolute top-11 left-3 right-3 z-10">
-        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-orange-50 bg-orange-500 px-2.5 py-1 rounded-full shadow-sm">
-          <BookOpen className="w-3 h-3 shrink-0" />
-          <span className="truncate">{category}</span>
-        </span>
-      </div>
-
-      <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-        <div
-          className={cn(
-            "rounded-full bg-white/95 flex items-center justify-center shadow-lg border border-white/90",
-            isCenter ? "w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem]" : "w-14 h-14 sm:w-16 sm:h-16",
-          )}
-        >
-          <Play
-            className={cn(
-              "text-orange-500 fill-orange-500 ml-0.5",
-              isCenter ? "w-7 h-7 sm:w-8 sm:h-8" : "w-6 h-6 sm:w-7 sm:h-7",
-            )}
+      <div className="relative aspect-[4/5] bg-slate-100 overflow-hidden">
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.title}
+            className="absolute inset-0 w-full h-full object-cover opacity-95 group-hover:scale-[1.02] transition-transform duration-500"
+            loading="lazy"
           />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200" />
+        )}
+        <div className="absolute inset-0 bg-black/15 group-hover:bg-black/10 transition-colors" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div
+            className={cn(
+              "rounded-full bg-white/95 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform",
+              isCenter ? "w-14 h-14 sm:w-16 sm:h-16" : "w-12 h-12 sm:w-14 sm:h-14",
+            )}
+          >
+            <Play
+              className={cn(
+                "text-orange-600 ml-0.5",
+                isCenter ? "w-6 h-6 sm:w-7 sm:h-7" : "w-5 h-5 sm:w-6 sm:h-6",
+              )}
+            />
+          </div>
         </div>
+        {item.duration && (
+          <span className="absolute bottom-3 right-3 bg-black/60 text-white text-xs font-medium px-2 py-1 rounded">
+            {item.duration}
+          </span>
+        )}
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-3.5 sm:p-4 z-10">
-        <p className="text-sm sm:text-base font-semibold text-white leading-snug line-clamp-2">{item.title}</p>
-        <div className="flex items-center gap-2 mt-1.5 text-[11px] sm:text-xs text-white/80">
-          {item.duration && (
-            <span className="inline-flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              {item.duration}
-            </span>
-          )}
-          {item.steps && <span>{item.steps} steps</span>}
-        </div>
+      <div className="p-4 sm:p-5 flex flex-col min-h-[5.5rem]">
+        {category && (
+          <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded mb-2 self-start">
+            {category}
+          </span>
+        )}
+        <p className="font-semibold text-slate-800 text-sm sm:text-base leading-snug line-clamp-2">
+          {item.title}
+        </p>
+        {item.steps && (
+          <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+            <Clock className="w-3 h-3 shrink-0" />
+            {item.steps} steps
+          </p>
+        )}
       </div>
     </div>
   );
 
   if (isExternal) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className="group block">
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block">
         {shell}
       </a>
     );
   }
 
   return (
-    <Link href={href} className="group block">
+    <Link href={href} className="block">
       {shell}
     </Link>
   );
@@ -197,12 +205,12 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
     <section
       ref={sectionRef}
       id="tutorials"
-      className="relative py-16 sm:py-20 lg:py-24 overflow-visible bg-gradient-to-b from-white via-orange-50/50 to-white border-t border-slate-100"
+      className="relative px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:py-20 overflow-visible bg-slate-50 border-t border-slate-100"
     >
       <style>{`
         @keyframes tutorials-fan-float-kf {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-7px); }
+          50% { transform: translateY(-6px); }
         }
         .tutorials-fan-float { animation: tutorials-fan-float-kf 5s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) {
@@ -210,56 +218,60 @@ export function LandingTutorialsShowcase({ cms }: { cms: HomepageCmsMap }) {
         }
       `}</style>
 
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.09),transparent_55%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(255,102,0,0.05),transparent_55%)] pointer-events-none" />
 
-      <div className="relative mx-auto w-full max-w-[90rem] px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10 sm:mb-12 max-w-2xl mx-auto">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-orange-600 mb-3">
-            Video guides
-          </p>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">
+      <div className="relative max-w-7xl mx-auto">
+        <div className="text-center mb-8 sm:mb-10 lg:mb-12">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-3 sm:mb-4">
             {heading}
           </h2>
           {subheading && (
-            <p className="mt-3 sm:mt-4 text-sm sm:text-base text-slate-500 leading-relaxed">
+            <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto leading-relaxed">
               {subheading}
             </p>
           )}
         </div>
 
-        <div className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 overflow-x-auto overflow-y-visible scrollbar-hide md:overflow-x-visible">
+        <div
+          className="relative left-1/2 w-[100vw] max-w-[100vw] -translate-x-1/2 overflow-x-auto overflow-y-visible scrollbar-hide md:overflow-x-visible mb-2 sm:mb-4"
+        >
           <div
-            className="mx-auto flex justify-center items-end py-8 sm:py-10 min-h-[400px] sm:min-h-[480px] lg:min-h-[520px]"
+            className="mx-auto rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white/70 backdrop-blur-sm shadow-sm max-w-[min(100%,82rem)]"
             style={{ perspective: "1700px", perspectiveOrigin: "50% 100%" }}
           >
-            <div
-              className="inline-flex items-end justify-center origin-bottom scale-[0.8] sm:scale-[0.88] md:scale-[0.94] lg:scale-[0.98] xl:scale-100 px-6 sm:px-10"
-              style={{ transformStyle: "preserve-3d" }}
-            >
-              {phoneItems.map((item, index) => (
-                <FanSlot
-                  key={`${item.title}-${index}`}
-                  item={item}
-                  index={index}
-                  layout={FAN_LAYOUT[index] ?? FAN_LAYOUT[2]}
-                  visible={visible}
-                  isCenter={index === 2}
-                  reduceMotion={reduceMotion}
-                />
-              ))}
+            <div className="flex justify-center items-end py-10 sm:py-12 min-h-[400px] sm:min-h-[480px] lg:min-h-[520px]">
+              <div
+                className="inline-flex items-end justify-center origin-bottom scale-[0.8] sm:scale-[0.88] md:scale-[0.94] lg:scale-[0.98] xl:scale-100 px-6 sm:px-10"
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                {phoneItems.map((item, index) => (
+                  <FanSlot
+                    key={`${item.title}-${index}`}
+                    item={item}
+                    index={index}
+                    layout={FAN_LAYOUT[index] ?? FAN_LAYOUT[2]}
+                    visible={visible}
+                    isCenter={index === 2}
+                    reduceMotion={reduceMotion}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {ctaText && ctaUrl && (
-          <div className="text-center mt-4 sm:mt-6">
-            <Link
-              href={ctaUrl}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-full px-6 py-2.5 shadow-md shadow-orange-200 transition-colors"
+          <div className="text-center mt-5 sm:mt-8">
+            <Button
+              size="lg"
+              className="bg-orange-500 hover:bg-orange-600 shadow-sm h-11 px-6"
+              asChild
             >
-              {ctaText}
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+              <Link href={ctaUrl} className="inline-flex items-center gap-2">
+                {ctaText}
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </Button>
           </div>
         )}
       </div>
