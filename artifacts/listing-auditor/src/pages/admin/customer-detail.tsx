@@ -781,7 +781,7 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                   </Button>
                 )}
               </CardTitle>
-              {hasPendingPaypal && (
+              {hasPendingPayPal && (
                 <p className="text-xs text-slate-500 mt-1">
                   Pending PayPal rows mean checkout started but capture did not finish. Click Sync to retry capture with PayPal (customer must have approved payment on PayPal).
                 </p>
