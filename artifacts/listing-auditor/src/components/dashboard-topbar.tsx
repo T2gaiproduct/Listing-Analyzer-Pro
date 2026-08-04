@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Search, Coins, ChevronDown, UserCircle, Receipt, Settings, HelpCircle,
-  Users, LogOut, LifeBuoy, FileText, Download, Keyboard, ScrollText, Lock, Bug, X, Menu, Building2, Shield,
+  Search, Coins, ChevronDown, UserCircle, Receipt, Settings,
+  Users, LogOut, Lock, X, Menu, Building2, Shield,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
@@ -26,16 +26,6 @@ function profileMenuItems(
 ) {
   return buildProfileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can, workspacesPlanLocked);
 }
-
-const helpSubmenuItems = [
-  { icon: LifeBuoy, label: "Help center", href: "/help" },
-  { icon: FileText, label: "Release notes", href: "/help#release" },
-  { icon: Download, label: "Download apps", href: "/help#apps" },
-  { icon: Keyboard, label: "Keyboard shortcuts", href: "/help#shortcuts" },
-  { icon: ScrollText, label: "Terms of Service", href: "/terms" },
-  { icon: Lock, label: "Privacy Policy", href: "/privacy" },
-  { icon: Bug, label: "Report a bug", href: "/contact" },
-];
 
 interface DashboardTopbarProps {
   searchQuery: string;
@@ -93,7 +83,6 @@ export function DashboardTopbar({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
   const breakdownCredits =
@@ -137,7 +126,6 @@ export function DashboardTopbar({
         setMobileSearchOpen(false);
         setCreditsOpen(false);
         setProfileOpen(false);
-        setHelpOpen(false);
         searchRef.current?.blur();
       }
     }
@@ -156,7 +144,6 @@ export function DashboardTopbar({
       }
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
-        setHelpOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -367,7 +354,7 @@ export function DashboardTopbar({
         <div ref={profileRef} className="relative flex-shrink-0">
           <button
             type="button"
-            onClick={() => { setProfileOpen((o) => !o); setCreditsOpen(false); setHelpOpen(false); }}
+            onClick={() => { setProfileOpen((o) => !o); setCreditsOpen(false); }}
             className={cn(
               "flex items-center gap-2 h-11 pl-1.5 pr-2 rounded-xl transition-colors touch-target",
               profileOpen ? "bg-slate-100" : "hover:bg-slate-50"
@@ -437,36 +424,6 @@ export function DashboardTopbar({
                     </Link>
                   )
                 ))}
-                {variant === "customer" && (
-                <div className="relative">
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left min-h-11"
-                    onClick={() => setHelpOpen((o) => !o)}
-                    aria-expanded={helpOpen}
-                  >
-                    <HelpCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <span className="flex-1 text-left">Help &amp; Support</span>
-                    <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform", helpOpen && "rotate-180")} />
-                  </button>
-                  {helpOpen && (
-                    <div className="border-t border-slate-100 bg-slate-50/80 py-1 lg:absolute lg:right-full lg:top-0 lg:mr-1 lg:w-52 lg:bg-white lg:border lg:rounded-xl lg:shadow-xl lg:py-1.5 lg:z-[60]">
-                      {helpSubmenuItems.map(({ icon: Icon, label, href }) => (
-                        <Link key={label} href={href}>
-                          <button
-                            type="button"
-                            className="w-full flex items-center gap-3 px-4 py-3 lg:py-2.5 text-sm text-slate-700 hover:bg-slate-50 text-left min-h-11 lg:min-h-0"
-                            onClick={() => { setHelpOpen(false); setProfileOpen(false); }}
-                          >
-                            <Icon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                            {label}
-                          </button>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                )}
               </div>
               <div className="border-t border-slate-100 py-1.5">
                 <button
