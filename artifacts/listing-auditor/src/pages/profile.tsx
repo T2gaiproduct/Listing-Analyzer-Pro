@@ -93,13 +93,13 @@ export default function Profile() {
   const { user } = useUser();
   const { can, isWorkspaceAccountOwner } = useWorkspace();
   const canEditProfile = isWorkspaceAccountOwner || can("profile", "edit");
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!canEditProfile && editing) setEditing(false);
   }, [canEditProfile, editing]);
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [editing, setEditing] = useState(false);
   const [showPwDialog, setShowPwDialog] = useState(false);
   const [pwForm, setPwForm] = useState({ current: "", newPw: "", confirm: "", logoutAll: false });
   const [pwError, setPwError] = useState("");
