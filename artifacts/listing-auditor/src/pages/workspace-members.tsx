@@ -1,5 +1,5 @@
 import { Link, useParams } from "wouter";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,9 +104,15 @@ export default function WorkspaceMembersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
       }),
-    onSuccess: () => {
+    onSuccess: (_data, { memberId }) => {
+      setEditingCredits((p) => {
+        const next = { ...p };
+        delete next[memberId];
+        return next;
+      });
       qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
       qc.invalidateQueries({ queryKey: ["team"] });
+      qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
       toast({ title: "Credits updated" });
     },
     onError: (err: Error) => toast({ title: "Failed to update credits", description: err.message, variant: "destructive" }),
@@ -292,7 +298,7 @@ export default function WorkspaceMembersPage() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">Members</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           {isLoading ? (
             <p className="text-sm text-slate-500">Loading…</p>
           ) : (
@@ -303,7 +309,7 @@ export default function WorkspaceMembersPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
-                  {canViewCredits && <TableHead>Credits</TableHead>}
+                  {canViewCredits && <TableHead className="min-w-[10rem]">Credits</TableHead>}
                   {canInvite && <TableHead className="w-[11rem]">Invite</TableHead>}
                   {canRemoveMember && <TableHead className="w-[7rem]">Actions</TableHead>}
                 </TableRow>
@@ -316,113 +322,179 @@ export default function WorkspaceMembersPage() {
                     imageCredits: String(m.allocatedCredits?.imageCredits ?? 0),
                     auditCredits: String(m.allocatedCredits?.auditCredits ?? 0),
                   };
+                  const colspan =
+                    4
+                    + (canViewCredits ? 1 : 0)
+                    + (canInvite ? 1 : 0)
+                    + (canRemoveMember ? 1 : 0);
+
                   return (
-                  <TableRow key={m.id}>
-                    <TableCell>{m.invitedName}</TableCell>
-                    <TableCell>{m.invitedEmail}</TableCell>
-                    <TableCell>{accountRoleLabel(m.roleId, m.roleName, roles)}</TableCell>
-                    <TableCell className="capitalize">{m.status}</TableCell>
-                    {canViewCredits && (
-                      <TableCell>
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <div className="grid grid-cols-3 gap-1">
-                              <Input type="number" min={0} className="h-8 text-xs" value={editVals.aiCredits}
-                                onChange={(e) => setEditingCredits((p) => ({ ...p, [m.id]: { ...p[m.id]!, aiCredits: e.target.value } }))} />
-                              <Input type="number" min={0} className="h-8 text-xs" value={editVals.imageCredits}
-                                onChange={(e) => setEditingCredits((p) => ({ ...p, [m.id]: { ...p[m.id]!, imageCredits: e.target.value } }))} />
-                              <Input type="number" min={0} className="h-8 text-xs" value={editVals.auditCredits}
-                                onChange={(e) => setEditingCredits((p) => ({ ...p, [m.id]: { ...p[m.id]!, auditCredits: e.target.value } }))} />
+                    <Fragment key={m.id}>
+                      <TableRow>
+                        <TableCell>{m.invitedName}</TableCell>
+                        <TableCell>{m.invitedEmail}</TableCell>
+                        <TableCell>{accountRoleLabel(m.roleId, m.roleName, roles)}</TableCell>
+                        <TableCell className="capitalize">{m.status}</TableCell>
+                        {canViewCredits && (
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                              <span className="whitespace-nowrap">
+                                {m.allocatedCredits?.auditCredits ?? 0} audit · {m.allocatedCredits?.aiCredits ?? 0} text · {m.allocatedCredits?.imageCredits ?? 0} img
+                              </span>
+                              {canAllocateCredits && m.status === "active" && !isEditing && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 shrink-0"
+                                  aria-label="Allocate credits"
+                                  onClick={() => setEditingCredits((p) => ({
+                                    ...p,
+                                    [m.id]: {
+                                      aiCredits: String(m.allocatedCredits?.aiCredits ?? 0),
+                                      imageCredits: String(m.allocatedCredits?.imageCredits ?? 0),
+                                      auditCredits: String(m.allocatedCredits?.auditCredits ?? 0),
+                                    },
+                                  }))}
+                                >
+                                  <Zap className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                             </div>
-                            <div className="flex gap-1">
-                              <Button size="sm" className="h-7" disabled={creditMutation.isPending}
-                                onClick={() => {
-                                  creditMutation.mutate({
-                                    memberId: m.id,
-                                    aiCredits: Math.max(0, parseInt(editVals.aiCredits) || 0),
-                                    imageCredits: Math.max(0, parseInt(editVals.imageCredits) || 0),
-                                    auditCredits: Math.max(0, parseInt(editVals.auditCredits) || 0),
-                                  });
-                                  setEditingCredits((p) => {
+                          </TableCell>
+                        )}
+                        {canInvite && (
+                          <TableCell>
+                            {m.status === "pending" && m.inviteToken ? (
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 gap-1.5"
+                                  onClick={() => resendInvite.mutate(m.id)}
+                                  disabled={resendInvite.isPending}
+                                >
+                                  <Mail className="w-3.5 h-3.5" />
+                                  Resend
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 gap-1.5"
+                                  onClick={() => copyInviteLink(m.inviteToken!, toast)}
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                  Link
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </TableCell>
+                        )}
+                        {canRemoveMember && (
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => confirmRemoveMember(m)}
+                              disabled={removeMember.isPending}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {m.status === "pending" ? "Revoke" : "Remove"}
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                      {isEditing && (
+                        <TableRow key={`${m.id}-credits-edit`} className="bg-slate-50/80">
+                          <TableCell colSpan={colspan} className="py-4">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4 max-w-xl">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Zap className="w-4 h-4 text-blue-500 shrink-0" />
+                                <span className="text-sm font-medium text-slate-800">
+                                  Allocate credits for {m.invitedName || m.invitedEmail}
+                                </span>
+                              </div>
+                              {membersData?.poolAvailableForMembers && (
+                                <p className="text-xs text-slate-500 mb-3">
+                                  Available to assign: up to {membersData.poolAvailableForMembers.auditCredits} audit · {membersData.poolAvailableForMembers.aiCredits} text · {membersData.poolAvailableForMembers.imageCredits} images
+                                </p>
+                              )}
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                                <div>
+                                  <Label className="text-xs text-slate-500 mb-1 block">Audit credits</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    className="h-9"
+                                    value={editVals.auditCredits}
+                                    onChange={(e) => setEditingCredits((p) => ({
+                                      ...p,
+                                      [m.id]: { ...editVals, auditCredits: e.target.value },
+                                    }))}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-slate-500 mb-1 block">Text credits</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    className="h-9"
+                                    value={editVals.aiCredits}
+                                    onChange={(e) => setEditingCredits((p) => ({
+                                      ...p,
+                                      [m.id]: { ...editVals, aiCredits: e.target.value },
+                                    }))}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-slate-500 mb-1 block">Image credits</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    className="h-9"
+                                    value={editVals.imageCredits}
+                                    onChange={(e) => setEditingCredits((p) => ({
+                                      ...p,
+                                      [m.id]: { ...editVals, imageCredits: e.target.value },
+                                    }))}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  className="bg-orange-500 hover:bg-orange-600"
+                                  disabled={creditMutation.isPending}
+                                  onClick={() => {
+                                    creditMutation.mutate({
+                                      memberId: m.id,
+                                      aiCredits: Math.max(0, parseInt(editVals.aiCredits, 10) || 0),
+                                      imageCredits: Math.max(0, parseInt(editVals.imageCredits, 10) || 0),
+                                      auditCredits: Math.max(0, parseInt(editVals.auditCredits, 10) || 0),
+                                    });
+                                  }}
+                                >
+                                  {creditMutation.isPending ? "Saving…" : "Save credits"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setEditingCredits((p) => {
                                     const next = { ...p };
                                     delete next[m.id];
                                     return next;
-                                  });
-                                }}>
-                                Save
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7" onClick={() => setEditingCredits((p) => {
-                                const next = { ...p };
-                                delete next[m.id];
-                                return next;
-                              })}>Cancel</Button>
+                                  })}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-xs text-slate-600">
-                            <span>
-                              {m.allocatedCredits?.auditCredits ?? 0} audit · {m.allocatedCredits?.aiCredits ?? 0} text · {m.allocatedCredits?.imageCredits ?? 0} img
-                            </span>
-                            {canAllocateCredits && m.status === "active" && (
-                              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setEditingCredits((p) => ({
-                                ...p,
-                                [m.id]: {
-                                  aiCredits: String(m.allocatedCredits?.aiCredits ?? 0),
-                                  imageCredits: String(m.allocatedCredits?.imageCredits ?? 0),
-                                  auditCredits: String(m.allocatedCredits?.auditCredits ?? 0),
-                                },
-                              }))}>
-                                <Zap className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                    )}
-                    {canInvite && (
-                      <TableCell>
-                        {m.status === "pending" && m.inviteToken ? (
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1.5"
-                              onClick={() => resendInvite.mutate(m.id)}
-                              disabled={resendInvite.isPending}
-                            >
-                              <Mail className="w-3.5 h-3.5" />
-                              Resend
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1.5"
-                              onClick={() => copyInviteLink(m.inviteToken!, toast)}
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                              Link
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-slate-300">—</span>
-                        )}
-                      </TableCell>
-                    )}
-                    {canRemoveMember && (
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => confirmRemoveMember(m)}
-                          disabled={removeMember.isPending}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          {m.status === "pending" ? "Revoke" : "Remove"}
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
                   );
                 })}
               </TableBody>
