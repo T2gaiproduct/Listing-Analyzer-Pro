@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { format } from "date-fns";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +36,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
+import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -163,36 +163,7 @@ function StatCard({
 }
 
 function DonutChart({ data, total }: { data: DashboardData["creditBreakdown"]; total: number }) {
-  const chartData = data.filter((d) => d.balance > 0);
-  const display = chartData.length > 0 ? chartData : data;
-
-  return (
-    <div className="relative h-40 sm:h-52">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={display}
-            dataKey="balance"
-            nameKey="label"
-            cx="50%"
-            cy="50%"
-            innerRadius="48%"
-            outerRadius="68%"
-            paddingAngle={2}
-            strokeWidth={0}
-          >
-            {display.map((entry) => (
-              <Cell key={entry.key} fill={entry.color} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <p className="text-xl sm:text-2xl font-bold text-slate-900">{total.toLocaleString()}</p>
-        <p className="text-[10px] sm:text-xs text-slate-500">Total Credits</p>
-      </div>
-    </div>
-  );
+  return <DashboardDonutChart data={data} total={total} />;
 }
 
 function MemberHomePanel({

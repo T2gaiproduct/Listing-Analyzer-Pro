@@ -303,6 +303,9 @@ importers:
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
+      web-vitals:
+        specifier: ^4.2.4
+        version: 4.2.4
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0
@@ -4117,6 +4120,9 @@ packages:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
+  web-vitals@4.2.4:
+    resolution: {integrity: sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==}
+
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
     engines: {node: '>=18'}
@@ -7725,6 +7731,8 @@ snapshots:
       yaml: 2.8.2
 
   web-streams-polyfill@3.3.3: {}
+
+  web-vitals@4.2.4: {}
 
   whatwg-encoding@3.1.1:
     dependencies:

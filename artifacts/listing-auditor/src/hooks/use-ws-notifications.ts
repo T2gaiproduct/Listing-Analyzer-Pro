@@ -11,16 +11,16 @@ export function useWsNotifications() {
   const { getToken } = useAuth();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pausedRef = useRef(false);
 
   useEffect(() => {
     if (!user?.id) return;
 
     const userId = user.id;
-
     const url = `wss://${window.location.host}${basePath}/api/ws`;
 
     function connect() {
-      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+      if (pausedRef.current || wsRef.current?.readyState === WebSocket.OPEN) return;
 
       const ws = new WebSocket(url);
       wsRef.current = ws;
@@ -50,10 +50,7 @@ export function useWsNotifications() {
           };
 
           if (msg.type === "notification" && msg.payload) {
-            // Update React Query cache
             qc.invalidateQueries({ queryKey: ["notifications"] });
-
-            // Show toast
             toast({
               title: msg.payload.title,
               description: msg.payload.message,
@@ -66,10 +63,11 @@ export function useWsNotifications() {
 
       ws.onclose = () => {
         wsRef.current = null;
-        // Reconnect after 3s
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
+        if (!pausedRef.current) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, 3000);
+        }
       };
 
       ws.onerror = () => {
@@ -77,9 +75,36 @@ export function useWsNotifications() {
       };
     }
 
-    connect();
+    function scheduleConnect() {
+      const start = () => {
+        if (!pausedRef.current) connect();
+      };
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(start, { timeout: 4000 });
+      } else {
+        setTimeout(start, 1500);
+      }
+    }
+
+    function onVisibilityChange() {
+      pausedRef.current = document.visibilityState === "hidden";
+      if (pausedRef.current) {
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+        wsRef.current?.close();
+        wsRef.current = null;
+      } else {
+        scheduleConnect();
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    scheduleConnect();
 
     return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }

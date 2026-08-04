@@ -9,6 +9,7 @@ import {
   TrendingUp, Users, Star, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { ExitPopup } from "@/components/exit-popup";
 import { PageSeo } from "@/components/page-seo";
@@ -20,9 +21,9 @@ import { InteractiveFeaturesSection, type FeatureItem } from "@/components/inter
 import { heroAutoplayEnabled, heroAutoplayIntervalMs, parseHeroSlides } from "@/lib/hero-slides";
 import { parsePortfolioItems } from "@/lib/portfolio-cms";
 import { buildTutorialPreviewItems } from "@/lib/tutorials-cms";
-import { youtubeEmbedUrl } from "@/lib/video-embed";
 import { LandingTutorialsShowcase } from "@/components/landing-tutorials-showcase";
 import { LandingWorkflowSection } from "@/components/landing-workflow-section";
+import { YoutubePosterEmbed } from "@/components/youtube-poster-embed";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
@@ -447,8 +448,12 @@ function LandingPricingSection() {
       <section id="pricing" className="bg-slate-50 px-4 sm:px-6 lg:px-10 pt-4 pb-4 sm:pt-20 sm:pb-6 lg:pb-8">
         <div className="max-w-[1400px] mx-auto text-center w-full">
           <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">{eyebrow}</p>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6">{heading}</h2>
-          <p className="text-sm text-slate-500">Loading plans from Admin…</p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-6 sm:mb-8">{heading}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-[28rem] min-w-[260px] rounded-2xl" />
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -529,30 +534,15 @@ function LandingTestimonialsSection() {
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 text-center mb-8 sm:mb-10">{heading}</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {items.map((t) => {
-            const embedUrl = t.isVideo && t.videoUrl ? youtubeEmbedUrl(t.videoUrl) : null;
-            return (
+          {items.map((t) => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm h-full flex flex-col">
               {t.isVideo && t.videoUrl && (
                 <div className="aspect-video rounded-xl overflow-hidden mb-4 bg-slate-900">
-                  {embedUrl ? (
-                    <iframe
-                      src={embedUrl}
-                      title={`${t.name} video testimonial`}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <a
-                      href={t.videoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full h-full flex items-center justify-center text-sm font-medium text-white hover:bg-slate-800 transition-colors px-4 text-center"
-                    >
-                      Watch video testimonial
-                    </a>
-                  )}
+                  <YoutubePosterEmbed
+                    videoUrl={t.videoUrl}
+                    title={`${t.name} video testimonial`}
+                    posterUrl={t.avatar ?? undefined}
+                  />
                 </div>
               )}
               <div className="flex gap-0.5 mb-4">
@@ -579,8 +569,7 @@ function LandingTestimonialsSection() {
                 </div>
               </div>
             </div>
-            );
-          })}
+          ))}
         </div>
       </div>
     </section>

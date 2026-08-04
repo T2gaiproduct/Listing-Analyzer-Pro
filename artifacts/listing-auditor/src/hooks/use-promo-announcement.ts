@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import type { AnnouncementPromo } from "@/lib/announcement-promo";
 import { ANNOUNCEMENT_PROMO_DEFAULTS } from "@/lib/announcement-promo";
+import { isPublicCmsRoute } from "@/lib/public-route";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -19,11 +21,15 @@ async function fetchPromoAnnouncement(): Promise<AnnouncementPromo> {
 }
 
 export function usePromoAnnouncement() {
+  const [location] = useLocation();
+  const enabled = isPublicCmsRoute(location);
+
   const query = useQuery({
     queryKey: ["announcement-promo"],
     queryFn: fetchPromoAnnouncement,
+    enabled,
     staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: enabled,
   });
 
   return {

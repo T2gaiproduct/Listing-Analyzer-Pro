@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { mergeHomepageCms, type HomepageCmsMap } from "@/lib/homepage-cms";
+import { isPublicCmsRoute } from "@/lib/public-route";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -14,11 +16,15 @@ async function fetchHomepageCms(): Promise<HomepageCmsMap> {
 }
 
 export function useHomepageCms() {
+  const [location] = useLocation();
+  const enabled = isPublicCmsRoute(location);
+
   const query = useQuery({
     queryKey: ["homepage-cms"],
     queryFn: fetchHomepageCms,
+    enabled,
     staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: enabled,
   });
 
   return {

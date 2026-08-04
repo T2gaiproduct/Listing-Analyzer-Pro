@@ -1,5 +1,5 @@
-import { X, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
+import { X, Tag } from "lucide-react";
 import { Link } from "wouter";
 import { usePromoAnnouncement } from "@/hooks/use-promo-announcement";
 import type { AnnouncementPromo } from "@/lib/announcement-promo";
@@ -8,25 +8,28 @@ function promoDismissStorageKey(promo: AnnouncementPromo): string {
   return `listingauditor-promo-dismissed:${promo.text}:${promo.code}:${promo.linkUrl}`;
 }
 
+function readDismissed(key: string): boolean {
+  try {
+    localStorage.removeItem("listingauditor-promo");
+    return localStorage.getItem(key) === "dismissed";
+  } catch {
+    return false;
+  }
+}
+
 export function PromoBanner() {
-  const { promo } = usePromoAnnouncement();
+  const { promo, isLoading } = usePromoAnnouncement();
   const dismissKey = promoDismissStorageKey(promo);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => readDismissed(dismissKey));
 
   useEffect(() => {
-    try {
-      // Clear legacy dismiss key from the old Homepage CMS promo banner.
-      localStorage.removeItem("listingauditor-promo");
-      setDismissed(localStorage.getItem(dismissKey) === "dismissed");
-    } catch {
-      setDismissed(false);
-    }
+    setDismissed(readDismissed(dismissKey));
   }, [dismissKey]);
 
-  if (!promo.enabled || dismissed) return null;
-
   const hasContent = Boolean(promo.text?.trim() || promo.code?.trim());
-  if (!hasContent) return null;
+  const showBanner = promo.enabled && !dismissed && hasContent;
+
+  if (!isLoading && !showBanner) return null;
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -35,8 +38,17 @@ export function PromoBanner() {
     } catch {}
   };
 
+  if (isLoading) {
+    return (
+      <div
+        className="w-full h-9 sm:h-10 bg-slate-900/95"
+        aria-hidden="true"
+      />
+    );
+  }
+
   return (
-    <div className="w-full bg-slate-900 text-white text-[11px] sm:text-sm py-2 sm:py-2.5 px-3 sm:px-6 relative z-[60]">
+    <div className="w-full bg-slate-900 text-white text-[11px] sm:text-sm py-2 sm:py-2.5 px-3 sm:px-6 relative z-[60] min-h-9 sm:min-h-10">
       <div className="flex items-center justify-center gap-1.5 sm:gap-2 pr-8 sm:pr-10 text-center">
         <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400 shrink-0" />
         <span className="leading-snug">

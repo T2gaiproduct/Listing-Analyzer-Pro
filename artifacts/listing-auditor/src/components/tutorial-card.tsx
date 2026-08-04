@@ -43,7 +43,7 @@ export function TutorialCard({
             onClick={() => setOpen(true)}
             aspectClassName={isCarousel ? "aspect-video" : isPage ? "h-44" : "h-44 sm:h-48 lg:h-52"}
             playSize={isCarousel ? "lg" : "md"}
-            showPreview={isCarousel}
+            showPreview={false}
           />
           <div className={cn(isPage ? "p-6" : isCarousel ? "p-5" : "p-4")}>
             {categoryLabel && (

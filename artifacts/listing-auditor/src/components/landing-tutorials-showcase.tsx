@@ -75,7 +75,6 @@ function TutorialFanCard({
   const isExternal = href.startsWith("http");
   const category = tutorialCategoryLabel(item.category || "getting-started");
   const hasPlayableVideo = tutorialHasPlayableVideo(item);
-  const showPreview = visible && !reduceMotion;
 
   const shell = (
     <div
@@ -97,12 +96,8 @@ function TutorialFanCard({
           duration={item.duration}
           aspectClassName="aspect-[5/6]"
           playSize={isCenter ? "lg" : "sm"}
-          showPreview={showPreview}
-          playOverlayClassName={
-            showPreview
-              ? isHovered ? "opacity-100" : undefined
-              : "opacity-100"
-          }
+          showPreview={false}
+          playOverlayClassName="opacity-100"
           className="rounded-none"
           interactive={false}
         />

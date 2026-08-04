@@ -20,19 +20,23 @@ export type FeatureItem = {
 function FeatureImagePanel({ feature, fitHeight }: { feature: FeatureItem; fitHeight?: boolean }) {
   const content = feature.image ? (
     fitHeight ? (
-      <img
-        src={feature.image}
-        alt={feature.title}
-        className="block w-full h-auto"
-        loading="lazy"
-      />
+      <div className="aspect-video w-full overflow-hidden bg-[#faf8f5]">
+        <img
+          src={feature.image}
+          alt={feature.title}
+          className="block w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
     ) : (
-      <div className="flex items-center justify-center w-full h-full bg-[#faf8f5] p-3 sm:p-4">
+      <div className="flex items-center justify-center w-full h-full min-h-[13rem] sm:min-h-[14rem] bg-[#faf8f5] p-3 sm:p-4">
         <img
           src={feature.image}
           alt={feature.title}
           className="max-w-full max-h-full w-auto h-auto object-contain"
           loading="lazy"
+          decoding="async"
         />
       </div>
     )
@@ -85,12 +89,13 @@ function FeatureMobileDetailPanel({ feature }: { feature: FeatureItem }) {
   const Icon = feature.icon;
 
   const imageBlock = feature.image ? (
-    <div className="w-full overflow-hidden leading-[0]">
+    <div className="w-full aspect-video overflow-hidden bg-[#faf8f5]">
       <img
         src={feature.image}
         alt={feature.title}
-        className="block w-full h-auto"
+        className="block w-full h-full object-cover"
         loading="lazy"
+        decoding="async"
       />
     </div>
   ) : (

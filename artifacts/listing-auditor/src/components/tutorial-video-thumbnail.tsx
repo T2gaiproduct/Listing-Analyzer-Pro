@@ -1,5 +1,5 @@
 import { Play } from "lucide-react";
-import { youtubePreviewEmbedUrl } from "@/lib/video-embed";
+import { youtubePreviewEmbedUrl, youtubeThumbnailUrl } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 
 type TutorialVideoThumbnailProps = {
@@ -11,6 +11,7 @@ type TutorialVideoThumbnailProps = {
   className?: string;
   aspectClassName?: string;
   playSize?: "sm" | "md" | "lg";
+  /** When true, mounts a muted YouTube iframe preview (heavy — avoid on landing). */
   showPreview?: boolean;
   playOverlayClassName?: string;
   interactive?: boolean;
@@ -25,11 +26,12 @@ export function TutorialVideoThumbnail({
   className,
   aspectClassName = "aspect-video",
   playSize = "md",
-  showPreview = true,
+  showPreview = false,
   playOverlayClassName,
   interactive = true,
 }: TutorialVideoThumbnailProps) {
   const previewEmbedUrl = showPreview ? youtubePreviewEmbedUrl(videoUrl) : null;
+  const posterUrl = image || youtubeThumbnailUrl(videoUrl);
 
   const playSizes = {
     sm: { shell: "w-12 h-12 sm:w-14 sm:h-14", icon: "w-5 h-5 sm:w-6 sm:h-6" },
@@ -51,16 +53,18 @@ export function TutorialVideoThumbnail({
           src={previewEmbedUrl}
           title={title}
           className="absolute inset-0 w-full h-full pointer-events-none scale-[1.4] origin-center"
+          loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           referrerPolicy="strict-origin-when-cross-origin"
           tabIndex={-1}
         />
-      ) : image ? (
+      ) : posterUrl ? (
         <img
-          src={image}
+          src={posterUrl}
           alt=""
           className="absolute inset-0 w-full h-full object-cover group-hover/thumb:scale-[1.02] transition-transform duration-500"
           loading="lazy"
+          decoding="async"
         />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />

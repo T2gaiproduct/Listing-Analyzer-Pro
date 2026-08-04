@@ -37,6 +37,9 @@ export function SiteLogo({
           src={faviconUrl}
           alt=""
           aria-hidden
+          width={32}
+          height={32}
+          decoding="async"
           className="h-8 w-8 shrink-0 object-contain"
         />
         <span className="font-bold text-lg tracking-tight leading-none truncate" aria-label={platformName}>
@@ -51,14 +54,21 @@ export function SiteLogo({
 
   return (
     <span className={cn("inline-flex items-center min-w-0 max-w-full", className)}>
-      <img src={resolvedLogoUrl} alt={platformName} className={cn(imageClassName, variant === "app" && "max-w-[9rem]")} />
+      <img
+        src={resolvedLogoUrl}
+        alt={platformName}
+        width={176}
+        height={32}
+        decoding="async"
+        className={cn(imageClassName, variant === "app" && "max-w-[9rem]")}
+      />
     </span>
   );
 }
 
 export function SiteLogoImage({ className = "h-8 w-auto mx-auto mb-5" }: { className?: string }) {
   const { platformName, logoUrl } = useBranding();
-  return <img src={logoUrl} alt={platformName} className={className} />;
+  return <img src={logoUrl} alt={platformName} width={176} height={32} decoding="async" className={className} />;
 }
 
 export function SiteLogoMark({
@@ -71,7 +81,7 @@ export function SiteLogoMark({
 }) {
   const { platformName, logoUrl } = useBranding();
 
-  return <img src={logoUrl} alt={platformName} className={cn(imageClassName, "shrink-0", className)} />;
+  return <img src={logoUrl} alt={platformName} width={144} height={32} decoding="async" className={cn(imageClassName, "shrink-0", className)} />;
 }
 
 /** Orange magnifying-glass mark for collapsed sidebar / compact slots. */
@@ -84,5 +94,5 @@ export function SiteLogoIcon({
 }) {
   const { platformName, faviconUrl } = useBranding();
 
-  return <img src={faviconUrl} alt={platformName} className={cn(imageClassName, "shrink-0", className)} />;
+  return <img src={faviconUrl} alt={platformName} width={32} height={32} decoding="async" className={cn(imageClassName, "shrink-0", className)} />;
 }
