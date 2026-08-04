@@ -28,7 +28,7 @@ import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
-import { getWorkspaceCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
+import { getWorkspaceCredits, getWorkspaceMemberCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
 import { WORKSPACE_HEADER } from "../lib/workspace-context";
 
@@ -511,6 +511,14 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     const workspaceUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
     // Total funded to workspace = remaining pool balance + spent this period.
     creditsAllowance = workspaceFundedCreditTotal(displayCredits, workspaceUsedInPeriod);
+  } else if (!wsCtx.isAccountOwner && wsCtx.workspaceMemberId) {
+    creditScope = "member";
+    const memberCredits = await getWorkspaceMemberCredits(wsCtx.workspaceMemberId);
+    displayCredits = memberCredits ?? zeroCredits;
+    const memberUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+    const memberRemaining =
+      displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+    creditsAllowance = memberRemaining + memberUsedInPeriod;
   } else if (team?.isTeamMember && team.memberId) {
     creditScope = "member";
     const memberCredits = await getMemberCredits(team.memberId, workspaceId);
@@ -549,10 +557,11 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
   }
 
   const creditsBalance = displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+  const isMemberCreditView = !wsCtx.isAccountOwner && (wsCtx.workspaceMemberId != null || team?.isTeamMember);
 
   let teamCreditsUsedInPeriod = 0;
   let memberCreditsAllocated = 0;
-  if (!team?.isTeamMember) {
+  if (!isMemberCreditView && wsCtx.isAccountOwner) {
     const activeMembers = await db
       .select({ memberUserId: teamMembersTable.memberUserId })
       .from(teamMembersTable)
@@ -577,13 +586,13 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     { key: "graphic", label: "Graphic Credits", balance: displayCredits.imageCredits, color: "#1e293b" },
     { key: "brand", label: "Brand Credits", balance: displayCredits.aiCredits, color: "#94a3b8" },
   ];
-  if (!team?.isTeamMember) {
+  if (!isMemberCreditView) {
     creditSegments.push(
       { key: "video", label: "Video Credits", balance: 0, color: "#475569" },
       { key: "ad", label: "Ad Credits", balance: 0, color: "#64748b" },
     );
   }
-  const breakdownSegments = team?.isTeamMember
+  const breakdownSegments = isMemberCreditView
     ? creditSegments.filter((seg) => seg.balance > 0)
     : creditSegments;
   const segmentTotal = breakdownSegments.reduce((s, seg) => s + seg.balance, 0) || 1;
@@ -679,7 +688,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       creditsBalance,
       creditsAllowance,
       creditScope,
-      isTeamMember: !!team?.isTeamMember,
+      isTeamMember: isMemberCreditView,
       teamCreditsUsedInPeriod,
       memberCreditsAllocated,
     },

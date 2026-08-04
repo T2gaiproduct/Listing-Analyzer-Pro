@@ -4,7 +4,7 @@ import { getAuth } from "@clerk/express";
 import { randomBytes } from "crypto";
 import {
   db, teamMembersTable, subscriptionsTable, plansTable,
-  creditsTable, userProfilesTable, memberCreditsTable,
+  creditsTable, userProfilesTable, memberCreditsTable, workspacesTable,
 } from "@workspace/db";
 import { sendEmail } from "../lib/email.js";
 import { inviteEmailTemplate, welcomeEmailTemplate } from "../lib/email-templates.js";
@@ -15,6 +15,7 @@ import {
   shouldSendTeamWelcomeEmailToUser,
 } from "../lib/notification-preferences.js";
 import { getMemberCredits } from "../lib/credits.js";
+import { getWorkspaceMemberCreditsForUser } from "../lib/workspace-credits.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import {
   countAuditActivity,
@@ -505,7 +506,66 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
   }).from(teamMembersTable)
     .where(and(eq(teamMembersTable.memberUserId, userId), eq(teamMembersTable.status, "active")));
 
-  if (!membership) { res.status(404).json({ error: "Not a team member" }); return; }
+  if (!membership) {
+    if (!workspaceId || !Number.isFinite(workspaceId) || workspaceId <= 0) {
+      res.status(404).json({ error: "Not a team member" });
+      return;
+    }
+
+    const workspaceMember = await getWorkspaceMemberCreditsForUser(userId, workspaceId);
+    if (!workspaceMember) {
+      res.status(404).json({ error: "Not a workspace member" });
+      return;
+    }
+
+    const [workspace] = await db
+      .select({ accountOwnerId: workspacesTable.accountOwnerId })
+      .from(workspacesTable)
+      .where(eq(workspacesTable.id, workspaceId))
+      .limit(1);
+    const ownerUserId = workspace?.accountOwnerId;
+    if (!ownerUserId) {
+      res.status(404).json({ error: "Workspace not found" });
+      return;
+    }
+
+    const [sub] = await db.select({
+      planName: plansTable.name,
+      currentPeriodStart: subscriptionsTable.currentPeriodStart,
+      currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+      planAiCredits: plansTable.aiCredits,
+      planImageCredits: plansTable.imageCredits,
+      planAuditCredits: plansTable.auditCredits,
+    }).from(subscriptionsTable)
+      .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
+      .where(eq(subscriptionsTable.userId, ownerUserId));
+
+    const periodStart = sub?.currentPeriodStart ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const periodEnd = sub?.currentPeriodEnd ?? new Date();
+    const creditsUsed = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+    const remainingCredits = workspaceMember.credits;
+    const remainingTotal = remainingCredits.aiCredits + remainingCredits.imageCredits + remainingCredits.auditCredits;
+    const totalAllocatedCredits = remainingTotal + creditsUsed;
+    const [ownerProfile] = await db
+      .select({ companyName: userProfilesTable.companyName, fullName: userProfilesTable.fullName })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, ownerUserId));
+
+    res.json({
+      workspaceName: ownerProfile?.companyName ?? ownerProfile?.fullName ?? "Workspace",
+      planName: sub?.planName ?? null,
+      periodStart,
+      periodEnd,
+      creditsUsed,
+      remainingCredits,
+      totalAllocatedCredits,
+      allocatedCredits: remainingCredits,
+      workspacePlanTotal: sub
+        ? (sub.planAiCredits ?? 0) + (sub.planImageCredits ?? 0) + (sub.planAuditCredits ?? 0)
+        : 0,
+    });
+    return;
+  }
 
   const [sub] = await db.select({
     planName: plansTable.name,
@@ -556,18 +616,43 @@ router.get("/team/membership/credits", requireAuth, async (req, res): Promise<vo
   const userId = (req as AuthedRequest).userId;
   const workspaceIdParam = req.query.workspaceId;
   const workspaceId = workspaceIdParam != null ? Number(workspaceIdParam) : null;
+
   const [membership] = await db.select({ id: teamMembersTable.id, ownerUserId: teamMembersTable.ownerUserId })
     .from(teamMembersTable)
     .where(and(eq(teamMembersTable.memberUserId, userId), eq(teamMembersTable.status, "active")));
-  if (!membership) { res.status(404).json({ error: "Not a team member" }); return; }
 
-  const effectiveWorkspaceId = workspaceId && Number.isFinite(workspaceId) && workspaceId > 0
-    ? workspaceId
-    : await getDefaultWorkspaceId(membership.ownerUserId);
-  const credits = effectiveWorkspaceId
-    ? await getMemberCredits(membership.id, effectiveWorkspaceId)
-    : await getMemberCredits(membership.id);
-  res.json({ memberId: membership.id, workspaceId: effectiveWorkspaceId, credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 } });
+  if (membership) {
+    const effectiveWorkspaceId = workspaceId && Number.isFinite(workspaceId) && workspaceId > 0
+      ? workspaceId
+      : await getDefaultWorkspaceId(membership.ownerUserId);
+    const credits = effectiveWorkspaceId
+      ? await getMemberCredits(membership.id, effectiveWorkspaceId)
+      : await getMemberCredits(membership.id);
+    res.json({
+      memberId: membership.id,
+      workspaceId: effectiveWorkspaceId,
+      credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+    });
+    return;
+  }
+
+  // Workspace-only members (no legacy team_members row) — credits live on workspace_members.
+  if (!workspaceId || !Number.isFinite(workspaceId) || workspaceId <= 0) {
+    res.status(404).json({ error: "Not a team member" });
+    return;
+  }
+
+  const workspaceMember = await getWorkspaceMemberCreditsForUser(userId, workspaceId);
+  if (!workspaceMember) {
+    res.status(404).json({ error: "Not a workspace member" });
+    return;
+  }
+
+  res.json({
+    workspaceMemberId: workspaceMember.workspaceMemberId,
+    workspaceId,
+    credits: workspaceMember.credits,
+  });
 });
 
 export default router;

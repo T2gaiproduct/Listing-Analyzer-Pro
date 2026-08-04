@@ -52,6 +52,8 @@ export function useTeam(): TeamContext {
     isAccountOwner: wsOwner,
     isLoading: wsLoading,
     workspaces,
+    isTeamMemberAccount,
+    featureWorkspaceId,
   } = useWorkspace();
 
   const { data, isLoading } = useQuery<TeamMembership[]>({
@@ -62,20 +64,27 @@ export function useTeam(): TeamContext {
     retry: 3,
   });
 
-  const { data: creditsData, isLoading: creditsLoading } = useQuery<{ credits: MemberCredits }>({
-    queryKey: ["team-membership-credits"],
-    queryFn: () =>
-      fetchJson<{ credits: MemberCredits }>(`${basePath}/api/team/membership/credits`).catch(
-        () => ({ credits: { aiCredits: 0, imageCredits: 0, auditCredits: 0 } }),
-      ),
-    staleTime: 60_000,
-    retry: 3,
-    enabled: !!data && data.length > 0,
-  });
-
   const membership = data && data.length > 0 ? data[0] : null;
   const role = membership?.role ?? "owner";
-  const isTeamMember = !!membership;
+  const isLegacyTeamMember = !!membership;
+  const isWorkspaceOnlyMember = isTeamMemberAccount && !wsOwner && !isLegacyTeamMember;
+  const isTeamMember = isLegacyTeamMember || isWorkspaceOnlyMember;
+  const usesMemberCredits = isTeamMember && !wsOwner;
+
+  const creditsQueryKey = ["team-membership-credits", featureWorkspaceId ?? "default"];
+  const { data: creditsData, isLoading: creditsLoading } = useQuery<{ credits: MemberCredits }>({
+    queryKey: creditsQueryKey,
+    queryFn: () => {
+      const params = featureWorkspaceId ? `?workspaceId=${featureWorkspaceId}` : "";
+      return fetchJson<{ credits: MemberCredits }>(
+        `${basePath}/api/team/membership/credits${params}`,
+      ).catch(() => ({ credits: { aiCredits: 0, imageCredits: 0, auditCredits: 0 } }));
+    },
+    staleTime: 60_000,
+    retry: 3,
+    enabled: usesMemberCredits && (isLegacyTeamMember || featureWorkspaceId != null),
+  });
+
   const isOwner = !isTeamMember || wsOwner;
   const hasWorkspaces = workspaces.length > 0;
 

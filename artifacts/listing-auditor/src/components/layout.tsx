@@ -342,7 +342,7 @@ export function Layout({ children }: { children: ReactNode }) {
     },
   });
 
-  const { isTeamMember, memberCredits } = useTeam();
+  const { isTeamMember, memberCredits, isOwner } = useTeam();
 
   const recentsReady = clerkLoaded && !!user && !!featureWorkspaceId && isWorkspaceApiScopeActive;
 
@@ -604,9 +604,10 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchOnMount: "always",
   });
 
+  const usesMemberCredits = isTeamMember && !isAccountOwner;
   const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const workspacePoolCredits = workspacePoolData?.poolCredits;
-  const displayCredits = isTeamMember
+  const displayCredits = usesMemberCredits
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : showWorkspacePoolCredits
       ? (workspacePoolCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
@@ -615,7 +616,7 @@ export function Layout({ children }: { children: ReactNode }) {
         : accountCreditSummary?.unallocated ?? ownerCredits;
   const creditsScopeLabel = showWorkspacePoolCredits
     ? "workspace"
-    : isTeamMember
+    : usesMemberCredits
       ? "member"
       : isAccountOwner && isAccountDashboardRoute
         ? "account_total"
@@ -647,7 +648,7 @@ export function Layout({ children }: { children: ReactNode }) {
       ? "Active Plan"
       : "No plan";
   const roleLabel =
-    isTeamMember || profileData?.accountRole?.type === "team_member"
+    isTeamMember || isTeamMemberAccount || profileData?.accountRole?.type === "team_member"
       ? "Member"
       : (profileData?.accountRole?.label ?? "User");
 

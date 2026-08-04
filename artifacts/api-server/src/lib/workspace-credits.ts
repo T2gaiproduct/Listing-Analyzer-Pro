@@ -290,6 +290,29 @@ export async function setWorkspaceCreditPool(
   };
 }
 
+/** Active workspace_members row credits for a user in a specific workspace. */
+export async function getWorkspaceMemberCreditsForUser(
+  userId: string,
+  workspaceId: number,
+): Promise<{ workspaceMemberId: number; credits: CreditTotals } | null> {
+  const [membership] = await db
+    .select({ id: workspaceMembersTable.id })
+    .from(workspaceMembersTable)
+    .where(and(
+      eq(workspaceMembersTable.workspaceId, workspaceId),
+      eq(workspaceMembersTable.userId, userId),
+      eq(workspaceMembersTable.status, "active"),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ))
+    .limit(1);
+  if (!membership) return null;
+  const credits = await getWorkspaceMemberCredits(membership.id);
+  return {
+    workspaceMemberId: membership.id,
+    credits: credits ?? { ...ZERO },
+  };
+}
+
 export async function getWorkspaceMemberCredits(workspaceMemberId: number): Promise<CreditTotals | null> {
   const [row] = await db
     .select()
