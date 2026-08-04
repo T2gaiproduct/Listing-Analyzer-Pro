@@ -8,7 +8,7 @@ import {
   adminRolesTable, adminUsersTable, adminInvitesTable, auditLogsTable, downloadsTable,
   settingsTable, notificationsTable,
   cmsContent, blogPosts, testimonials, faqs, seoSettings, navItems, formSubmissions, mediaFiles, cmsPages,
-  userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable,
+  userProfilesTable, subscriptionsTable, teamMembersTable, memberCreditsTable, workspacesTable,
   graphicsProjectsTable,
 } from "@workspace/db";
 import OpenAI from "openai";
@@ -44,6 +44,7 @@ import {
   upsertAdminRoleInvite,
 } from "../lib/admin-invites.js";
 import { buildAdminInviteUrl } from "../lib/admin-invite-token.js";
+import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 import {
   allKnownNotificationTypes,
@@ -2272,27 +2273,45 @@ router.get("/admin/team-activity", requireAdmin, async (req, res): Promise<void>
     acceptedAt: teamMembersTable.acceptedAt,
   }).from(teamMembersTable).orderBy(desc(teamMembersTable.invitedAt));
 
-  // Get owner profiles for company names
-  const ownerIds = [...new Set(teams.map((t) => t.ownerUserId))];
+  const workspaceOwnerRows = await db
+    .select({ accountOwnerId: workspacesTable.accountOwnerId })
+    .from(workspacesTable)
+    .where(eq(workspacesTable.isDeleted, 0));
+
+  const ownerIds = [...new Set([
+    ...teams.map((t) => t.ownerUserId),
+    ...workspaceOwnerRows.map((r) => r.accountOwnerId),
+  ])];
+
   const profiles = ownerIds.length > 0
     ? await db.select().from(userProfilesTable).where(inArray(userProfilesTable.userId, ownerIds))
     : [];
 
   const profileMap = new Map(profiles.map((p) => [p.userId, p]));
 
-  // Get member credits
   const memberIds = teams.map((t) => t.id);
   const memberCredits = memberIds.length > 0
     ? await db.select().from(memberCreditsTable).where(inArray(memberCreditsTable.memberId, memberIds))
     : [];
   const creditsMap = new Map(memberCredits.map((c) => [c.memberId, c]));
 
-  // Get owner audit counts
   const ownerAuditCounts: Record<string, number> = {};
   for (const ownerId of ownerIds) {
     const [countRow] = await db.select({ c: count() }).from(auditsTable).where(eq(auditsTable.userId, ownerId));
     ownerAuditCounts[ownerId] = Number(countRow?.c ?? 0);
   }
+
+  const workspaceSummaries = new Map(
+    await Promise.all(ownerIds.map(async (ownerId) => {
+      const summary = await getWorkspaceMemberSummaryForOwner(ownerId, { includeMembers: true });
+      return [ownerId, summary] as const;
+    })),
+  );
+
+  let totalWorkspaces = 0;
+  let totalWorkspaceMembers = 0;
+  let totalWorkspaceActiveMembers = 0;
+  let totalWorkspacePendingInvites = 0;
 
   const grouped = ownerIds.map((ownerId) => {
     const profile = profileMap.get(ownerId);
@@ -2300,11 +2319,30 @@ router.get("/admin/team-activity", requireAdmin, async (req, res): Promise<void>
     const activeMembers = teamMembers.filter((t) => t.status === "active");
     const pendingMembers = teamMembers.filter((t) => t.status === "pending");
     const revokedMembers = teamMembers.filter((t) => t.status === "revoked");
+    const workspaceSummary = workspaceSummaries.get(ownerId) ?? {
+      totalMemberships: 0,
+      uniquePeople: 0,
+      activeMembers: 0,
+      pendingInvites: 0,
+      scopedWorkspaceId: null,
+      workspaces: [],
+    };
+
+    totalWorkspaces += workspaceSummary.workspaces.length;
+    totalWorkspaceMembers += workspaceSummary.totalMemberships;
+    totalWorkspaceActiveMembers += workspaceSummary.activeMembers;
+    totalWorkspacePendingInvites += workspaceSummary.pendingInvites;
+
     return {
       ownerUserId: ownerId,
       companyName: profile?.companyName ?? null,
       ownerEmail: null,
       ownerAuditCount: ownerAuditCounts[ownerId] ?? 0,
+      workspaceCount: workspaceSummary.workspaces.length,
+      workspaceMemberCount: workspaceSummary.totalMemberships,
+      workspaceActiveCount: workspaceSummary.activeMembers,
+      workspacePendingCount: workspaceSummary.pendingInvites,
+      workspaces: workspaceSummary.workspaces,
       totalMembers: teamMembers.length,
       activeCount: activeMembers.length,
       pendingCount: pendingMembers.length,
@@ -2316,7 +2354,18 @@ router.get("/admin/team-activity", requireAdmin, async (req, res): Promise<void>
     };
   });
 
+  grouped.sort((a, b) => {
+    const nameA = (a.companyName ?? a.ownerUserId).toLowerCase();
+    const nameB = (b.companyName ?? b.ownerUserId).toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
   res.json({
+    totalAgencies: grouped.length,
+    totalWorkspaces,
+    totalWorkspaceMembers,
+    workspaceActiveMembers: totalWorkspaceActiveMembers,
+    workspacePendingInvites: totalWorkspacePendingInvites,
     totalTeams: grouped.length,
     totalMembers: teams.length,
     activeMembers: teams.filter((t) => t.status === "active").length,

@@ -28,6 +28,7 @@ export interface WorkspaceMemberSummary {
   workspaces: Array<{
     id: number;
     name: string;
+    clientLabel: string | null;
     isDefault: boolean;
     memberCount: number;
     activeMemberCount: number;
@@ -53,6 +54,7 @@ export async function getWorkspaceMemberSummaryForOwner(
     .select({
       id: workspacesTable.id,
       name: workspacesTable.name,
+      clientLabel: workspacesTable.clientLabel,
       isDefault: workspacesTable.isDefault,
     })
     .from(workspacesTable)
@@ -174,6 +176,7 @@ export async function getWorkspaceMemberSummaryForOwner(
       return {
         id: w.id,
         name: w.name,
+        clientLabel: w.clientLabel,
         isDefault: w.isDefault,
         memberCount: stats.total,
         activeMemberCount: stats.active,
