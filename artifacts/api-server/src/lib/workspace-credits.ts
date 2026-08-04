@@ -363,7 +363,7 @@ export async function getWorkspaceMemberCreditsForUser(
     ))
     .limit(1);
 
-  let workspaceMemberId = membership?.id;
+  let workspaceMemberId: number | undefined = membership?.id;
 
   if (!workspaceMemberId && email?.trim()) {
     const emailLower = email.trim().toLowerCase();
@@ -376,7 +376,7 @@ export async function getWorkspaceMemberCreditsForUser(
         eq(workspaceMembersTable.isDeleted, 0),
       ));
     const match = members.find((m) => m.invitedEmail.trim().toLowerCase() === emailLower);
-    workspaceMemberId = match?.id;
+    if (match) workspaceMemberId = match.id;
   }
 
   if (!workspaceMemberId) return null;
