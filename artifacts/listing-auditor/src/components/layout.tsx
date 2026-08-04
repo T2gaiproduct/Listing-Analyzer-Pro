@@ -604,7 +604,7 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchOnMount: "always",
   });
 
-  const usesMemberCredits = isTeamMember && !isAccountOwner;
+  const usesMemberCredits = isTeamMember && !isAccountOwner && featureWorkspace != null && !featureWorkspace.isAccountOwner;
   const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const displayCredits = usesMemberCredits

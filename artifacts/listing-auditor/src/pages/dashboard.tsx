@@ -433,8 +433,10 @@ export default function Dashboard() {
 
   const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const memberBalance = memberPool.auditCredits + memberPool.aiCredits + memberPool.imageCredits;
+  const isWorkspaceMemberContext = featureWorkspace != null && !featureWorkspace.isAccountOwner;
   const showMemberCredits =
-    stats.creditScope === "member" || (!isAccountOwner && (isTeamMember || stats.isTeamMember));
+    stats.creditScope === "member"
+    || (isWorkspaceMemberContext && (isTeamMember || stats.isTeamMember));
 
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const workspacePoolBalance = workspacePoolCredits
@@ -442,7 +444,7 @@ export default function Dashboard() {
     : null;
 
   const creditsBalance = showMemberCredits
-    ? memberBalance
+    ? (memberBalance > 0 ? memberBalance : stats.creditsBalance)
     : showWorkspacePoolCredits && workspacePoolBalance != null
       ? workspacePoolBalance
       : stats.creditsBalance;

@@ -11,6 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES } from "@/lib/countries";
 import { format } from "date-fns";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -89,6 +91,12 @@ interface Plan {
 
 export default function Profile() {
   const { user } = useUser();
+  const { can, isWorkspaceAccountOwner } = useWorkspace();
+  const canEditProfile = isWorkspaceAccountOwner || can("profile", "edit");
+
+  useEffect(() => {
+    if (!canEditProfile && editing) setEditing(false);
+  }, [canEditProfile, editing]);
   const qc = useQueryClient();
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -307,7 +315,15 @@ export default function Profile() {
       <Card className="border-0 shadow-sm overflow-hidden">
         <CardHeader className="pb-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between space-y-0">
           <div className="flex items-center gap-3 min-w-0 w-full">
-            <div className="relative group cursor-pointer flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
+            <div
+              className={cn(
+                "relative group flex-shrink-0",
+                canEditProfile ? "cursor-pointer" : "cursor-default",
+              )}
+              onClick={() => {
+                if (canEditProfile) fileInputRef.current?.click();
+              }}
+            >
               {avatarUploading && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/50">
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -322,9 +338,11 @@ export default function Profile() {
                   <User className="w-7 h-7 text-orange-500" />
                 </div>
               )}
+            {canEditProfile && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera className="w-5 h-5 text-white" />
               </div>
+            )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -357,7 +375,7 @@ export default function Profile() {
               <KeyRound className="w-4 h-4 mr-1.5 flex-shrink-0" />
               Change Password
             </Button>
-            {editing ? (
+            {canEditProfile && (editing ? (
               <>
                 <Button variant="ghost" size="sm" className="w-full sm:w-auto min-h-11 justify-center" onClick={() => setEditing(false)}>
                   <X className="w-4 h-4 mr-1.5" />Cancel
@@ -370,7 +388,7 @@ export default function Profile() {
               <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-11 justify-center" onClick={() => setEditing(true)}>
                 <Edit2 className="w-4 h-4 mr-1.5" />Edit Profile
               </Button>
-            )}
+            ))}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

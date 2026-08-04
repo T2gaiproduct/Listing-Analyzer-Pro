@@ -25,6 +25,7 @@ export function buildProfileMenuItems(
   isTeamMember: boolean,
   isOwner: boolean,
   isAccountOwner: boolean,
+  isWorkspaceAccountOwner: boolean,
   variant: "customer" | "admin",
   canView: CanViewFn,
   can: CanFn,
@@ -39,8 +40,13 @@ export function buildProfileMenuItems(
 
   const items: ProfileMenuItem[] = [];
 
-  if (isAccountOwner || canView("profile")) {
-    items.push({ icon: UserCircle, label: "Edit Profile", href: "/profile" });
+  if (isWorkspaceAccountOwner || canView("profile")) {
+    const canEditProfile = isWorkspaceAccountOwner || can("profile", "edit");
+    items.push({
+      icon: UserCircle,
+      label: canEditProfile ? "Edit Profile" : "View Profile",
+      href: "/profile",
+    });
   }
 
   if (isAccountOwner || canView("billing")) {

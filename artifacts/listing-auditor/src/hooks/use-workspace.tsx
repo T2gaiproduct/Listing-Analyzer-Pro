@@ -43,6 +43,8 @@ interface WorkspaceContextValue {
   permissions: WorkspaceRolePermissions;
   roleName: string;
   isAccountOwner: boolean;
+  /** Owner of the currently selected workspace (not billing subscription alone). */
+  isWorkspaceAccountOwner: boolean;
   isTeamMemberAccount: boolean;
   isLoading: boolean;
   setActiveWorkspaceId: (id: number) => void;
@@ -239,10 +241,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const can = useCallback(
     (feature: WorkspaceFeature, action: WorkspaceAction) => {
-      if (isAccountOwner) return true;
+      if (isWorkspaceAccountOwner) return true;
       return hasWorkspacePermission(permissions, feature, action);
     },
-    [permissions, isAccountOwner],
+    [permissions, isWorkspaceAccountOwner],
   );
 
   const canView = useCallback(
@@ -274,6 +276,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void qc.invalidateQueries({ queryKey: ["dashboard"] });
     void qc.invalidateQueries({ queryKey: ["archive"] });
     void qc.invalidateQueries({ queryKey: ["search-projects"] });
+    void qc.invalidateQueries({ queryKey: ["team-membership-credits"] });
     void qc.removeQueries({ queryKey: ["workspace-permissions"], exact: false });
   }, [qc, selectedId]);
 
@@ -286,6 +289,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     permissions,
     roleName,
     isAccountOwner,
+    isWorkspaceAccountOwner,
     isTeamMemberAccount,
     isLoading: listLoading || (!skipPermLoadingForNav && permLoading) || profileLoading || !isLoaded,
     setActiveWorkspaceId: setWorkspace,
@@ -302,7 +306,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     refetch: () => { void refetchList(); },
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
-    permissions, roleName, isAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
+    permissions, roleName, isAccountOwner, isWorkspaceAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
     listLoading, permLoading, skipPermLoadingForNav, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
     workspaceApiScopeActive, needsWorkspaceSelection, workspaceScopeCommitted,
   ]);

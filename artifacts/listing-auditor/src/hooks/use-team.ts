@@ -49,11 +49,12 @@ export function useTeam(): TeamContext {
   const {
     canEdit: wsCanEdit,
     canDelete: wsCanDelete,
-    isAccountOwner: wsOwner,
+    isWorkspaceAccountOwner,
     isLoading: wsLoading,
     workspaces,
     isTeamMemberAccount,
     featureWorkspaceId,
+    featureWorkspace,
   } = useWorkspace();
 
   const { data, isLoading } = useQuery<TeamMembership[]>({
@@ -67,9 +68,11 @@ export function useTeam(): TeamContext {
   const membership = data && data.length > 0 ? data[0] : null;
   const role = membership?.role ?? "owner";
   const isLegacyTeamMember = !!membership;
-  const isWorkspaceOnlyMember = isTeamMemberAccount && !wsOwner && !isLegacyTeamMember;
+  const isSharedWorkspaceActive = featureWorkspace != null && !featureWorkspace.isAccountOwner;
+  const isWorkspaceOnlyMember =
+    (isTeamMemberAccount || isSharedWorkspaceActive) && !isWorkspaceAccountOwner && !isLegacyTeamMember;
   const isTeamMember = isLegacyTeamMember || isWorkspaceOnlyMember;
-  const usesMemberCredits = isTeamMember && !wsOwner;
+  const usesMemberCredits = (isLegacyTeamMember || isSharedWorkspaceActive) && !isWorkspaceAccountOwner;
 
   const creditsQueryKey = ["team-membership-credits", featureWorkspaceId ?? "default"];
   const { data: creditsData, isLoading: creditsLoading } = useQuery<{ credits: MemberCredits }>({
@@ -85,32 +88,32 @@ export function useTeam(): TeamContext {
     enabled: usesMemberCredits && (isLegacyTeamMember || featureWorkspaceId != null),
   });
 
-  const isOwner = !isTeamMember || wsOwner;
+  const isOwner = !isTeamMember || isWorkspaceAccountOwner;
   const hasWorkspaces = workspaces.length > 0;
 
   const canEditAudits =
-    wsOwner ||
+    isWorkspaceAccountOwner ||
     wsCanEdit("audits") ||
     wsCanEdit("build_brand") ||
     (!hasWorkspaces && (role === "admin" || role === "editor" || isOwner));
   const canEditGraphics =
-    wsOwner ||
+    isWorkspaceAccountOwner ||
     wsCanEdit("graphics") ||
     (!hasWorkspaces && (role === "admin" || role === "editor" || isOwner));
   const canEdit = canEditAudits || canEditGraphics;
-  const canDeleteAudits = wsOwner || wsCanDelete("audits");
-  const canDeleteGraphics = wsOwner || wsCanDelete("graphics");
-  const canManage = wsOwner || isOwner;
+  const canDeleteAudits = isWorkspaceAccountOwner || wsCanDelete("audits");
+  const canDeleteGraphics = isWorkspaceAccountOwner || wsCanDelete("graphics");
+  const canManage = isWorkspaceAccountOwner || isOwner;
 
   const canEditFeature = (feature: WorkspaceFeature) => {
-    if (wsOwner) return true;
+    if (isWorkspaceAccountOwner) return true;
     if (feature === "build_brand" || feature === "audits") return canEditAudits;
     if (feature === "graphics") return canEditGraphics;
     return wsCanEdit(feature);
   };
 
   const canDeleteFeature = (feature: WorkspaceFeature) => {
-    if (wsOwner) return true;
+    if (isWorkspaceAccountOwner) return true;
     if (feature === "build_brand" || feature === "audits") return canDeleteAudits;
     if (feature === "graphics") return canDeleteGraphics;
     return wsCanDelete(feature);

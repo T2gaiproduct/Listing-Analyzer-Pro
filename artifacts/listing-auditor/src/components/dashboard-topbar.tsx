@@ -19,12 +19,22 @@ function profileMenuItems(
   isTeamMember: boolean,
   isOwner: boolean,
   isAccountOwner: boolean,
+  isWorkspaceAccountOwner: boolean,
   variant: "customer" | "admin",
   canView: ReturnType<typeof useWorkspace>["canView"],
   can: ReturnType<typeof useWorkspace>["can"],
   workspacesPlanLocked: boolean,
 ) {
-  return buildProfileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can, workspacesPlanLocked);
+  return buildProfileMenuItems(
+    isTeamMember,
+    isOwner,
+    isAccountOwner,
+    isWorkspaceAccountOwner,
+    variant,
+    canView,
+    can,
+    workspacesPlanLocked,
+  );
 }
 
 interface DashboardTopbarProps {
@@ -69,9 +79,18 @@ export function DashboardTopbar({
   const [, navigate] = useLocation();
   const { signOut } = useClerk();
   const { isTeamMember, isOwner } = useTeam();
-  const { isAccountOwner, canView, can } = useWorkspace();
+  const { isAccountOwner, isWorkspaceAccountOwner, canView, can } = useWorkspace();
   const { workspacesPlanLocked } = useWorkspacesPlan();
-  const menuItems = profileMenuItems(isTeamMember, isOwner, isAccountOwner, variant, canView, can, workspacesPlanLocked);
+  const menuItems = profileMenuItems(
+    isTeamMember,
+    isOwner,
+    isAccountOwner,
+    isWorkspaceAccountOwner,
+    variant,
+    canView,
+    can,
+    workspacesPlanLocked,
+  );
   const showWorkspaceSwitcher = variant === "customer";
   const showCredits = variant === "customer" && !!credits;
   const searchRef = useRef<HTMLInputElement>(null);

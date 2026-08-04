@@ -23,6 +23,7 @@ import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
 import { getGatewaySettings } from "./payment";
 import { reconcileUserPendingPayPalPayments } from "../lib/paypal-capture";
 import { resolvePublicAppBaseUrl } from "../lib/app-base-url";
+import { canUserEditOwnProfile } from "../lib/profile-permissions.js";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
@@ -385,6 +386,7 @@ router.get("/profile", requireAuth, async (req, res): Promise<void> => {
     transactions,
     billingHistory,
     notificationPreferences,
+    canEditProfile: await canUserEditOwnProfile(userId),
   });
 });
 
@@ -413,6 +415,20 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
     const sessionEmail = auth?.sessionClaims?.email as string | undefined;
     const body = req.body as Record<string, string | number | Partial<NotificationPreferences>>;
     const { fullName, companyName, phone, country, gstNumber, websiteUrl, teamSize, notificationPreferences } = body;
+
+    const profileFieldsUpdated =
+      fullName !== undefined
+      || companyName !== undefined
+      || phone !== undefined
+      || country !== undefined
+      || gstNumber !== undefined
+      || websiteUrl !== undefined
+      || teamSize !== undefined;
+
+    if (profileFieldsUpdated && !(await canUserEditOwnProfile(userId))) {
+      res.status(403).json({ error: "You do not have permission to edit your profile" });
+      return;
+    }
 
     if (notificationPreferences && typeof notificationPreferences === "object") {
       const patch: Partial<NotificationPreferences> = {};
@@ -473,6 +489,11 @@ router.post("/profile/avatar", requireAuth, async (req, res): Promise<void> => {
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", async () => {
     try {
+      if (!(await canUserEditOwnProfile(userId))) {
+        res.status(403).json({ error: "You do not have permission to edit your profile" });
+        return;
+      }
+
       const buffer = Buffer.concat(chunks);
       if (buffer.length === 0) {
         res.status(400).json({ error: "No image data provided" });
