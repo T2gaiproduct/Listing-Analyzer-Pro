@@ -11,7 +11,8 @@
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
     "seed-plans": "tsx src/seed-plans.ts",
-    "seed-coupons": "tsx src/seed-coupons.ts"
+    "seed-coupons": "tsx src/seed-coupons.ts",
+    "seed-blog": "tsx src/seed-blog.ts"
   },
   "dependencies": {
     "@workspace/workspace-permissions": "workspace:*",
