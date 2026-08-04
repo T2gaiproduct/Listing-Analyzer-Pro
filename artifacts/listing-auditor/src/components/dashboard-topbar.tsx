@@ -105,7 +105,7 @@ export function DashboardTopbar({
 
   const totalCredits = (credits?.aiCredits ?? 0) + (credits?.imageCredits ?? 0) + (credits?.auditCredits ?? 0);
   const breakdownCredits =
-    creditsScopeLabel === "workspace"
+    creditsScopeLabel === "workspace" || creditsScopeLabel === "member"
       ? credits
       : creditsScopeLabel === "account_total" && accountCreditSummary?.accountTotalBuckets
         ? accountCreditSummary.accountTotalBuckets

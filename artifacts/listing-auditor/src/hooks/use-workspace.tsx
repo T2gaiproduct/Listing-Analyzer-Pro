@@ -23,6 +23,7 @@ export interface WorkspaceSummary {
   isDefault: boolean;
   isAccountOwner: boolean;
   roleName: string | null;
+  accountOwnerEmail?: string | null;
 }
 
 interface WorkspacePermissionsResponse {

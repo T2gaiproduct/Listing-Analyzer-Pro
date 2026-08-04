@@ -170,15 +170,21 @@ function MemberHomePanel({
   name,
   roleName,
   workspaceName,
-  creditsBalance,
+  credits,
+  ownerEmail,
+  hasToolAccess,
   actions,
 }: {
   name: string;
   roleName: string;
   workspaceName: string;
-  creditsBalance: number;
+  credits: { aiCredits: number; imageCredits: number; auditCredits: number };
+  ownerEmail?: string | null;
+  hasToolAccess: boolean;
   actions: Array<{ href: string; label: string }>;
 }) {
+  const creditTotal = credits.auditCredits + credits.aiCredits + credits.imageCredits;
+
   return (
     <div className="space-y-6 max-w-3xl animate-in fade-in duration-500">
       <div>
@@ -193,14 +199,56 @@ function MemberHomePanel({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your credits</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{creditsBalance}</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{creditTotal}</p>
           <p className="text-xs text-slate-500 mt-1">Allocated by your workspace owner</p>
+          <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5 text-sm">
+            <div className="flex justify-between text-slate-600">
+              <span>Audit</span>
+              <span className="font-semibold text-slate-900 tabular-nums">{credits.auditCredits}</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>Text content</span>
+              <span className="font-semibold text-slate-900 tabular-nums">{credits.aiCredits}</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>Images</span>
+              <span className="font-semibold text-slate-900 tabular-nums">{credits.imageCredits}</span>
+            </div>
+          </div>
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 p-5">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your access</p>
-          <p className="text-sm text-slate-700 mt-2 leading-relaxed">
-            Use the sidebar to open the tools your role allows. If something is missing, ask your workspace owner to update your role on the Team page.
-          </p>
+          {!hasToolAccess ? (
+            <p className="text-sm text-slate-700 mt-2 leading-relaxed">
+              You don&apos;t have access to workspace tools yet.
+              {ownerEmail ? (
+                <>
+                  {" "}Contact the workspace owner at{" "}
+                  <a href={`mailto:${ownerEmail}`} className="font-medium text-orange-600 hover:text-orange-700">
+                    {ownerEmail}
+                  </a>
+                  {" "}to request access or a role change.
+                </>
+              ) : (
+                " Ask your workspace owner to grant you access or update your role."
+              )}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-700 mt-2 leading-relaxed">
+              Use the sidebar to open the tools your role allows. If something is missing,
+              {ownerEmail ? (
+                <>
+                  {" "}contact your workspace owner at{" "}
+                  <a href={`mailto:${ownerEmail}`} className="font-medium text-orange-600 hover:text-orange-700">
+                    {ownerEmail}
+                  </a>
+                  {" "}to update your role on the Team page.
+                </>
+              ) : (
+                " ask your workspace owner to update your role on the Team page."
+              )}
+            </p>
+          )}
         </div>
       </div>
       {actions.length > 0 && (
@@ -337,6 +385,11 @@ export default function Dashboard() {
     user?.firstName ?? user?.fullName?.split(" ")[0] ?? user?.primaryEmailAddress?.emailAddress?.split("@")[0] ?? "there";
   const memberCreditTotal =
     (memberCredits?.auditCredits ?? 0) + (memberCredits?.aiCredits ?? 0) + (memberCredits?.imageCredits ?? 0);
+  const memberCreditsBreakdown = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  const memberWorkspaceOwnerEmail =
+    featureWorkspace?.accountOwnerEmail
+    ?? workspaces.find((w) => w.id === memberWorkspaceId)?.accountOwnerEmail
+    ?? null;
 
   if (isMemberView && memberWorkspaceId && !canView("dashboard") && !isAccountOwner) {
     return (
@@ -344,7 +397,9 @@ export default function Dashboard() {
         name={memberName}
         roleName={roleName}
         workspaceName={featureWorkspace?.name ?? workspaces.find((w) => w.id === memberWorkspaceId)?.name ?? "your workspace"}
-        creditsBalance={memberCreditTotal}
+        credits={memberCreditsBreakdown}
+        ownerEmail={memberWorkspaceOwnerEmail}
+        hasToolAccess={memberActions.length > 0}
         actions={memberActions.map(({ href, label }) => ({ href, label }))}
       />
     );
@@ -397,7 +452,9 @@ export default function Dashboard() {
           name={memberName}
           roleName={roleName}
           workspaceName={featureWorkspace?.name ?? workspaces.find((w) => w.id === memberWorkspaceId)?.name ?? "your workspace"}
-          creditsBalance={memberCreditTotal}
+          credits={memberCreditsBreakdown}
+          ownerEmail={memberWorkspaceOwnerEmail}
+          hasToolAccess={memberActions.length > 0}
           actions={memberActions.map(({ href, label }) => ({ href, label }))}
         />
       );

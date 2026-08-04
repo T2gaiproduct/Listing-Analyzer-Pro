@@ -1,10 +1,11 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import {
   db,
   workspacesTable,
   workspaceRolesTable,
   workspaceMembersTable,
   teamMembersTable,
+  userProfilesTable,
 } from "@workspace/db";
 import {
   type WorkspaceRolePermissions,
@@ -20,6 +21,31 @@ import { displayWorkspaceRoleLabel } from "./role-display.js";
 import { getDefaultWorkspaceId, ensureTeamMembersSchema, ensureSubscriberDefaultWorkspace } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
 import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
+import { fetchClerkUserEmailAndName } from "./clerk-user.js";
+
+async function resolveAccountOwnerEmails(ownerIds: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ownerIds.filter(Boolean))];
+  const map = new Map<string, string>();
+  if (unique.length === 0) return map;
+
+  const profiles = await db
+    .select({ userId: userProfilesTable.userId, loginEmail: userProfilesTable.loginEmail })
+    .from(userProfilesTable)
+    .where(inArray(userProfilesTable.userId, unique));
+
+  for (const row of profiles) {
+    const email = row.loginEmail?.trim();
+    if (email) map.set(row.userId, email);
+  }
+
+  for (const ownerId of unique) {
+    if (map.has(ownerId)) continue;
+    const clerk = await fetchClerkUserEmailAndName(ownerId);
+    if (clerk?.email) map.set(ownerId, clerk.email);
+  }
+
+  return map;
+}
 
 function isLegacyRoleKey(role: string | null | undefined): boolean {
   return role === "admin" || role === "editor" || role === "viewer";
@@ -62,6 +88,7 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
   isDefault: boolean;
   isAccountOwner: boolean;
   roleName: string | null;
+  accountOwnerEmail?: string | null;
 }>> {
   await ensureAccountRolesMigrated();
   await ensureTeamMembersSchema();
@@ -133,6 +160,7 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
       isDefault: m.workspace.isDefault,
       isAccountOwner: false,
       roleName: displayWorkspaceRoleLabel({ roleId: m.roleId, roleName: m.roleName }),
+      ownerId: m.workspace.accountOwnerId,
     }));
 
   if (team.isTeamMember) {
@@ -167,11 +195,20 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
         isDefault: w.isDefault,
         isAccountOwner: false,
         roleName: teamSeatRoleName,
+        ownerId: team.ownerUserId,
       });
     }
   }
 
-  return [...ownedSummaries, ...memberSummaries];
+  const ownerIdsForEmail = memberSummaries.map((m) => m.ownerId);
+  const ownerEmails = await resolveAccountOwnerEmails(ownerIdsForEmail);
+
+  const memberSummariesWithEmail = memberSummaries.map(({ ownerId, ...rest }) => ({
+    ...rest,
+    accountOwnerEmail: ownerEmails.get(ownerId) ?? null,
+  }));
+
+  return [...ownedSummaries, ...memberSummariesWithEmail];
 }
 
 export async function resolveWorkspaceContext(
