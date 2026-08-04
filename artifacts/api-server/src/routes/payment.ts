@@ -9,7 +9,7 @@ import {
   recordPendingGatewayPayment,
   resolveGatewayOrder,
 } from "../lib/gateway-payment";
-import { isAllowedOrigin, isAllowedRedirectUrl } from "../lib/allowed-origins";
+import { resolvePaymentReturnUrl } from "../lib/app-base-url";
 import { getGatewaySettings, getPayPalAccessToken } from "../lib/paypal-client";
 import { fulfillPayPalOrderForUser, reconcileUserPendingPayPalPayments } from "../lib/paypal-capture";
 
@@ -29,14 +29,6 @@ async function getSetting(key: string): Promise<string> {
     .from(settingsTable)
     .where(eq(settingsTable.key, key));
   return row?.value ?? "";
-}
-
-function resolveAppBaseUrl(origin: string | undefined): string {
-  if (origin && isAllowedOrigin(origin)) {
-    return origin;
-  }
-  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
-  return domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:3000";
 }
 
 // ─── GET /payment-config ──────────────────────────────────────────────────────
@@ -189,11 +181,8 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
 
   const s = await getGatewaySettings();
   const clientId = s.paypal_client_id ?? "";
-  const base = resolveAppBaseUrl(origin);
-  const defaultReturn = `${base}/checkout/paypal-success`;
-  const defaultCancel = `${base}/checkout/cancel`;
-  const finalReturnUrl = returnUrl && isAllowedRedirectUrl(returnUrl) ? returnUrl : defaultReturn;
-  const finalCancelUrl = cancelUrl && isAllowedRedirectUrl(cancelUrl) ? cancelUrl : defaultCancel;
+  const finalReturnUrl = resolvePaymentReturnUrl(returnUrl, "/checkout/paypal-success", { origin, req });
+  const finalCancelUrl = resolvePaymentReturnUrl(cancelUrl, "/checkout/cancel", { origin, req });
 
   let token: string, baseUrl: string;
   try {

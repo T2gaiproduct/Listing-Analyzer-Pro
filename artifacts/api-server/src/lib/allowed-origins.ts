@@ -6,6 +6,15 @@ export function getAllowedOrigins(): string[] {
     "http://127.0.0.1:3000",
   ]);
 
+  const appUrl = process.env.APP_URL ?? process.env.PUBLIC_APP_URL;
+  if (appUrl?.trim()) {
+    try {
+      origins.add(new URL(appUrl.trim()).origin);
+    } catch {
+      /* ignore invalid APP_URL */
+    }
+  }
+
   for (const domain of process.env.REPLIT_DOMAINS?.split(",") ?? []) {
     const trimmed = domain.trim();
     if (!trimmed) continue;
@@ -23,6 +32,14 @@ export function getAllowedOrigins(): string[] {
 export function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   if (getAllowedOrigins().includes(origin)) return true;
+  const appUrl = process.env.APP_URL ?? process.env.PUBLIC_APP_URL;
+  if (appUrl?.trim()) {
+    try {
+      if (new URL(appUrl.trim()).origin === origin) return true;
+    } catch {
+      /* ignore */
+    }
+  }
   if (process.env.NODE_ENV !== "production" && origin.endsWith(".trycloudflare.com")) {
     return true;
   }

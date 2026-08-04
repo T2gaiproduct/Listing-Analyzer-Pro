@@ -22,6 +22,7 @@ import { resolveUserAccountRole } from "../lib/user-role";
 import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
 import { getGatewaySettings } from "./payment";
 import { reconcileUserPendingPayPalPayments } from "../lib/paypal-capture";
+import { resolvePublicAppBaseUrl } from "../lib/app-base-url";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { getAnnouncementPromo } from "../lib/announcement-promo";
 import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
@@ -876,8 +877,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
   if (method === "stripe") {
     const { getUncachableStripeClient } = await import("../stripeClient");
     const stripe = await getUncachableStripeClient();
-    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
-    const baseUrl = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
+    const baseUrl = resolvePublicAppBaseUrl({ origin, req });
     const successUrl = `${baseUrl}/billing?tab=credits&credit_success={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/billing?tab=credits&credit_cancel=1`;
 
@@ -901,8 +901,7 @@ router.post("/buy-credits", requireAuth, async (req, res): Promise<void> => {
 
   if (method === "paypal") {
     const { getPayPalAccessToken } = await import("./payment");
-    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
-    const base = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
+    const base = resolvePublicAppBaseUrl({ origin, req });
     let token: string, baseUrl: string;
     try {
       ({ token, baseUrl } = await getPayPalAccessToken());
@@ -977,8 +976,7 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
   if (method === "stripe") {
     const { getUncachableStripeClient } = await import("../stripeClient");
     const stripe = await getUncachableStripeClient();
-    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
-    const baseUrl = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
+    const baseUrl = resolvePublicAppBaseUrl({ origin, req });
     const successUrl = `${baseUrl}/billing?tab=credits&custom_credit_success={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/billing?tab=credits&credit_cancel=1`;
 
@@ -1002,8 +1000,7 @@ router.post("/buy-custom-credits", requireAuth, async (req, res): Promise<void> 
 
   if (method === "paypal") {
     const { getPayPalAccessToken } = await import("./payment");
-    const domain = origin ?? process.env.REPLIT_DOMAINS?.split(",")[0];
-    const base = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "http://localhost:80";
+    const base = resolvePublicAppBaseUrl({ origin, req });
     let token: string, baseUrl: string;
     try {
       ({ token, baseUrl } = await getPayPalAccessToken());
