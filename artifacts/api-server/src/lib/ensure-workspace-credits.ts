@@ -15,9 +15,11 @@ export async function ensureWorkspaceCreditsMigrated(): Promise<void> {
       ai_credits integer NOT NULL DEFAULT 0,
       image_credits integer NOT NULL DEFAULT 0,
       audit_credits integer NOT NULL DEFAULT 0,
+      pool_is_net boolean NOT NULL DEFAULT false,
       updated_at timestamp NOT NULL DEFAULT now()
     )
   `);
+  await db.execute(sql`ALTER TABLE workspace_credits ADD COLUMN IF NOT EXISTS pool_is_net boolean NOT NULL DEFAULT false`);
 
   await db.execute(sql`ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_id integer`);
   await db.execute(sql`ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_member_id integer`);

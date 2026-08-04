@@ -44,6 +44,8 @@ import {
   getWorkspaceMemberCredits,
   sumWorkspacePoolsForOwner,
   poolAvailableForMembers,
+  workspacePoolFundedTotals,
+  reconcileGrossWorkspacePool,
   workspaceFundedCreditTotal,
   memberCreditsInWorkspace,
   memberCreditsTotalInWorkspace,
@@ -239,15 +241,17 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   const workspacesWithPools = await Promise.all(summary.workspaces.map(async (w) => {
     const meta = ownedById.get(w.id);
     await reconcileStaleMemberCreditsWithPool(w.id);
+    await reconcileGrossWorkspacePool(w.id);
     const pool = await getWorkspaceCredits(w.id);
     const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
     const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
     const memberAllocatedInPool = memberCreditsInWorkspace(pool, memberAllocated);
-    const poolAvailable = poolAvailableForMembers(pool, memberAllocatedInPool);
+    const fundedPool = workspacePoolFundedTotals(pool, memberAllocatedInPool);
+    const poolAvailable = poolAvailableForMembers(pool);
     const poolUnassigned = sumCreditBalance(poolAvailable);
-    const fundedTotal = workspaceFundedCreditTotal(pool, creditsUsedInPeriod);
-    const toMembersTotal = memberCreditsTotalInWorkspace(pool, memberAllocated);
-    const poolHasCredits = sumCreditBalance(pool) > 0;
+    const fundedTotal = workspaceFundedCreditTotal(fundedPool, creditsUsedInPeriod);
+    const toMembersTotal = memberCreditsTotalInWorkspace(fundedPool, memberAllocated);
+    const poolHasCredits = sumCreditBalance(fundedPool) > 0;
 
     const membersWithCredits = await Promise.all(w.members.map(async (m) => {
       const allocated = creditsByMemberId.get(m.id);
@@ -278,8 +282,9 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       activeMemberCount: w.activeMemberCount,
       pendingMemberCount: w.pendingMemberCount,
       members: membersWithCredits,
-      poolCredits: pool,
-      poolCreditsTotal: sumCreditBalance(pool),
+      poolCredits: fundedPool,
+      unassignedPoolCredits: pool,
+      poolCreditsTotal: sumCreditBalance(fundedPool),
       memberAllocatedCredits: memberAllocatedInPool,
       toMembersTotal,
       creditsUsedInPeriod,
@@ -570,6 +575,7 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
 
   const canViewCredits = ctx.isAccountOwner || checkPerm(ctx, "credits", "viewGlobal");
   await reconcileStaleMemberCreditsWithPool(ctx.workspaceId);
+  await reconcileGrossWorkspacePool(ctx.workspaceId);
   const pool = canViewCredits ? await getWorkspaceCredits(ctx.workspaceId) : null;
   const memberAllocatedRaw = canViewCredits
     ? await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId)
@@ -577,7 +583,10 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
   const memberAllocated = pool && memberAllocatedRaw
     ? memberCreditsInWorkspace(pool, memberAllocatedRaw)
     : null;
-  const poolHasCredits = pool ? sumCreditBalance(pool) > 0 : false;
+  const fundedPool = pool && memberAllocated
+    ? workspacePoolFundedTotals(pool, memberAllocated)
+    : null;
+  const poolHasCredits = pool ? sumCreditBalance(fundedPool ?? pool) > 0 : false;
 
   const memberIds = members.map((m) => m.member.id);
   const creditRows = memberIds.length > 0
@@ -586,11 +595,10 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
   const creditsByMember = new Map(creditRows.map((c) => [c.workspaceMemberId, c]));
 
   res.json({
-    poolCredits: pool,
+    poolCredits: fundedPool ?? pool,
+    unassignedPoolCredits: pool,
     memberAllocatedCredits: memberAllocated,
-    poolAvailableForMembers: pool && memberAllocated
-      ? poolAvailableForMembers(pool, memberAllocated)
-      : null,
+    poolAvailableForMembers: pool ? poolAvailableForMembers(pool) : null,
     toMembersTotal: pool && memberAllocatedRaw
       ? memberCreditsTotalInWorkspace(pool, memberAllocatedRaw)
       : 0,
@@ -672,10 +680,11 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
     res.json({
       workspaceMemberId: memberId,
       credits,
-      poolCredits: pool,
+      poolCredits: workspacePoolFundedTotals(pool, memberAllocated),
+      unassignedPoolCredits: pool,
       memberAllocatedCredits: memberAllocated,
       toMembersTotal: memberCreditsTotalInWorkspace(pool, memberAllocatedRaw),
-      poolAvailableForMembers: poolAvailableForMembers(pool, memberAllocated),
+      poolAvailableForMembers: poolAvailableForMembers(pool),
     });
   } catch (err) {
     const e = err as Error & { code?: string };

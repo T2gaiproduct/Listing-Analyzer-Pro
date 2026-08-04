@@ -16,6 +16,7 @@ export const workspaceCreditsTable = pgTable("workspace_credits", {
   aiCredits: integer("ai_credits").notNull().default(0),
   imageCredits: integer("image_credits").notNull().default(0),
   auditCredits: integer("audit_credits").notNull().default(0),
+  poolIsNet: boolean("pool_is_net").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

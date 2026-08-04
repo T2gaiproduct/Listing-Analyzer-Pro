@@ -23,12 +23,19 @@ export function sumCreditBalance(c: CreditTotals): number {
   return Number(c.aiCredits ?? 0) + Number(c.imageCredits ?? 0) + Number(c.auditCredits ?? 0);
 }
 
-/** Pool balance not yet assigned to members (members are allocated from the pool, not added on top). */
-export function poolAvailableForMembers(pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
+/** Pool balance not yet assigned to members (unassigned remainder in workspace_credits). */
+export function poolAvailableForMembers(pool: CreditTotals): CreditTotals {
+  return normalizeCreditTotals(pool);
+}
+
+/** Total funded to workspace pool = unassigned pool + credits assigned to members. */
+export function workspacePoolFundedTotals(pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
+  const p = normalizeCreditTotals(pool);
+  const a = normalizeCreditTotals(memberAllocated);
   return {
-    aiCredits: Math.max(0, Number(pool.aiCredits ?? 0) - Number(memberAllocated.aiCredits ?? 0)),
-    imageCredits: Math.max(0, Number(pool.imageCredits ?? 0) - Number(memberAllocated.imageCredits ?? 0)),
-    auditCredits: Math.max(0, Number(pool.auditCredits ?? 0) - Number(memberAllocated.auditCredits ?? 0)),
+    aiCredits: p.aiCredits + a.aiCredits,
+    imageCredits: p.imageCredits + a.imageCredits,
+    auditCredits: p.auditCredits + a.auditCredits,
   };
 }
 
@@ -191,9 +198,22 @@ export async function sumAllocatedMemberCreditsForWorkspace(
   excludeWorkspaceMemberId?: number,
 ): Promise<CreditTotals> {
   const rows = await db
-    .select()
+    .select({
+      workspaceMemberId: memberCreditsTable.workspaceMemberId,
+      aiCredits: memberCreditsTable.aiCredits,
+      imageCredits: memberCreditsTable.imageCredits,
+      auditCredits: memberCreditsTable.auditCredits,
+    })
     .from(memberCreditsTable)
-    .where(eq(memberCreditsTable.workspaceId, workspaceId));
+    .innerJoin(
+      workspaceMembersTable,
+      eq(memberCreditsTable.workspaceMemberId, workspaceMembersTable.id),
+    )
+    .where(and(
+      eq(memberCreditsTable.workspaceId, workspaceId),
+      eq(workspaceMembersTable.workspaceId, workspaceId),
+      eq(workspaceMembersTable.isDeleted, 0),
+    ));
   return rows
     .filter((r) => r.workspaceMemberId !== excludeWorkspaceMemberId)
     .reduce(
@@ -204,6 +224,42 @@ export async function sumAllocatedMemberCreditsForWorkspace(
       }),
       { ...ZERO },
     );
+}
+
+/** One-time align gross pool rows (funded total) to net unassigned balances. */
+export async function reconcileGrossWorkspacePool(workspaceId: number): Promise<void> {
+  await ensureWorkspaceCreditsRow(workspaceId);
+  const [poolRow] = await db
+    .select()
+    .from(workspaceCreditsTable)
+    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+  if (!poolRow || poolRow.poolIsNet) return;
+
+  const allocated = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
+  const hasAllocation = sumCreditBalance(allocated) > 0;
+  if (!hasAllocation) {
+    await db.update(workspaceCreditsTable)
+      .set({ poolIsNet: true, updatedAt: new Date() })
+      .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+    return;
+  }
+
+  const now = new Date();
+  const next = {
+    auditCredits: allocated.auditCredits > 0
+      ? Math.max(0, poolRow.auditCredits - allocated.auditCredits)
+      : poolRow.auditCredits,
+    imageCredits: allocated.imageCredits > 0
+      ? Math.max(0, poolRow.imageCredits - allocated.imageCredits)
+      : poolRow.imageCredits,
+    aiCredits: allocated.aiCredits > 0
+      ? Math.max(0, poolRow.aiCredits - allocated.aiCredits)
+      : poolRow.aiCredits,
+  };
+
+  await db.update(workspaceCreditsTable)
+    .set({ ...next, poolIsNet: true, updatedAt: now })
+    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
 }
 
 /** Set workspace pool balances; moves credits between account owner balance and workspace pool. */
@@ -268,7 +324,7 @@ export async function setWorkspaceCreditPool(
   }
 
   await db.update(workspaceCreditsTable)
-    .set({ aiCredits: ai, imageCredits: img, auditCredits: audit, updatedAt: now })
+    .set({ aiCredits: ai, imageCredits: img, auditCredits: audit, poolIsNet: true, updatedAt: now })
     .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
 
   if (delta.aiCredits !== 0 || delta.imageCredits !== 0 || delta.auditCredits !== 0) {
@@ -376,20 +432,37 @@ export async function setWorkspaceMemberCredits(
   const audit = Math.max(0, Math.floor(auditCredits));
 
   await ensureWorkspaceCreditsRow(workspaceId);
+  await reconcileGrossWorkspacePool(workspaceId);
   const pool = await getWorkspaceCredits(workspaceId);
-  const other = await sumAllocatedMemberCreditsForWorkspace(workspaceId, workspaceMemberId);
-
-  if (ai > pool.aiCredits - other.aiCredits || img > pool.imageCredits - other.imageCredits || audit > pool.auditCredits - other.auditCredits) {
-    const err = new Error("Allocation exceeds workspace pool credits available for members") as Error & { code?: string };
-    err.code = "EXCEEDS_WORKSPACE_POOL";
-    throw err;
-  }
 
   const now = new Date();
   const [existing] = await db
     .select()
     .from(memberCreditsTable)
     .where(eq(memberCreditsTable.workspaceMemberId, workspaceMemberId));
+
+  const oldAi = existing?.aiCredits ?? 0;
+  const oldImg = existing?.imageCredits ?? 0;
+  const oldAudit = existing?.auditCredits ?? 0;
+  const deltaAi = ai - oldAi;
+  const deltaImg = img - oldImg;
+  const deltaAudit = audit - oldAudit;
+
+  if (deltaAi > pool.aiCredits || deltaImg > pool.imageCredits || deltaAudit > pool.auditCredits) {
+    const err = new Error("Allocation exceeds workspace pool credits available for members") as Error & { code?: string };
+    err.code = "EXCEEDS_WORKSPACE_POOL";
+    throw err;
+  }
+
+  const newPool = {
+    aiCredits: pool.aiCredits - deltaAi,
+    imageCredits: pool.imageCredits - deltaImg,
+    auditCredits: pool.auditCredits - deltaAudit,
+  };
+
+  await db.update(workspaceCreditsTable)
+    .set({ ...newPool, poolIsNet: true, updatedAt: now })
+    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
 
   if (existing) {
     await db.update(memberCreditsTable)
@@ -430,12 +503,6 @@ export async function deductWorkspaceMemberCredits(
     return { success: false, remaining: memberBal };
   }
 
-  const pool = await getWorkspaceCredits(workspaceId);
-  const poolBal = pool[keyForType(type)];
-  if (poolBal < amount) {
-    return { success: false, remaining: memberBal };
-  }
-
   const key = keyForType(type);
   const now = new Date();
 
@@ -444,10 +511,6 @@ export async function deductWorkspaceMemberCredits(
       .set({ [key]: memberBal - amount, updatedAt: now })
       .where(eq(memberCreditsTable.workspaceMemberId, workspaceMemberId));
   }
-
-  await db.update(workspaceCreditsTable)
-    .set({ [key]: poolBal - amount, updatedAt: now })
-    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
 
   await db.insert(creditTransactionsTable).values({
     userId,
