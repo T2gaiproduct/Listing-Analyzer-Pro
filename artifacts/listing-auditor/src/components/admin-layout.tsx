@@ -246,7 +246,7 @@ function AdminNavSections({
               <button
                 type="button"
                 onClick={() => toggleSection(section.label)}
-                className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3 hover:text-slate-300 transition-colors min-h-11"
+                className="w-full flex items-center justify-between text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1.5 px-3 hover:text-slate-300 transition-colors min-h-9"
               >
                 <span>{section.label}</span>
                 {isSectionCollapsed ? (
@@ -256,7 +256,7 @@ function AdminNavSections({
                 )}
               </button>
             ) : (
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
+              <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1.5 px-3">
                 {section.label}
               </p>
             ))}
@@ -271,14 +271,14 @@ function AdminNavSections({
                     title={collapsed ? item.label : undefined}
                     onClick={onNavigate}
                     className={cn(
-                      "flex items-center rounded-md text-sm font-medium transition-all group min-h-11",
-                      collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
+                      "flex items-center rounded-md text-xs font-medium transition-all group min-h-9",
+                      collapsed ? "justify-center px-2 py-1.5" : "gap-2.5 px-3 py-1.5",
                       isActive
                         ? "bg-orange-500 text-white shadow-sm"
                         : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                     )}
                   >
-                    <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
+                    <item.icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
                     {!collapsed && item.label}
                     {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
                   </Link>
@@ -417,7 +417,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        <nav className={cn("flex-1 py-4 overflow-y-auto", collapsed ? "px-2 space-y-1" : "px-3 space-y-5")}>
+        <nav className={cn("flex-1 py-3 overflow-y-auto", collapsed ? "px-2 space-y-1" : "px-3 space-y-3.5")}>
           <AdminNavSections
             location={location}
             collapsed={collapsed}
@@ -432,11 +432,11 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             onClick={() => signOut({ redirectUrl: `${basePath}/` })}
             title={collapsed ? "Sign Out" : undefined}
             className={cn(
-              "flex items-center rounded-md text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all w-full min-h-11",
-              collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2 text-left"
+              "flex items-center rounded-md text-xs font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all w-full min-h-9",
+              collapsed ? "justify-center px-2 py-1.5" : "gap-2.5 px-3 py-1.5 text-left"
             )}
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
             {!collapsed && "Sign Out"}
           </button>
         </div>
@@ -461,7 +461,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
             />
           </div>
-          <nav className="flex-1 py-4 overflow-y-auto px-3 space-y-5">
+          <nav className="flex-1 py-3 overflow-y-auto px-3 space-y-3.5">
             <AdminNavSections
               location={location}
               collapsed={false}
@@ -474,9 +474,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           <div className="p-3 border-t border-slate-700/50">
             <button
               onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-              className="flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 w-full min-h-11"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 w-full min-h-9"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
               Sign Out
             </button>
           </div>

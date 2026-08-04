@@ -758,7 +758,7 @@ export function Layout({ children }: { children: ReactNode }) {
                           : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                       )}
                     >
-                      <Icon className={cn("w-5 h-5", isActive ? "text-white" : "")} />
+                      <Icon className={cn("w-4 h-4", isActive ? "text-white" : "")} />
                     </button>
                   </SidebarTooltip>
                 );
@@ -769,13 +769,13 @@ export function Layout({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => handleFeatureNav(href, comingSoon)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left",
+                    "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors text-left",
                     isActive
-                      ? "bg-orange-500 text-white font-semibold shadow-sm"
-                      : "text-sidebar-foreground/60 font-medium hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      ? "bg-orange-500 text-white font-medium shadow-sm"
+                      : "text-sidebar-foreground/60 font-normal hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   )}
                 >
-                  <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
+                  <Icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
                   <span className="flex-1 min-w-0 truncate">{label}</span>
                   {comingSoon && !isActive && (
                     <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
@@ -803,7 +803,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </SidebarTooltip>
               ) : (
                 <Link href={adminHome}>
-                  <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
                     <Shield className="w-4 h-4 text-primary flex-shrink-0" />
                     Admin Panel
                   </button>
@@ -831,7 +831,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </SidebarTooltip>
           ) : (
             <Link href="/billing" className="block w-full">
-              <button className="w-full text-sm font-medium text-sidebar-foreground/80 border border-sidebar-border rounded-full px-4 py-1.5 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors">
+              <button className="w-full text-xs font-medium text-sidebar-foreground/80 border border-sidebar-border rounded-full px-3 py-1.5 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors">
                 Upgrade
               </button>
             </Link>
@@ -864,13 +864,13 @@ export function Layout({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={() => handleFeatureNav(href, comingSoon)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors text-left min-h-11",
+                      "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-colors text-left min-h-9",
                       isActive
-                        ? "bg-orange-500 text-white font-semibold shadow-sm"
-                        : "text-slate-600 font-medium hover:bg-slate-100"
+                        ? "bg-orange-500 text-white font-medium shadow-sm"
+                        : "text-slate-600 font-normal hover:bg-slate-100"
                     )}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <Icon className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1">{label}</span>
                     {comingSoon && (
                       <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
@@ -883,7 +883,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => setMobileNavOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-3 mt-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 min-h-11"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 mt-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 min-h-9"
                   >
                     <Shield className="w-4 h-4 text-primary" />
                     Admin Panel
@@ -896,7 +896,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setMobileNavOpen(false)}
-                  className="w-full text-sm font-medium border border-slate-200 rounded-full px-4 py-2.5 hover:border-primary hover:text-primary min-h-11"
+                  className="w-full text-xs font-medium border border-slate-200 rounded-full px-3 py-2 hover:border-primary hover:text-primary min-h-9"
                 >
                   Upgrade
                 </button>
