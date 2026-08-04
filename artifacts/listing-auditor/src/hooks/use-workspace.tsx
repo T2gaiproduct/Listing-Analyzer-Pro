@@ -276,7 +276,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void qc.invalidateQueries({ queryKey: ["dashboard"] });
     void qc.invalidateQueries({ queryKey: ["archive"] });
     void qc.invalidateQueries({ queryKey: ["search-projects"] });
-    void qc.invalidateQueries({ queryKey: ["team-membership-credits"] });
+    void qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
     void qc.removeQueries({ queryKey: ["workspace-permissions"], exact: false });
   }, [qc, selectedId]);
 

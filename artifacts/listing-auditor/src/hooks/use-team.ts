@@ -74,18 +74,16 @@ export function useTeam(): TeamContext {
   const isTeamMember = isLegacyTeamMember || isWorkspaceOnlyMember;
   const usesMemberCredits = (isLegacyTeamMember || isSharedWorkspaceActive) && !isWorkspaceAccountOwner;
 
-  const creditsQueryKey = ["team-membership-credits", featureWorkspaceId ?? "default"];
+  const creditsQueryKey = ["workspace-member-credits", featureWorkspaceId ?? "none"];
   const { data: creditsData, isLoading: creditsLoading } = useQuery<{ credits: MemberCredits }>({
     queryKey: creditsQueryKey,
-    queryFn: () => {
-      const params = featureWorkspaceId ? `?workspaceId=${featureWorkspaceId}` : "";
-      return fetchJson<{ credits: MemberCredits }>(
-        `${basePath}/api/team/membership/credits${params}`,
-      ).catch(() => ({ credits: { aiCredits: 0, imageCredits: 0, auditCredits: 0 } }));
-    },
+    queryFn: () =>
+      fetchJson<{ credits: MemberCredits }>(
+        `${basePath}/api/workspaces/${featureWorkspaceId}/members/me/credits`,
+      ),
     staleTime: 60_000,
     retry: 3,
-    enabled: usesMemberCredits && (isLegacyTeamMember || featureWorkspaceId != null),
+    enabled: usesMemberCredits && featureWorkspaceId != null,
   });
 
   const isOwner = !isTeamMember || isWorkspaceAccountOwner;

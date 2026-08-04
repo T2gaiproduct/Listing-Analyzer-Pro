@@ -1077,6 +1077,25 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
   });
 });
 
+router.get("/workspaces/:workspaceId/members/me/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  await ensureWorkspaceCreditsMigrated();
+  const ctx = (req as WorkspaceAuthedRequest).workspace;
+  if (ctx.isAccountOwner) {
+    res.status(400).json({ error: "Workspace owners use account or pool credits, not member allocation" });
+    return;
+  }
+  if (!ctx.workspaceMemberId) {
+    res.status(404).json({ error: "Workspace member record not found" });
+    return;
+  }
+  const credits = await getWorkspaceMemberCredits(ctx.workspaceMemberId);
+  res.json({
+    workspaceMemberId: ctx.workspaceMemberId,
+    workspaceId: ctx.workspaceId,
+    credits: credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+  });
+});
+
 // ─── Current user permissions in workspace ───────────────────────────────────
 
 router.get("/workspaces/:workspaceId/permissions/me", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {

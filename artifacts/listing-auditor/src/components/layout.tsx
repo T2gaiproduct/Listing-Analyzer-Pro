@@ -208,6 +208,7 @@ export function Layout({ children }: { children: ReactNode }) {
     isWorkspaceApiScopeActive,
     needsWorkspaceSelection,
     isAccountOwner,
+    isWorkspaceAccountOwner,
     isTeamMemberAccount,
     activeWorkspaceId,
     isLoading: wsNavLoading,
@@ -604,7 +605,7 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchOnMount: "always",
   });
 
-  const usesMemberCredits = isTeamMember && !isAccountOwner && featureWorkspace != null && !featureWorkspace.isAccountOwner;
+  const usesMemberCredits = featureWorkspace != null && !featureWorkspace.isAccountOwner;
   const ownerCredits = creditsData?.credits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const displayCredits = usesMemberCredits

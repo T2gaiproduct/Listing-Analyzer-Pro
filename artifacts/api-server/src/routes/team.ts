@@ -15,7 +15,7 @@ import {
   shouldSendTeamWelcomeEmailToUser,
 } from "../lib/notification-preferences.js";
 import { getMemberCredits } from "../lib/credits.js";
-import { getWorkspaceMemberCreditsForUser } from "../lib/workspace-credits.js";
+import { resolveWorkspaceMemberCreditsForUser } from "../lib/workspace-credits.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import {
   countAuditActivity,
@@ -498,6 +498,8 @@ router.get("/team/membership", requireAuth, async (req, res): Promise<void> => {
 router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void> => {
   await ensureWorkspaceCreditsMigrated();
   const userId = (req as AuthedRequest).userId;
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
   const workspaceIdParam = req.query.workspaceId;
   const workspaceId = workspaceIdParam != null ? Number(workspaceIdParam) : null;
   const [membership] = await db.select({
@@ -512,7 +514,7 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
       return;
     }
 
-    const workspaceMember = await getWorkspaceMemberCreditsForUser(userId, workspaceId);
+    const workspaceMember = await resolveWorkspaceMemberCreditsForUser(userId, workspaceId, sessionEmail);
     if (!workspaceMember) {
       res.status(404).json({ error: "Not a workspace member" });
       return;
@@ -614,8 +616,22 @@ router.get("/team/membership/usage", requireAuth, async (req, res): Promise<void
 router.get("/team/membership/credits", requireAuth, async (req, res): Promise<void> => {
   await ensureWorkspaceCreditsMigrated();
   const userId = (req as AuthedRequest).userId;
+  const auth = getAuth(req);
+  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
   const workspaceIdParam = req.query.workspaceId;
   const workspaceId = workspaceIdParam != null ? Number(workspaceIdParam) : null;
+
+  if (workspaceId && Number.isFinite(workspaceId) && workspaceId > 0) {
+    const workspaceMember = await resolveWorkspaceMemberCreditsForUser(userId, workspaceId, sessionEmail);
+    if (workspaceMember) {
+      res.json({
+        workspaceMemberId: workspaceMember.workspaceMemberId,
+        workspaceId,
+        credits: workspaceMember.credits,
+      });
+      return;
+    }
+  }
 
   const [membership] = await db.select({ id: teamMembersTable.id, ownerUserId: teamMembersTable.ownerUserId })
     .from(teamMembersTable)
@@ -642,7 +658,7 @@ router.get("/team/membership/credits", requireAuth, async (req, res): Promise<vo
     return;
   }
 
-  const workspaceMember = await getWorkspaceMemberCreditsForUser(userId, workspaceId);
+  const workspaceMember = await resolveWorkspaceMemberCreditsForUser(userId, workspaceId, sessionEmail);
   if (!workspaceMember) {
     res.status(404).json({ error: "Not a workspace member" });
     return;

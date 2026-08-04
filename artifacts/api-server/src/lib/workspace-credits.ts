@@ -294,6 +294,7 @@ export async function setWorkspaceCreditPool(
 export async function getWorkspaceMemberCreditsForUser(
   userId: string,
   workspaceId: number,
+  email?: string,
 ): Promise<{ workspaceMemberId: number; credits: CreditTotals } | null> {
   const [membership] = await db
     .select({ id: workspaceMembersTable.id })
@@ -305,12 +306,48 @@ export async function getWorkspaceMemberCreditsForUser(
       eq(workspaceMembersTable.isDeleted, 0),
     ))
     .limit(1);
-  if (!membership) return null;
-  const credits = await getWorkspaceMemberCredits(membership.id);
+
+  let workspaceMemberId = membership?.id;
+
+  if (!workspaceMemberId && email?.trim()) {
+    const emailLower = email.trim().toLowerCase();
+    const members = await db
+      .select({ id: workspaceMembersTable.id, invitedEmail: workspaceMembersTable.invitedEmail })
+      .from(workspaceMembersTable)
+      .where(and(
+        eq(workspaceMembersTable.workspaceId, workspaceId),
+        eq(workspaceMembersTable.status, "active"),
+        eq(workspaceMembersTable.isDeleted, 0),
+      ));
+    const match = members.find((m) => m.invitedEmail.trim().toLowerCase() === emailLower);
+    workspaceMemberId = match?.id;
+  }
+
+  if (!workspaceMemberId) return null;
+
+  const credits = await getWorkspaceMemberCredits(workspaceMemberId);
   return {
-    workspaceMemberId: membership.id,
+    workspaceMemberId,
     credits: credits ?? { ...ZERO },
   };
+}
+
+/** Resolve member credits using workspace context (preferred for active workspace). */
+export async function resolveWorkspaceMemberCreditsForUser(
+  userId: string,
+  workspaceId: number,
+  email?: string,
+): Promise<{ workspaceMemberId: number; credits: CreditTotals } | null> {
+  const { resolveWorkspaceContext } = await import("./workspace-context.js");
+  const ctx = await resolveWorkspaceContext(userId, workspaceId);
+  if (ctx && !ctx.isAccountOwner && ctx.workspaceMemberId) {
+    const credits = await getWorkspaceMemberCredits(ctx.workspaceMemberId);
+    return {
+      workspaceMemberId: ctx.workspaceMemberId,
+      credits: credits ?? { ...ZERO },
+    };
+  }
+  return getWorkspaceMemberCreditsForUser(userId, workspaceId, email);
 }
 
 export async function getWorkspaceMemberCredits(workspaceMemberId: number): Promise<CreditTotals | null> {
