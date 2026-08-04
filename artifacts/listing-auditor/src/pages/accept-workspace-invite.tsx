@@ -6,6 +6,7 @@ import { Building2, CheckCircle, Mail, RefreshCw, AlertTriangle, ArrowRight } fr
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { fetchJson } from "@/lib/api-fetch";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -39,26 +40,24 @@ export default function AcceptWorkspaceInvite() {
   useEffect(() => {
     if (!token) return;
     setInviteLoading(true);
-    fetch(`${basePath}/api/workspace-invite/${token}`)
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error ?? "Invite not found");
-        setInvite(data);
-      })
+    fetchJson<WorkspaceInviteDetails>(`${basePath}/api/workspace-invite/${encodeURIComponent(token)}`)
+      .then((data) => setInvite(data))
       .catch((e: Error) => setInviteError(e.message))
       .finally(() => setInviteLoading(false));
   }, [token]);
 
+  const signedInEmail = user?.primaryEmailAddress?.emailAddress?.trim().toLowerCase() ?? "";
+  const inviteEmail = invite?.invitedEmail?.trim().toLowerCase() ?? "";
+  const emailMismatch = Boolean(
+    user && invite && signedInEmail && inviteEmail && signedInEmail !== inviteEmail,
+  );
+
   const acceptMutation = useMutation({
     mutationFn: () =>
-      fetch(`${basePath}/api/workspace-invite/${token}/accept`, {
-        method: "POST",
-        credentials: "include",
-      }).then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error ?? "Failed to accept invite");
-        return data as { workspaceId: number; workspaceName: string };
-      }),
+      fetchJson<{ workspaceId: number; workspaceName: string }>(
+        `${basePath}/api/workspace-invite/${encodeURIComponent(token!)}/accept`,
+        { method: "POST" },
+      ),
     onSuccess: async (data) => {
       setAccepted(true);
       toast({
@@ -167,10 +166,15 @@ export default function AcceptWorkspaceInvite() {
               <p className="text-sm text-slate-600 text-center">
                 Signed in as <strong>{user.primaryEmailAddress?.emailAddress}</strong>
               </p>
+              {emailMismatch && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  This invite was sent to <strong>{invite?.invitedEmail}</strong>. Sign out and sign in with that email, or ask the workspace admin to invite <strong>{user.primaryEmailAddress?.emailAddress}</strong>.
+                </div>
+              )}
               <Button
                 className="w-full bg-orange-500 hover:bg-orange-600"
                 onClick={() => acceptMutation.mutate()}
-                disabled={acceptMutation.isPending}
+                disabled={acceptMutation.isPending || emailMismatch}
               >
                 {acceptMutation.isPending ? (
                   <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Joining…</>

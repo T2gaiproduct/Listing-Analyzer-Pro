@@ -67,6 +67,7 @@ import {
   sumCreditTotals,
 } from "../lib/team-stats.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
+import { sessionEmailFromClaims } from "../lib/admin-auth.js";
 
 const router: IRouter = Router();
 const MAX_WORKSPACES_PER_ACCOUNT = 50;
@@ -1003,87 +1004,115 @@ router.get("/workspace-invite/:token", async (req, res): Promise<void> => {
 });
 
 router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const token = String(req.params.token ?? "");
-  const auth = getAuth(req);
-  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  try {
+    const userId = (req as AuthedRequest).userId;
+    const token = String(req.params.token ?? "");
+    const auth = getAuth(req);
+    const sessionEmail = sessionEmailFromClaims(auth?.sessionClaims as Record<string, unknown> | null);
 
-  const [row] = await db.select({
-    member: workspaceMembersTable,
-    workspaceName: workspacesTable.name,
-    accountOwnerId: workspacesTable.accountOwnerId,
-    roleName: workspaceRolesTable.name,
-  })
-    .from(workspaceMembersTable)
-    .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
-    .leftJoin(workspaceRolesTable, eq(workspaceMembersTable.roleId, workspaceRolesTable.id))
-    .where(eq(workspaceMembersTable.inviteToken, token))
-    .limit(1);
-
-  if (!row) {
-    res.status(404).json({ error: "Invite not found" });
-    return;
-  }
-
-  const invite = row.member;
-  if (invite.status === "revoked" || invite.isDeleted === 1) {
-    res.status(410).json({ error: "This invite has been revoked" });
-    return;
-  }
-  if (invite.status === "active") {
-    res.status(409).json({ error: "Already accepted" });
-    return;
-  }
-
-  if (sessionEmail && sessionEmail.toLowerCase() !== invite.invitedEmail.toLowerCase()) {
-    res.status(403).json({
-      error: `This invite was sent to ${invite.invitedEmail}. Sign in with that email to accept.`,
-    });
-    return;
-  }
-
-  const existingActive = await db.select({ id: workspaceMembersTable.id })
-    .from(workspaceMembersTable)
-    .where(and(
-      eq(workspaceMembersTable.workspaceId, invite.workspaceId),
-      eq(workspaceMembersTable.userId, userId),
-      eq(workspaceMembersTable.status, "active"),
-      eq(workspaceMembersTable.isDeleted, 0),
-    ))
-    .limit(1);
-
-  if (existingActive.length > 0) {
-    res.status(409).json({ error: "You are already a member of this workspace" });
-    return;
-  }
-
-  await db.update(workspaceMembersTable)
-    .set({
-      status: "active",
-      userId,
-      acceptedAt: new Date(),
-      isDeleted: 0,
-      deletedAt: null,
+    const [row] = await db.select({
+      member: workspaceMembersTable,
+      workspaceName: workspacesTable.name,
+      accountOwnerId: workspacesTable.accountOwnerId,
+      roleName: workspaceRolesTable.name,
     })
-    .where(eq(workspaceMembersTable.inviteToken, token));
+      .from(workspaceMembersTable)
+      .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+      .leftJoin(workspaceRolesTable, eq(workspaceMembersTable.roleId, workspaceRolesTable.id))
+      .where(eq(workspaceMembersTable.inviteToken, token))
+      .limit(1);
 
-  await upsertUserProfile(userId, { onboardingCompleted: true });
+    if (!row) {
+      res.status(404).json({ error: "Invite not found" });
+      return;
+    }
 
-  const roleName = row.roleName ?? "Unassigned";
-  void createNotification({
-    userId: row.accountOwnerId,
-    type: "team_invite_accepted",
-    title: "Workspace member joined",
-    message: `${invite.invitedName?.trim() || invite.invitedEmail} joined ${row.workspaceName} (${roleName}).`,
-    link: `/workspaces/${invite.workspaceId}/members`,
-  });
+    const invite = row.member;
+    if (invite.status === "revoked" || invite.isDeleted === 1) {
+      res.status(410).json({ error: "This invite has been revoked" });
+      return;
+    }
+    if (invite.status === "active") {
+      res.status(409).json({ error: "Already accepted" });
+      return;
+    }
 
-  res.json({
-    ok: true,
-    workspaceId: invite.workspaceId,
-    workspaceName: row.workspaceName,
-    roleName,
-  });
+    const invitedEmailLower = invite.invitedEmail.trim().toLowerCase();
+    if (sessionEmail && sessionEmail !== invitedEmailLower) {
+      res.status(403).json({
+        error: `This invite was sent to ${invite.invitedEmail}. Sign in with that email to accept.`,
+      });
+      return;
+    }
+
+    const [existingByUser] = await db.select()
+      .from(workspaceMembersTable)
+      .where(and(
+        eq(workspaceMembersTable.workspaceId, invite.workspaceId),
+        eq(workspaceMembersTable.userId, userId),
+      ))
+      .limit(1);
+
+    if (existingByUser?.status === "active" && existingByUser.isDeleted === 0) {
+      res.status(409).json({ error: "You are already a member of this workspace" });
+      return;
+    }
+
+    const now = new Date();
+    const reactivateMember = existingByUser && (existingByUser.status !== "active" || existingByUser.isDeleted === 1);
+
+    if (reactivateMember) {
+      await db.update(workspaceMembersTable)
+        .set({
+          status: "active",
+          roleId: invite.roleId,
+          legacyRole: invite.legacyRole,
+          invitedEmail: invite.invitedEmail,
+          invitedName: invite.invitedName,
+          isDeleted: 0,
+          deletedAt: null,
+          acceptedAt: now,
+        })
+        .where(eq(workspaceMembersTable.id, existingByUser.id));
+
+      if (existingByUser.id !== invite.id) {
+        await db.update(workspaceMembersTable)
+          .set({ status: "revoked", isDeleted: 1, deletedAt: now })
+          .where(eq(workspaceMembersTable.inviteToken, token));
+      }
+    } else {
+      await db.update(workspaceMembersTable)
+        .set({
+          status: "active",
+          userId,
+          acceptedAt: now,
+          isDeleted: 0,
+          deletedAt: null,
+        })
+        .where(eq(workspaceMembersTable.inviteToken, token));
+    }
+
+    await upsertUserProfile(userId, { onboardingCompleted: true });
+
+    const roleName = row.roleName ?? "Unassigned";
+    void createNotification({
+      userId: row.accountOwnerId,
+      type: "team_invite_accepted",
+      title: "Workspace member joined",
+      message: `${invite.invitedName?.trim() || invite.invitedEmail} joined ${row.workspaceName} (${roleName}).`,
+      link: `/workspaces/${invite.workspaceId}/members`,
+    });
+
+    res.json({
+      ok: true,
+      workspaceId: invite.workspaceId,
+      workspaceName: row.workspaceName,
+      roleName,
+    });
+  } catch (err) {
+    console.error("[workspaces] accept workspace invite failed", err);
+    res.status(500).json({ error: "Failed to accept workspace invite. Try again or ask the workspace admin to resend the invite." });
+  }
 });
 
 router.get("/workspaces/:workspaceId/members/me/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
