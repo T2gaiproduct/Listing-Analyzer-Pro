@@ -4,7 +4,7 @@ import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { PageSeo } from "@/components/page-seo";
 import { Clock, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatBlogDate, formatReadTime, type PublicBlogPost } from "@/lib/blog";
+import { formatBlogDate, formatReadTime, resolveBlogImageUrl, type PublicBlogPost } from "@/lib/blog";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -16,10 +16,11 @@ function fetchPublishedPosts(): Promise<PublicBlogPost[]> {
 }
 
 function PostImage({ src, alt, className }: { src: string | null; alt: string; className?: string }) {
-  if (src) {
+  const resolved = resolveBlogImageUrl(src, basePath);
+  if (resolved) {
     return (
       <img
-        src={src}
+        src={resolved}
         alt={alt}
         className={cn("w-full h-full object-cover", className)}
         loading="lazy"

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ArrowLeft, Save, Eye, RefreshCw, Image } from "lucide-react";
+import { BlogFeaturedImageField } from "@/pages/admin/marketing/blog-featured-image-field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -217,10 +218,10 @@ export default function AdminBlogEdit({ postId }: { postId: string }) {
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-1.5"><Image className="w-4 h-4" />Featured Image</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              <Input className="h-8 text-sm" value={form.featuredImage} onChange={f("featuredImage")} placeholder="https://..." />
-              {form.featuredImage && (
-                <img src={form.featuredImage} alt="Featured" className="w-full h-32 object-cover rounded-lg border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              )}
+              <BlogFeaturedImageField
+                imageUrl={form.featuredImage}
+                onImageChange={(url) => setForm((p) => ({ ...p, featuredImage: url }))}
+              />
             </CardContent>
           </Card>
         </div>

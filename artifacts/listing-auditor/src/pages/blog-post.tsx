@@ -4,7 +4,7 @@ import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
 import { PublicNav, PublicFooter } from "@/components/public-layout";
 import { SeoHead } from "@/components/seo-head";
 import { Badge } from "@/components/ui/badge";
-import { formatBlogDate, formatReadTime, type PublicBlogPost } from "@/lib/blog";
+import { formatBlogDate, formatReadTime, resolveBlogImageUrl, type PublicBlogPost } from "@/lib/blog";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -69,7 +69,11 @@ export default function BlogPost({ slug }: { slug: string }) {
       <main>
         {post.featuredImage && (
           <div className="w-full max-h-[420px] overflow-hidden bg-slate-100">
-            <img src={post.featuredImage} alt={post.title} className="w-full h-full max-h-[420px] object-cover" />
+            <img
+              src={resolveBlogImageUrl(post.featuredImage, basePath)}
+              alt={post.title}
+              className="w-full h-full max-h-[420px] object-cover"
+            />
           </div>
         )}
 

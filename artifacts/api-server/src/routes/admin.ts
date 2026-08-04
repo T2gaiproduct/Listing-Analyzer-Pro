@@ -22,6 +22,7 @@ import { ensurePromoCoupon } from "../lib/promo-coupon-sync.js";
 import { saveHeroImageFromDataUrl } from "../lib/hero-image-storage";
 import { savePortfolioImageFromDataUrl } from "../lib/portfolio-image-storage";
 import { saveWorkflowImageFromDataUrl } from "../lib/workflow-image-storage";
+import { saveBlogImageFromDataUrl } from "../lib/blog-image-storage";
 import {
   isAdminUser,
   requireAdmin,
@@ -2065,7 +2066,9 @@ router.post("/admin/hero-image", requireAdmin, async (req, res): Promise<void> =
       ? savePortfolioImageFromDataUrl(dataUrl, filename)
       : folder === "workflow"
         ? saveWorkflowImageFromDataUrl(dataUrl, filename)
-        : saveHeroImageFromDataUrl(dataUrl, filename);
+        : folder === "blog"
+          ? saveBlogImageFromDataUrl(dataUrl, filename)
+          : saveHeroImageFromDataUrl(dataUrl, filename);
     res.status(201).json({ url });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });
@@ -2080,6 +2083,20 @@ router.post("/admin/portfolio-image", requireAdmin, async (req, res): Promise<vo
       return;
     }
     const url = savePortfolioImageFromDataUrl(dataUrl, filename);
+    res.status(201).json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });
+  }
+});
+
+router.post("/admin/blog-image", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const { dataUrl, filename } = req.body as { dataUrl?: string; filename?: string };
+    if (!dataUrl) {
+      res.status(400).json({ error: "No image data provided" });
+      return;
+    }
+    const url = saveBlogImageFromDataUrl(dataUrl, filename);
     res.status(201).json({ url });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });

@@ -27,3 +27,17 @@ export function formatReadTime(minutes: number | null | undefined): string {
   const mins = minutes && minutes > 0 ? minutes : 5;
   return `${mins} min`;
 }
+
+/** Resolve uploaded `/api/images/blog/...` paths and external URLs for display. */
+export function resolveBlogImageUrl(path: string | null | undefined, basePath = ""): string {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+    return path;
+  }
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  const base = basePath.replace(/\/$/, "");
+  if (base && !normalized.startsWith(base)) {
+    return `${base}${normalized}`;
+  }
+  return normalized;
+}
