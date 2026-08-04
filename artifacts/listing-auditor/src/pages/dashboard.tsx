@@ -538,7 +538,9 @@ export default function Dashboard() {
           subtext={
             isBillingAccountOwner
               ? workspacesEnabled
-                ? stats.workspaceCount === 1 ? "Active workspace" : "Active workspaces"
+                ? stats.workspaceCount === 1
+                  ? "Includes your owner workspace"
+                  : "Includes owner workspace + clients"
                 : `Upgrade to ${includedPlansLabel} to manage multiple workspaces`
               : "From AI tasks completed"
           }
