@@ -82,7 +82,7 @@ function PriorityBadge({ label, level }: { label?: string | null; level?: string
     <span
       className={cn(
         "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
-        level === "high" && "bg-violet-50 text-violet-700 border-violet-200",
+        level === "high" && "bg-orange-50 text-orange-700 border-orange-200",
         lvl === "medium" && "bg-slate-50 text-slate-600 border-slate-200",
         lvl === "low" && "bg-slate-50 text-slate-500 border-slate-200",
       )}
@@ -106,14 +106,14 @@ function AiSuggestionsCard({
     : ["Complete your listing workflow to unlock personalized AI suggestions"];
 
   return (
-    <div className="rounded-xl border border-violet-200 bg-violet-50/80 p-4 shadow-sm space-y-3">
+    <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-4 shadow-sm space-y-3">
       <div className="flex items-center gap-1.5">
-        <Sparkles className="w-3.5 h-3.5 text-violet-700" />
-        <h2 className="text-xs font-semibold text-violet-900">AI Suggestions</h2>
+        <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+        <h2 className="text-xs font-semibold text-orange-900">AI Suggestions</h2>
       </div>
-      <ul className="space-y-1.5 pl-4 list-disc marker:text-violet-400">
+      <ul className="space-y-1.5 pl-4 list-disc marker:text-orange-400">
         {items.map((suggestion) => (
-          <li key={suggestion} className="text-[11px] text-violet-950 leading-relaxed">
+          <li key={suggestion} className="text-[11px] text-slate-800 leading-relaxed">
             {suggestion}
           </li>
         ))}
@@ -123,7 +123,7 @@ function AiSuggestionsCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 text-[11px] bg-white border-violet-200 text-violet-900 hover:bg-violet-50"
+          className="h-7 text-[11px] bg-white border-orange-200 text-orange-900 hover:bg-orange-50"
           onClick={() => onNavigate(workflowUrl)}
         >
           Optimize content
@@ -133,7 +133,7 @@ function AiSuggestionsCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 text-[11px] bg-violet-100/80 border-violet-200 text-violet-900 hover:bg-violet-100"
+          className="h-7 text-[11px] bg-orange-100/80 border-orange-200 text-orange-900 hover:bg-orange-100"
           onClick={() => onNavigate(workflowUrl)}
         >
           Generate images
@@ -334,7 +334,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <p className="text-2xl font-bold text-slate-900 tabular-nums">{product.progressPercent}%</p>
             <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-amber-500 transition-all"
                 style={{ width: `${product.progressPercent}%` }}
               />
             </div>
@@ -352,7 +352,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             className={cn(
               "h-8 px-3.5 rounded-lg text-[11px] font-medium border transition-colors",
               activeTab === tab.id
-                ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm"
+                ? "bg-orange-50 text-orange-700 border-orange-200 shadow-sm"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
             )}
           >
@@ -375,7 +375,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               <DetailField label="Category">{product.category || "—"}</DetailField>
               <DetailField label="Assigned Manager">
                 <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 text-[10px] font-semibold flex items-center justify-center">
                     {product.manager?.initials ?? "?"}
                   </span>
                   <span>{product.manager?.name ?? "—"}</span>
@@ -517,7 +517,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 key={step.id}
                 className={cn(
                   "flex items-center justify-between rounded-lg border px-3 py-2.5 text-[11px]",
-                  step.active && "border-indigo-200 bg-indigo-50/50",
+                  step.active && "border-orange-200 bg-orange-50/50",
                   step.completed && !step.active && "border-emerald-100 bg-emerald-50/30",
                   !step.active && !step.completed && "border-slate-100 bg-slate-50/50",
                 )}
@@ -529,7 +529,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   className={cn(
                     "text-[10px] font-medium",
                     step.completed && "text-emerald-600",
-                    step.active && "text-indigo-600",
+                    step.active && "text-orange-600",
                     !step.completed && !step.active && "text-slate-400",
                   )}
                 >
