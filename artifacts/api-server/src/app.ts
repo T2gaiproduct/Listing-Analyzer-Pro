@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
@@ -123,6 +123,16 @@ app.use("/api", (req, res) => {
   res.status(404).json({
     error: `API route not found (${req.method} ${req.originalUrl}). Restart the API server after deploying the latest code.`,
   });
+});
+
+app.use("/api", (err: unknown, req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  logger.error({ err, method: req.method, url: req.originalUrl }, "Unhandled API error");
+  const message = err instanceof Error ? err.message : "Internal server error";
+  res.status(500).json({ error: message });
 });
 
 const frontendDist = process.env.FRONTEND_DIST

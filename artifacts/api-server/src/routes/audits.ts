@@ -272,37 +272,49 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
 });
 
 router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "create"), async (req, res): Promise<void> => {
-  const ownerId = getEffectiveUserId(req);
-  const parsed = CreateAuditBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
+  try {
+    const ownerId = getEffectiveUserId(req);
+    const parsed = CreateAuditBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const { projectName, productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
+
+    const [audit] = await db
+      .insert(auditsTable)
+      .values({
+        userId: ownerId,
+        createdByUserId: auditCreatedByUserId(req),
+        workspaceId: getActiveWorkspaceId(req),
+        projectName: projectName ?? productName,
+        productName,
+        asin: asin ?? null,
+        brandName: brandName ?? null,
+        category: category ?? null,
+        title,
+        bulletPoints,
+        imageUrls,
+        targetKeywords,
+        overallScore: 0,
+        status: "draft",
+        currentStep: 1,
+      })
+      .returning();
+
+    res.status(201).json(audit);
+  } catch (err) {
+    req.log?.error?.({ err }, "Create audit draft failed");
+    const message = err instanceof Error ? err.message : "Failed to create project";
+    if (message.includes("created_by_user_id") || message.includes("workspace_id")) {
+      res.status(503).json({
+        error: "Database schema is out of date. Run scripts/sync-production-db.sh on the server, then restart the API.",
+      });
+      return;
+    }
+    res.status(500).json({ error: message });
   }
-
-  const { projectName, productName, asin, brandName, category, title, bulletPoints, imageUrls, targetKeywords } = parsed.data;
-
-  const [audit] = await db
-    .insert(auditsTable)
-    .values({
-      userId: ownerId,
-      createdByUserId: auditCreatedByUserId(req),
-      workspaceId: getActiveWorkspaceId(req),
-      projectName: projectName ?? productName,
-      productName,
-      asin: asin ?? null,
-      brandName: brandName ?? null,
-      category: category ?? null,
-      title,
-      bulletPoints,
-      imageUrls,
-      targetKeywords,
-      overallScore: 0,
-      status: "draft",
-      currentStep: 1,
-    })
-    .returning();
-
-  res.status(201).json(audit);
 });
 
 router.get("/audits/stats", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {

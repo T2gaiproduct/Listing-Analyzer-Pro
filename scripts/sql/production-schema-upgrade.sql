@@ -102,6 +102,7 @@ WHERE wr.workspace_id = w.id
 
 -- ─── workspace scoping on project tables ───────────────────────────────────
 ALTER TABLE audits ADD COLUMN IF NOT EXISTS workspace_id integer;
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS created_by_user_id text;
 ALTER TABLE graphics_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
 ALTER TABLE videos_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
 ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS workspace_id integer;

@@ -40,6 +40,9 @@ export async function resolveTeamAndWorkspace(
   }
   const team = await resolveTeamContext(userId);
   (req as TeamAuthedRequest).team = team;
+  if (!team.isTeamMember) {
+    await ensureSubscriberDefaultWorkspace(team.ownerUserId);
+  }
   await resolveWorkspace(req, res, next);
 }
 
