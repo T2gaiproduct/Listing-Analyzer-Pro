@@ -11,7 +11,9 @@ import {
   Link2,
   Package,
   Pencil,
+  Sparkles,
   Star,
+  Upload,
 } from "lucide-react";
 import { useGetAudit } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -90,6 +92,58 @@ function PriorityBadge({ label, level }: { label?: string | null; level?: string
   );
 }
 
+function AiSuggestionsCard({
+  suggestions,
+  workflowUrl,
+  onNavigate,
+}: {
+  suggestions: string[];
+  workflowUrl: string;
+  onNavigate: (url: string) => void;
+}) {
+  const items = suggestions.length > 0
+    ? suggestions
+    : ["Complete your listing workflow to unlock personalized AI suggestions"];
+
+  return (
+    <div className="rounded-xl border border-violet-200 bg-violet-50/80 p-4 shadow-sm space-y-3">
+      <div className="flex items-center gap-1.5">
+        <Sparkles className="w-3.5 h-3.5 text-violet-700" />
+        <h2 className="text-xs font-semibold text-violet-900">AI Suggestions</h2>
+      </div>
+      <ul className="space-y-1.5 pl-4 list-disc marker:text-violet-400">
+        {items.map((suggestion) => (
+          <li key={suggestion} className="text-[11px] text-violet-950 leading-relaxed">
+            {suggestion}
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-2 pt-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px] bg-white border-violet-200 text-violet-900 hover:bg-violet-50"
+          onClick={() => onNavigate(workflowUrl)}
+        >
+          Optimize content
+          <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px] bg-violet-100/80 border-violet-200 text-violet-900 hover:bg-violet-100"
+          onClick={() => onNavigate(workflowUrl)}
+        >
+          Generate images
+          <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function isValidProductDetail(p: ProductDetailView | undefined | null): p is ProductDetailView {
   return Boolean(
     p?.id
@@ -148,6 +202,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
           referenceLinks: apiProduct.referenceLinks?.length
             ? apiProduct.referenceLinks
             : mapped.referenceLinks,
+          aiSuggestions: apiProduct.aiSuggestions?.length
+            ? apiProduct.aiSuggestions
+            : mapped.aiSuggestions,
         };
       }
       return mapped;
@@ -374,6 +431,33 @@ export default function ProductDetailPage({ id }: { id: number }) {
           </div>
 
           <div className="space-y-4">
+            <AiSuggestionsCard
+              suggestions={product.aiSuggestions ?? []}
+              workflowUrl={product.workflowUrl}
+              onNavigate={navigate}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 flex-1 min-w-[120px] text-[11px] bg-white"
+                onClick={() => navigate(product.workflowUrl)}
+              >
+                <Pencil className="w-3 h-3 mr-1.5" />
+                Edit listing
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 flex-1 min-w-[120px] text-[11px] bg-white"
+                onClick={() => navigate(product.workflowUrl)}
+              >
+                <Upload className="w-3 h-3 mr-1.5" />
+                Push updates
+              </Button>
+            </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>
               <p className="text-[11px] text-slate-600 leading-relaxed">{product.notes}</p>

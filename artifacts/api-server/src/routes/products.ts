@@ -11,6 +11,7 @@ import {
   getWorkspaceCtx,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
+import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
 
 const router: IRouter = Router();
 
@@ -307,6 +308,24 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
   const brand = row.brandName?.trim() || "Brand";
   const driveFolder = `${brand} / ${name}`;
 
+  const aiSuggestions = buildProductSuggestions({
+    productName: row.productName,
+    title: row.title,
+    brandName: row.brandName,
+    category: row.category,
+    bulletPoints: row.bulletPoints,
+    generatedContent: row.generatedContent as ProductSuggestionInput["generatedContent"],
+    targetKeywords: row.targetKeywords,
+    imageUrls: row.imageUrls,
+    imageRecords: row.imageRecords as ProductSuggestionInput["imageRecords"],
+    generatedImages: row.generatedImages as ProductSuggestionInput["generatedImages"],
+    currentStep: row.currentStep,
+    status: row.status,
+    overallScore: row.overallScore,
+    result: row.result,
+    competitorCount: competitors.length,
+  });
+
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({
     ...mapRowToProductListItem(row),
@@ -343,6 +362,7 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     targetKeywords: row.targetKeywords,
     detailUrl: `/products/${row.id}`,
     workflowUrl: `/audits/workflow?resume=${row.id}`,
+    aiSuggestions,
     status: mapped.status,
     statusLabel: mapped.status === "active" ? "Live" : mapped.statusLabel,
   });

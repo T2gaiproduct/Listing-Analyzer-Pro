@@ -1,5 +1,8 @@
 /** Map Build Your Brand audit records to product UI shapes (client-side fallback). */
 
+import type { AuditResult } from "@workspace/api-client-react";
+import { buildProductSuggestions } from "@/lib/product-suggestions";
+
 export type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
 const WORKFLOW_STEP_LABELS = ["Upload", "Listing", "Graphics", "A+ Content", "Export"];
@@ -126,6 +129,7 @@ export interface ProductDetailView {
     imageCount: number;
     keywordCount: number;
   };
+  aiSuggestions: string[];
 }
 
 interface AuditLike {
@@ -143,10 +147,15 @@ interface AuditLike {
   imageUrls?: string[];
   imageRecords?: Array<{ currentUrl?: string }>;
   generatedImages?: { main?: string[]; infographic?: string[]; lifestyle?: string[] };
-  generatedContent?: { bulletPoints?: string[] };
+  title?: string | null;
+  generatedContent?: {
+    title?: string;
+    bulletPoints?: string[];
+    keywords?: string[];
+  };
   bulletPoints?: string[];
   targetKeywords?: string[];
-  result?: { summary?: string };
+  result?: AuditResult | null;
   competitors?: Array<{ id?: number; productName?: string; asin?: string | null }>;
 }
 
@@ -213,5 +222,22 @@ export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account
       imageCount: countImages(audit),
       keywordCount: (audit.targetKeywords ?? []).length,
     },
+    aiSuggestions: buildProductSuggestions({
+      productName: audit.productName,
+      title: audit.title,
+      brandName: audit.brandName,
+      category: audit.category,
+      bulletPoints: audit.bulletPoints,
+      generatedContent: audit.generatedContent,
+      targetKeywords: audit.targetKeywords,
+      imageUrls: audit.imageUrls,
+      imageRecords: audit.imageRecords,
+      generatedImages: audit.generatedImages,
+      currentStep: audit.currentStep,
+      status: audit.status,
+      overallScore: audit.overallScore,
+      result: audit.result,
+      competitorCount: audit.competitors?.length ?? 0,
+    }),
   };
 }
