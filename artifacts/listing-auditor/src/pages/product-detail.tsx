@@ -324,8 +324,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5">
+      {/* Tabs + quick actions */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -341,6 +341,25 @@ export default function ProductDetailPage({ id }: { id: number }) {
             {tab.label}
           </button>
         ))}
+
+        <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
+          <button
+            type="button"
+            onClick={() => navigate(product.workflowUrl)}
+            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Pencil className="w-3 h-3 opacity-70" />
+            Edit Listing
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(product.workflowUrl)}
+            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
+          >
+            <Sparkles className="w-3 h-3 opacity-80" />
+            Optimize Content
+          </button>
+        </div>
       </div>
 
       {/* Tab panels */}
@@ -421,28 +440,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
               workflowUrl={product.workflowUrl}
               onNavigate={navigate}
             />
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 flex-1 min-w-[120px] text-[11px] bg-white"
-                onClick={() => navigate(product.workflowUrl)}
-              >
-                <Pencil className="w-3 h-3 mr-1.5" />
-                Edit listing
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 flex-1 min-w-[120px] text-[11px] bg-white"
-                onClick={() => navigate(product.workflowUrl)}
-              >
-                <Upload className="w-3 h-3 mr-1.5" />
-                Push updates
-              </Button>
-            </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>
               <p className="text-[11px] text-slate-600 leading-relaxed">{product.notes}</p>
