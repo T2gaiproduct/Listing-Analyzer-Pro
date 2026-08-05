@@ -29,7 +29,6 @@ import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useGetRecents, getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
-import { CreateProductDialog } from "@/components/create-product-dialog";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -174,7 +173,6 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [createOpen, setCreateOpen] = useState(false);
 
   const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
 
@@ -292,14 +290,15 @@ export default function ProductsPage() {
             />
           </div>
           <Button
-            type="button"
+            asChild
             variant="outline"
             size="sm"
             className="h-8 text-xs font-medium border-slate-300 text-slate-800 shrink-0 rounded-lg px-3"
-            onClick={() => setCreateOpen(true)}
           >
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Add Product
+            <Link href="/audits/new">
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Add Product
+            </Link>
           </Button>
         </div>
       </div>
@@ -375,13 +374,14 @@ export default function ProductsPage() {
                       Create your first product with Build Your Brand. It will appear here automatically.
                     </p>
                     <Button
-                      type="button"
+                      asChild
                       size="sm"
                       className="mt-4 h-7 text-xs bg-orange-500 hover:bg-orange-600"
-                      onClick={() => setCreateOpen(true)}
                     >
-                      <Plus className="w-3.5 h-3.5 mr-1" />
-                      Add Product
+                      <Link href="/audits/new">
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Add Product
+                      </Link>
                     </Button>
                   </td>
                 </tr>
@@ -490,12 +490,6 @@ export default function ProductsPage() {
           {channelFilter !== "all" ? ` · filtered by ${channelFilter}` : ""}
         </p>
       )}
-
-      <CreateProductDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={(product) => navigate(product.detailUrl)}
-      />
     </div>
   );
 }
