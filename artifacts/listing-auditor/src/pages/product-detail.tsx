@@ -15,7 +15,7 @@ import {
   Star,
   Upload,
 } from "lucide-react";
-import { useGetAudit } from "@workspace/api-client-react";
+import { useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -188,6 +188,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     isError: auditError,
   } = useGetAudit(id, {
     query: {
+      queryKey: getGetAuditQueryKey(id),
       enabled: queryEnabled,
       retry: 1,
     },

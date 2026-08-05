@@ -89,6 +89,7 @@ function deriveSku(productName: string, id: number): string {
 }
 
 function mapRecentToProduct(item: RecentItem): ProductListItem {
+  const score = item.score ?? null;
   return {
     id: item.id,
     name: item.name,
@@ -98,8 +99,8 @@ function mapRecentToProduct(item: RecentItem): ProductListItem {
     price: null,
     currency: "INR",
     stock: null,
-    status: item.score != null && item.score > 0 ? "active" : "in_progress",
-    statusLabel: item.score != null && item.score > 0 ? "Active" : "In progress",
+    status: score != null && score > 0 ? "active" : "in_progress",
+    statusLabel: score != null && score > 0 ? "Active" : "In progress",
     workflowUrl: item.url,
   };
 }

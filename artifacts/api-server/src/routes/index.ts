@@ -15,6 +15,7 @@ import dashboardRouter from "./dashboard";
 import amazonRouter from "./amazon";
 import workspacesRouter from "./workspaces";
 import productsRouter from "./products";
+import accountRolesRouter from "./account-roles";
 
 const router: IRouter = Router();
 

@@ -14,4 +14,6 @@ export interface RecentItem {
   createdAt?: string;
   url: string;
   pinned: boolean;
+  imageUrl?: string | null;
+  score?: number | null;
 }

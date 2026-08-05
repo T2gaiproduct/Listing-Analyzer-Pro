@@ -512,7 +512,7 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     workflowUrl,
     aiSuggestions,
     status: mapped.status,
-    statusLabel: mapped.status === "active" ? "Live" : mapped.statusLabel,
+    statusLabel: mapped.status === "active" ? "Live" : mapped.label,
   });
 });
 

@@ -1238,7 +1238,7 @@ components:
       properties:
         type:
           type: string
-          enum: [audit, graphics, video, ads]
+          enum: [audit, listing, graphics, video, ads]
         id:
           type: integer
         name:
@@ -1249,6 +1249,12 @@ components:
           type: string
         pinned:
           type: boolean
+        imageUrl:
+          type: string
+          nullable: true
+        score:
+          type: number
+          nullable: true
       required:
         - type
         - id
