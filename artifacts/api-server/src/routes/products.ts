@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, or, isNull, sql, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable } from "@workspace/db";
+import { db, auditsTable, competitorsTable, userProfilesTable } from "@workspace/db";
 import {
   resolveTeamAndWorkspace,
   getAccountOwnerId,
@@ -9,6 +9,7 @@ import {
   loadWorkedProjects,
   viewOwnIdFilter,
   getWorkspaceCtx,
+  assertProjectViewAccess,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 
@@ -83,6 +84,110 @@ function mapProductStatus(status: string, currentStep: number | null): { status:
   return { status: "draft", label: "Draft" };
 }
 
+const WORKFLOW_STEP_LABELS = ["Upload", "Listing", "Graphics", "A+ Content", "Export"];
+
+function mapStageLabel(status: string, currentStep: number | null): string {
+  if (status === "complete") return "Live";
+  const step = Math.min(5, Math.max(1, currentStep ?? 1));
+  if (step >= 5) return "Ready to export";
+  return WORKFLOW_STEP_LABELS[step - 1] ?? "Upload";
+}
+
+function mapPriority(overallScore: number): { label: string; level: "low" | "medium" | "high" } {
+  if (overallScore >= 80) return { label: "High Priority", level: "high" };
+  if (overallScore >= 50) return { label: "Medium Priority", level: "medium" };
+  return { label: "Low Priority", level: "low" };
+}
+
+function calcProgress(status: string, currentStep: number | null): number {
+  if (status === "complete") return 100;
+  const step = currentStep ?? 1;
+  return Math.min(100, Math.round((step / 5) * 100));
+}
+
+function managerInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+}
+
+function buildNotes(audit: {
+  result?: { summary?: string } | null;
+  generatedContent?: { bulletPoints?: string[] } | null;
+  bulletPoints?: string[];
+}): string {
+  const summary = audit.result?.summary?.trim();
+  if (summary) return summary;
+  const bullets = audit.generatedContent?.bulletPoints ?? audit.bulletPoints ?? [];
+  if (bullets.length > 0) {
+    return bullets.slice(0, 2).join(" ");
+  }
+  return "No notes yet. Complete the listing step in Build Your Brand to generate product notes.";
+}
+
+function countImages(row: {
+  imageUrls?: string[] | null;
+  imageRecords?: unknown[] | null;
+  generatedImages?: { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null;
+}): number {
+  const urls = new Set<string>();
+  for (const u of row.imageUrls ?? []) {
+    if (isUsableImageUrl(u)) urls.add(u.trim());
+  }
+  for (const rec of row.imageRecords ?? []) {
+    const url = (rec as { currentUrl?: string }).currentUrl;
+    if (isUsableImageUrl(url)) urls.add(url.trim());
+  }
+  const g = row.generatedImages;
+  if (g) {
+    for (const u of [...(g.main ?? []), ...(g.lifestyle ?? []), ...(g.infographic ?? [])]) {
+      if (isUsableImageUrl(u)) urls.add(u.trim());
+    }
+  }
+  return urls.size;
+}
+
+function mapRowToProductListItem(row: {
+  id: number;
+  productName: string;
+  projectName: string | null;
+  brandName: string | null;
+  category: string | null;
+  status: string;
+  currentStep: number | null;
+  imageUrls: string[] | null;
+  imageRecords: unknown;
+  generatedImages: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
+  const mapped = mapProductStatus(row.status, row.currentStep);
+  return {
+    id: row.id,
+    name,
+    sku: deriveSku(name, row.id),
+    imageUrl: pickThumbnail({
+      imageUrls: row.imageUrls,
+      imageRecords: row.imageRecords as Array<{ currentUrl?: string }> | null,
+      generatedImages: row.generatedImages as { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null,
+    }),
+    channels: [] as string[],
+    price: null as number | null,
+    currency: "INR",
+    stock: null as number | null,
+    status: mapped.status,
+    statusLabel: mapped.label,
+    currentStep: row.currentStep,
+    brandName: row.brandName,
+    category: row.category,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    workflowUrl: `/audits/workflow?resume=${row.id}`,
+  };
+}
+
 function getEffectiveUserId(req: Request): string {
   if ((req as { workspace?: unknown }).workspace) return getAccountOwnerId(req);
   const team = (req as TeamAuthedRequest).team;
@@ -134,35 +239,120 @@ router.get("/products", requireAuth, resolveTeamAndWorkspace, async (req: Reques
     .where(where)
     .orderBy(desc(auditsTable.updatedAt));
 
-  const products = rows.map((row) => {
-    const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
-    const mapped = mapProductStatus(row.status, row.currentStep);
-    return {
-      id: row.id,
-      name,
-      sku: deriveSku(name, row.id),
-      imageUrl: pickThumbnail({
-        imageUrls: row.imageUrls,
-        imageRecords: row.imageRecords as Array<{ currentUrl?: string }> | null,
-        generatedImages: row.generatedImages as { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null,
-      }),
-      channels: [] as string[],
-      price: null as number | null,
-      currency: "INR",
-      stock: null as number | null,
-      status: mapped.status,
-      statusLabel: mapped.label,
-      currentStep: row.currentStep,
-      brandName: row.brandName,
-      category: row.category,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      workflowUrl: `/audits/workflow?resume=${row.id}`,
-    };
-  });
+  const products = rows.map((row) => mapRowToProductListItem(row));
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({ products });
+});
+
+router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""), 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid product id" });
+    return;
+  }
+
+  const allowed = await assertProjectViewAccess(req, "build_brand", "audit", id);
+  if (!allowed) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const where = await productsScopeWhere(req);
+  const [row] = await db
+    .select()
+    .from(auditsTable)
+    .where(and(where, eq(auditsTable.id, id)))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const competitors = await db
+    .select({
+      id: competitorsTable.id,
+      productName: competitorsTable.productName,
+      asin: competitorsTable.asin,
+    })
+    .from(competitorsTable)
+    .where(and(eq(competitorsTable.auditId, id), eq(competitorsTable.isDeleted, 0)));
+
+  const managerUserId = row.createdByUserId ?? row.userId;
+  const [managerProfile] = await db
+    .select({ fullName: userProfilesTable.fullName, companyName: userProfilesTable.companyName })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, managerUserId))
+    .limit(1);
+
+  const managerName = managerProfile?.fullName?.trim()
+    || managerProfile?.companyName?.trim()
+    || "Account Owner";
+
+  const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
+  const mapped = mapProductStatus(row.status, row.currentStep);
+  const priority = mapPriority(row.overallScore ?? 0);
+  const stageLabel = mapStageLabel(row.status, row.currentStep);
+  const progress = calcProgress(row.status, row.currentStep);
+
+  const referenceLinks: Array<{ label: string; url: string }> = [];
+  if (row.asin?.trim()) {
+    referenceLinks.push({
+      label: "Amazon Ref",
+      url: `https://www.amazon.in/dp/${row.asin.trim()}`,
+    });
+  }
+  competitors.forEach((c, i) => {
+    const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
+    const url = c.asin?.trim()
+      ? `https://www.amazon.in/dp/${c.asin.trim()}`
+      : "#";
+    referenceLinks.push({ label, url });
+  });
+
+  const brand = row.brandName?.trim() || "Brand";
+  const driveFolder = `${brand} / ${name}`;
+
+  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+  res.json({
+    ...mapRowToProductListItem(row),
+    title: name,
+    stageLabel,
+    priorityLabel: priority.label,
+    priorityLevel: priority.level,
+    progressPercent: progress,
+    manager: {
+      name: managerName,
+      initials: managerInitials(managerName),
+    },
+    notes: buildNotes(row),
+    referenceLinks,
+    driveFolder,
+    workflowSteps: WORKFLOW_STEP_LABELS.map((label, index) => ({
+      id: index + 1,
+      label,
+      completed: (row.currentStep ?? 1) > index + 1 || row.status === "complete",
+      active: (row.currentStep ?? 1) === index + 1 && row.status !== "complete",
+    })),
+    stats: {
+      totalOrders: 0,
+      revenue: null as number | null,
+      revenueCurrency: "INR",
+      marketplacesActive: 0,
+      listingScore: row.overallScore ?? 0,
+      competitorCount: competitors.length,
+      imageCount: countImages(row),
+      keywordCount: (row.targetKeywords ?? []).length,
+    },
+    generatedContent: row.generatedContent,
+    bulletPoints: row.bulletPoints,
+    targetKeywords: row.targetKeywords,
+    detailUrl: `/products/${row.id}`,
+    workflowUrl: `/audits/workflow?resume=${row.id}`,
+    status: mapped.status,
+    statusLabel: mapped.status === "active" ? "Live" : mapped.statusLabel,
+  });
 });
 
 export default router;

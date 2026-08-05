@@ -46,6 +46,7 @@ import {
   Dashboard,
   RecentProjectsPage,
   ProductsPage,
+  ProductDetailPage,
   AuditNew,
   AuditDetail,
   CompetitorNew,
@@ -687,6 +688,13 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
+      </Route>
+      <Route path="/products/:id">
+        {params => (
+          <WorkspaceProtectedRoute>
+            <ProductDetailPage id={parseInt(params.id, 10)} />
+          </WorkspaceProtectedRoute>
+        )}
       </Route>
       <Route path="/products">
         <WorkspaceProtectedRoute><ProductsPage /></WorkspaceProtectedRoute>

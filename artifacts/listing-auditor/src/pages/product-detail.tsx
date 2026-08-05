@@ -1,0 +1,466 @@
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
+import { format } from "date-fns";
+import {
+  ArrowLeft,
+  ChevronRight,
+  ExternalLink,
+  FolderOpen,
+  Link2,
+  Package,
+  Pencil,
+  Star,
+} from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { fetchJson } from "@/lib/api-fetch";
+import { useBranding } from "@/hooks/use-branding";
+import { useWorkspace } from "@/hooks/use-workspace";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+type TabId = "overview" | "workflow" | "marketplaces" | "orders" | "sales";
+
+interface ProductDetail {
+  id: number;
+  name: string;
+  title: string;
+  sku: string;
+  imageUrl: string | null;
+  brandName: string | null;
+  category: string | null;
+  status: string;
+  statusLabel: string;
+  stageLabel: string;
+  priorityLabel: string;
+  priorityLevel: "low" | "medium" | "high";
+  progressPercent: number;
+  currentStep: number | null;
+  createdAt: string;
+  updatedAt: string;
+  workflowUrl: string;
+  manager: { name: string; initials: string };
+  notes: string;
+  referenceLinks: Array<{ label: string; url: string }>;
+  driveFolder: string;
+  workflowSteps: Array<{ id: number; label: string; completed: boolean; active: boolean }>;
+  stats: {
+    totalOrders: number;
+    revenue: number | null;
+    revenueCurrency: string;
+    marketplacesActive: number;
+    listingScore: number;
+    competitorCount: number;
+    imageCount: number;
+    keywordCount: number;
+  };
+}
+
+const TABS: Array<{ id: TabId; label: string }> = [
+  { id: "overview", label: "Overview" },
+  { id: "workflow", label: "Workflow" },
+  { id: "marketplaces", label: "Marketplaces" },
+  { id: "orders", label: "Orders" },
+  { id: "sales", label: "Sales" },
+];
+
+function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  const trimmed = url.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+  return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
+}
+
+function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <div className="text-xs text-slate-900">{children}</div>
+    </div>
+  );
+}
+
+function LiveBadge({ label }: { label: string }) {
+  const isLive = label.toLowerCase() === "live" || label.toLowerCase() === "active";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
+        isLive
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-amber-50 text-amber-700 border-amber-200",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function PriorityBadge({ label, level }: { label: string; level: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
+        level === "high" && "bg-violet-50 text-violet-700 border-violet-200",
+        level === "medium" && "bg-slate-50 text-slate-600 border-slate-200",
+        level === "low" && "bg-slate-50 text-slate-500 border-slate-200",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+export default function ProductDetailPage({ id }: { id: number }) {
+  const { platformName } = useBranding();
+  const { user, isLoaded: clerkLoaded } = useUser();
+  const { featureWorkspaceId } = useWorkspace();
+  const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [imageFailed, setImageFailed] = useState(false);
+
+  const { data: product, isLoading, error } = useQuery({
+    queryKey: ["product", id, featureWorkspaceId],
+    queryFn: () => fetchJson<ProductDetail>(`${basePath}/api/products/${id}`),
+    enabled: clerkLoaded && !!user && !!featureWorkspaceId && !Number.isNaN(id),
+    retry: 1,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 animate-in fade-in">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-9 w-96" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-80 lg:col-span-2 rounded-xl" />
+          <Skeleton className="h-80 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+        <Package className="w-10 h-10 text-slate-300 mb-3" />
+        <h2 className="text-base font-semibold text-slate-900">Product not found</h2>
+        <p className="text-xs text-slate-500 mt-2 max-w-md">
+          This product may have been removed or you may not have access to it in the current workspace.
+        </p>
+        <Button asChild size="sm" variant="outline" className="mt-5 h-8 text-xs">
+          <Link href="/products">Back to Products</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const imageSrc = product.imageUrl && !imageFailed ? resolveImageUrl(product.imageUrl) : null;
+  const createdDate = product.createdAt ? format(new Date(product.createdAt), "MMM d, yyyy") : "—";
+  const listingRating = product.stats.listingScore > 0
+    ? (product.stats.listingScore / 20).toFixed(1)
+    : "—";
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-300 pb-8">
+      {/* Breadcrumb */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1 text-[11px] text-slate-400 min-w-0">
+          <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
+            {platformName}
+          </Link>
+          <ChevronRight className="w-3 h-3 shrink-0" />
+          <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
+            Products
+          </Link>
+          <ChevronRight className="w-3 h-3 shrink-0" />
+          <span className="text-slate-600 truncate">{product.name}</span>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px] shrink-0"
+          onClick={() => navigate(product.workflowUrl)}
+        >
+          <Pencil className="w-3 h-3 mr-1" />
+          Edit in Workflow
+        </Button>
+      </div>
+
+      {/* Header card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="w-12 h-12 rounded-lg border border-slate-100 bg-amber-50 flex items-center justify-center overflow-hidden shrink-0">
+              {imageSrc ? (
+                <img
+                  src={imageSrc}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  onError={() => setImageFailed(true)}
+                />
+              ) : (
+                <Package className="w-5 h-5 text-amber-600/70" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-base font-semibold text-slate-900 truncate">{product.name}</h1>
+                <LiveBadge label={product.statusLabel} />
+                <PriorityBadge label={product.priorityLabel} level={product.priorityLevel} />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                <span className="font-medium text-slate-600">SKU:</span> {product.sku}
+                <span className="mx-1.5 text-slate-300">|</span>
+                <span className="font-medium text-slate-600">Brand:</span> {product.brandName || "—"}
+                <span className="mx-1.5 text-slate-300">|</span>
+                <span className="font-medium text-slate-600">Category:</span> {product.category || "—"}
+                <span className="mx-1.5 text-slate-300">|</span>
+                <span className="font-medium text-slate-600">Manager:</span> {product.manager.name}
+              </p>
+            </div>
+          </div>
+          <div className="sm:w-44 shrink-0 sm:text-right">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1">
+              Overall Progress
+            </p>
+            <p className="text-2xl font-bold text-slate-900 tabular-nums">{product.progressPercent}%</p>
+            <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all"
+                style={{ width: `${product.progressPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-1.5">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "h-8 px-3.5 rounded-lg text-[11px] font-medium border transition-colors",
+              activeTab === tab.id
+                ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab panels */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+            <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              <DetailField label="Product Name">{product.name}</DetailField>
+              <DetailField label="SKU">
+                <span className="font-mono text-[11px]">{product.sku}</span>
+              </DetailField>
+              <DetailField label="Brand">{product.brandName || "—"}</DetailField>
+              <DetailField label="Category">{product.category || "—"}</DetailField>
+              <DetailField label="Assigned Manager">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold flex items-center justify-center">
+                    {product.manager.initials}
+                  </span>
+                  <span>{product.manager.name}</span>
+                </div>
+              </DetailField>
+              <DetailField label="Created Date">{createdDate}</DetailField>
+              <DetailField label="Priority">
+                <PriorityBadge label={product.priorityLabel.replace(" Priority", "")} level={product.priorityLevel} />
+              </DetailField>
+              <DetailField label="Current Stage">
+                <LiveBadge label={product.stageLabel} />
+              </DetailField>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-2">
+                  Reference Links
+                </p>
+                {product.referenceLinks.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {product.referenceLinks.map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                      >
+                        <Link2 className="w-3 h-3" />
+                        {link.label}
+                        <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500">No reference links yet. Add competitors in the workflow.</p>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-2">
+                  Project Folder
+                </p>
+                <div className="inline-flex items-center gap-1.5 text-[11px] text-orange-600 font-medium">
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  {product.driveFolder}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>
+              <p className="text-[11px] text-slate-600 leading-relaxed">{product.notes}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+              <h2 className="text-xs font-semibold text-slate-900">Quick Stats</h2>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Total Orders</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{product.stats.totalOrders}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Revenue</span>
+                  <span className="font-semibold text-emerald-600 tabular-nums">
+                    {product.stats.revenue != null ? `₹${product.stats.revenue.toLocaleString("en-IN")}` : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Marketplaces</span>
+                  <span className="font-semibold text-slate-900">
+                    {product.stats.marketplacesActive}{" "}
+                    <span className="text-emerald-600 font-medium">active</span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Listing Score</span>
+                  <span className="font-semibold text-slate-900 inline-flex items-center gap-1 tabular-nums">
+                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                    {listingRating}
+                    {product.stats.listingScore > 0 && (
+                      <span className="text-slate-400 font-normal">/ 5</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "workflow" && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold text-slate-900">Build Your Brand Workflow</h2>
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 text-[11px] bg-orange-500 hover:bg-orange-600"
+              onClick={() => navigate(product.workflowUrl)}
+            >
+              Continue Workflow
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {product.workflowSteps.map((step) => (
+              <div
+                key={step.id}
+                className={cn(
+                  "flex items-center justify-between rounded-lg border px-3 py-2.5 text-[11px]",
+                  step.active && "border-indigo-200 bg-indigo-50/50",
+                  step.completed && !step.active && "border-emerald-100 bg-emerald-50/30",
+                  !step.active && !step.completed && "border-slate-100 bg-slate-50/50",
+                )}
+              >
+                <span className="font-medium text-slate-800">
+                  {step.id}. {step.label}
+                </span>
+                <span
+                  className={cn(
+                    "text-[10px] font-medium",
+                    step.completed && "text-emerald-600",
+                    step.active && "text-indigo-600",
+                    !step.completed && !step.active && "text-slate-400",
+                  )}
+                >
+                  {step.completed ? "Complete" : step.active ? "In progress" : "Pending"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "marketplaces" && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+          <p className="text-xs font-medium text-slate-800">No marketplaces connected yet</p>
+          <p className="text-[11px] text-slate-500 mt-1 max-w-md mx-auto">
+            Export your listing from the workflow to publish on Amazon, Shopify, or Flipkart. Connected channels will appear here.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            className="mt-4 h-8 text-xs bg-orange-500 hover:bg-orange-600"
+            onClick={() => navigate(product.workflowUrl)}
+          >
+            Go to Export Step
+          </Button>
+        </div>
+      )}
+
+      {activeTab === "orders" && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-semibold text-slate-900 mb-1">Orders</p>
+          <p className="text-2xl font-bold text-slate-900 tabular-nums">{product.stats.totalOrders}</p>
+          <p className="text-[11px] text-slate-500 mt-2">
+            Order tracking will appear here once this product is live on a connected marketplace.
+          </p>
+        </div>
+      )}
+
+      {activeTab === "sales" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Listing Score", value: `${product.stats.listingScore}/100` },
+            { label: "Competitors", value: String(product.stats.competitorCount) },
+            { label: "Images", value: String(product.stats.imageCount) },
+            { label: "Keywords", value: String(product.stats.keywordCount) },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-[10px] uppercase tracking-wide text-slate-400">{item.label}</p>
+              <p className="text-xl font-bold text-slate-900 mt-1 tabular-nums">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => navigate("/products")}
+        className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
+      >
+        <ArrowLeft className="w-3 h-3" />
+        Back to Products
+      </button>
+    </div>
+  );
+}

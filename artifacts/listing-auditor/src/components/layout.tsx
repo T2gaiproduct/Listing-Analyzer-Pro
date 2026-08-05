@@ -136,6 +136,7 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 function getPageTitle(location: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
   if (location === "/products") return "Products";
+  if (location.startsWith("/products/")) return "Product Details";
   if (location === "/recent-projects") return "Recent Projects";
   if (location === "/audits/new") return "Create Listing";
   if (location === "/audits/workflow") return "Create Listing";
@@ -165,6 +166,7 @@ function getPageTitle(location: string): string {
 function isRibbonVisible(location: string): boolean {
   if (location === "/" || location === "/dashboard") return false;
   if (location === "/products") return false;
+  if (location.startsWith("/products/")) return false;
   if (location === "/audits/new") return false;
   if (location === "/projects") return false;
   if (location === "/videos") return false;
@@ -746,7 +748,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
               const isActive =
                 location === href ||
-                (href === "/products" && location === "/products") ||
+                (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                 (href === "/recent-projects" && location === "/recent-projects") ||
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
@@ -863,7 +865,7 @@ export function Layout({ children }: { children: ReactNode }) {
               {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
                 const isActive =
                   location === href ||
-                  (href === "/products" && location === "/products") ||
+                  (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/recent-projects" && location === "/recent-projects") ||
                   (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search)));
                 return (

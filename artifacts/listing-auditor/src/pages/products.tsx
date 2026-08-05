@@ -434,7 +434,7 @@ export default function ProductsPage() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => navigate(product.workflowUrl)}
+                              onClick={() => navigate(`/products/${product.id}`)}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
                               aria-label="View product"
                             >
