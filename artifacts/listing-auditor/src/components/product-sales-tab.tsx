@@ -58,13 +58,6 @@ interface ProductSalesResponse {
   }>;
 }
 
-const MARKETPLACE_CARD_STYLES: Record<string, { bg: string; text: string; bar: string }> = {
-  Amazon: { bg: "bg-amber-50", text: "text-amber-600", bar: "bg-amber-500" },
-  Flipkart: { bg: "bg-blue-50", text: "text-blue-600", bar: "bg-blue-500" },
-  Shopify: { bg: "bg-sky-50", text: "text-sky-600", bar: "bg-sky-500" },
-  WooCommerce: { bg: "bg-emerald-50", text: "text-emerald-600", bar: "bg-emerald-500" },
-};
-
 const FALLBACK_MARKETPLACES: ProductSalesResponse["marketplaceRevenue"] = [
   { marketplace: "Amazon", revenue: 0, color: "#f59e0b", changePercent: 0, direction: "up", sharePercent: 0 },
   { marketplace: "Flipkart", revenue: 0, color: "#3b82f6", changePercent: 0, direction: "up", sharePercent: 0 },
@@ -331,40 +324,31 @@ export function ProductSalesTab({ productId, enabled }: { productId: number; ena
         <h2 className="text-xs font-semibold text-slate-900 mb-3">Revenue by Marketplace</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {marketplaceRevenue.map((item) => {
-            const styles = MARKETPLACE_CARD_STYLES[item.marketplace] ?? {
-              bg: "bg-slate-50",
-              text: "text-slate-600",
-              bar: "bg-slate-400",
-            };
             const isUp = item.direction === "up";
             return (
               <div
                 key={item.marketplace}
-                className={cn("rounded-xl border border-slate-200/80 overflow-hidden", styles.bg)}
+                className="rounded-lg border border-slate-200 bg-white p-4"
               >
-                <div className="p-4 pb-3">
-                  <p className={cn("text-[11px] font-semibold", styles.text)}>
-                    {item.marketplace}
-                  </p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
-                    {formatCurrency(item.revenue, currency)}
-                  </p>
-                  <div className={cn(
-                    "inline-flex items-center gap-0.5 mt-1.5 text-[10px] font-medium",
-                    isUp ? styles.text : "text-red-500",
-                  )}
-                  >
-                    {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                    {item.changePercent}%
-                  </div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                  {item.marketplace}
+                </p>
+                <p className="text-xl font-bold text-slate-900 mt-1 tabular-nums">
+                  {formatCurrency(item.revenue, currency)}
+                </p>
+                <div className={cn(
+                  "inline-flex items-center gap-0.5 mt-1.5 text-[10px] font-medium",
+                  isUp ? "text-emerald-600" : "text-red-500",
+                )}
+                >
+                  {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                  {item.changePercent}%
                 </div>
-                <div className="px-4 pb-4">
-                  <div className="h-1.5 rounded-full bg-white/70 overflow-hidden">
-                    <div
-                      className={cn("h-full rounded-full transition-all", styles.bar)}
-                      style={{ width: `${Math.max(item.sharePercent, item.revenue > 0 ? 4 : 0)}%` }}
-                    />
-                  </div>
+                <div className="mt-3 h-1 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-slate-300 transition-all"
+                    style={{ width: `${Math.max(item.sharePercent, item.revenue > 0 ? 4 : 0)}%` }}
+                  />
                 </div>
               </div>
             );
