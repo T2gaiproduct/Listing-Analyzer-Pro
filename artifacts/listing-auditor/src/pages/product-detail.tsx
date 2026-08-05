@@ -5,7 +5,6 @@ import { useUser } from "@clerk/react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
-  ChevronRight,
   ExternalLink,
   FolderOpen,
   Link2,
@@ -20,7 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
-import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
 import {
   isBuildBrandAudit,
@@ -160,7 +158,6 @@ function isValidProductDetail(p: ProductDetailView | undefined | null): p is Pro
 }
 
 export default function ProductDetailPage({ id }: { id: number }) {
-  const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { featureWorkspaceId } = useWorkspace();
   const [, navigate] = useLocation();
@@ -277,38 +274,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   return (
     <div className="space-y-3 animate-in fade-in duration-300 pb-8">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-[11px] text-slate-400 min-w-0">
-        <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
-          {platformName}
-        </Link>
-        <ChevronRight className="w-3 h-3 shrink-0" />
-        <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
-          Products
-        </Link>
-        <ChevronRight className="w-3 h-3 shrink-0" />
-        <span className="text-slate-600 truncate">{product.name}</span>
-      </div>
-
-      <ProductDetailRibbon
-        productId={product.id}
-        productName={product.name}
-        workflowUrl={product.workflowUrl}
-        onNavigate={navigate}
-      />
-
-      <div className="flex justify-start">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-[11px]"
-          onClick={() => navigate(product.workflowUrl)}
-        >
-          <Pencil className="w-3 h-3 mr-1" />
-          Edit in Workflow
-        </Button>
-      </div>
+      <ProductDetailRibbon productId={product.id} productName={product.name} />
 
       {/* Header card */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
