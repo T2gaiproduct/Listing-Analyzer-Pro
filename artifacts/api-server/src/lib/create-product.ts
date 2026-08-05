@@ -1,11 +1,6 @@
 import { db, auditsTable, productProfilesTable, productMarketplaceListingsTable } from "@workspace/db";
 
-export const WORKFLOW_TEMPLATES = [
-  { id: "build-brand-standard", label: "Build Your Brand — Standard", initialStep: 1 },
-  { id: "build-brand-listing", label: "Build Your Brand — Listing Focus", initialStep: 2 },
-  { id: "build-brand-graphics", label: "Build Your Brand — Graphics Focus", initialStep: 3 },
-  { id: "build-brand-export", label: "Build Your Brand — Export Ready", initialStep: 5 },
-] as const;
+const DEFAULT_WORKFLOW_TEMPLATE = "build-brand-standard";
 
 export const TARGET_MARKETPLACES = [
   "Amazon",
@@ -24,7 +19,6 @@ export interface CreateProductBody {
   referenceLinks?: string;
   driveFolderUrl?: string;
   notes?: string;
-  workflowTemplate: string;
   targetMarketplaces: string[];
 }
 
@@ -37,10 +31,8 @@ export function parseCreateProductBody(body: unknown):
   const raw = body as Record<string, unknown>;
   const productName = typeof raw.productName === "string" ? raw.productName.trim() : "";
   const sku = typeof raw.sku === "string" ? raw.sku.trim() : "";
-  const workflowTemplate = typeof raw.workflowTemplate === "string" ? raw.workflowTemplate.trim() : "";
   if (!productName) return { success: false, error: "Product name is required" };
   if (!sku) return { success: false, error: "SKU is required" };
-  if (!workflowTemplate) return { success: false, error: "Workflow template is required" };
 
   const priorityRaw = typeof raw.priority === "string" ? raw.priority : "medium";
   const priority = priorityRaw === "high" || priorityRaw === "low" ? priorityRaw : "medium";
@@ -58,15 +50,9 @@ export function parseCreateProductBody(body: unknown):
       referenceLinks: typeof raw.referenceLinks === "string" ? raw.referenceLinks : undefined,
       driveFolderUrl: typeof raw.driveFolderUrl === "string" ? raw.driveFolderUrl : undefined,
       notes: typeof raw.notes === "string" ? raw.notes : undefined,
-      workflowTemplate,
       targetMarketplaces,
     },
   };
-}
-
-function workflowInitialStep(templateId: string): number {
-  const template = WORKFLOW_TEMPLATES.find((t) => t.id === templateId);
-  return template?.initialStep ?? 1;
 }
 
 export async function createProductRecord(input: {
@@ -76,7 +62,6 @@ export async function createProductRecord(input: {
   workspaceId: number;
 }) {
   const { body, ownerId, createdByUserId, workspaceId } = input;
-  const initialStep = workflowInitialStep(body.workflowTemplate);
   const brandGuess = body.productName.trim().split(/\s+/)[0] ?? null;
 
   const [audit] = await db
@@ -96,7 +81,7 @@ export async function createProductRecord(input: {
       targetKeywords: [],
       overallScore: 0,
       status: "draft",
-      currentStep: initialStep,
+      currentStep: 1,
     })
     .returning();
 
@@ -108,7 +93,7 @@ export async function createProductRecord(input: {
     referenceLinks: body.referenceLinks?.trim() || null,
     driveFolderUrl: body.driveFolderUrl?.trim() || null,
     notes: body.notes?.trim() || null,
-    workflowTemplate: body.workflowTemplate,
+    workflowTemplate: DEFAULT_WORKFLOW_TEMPLATE,
     targetMarketplaces: body.targetMarketplaces,
   });
 

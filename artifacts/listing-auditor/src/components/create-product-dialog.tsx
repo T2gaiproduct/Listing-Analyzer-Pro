@@ -29,13 +29,6 @@ import { MarketplaceLogo } from "@/components/marketplace-logos";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const WORKFLOW_TEMPLATES = [
-  { id: "build-brand-standard", label: "Build Your Brand — Standard" },
-  { id: "build-brand-listing", label: "Build Your Brand — Listing Focus" },
-  { id: "build-brand-graphics", label: "Build Your Brand — Graphics Focus" },
-  { id: "build-brand-export", label: "Build Your Brand — Export Ready" },
-] as const;
-
 const MARKETPLACES = ["Amazon", "Flipkart", "Shopsy", "Shopify", "WooCommerce", "Meesho"] as const;
 
 const PRIORITIES = [
@@ -70,7 +63,6 @@ const defaultForm = {
   referenceLinks: "",
   driveFolderUrl: "",
   notes: "",
-  workflowTemplate: "",
   targetMarketplaces: ["Amazon"] as string[],
 };
 
@@ -152,8 +144,8 @@ export function CreateProductDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!form.productName.trim() || !form.sku.trim() || !form.workflowTemplate) {
-      setError("Product name, SKU, and workflow template are required.");
+    if (!form.productName.trim() || !form.sku.trim()) {
+      setError("Product name and SKU are required.");
       return;
     }
     createMutation.mutate(form);
@@ -168,7 +160,7 @@ export function CreateProductDialog({
               Create New Product
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Set up a new product and assign a workflow
+              Set up a new product for your workspace
             </DialogDescription>
           </DialogHeader>
 
@@ -261,25 +253,6 @@ export function CreateProductDialog({
                 placeholder="Any special instructions or context..."
                 className="min-h-[72px] text-xs resize-none"
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-slate-600">Workflow Template *</Label>
-              <Select
-                value={form.workflowTemplate}
-                onValueChange={(value) => setForm((p) => ({ ...p, workflowTemplate: value }))}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="— Select a workflow —" />
-                </SelectTrigger>
-                <SelectContent>
-                  {WORKFLOW_TEMPLATES.map((t) => (
-                    <SelectItem key={t.id} value={t.id} className="text-xs">
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">
