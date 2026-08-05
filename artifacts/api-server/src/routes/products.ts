@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, or, isNull, sql, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable, competitorsTable, userProfilesTable } from "@workspace/db";
+import { db, auditsTable, competitorsTable, userProfilesTable, productProfilesTable } from "@workspace/db";
 import {
   resolveTeamAndWorkspace,
   getAccountOwnerId,
@@ -13,7 +13,7 @@ import {
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
-import { mapProductPriority } from "../lib/product-priority.js";
+import { mapProductPriority, priorityFromStoredLevel } from "../lib/product-priority.js";
 import {
   ensureSampleProductOrders,
   getProductOrderStats,
@@ -418,7 +418,15 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     || managerProfile?.companyName?.trim()
     || "Account Owner";
 
+  const [profile] = await db
+    .select()
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, id))
+    .limit(1);
+
   const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
+  const sku = profile?.sku?.trim() || deriveSku(name, row.id);
+  const displayManagerName = profile?.assignedManager?.trim() || managerName;
   const mapped = mapProductStatus(row.status, row.currentStep);
   const stageLabel = mapStageLabel(row.status, row.currentStep);
   const progress = calcProgress(row.status, row.currentStep);
@@ -460,7 +468,8 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     competitorCount: competitors.length,
   });
 
-  const priority = mapProductPriority({
+  const priority = priorityFromStoredLevel(profile?.priority)
+    ?? mapProductPriority({
     overallScore: row.overallScore,
     status: row.status,
     currentStep: row.currentStep,
@@ -476,16 +485,17 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({
     ...mapRowToProductListItem(row),
+    sku,
     title: name,
     stageLabel,
     priorityLabel: priority.label,
     priorityLevel: priority.level,
     progressPercent: progress,
     manager: {
-      name: managerName,
-      initials: managerInitials(managerName),
+      name: displayManagerName,
+      initials: managerInitials(displayManagerName),
     },
-    notes: buildNotes(row),
+    notes: profile?.notes?.trim() || buildNotes(row),
     referenceLinks,
     driveFolder,
     driveFolderUrl: workflowUrl,
@@ -514,6 +524,106 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     status: mapped.status,
     statusLabel: mapped.status === "active" ? "Live" : mapped.label,
   });
+});
+
+router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""), 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid product id" });
+    return;
+  }
+
+  const body = req.body as Partial<{
+    productName: string;
+    brandName: string;
+    category: string;
+    sku: string;
+    priority: string;
+    assignedManager: string;
+    notes: string;
+  }>;
+
+  const where = await productsScopeWhere(req);
+  const [row] = await db
+    .select()
+    .from(auditsTable)
+    .where(and(where, eq(auditsTable.id, id)))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const auditUpdates: Record<string, unknown> = { updatedAt: new Date() };
+  if (typeof body.productName === "string") {
+    const trimmed = body.productName.trim();
+    if (!trimmed) {
+      res.status(400).json({ error: "Product name is required" });
+      return;
+    }
+    auditUpdates.projectName = trimmed;
+    auditUpdates.productName = trimmed;
+    auditUpdates.title = trimmed;
+  }
+  if (typeof body.brandName === "string") {
+    auditUpdates.brandName = body.brandName.trim() || null;
+  }
+  if (typeof body.category === "string") {
+    auditUpdates.category = body.category.trim() || null;
+  }
+
+  if (Object.keys(auditUpdates).length > 1) {
+    await db.update(auditsTable).set(auditUpdates).where(eq(auditsTable.id, id));
+  }
+
+  const profileUpdates: Record<string, unknown> = {};
+  if (typeof body.sku === "string") {
+    const trimmedSku = body.sku.trim();
+    if (!trimmedSku) {
+      res.status(400).json({ error: "SKU is required" });
+      return;
+    }
+    profileUpdates.sku = trimmedSku;
+  }
+  if (typeof body.priority === "string") {
+    const priority = body.priority === "high" || body.priority === "low" ? body.priority : "medium";
+    profileUpdates.priority = priority;
+  }
+  if (typeof body.assignedManager === "string") {
+    profileUpdates.assignedManager = body.assignedManager.trim() || null;
+  }
+  if (typeof body.notes === "string") {
+    profileUpdates.notes = body.notes.trim() || null;
+  }
+
+  if (Object.keys(profileUpdates).length > 0) {
+    const [existingProfile] = await db
+      .select()
+      .from(productProfilesTable)
+      .where(eq(productProfilesTable.auditId, id))
+      .limit(1);
+
+    if (existingProfile) {
+      await db
+        .update(productProfilesTable)
+        .set(profileUpdates)
+        .where(eq(productProfilesTable.auditId, id));
+    } else {
+      const currentName = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
+      await db.insert(productProfilesTable).values({
+        auditId: id,
+        sku: (profileUpdates.sku as string | undefined) ?? deriveSku(currentName, id),
+        priority: (profileUpdates.priority as string | undefined) ?? "medium",
+        assignedManager: (profileUpdates.assignedManager as string | null | undefined) ?? null,
+        notes: (profileUpdates.notes as string | null | undefined) ?? null,
+        workflowTemplate: "build-brand-standard",
+        targetMarketplaces: [],
+      });
+    }
+  }
+
+  res.json({ success: true });
 });
 
 export default router;

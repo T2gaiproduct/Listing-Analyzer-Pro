@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { format } from "date-fns";
 import {
@@ -8,6 +8,7 @@ import {
   ExternalLink,
   FolderOpen,
   Link2,
+  Loader2,
   Package,
   Pencil,
   Sparkles,
@@ -16,8 +17,11 @@ import {
 import { useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
+import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import {
   isBuildBrandAudit,
@@ -40,6 +44,33 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "orders", label: "Orders" },
   { id: "sales", label: "Sales" },
 ];
+
+type ProductEditForm = {
+  productName: string;
+  sku: string;
+  brandName: string;
+  category: string;
+  assignedManager: string;
+  priority: "high" | "medium" | "low";
+  notes: string;
+};
+
+function EditDetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
@@ -157,11 +188,17 @@ function isValidProductDetail(p: ProductDetailView | undefined | null): p is Pro
 }
 
 export default function ProductDetailPage({ id }: { id: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { user, isLoaded: clerkLoaded } = useUser();
-  const { featureWorkspaceId } = useWorkspace();
+  const { featureWorkspaceId, isAccountOwner, canEdit: wsCanEdit } = useWorkspace();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [imageFailed, setImageFailed] = useState(false);
+  const [isEditingListing, setIsEditingListing] = useState(false);
+  const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
+
+  const canEditProduct = isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand");
 
   const validId = !Number.isNaN(id) && id > 0;
   const queryEnabled = clerkLoaded && !!user && !!featureWorkspaceId && validId;
@@ -219,6 +256,37 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const isLoading = queryEnabled && (auditLoading || apiLoading) && !product;
 
+  const saveProductMutation = useMutation({
+    mutationFn: (data: ProductEditForm) =>
+      fetchJson(`${basePath}/api/products/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: data.productName.trim(),
+          sku: data.sku.trim(),
+          brandName: data.brandName.trim(),
+          category: data.category.trim(),
+          assignedManager: data.assignedManager.trim(),
+          priority: data.priority,
+          notes: data.notes.trim(),
+        }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId] });
+      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+      setIsEditingListing(false);
+      setEditForm(null);
+      toast({ title: "Saved", description: "Product details updated." });
+    },
+    onError: () => {
+      toast({
+        title: "Failed",
+        description: "Could not save product details.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in">
@@ -270,6 +338,43 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const listingRating = product.stats.listingScore > 0
     ? (product.stats.listingScore / 20).toFixed(1)
     : "—";
+
+  function openListingEditor() {
+    if (!canEditProduct) return;
+    setActiveTab("overview");
+    setEditForm({
+      productName: product.name,
+      sku: product.sku,
+      brandName: product.brandName ?? "",
+      category: product.category ?? "",
+      assignedManager: product.manager?.name ?? "",
+      priority: product.priorityLevel ?? "medium",
+      notes: product.notes ?? "",
+    });
+    setIsEditingListing(true);
+  }
+
+  function cancelListingEditor() {
+    setIsEditingListing(false);
+    setEditForm(null);
+  }
+
+  function saveListingEditor() {
+    if (!editForm) return;
+    if (!editForm.productName.trim() || !editForm.sku.trim()) {
+      toast({
+        title: "Missing fields",
+        description: "Product name and SKU are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveProductMutation.mutate(editForm);
+  }
+
+  function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
+    setEditForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
 
   return (
     <div className="space-y-3 animate-in fade-in duration-300 pb-8">
@@ -344,8 +449,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
               <>
                 <button
                   type="button"
-                  onClick={() => navigate(product.workflowUrl)}
-                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+                  onClick={openListingEditor}
+                  disabled={!canEditProduct}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border transition-colors",
+                    isEditingListing
+                      ? "bg-slate-100 text-slate-800 border-slate-300 shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                    !canEditProduct && "opacity-50 cursor-not-allowed",
+                  )}
                 >
                   <Pencil className="w-3 h-3 opacity-70" />
                   Edit Listing
@@ -368,7 +480,113 @@ export default function ProductDetailPage({ id }: { id: number }) {
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
-            <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
+              {isEditingListing && editForm && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={cancelListingEditor}
+                    disabled={saveProductMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 text-[11px] bg-orange-500 hover:bg-orange-600"
+                    onClick={saveListingEditor}
+                    disabled={saveProductMutation.isPending}
+                  >
+                    {saveProductMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save changes"
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {isEditingListing && editForm ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                <EditDetailField label="Product Name">
+                  <Input
+                    value={editForm.productName}
+                    onChange={(e) => updateEditField("productName", e.target.value)}
+                    className="text-[11px]"
+                  />
+                </EditDetailField>
+                <EditDetailField label="SKU">
+                  <Input
+                    value={editForm.sku}
+                    onChange={(e) => updateEditField("sku", e.target.value)}
+                    className="text-[11px] font-mono"
+                  />
+                </EditDetailField>
+                <EditDetailField label="Brand">
+                  <Input
+                    value={editForm.brandName}
+                    onChange={(e) => updateEditField("brandName", e.target.value)}
+                    className="text-[11px]"
+                  />
+                </EditDetailField>
+                <EditDetailField label="Category">
+                  <Input
+                    value={editForm.category}
+                    onChange={(e) => updateEditField("category", e.target.value)}
+                    className="text-[11px]"
+                    placeholder="e.g. Watches"
+                  />
+                </EditDetailField>
+                <EditDetailField label="Assigned Manager">
+                  <Input
+                    value={editForm.assignedManager}
+                    onChange={(e) => updateEditField("assignedManager", e.target.value)}
+                    className="text-[11px]"
+                  />
+                </EditDetailField>
+                <EditDetailField label="Created Date">
+                  <p className="text-xs text-slate-500 py-1.5">{createdDate}</p>
+                </EditDetailField>
+                <EditDetailField label="Priority">
+                  <select
+                    value={editForm.priority}
+                    onChange={(e) =>
+                      updateEditField(
+                        "priority",
+                        e.target.value as ProductEditForm["priority"],
+                      )
+                    }
+                    className="flex h-8 w-full rounded-lg border border-input bg-transparent px-3 text-[11px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </EditDetailField>
+                <EditDetailField label="Current Stage">
+                  <div className="py-1">
+                    <LiveBadge label={product.stageLabel} />
+                  </div>
+                </EditDetailField>
+                <div className="sm:col-span-2">
+                  <EditDetailField label="Notes">
+                    <Textarea
+                      value={editForm.notes}
+                      onChange={(e) => updateEditField("notes", e.target.value)}
+                      className="text-[11px] min-h-[72px]"
+                    />
+                  </EditDetailField>
+                </div>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <DetailField label="Product Name">{product.name}</DetailField>
               <DetailField label="SKU">
@@ -395,6 +613,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <LiveBadge label={product.stageLabel} />
               </DetailField>
             </div>
+            )}
 
             <div className="border-t border-slate-100 pt-4 space-y-3">
               <div>
@@ -444,7 +663,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
             />
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>
-              <p className="text-[11px] text-slate-600 leading-relaxed">{product.notes}</p>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                {isEditingListing && editForm ? editForm.notes : product.notes}
+              </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
               <h2 className="text-xs font-semibold text-slate-900">Quick Stats</h2>

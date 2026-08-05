@@ -37,3 +37,13 @@ export function mapProductPriority(input: ProductPriorityInput): {
 
   return { label: "Low Priority", level: "low" };
 }
+
+export function priorityFromStoredLevel(level: string | null | undefined): {
+  label: string;
+  level: "low" | "medium" | "high";
+} | null {
+  if (level === "high") return { label: "High Priority", level: "high" };
+  if (level === "medium") return { label: "Medium Priority", level: "medium" };
+  if (level === "low") return { label: "Low Priority", level: "low" };
+  return null;
+}
