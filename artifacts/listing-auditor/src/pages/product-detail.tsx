@@ -359,7 +359,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     : "—";
 
   function openListingEditor() {
-    if (!canEditProduct) return;
+    if (!canEditProduct || !product) return;
     setActiveTab("overview");
     setEditForm({
       productName: product.name,
