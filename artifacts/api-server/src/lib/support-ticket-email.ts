@@ -9,7 +9,7 @@ function escapeHtml(text: string): string {
 }
 
 function getAppBaseUrl(): string {
-  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://listingauditor.com").replace(/\/$/, "");
+  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
 }
 
 export async function resolveSupportInboxEmail(): Promise<string | null> {

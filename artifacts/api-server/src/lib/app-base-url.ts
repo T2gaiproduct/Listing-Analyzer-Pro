@@ -1,7 +1,7 @@
 import type { Request } from "express";
 import { isAllowedOrigin, isAllowedRedirectUrl } from "./allowed-origins.js";
 
-const DEFAULT_APP_URL = "https://listingauditor.com";
+const DEFAULT_APP_URL = "https://sellerlens.io";
 
 /** Canonical public site URL from env (no trailing slash). */
 export function getConfiguredAppUrl(): string | undefined {

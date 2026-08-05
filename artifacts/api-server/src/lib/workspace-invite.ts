@@ -7,7 +7,7 @@ import { shouldSendTeamInviteEmailToAddress } from "./notification-preferences.j
 import { fetchClerkUserIdByEmail } from "./clerk-user.js";
 import { createNotification } from "./notifications.js";
 
-const DEFAULT_APP_URL = "https://listingauditor.com";
+const DEFAULT_APP_URL = "https://sellerlens.io";
 
 export function resolveAppBaseUrl(req?: Request): string {
   if (req) {

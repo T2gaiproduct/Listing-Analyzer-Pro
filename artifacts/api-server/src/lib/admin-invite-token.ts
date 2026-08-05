@@ -5,6 +5,6 @@ export function generateAdminInviteToken(): string {
 }
 
 export function buildAdminInviteUrl(token: string, appBaseUrl?: string): string {
-  const base = (appBaseUrl ?? process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://listingauditor.com").replace(/\/$/, "");
+  const base = (appBaseUrl ?? process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
   return `${base}/accept-admin-invite?token=${token}`;
 }

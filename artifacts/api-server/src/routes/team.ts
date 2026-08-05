@@ -276,7 +276,7 @@ router.post("/team/invite", requireAuth, async (req, res): Promise<void> => {
       const [profile] = await db.select({ companyName: userProfilesTable.companyName }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
       const inviterName = profile?.companyName ?? "Your team owner";
       const companyName = profile?.companyName ?? "SellerLens";
-      const inviteUrl = `${process.env.APP_URL ?? "https://listingauditor.com"}/accept-invite?token=${token}`;
+      const inviteUrl = `${process.env.APP_URL ?? "https://sellerlens.io"}/accept-invite?token=${token}`;
       const html = inviteEmailTemplate({ inviterName, companyName, inviteUrl, role: roleName, invitedName });
       await sendEmail({ to: invitedEmail, subject: `You have been invited to join ${companyName}`, html });
     }

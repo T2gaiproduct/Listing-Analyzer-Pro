@@ -107,7 +107,7 @@ export function welcomeEmailTemplate({
       <p>You have been successfully added to <strong>${companyName}</strong> on <strong>SellerLens</strong>.</p>
       <p>Your assigned role is <strong>${role}</strong>. You can now access the team workspace and start collaborating.</p>
       <div class="btn-wrapper">
-        <a href="${process.env.APP_URL ?? "https://listingauditor.com"}/dashboard" class="btn">Go to Dashboard</a>
+        <a href="${process.env.APP_URL ?? "https://sellerlens.io"}/dashboard" class="btn">Go to Dashboard</a>
       </div>
     </div>
     <div class="footer">

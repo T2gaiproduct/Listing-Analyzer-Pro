@@ -15,7 +15,7 @@ function formatPermissionLabels(permissions: string[]): string[] {
 
 function getAppBaseUrl(override?: string): string {
   if (override?.trim()) return override.replace(/\/$/, "");
-  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://listingauditor.com").replace(/\/$/, "");
+  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
 }
 
 export async function sendAdminRoleAssignedEmail(opts: {

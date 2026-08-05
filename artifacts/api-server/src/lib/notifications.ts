@@ -32,7 +32,7 @@ export type NotificationType =
   | "welcome";
 
 function getAppBaseUrl(): string {
-  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://listingauditor.com").replace(/\/$/, "");
+  return (process.env.APP_URL ?? process.env.PUBLIC_APP_URL ?? "https://sellerlens.io").replace(/\/$/, "");
 }
 
 async function sendNotificationEmail(params: {

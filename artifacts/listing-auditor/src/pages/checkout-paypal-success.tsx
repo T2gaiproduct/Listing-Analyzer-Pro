@@ -14,7 +14,11 @@ type PayPalReturnContext = {
 };
 
 function readPayPalReturnContext(): PayPalReturnContext {
-  const orderId = localStorage.getItem("paypal_order_id") ?? sessionStorage.getItem("paypal_order_id");
+  const params = new URLSearchParams(window.location.search);
+  const urlToken = params.get("token")?.trim();
+  const storedOrderId =
+    localStorage.getItem("paypal_order_id") ?? sessionStorage.getItem("paypal_order_id");
+  const orderId = storedOrderId || urlToken || null;
   const planId = localStorage.getItem("paypal_plan_id");
   const packId = localStorage.getItem("paypal_pack_id");
   const creditType = localStorage.getItem("paypal_credit_type");
@@ -130,13 +134,7 @@ export default function CheckoutPayPalSuccess() {
         setStatus("success");
         await markCheckoutComplete(queryClient);
 
-        const redirectPath = context.isPlanPurchase
-          ? "/dashboard"
-          : context.isCreditPurchase
-            ? "/billing?tab=credits"
-            : "/billing";
-
-        setTimeout(() => setLocation(redirectPath), 1200);
+        setTimeout(() => setLocation("/dashboard"), 1200);
       } catch {
         const reconciled = await tryReconcileAndRedirect();
         if (!reconciled) {

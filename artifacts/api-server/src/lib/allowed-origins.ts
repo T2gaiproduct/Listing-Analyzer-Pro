@@ -4,6 +4,8 @@ export function getAllowedOrigins(): string[] {
     "http://localhost:3000",
     "http://127.0.0.1:19145",
     "http://127.0.0.1:3000",
+    "https://sellerlens.io",
+    "https://www.sellerlens.io",
   ]);
 
   const appUrl = process.env.APP_URL ?? process.env.PUBLIC_APP_URL;
