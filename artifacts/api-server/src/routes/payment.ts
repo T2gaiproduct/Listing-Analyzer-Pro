@@ -8,6 +8,7 @@ import {
   fulfillGatewayPaymentIntent,
   recordPendingGatewayPayment,
   resolveGatewayOrder,
+  persistPlanCheckoutCoupon,
 } from "../lib/gateway-payment";
 import { resolvePaymentReturnUrl } from "../lib/app-base-url";
 import { getGatewaySettings, getPayPalAccessToken } from "../lib/paypal-client";
@@ -98,6 +99,10 @@ router.post("/razorpay/create-order", requireAuth, async (req, res): Promise<voi
   );
 
   if (order.error) { res.status(400).json({ error: order.error.description }); return; }
+
+  if (resolved.intent.type === "plan") {
+    await persistPlanCheckoutCoupon(userId, resolved.intent);
+  }
 
   await recordPendingGatewayPayment({
     userId,
@@ -217,6 +222,10 @@ router.post("/paypal/create-order", requireAuth, async (req, res): Promise<void>
   };
 
   if (!order.id) { res.status(400).json({ error: order.message ?? "Failed to create PayPal order" }); return; }
+
+  if (resolved.intent.type === "plan") {
+    await persistPlanCheckoutCoupon(userId, resolved.intent);
+  }
 
   await recordPendingGatewayPayment({
     userId,

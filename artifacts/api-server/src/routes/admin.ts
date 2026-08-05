@@ -35,7 +35,7 @@ import { normalizeLwaClientSecret, testAmazonSpConnection } from "../lib/amazon-
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import { reconcileUserPendingPayPalPayments, testPayPalCredentials } from "../lib/paypal-capture";
-import { enrichPaymentCoupon } from "../lib/gateway-payment";
+import { enrichPaymentCouponAsync } from "../lib/gateway-payment";
 import {
   ADMIN_INVITES_MIGRATION_HINT,
   ensureAdminInviteToken,
@@ -481,7 +481,7 @@ router.get("/admin/customers/:userId/payments", requireAdmin, async (req, res): 
     .orderBy(desc(invoicesTable.createdAt))
     .limit(20);
   res.json({
-    payments: userPayments.map((p) => enrichPaymentCoupon(p)),
+    payments: await Promise.all(userPayments.map((p) => enrichPaymentCouponAsync(p))),
     invoices: userInvoices,
   });
 });
@@ -857,7 +857,7 @@ router.get("/admin/payments", requireAdmin, async (req, res): Promise<void> => {
     return true;
   });
   const [total] = await db.select({ c: count() }).from(paymentsTable);
-  res.json({ payments: filtered.map((p) => enrichPaymentCoupon(p)), total: Number(total?.c ?? 0) });
+  res.json({ payments: await Promise.all(filtered.map((p) => enrichPaymentCouponAsync(p))), total: Number(total?.c ?? 0) });
 });
 
 router.get("/admin/subscriptions", requireAdmin, async (_req, res): Promise<void> => {

@@ -7,6 +7,7 @@ import {
   subscriptionsTable,
   creditsTable,
   creditTransactionsTable,
+  couponsTable,
   type Plan,
 } from "@workspace/db";
 import { resolveCoupon, computeCouponDiscountAmount } from "./coupon-validation.js";
@@ -217,6 +218,105 @@ export function enrichPaymentCoupon<T extends {
   };
 }
 
+type PaymentCouponSource = {
+  id?: number;
+  userId?: string;
+  planId?: number | null;
+  amount: number;
+  couponCode?: string | null;
+  discountAmount?: number | null;
+  metadata?: unknown;
+};
+
+/** Resolve coupon for admin/history when DB columns were never populated. */
+export async function enrichPaymentCouponAsync<T extends PaymentCouponSource>(payment: T): Promise<T> {
+  const fromMetadata = enrichPaymentCoupon(payment);
+  if (fromMetadata.couponCode) return fromMetadata;
+
+  if (payment.userId) {
+    const [sub] = await db
+      .select({
+        couponCode: subscriptionsTable.couponCode,
+        discountAmount: subscriptionsTable.discountAmount,
+      })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.userId, payment.userId))
+      .limit(1);
+    if (sub?.couponCode) {
+      return {
+        ...fromMetadata,
+        couponCode: sub.couponCode,
+        discountAmount: sub.discountAmount ?? fromMetadata.discountAmount ?? null,
+      };
+    }
+  }
+
+  if (!payment.planId) return fromMetadata;
+
+  const intent = (payment.metadata as { intent?: GatewayPaymentIntent } | null)?.intent;
+  const billingCycle = intent?.type === "plan" ? intent.billingCycle : null;
+  if (!billingCycle) return fromMetadata;
+
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, payment.planId)).limit(1);
+  if (!plan) return fromMetadata;
+
+  const listPrice = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
+  const discount = Math.round((listPrice - payment.amount) * 100) / 100;
+  if (discount <= 0.01) return fromMetadata;
+
+  const activeCoupons = await db
+    .select()
+    .from(couponsTable)
+    .where(eq(couponsTable.isActive, true));
+
+  for (const coupon of activeCoupons) {
+    const expected = computeCouponDiscountAmount(coupon, listPrice);
+    if (Math.abs(expected - discount) < 0.02) {
+      return {
+        ...fromMetadata,
+        couponCode: coupon.code,
+        discountAmount: expected,
+      };
+    }
+  }
+
+  return {
+    ...fromMetadata,
+    discountAmount: discount,
+  };
+}
+
+/** Save coupon on subscription while gateway checkout is pending (mirrors Stripe create-checkout). */
+export async function persistPlanCheckoutCoupon(
+  userId: string,
+  intent: Extract<GatewayPaymentIntent, { type: "plan" }>,
+): Promise<void> {
+  const couponCode = intent.appliedCouponCode ?? intent.couponCode ?? null;
+  const discountAmount = intent.discountAmount ?? 0;
+  const now = new Date();
+
+  const [existingSub] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userId, userId))
+    .limit(1);
+
+  const patch = {
+    planId: intent.planId,
+    billingCycle: intent.billingCycle,
+    status: "pending_payment" as const,
+    couponCode,
+    discountAmount: couponCode ? discountAmount : 0,
+    updatedAt: now,
+  };
+
+  if (existingSub) {
+    await db.update(subscriptionsTable).set(patch).where(eq(subscriptionsTable.userId, userId));
+  } else {
+    await db.insert(subscriptionsTable).values({ userId, ...patch });
+  }
+}
+
 export async function findPendingGatewayPayment(
   gateway: "razorpay" | "paypal",
   gatewayOrderId: string,
@@ -387,10 +487,14 @@ export async function fulfillGatewayPaymentIntent(params: {
   const periodEnd = new Date(now);
   periodEnd.setMonth(periodEnd.getMonth() + (intent.billingCycle === "yearly" ? 12 : 1));
 
-  const couponCode = intent.appliedCouponCode ?? intent.couponCode ?? null;
-  const discountAmount = intent.discountAmount ?? 0;
-
   const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, params.userId));
+  const couponCode = intent.appliedCouponCode
+    ?? intent.couponCode
+    ?? existingSub?.couponCode
+    ?? null;
+  const discountAmount = intent.discountAmount
+    ?? (existingSub?.discountAmount && existingSub.discountAmount > 0 ? existingSub.discountAmount : 0);
+
   const subData = {
     planId: intent.planId,
     billingCycle: intent.billingCycle,

@@ -816,6 +816,8 @@ export default function AdminCustomerDetail({ userId }: { userId: string }) {
                         <td className="px-4 py-3 text-slate-600 text-xs">
                           {p.couponCode ? (
                             <span className="text-green-600 font-medium">{p.couponCode}{p.discountAmount ? ` –$${p.discountAmount}` : ""}</span>
+                          ) : p.discountAmount ? (
+                            <span className="text-green-600 font-medium">–${p.discountAmount}</span>
                           ) : "—"}
                         </td>
                         <td className="px-5 py-3 text-right">

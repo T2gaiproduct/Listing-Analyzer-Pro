@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import {
   CreditCard, Download, RefreshCw, Plus, CheckCircle2,
   Zap, Image, BarChart3, Clock, CheckCircle, ArrowRight,
-  Wallet, Loader2, Calculator, AlertTriangle, Coins,
+  Wallet, Loader2, Calculator, AlertTriangle, Coins, Tag, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { BillingOverview } from "@/components/billing-overview";
@@ -699,6 +700,32 @@ export default function Billing() {
   const [changingPlan, setChangingPlan] = useState(false);
   const [changePlanId, setChangePlanId] = useState<number | null>(null);
   const [changePlanCycle, setChangePlanCycle] = useState<"monthly" | "yearly">("monthly");
+  const [planCouponCode, setPlanCouponCode] = useState("");
+  const [planCouponResult, setPlanCouponResult] = useState<{ code: string; discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
+  const [planCouponError, setPlanCouponError] = useState("");
+
+  const validatePlanCouponMutation = useMutation({
+    mutationFn: (code: string) =>
+      fetch(`${basePath}/api/coupon/validate`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      }).then(async (r) => {
+        if (!r.ok) throw new Error((await r.json()).error);
+        return r.json() as Promise<{ code: string; discountPercent?: number; discountAmount?: number; description?: string }>;
+      }),
+    onSuccess: (data) => {
+      setPlanCouponResult(data);
+      setPlanCouponError("");
+    },
+    onError: (e: Error) => {
+      setPlanCouponError(e.message);
+      setPlanCouponResult(null);
+    },
+  });
+
+  const appliedPlanCouponCode = planCouponResult?.code ?? null;
 
   function invalidateSub() {
     void refetchCreditQueries(queryClient);
@@ -771,6 +798,34 @@ export default function Billing() {
       {tab === "plans" && (
         <div className="space-y-4">
           <p className="text-slate-500 text-sm">Plan changes take effect immediately. Prorated charges apply.</p>
+          <div className="bg-white border border-slate-200 rounded-2xl p-4">
+            <Label className="text-sm flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-orange-500" />Coupon code (optional)</Label>
+            <div className="flex flex-col sm:flex-row gap-2 mt-2">
+              <Input
+                className="text-sm"
+                placeholder="LAUNCH20"
+                value={planCouponCode}
+                onChange={(e) => {
+                  setPlanCouponCode(e.target.value);
+                  setPlanCouponResult(null);
+                  setPlanCouponError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && planCouponCode.trim()) validatePlanCouponMutation.mutate(planCouponCode);
+                }}
+              />
+              <Button
+                variant="outline"
+                className="sm:flex-shrink-0"
+                onClick={() => validatePlanCouponMutation.mutate(planCouponCode)}
+                disabled={!planCouponCode.trim() || validatePlanCouponMutation.isPending}
+              >
+                Apply
+              </Button>
+            </div>
+            {planCouponResult && <p className="text-green-600 text-sm mt-1.5 flex items-center gap-1"><Check className="w-3.5 h-3.5" />{planCouponResult.description}</p>}
+            {planCouponError && <p className="text-red-500 text-sm mt-1.5">{planCouponError}</p>}
+          </div>
           <div className="space-y-4">
             {plans.map((p) => {
               const isCurrent = p.id === sub?.planId;
@@ -820,6 +875,10 @@ export default function Billing() {
                       disabled={isCurrent || changingPlan || (!monthlySelected && !yearlySelected)}
                       onClick={() => {
                         if (isCurrent) return;
+                        if (planCouponCode.trim() && !appliedPlanCouponCode) {
+                          toast({ title: "Apply your coupon first", description: "Click Apply to validate your coupon code before continuing.", variant: "destructive" });
+                          return;
+                        }
                         setChangingPlan(true);
                         const newPlan = plans.find((p) => p.id === changePlanId);
                         const newPlanPrice = changePlanCycle === "yearly" ? (newPlan?.priceYearly ?? 0) * 12 : (newPlan?.priceMonthly ?? 0);
@@ -865,6 +924,7 @@ export default function Billing() {
                             credentials: "include", body: JSON.stringify({
                               planId: changePlanId,
                               billingCycle: changePlanCycle,
+                              couponCode: appliedPlanCouponCode || undefined,
                               successUrl: `${window.location.origin}${basePath}/checkout/success`,
                               cancelUrl: `${window.location.origin}${basePath}/billing`,
                             }),
@@ -884,6 +944,7 @@ export default function Billing() {
                             credentials: "include", body: JSON.stringify({
                               planId: changePlanId,
                               billingCycle: changePlanCycle,
+                              couponCode: appliedPlanCouponCode || undefined,
                               currency: "USD",
                               origin: window.location.origin,
                               returnUrl: paypalSuccessUrl,
