@@ -138,9 +138,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS member_credits_workspace_member_uniq
   ON member_credits (workspace_member_id)
   WHERE workspace_member_id IS NOT NULL;
 
-COMMIT;
+-- ─── product_orders (marketplace order tracking per Build Your Brand product) ─
+CREATE TABLE IF NOT EXISTS product_orders (
+  id serial PRIMARY KEY,
+  audit_id integer NOT NULL,
+  workspace_id integer,
+  order_number text NOT NULL,
+  marketplace text NOT NULL,
+  customer_name text NOT NULL,
+  quantity integer NOT NULL DEFAULT 1,
+  amount_cents integer NOT NULL,
+  currency text NOT NULL DEFAULT 'USD',
+  status text NOT NULL,
+  ordered_at timestamp NOT NULL,
+  tracking_number text,
+  is_deleted integer NOT NULL DEFAULT 0,
+  created_at timestamp NOT NULL DEFAULT now()
+);
 
--- Verification (run manually after COMMIT):
+CREATE INDEX IF NOT EXISTS product_orders_audit_id_idx
+  ON product_orders (audit_id);
+
+COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');
 --   SELECT to_regclass('public.workspace_members'), to_regclass('public.workspaces');

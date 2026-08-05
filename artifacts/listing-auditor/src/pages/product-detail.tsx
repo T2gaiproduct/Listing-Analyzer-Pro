@@ -27,6 +27,7 @@ import {
   mapAuditToProductDetail,
   type ProductDetailView,
 } from "@/lib/product-mappers";
+import { ProductOrdersTab } from "@/components/product-orders-tab";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -478,7 +479,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Revenue</span>
                   <span className="font-semibold text-emerald-600 tabular-nums">
-                    {product.stats.revenue != null ? `₹${product.stats.revenue.toLocaleString("en-IN")}` : "—"}
+                    {product.stats.revenue != null
+                      ? product.stats.revenueCurrency === "INR"
+                        ? `₹${product.stats.revenue.toLocaleString("en-IN")}`
+                        : `$${product.stats.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                      : "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
@@ -565,13 +570,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       )}
 
       {activeTab === "orders" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-semibold text-slate-900 mb-1">Orders</p>
-          <p className="text-2xl font-bold text-slate-900 tabular-nums">{product.stats.totalOrders}</p>
-          <p className="text-[11px] text-slate-500 mt-2">
-            Order tracking will appear here once this product is live on a connected marketplace.
-          </p>
-        </div>
+        <ProductOrdersTab productId={product.id} enabled={activeTab === "orders"} />
       )}
 
       {activeTab === "sales" && (

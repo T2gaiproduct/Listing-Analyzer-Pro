@@ -13,6 +13,11 @@ import {
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
 import { mapProductPriority } from "../lib/product-priority.js";
+import {
+  ensureSampleProductOrders,
+  getProductOrderStats,
+  listProductOrders,
+} from "../lib/product-orders.js";
 
 const router: IRouter = Router();
 
@@ -240,6 +245,43 @@ router.get("/products", requireAuth, resolveTeamAndWorkspace, async (req: Reques
   res.json({ products });
 });
 
+router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""), 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid product id" });
+    return;
+  }
+
+  const where = await productsScopeWhere(req);
+  const [row] = await db
+    .select({ id: auditsTable.id })
+    .from(auditsTable)
+    .where(and(where, eq(auditsTable.id, id)))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const workspaceId = getActiveWorkspaceId(req);
+  await ensureSampleProductOrders(id, workspaceId);
+
+  const search = typeof req.query.search === "string" ? req.query.search : undefined;
+  const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : undefined;
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  const dateRange = typeof req.query.dateRange === "string" ? req.query.dateRange : undefined;
+
+  const result = await listProductOrders(id, { search, marketplace, status, dateRange });
+
+  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+  res.json({
+    orders: result.orders,
+    total: result.total,
+    revenue: result.revenue,
+  });
+});
+
 router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""), 10);
   if (Number.isNaN(id)) {
@@ -328,6 +370,10 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     aiSuggestionCount: aiSuggestions.length,
   });
 
+  const workspaceId = getActiveWorkspaceId(req);
+  await ensureSampleProductOrders(id, workspaceId);
+  const orderStats = await getProductOrderStats(id);
+
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({
     ...mapRowToProductListItem(row),
@@ -351,9 +397,9 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
       active: (row.currentStep ?? 1) === index + 1 && row.status !== "complete",
     })),
     stats: {
-      totalOrders: 0,
-      revenue: null as number | null,
-      revenueCurrency: "INR",
+      totalOrders: orderStats.totalOrders,
+      revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
+      revenueCurrency: "USD",
       marketplacesActive: 0,
       listingScore: row.overallScore ?? 0,
       competitorCount: competitors.length,
