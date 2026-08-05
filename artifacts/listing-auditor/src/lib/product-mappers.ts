@@ -193,7 +193,7 @@ export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account
     brandName: audit.brandName ?? null,
     category: audit.category ?? null,
     status: mapped.status,
-    statusLabel: mapped.status === "active" ? "Live" : mapped.statusLabel,
+    statusLabel: mapped.status === "active" ? "Live" : mapped.label,
     stageLabel,
     priorityLabel: priority.label,
     priorityLevel: priority.level,
