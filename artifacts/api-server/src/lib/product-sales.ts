@@ -32,6 +32,9 @@ export interface ProductSalesData {
     marketplace: string;
     revenue: number;
     color: string;
+    changePercent: number;
+    direction: "up" | "down";
+    sharePercent: number;
   }>;
 }
 
@@ -43,6 +46,12 @@ const MARKETPLACE_COLORS: Record<string, string> = {
 };
 
 const MARKETPLACE_ORDER = ["Amazon", "Flipkart", "Shopify", "WooCommerce"];
+
+function normalizeMarketplace(name: string): string {
+  const trimmed = name.trim();
+  const match = MARKETPLACE_ORDER.find((mp) => mp.toLowerCase() === trimmed.toLowerCase());
+  return match ?? trimmed;
+}
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -100,12 +109,14 @@ export async function getProductSales(auditId: number): Promise<ProductSalesData
   const previous = emptyBucket();
   const daily = new Map<string, Bucket>();
   const marketplaceTotals = new Map<string, number>();
+  const marketplacePreviousTotals = new Map<string, number>();
 
   for (const row of rows) {
     const orderedAt = row.orderedAt instanceof Date ? row.orderedAt : new Date(row.orderedAt);
     const isReturned = row.status === "returned";
     const revenue = isReturned ? 0 : row.amountCents / 100;
     const dayKey = startOfDay(orderedAt).toISOString().slice(0, 10);
+    const mp = normalizeMarketplace(row.marketplace);
 
     const bucket = daily.get(dayKey) ?? emptyBucket();
     bucket.orders += 1;
@@ -118,13 +129,15 @@ export async function getProductSales(auditId: number): Promise<ProductSalesData
       current.units += row.quantity;
       current.revenue += revenue;
       if (!isReturned) {
-        const mp = row.marketplace;
         marketplaceTotals.set(mp, (marketplaceTotals.get(mp) ?? 0) + revenue);
       }
     } else if (orderedAt >= previousStart) {
       previous.orders += 1;
       previous.units += row.quantity;
       previous.revenue += revenue;
+      if (!isReturned) {
+        marketplacePreviousTotals.set(mp, (marketplacePreviousTotals.get(mp) ?? 0) + revenue);
+      }
     }
   }
 
@@ -143,28 +156,37 @@ export async function getProductSales(auditId: number): Promise<ProductSalesData
     });
   }
 
-  const totalMarketplaceRevenue = [...marketplaceTotals.values()].reduce((s, v) => s + v, 0);
+  const totalMarketplaceRevenue = MARKETPLACE_ORDER
+    .reduce((sum, mp) => sum + (marketplaceTotals.get(mp) ?? 0), 0);
 
-  const revenueSplit = MARKETPLACE_ORDER
-    .map((marketplace) => {
-      const revenue = marketplaceTotals.get(marketplace) ?? 0;
-      const percent = totalMarketplaceRevenue > 0
+  const revenueSplit = MARKETPLACE_ORDER.map((marketplace) => {
+    const revenue = marketplaceTotals.get(marketplace) ?? 0;
+    const percent = totalMarketplaceRevenue > 0
+      ? Math.round((revenue / totalMarketplaceRevenue) * 100)
+      : 0;
+    return {
+      marketplace,
+      revenue: Number(revenue.toFixed(2)),
+      percent,
+      color: MARKETPLACE_COLORS[marketplace] ?? "#94a3b8",
+    };
+  });
+
+  const marketplaceRevenue = MARKETPLACE_ORDER.map((marketplace) => {
+    const revenue = marketplaceTotals.get(marketplace) ?? 0;
+    const prevRevenue = marketplacePreviousTotals.get(marketplace) ?? 0;
+    const change = pctChange(revenue, prevRevenue);
+    return {
+      marketplace,
+      revenue: Number(revenue.toFixed(2)),
+      color: MARKETPLACE_COLORS[marketplace] ?? "#94a3b8",
+      changePercent: Math.abs(change),
+      direction: change >= 0 ? "up" as const : "down" as const,
+      sharePercent: totalMarketplaceRevenue > 0
         ? Math.round((revenue / totalMarketplaceRevenue) * 100)
-        : 0;
-      return {
-        marketplace,
-        revenue: Number(revenue.toFixed(2)),
-        percent,
-        color: MARKETPLACE_COLORS[marketplace] ?? "#94a3b8",
-      };
-    })
-    .filter((item) => item.revenue > 0 || totalMarketplaceRevenue === 0);
-
-  const marketplaceRevenue = revenueSplit.map(({ marketplace, revenue, color }) => ({
-    marketplace,
-    revenue,
-    color,
-  }));
+        : 0,
+    };
+  });
 
   const currentAov = current.orders > 0 ? current.revenue / current.orders : 0;
   const previousAov = previous.orders > 0 ? previous.revenue / previous.orders : 0;
@@ -178,12 +200,7 @@ export async function getProductSales(auditId: number): Promise<ProductSalesData
       avgOrderValue: buildKpi(Number(currentAov.toFixed(2)), Number(previousAov.toFixed(2))),
     },
     trend,
-    revenueSplit: revenueSplit.length > 0 ? revenueSplit : MARKETPLACE_ORDER.map((marketplace) => ({
-      marketplace,
-      revenue: 0,
-      percent: 0,
-      color: MARKETPLACE_COLORS[marketplace] ?? "#94a3b8",
-    })),
+    revenueSplit,
     marketplaceRevenue,
   };
 }
