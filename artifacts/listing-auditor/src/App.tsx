@@ -45,6 +45,7 @@ import {
   Tutorials,
   Dashboard,
   RecentProjectsPage,
+  ProductsPage,
   AuditNew,
   AuditDetail,
   CompetitorNew,
@@ -686,6 +687,9 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
+      </Route>
+      <Route path="/products">
+        <WorkspaceProtectedRoute><ProductsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/recent-projects">
         <WorkspaceProtectedRoute><RecentProjectsPage /></WorkspaceProtectedRoute>

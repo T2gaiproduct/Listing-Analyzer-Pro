@@ -29,6 +29,7 @@ export const Privacy = lazy(() => import("@/pages/privacy"));
 export const Tutorials = lazy(() => import("@/pages/tutorials"));
 
 export const Dashboard = lazy(() => import("@/pages/dashboard"));
+export const ProductsPage = lazy(() => import("@/pages/products"));
 export const RecentProjectsPage = lazy(() => import("@/pages/recent-projects"));
 export const AuditNew = lazy(() => import("@/pages/audit-new"));
 export const AuditDetail = lazy(() => import("@/pages/audit-detail"));

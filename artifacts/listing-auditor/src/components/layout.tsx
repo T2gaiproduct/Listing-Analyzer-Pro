@@ -1,6 +1,7 @@
 import { ReactNode, useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import {
+  Package,
   FilePlus2,
   FileSearch,
   Palette,
@@ -63,6 +64,7 @@ const mainNavItems: Array<{
   feature: WorkspaceFeature;
   comingSoon?: boolean;
 }> = [
+  { icon: Package, label: "Products", href: "/products", feature: "build_brand" },
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
@@ -133,6 +135,7 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 // --- Page title map ---------------------------------------------------------
 function getPageTitle(location: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
+  if (location === "/products") return "Products";
   if (location === "/recent-projects") return "Recent Projects";
   if (location === "/audits/new") return "Create Listing";
   if (location === "/audits/workflow") return "Create Listing";
@@ -161,6 +164,7 @@ function getPageTitle(location: string): string {
 // --- Ribbon visibility -------------------------------------------------------
 function isRibbonVisible(location: string): boolean {
   if (location === "/" || location === "/dashboard") return false;
+  if (location === "/products") return false;
   if (location === "/audits/new") return false;
   if (location === "/projects") return false;
   if (location === "/videos") return false;
@@ -742,6 +746,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
               const isActive =
                 location === href ||
+                (href === "/products" && location === "/products") ||
                 (href === "/recent-projects" && location === "/recent-projects") ||
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
@@ -858,6 +863,7 @@ export function Layout({ children }: { children: ReactNode }) {
               {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
                 const isActive =
                   location === href ||
+                  (href === "/products" && location === "/products") ||
                   (href === "/recent-projects" && location === "/recent-projects") ||
                   (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search)));
                 return (
