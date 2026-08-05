@@ -156,10 +156,10 @@ export function isBuildBrandAudit(audit: AuditLike): boolean {
 
 export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account Owner"): ProductDetailView {
   const name = audit.projectName?.trim() || audit.productName?.trim() || "Untitled Product";
-  const mapped = mapProductStatus(audit.status, audit.currentStep ?? null);
+  const mapped = mapProductStatus(audit.status ?? "draft", audit.currentStep ?? null);
   const priority = mapPriority(audit.overallScore ?? 0);
-  const stageLabel = mapStageLabel(audit.status, audit.currentStep ?? null);
-  const progress = calcProgress(audit.status, audit.currentStep ?? null);
+  const stageLabel = mapStageLabel(audit.status ?? "draft", audit.currentStep ?? null);
+  const progress = calcProgress(audit.status ?? "draft", audit.currentStep ?? null);
   const brand = audit.brandName?.trim() || "Brand";
 
   const referenceLinks: Array<{ label: string; url: string }> = [];

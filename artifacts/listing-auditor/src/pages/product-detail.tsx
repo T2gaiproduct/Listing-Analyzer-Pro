@@ -56,8 +56,9 @@ function DetailField({ label, children }: { label: string; children: React.React
   );
 }
 
-function LiveBadge({ label }: { label: string }) {
-  const isLive = label.toLowerCase() === "live" || label.toLowerCase() === "active";
+function LiveBadge({ label }: { label?: string | null }) {
+  const text = label?.trim() || "Draft";
+  const isLive = text.toLowerCase() === "live" || text.toLowerCase() === "active";
   return (
     <span
       className={cn(
@@ -67,23 +68,36 @@ function LiveBadge({ label }: { label: string }) {
           : "bg-amber-50 text-amber-700 border-amber-200",
       )}
     >
-      {label}
+      {text}
     </span>
   );
 }
 
-function PriorityBadge({ label, level }: { label: string; level: string }) {
+function PriorityBadge({ label, level }: { label?: string | null; level?: string | null }) {
+  const text = label?.trim() || "Medium";
+  const lvl = level ?? "medium";
   return (
     <span
       className={cn(
         "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
         level === "high" && "bg-violet-50 text-violet-700 border-violet-200",
-        level === "medium" && "bg-slate-50 text-slate-600 border-slate-200",
-        level === "low" && "bg-slate-50 text-slate-500 border-slate-200",
+        lvl === "medium" && "bg-slate-50 text-slate-600 border-slate-200",
+        lvl === "low" && "bg-slate-50 text-slate-500 border-slate-200",
       )}
     >
-      {label}
+      {text}
     </span>
+  );
+}
+
+function isValidProductDetail(p: ProductDetailView | undefined | null): p is ProductDetailView {
+  return Boolean(
+    p?.id
+    && p.name
+    && p.statusLabel
+    && p.stageLabel
+    && p.priorityLabel
+    && p.manager?.name,
   );
 }
 
@@ -111,25 +125,38 @@ export default function ProductDetailPage({ id }: { id: number }) {
     staleTime: 10_000,
   });
 
-  const useAuditFallback = queryEnabled && !apiLoading && apiError;
   const {
     data: auditData,
     isLoading: auditLoading,
     isError: auditError,
   } = useGetAudit(id, {
     query: {
-      enabled: useAuditFallback,
+      enabled: queryEnabled,
       retry: 1,
     },
   });
 
   const product = useMemo((): ProductDetailView | null => {
-    if (apiProduct) return apiProduct;
-    if (!auditData || !isBuildBrandAudit(auditData)) return null;
-    return mapAuditToProductDetail(auditData);
+    if (auditData && isBuildBrandAudit(auditData)) {
+      const mapped = mapAuditToProductDetail(auditData);
+      if (isValidProductDetail(apiProduct)) {
+        return {
+          ...mapped,
+          ...apiProduct,
+          manager: apiProduct.manager ?? mapped.manager,
+          notes: apiProduct.notes || mapped.notes,
+          referenceLinks: apiProduct.referenceLinks?.length
+            ? apiProduct.referenceLinks
+            : mapped.referenceLinks,
+        };
+      }
+      return mapped;
+    }
+    if (isValidProductDetail(apiProduct)) return apiProduct;
+    return null;
   }, [apiProduct, auditData]);
 
-  const isLoading = apiLoading || (useAuditFallback && auditLoading && !product);
+  const isLoading = queryEnabled && (auditLoading || apiLoading) && !product;
 
   if (isLoading) {
     return (
@@ -239,7 +266,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <span className="mx-1.5 text-slate-300">|</span>
                 <span className="font-medium text-slate-600">Category:</span> {product.category || "—"}
                 <span className="mx-1.5 text-slate-300">|</span>
-                <span className="font-medium text-slate-600">Manager:</span> {product.manager.name}
+                <span className="font-medium text-slate-600">Manager:</span> {product.manager?.name ?? "—"}
               </p>
             </div>
           </div>
@@ -292,14 +319,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
               <DetailField label="Assigned Manager">
                 <div className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold flex items-center justify-center">
-                    {product.manager.initials}
+                    {product.manager?.initials ?? "?"}
                   </span>
-                  <span>{product.manager.name}</span>
+                  <span>{product.manager?.name ?? "—"}</span>
                 </div>
               </DetailField>
               <DetailField label="Created Date">{createdDate}</DetailField>
               <DetailField label="Priority">
-                <PriorityBadge label={product.priorityLabel.replace(" Priority", "")} level={product.priorityLevel} />
+                <PriorityBadge
+                  label={(product.priorityLabel ?? "Medium Priority").replace(" Priority", "")}
+                  level={product.priorityLevel}
+                />
               </DetailField>
               <DetailField label="Current Stage">
                 <LiveBadge label={product.stageLabel} />
