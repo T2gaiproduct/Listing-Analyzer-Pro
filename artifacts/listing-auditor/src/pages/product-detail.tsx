@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -13,51 +13,22 @@ import {
   Pencil,
   Star,
 } from "lucide-react";
+import { useGetAudit } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fetchJson } from "@/lib/api-fetch";
+import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
+import {
+  isBuildBrandAudit,
+  mapAuditToProductDetail,
+  type ProductDetailView,
+} from "@/lib/product-mappers";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type TabId = "overview" | "workflow" | "marketplaces" | "orders" | "sales";
-
-interface ProductDetail {
-  id: number;
-  name: string;
-  title: string;
-  sku: string;
-  imageUrl: string | null;
-  brandName: string | null;
-  category: string | null;
-  status: string;
-  statusLabel: string;
-  stageLabel: string;
-  priorityLabel: string;
-  priorityLevel: "low" | "medium" | "high";
-  progressPercent: number;
-  currentStep: number | null;
-  createdAt: string;
-  updatedAt: string;
-  workflowUrl: string;
-  manager: { name: string; initials: string };
-  notes: string;
-  referenceLinks: Array<{ label: string; url: string }>;
-  driveFolder: string;
-  workflowSteps: Array<{ id: number; label: string; completed: boolean; active: boolean }>;
-  stats: {
-    totalOrders: number;
-    revenue: number | null;
-    revenueCurrency: string;
-    marketplacesActive: number;
-    listingScore: number;
-    competitorCount: number;
-    imageCount: number;
-    keywordCount: number;
-  };
-}
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "overview", label: "Overview" },
@@ -124,12 +95,41 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [imageFailed, setImageFailed] = useState(false);
 
-  const { data: product, isLoading, error } = useQuery({
+  const validId = !Number.isNaN(id) && id > 0;
+  const queryEnabled = clerkLoaded && !!user && !!featureWorkspaceId && validId;
+
+  const {
+    data: apiProduct,
+    isLoading: apiLoading,
+    isError: apiError,
+    error: apiErrorObj,
+  } = useQuery({
     queryKey: ["product", id, featureWorkspaceId],
-    queryFn: () => fetchJson<ProductDetail>(`${basePath}/api/products/${id}`),
-    enabled: clerkLoaded && !!user && !!featureWorkspaceId && !Number.isNaN(id),
-    retry: 1,
+    queryFn: () => fetchJson<ProductDetailView>(`${basePath}/api/products/${id}`),
+    enabled: queryEnabled,
+    retry: false,
+    staleTime: 10_000,
   });
+
+  const useAuditFallback = queryEnabled && !apiLoading && apiError;
+  const {
+    data: auditData,
+    isLoading: auditLoading,
+    isError: auditError,
+  } = useGetAudit(id, {
+    query: {
+      enabled: useAuditFallback,
+      retry: 1,
+    },
+  });
+
+  const product = useMemo((): ProductDetailView | null => {
+    if (apiProduct) return apiProduct;
+    if (!auditData || !isBuildBrandAudit(auditData)) return null;
+    return mapAuditToProductDetail(auditData);
+  }, [apiProduct, auditData]);
+
+  const isLoading = apiLoading || (useAuditFallback && auditLoading && !product);
 
   if (isLoading) {
     return (
@@ -145,17 +145,34 @@ export default function ProductDetailPage({ id }: { id: number }) {
     );
   }
 
-  if (error || !product) {
+  if (!product) {
+    const apiMissing = apiErrorObj instanceof ApiFetchError && apiErrorObj.status === 404;
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Package className="w-10 h-10 text-slate-300 mb-3" />
         <h2 className="text-base font-semibold text-slate-900">Product not found</h2>
         <p className="text-xs text-slate-500 mt-2 max-w-md">
-          This product may have been removed or you may not have access to it in the current workspace.
+          {auditError
+            ? "This product may have been removed or you may not have access to it in the current workspace."
+            : apiMissing
+              ? "The product detail API is not available yet. Deploy the latest API build, or open this product from Build Your Brand workflow."
+              : "This product may have been removed or you may not have access to it in the current workspace."}
         </p>
-        <Button asChild size="sm" variant="outline" className="mt-5 h-8 text-xs">
-          <Link href="/products">Back to Products</Link>
-        </Button>
+        <div className="flex gap-2 mt-5">
+          <Button asChild size="sm" variant="outline" className="h-8 text-xs">
+            <Link href="/products">Back to Products</Link>
+          </Button>
+          {validId && (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 text-xs bg-orange-500 hover:bg-orange-600"
+              onClick={() => navigate(`/audits/workflow?resume=${id}`)}
+            >
+              Open in Workflow
+            </Button>
+          )}
+        </div>
       </div>
     );
   }

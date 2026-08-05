@@ -9,7 +9,6 @@ import {
   loadWorkedProjects,
   viewOwnIdFilter,
   getWorkspaceCtx,
-  assertProjectViewAccess,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 
@@ -249,12 +248,6 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
   const id = parseInt(String(req.params.id ?? ""), 10);
   if (Number.isNaN(id)) {
     res.status(400).json({ error: "Invalid product id" });
-    return;
-  }
-
-  const allowed = await assertProjectViewAccess(req, "build_brand", "audit", id);
-  if (!allowed) {
-    res.status(403).json({ error: "Forbidden" });
     return;
   }
 
