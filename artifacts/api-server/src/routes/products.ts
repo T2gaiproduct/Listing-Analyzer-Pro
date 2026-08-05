@@ -18,6 +18,7 @@ import {
   getProductOrderStats,
   listProductOrders,
 } from "../lib/product-orders.js";
+import { getProductSales } from "../lib/product-sales.js";
 
 const router: IRouter = Router();
 
@@ -280,6 +281,34 @@ router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (
     total: result.total,
     revenue: result.revenue,
   });
+});
+
+router.get("/products/:id/sales", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""), 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid product id" });
+    return;
+  }
+
+  const where = await productsScopeWhere(req);
+  const [row] = await db
+    .select({ id: auditsTable.id })
+    .from(auditsTable)
+    .where(and(where, eq(auditsTable.id, id)))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const workspaceId = getActiveWorkspaceId(req);
+  await ensureSampleProductOrders(id, workspaceId);
+
+  const sales = await getProductSales(id);
+
+  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+  res.json(sales);
 });
 
 router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {

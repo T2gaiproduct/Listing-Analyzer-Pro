@@ -28,6 +28,7 @@ import {
   type ProductDetailView,
 } from "@/lib/product-mappers";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
+import { ProductSalesTab } from "@/components/product-sales-tab";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -574,19 +575,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       )}
 
       {activeTab === "sales" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: "Listing Score", value: `${product.stats.listingScore}/100` },
-            { label: "Competitors", value: String(product.stats.competitorCount) },
-            { label: "Images", value: String(product.stats.imageCount) },
-            { label: "Keywords", value: String(product.stats.keywordCount) },
-          ].map((item) => (
-            <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-[10px] uppercase tracking-wide text-slate-400">{item.label}</p>
-              <p className="text-xl font-bold text-slate-900 mt-1 tabular-nums">{item.value}</p>
-            </div>
-          ))}
-        </div>
+        <ProductSalesTab productId={product.id} enabled={activeTab === "sales"} />
       )}
 
       <button

@@ -24,24 +24,42 @@ const STATUS_LABELS: Record<ProductOrderStatus, string> = {
   returned: "Returned",
 };
 
-const SAMPLE_ORDER_TEMPLATES: Array<{
-  marketplace: string;
-  customer: string;
-  quantity: number;
-  amountCents: number;
-  status: ProductOrderStatus;
-  daysAgo: number;
-  tracking: string | null;
-}> = [
-  { marketplace: "Amazon", customer: "Vikram Patel", quantity: 2, amountCents: 13198, status: "delivered", daysAgo: 10, tracking: "AMZN1239842" },
-  { marketplace: "Flipkart", customer: "Priya Sharma", quantity: 1, amountCents: 6599, status: "shipped", daysAgo: 8, tracking: "FKRT8821901" },
-  { marketplace: "Shopify", customer: "Arjun Mehta", quantity: 3, amountCents: 19797, status: "processing", daysAgo: 5, tracking: null },
-  { marketplace: "WooCommerce", customer: "Ananya Reddy", quantity: 1, amountCents: 6599, status: "delivered", daysAgo: 14, tracking: "WOO4459012" },
-  { marketplace: "Amazon", customer: "Rahul Singh", quantity: 2, amountCents: 13198, status: "returned", daysAgo: 18, tracking: "AMZN9981204" },
-  { marketplace: "Flipkart", customer: "Sneha Iyer", quantity: 1, amountCents: 6599, status: "delivered", daysAgo: 21, tracking: "FKRT7710234" },
-  { marketplace: "Shopify", customer: "Karan Desai", quantity: 2, amountCents: 13198, status: "shipped", daysAgo: 3, tracking: "SHP3321987" },
-  { marketplace: "Amazon", customer: "Meera Nair", quantity: 1, amountCents: 6599, status: "processing", daysAgo: 1, tracking: null },
+const SAMPLE_CUSTOMERS = [
+  "Vikram Patel", "Priya Sharma", "Arjun Mehta", "Ananya Reddy",
+  "Rahul Singh", "Sneha Iyer", "Karan Desai", "Meera Nair",
+  "Aisha Khan", "Rohan Gupta", "Divya Joshi", "Nikhil Verma",
 ];
+
+const MARKETPLACE_WEIGHTS: Array<{ name: string; weight: number }> = [
+  { name: "Amazon", weight: 44 },
+  { name: "Flipkart", weight: 28 },
+  { name: "Shopify", weight: 18 },
+  { name: "WooCommerce", weight: 10 },
+];
+
+const SAMPLE_STATUSES: ProductOrderStatus[] = ["delivered", "shipped", "processing", "returned"];
+
+function pseudoRandom(seed: number): number {
+  return Math.abs(Math.sin(seed) * 10000) % 1;
+}
+
+function pickMarketplace(seed: number): string {
+  const roll = (pseudoRandom(seed) * 100) % 100;
+  let cumulative = 0;
+  for (const mp of MARKETPLACE_WEIGHTS) {
+    cumulative += mp.weight;
+    if (roll < cumulative) return mp.name;
+  }
+  return "Amazon";
+}
+
+function pickStatus(seed: number): ProductOrderStatus {
+  const roll = pseudoRandom(seed);
+  if (roll < 0.55) return "delivered";
+  if (roll < 0.78) return "shipped";
+  if (roll < 0.92) return "processing";
+  return "returned";
+}
 
 function daysAgoDate(daysAgo: number): Date {
   const date = new Date();
@@ -50,32 +68,66 @@ function daysAgoDate(daysAgo: number): Date {
   return date;
 }
 
-/** Seed demo marketplace orders once per product when none exist yet. */
+function generateHistoricalOrders(auditId: number, workspaceId: number | null) {
+  const orders: Array<typeof productOrdersTable.$inferInsert> = [];
+  const base = 8800 + auditId * 100;
+  let orderIndex = 0;
+
+  for (let day = 0; day < 60; day++) {
+    const seed = auditId * 1000 + day;
+    const ordersToday = 1 + Math.floor(pseudoRandom(seed) * 3);
+    for (let j = 0; j < ordersToday; j++) {
+      const itemSeed = seed + j * 17;
+      const quantity = 1 + Math.floor(pseudoRandom(itemSeed) * 3);
+      const amountCents = Math.round((2499 + pseudoRandom(itemSeed + 3) * 12000)) * quantity;
+      const status = pickStatus(itemSeed + 5);
+      const marketplace = pickMarketplace(itemSeed + 7);
+      const customer = SAMPLE_CUSTOMERS[Math.floor(pseudoRandom(itemSeed + 11) * SAMPLE_CUSTOMERS.length)]!;
+      const hasTracking = status === "delivered" || status === "shipped";
+      const trackingPrefix = marketplace.slice(0, 4).toUpperCase();
+
+      const orderedAt = daysAgoDate(day);
+      orderedAt.setHours(9 + Math.floor(pseudoRandom(itemSeed + 13) * 10));
+
+      orders.push({
+        auditId,
+        workspaceId,
+        orderNumber: `ORD-${base + orderIndex}`,
+        marketplace,
+        customerName: customer,
+        quantity,
+        amountCents,
+        currency: "USD",
+        status,
+        orderedAt,
+        trackingNumber: hasTracking ? `${trackingPrefix}${Math.floor(1000000 + pseudoRandom(itemSeed + 19) * 8999999)}` : null,
+      });
+      orderIndex += 1;
+    }
+  }
+
+  return orders;
+}
+
+/** Seed demo marketplace orders once per product when none exist yet. Backfills sparse legacy seeds. */
 export async function ensureSampleProductOrders(auditId: number, workspaceId: number | null): Promise<void> {
-  const [existing] = await db
-    .select({ id: productOrdersTable.id })
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
     .from(productOrdersTable)
-    .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)))
-    .limit(1);
+    .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)));
 
-  if (existing) return;
+  const count = countRow?.count ?? 0;
+  if (count >= 40) return;
 
-  const base = 8800 + auditId * 10;
-  await db.insert(productOrdersTable).values(
-    SAMPLE_ORDER_TEMPLATES.map((template, index) => ({
-      auditId,
-      workspaceId,
-      orderNumber: `ORD-${base + index}`,
-      marketplace: template.marketplace,
-      customerName: template.customer,
-      quantity: template.quantity,
-      amountCents: template.amountCents,
-      currency: "USD",
-      status: template.status,
-      orderedAt: daysAgoDate(template.daysAgo),
-      trackingNumber: template.tracking,
-    })),
-  );
+  if (count === 0) {
+    await db.insert(productOrdersTable).values(generateHistoricalOrders(auditId, workspaceId));
+    return;
+  }
+
+  const supplemental = generateHistoricalOrders(auditId, workspaceId).slice(0, 50 - count);
+  if (supplemental.length > 0) {
+    await db.insert(productOrdersTable).values(supplemental);
+  }
 }
 
 export interface ListProductOrdersQuery {
