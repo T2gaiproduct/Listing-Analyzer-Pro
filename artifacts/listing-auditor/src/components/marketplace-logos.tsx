@@ -3,31 +3,36 @@ import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+const LOGO_FILES: Record<string, string> = {
+  Amazon: "amazon.svg",
+  Shopify: "shopify.svg",
+  Flipkart: "flipkart.svg",
+  WooCommerce: "woocommerce.svg",
+  Meesho: "meesho.svg",
+  Shopsy: "shopsy.svg",
+};
+
+function MarketplaceImage({ marketplace, className }: { marketplace: string; className?: string }) {
+  const file = LOGO_FILES[marketplace];
+  if (!file) {
+    return (
+      <span className={cn("text-[11px] font-semibold text-slate-700", className)}>
+        {marketplace}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`${basePath}/marketplace/${file}`}
+      alt={marketplace}
+      className={cn("h-full w-auto max-w-full object-contain object-left", className)}
+    />
+  );
+}
+
 const cardClass =
   "flex flex-1 min-w-0 basis-0 sm:flex-none sm:w-28 items-center justify-center h-9 sm:h-14 px-0.5 sm:px-3 bg-transparent";
 const logoBoxClass = "flex items-center justify-center w-full h-4 sm:h-7 overflow-hidden";
-
-function AmazonLogo({ className }: { className?: string }) {
-  return (
-    <img
-      src={`${basePath}/marketplace/amazon.svg`}
-      alt=""
-      className={cn("h-full w-auto max-w-full object-contain", className)}
-      aria-hidden
-    />
-  );
-}
-
-function ShopifyLogo({ className }: { className?: string }) {
-  return (
-    <img
-      src={`${basePath}/marketplace/shopify.svg`}
-      alt=""
-      className={cn("h-full w-auto max-w-full object-contain", className)}
-      aria-hidden
-    />
-  );
-}
 
 type MarketplaceEntry = {
   name: string;
@@ -35,9 +40,14 @@ type MarketplaceEntry = {
 };
 
 const marketplaces: MarketplaceEntry[] = [
-  { name: "Amazon", render: (c) => <AmazonLogo className={c} /> },
-  { name: "Shopify", render: (c) => <ShopifyLogo className={c} /> },
-];
+  "Amazon",
+  "Shopify",
+  "Flipkart",
+  "WooCommerce",
+].map((name) => ({
+  name,
+  render: (className?: string) => <MarketplaceImage marketplace={name} className={className} />,
+}));
 
 function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
   return (
@@ -51,6 +61,20 @@ function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
     >
       <div className={cn(logoBoxClass, pill && "h-5 w-24")}>{item.render()}</div>
       <span className="sr-only">{item.name}</span>
+    </div>
+  );
+}
+
+export function MarketplaceLogo({
+  marketplace,
+  className,
+}: {
+  marketplace: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("h-5 w-24 flex items-center", className)}>
+      <MarketplaceImage marketplace={marketplace} className="max-h-5" />
     </div>
   );
 }

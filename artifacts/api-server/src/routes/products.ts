@@ -19,6 +19,10 @@ import {
   listProductOrders,
 } from "../lib/product-orders.js";
 import { getProductSales } from "../lib/product-sales.js";
+import {
+  ensureSampleMarketplaceListings,
+  listProductMarketplaces,
+} from "../lib/product-marketplaces.js";
 
 const router: IRouter = Router();
 
@@ -311,6 +315,40 @@ router.get("/products/:id/sales", requireAuth, resolveTeamAndWorkspace, async (r
   res.json(sales);
 });
 
+router.get("/products/:id/marketplaces", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""), 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid product id" });
+    return;
+  }
+
+  const where = await productsScopeWhere(req);
+  const [row] = await db
+    .select({
+      id: auditsTable.id,
+      productName: auditsTable.productName,
+      projectName: auditsTable.projectName,
+    })
+    .from(auditsTable)
+    .where(and(where, eq(auditsTable.id, id)))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const workspaceId = getActiveWorkspaceId(req);
+  const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
+  const sku = deriveSku(name, row.id);
+  await ensureSampleMarketplaceListings(id, workspaceId, name, sku);
+
+  const result = await listProductMarketplaces(id);
+
+  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+  res.json(result);
+});
+
 router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""), 10);
   if (Number.isNaN(id)) {
@@ -402,6 +440,8 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
   const workspaceId = getActiveWorkspaceId(req);
   await ensureSampleProductOrders(id, workspaceId);
   const orderStats = await getProductOrderStats(id);
+  await ensureSampleMarketplaceListings(id, workspaceId, name, deriveSku(name, row.id));
+  const marketplaceStats = await listProductMarketplaces(id);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({
@@ -429,7 +469,7 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
       totalOrders: orderStats.totalOrders,
       revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
       revenueCurrency: "USD",
-      marketplacesActive: 0,
+      marketplacesActive: marketplaceStats.activeCount,
       listingScore: row.overallScore ?? 0,
       competitorCount: competitors.length,
       imageCount: countImages(row),

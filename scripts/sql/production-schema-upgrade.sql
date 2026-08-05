@@ -159,6 +159,26 @@ CREATE TABLE IF NOT EXISTS product_orders (
 CREATE INDEX IF NOT EXISTS product_orders_audit_id_idx
   ON product_orders (audit_id);
 
+CREATE TABLE IF NOT EXISTS product_marketplace_listings (
+  id serial PRIMARY KEY,
+  audit_id integer NOT NULL,
+  workspace_id integer,
+  marketplace text NOT NULL,
+  status text NOT NULL,
+  sku text,
+  price_cents integer,
+  currency text NOT NULL DEFAULT 'USD',
+  inventory integer,
+  published_at timestamp,
+  listing_url text,
+  is_deleted integer NOT NULL DEFAULT 0,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS product_marketplace_listings_audit_id_idx
+  ON product_marketplace_listings (audit_id);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

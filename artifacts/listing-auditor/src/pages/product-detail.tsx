@@ -29,6 +29,7 @@ import {
 } from "@/lib/product-mappers";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
+import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -554,20 +555,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       )}
 
       {activeTab === "marketplaces" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
-          <p className="text-xs font-medium text-slate-800">No marketplaces connected yet</p>
-          <p className="text-[11px] text-slate-500 mt-1 max-w-md mx-auto">
-            Export your listing from the workflow to publish on Amazon, Shopify, or Flipkart. Connected channels will appear here.
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            className="mt-4 h-8 text-xs bg-orange-500 hover:bg-orange-600"
-            onClick={() => navigate(product.workflowUrl)}
-          >
-            Go to Export Step
-          </Button>
-        </div>
+        <ProductMarketplacesTab productId={product.id} enabled={activeTab === "marketplaces"} />
       )}
 
       {activeTab === "orders" && (
