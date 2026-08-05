@@ -194,7 +194,7 @@ export async function fulfillStripeSubscriptionCheckout(
     stripeCheckoutSessionId: sessionId,
     stripeSubscriptionId: stripeSubId,
     couponCode,
-    discountAmount: couponCode ? discountAmount : null,
+    discountAmount: couponCode ? discountAmount : 0,
     updatedAt: now,
   };
 
@@ -218,7 +218,7 @@ export async function fulfillStripeSubscriptionCheckout(
     gateway: "stripe",
     gatewayPaymentId: sessionId,
     couponCode,
-    discountAmount: couponCode ? discountAmount : null,
+    discountAmount: couponCode ? discountAmount : undefined,
     metadata: { type: "subscription_checkout", billingCycle, stripeSubscriptionId: stripeSubId },
   });
 

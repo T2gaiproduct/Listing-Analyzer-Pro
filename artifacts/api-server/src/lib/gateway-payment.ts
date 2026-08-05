@@ -191,7 +191,7 @@ export async function recordPendingGatewayPayment(params: {
     gatewayPaymentId: params.gatewayOrderId,
     planId: params.planId,
     couponCode,
-    discountAmount: couponCode ? discountAmount : null,
+    discountAmount: couponCode ? (discountAmount ?? undefined) : undefined,
     metadata: { intent: params.intent },
   });
 }
@@ -402,7 +402,7 @@ export async function fulfillGatewayPaymentIntent(params: {
     cardBrand: params.gateway === "razorpay" ? "Razorpay" : "PayPal",
     cardLast4: params.gateway === "razorpay" ? "rzpy" : (params.payerEmail?.slice(-4) || "ppal"),
     couponCode,
-    discountAmount: couponCode ? discountAmount : null,
+    discountAmount: couponCode ? discountAmount : 0,
     updatedAt: now,
   };
 
@@ -466,7 +466,7 @@ export async function fulfillGatewayPaymentIntent(params: {
       currency: params.currency,
       planId: intent.planId,
       couponCode,
-      discountAmount: couponCode ? discountAmount : null,
+      discountAmount: couponCode ? discountAmount : undefined,
       metadata: {
         type: "plan_subscription",
         billingCycle: intent.billingCycle,
