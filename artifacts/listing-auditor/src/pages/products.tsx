@@ -298,7 +298,7 @@ export default function ProductsPage() {
             onClick={() => setCreateOpen(true)}
           >
             <Plus className="w-3.5 h-3.5 mr-1" />
-            New Product
+            Add Product
           </Button>
         </div>
       </div>
@@ -380,7 +380,7 @@ export default function ProductsPage() {
                       onClick={() => setCreateOpen(true)}
                     >
                       <Plus className="w-3.5 h-3.5 mr-1" />
-                      New Product
+                      Add Product
                     </Button>
                   </td>
                 </tr>
