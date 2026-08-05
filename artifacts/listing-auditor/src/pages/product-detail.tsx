@@ -12,7 +12,6 @@ import {
   Pencil,
   Sparkles,
   Star,
-  Upload,
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -327,39 +326,42 @@ export default function ProductDetailPage({ id }: { id: number }) {
       {/* Tabs + quick actions */}
       <div className="flex flex-wrap items-center gap-1.5">
         {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "h-8 px-3.5 rounded-lg text-[11px] font-medium border transition-colors",
-              activeTab === tab.id
-                ? "bg-orange-50 text-orange-700 border-orange-200 shadow-sm"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+          <span key={tab.id} className="contents">
+            <button
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "h-8 px-3.5 rounded-lg text-[11px] font-medium border transition-colors",
+                activeTab === tab.id
+                  ? "bg-orange-50 text-orange-700 border-orange-200 shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
+              )}
+            >
+              {tab.label}
+            </button>
 
-        <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
-          <button
-            type="button"
-            onClick={() => navigate(product.workflowUrl)}
-            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <Pencil className="w-3 h-3 opacity-70" />
-            Edit Listing
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(product.workflowUrl)}
-            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
-          >
-            <Sparkles className="w-3 h-3 opacity-80" />
-            Optimize Content
-          </button>
-        </div>
+            {tab.id === "overview" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate(product.workflowUrl)}
+                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  <Pencil className="w-3 h-3 opacity-70" />
+                  Edit Listing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(product.workflowUrl)}
+                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
+                >
+                  <Sparkles className="w-3 h-3 opacity-80" />
+                  Optimize Content
+                </button>
+              </>
+            )}
+          </span>
+        ))}
       </div>
 
       {/* Tab panels */}
