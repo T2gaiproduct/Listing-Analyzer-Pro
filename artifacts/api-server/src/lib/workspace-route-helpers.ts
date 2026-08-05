@@ -149,7 +149,10 @@ export async function loadWorkedProjects(req: Request): Promise<MemberWorkedProj
   const ctx = getWorkspaceCtx(req);
   const userId = (req as AuthedRequest).userId;
   if (ctx.isAccountOwner) return null;
-  return getMemberWorkedProjects(userId, ctx.team);
+  return getMemberWorkedProjects(userId, ctx.team, {
+    workspaceId: ctx.workspaceId,
+    workspaceMemberId: ctx.workspaceMemberId,
+  });
 }
 
 function workedIds(worked: MemberWorkedProjects | null, type: WorkedProjectType): number[] {

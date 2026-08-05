@@ -3,6 +3,7 @@ import {
   db,
   creditTransactionsTable,
   graphicsProjectsTable,
+  auditsTable,
 } from "@workspace/db";
 import type { TeamContext } from "../middlewares/team-auth";
 
@@ -49,27 +50,52 @@ function classifyProjectId(
   return "graphics";
 }
 
-function memberTransactionFilter(memberUserId: string, team?: TeamContext) {
+function memberTransactionFilter(
+  memberUserId: string,
+  team?: TeamContext,
+  workspaceMemberId?: number,
+) {
   const spend = sql`${creditTransactionsTable.amount} < 0`;
+  const memberMetaMatch =
+    workspaceMemberId != null
+      ? sql`(${creditTransactionsTable.metadata}->>'workspaceMemberId')::int = ${workspaceMemberId}`
+      : undefined;
   if (team?.isTeamMember && team.memberId != null && team.ownerUserId) {
+    const legacyMemberMatch = and(
+      eq(creditTransactionsTable.userId, team.ownerUserId),
+      sql`(${creditTransactionsTable.metadata}->>'memberId')::int = ${team.memberId}`,
+    );
     return and(
       spend,
       or(
         eq(creditTransactionsTable.userId, memberUserId),
-        and(
-          eq(creditTransactionsTable.userId, team.ownerUserId),
-          sql`(${creditTransactionsTable.metadata}->>'memberId')::int = ${team.memberId}`,
-        ),
+        legacyMemberMatch,
+        memberMetaMatch,
+      ),
+    );
+  }
+  if (workspaceMemberId != null) {
+    return and(
+      spend,
+      or(
+        eq(creditTransactionsTable.userId, memberUserId),
+        memberMetaMatch,
       ),
     );
   }
   return and(eq(creditTransactionsTable.userId, memberUserId), spend);
 }
 
+export interface MemberWorkedProjectsOptions {
+  workspaceId?: number;
+  workspaceMemberId?: number;
+}
+
 /** Collect project IDs a team member has worked on via credit spend metadata. */
 export async function getMemberWorkedProjects(
   memberUserId: string,
   team?: TeamContext,
+  options?: MemberWorkedProjectsOptions,
 ): Promise<MemberWorkedProjects> {
   const txs = await db
     .select({
@@ -78,7 +104,7 @@ export async function getMemberWorkedProjects(
       createdAt: creditTransactionsTable.createdAt,
     })
     .from(creditTransactionsTable)
-    .where(memberTransactionFilter(memberUserId, team));
+    .where(memberTransactionFilter(memberUserId, team, options?.workspaceMemberId));
 
   const auditIds = new Set<number>();
   const graphicsIds = new Set<number>();
@@ -128,6 +154,23 @@ export async function getMemberWorkedProjects(
         const auditActivity = lastActivityAt.get(`audit-${row.auditId}`);
         if (auditActivity) touchActivity(lastActivityAt, "graphics", row.id, auditActivity);
       }
+    }
+  }
+
+  if (options?.workspaceId != null) {
+    const createdAudits = await db
+      .select({ id: auditsTable.id, createdAt: auditsTable.createdAt })
+      .from(auditsTable)
+      .where(
+        and(
+          eq(auditsTable.createdByUserId, memberUserId),
+          eq(auditsTable.workspaceId, options.workspaceId),
+          eq(auditsTable.isDeleted, 0),
+        ),
+      );
+    for (const row of createdAudits) {
+      auditIds.add(row.id);
+      touchActivity(lastActivityAt, "audit", row.id, row.createdAt ?? new Date());
     }
   }
 

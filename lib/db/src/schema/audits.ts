@@ -66,6 +66,8 @@ export type ImageRecords = z.infer<typeof imageRecordsSchema>;
 export const auditsTable = pgTable("audits", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().default(""),
+  /** Clerk user id of the member who created this audit (workspace members; null for owner-created). */
+  createdByUserId: text("created_by_user_id"),
   workspaceId: integer("workspace_id"),
   projectName: text("project_name"),
   productName: text("product_name").notNull(),

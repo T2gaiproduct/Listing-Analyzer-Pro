@@ -113,6 +113,12 @@ function getCreditCtx(req: Request): TeamAwareContext {
   return buildTeamAwareCreditCtx(req);
 }
 
+function auditCreatedByUserId(req: Request): string | null {
+  const ctx = getWorkspaceCtx(req);
+  if (ctx.isAccountOwner) return null;
+  return (req as AuthedRequest).userId;
+}
+
 function readLegacyGeneratedImages(audit: typeof auditsTable.$inferSelect) {
   return (audit.generatedImages ?? { main: [], infographic: [], lifestyle: [] }) as {
     main?: string[];
@@ -203,6 +209,7 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
     .insert(auditsTable)
     .values({
       userId: ownerId,
+      createdByUserId: auditCreatedByUserId(req),
       workspaceId: getActiveWorkspaceId(req),
       projectName: projectName ?? productName,
       productName,
@@ -278,6 +285,7 @@ router.post("/audits/draft", requireAuth, resolveTeamAndWorkspace, requireWorksp
     .insert(auditsTable)
     .values({
       userId: ownerId,
+      createdByUserId: auditCreatedByUserId(req),
       workspaceId: getActiveWorkspaceId(req),
       projectName: projectName ?? productName,
       productName,
