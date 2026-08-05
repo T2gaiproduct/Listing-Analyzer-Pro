@@ -115,8 +115,19 @@ CREATE TABLE IF NOT EXISTS workspace_credits (
   ai_credits integer NOT NULL DEFAULT 0,
   image_credits integer NOT NULL DEFAULT 0,
   audit_credits integer NOT NULL DEFAULT 0,
+  pool_is_net boolean NOT NULL DEFAULT false,
   updated_at timestamp NOT NULL DEFAULT now()
 );
+
+ALTER TABLE workspace_credits ADD COLUMN IF NOT EXISTS pool_is_net boolean NOT NULL DEFAULT false;
+
+-- ─── billing / coupons ───────────────────────────────────────────────────────
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS coupon_code text;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS discount_amount real;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS coupon_code text;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS discount_amount real;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS coupon_code varchar(50);
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS discount_amount integer NOT NULL DEFAULT 0;
 
 ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_id integer;
 ALTER TABLE member_credits ADD COLUMN IF NOT EXISTS workspace_member_id integer;

@@ -13,6 +13,36 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
      AND column_name IN ('login_email', 'notification_preferences')
    ORDER BY column_name;"
 
+echo "==> audits workspace + creator columns"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
+  "SELECT column_name FROM information_schema.columns
+   WHERE table_name = 'audits'
+     AND column_name IN ('workspace_id', 'created_by_user_id')
+   ORDER BY column_name;"
+
+echo "==> Billing coupon columns"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
+  "SELECT table_name || '.' || column_name
+   FROM information_schema.columns
+   WHERE table_schema = 'public'
+     AND (table_name, column_name) IN (
+       ('payments', 'coupon_code'),
+       ('payments', 'discount_amount'),
+       ('invoices', 'coupon_code'),
+       ('invoices', 'discount_amount'),
+       ('subscriptions', 'coupon_code'),
+       ('subscriptions', 'discount_amount')
+     )
+   ORDER BY table_name, column_name;"
+
+echo "==> workspace_credits.pool_is_net"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
+  "SELECT column_name FROM information_schema.columns
+   WHERE table_name = 'workspace_credits' AND column_name = 'pool_is_net';"
+
+echo "==> Full schema column check"
+bash scripts/check-production-schema.sh
+
 echo "==> Workspace tables"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
   "SELECT tablename FROM pg_tables
