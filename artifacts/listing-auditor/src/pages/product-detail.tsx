@@ -83,7 +83,7 @@ function PriorityBadge({ label, level }: { label?: string | null; level?: string
       className={cn(
         "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
         level === "high" && "bg-orange-50 text-orange-700 border-orange-200",
-        lvl === "medium" && "bg-slate-50 text-slate-600 border-slate-200",
+        lvl === "medium" && "bg-amber-50 text-amber-700 border-amber-200",
         lvl === "low" && "bg-slate-50 text-slate-500 border-slate-200",
       )}
     >
@@ -205,6 +205,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
           aiSuggestions: apiProduct.aiSuggestions?.length
             ? apiProduct.aiSuggestions
             : mapped.aiSuggestions,
+          priorityLabel: apiProduct.priorityLabel ?? mapped.priorityLabel,
+          priorityLevel: apiProduct.priorityLevel ?? mapped.priorityLevel,
+          driveFolderUrl: apiProduct.driveFolderUrl ?? mapped.driveFolderUrl,
         };
       }
       return mapped;
@@ -422,10 +425,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-2">
                   Project Folder
                 </p>
-                <div className="inline-flex items-center gap-1.5 text-[11px] text-orange-600 font-medium">
-                  <FolderOpen className="w-3.5 h-3.5" />
+                <Link
+                  href={product.driveFolderUrl || product.workflowUrl}
+                  className="inline-flex items-center gap-1.5 text-[11px] text-orange-600 font-medium hover:text-orange-700 hover:underline transition-colors"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 shrink-0" />
                   {product.driveFolder}
-                </div>
+                </Link>
               </div>
             </div>
           </div>

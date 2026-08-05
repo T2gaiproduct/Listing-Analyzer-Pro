@@ -2,6 +2,7 @@
 
 import type { AuditResult } from "@workspace/api-client-react";
 import { buildProductSuggestions } from "@/lib/product-suggestions";
+import { mapProductPriority } from "@/lib/product-priority";
 
 export type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -33,12 +34,6 @@ function mapStageLabel(status: string, currentStep: number | null): string {
   const step = Math.min(5, Math.max(1, currentStep ?? 1));
   if (step >= 5) return "Ready to export";
   return WORKFLOW_STEP_LABELS[step - 1] ?? "Upload";
-}
-
-function mapPriority(overallScore: number): { label: string; level: "low" | "medium" | "high" } {
-  if (overallScore >= 80) return { label: "High Priority", level: "high" };
-  if (overallScore >= 50) return { label: "Medium Priority", level: "medium" };
-  return { label: "Low Priority", level: "low" };
 }
 
 function calcProgress(status: string, currentStep: number | null): number {
@@ -118,6 +113,7 @@ export interface ProductDetailView {
   notes: string;
   referenceLinks: Array<{ label: string; url: string }>;
   driveFolder: string;
+  driveFolderUrl: string;
   workflowSteps: Array<{ id: number; label: string; completed: boolean; active: boolean }>;
   stats: {
     totalOrders: number;
@@ -166,10 +162,10 @@ export function isBuildBrandAudit(audit: AuditLike): boolean {
 export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account Owner"): ProductDetailView {
   const name = audit.projectName?.trim() || audit.productName?.trim() || "Untitled Product";
   const mapped = mapProductStatus(audit.status ?? "draft", audit.currentStep ?? null);
-  const priority = mapPriority(audit.overallScore ?? 0);
   const stageLabel = mapStageLabel(audit.status ?? "draft", audit.currentStep ?? null);
   const progress = calcProgress(audit.status ?? "draft", audit.currentStep ?? null);
   const brand = audit.brandName?.trim() || "Brand";
+  const workflowUrl = `/audits/workflow?resume=${audit.id}`;
 
   const referenceLinks: Array<{ label: string; url: string }> = [];
   if (audit.asin?.trim()) {
@@ -182,6 +178,31 @@ export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account
     const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
     const url = c.asin?.trim() ? `https://www.amazon.in/dp/${c.asin.trim()}` : "#";
     referenceLinks.push({ label, url });
+  });
+
+  const aiSuggestions = buildProductSuggestions({
+    productName: audit.productName,
+    title: audit.title,
+    brandName: audit.brandName,
+    category: audit.category,
+    bulletPoints: audit.bulletPoints,
+    generatedContent: audit.generatedContent,
+    targetKeywords: audit.targetKeywords,
+    imageUrls: audit.imageUrls,
+    imageRecords: audit.imageRecords,
+    generatedImages: audit.generatedImages,
+    currentStep: audit.currentStep,
+    status: audit.status,
+    overallScore: audit.overallScore,
+    result: audit.result,
+    competitorCount: audit.competitors?.length ?? 0,
+  });
+
+  const priority = mapProductPriority({
+    overallScore: audit.overallScore,
+    status: audit.status,
+    currentStep: audit.currentStep,
+    aiSuggestionCount: aiSuggestions.length,
   });
 
   return {
@@ -201,11 +222,12 @@ export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account
     currentStep: audit.currentStep ?? null,
     createdAt: audit.createdAt ?? new Date().toISOString(),
     updatedAt: audit.updatedAt ?? new Date().toISOString(),
-    workflowUrl: `/audits/workflow?resume=${audit.id}`,
+    workflowUrl,
     manager: { name: managerName, initials: managerInitials(managerName) },
     notes: buildNotes(audit),
     referenceLinks,
     driveFolder: `${brand} / ${name}`,
+    driveFolderUrl: workflowUrl,
     workflowSteps: WORKFLOW_STEP_LABELS.map((label, index) => ({
       id: index + 1,
       label,
@@ -222,22 +244,6 @@ export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account
       imageCount: countImages(audit),
       keywordCount: (audit.targetKeywords ?? []).length,
     },
-    aiSuggestions: buildProductSuggestions({
-      productName: audit.productName,
-      title: audit.title,
-      brandName: audit.brandName,
-      category: audit.category,
-      bulletPoints: audit.bulletPoints,
-      generatedContent: audit.generatedContent,
-      targetKeywords: audit.targetKeywords,
-      imageUrls: audit.imageUrls,
-      imageRecords: audit.imageRecords,
-      generatedImages: audit.generatedImages,
-      currentStep: audit.currentStep,
-      status: audit.status,
-      overallScore: audit.overallScore,
-      result: audit.result,
-      competitorCount: audit.competitors?.length ?? 0,
-    }),
+    aiSuggestions,
   };
 }

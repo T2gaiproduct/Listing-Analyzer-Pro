@@ -12,6 +12,7 @@ import {
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
+import { mapProductPriority } from "../lib/product-priority.js";
 
 const router: IRouter = Router();
 
@@ -91,12 +92,6 @@ function mapStageLabel(status: string, currentStep: number | null): string {
   const step = Math.min(5, Math.max(1, currentStep ?? 1));
   if (step >= 5) return "Ready to export";
   return WORKFLOW_STEP_LABELS[step - 1] ?? "Upload";
-}
-
-function mapPriority(overallScore: number): { label: string; level: "low" | "medium" | "high" } {
-  if (overallScore >= 80) return { label: "High Priority", level: "high" };
-  if (overallScore >= 50) return { label: "Medium Priority", level: "medium" };
-  return { label: "Low Priority", level: "low" };
 }
 
 function calcProgress(status: string, currentStep: number | null): number {
@@ -286,9 +281,9 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
 
   const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
   const mapped = mapProductStatus(row.status, row.currentStep);
-  const priority = mapPriority(row.overallScore ?? 0);
   const stageLabel = mapStageLabel(row.status, row.currentStep);
   const progress = calcProgress(row.status, row.currentStep);
+  const workflowUrl = `/audits/workflow?resume=${row.id}`;
 
   const referenceLinks: Array<{ label: string; url: string }> = [];
   if (row.asin?.trim()) {
@@ -326,6 +321,13 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     competitorCount: competitors.length,
   });
 
+  const priority = mapProductPriority({
+    overallScore: row.overallScore,
+    status: row.status,
+    currentStep: row.currentStep,
+    aiSuggestionCount: aiSuggestions.length,
+  });
+
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({
     ...mapRowToProductListItem(row),
@@ -341,6 +343,7 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     notes: buildNotes(row),
     referenceLinks,
     driveFolder,
+    driveFolderUrl: workflowUrl,
     workflowSteps: WORKFLOW_STEP_LABELS.map((label, index) => ({
       id: index + 1,
       label,
@@ -361,7 +364,7 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     bulletPoints: row.bulletPoints,
     targetKeywords: row.targetKeywords,
     detailUrl: `/products/${row.id}`,
-    workflowUrl: `/audits/workflow?resume=${row.id}`,
+    workflowUrl,
     aiSuggestions,
     status: mapped.status,
     statusLabel: mapped.status === "active" ? "Live" : mapped.statusLabel,
