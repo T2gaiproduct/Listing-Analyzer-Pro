@@ -30,6 +30,7 @@ import {
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
+import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -275,25 +276,33 @@ export default function ProductDetailPage({ id }: { id: number }) {
     : "—";
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-300 pb-8">
+    <div className="space-y-3 animate-in fade-in duration-300 pb-8">
       {/* Breadcrumb */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 text-[11px] text-slate-400 min-w-0">
-          <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
-            {platformName}
-          </Link>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
-            Products
-          </Link>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-slate-600 truncate">{product.name}</span>
-        </div>
+      <div className="flex items-center gap-1 text-[11px] text-slate-400 min-w-0">
+        <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
+          {platformName}
+        </Link>
+        <ChevronRight className="w-3 h-3 shrink-0" />
+        <Link href="/products" className="hover:text-slate-600 transition-colors shrink-0">
+          Products
+        </Link>
+        <ChevronRight className="w-3 h-3 shrink-0" />
+        <span className="text-slate-600 truncate">{product.name}</span>
+      </div>
+
+      <ProductDetailRibbon
+        productId={product.id}
+        productName={product.name}
+        workflowUrl={product.workflowUrl}
+        onNavigate={navigate}
+      />
+
+      <div className="flex justify-start">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 text-[11px] shrink-0"
+          className="h-7 text-[11px]"
           onClick={() => navigate(product.workflowUrl)}
         >
           <Pencil className="w-3 h-3 mr-1" />
@@ -338,7 +347,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1">
               Overall Progress
             </p>
-            <p className="text-2xl font-bold text-slate-900 tabular-nums">{product.progressPercent}%</p>
+            <p className="text-xl font-semibold text-slate-900 tabular-nums">{product.progressPercent}%</p>
             <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-orange-400 to-amber-500 transition-all"
