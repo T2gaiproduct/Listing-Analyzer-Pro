@@ -783,13 +783,13 @@ export function Layout({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => handleFeatureNav(href, comingSoon)}
                   className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors text-left",
+                    "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-colors text-left",
                     isActive
                       ? "bg-orange-500 text-white font-medium shadow-sm"
                       : "text-sidebar-foreground/60 font-normal hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   )}
                 >
-                  <Icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
+                  <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
                   <span className="flex-1 min-w-0 truncate">{label}</span>
                   {comingSoon && !isActive && (
                     <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
@@ -943,7 +943,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Top ribbon (project context) ── */}
         {isRibbonVisible(location) && (
-          <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[52px] py-2 sm:py-0 px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200 flex-shrink-0">
+          <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[44px] py-1.5 sm:py-0 px-4 sm:px-5 lg:px-6 bg-white border-b border-slate-200 flex-shrink-0">
             <button
               onClick={() => window.history.back()}
               className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-2 transition-colors z-10 min-h-11"

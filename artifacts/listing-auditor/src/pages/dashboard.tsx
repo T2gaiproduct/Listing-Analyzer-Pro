@@ -133,7 +133,7 @@ function StatCard({
         </div>
         <p className="text-xs sm:text-sm text-slate-500 sm:mt-4 truncate min-w-0">{title}</p>
       </div>
-      <p className="text-xl sm:text-3xl font-bold text-slate-900 mt-1 sm:mt-1 tracking-tight">{value}</p>
+      <p className="text-lg sm:text-2xl font-semibold text-slate-900 mt-1 sm:mt-1 tracking-tight">{value}</p>
       <p className={cn(
         "text-[10px] sm:text-xs mt-1 sm:mt-2 line-clamp-2 leading-snug",
         locked ? "text-amber-700" : subtextPositive ? "text-emerald-600" : "text-slate-400",
@@ -188,7 +188,7 @@ function MemberHomePanel({
   return (
     <div className="space-y-6 max-w-3xl animate-in fade-in duration-500">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">
           Welcome, {name}! 👋
         </h1>
         <p className="text-sm sm:text-base text-slate-500 mt-1">
@@ -199,7 +199,7 @@ function MemberHomePanel({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Your credits</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{creditTotal}</p>
+          <p className="text-2xl font-semibold text-slate-900 mt-2">{creditTotal}</p>
           <p className="text-xs text-slate-500 mt-1">Allocated by your workspace owner</p>
           <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5 text-sm">
             <div className="flex justify-between text-slate-600">
@@ -434,7 +434,7 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Folder className="w-12 h-12 text-slate-300 mb-4" />
-        <h2 className="text-lg font-semibold text-slate-900">Select a workspace</h2>
+        <h2 className="text-base font-semibold text-slate-900">Select a workspace</h2>
         <p className="text-sm text-slate-500 mt-2 max-w-md">
           Pick a workspace in the top bar to view its overview, or manage all workspaces to fund pools and members.
         </p>
@@ -545,7 +545,7 @@ export default function Dashboard() {
       {/* Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">
             Welcome back, {name}! 👋
           </h1>
           <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">
@@ -636,7 +636,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
               <div className="flex-1 min-w-0">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900">Your Impact This Week</h2>
+                <h2 className="text-sm sm:text-base font-semibold text-slate-900">Your Impact This Week</h2>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">You&apos;re doing great! Here&apos;s the value you&apos;ve created.</p>
                 <ul className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
                   <li className="flex items-center justify-between">
@@ -678,7 +678,7 @@ export default function Dashboard() {
           {/* Recent projects */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 gap-2">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">Recent Projects</h2>
+              <h2 className="text-sm sm:text-base font-semibold text-slate-900">Recent Projects</h2>
               <Link
                 href="/recent-projects"
                 className="text-sm font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1"
@@ -727,7 +727,7 @@ export default function Dashboard() {
         <div className="space-y-4 sm:space-y-6">
           {/* Credits donut */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4">Credits Usage</h2>
+            <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Credits Usage</h2>
             <DonutChart data={creditBreakdown} total={creditsBalance} />
             {creditBreakdown.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500 text-center">
@@ -760,7 +760,7 @@ export default function Dashboard() {
 
           {/* Quick actions */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4">Quick Actions</h2>
+            <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {quickActions.map((action) => {
                 const Icon = QUICK_ACTION_ICONS[action.icon] ?? FilePlus2;

@@ -97,7 +97,7 @@ function CategoryPortalDropdown({
         />
       </div>
       {filteredCats.length === 0
-        ? <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
+        ? <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
         : filteredCats.map((c) => (
           <div
             key={c}
@@ -380,7 +380,7 @@ function CreatingPanel({
             <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-orange-500" />
             </div>
-            <span className="text-sm font-semibold text-slate-800">Creating {stepLabel}</span>
+            <span className="text-xs font-semibold text-slate-800">Creating {stepLabel}</span>
           </div>
           <button
             onClick={onCancel}
@@ -413,7 +413,7 @@ function CreatingPanel({
           {/* Status message */}
           <div className="text-center min-h-[3rem] flex items-center justify-center">
             <p
-              className="text-sm font-medium text-slate-700 transition-opacity duration-300 text-center leading-relaxed"
+              className="text-xs font-medium text-slate-700 transition-opacity duration-300 text-center leading-relaxed"
               style={{ opacity: visible ? 1 : 0 }}
             >
               {messages[msgIdx]}
@@ -1444,12 +1444,12 @@ export default function AuditWorkflow() {
                 key={s.id}
                 onClick={() => setActiveStep(s.id)}
                 className={cn(
-                  "flex-1 min-w-[4.5rem] flex flex-col items-center py-4 gap-1 border-b-2 transition-all text-center px-1",
+                  "flex-1 min-w-[4rem] flex flex-col items-center py-3 gap-0.5 border-b-2 transition-all text-center px-1",
                   isActive ? "border-orange-500" : "border-transparent hover:border-slate-200"
                 )}
               >
                 <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors",
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors",
                   isCompleted ? "bg-orange-500 border-orange-500 text-white"
                   : isActive  ? "bg-orange-500 border-orange-500 text-white"
                              : "bg-white border-slate-300 text-slate-400"
@@ -1483,19 +1483,19 @@ export default function AuditWorkflow() {
           />
         )}
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full min-w-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-5 w-full min-w-0">
 
           {/* STEP 1: Upload ── */}
           {activeStep === 1 && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <Upload className="w-5 h-5 text-orange-500" />
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Upload className="w-4 h-4 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Upload Product Images</h2>
-                  <p className="text-sm text-slate-500">Add high-quality images to showcase your product in the best way</p>
+                  <h2 className="text-base font-semibold text-slate-900">Upload Product Images</h2>
+                  <p className="text-xs text-slate-500">Add high-quality images to showcase your product in the best way</p>
                 </div>
               </div>
 
@@ -1511,13 +1511,13 @@ export default function AuditWorkflow() {
                     <Upload className="w-7 h-7 text-orange-400" />
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-semibold text-slate-800">Drag or upload product images</p>
+                    <p className="text-xs font-semibold text-slate-800">Drag or upload product images</p>
                     <p className="text-xs text-slate-400 mt-0.5">PNG, JPG up to 20MB each</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-xl transition-colors w-full justify-center"
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-xl transition-colors w-full justify-center"
                   >
                     <Monitor className="w-4 h-4" />
                     Upload from device
@@ -1526,7 +1526,7 @@ export default function AuditWorkflow() {
                   <button
                     type="button"
                     onClick={() => cameraRef.current?.click()}
-                    className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors w-full justify-center"
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors w-full justify-center"
                   >
                     <Camera className="w-4 h-4 text-orange-400" />
                     Use camera
@@ -1542,7 +1542,7 @@ export default function AuditWorkflow() {
                 {/* Right: uploaded images preview */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-xs font-medium text-slate-700">
                       Uploaded Images ({uploadedImages.length}/10)
                     </span>
                     {uploadedImages.length > 0 && (
@@ -1577,7 +1577,7 @@ export default function AuditWorkflow() {
                       <button
                         type="button"
                         onClick={() => fileRef.current?.click()}
-                        className="mt-auto w-full flex items-center justify-center gap-2 border border-slate-200 rounded-xl py-2.5 text-sm text-orange-500 hover:bg-orange-50 font-medium transition-colors"
+                        className="mt-auto w-full flex items-center justify-center gap-2 border border-slate-200 rounded-xl py-2.5 text-xs text-orange-500 hover:bg-orange-50 font-medium transition-colors"
                       >
                         <Plus className="w-4 h-4" />
                         Add more images
@@ -1594,12 +1594,12 @@ export default function AuditWorkflow() {
                     <FileText className="w-4 h-4 text-orange-500" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Product Details</p>
+                    <p className="text-xs font-semibold text-slate-900">Product Details</p>
                     <p className="text-xs text-slate-400">Provide basic information about your product</p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Project Name</label>
+                  <label className="text-xs font-medium text-slate-700">Project Name</label>
                   <Input
                     value={projectName}
                     onChange={(e) => { setProjectName(e.target.value); if (currentAuditId) setIsDirty(true); }}
@@ -1609,7 +1609,7 @@ export default function AuditWorkflow() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Brand Name</label>
+                    <label className="text-xs font-medium text-slate-700">Brand Name</label>
                     <Input
                       value={brandName}
                       onChange={(e) => { setBrandName(e.target.value); if (currentAuditId) setIsDirty(true); }}
@@ -1618,7 +1618,7 @@ export default function AuditWorkflow() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Product Name <span className="text-red-500">*</span></label>
+                    <label className="text-xs font-medium text-slate-700">Product Name <span className="text-red-500">*</span></label>
                     <Input
                       value={productName}
                       onChange={(e) => { setProductName(e.target.value); if (currentAuditId) setIsDirty(true); }}
@@ -1628,7 +1628,7 @@ export default function AuditWorkflow() {
                   </div>
                 </div>
                 <div className="space-y-1.5" ref={catRef}>
-                  <label className="text-sm font-medium text-slate-700">Select Category</label>
+                  <label className="text-xs font-medium text-slate-700">Select Category</label>
                   <div className="relative">
                     <button
                       ref={catBtnRef}
@@ -1647,7 +1647,7 @@ export default function AuditWorkflow() {
                         }
                         setCatOpen((o) => !o);
                       }}
-                      className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
+                      className="w-full h-9 pl-3 pr-9 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
                     >
                       <span className={category ? "text-slate-900" : "text-slate-400"}>
                         {category || "Search or select category"}
@@ -1674,23 +1674,23 @@ export default function AuditWorkflow() {
 
           {/* STEP 2: Listing ── */}
           {activeStep === 2 && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
                   <FileText className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Create Listing Content</h2>
-                  <p className="text-sm text-slate-500">AI will generate optimized content based on your product images and details</p>
+                  <h2 className="text-base font-semibold text-slate-900">Create Listing Content</h2>
+                  <p className="text-xs text-slate-500">AI will generate optimized content based on your product images and details</p>
                 </div>
               </div>
 
               {/* What gets generated */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                <p className="text-sm font-medium text-slate-700">What will be generated</p>
+                <p className="text-xs font-medium text-slate-700">What will be generated</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {["Product Title", "Bullet Points", "Keywords", "Description"].map((item) => (
-                    <div key={item} className="flex items-center gap-2 text-sm text-slate-600">
+                    <div key={item} className="flex items-center gap-2 text-xs text-slate-600">
                       <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
                         <Check className="w-3 h-3 text-orange-500" />
                       </div>
@@ -1703,8 +1703,8 @@ export default function AuditWorkflow() {
               <div className="bg-orange-50 border border-orange-100 rounded-2xl p-5 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-orange-900">AI-Powered Optimization</p>
-                  <p className="text-sm text-orange-700 mt-1">Our AI generates compelling titles, bullet points, keywords, and descriptions optimized for Amazon search and conversions.</p>
+                  <p className="text-xs font-semibold text-orange-900">AI-Powered Optimization</p>
+                  <p className="text-xs text-orange-700 mt-1">Our AI generates compelling titles, bullet points, keywords, and descriptions optimized for Amazon search and conversions.</p>
                 </div>
               </div>
 
@@ -1804,7 +1804,7 @@ export default function AuditWorkflow() {
                   );
                 }}
                 disabled={isCreating}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm shadow-orange-200"
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm shadow-orange-200"
               >
                 {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {generatedContent ? "Regenerate Content" : "Generate Listing Content"}
@@ -1815,20 +1815,20 @@ export default function AuditWorkflow() {
                 <div className="bg-white border border-orange-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="bg-orange-50 border-b border-orange-100 px-6 py-3 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-orange-500" />
-                    <p className="text-sm font-semibold text-orange-900">Generated Content</p>
+                    <p className="text-xs font-semibold text-orange-900">Generated Content</p>
                   </div>
                   <div className="p-6 space-y-5">
                     {/* Title */}
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Product Title</p>
-                      <p className="text-sm text-slate-900 font-medium">{generatedContent.title}</p>
+                      <p className="text-xs text-slate-900 font-medium">{generatedContent.title}</p>
                     </div>
                     {/* Bullet Points */}
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Bullet Points</p>
                       <ul className="space-y-1.5">
                         {generatedContent.bulletPoints.map((b, i) => (
-                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                          <li key={i} className="text-xs text-slate-700 flex items-start gap-2">
                             <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
                             {b}
                           </li>
@@ -1931,7 +1931,7 @@ export default function AuditWorkflow() {
                       <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
                         {type.label}
                       </p>
-                      <p className="text-sm text-slate-400 mt-1 leading-snug">{type.desc}</p>
+                      <p className="text-xs text-slate-400 mt-1 leading-snug">{type.desc}</p>
                       {isSelected && (
                         <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
                           <Check className="w-3.5 h-3.5 text-white" />
@@ -2026,7 +2026,7 @@ export default function AuditWorkflow() {
                       Generated Images ({generatedImages.length})
                     </h3>
                     {graphicsStatus === "completed" && (
-                      <span className="text-sm text-orange-600 font-medium flex items-center gap-1">
+                      <span className="text-xs text-orange-600 font-medium flex items-center gap-1">
                         <Check className="w-4 h-4" /> Complete
                       </span>
                     )}
@@ -2103,7 +2103,7 @@ export default function AuditWorkflow() {
                       <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
                         {module.label}
                       </p>
-                      <p className="text-sm text-slate-400 mt-1 leading-snug">{module.desc}</p>
+                      <p className="text-xs text-slate-400 mt-1 leading-snug">{module.desc}</p>
                       {isSelected && (
                         <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
                           <Check className="w-3.5 h-3.5 text-white" />
@@ -2124,7 +2124,7 @@ export default function AuditWorkflow() {
                   <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm">
                     {selectedAplusModules.length} selected
                   </span>
-                  <span className="text-sm text-slate-400">
+                  <span className="text-xs text-slate-400">
                     {selectedAplusModules.length === ALL_APLUS_MODULE_IDS.length
                       ? "All modules will be generated"
                       : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
@@ -2236,20 +2236,20 @@ export default function AuditWorkflow() {
 
           {/* STEP 5: Export ── */}
           {activeStep === 5 && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
                   <Download className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Export & Publish</h2>
-                  <p className="text-sm text-slate-500">Download your assets or publish directly to your store</p>
+                  <h2 className="text-base font-semibold text-slate-900">Export & Publish</h2>
+                  <p className="text-xs text-slate-500">Download your assets or publish directly to your store</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Platform</label>
+                  <label className="text-xs font-medium text-slate-700">Platform</label>
                   <Select
                     value={exportPlatform}
                     onValueChange={(value) => setExportPlatform(value as ExportPlatform)}
@@ -2272,7 +2272,7 @@ export default function AuditWorkflow() {
 
                 {exportPlatform === "amazon" && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Amazon marketplace</label>
+                    <label className="text-xs font-medium text-slate-700">Amazon marketplace</label>
                     <Select
                       value={exportMarketplace}
                       onValueChange={(value) => setExportMarketplace(value as AmazonMarketplaceId)}
@@ -2302,7 +2302,7 @@ export default function AuditWorkflow() {
               {exportPlatform === "amazon" && (amazonStatus?.publishReady || amazonStatus?.configured || amazonStatusError) && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-white">
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">Amazon seller account</p>
+                    <p className="text-xs font-semibold text-slate-800">Amazon seller account</p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {amazonStatus?.connected
                         ? `Connected${amazonStatus.sellerId ? ` · ${amazonStatus.sellerId}` : ""}${amazonStatus.sandbox ? " · Sandbox" : ""}`

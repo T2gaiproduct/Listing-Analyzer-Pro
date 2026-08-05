@@ -163,11 +163,15 @@
 }
 
 @layer base {
+  html {
+    font-size: 14px;
+  }
+
   * {
     @apply border-border;
   }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground text-sm text-slate-800;
   }
 
   button:focus-visible,
@@ -247,7 +251,7 @@
 
 @layer utilities {
   .app-shell-padding {
-    @apply px-4 py-6 sm:px-6 sm:py-8 lg:px-8;
+    @apply px-4 py-4 sm:px-5 sm:py-5 lg:px-6;
   }
 
   .app-content-max {

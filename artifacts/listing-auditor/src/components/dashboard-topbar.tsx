@@ -174,7 +174,7 @@ export function DashboardTopbar({
   const searchInput = (
     <>
       <div className="relative flex items-center">
-        <Search className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+        <Search className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
         <input
           ref={searchRef}
           type="text"
@@ -182,7 +182,7 @@ export function DashboardTopbar({
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
           placeholder={searchPlaceholder}
-          className="w-full h-11 pl-10 pr-3 sm:pr-24 rounded-xl text-sm bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
+          className="w-full h-9 pl-9 pr-3 sm:pr-20 rounded-lg text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
         />
         <kbd className="absolute right-3 hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-medium text-slate-400 bg-white border border-slate-200 rounded-md">
           Ctrl + K
@@ -191,13 +191,13 @@ export function DashboardTopbar({
       {showSearchResults && (
         <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 max-h-72 overflow-y-auto">
           {searchResults.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-slate-400">No matches found</p>
+            <p className="px-4 py-2.5 text-xs text-slate-400">No matches found</p>
           ) : (
             searchResults.map((item) => (
               <button
                 key={item.url}
                 type="button"
-                className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors truncate min-h-11"
+                className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors truncate min-h-9"
                 onClick={() => {
                   onSearchQueryChange("");
                   setSearchFocused(false);
@@ -215,7 +215,7 @@ export function DashboardTopbar({
   );
 
   return (
-    <header className="flex items-center gap-2 sm:gap-4 h-14 px-4 sm:px-6 bg-white border-b border-slate-200 flex-shrink-0 z-20 min-w-0">
+    <header className="flex items-center gap-2 sm:gap-3 h-12 px-4 sm:px-5 bg-white border-b border-slate-200 flex-shrink-0 z-20 min-w-0">
       {onMenuClick && (
         <button
           type="button"
@@ -256,7 +256,7 @@ export function DashboardTopbar({
           <button
             type="button"
             onClick={() => { setCreditsOpen((o) => !o); setProfileOpen(false); }}
-            className="flex items-center gap-2 h-11 pl-2.5 sm:pl-3 pr-2.5 rounded-xl bg-orange-50 border border-orange-100 hover:bg-orange-100/80 transition-colors touch-target"
+            className="flex items-center gap-2 h-9 pl-2 sm:pl-2.5 pr-2 rounded-lg bg-orange-50 border border-orange-100 hover:bg-orange-100/80 transition-colors touch-target"
             aria-label={`${creditBalanceHeadline} credits`}
           >
             <Coins className="w-4 h-4 text-amber-500 flex-shrink-0" />
@@ -264,9 +264,9 @@ export function DashboardTopbar({
               <p className="text-[10px] font-medium text-slate-500 leading-none">
                 {creditBalanceLabel}
               </p>
-              <p className="text-sm font-bold text-slate-900 leading-tight">{creditBalanceHeadline.toLocaleString()} Credits</p>
+              <p className="text-xs font-semibold text-slate-900 leading-tight">{creditBalanceHeadline.toLocaleString()} Credits</p>
             </div>
-            <span className="sm:hidden text-sm font-bold text-slate-900 tabular-nums">{creditBalanceHeadline.toLocaleString()}</span>
+            <span className="sm:hidden text-xs font-semibold text-slate-900 tabular-nums">{creditBalanceHeadline.toLocaleString()}</span>
             <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform hidden sm:block", creditsOpen && "rotate-180")} />
           </button>
 
