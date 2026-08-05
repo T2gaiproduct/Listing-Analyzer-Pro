@@ -22,6 +22,7 @@ import { resolveUserAccountRole } from "../lib/user-role";
 import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
 import { getGatewaySettings } from "./payment";
 import { reconcileUserPendingPayPalPayments } from "../lib/paypal-capture";
+import { enrichPaymentCoupon } from "../lib/gateway-payment";
 import { resolvePublicAppBaseUrl } from "../lib/app-base-url";
 import { canUserEditOwnProfile } from "../lib/profile-permissions.js";
 import { isDataUrl, normalizeBrandingSettingValue } from "../lib/branding-storage";
@@ -704,7 +705,10 @@ router.get("/billing-history", requireAuth, async (req, res): Promise<void> => {
     .where(eq(invoicesTable.userId, userId))
     .orderBy(desc(invoicesTable.createdAt))
     .limit(20);
-  res.json({ payments, invoices });
+  res.json({
+    payments: payments.map((p) => enrichPaymentCoupon(p)),
+    invoices,
+  });
 });
 
 router.get("/receipts/:paymentId", requireAuth, async (req, res): Promise<void> => {

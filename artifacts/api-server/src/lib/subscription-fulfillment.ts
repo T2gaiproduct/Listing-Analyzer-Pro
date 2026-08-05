@@ -11,7 +11,7 @@ import {
 import { grantPlanCreditsDelta, subscriptionGrantsTotal, type PlanCredits } from "./subscription-credits";
 import { planRowToGrantCredits } from "./plan-credits";
 import { hasRequiredProfileFields, upsertUserProfile } from "./user-profile";
-import { incrementCouponUsage, loadActiveCoupon } from "./coupon-validation.js";
+import { incrementCouponUsage, loadActiveCoupon, computeCouponDiscountAmount } from "./coupon-validation.js";
 import { ensureSubscriberDefaultWorkspace } from "./ensure-workspaces.js";
 
 export interface SubscriptionFulfillmentResult {
@@ -168,6 +168,20 @@ export async function fulfillStripeSubscriptionCheckout(
 
   const stripeSubId = stripeSub && typeof stripeSub === "object" ? stripeSub.id : null;
 
+  const meta = session.metadata ?? {};
+  let couponCode: string | null = meta.couponCode?.trim() || null;
+  let discountAmount = 0;
+  if (couponCode) {
+    const coupon = await loadActiveCoupon(couponCode);
+    if (coupon) {
+      couponCode = coupon.code;
+      const chargeBase = billingCycle === "yearly" ? plan.priceYearly * 12 : plan.priceMonthly;
+      discountAmount = computeCouponDiscountAmount(coupon, chargeBase);
+    } else {
+      couponCode = null;
+    }
+  }
+
   const subData = {
     planId: plan.id,
     billingCycle,
@@ -179,6 +193,8 @@ export async function fulfillStripeSubscriptionCheckout(
     cardBrand,
     stripeCheckoutSessionId: sessionId,
     stripeSubscriptionId: stripeSubId,
+    couponCode,
+    discountAmount: couponCode ? discountAmount : null,
     updatedAt: now,
   };
 
@@ -201,13 +217,14 @@ export async function fulfillStripeSubscriptionCheckout(
     status: "completed",
     gateway: "stripe",
     gatewayPaymentId: sessionId,
+    couponCode,
+    discountAmount: couponCode ? discountAmount : null,
     metadata: { type: "subscription_checkout", billingCycle, stripeSubscriptionId: stripeSubId },
   });
 
   const customerId = typeof session.customer === "string"
     ? session.customer
     : (session.customer as Stripe.Customer | null)?.id ?? null;
-  const meta = session.metadata ?? {};
   const profileFromMeta = {
     fullName: meta.fullName || undefined,
     companyName: meta.companyName || undefined,
@@ -230,9 +247,8 @@ export async function fulfillStripeSubscriptionCheckout(
 
   await ensureSubscriberDefaultWorkspace(userId);
 
-  const cc = session.metadata?.couponCode;
-  if (cc) {
-    const coupon = await loadActiveCoupon(cc);
+  if (couponCode) {
+    const coupon = await loadActiveCoupon(couponCode);
     if (coupon) {
       await incrementCouponUsage(coupon.id, coupon.usedCount);
     }

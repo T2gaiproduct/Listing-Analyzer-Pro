@@ -9,7 +9,7 @@ import { DollarSign, Search, RefreshCw } from "lucide-react";
 
 interface Payment {
   id: number; userId: string; amount: number; currency: string; status: string;
-  gateway: string; createdAt: string;
+  gateway: string; createdAt: string; couponCode?: string | null; discountAmount?: number | null;
 }
 
 function fetchPayments(status: string, gateway: string): Promise<{ payments: Payment[]; total: number }> {
@@ -58,14 +58,15 @@ export default function AdminBillingPayments() {
                   <TableHead>Amount</TableHead>
                   <TableHead>Gateway</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Coupon</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8">Loading...</TableCell></TableRow>
                 ) : payments.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No payments found.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No payments found.</TableCell></TableRow>
                 ) : (
                   payments.map((p) => (
                     <TableRow key={p.id}>
@@ -74,6 +75,11 @@ export default function AdminBillingPayments() {
                       <TableCell className="font-medium"><DollarSign className="inline h-3.5 w-3.5" />{p.amount.toFixed(2)} {p.currency}</TableCell>
                       <TableCell className="capitalize">{p.gateway}</TableCell>
                       <TableCell><Badge variant={p.status === "completed" ? "default" : p.status === "failed" ? "destructive" : "secondary"}>{p.status}</Badge></TableCell>
+                      <TableCell className="text-xs">
+                        {p.couponCode ? (
+                          <span className="text-green-600 font-medium">{p.couponCode}{p.discountAmount ? ` –$${p.discountAmount}` : ""}</span>
+                        ) : "—"}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))

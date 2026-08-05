@@ -26,6 +26,8 @@ export type GatewayPaymentIntent =
     planId: number;
     billingCycle: "monthly" | "yearly";
     couponCode?: string;
+    appliedCouponCode?: string | null;
+    discountAmount?: number;
     profile?: {
       fullName?: string;
       companyName?: string;
@@ -131,7 +133,7 @@ export async function resolveGatewayOrder(
     const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, body.planId));
     if (!plan) throw new Error("Invalid plan");
 
-    const { amountDollars } = await computePlanChargeDollars(plan, billingCycle, body.couponCode);
+    const { amountDollars, appliedCouponCode, discountAmount } = await computePlanChargeDollars(plan, billingCycle, body.couponCode);
     return {
       amountCents: Math.round(amountDollars * 100),
       amountDollars,
@@ -140,7 +142,9 @@ export async function resolveGatewayOrder(
         type: "plan",
         planId: plan.id,
         billingCycle,
-        couponCode: body.couponCode,
+        couponCode: appliedCouponCode ?? undefined,
+        appliedCouponCode,
+        discountAmount,
         profile: {
           fullName: body.fullName,
           companyName: body.companyName,
@@ -174,6 +178,10 @@ export async function recordPendingGatewayPayment(params: {
   intent: GatewayPaymentIntent;
   planId?: number;
 }): Promise<void> {
+  const planIntent = params.intent.type === "plan" ? params.intent : null;
+  const couponCode = planIntent?.appliedCouponCode ?? planIntent?.couponCode ?? null;
+  const discountAmount = planIntent?.discountAmount ?? null;
+
   await db.insert(paymentsTable).values({
     userId: params.userId,
     amount: params.amountCents / 100,
@@ -182,8 +190,31 @@ export async function recordPendingGatewayPayment(params: {
     gateway: params.gateway,
     gatewayPaymentId: params.gatewayOrderId,
     planId: params.planId,
+    couponCode,
+    discountAmount: couponCode ? discountAmount : null,
     metadata: { intent: params.intent },
   });
+}
+
+/** Backfill coupon fields for payments recorded before coupon persistence was added. */
+export function enrichPaymentCoupon<T extends {
+  couponCode?: string | null;
+  discountAmount?: number | null;
+  metadata?: unknown;
+}>(payment: T): T {
+  if (payment.couponCode) return payment;
+
+  const intent = (payment.metadata as { intent?: GatewayPaymentIntent } | null)?.intent;
+  if (intent?.type !== "plan") return payment;
+
+  const couponCode = intent.appliedCouponCode ?? intent.couponCode ?? null;
+  if (!couponCode) return payment;
+
+  return {
+    ...payment,
+    couponCode,
+    discountAmount: intent.discountAmount ?? payment.discountAmount ?? null,
+  };
 }
 
 export async function findPendingGatewayPayment(
@@ -356,6 +387,9 @@ export async function fulfillGatewayPaymentIntent(params: {
   const periodEnd = new Date(now);
   periodEnd.setMonth(periodEnd.getMonth() + (intent.billingCycle === "yearly" ? 12 : 1));
 
+  const couponCode = intent.appliedCouponCode ?? intent.couponCode ?? null;
+  const discountAmount = intent.discountAmount ?? 0;
+
   const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, params.userId));
   const subData = {
     planId: intent.planId,
@@ -367,6 +401,8 @@ export async function fulfillGatewayPaymentIntent(params: {
     autoRenew: true,
     cardBrand: params.gateway === "razorpay" ? "Razorpay" : "PayPal",
     cardLast4: params.gateway === "razorpay" ? "rzpy" : (params.payerEmail?.slice(-4) || "ppal"),
+    couponCode,
+    discountAmount: couponCode ? discountAmount : null,
     updatedAt: now,
   };
 
@@ -415,8 +451,8 @@ export async function fulfillGatewayPaymentIntent(params: {
 
   await ensureSubscriberDefaultWorkspace(params.userId);
 
-  if (intent.couponCode) {
-    const couponResult = await resolveCoupon(intent.couponCode);
+  if (couponCode) {
+    const couponResult = await resolveCoupon(couponCode);
     if (couponResult.ok) {
       await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.usedCount);
     }
@@ -429,6 +465,14 @@ export async function fulfillGatewayPaymentIntent(params: {
       amount: amountDollars,
       currency: params.currency,
       planId: intent.planId,
+      couponCode,
+      discountAmount: couponCode ? discountAmount : null,
+      metadata: {
+        type: "plan_subscription",
+        billingCycle: intent.billingCycle,
+        gateway: params.gateway,
+        intent,
+      },
       updatedAt: now,
     })
     .where(eq(paymentsTable.id, pending.id));
