@@ -26,6 +26,9 @@ import { fetchJson } from "@/lib/api-fetch";
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { useGetRecents, getGetRecentsQueryKey } from "@workspace/api-client-react";
+import type { RecentItem } from "@workspace/api-client-react";
+import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -73,6 +76,32 @@ function resolveImageUrl(url: string | null | undefined): string | null {
   return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
 }
 
+function deriveSku(productName: string, id: number): string {
+  const parts = productName
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w.slice(0, 3).toUpperCase());
+  const prefix = parts.join("-") || "PRD";
+  return `${prefix}-${String(id).padStart(4, "0")}`;
+}
+
+function mapRecentToProduct(item: RecentItem): ProductListItem {
+  return {
+    id: item.id,
+    name: item.name,
+    sku: deriveSku(item.name, item.id),
+    imageUrl: item.imageUrl ?? null,
+    channels: [],
+    price: null,
+    currency: "INR",
+    stock: null,
+    status: item.score != null && item.score > 0 ? "active" : "in_progress",
+    statusLabel: item.score != null && item.score > 0 ? "Active" : "In progress",
+    workflowUrl: item.url,
+  };
+}
 function formatInr(amount: number | null): string {
   if (amount == null) return "—";
   return `₹${amount.toLocaleString("en-IN")}`;
@@ -137,20 +166,45 @@ function ChannelTags({ channels }: { channels: string[] }) {
 export default function ProductsPage() {
   const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
+  const { isTeamMember } = useTeam();
   const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  const { data, isLoading } = useQuery({
+  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
+
+  const { data: apiData, isLoading: apiLoading } = useQuery({
     queryKey: ["products", featureWorkspaceId],
     queryFn: () => fetchJson<ProductsResponse>(`${basePath}/api/products`),
     enabled: clerkLoaded && !!user && !!featureWorkspaceId,
-    staleTime: 30_000,
+    staleTime: 10_000,
+    refetchOnMount: "always",
+    retry: 1,
   });
 
-  const products = data?.products ?? [];
+  const { data: recentsData, isLoading: recentsLoading } = useGetRecents(
+    { limit: 500 },
+    {
+      query: {
+        queryKey: [...getGetRecentsQueryKey({ limit: 500 }), recentsScope],
+        staleTime: 10_000,
+        enabled: clerkLoaded && !!user && !!featureWorkspaceId,
+        refetchOnMount: "always",
+      },
+    },
+  );
+
+  const products = useMemo(() => {
+    const fromApi = apiData?.products ?? [];
+    if (fromApi.length > 0) return fromApi;
+
+    const listings = (recentsData?.items ?? []).filter((item) => item.type === "listing");
+    return listings.map(mapRecentToProduct);
+  }, [apiData, recentsData]);
+
+  const isLoading = apiLoading || recentsLoading;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -159,7 +213,7 @@ export default function ProductsPage() {
         const hay = `${p.name} ${p.sku}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (channelFilter !== "all") {
+      if (channelFilter !== "all" && p.channels.length > 0) {
         const label = channelFilter.charAt(0).toUpperCase() + channelFilter.slice(1);
         if (!p.channels.some((c) => c.toLowerCase() === label.toLowerCase())) return false;
       }

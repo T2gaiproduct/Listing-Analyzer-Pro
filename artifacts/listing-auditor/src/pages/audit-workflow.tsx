@@ -1128,6 +1128,7 @@ export default function AuditWorkflow() {
             setActiveStep(2);
             queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
             void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+            void queryClient.invalidateQueries({ queryKey: ["products"] });
           },
           onError: (err) => {
             setIsCreating(false);

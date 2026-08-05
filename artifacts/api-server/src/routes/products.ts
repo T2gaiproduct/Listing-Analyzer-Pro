@@ -1,12 +1,11 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, or, isNull, sql, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, auditsTable } from "@workspace/db";
 import {
   resolveTeamAndWorkspace,
   getAccountOwnerId,
   getActiveWorkspaceId,
-  workspaceOwnerFilter,
   loadWorkedProjects,
   viewOwnIdFilter,
   getWorkspaceCtx,
@@ -90,16 +89,26 @@ function getEffectiveUserId(req: Request): string {
   return team?.ownerUserId ?? (req as AuthedRequest).userId;
 }
 
+function productsWorkspaceFilter(ownerId: string, workspaceId: number) {
+  return and(
+    eq(auditsTable.userId, ownerId),
+    or(
+      eq(auditsTable.workspaceId, workspaceId),
+      and(isNull(auditsTable.workspaceId), eq(auditsTable.userId, ownerId)),
+    ),
+  );
+}
+
 async function productsScopeWhere(req: Request) {
   const ownerId = getEffectiveUserId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
-  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "audits", worked, "audit", auditsTable);
+  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "build_brand", worked, "audit", auditsTable);
   return and(
-    workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
+    productsWorkspaceFilter(ownerId, workspaceId),
     eq(auditsTable.isDeleted, 0),
     sql`${auditsTable.status} != 'archived'`,
-    sql`(${auditsTable.asin} IS NULL OR ${auditsTable.asin} = '')`,
+    sql`(${auditsTable.asin} IS NULL OR trim(${auditsTable.asin}) = '')`,
     ownFilter,
   );
 }
