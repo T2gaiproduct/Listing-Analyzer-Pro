@@ -16,6 +16,7 @@ import amazonRouter from "./amazon";
 import workspacesRouter from "./workspaces";
 import productsRouter from "./products";
 import accountRolesRouter from "./account-roles";
+import marketplacesRouter from "./marketplaces";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ router.use(adminRouter);
 router.use(publicRouter);
 router.use(teamRouter);
 router.use(accountRolesRouter);
+router.use(marketplacesRouter);
 router.use(productsRouter);
 router.use(workspacesRouter);
 router.use(amazonRouter);
