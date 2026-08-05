@@ -25,6 +25,7 @@ import {
   listProductMarketplaces,
 } from "../lib/product-marketplaces.js";
 import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
+import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 
 const router: IRouter = Router();
 
@@ -577,50 +578,21 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
     await db.update(auditsTable).set(auditUpdates).where(eq(auditsTable.id, id));
   }
 
-  const profileUpdates: Record<string, unknown> = {};
-  if (typeof body.sku === "string") {
-    const trimmedSku = body.sku.trim();
-    if (!trimmedSku) {
-      res.status(400).json({ error: "SKU is required" });
-      return;
-    }
-    profileUpdates.sku = trimmedSku;
-  }
-  if (typeof body.priority === "string") {
-    const priority = body.priority === "high" || body.priority === "low" ? body.priority : "medium";
-    profileUpdates.priority = priority;
-  }
-  if (typeof body.assignedManager === "string") {
-    profileUpdates.assignedManager = body.assignedManager.trim() || null;
-  }
-  if (typeof body.notes === "string") {
-    profileUpdates.notes = body.notes.trim() || null;
-  }
-
-  if (Object.keys(profileUpdates).length > 0) {
-    const [existingProfile] = await db
-      .select()
-      .from(productProfilesTable)
-      .where(eq(productProfilesTable.auditId, id))
-      .limit(1);
-
-    if (existingProfile) {
-      await db
-        .update(productProfilesTable)
-        .set(profileUpdates)
-        .where(eq(productProfilesTable.auditId, id));
-    } else {
-      const currentName = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
-      await db.insert(productProfilesTable).values({
-        auditId: id,
-        sku: (profileUpdates.sku as string | undefined) ?? deriveSku(currentName, id),
-        priority: (profileUpdates.priority as string | undefined) ?? "medium",
-        assignedManager: (profileUpdates.assignedManager as string | null | undefined) ?? null,
-        notes: (profileUpdates.notes as string | null | undefined) ?? null,
-        workflowTemplate: "build-brand-standard",
-        targetMarketplaces: [],
-      });
-    }
+  try {
+    await applyProductProfileUpdates(
+      id,
+      {
+        sku: body.sku,
+        priority: body.priority,
+        assignedManager: body.assignedManager,
+        notes: body.notes,
+      },
+      row.projectName?.trim() || row.productName?.trim() || "Untitled Product",
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not update product profile";
+    res.status(400).json({ error: message });
+    return;
   }
 
   res.json({ success: true });

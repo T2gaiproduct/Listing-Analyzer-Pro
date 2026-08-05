@@ -45,6 +45,7 @@ import {
   workspaceOwnerFilter,
   buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
+import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
 import {
   buildAuditExportBundle,
@@ -569,8 +570,7 @@ router.delete("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorksp
   res.sendStatus(204);
 });
 
-router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
-  const ownerId = getEffectiveUserId(req);
+router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -591,12 +591,25 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     generatedImages: object;
     imageRecords: object;
     currentStep: number;
+    sku: string;
+    priority: string;
+    assignedManager: string;
+    notes: string;
   }>;
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.projectName !== undefined) updates.projectName = body.projectName;
   if (body.brandName !== undefined) updates.brandName = body.brandName;
-  if (body.productName !== undefined) updates.productName = body.productName;
+  if (body.productName !== undefined) {
+    const trimmed = body.productName.trim();
+    if (!trimmed) {
+      res.status(400).json({ error: "Product name is required" });
+      return;
+    }
+    updates.productName = trimmed;
+    updates.projectName = trimmed;
+    updates.title = trimmed;
+  }
   if (body.category !== undefined) updates.category = body.category;
   if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;
   if (body.generatedContent !== undefined) updates.generatedContent = body.generatedContent;
@@ -609,6 +622,23 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     .set(updates)
     .where(eq(auditsTable.id, id))
     .returning();
+
+  try {
+    await applyProductProfileUpdates(
+      id,
+      {
+        sku: body.sku,
+        priority: body.priority,
+        assignedManager: body.assignedManager,
+        notes: body.notes,
+      },
+      updated.projectName?.trim() || updated.productName?.trim() || "Untitled Product",
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not update product profile";
+    res.status(400).json({ error: message });
+    return;
+  }
 
   res.json(updated);
 });

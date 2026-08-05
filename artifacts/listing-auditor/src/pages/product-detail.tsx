@@ -257,20 +257,35 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const isLoading = queryEnabled && (auditLoading || apiLoading) && !product;
 
   const saveProductMutation = useMutation({
-    mutationFn: (data: ProductEditForm) =>
-      fetchJson(`${basePath}/api/products/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName: data.productName.trim(),
-          sku: data.sku.trim(),
-          brandName: data.brandName.trim(),
-          category: data.category.trim(),
-          assignedManager: data.assignedManager.trim(),
-          priority: data.priority,
-          notes: data.notes.trim(),
-        }),
-      }),
+    mutationFn: async (data: ProductEditForm) => {
+      const payload = {
+        productName: data.productName.trim(),
+        brandName: data.brandName.trim(),
+        category: data.category.trim(),
+        sku: data.sku.trim(),
+        priority: data.priority,
+        assignedManager: data.assignedManager.trim(),
+        notes: data.notes.trim(),
+      };
+
+      try {
+        await fetchJson(`${basePath}/api/audits/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch (error) {
+        if (error instanceof ApiFetchError && error.status === 404) {
+          await fetchJson(`${basePath}/api/products/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          return;
+        }
+        throw error;
+      }
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId] });
       void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
@@ -278,10 +293,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
       setEditForm(null);
       toast({ title: "Saved", description: "Product details updated." });
     },
-    onError: () => {
+    onError: (error) => {
+      const description =
+        error instanceof ApiFetchError
+          ? error.message
+          : "Could not save product details.";
       toast({
         title: "Failed",
-        description: "Could not save product details.",
+        description,
         variant: "destructive",
       });
     },
