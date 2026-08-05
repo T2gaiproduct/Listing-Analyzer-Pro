@@ -17,3 +17,4 @@ export * from "./pinned-projects";
 export * from "./amazon";
 export * from "./product-orders";
 export * from "./product-marketplace-listings";
+export * from "./product-profiles";

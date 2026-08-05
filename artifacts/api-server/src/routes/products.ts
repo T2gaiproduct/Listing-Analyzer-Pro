@@ -9,6 +9,7 @@ import {
   loadWorkedProjects,
   viewOwnIdFilter,
   getWorkspaceCtx,
+  requireWorkspaceActionAny,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
@@ -23,6 +24,7 @@ import {
   ensureSampleMarketplaceListings,
   listProductMarketplaces,
 } from "../lib/product-marketplaces.js";
+import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
 
 const router: IRouter = Router();
 
@@ -199,6 +201,11 @@ function getEffectiveUserId(req: Request): string {
   return team?.ownerUserId ?? (req as AuthedRequest).userId;
 }
 
+function auditCreatedByUserId(req: Request): string | null {
+  const ctx = getWorkspaceCtx(req);
+  return ctx.isAccountOwner ? null : (req as AuthedRequest).userId;
+}
+
 function productsWorkspaceFilter(ownerId: string, workspaceId: number) {
   return and(
     eq(auditsTable.userId, ownerId),
@@ -222,6 +229,29 @@ async function productsScopeWhere(req: Request) {
     ownFilter,
   );
 }
+
+router.post("/products", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "create"), async (req: Request, res: Response): Promise<void> => {
+  const parsed = parseCreateProductBody(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+
+  try {
+    const product = await createProductRecord({
+      body: parsed.data,
+      ownerId: getEffectiveUserId(req),
+      createdByUserId: auditCreatedByUserId(req),
+      workspaceId: getActiveWorkspaceId(req),
+    });
+
+    res.status(201).json(product);
+  } catch (err) {
+    req.log?.error?.({ err }, "Create product failed");
+    const message = err instanceof Error ? err.message : "Failed to create product";
+    res.status(500).json({ error: message });
+  }
+});
 
 router.get("/products", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const where = await productsScopeWhere(req);

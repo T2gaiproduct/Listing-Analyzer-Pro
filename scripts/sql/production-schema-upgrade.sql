@@ -179,6 +179,18 @@ CREATE TABLE IF NOT EXISTS product_marketplace_listings (
 CREATE INDEX IF NOT EXISTS product_marketplace_listings_audit_id_idx
   ON product_marketplace_listings (audit_id);
 
+CREATE TABLE IF NOT EXISTS product_profiles (
+  audit_id integer PRIMARY KEY,
+  sku text NOT NULL,
+  priority text NOT NULL DEFAULT 'medium',
+  assigned_manager text,
+  reference_links text,
+  drive_folder_url text,
+  notes text,
+  workflow_template text NOT NULL,
+  target_marketplaces jsonb NOT NULL DEFAULT '[]'::jsonb
+);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

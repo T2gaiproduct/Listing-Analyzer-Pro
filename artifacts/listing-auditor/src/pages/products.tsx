@@ -29,6 +29,7 @@ import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useGetRecents, getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
+import { CreateProductDialog } from "@/components/create-product-dialog";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -172,6 +173,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [createOpen, setCreateOpen] = useState(false);
 
   const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
 
@@ -289,15 +291,14 @@ export default function ProductsPage() {
             />
           </div>
           <Button
-            asChild
+            type="button"
             variant="outline"
             size="sm"
             className="h-8 text-xs font-medium border-slate-300 text-slate-800 shrink-0 rounded-lg px-3"
+            onClick={() => setCreateOpen(true)}
           >
-            <Link href="/audits/new">
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              New Product
-            </Link>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            New Product
           </Button>
         </div>
       </div>
@@ -372,11 +373,14 @@ export default function ProductsPage() {
                     <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
                       Create your first product with Build Your Brand. It will appear here automatically.
                     </p>
-                    <Button asChild size="sm" className="mt-4 h-7 text-xs bg-orange-500 hover:bg-orange-600">
-                      <Link href="/audits/new">
-                        <Plus className="w-3.5 h-3.5 mr-1" />
-                        New Product
-                      </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-4 h-7 text-xs bg-orange-500 hover:bg-orange-600"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      New Product
                     </Button>
                   </td>
                 </tr>
@@ -485,6 +489,12 @@ export default function ProductsPage() {
           {channelFilter !== "all" ? ` · filtered by ${channelFilter}` : ""}
         </p>
       )}
+
+      <CreateProductDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(product) => navigate(product.detailUrl)}
+      />
     </div>
   );
 }
