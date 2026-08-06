@@ -25,6 +25,7 @@ import {
   listProductMarketplaces,
 } from "../lib/product-marketplaces.js";
 import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
+import { importProductRecords, parseImportProductsBody } from "../lib/import-products.js";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 import { loadUnifiedProductList } from "../lib/unified-product-list.js";
 import {
@@ -256,6 +257,29 @@ router.post("/products", requireAuth, resolveTeamAndWorkspace, requireWorkspaceA
   } catch (err) {
     req.log?.error?.({ err }, "Create product failed");
     const message = err instanceof Error ? err.message : "Failed to create product";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/products/import", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "create"), async (req: Request, res: Response): Promise<void> => {
+  const parsed = parseImportProductsBody(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+
+  try {
+    const result = await importProductRecords({
+      products: parsed.data,
+      ownerId: getEffectiveUserId(req),
+      createdByUserId: auditCreatedByUserId(req),
+      workspaceId: getActiveWorkspaceId(req),
+    });
+
+    res.status(201).json(result);
+  } catch (err) {
+    req.log?.error?.({ err }, "Import products failed");
+    const message = err instanceof Error ? err.message : "Failed to import products";
     res.status(500).json({ error: message });
   }
 });

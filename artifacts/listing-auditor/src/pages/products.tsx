@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useUser } from "@clerk/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Plus,
@@ -9,6 +9,7 @@ import {
   Pencil,
   Upload,
   FileInput,
+  Loader2,
   Package,
   ChevronRight,
 } from "lucide-react";
@@ -23,6 +24,8 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
+import { useToast } from "@/hooks/use-toast";
+import { downloadProductImportTemplate, parseProductsCsv } from "@/lib/product-import";
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
@@ -257,10 +260,13 @@ function ChannelTags({ channels }: { channels: string[] }) {
 }
 
 export default function ProductsPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const importInputRef = useRef<HTMLInputElement>(null);
   const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember } = useTeam();
-  const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
+  const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection, canEdit } = useWorkspace();
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
@@ -299,6 +305,60 @@ export default function ProductsPage() {
   }, [apiData, recentsData]);
 
   const isLoading = apiLoading || recentsLoading;
+
+  const canImportProducts = canEdit("build_brand") || canEdit("audits");
+
+  const importProductsMutation = useMutation({
+    mutationFn: (products: ReturnType<typeof parseProductsCsv>) =>
+      fetchJson<{ imported: Array<{ id: number; name: string; sku: string }>; errors: Array<{ row: number; error: string }> }>(
+        `${basePath}/api/products/import`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ products }),
+        },
+      ),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
+
+      if (result.imported.length > 0) {
+        toast({
+          title: "Import complete",
+          description: `${result.imported.length} product${result.imported.length === 1 ? "" : "s"} imported.`,
+        });
+      }
+
+      if (result.errors.length > 0) {
+        toast({
+          title: "Some rows failed",
+          description: result.errors.map((e) => `Row ${e.row}: ${e.error}`).join(" "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "Could not import products.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  async function handleImportFile(file: File) {
+    try {
+      const text = await file.text();
+      const products = parseProductsCsv(text);
+      importProductsMutation.mutate(products);
+    } catch (error) {
+      toast({
+        title: "Invalid CSV",
+        description: error instanceof Error ? error.message : "Could not read the CSV file.",
+        variant: "destructive",
+      });
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -415,23 +475,52 @@ export default function ProductsPage() {
             </button>
           ))}
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled
-              className="h-7 text-[11px] font-medium border-slate-200 text-slate-500 rounded-lg px-2.5 gap-1.5"
-            >
-              <FileInput className="w-3.5 h-3.5" />
-              Import
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-            Product import coming soon
-          </TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-1.5">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void handleImportFile(file);
+              event.target.value = "";
+            }}
+          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!canImportProducts || importProductsMutation.isPending}
+                className="h-7 text-[11px] font-medium border-slate-200 text-slate-600 rounded-lg px-2.5 gap-1.5"
+                onClick={() => importInputRef.current?.click()}
+              >
+                {importProductsMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileInput className="w-3.5 h-3.5" />
+                )}
+                Import
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs max-w-xs">
+              Upload a CSV with productName, sku, and optional marketplace columns.
+              {" "}
+              <button
+                type="button"
+                className="underline text-orange-600 hover:text-orange-700"
+                onClick={(event) => {
+                  event.preventDefault();
+                  downloadProductImportTemplate();
+                }}
+              >
+                Download template
+              </button>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Table */}
