@@ -32,7 +32,13 @@ import { useTeam } from "@/hooks/use-team";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type ChannelFilter = "all" | "amazon" | "shopify" | "flipkart";
+type ChannelFilter = "all" | "amazon" | "shopify" | "woocommerce";
+
+const CHANNEL_FILTER_LABELS: Record<Exclude<ChannelFilter, "all">, string> = {
+  amazon: "Amazon",
+  shopify: "Shopify",
+  woocommerce: "WooCommerce",
+};
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -63,7 +69,7 @@ const CHANNEL_FILTERS: Array<{ id: ChannelFilter; label: string }> = [
   { id: "all", label: "All" },
   { id: "amazon", label: "Amazon" },
   { id: "shopify", label: "Shopify" },
-  { id: "flipkart", label: "Flipkart" },
+  { id: "woocommerce", label: "WooCommerce" },
 ];
 
 const SOURCE_TYPE_LABELS: Record<ProductSourceType, string> = {
@@ -301,8 +307,8 @@ export default function ProductsPage() {
         const hay = `${p.name} ${p.sku}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (channelFilter !== "all" && p.channels.length > 0) {
-        const label = channelFilter.charAt(0).toUpperCase() + channelFilter.slice(1);
+      if (channelFilter !== "all") {
+        const label = CHANNEL_FILTER_LABELS[channelFilter];
         if (!p.channels.some((c) => c.toLowerCase() === label.toLowerCase())) return false;
       }
       return true;
@@ -583,7 +589,7 @@ export default function ProductsPage() {
       {filtered.length > 0 && (
         <p className="text-[10px] text-slate-400 text-right">
           {filtered.length} product{filtered.length === 1 ? "" : "s"}
-          {channelFilter !== "all" ? ` · filtered by ${channelFilter}` : ""}
+          {channelFilter !== "all" ? ` · filtered by ${CHANNEL_FILTER_LABELS[channelFilter]}` : ""}
         </p>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, productMarketplaceListingsTable } from "@workspace/db";
 
 export type MarketplaceListingStatus = "live" | "pending" | "not_listed";
@@ -179,4 +179,56 @@ export async function listProductMarketplaces(auditId: number): Promise<{
   const activeCount = listings.filter((l) => l.status === "live").length;
 
   return { listings, activeCount };
+}
+
+/** Live marketplace names per audit id (seeds sample listings when missing). */
+export async function listLiveChannelsForAudits(
+  auditIds: number[],
+  workspaceId: number | null,
+  namesByAuditId: Map<number, string>,
+  skusByAuditId: Map<number, string>,
+): Promise<Map<number, string[]>> {
+  const uniqueIds = [...new Set(auditIds.filter((id) => id > 0))];
+  if (uniqueIds.length === 0) return new Map();
+
+  const existing = await db
+    .select({ auditId: productMarketplaceListingsTable.auditId })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      inArray(productMarketplaceListingsTable.auditId, uniqueIds),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ));
+
+  const seeded = new Set(existing.map((row) => row.auditId));
+  await Promise.all(
+    uniqueIds
+      .filter((id) => !seeded.has(id))
+      .map((id) => ensureSampleMarketplaceListings(
+        id,
+        workspaceId,
+        namesByAuditId.get(id) ?? "Product",
+        skusByAuditId.get(id) ?? `PRD-${id}`,
+      )),
+  );
+
+  const rows = await db
+    .select({
+      auditId: productMarketplaceListingsTable.auditId,
+      marketplace: productMarketplaceListingsTable.marketplace,
+    })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      inArray(productMarketplaceListingsTable.auditId, uniqueIds),
+      eq(productMarketplaceListingsTable.status, "live"),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ));
+
+  const channelsByAuditId = new Map<number, string[]>();
+  for (const row of rows) {
+    const current = channelsByAuditId.get(row.auditId) ?? [];
+    current.push(row.marketplace);
+    channelsByAuditId.set(row.auditId, current);
+  }
+
+  return channelsByAuditId;
 }

@@ -2,6 +2,7 @@ import type { Request } from "express";
 import { loadScopedRecents, pickProjectThumbnail } from "./scoped-recents-load";
 import { getAccountOwnerId, getActiveWorkspaceId } from "./workspace-route-helpers";
 import { resolveTeamContext } from "../middlewares/team-auth";
+import { listLiveChannelsForAudits } from "./product-marketplaces.js";
 
 export type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -197,6 +198,22 @@ export async function loadUnifiedProductList(
       createdAt: ad.createdAt,
       updatedAt: ad.updatedAt ?? ad.createdAt,
     });
+  }
+
+  const auditItems = items.filter((item) => item.sourceType === "listing" || item.sourceType === "audit");
+  if (auditItems.length > 0) {
+    const namesByAuditId = new Map(auditItems.map((item) => [item.id, item.name]));
+    const skusByAuditId = new Map(auditItems.map((item) => [item.id, item.sku]));
+    const channelsByAuditId = await listLiveChannelsForAudits(
+      auditItems.map((item) => item.id),
+      workspaceId,
+      namesByAuditId,
+      skusByAuditId,
+    );
+
+    for (const item of auditItems) {
+      item.channels = channelsByAuditId.get(item.id) ?? [];
+    }
   }
 
   items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
