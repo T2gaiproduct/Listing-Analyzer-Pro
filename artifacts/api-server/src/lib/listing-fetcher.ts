@@ -4,6 +4,7 @@ import {
   fetchListingByUrl,
   type FetchedListing,
 } from "./amazon-fetcher";
+import { normalizeShopifyTags } from "./shopify-product-sync.js";
 
 export type { FetchedListing };
 
@@ -95,7 +96,7 @@ interface ShopifyProductResponse {
     title?: string;
     body_html?: string;
     product_type?: string;
-    tags?: string;
+    tags?: string | string[];
     images?: Array<{ src?: string }>;
     variants?: Array<{ price?: string }>;
   };
@@ -128,10 +129,8 @@ async function fetchShopifyProductJson(url: string): Promise<FetchedListing | nu
       bulletPoints.push(...sentences.slice(0, 5));
     }
 
-    if (product.tags) {
-      for (const tag of product.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3)) {
-        if (tag.length > 3) bulletPoints.push(tag);
-      }
+    for (const tag of normalizeShopifyTags(product.tags).slice(0, 3)) {
+      if (tag.length > 3) bulletPoints.push(tag);
     }
 
     const imageUrls = (product.images ?? [])

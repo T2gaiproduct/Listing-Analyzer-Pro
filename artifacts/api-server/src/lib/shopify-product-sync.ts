@@ -27,7 +27,7 @@ export type ShopifyCatalogProduct = {
   body_html?: string;
   vendor?: string;
   product_type?: string;
-  tags?: string;
+  tags?: string | string[];
   images?: Array<{ src?: string }>;
   variants?: Array<{ sku?: string; price?: string }>;
 };
@@ -62,7 +62,20 @@ function normalizeStoreOrigin(storeUrl: string): string {
   return url.origin;
 }
 
-function parseBulletPoints(bodyHtml: string | undefined, tags: string | undefined): string[] {
+export function normalizeShopifyTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) {
+    return tags
+      .filter((tag): tag is string => typeof tag === "string")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  }
+  if (typeof tags === "string" && tags.trim()) {
+    return tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function parseBulletPoints(bodyHtml: string | undefined, tags: unknown): string[] {
   const bulletPoints: string[] = [];
 
   if (bodyHtml) {
@@ -74,10 +87,8 @@ function parseBulletPoints(bodyHtml: string | undefined, tags: string | undefine
     bulletPoints.push(...sentences.slice(0, 5));
   }
 
-  if (tags) {
-    for (const tag of tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3)) {
-      if (tag.length > 3) bulletPoints.push(tag);
-    }
+  for (const tag of normalizeShopifyTags(tags).slice(0, 3)) {
+    if (tag.length > 3) bulletPoints.push(tag);
   }
 
   return bulletPoints.slice(0, 7);
