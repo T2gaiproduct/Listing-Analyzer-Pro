@@ -276,13 +276,19 @@ async function loadAuditDetail(
     ? `/audits/${row.id}`
     : `/audits/workflow?resume=${row.id}`;
 
+  const marketplaceStats = await listProductMarketplaces(id);
+
   const referenceLinks: Array<{ label: string; url: string }> = [];
-  if (isShopifyImport && profile?.referenceLinks?.trim()) {
-    referenceLinks.push({
-      label: "Shopify",
-      url: profile.referenceLinks.trim(),
-    });
-  } else if (row.asin?.trim() && !isShopifyImport) {
+  if (isShopifyImport) {
+    const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
+    const shopifyUrl = profile?.referenceLinks?.trim() || shopifyListing?.listingUrl?.trim();
+    if (shopifyUrl) {
+      referenceLinks.push({
+        label: "Shopify",
+        url: shopifyUrl,
+      });
+    }
+  } else if (row.asin?.trim()) {
     referenceLinks.push({
       label: "Amazon Ref",
       url: `https://www.amazon.in/dp/${row.asin.trim()}`,
@@ -290,7 +296,10 @@ async function loadAuditDetail(
   }
   competitors.forEach((c, i) => {
     const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
-    const url = c.asin?.trim() ? `https://www.amazon.in/dp/${c.asin.trim()}` : "#";
+    const competitorAsin = c.asin?.trim();
+    const url = competitorAsin && !isShopifyImportAsin(competitorAsin)
+      ? `https://www.amazon.in/dp/${competitorAsin}`
+      : "#";
     referenceLinks.push({ label, url });
   });
 
@@ -322,7 +331,6 @@ async function loadAuditDetail(
     });
 
   const orderStats = await getProductOrderStats(id);
-  const marketplaceStats = await listProductMarketplaces(id);
   const shopifyLive = marketplaceStats.listings.some(
     (listing) => listing.marketplace === "Shopify" && listing.status === "live",
   );

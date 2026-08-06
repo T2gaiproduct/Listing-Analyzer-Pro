@@ -389,13 +389,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const product = useMemo((): ProductDetailView | null => {
     if (isValidProductDetail(apiProduct)) return apiProduct;
+    if (apiLoading || apiError) return null;
     if (auditData && shouldFetchAudit) {
       return mapAuditToProductDetail(auditData, "Account Owner", {
         sourceType: source === "audit" ? "audit" : "listing",
       });
     }
     return null;
-  }, [apiProduct, auditData, shouldFetchAudit, source]);
+  }, [apiProduct, apiLoading, apiError, auditData, shouldFetchAudit, source]);
 
   const optimizeAuditId = useMemo(
     () => resolveOptimizeAuditId(product, auditData?.id, source),

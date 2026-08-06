@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, avg, count, sql, and } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable, competitorsTable, graphicsProjectsTable } from "@workspace/db";
+import { db, auditsTable, competitorsTable, graphicsProjectsTable, productProfilesTable } from "@workspace/db";
 import {
   CreateAuditBody,
   GetAuditParams,
@@ -535,8 +535,15 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
     .from(competitorsTable)
     .where(and(eq(competitorsTable.auditId, audit.id), eq(competitorsTable.isDeleted, 0)));
 
+  const [profile] = await db
+    .select({ referenceLinks: productProfilesTable.referenceLinks })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, audit.id))
+    .limit(1);
+
   res.json({
     ...audit,
+    referenceLinks: profile?.referenceLinks ?? null,
     result: audit.result ?? {
       titleScore: { score: 0, issues: [], suggestions: [] },
       bulletScore: { score: 0, issues: [], suggestions: [] },

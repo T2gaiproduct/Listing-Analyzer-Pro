@@ -8,6 +8,42 @@ export type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
 const WORKFLOW_STEP_LABELS = ["Upload", "Listing", "Graphics", "A+ Content", "Export"];
 
+const SHOPIFY_IMPORT_ASIN_PREFIX = "shopify:";
+
+function isShopifyImportAsin(asin: string | null | undefined): boolean {
+  return typeof asin === "string" && asin.startsWith(SHOPIFY_IMPORT_ASIN_PREFIX);
+}
+
+function buildAuditReferenceLinks(audit: AuditLike): Array<{ label: string; url: string }> {
+  const referenceLinks: Array<{ label: string; url: string }> = [];
+  const asin = audit.asin?.trim();
+  const profileRef = audit.referenceLinks?.trim();
+
+  if (asin) {
+    if (isShopifyImportAsin(asin)) {
+      if (profileRef) {
+        referenceLinks.push({ label: "Shopify", url: profileRef });
+      }
+    } else {
+      referenceLinks.push({
+        label: "Amazon Ref",
+        url: `https://www.amazon.in/dp/${asin}`,
+      });
+    }
+  }
+
+  (audit.competitors ?? []).forEach((c, i) => {
+    const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
+    const competitorAsin = c.asin?.trim();
+    const url = competitorAsin && !isShopifyImportAsin(competitorAsin)
+      ? `https://www.amazon.in/dp/${competitorAsin}`
+      : "#";
+    referenceLinks.push({ label, url });
+  });
+
+  return referenceLinks;
+}
+
 export function deriveSku(productName: string, id: number): string {
   const parts = productName
     .replace(/[^a-zA-Z0-9\s]/g, "")
@@ -224,6 +260,7 @@ interface AuditLike {
   brandName?: string | null;
   category?: string | null;
   asin?: string | null;
+  referenceLinks?: string | null;
   status: string;
   currentStep?: number | null;
   overallScore?: number;
@@ -245,7 +282,7 @@ interface AuditLike {
 }
 
 export function isBuildBrandAudit(audit: AuditLike): boolean {
-  return !audit.asin?.trim();
+  return !audit.asin?.trim() || isShopifyImportAsin(audit.asin);
 }
 
 export function mapAuditToProductDetail(
@@ -253,12 +290,17 @@ export function mapAuditToProductDetail(
   managerName = "Account Owner",
   opts?: { sourceType?: "listing" | "audit" },
 ): ProductDetailView {
-  const sourceType = opts?.sourceType ?? (audit.asin?.trim() ? "audit" : "listing");
+  const sourceType = opts?.sourceType ?? (
+    audit.asin?.trim() && !isShopifyImportAsin(audit.asin) ? "audit" : "listing"
+  );
+  const isShopifyImport = isShopifyImportAsin(audit.asin);
   const name = audit.projectName?.trim() || audit.productName?.trim() || "Untitled Product";
   const mapped = mapProductStatus(audit.status ?? "draft", audit.currentStep ?? null);
-  const stageLabel = sourceType === "audit"
-    ? (audit.status === "complete" ? "Audit Results" : "Audit in progress")
-    : mapStageLabel(audit.status ?? "draft", audit.currentStep ?? null);
+  const stageLabel = isShopifyImport
+    ? "Imported from Shopify"
+    : sourceType === "audit"
+      ? (audit.status === "complete" ? "Audit Results" : "Audit in progress")
+      : mapStageLabel(audit.status ?? "draft", audit.currentStep ?? null);
   const progress = sourceType === "audit"
     ? (audit.status === "complete" ? 100 : audit.overallScore ? Math.min(95, audit.overallScore) : 40)
     : calcProgress(audit.status ?? "draft", audit.currentStep ?? null);
@@ -267,18 +309,7 @@ export function mapAuditToProductDetail(
     ? `/audits/${audit.id}`
     : `/audits/workflow?resume=${audit.id}`;
 
-  const referenceLinks: Array<{ label: string; url: string }> = [];
-  if (audit.asin?.trim()) {
-    referenceLinks.push({
-      label: "Amazon Ref",
-      url: `https://www.amazon.in/dp/${audit.asin.trim()}`,
-    });
-  }
-  (audit.competitors ?? []).forEach((c, i) => {
-    const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
-    const url = c.asin?.trim() ? `https://www.amazon.in/dp/${c.asin.trim()}` : "#";
-    referenceLinks.push({ label, url });
-  });
+  const referenceLinks = buildAuditReferenceLinks(audit);
 
   const aiSuggestions = buildProductSuggestions({
     productName: audit.productName,
@@ -324,7 +355,7 @@ export function mapAuditToProductDetail(
     updatedAt: audit.updatedAt ?? new Date().toISOString(),
     workflowUrl,
     sourceType,
-    sourceTypeLabel: sourceType === "audit" ? "Audit Listing" : "Build Your Brand",
+    sourceTypeLabel: isShopifyImport ? "Shopify Import" : (sourceType === "audit" ? "Audit Listing" : "Build Your Brand"),
     statsAuditId: audit.id,
     manager: { name: managerName, initials: managerInitials(managerName) },
     notes: buildNotes(audit),
