@@ -35,8 +35,6 @@ import {
   PRODUCT_SOURCE_TRY_ORDER,
 } from "./product-source.js";
 
-type AuthedRequest = Request & { userId: string };
-
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
 export type ProductDetailPayload = {

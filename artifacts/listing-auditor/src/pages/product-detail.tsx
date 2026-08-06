@@ -228,7 +228,7 @@ function AiSuggestionsCard({
         </p>
         {generatedContent?.title ? (
           <div className="rounded-lg border border-orange-200/80 bg-white/70 overflow-hidden">
-            <div className="max-h-48 overflow-y-auto overscroll-contain px-3 py-2.5 space-y-2 scrollbar-thin">
+            <div className="max-h-48 overflow-y-auto overscroll-contain px-3 py-2.5 space-y-2">
               <p className="text-[11px] font-medium text-slate-900 leading-snug whitespace-pre-wrap break-words">
                 {generatedContent.title}
               </p>
