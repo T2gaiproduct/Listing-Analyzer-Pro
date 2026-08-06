@@ -188,7 +188,7 @@ function AiSuggestionsCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 text-[11px] bg-white border-orange-200 text-orange-900 hover:bg-orange-50"
+          className="h-7 text-[11px] bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
           onClick={() => onNavigate(workflowUrl)}
         >
           Optimize content
@@ -520,9 +520,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <button
                   type="button"
                   onClick={() => navigate(product.workflowUrl)}
-                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
                 >
-                  <Sparkles className="w-3 h-3 opacity-80" />
+                  <Sparkles className="w-3 h-3 opacity-70" />
                   Optimize Content
                 </button>
               </>
