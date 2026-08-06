@@ -120,6 +120,54 @@ function productKey(product: ProductListItem): string {
   return `${product.sourceType}-${product.id}`;
 }
 
+function inferSourceType(workflowUrl: string): ProductSourceType {
+  if (/^\/audits\/\d+$/.test(workflowUrl)) return "audit";
+  if (workflowUrl.startsWith("/projects/")) return "graphics";
+  if (workflowUrl.startsWith("/videos/")) return "video";
+  if (workflowUrl.startsWith("/ads/")) return "ads";
+  return "listing";
+}
+
+function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
+  const workflowUrl = raw.workflowUrl ?? `/audits/workflow?resume=${raw.id}`;
+  const sourceType = raw.sourceType ?? inferSourceType(workflowUrl);
+  const detailUrl =
+    raw.detailUrl
+    ?? (sourceType === "listing"
+      ? `/products/${raw.id}`
+      : sourceType === "audit"
+        ? `/audits/${raw.id}`
+        : workflowUrl);
+
+  return {
+    ...raw,
+    workflowUrl,
+    sourceType,
+    sourceTypeLabel: raw.sourceTypeLabel ?? SOURCE_TYPE_LABELS[sourceType],
+    detailUrl,
+  };
+}
+
+function mergeProductLists(apiProducts: ProductListItem[], recentProducts: ProductListItem[]): ProductListItem[] {
+  const merged = new Map<string, ProductListItem>();
+  const order: string[] = [];
+
+  for (const product of apiProducts) {
+    const key = productKey(product);
+    merged.set(key, product);
+    order.push(key);
+  }
+  for (const product of recentProducts) {
+    const key = productKey(product);
+    if (!merged.has(key)) {
+      merged.set(key, product);
+      order.push(key);
+    }
+  }
+
+  return order.map((key) => merged.get(key)!);
+}
+
 function mapRecentToProduct(item: RecentItem): ProductListItem {
   const score = item.score ?? null;
   const sourceType = (item.type === "video" ? "video" : item.type) as ProductSourceType;
@@ -243,13 +291,12 @@ export default function ProductsPage() {
   );
 
   const products = useMemo(() => {
-    const fromApi = apiData?.products ?? [];
-    if (fromApi.length > 0) return fromApi;
+    const fromApi = (apiData?.products ?? []).map(normalizeApiProduct);
+    const fromRecents = (recentsData?.items ?? [])
+      .filter((item) => RECENT_PRODUCT_TYPES.has(item.type as ProductSourceType))
+      .map(mapRecentToProduct);
 
-    const items = (recentsData?.items ?? []).filter((item) =>
-      RECENT_PRODUCT_TYPES.has(item.type as ProductSourceType),
-    );
-    return items.map(mapRecentToProduct);
+    return mergeProductLists(fromApi, fromRecents);
   }, [apiData, recentsData]);
 
   const isLoading = apiLoading || recentsLoading;
@@ -459,7 +506,7 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-3 py-2.5 align-middle">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200 bg-slate-50 text-slate-600 whitespace-nowrap">
-                        {product.sourceTypeLabel}
+                        {product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project"}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">
