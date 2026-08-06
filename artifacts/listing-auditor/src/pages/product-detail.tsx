@@ -187,7 +187,7 @@ function AiSuggestionsCard({
     ? (auditScore / 20).toFixed(1)
     : null;
 
-  const previewBullets = generatedContent?.bulletPoints?.filter(Boolean).slice(0, 3) ?? [];
+  const contentBullets = generatedContent?.bulletPoints?.filter(Boolean) ?? [];
 
   return (
     <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-4 shadow-sm space-y-3">
@@ -227,19 +227,24 @@ function AiSuggestionsCard({
           Optimized Content
         </p>
         {generatedContent?.title ? (
-          <div className="rounded-lg border border-orange-200/80 bg-white/70 px-3 py-2.5 space-y-2">
-            <p className="text-[11px] font-medium text-slate-900 leading-snug line-clamp-2">
-              {generatedContent.title}
-            </p>
-            {previewBullets.length > 0 && (
-              <ul className="space-y-1 pl-3.5 list-disc marker:text-orange-300">
-                {previewBullets.map((bullet) => (
-                  <li key={bullet} className="text-[10px] text-slate-700 leading-relaxed line-clamp-2">
-                    {bullet}
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="rounded-lg border border-orange-200/80 bg-white/70 overflow-hidden">
+            <div className="max-h-48 overflow-y-auto overscroll-contain px-3 py-2.5 space-y-2 scrollbar-thin">
+              <p className="text-[11px] font-medium text-slate-900 leading-snug whitespace-pre-wrap break-words">
+                {generatedContent.title}
+              </p>
+              {contentBullets.length > 0 && (
+                <ul className="space-y-1.5 pl-3.5 list-disc marker:text-orange-300">
+                  {contentBullets.map((bullet, index) => (
+                    <li
+                      key={`${index}-${bullet.slice(0, 24)}`}
+                      className="text-[10px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words"
+                    >
+                      {bullet}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         ) : (
           <p className="text-[11px] text-slate-600 px-0.5">
