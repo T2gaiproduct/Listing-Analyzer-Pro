@@ -34,12 +34,17 @@ const cardClass =
   "flex flex-1 min-w-0 basis-0 sm:flex-none sm:w-28 items-center justify-center h-9 sm:h-14 px-0.5 sm:px-3 bg-transparent";
 const logoBoxClass = "flex items-center justify-center w-full h-4 sm:h-7 overflow-hidden";
 
+const LOGO_CARD_CLASS: Partial<Record<string, string>> = {
+  WooCommerce: "sm:w-36",
+};
+
 const LOGO_IMAGE_CLASS: Partial<Record<string, string>> = {
-  WooCommerce: "scale-[1.35] sm:scale-[1.5] origin-left",
+  WooCommerce: "scale-[1.1] sm:scale-[1.2] origin-left",
 };
 
 type MarketplaceEntry = {
   name: string;
+  cardClass?: string;
   logoBoxClass?: string;
   render: (className?: string) => ReactNode;
 };
@@ -51,6 +56,7 @@ const marketplaces: MarketplaceEntry[] = [
 ].map((name) => ({
   name,
   logoBoxClass: name === "WooCommerce" ? "overflow-visible" : undefined,
+  cardClass: LOGO_CARD_CLASS[name],
   render: (className?: string) => (
     <MarketplaceImage
       marketplace={name}
@@ -65,7 +71,7 @@ function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
       className={cn(
         pill
           ? "flex items-center justify-center h-11 min-w-[7.5rem] px-4 bg-transparent"
-          : cardClass,
+          : cn(cardClass, item.cardClass),
       )}
       title={item.name}
     >
@@ -85,7 +91,7 @@ export function MarketplaceLogo({
   className?: string;
 }) {
   return (
-    <div className={cn("h-5 w-24 flex items-center", className)}>
+    <div className={cn("h-5 w-28 flex items-center", className)}>
       <MarketplaceImage
         marketplace={marketplace}
         className={cn("max-h-5", LOGO_IMAGE_CLASS[marketplace])}
