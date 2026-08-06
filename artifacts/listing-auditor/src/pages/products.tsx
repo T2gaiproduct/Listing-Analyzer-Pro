@@ -177,23 +177,21 @@ function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): P
 }
 
 function mergeProductLists(apiProducts: ProductListItem[], recentProducts: ProductListItem[]): ProductListItem[] {
-  const merged = new Map<string, ProductListItem>();
-  const order: string[] = [];
+  const merged = new Map<number, ProductListItem>();
+  const order: number[] = [];
 
   for (const product of apiProducts) {
-    const key = productKey(product);
-    merged.set(key, product);
-    order.push(key);
+    if (!merged.has(product.id)) order.push(product.id);
+    merged.set(product.id, product);
   }
   for (const product of recentProducts) {
-    const key = productKey(product);
-    if (!merged.has(key)) {
-      merged.set(key, product);
-      order.push(key);
+    if (!merged.has(product.id)) {
+      merged.set(product.id, product);
+      order.push(product.id);
     }
   }
 
-  return order.map((key) => merged.get(key)!);
+  return order.map((id) => merged.get(id)!);
 }
 
 function mapRecentToProduct(item: RecentItem): ProductListItem {

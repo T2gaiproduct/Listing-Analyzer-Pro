@@ -202,7 +202,11 @@ export default function MarketplacesPage() {
       const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
       const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Shopify.` : "";
       const auditNote = result.auditsQueued > 0
-        ? ` Running AI audits for ${result.auditsQueued} listing${result.auditsQueued === 1 ? "" : "s"} (1 audit credit each).`
+        ? ` Audited ${result.auditsCompleted ?? 0} of ${result.auditsQueued} listing${result.auditsQueued === 1 ? "" : "s"} (1 audit credit each).${
+          (result.auditsRemaining ?? 0) > 0
+            ? ` ${result.auditsRemaining} more auditing in the background.`
+            : ""
+        }`
         : "";
       toast({
         title: "Shopify products imported",

@@ -133,8 +133,8 @@ function getEffectiveUserId(req: Request): string {
 }
 
 function auditCreatedByUserId(req: Request): string | null {
-  const team = (req as TeamAuthedRequest).team;
-  if (team?.memberUserId) return team.memberUserId;
+  const ctx = getWorkspaceCtx(req);
+  if (ctx.isAccountOwner) return null;
   return (req as AuthedRequest).userId;
 }
 
@@ -155,6 +155,8 @@ async function productsScopeWhere(req: Request) {
     ownFilter,
   );
 }
+
+const SYNC_AUDITS_PER_IMPORT = 25;
 
 router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
@@ -237,14 +239,28 @@ router.post(
         workspaceId,
       });
 
-      res.status(201).json(result);
-
+      let auditsCompleted = 0;
+      let auditsFailed = 0;
       if (result.pendingAuditIds.length > 0) {
         const creditCtx = buildTeamAwareCreditCtx(req);
-        void runListingAuditsInBackground(result.pendingAuditIds, creditCtx).catch((err) => {
-          req.log?.error?.({ err, auditIds: result.pendingAuditIds }, "Shopify import audit batch failed");
-        });
+        const toRunNow = result.pendingAuditIds.slice(0, SYNC_AUDITS_PER_IMPORT);
+        const toRunLater = result.pendingAuditIds.slice(SYNC_AUDITS_PER_IMPORT);
+        const summary = await runListingAuditsInBackground(toRunNow, creditCtx);
+        auditsCompleted = summary.completed;
+        auditsFailed = summary.failed;
+        if (toRunLater.length > 0) {
+          void runListingAuditsInBackground(toRunLater, creditCtx).catch((err) => {
+            req.log?.error?.({ err, auditIds: toRunLater }, "Shopify import audit batch failed");
+          });
+        }
       }
+
+      res.status(201).json({
+        ...result,
+        auditsCompleted,
+        auditsFailed,
+        auditsRemaining: Math.max(0, result.pendingAuditIds.length - auditsCompleted - auditsFailed),
+      });
     } catch (err) {
       req.log?.error?.({ err }, "Shopify product sync failed");
       const message = err instanceof Error ? err.message : "Failed to import Shopify products";

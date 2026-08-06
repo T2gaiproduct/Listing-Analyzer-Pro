@@ -24,6 +24,7 @@ import {
   type MemberWorkedProjects,
   type WorkedProjectType,
 } from "../lib/member-projects";
+import { isShopifyImportAsin } from "../lib/shopify-import-utils.js";
 
 const router: IRouter = Router();
 
@@ -83,6 +84,20 @@ function recentsTypeLabel(type: string): string {
     case "ads": return "Manage Ads";
     default: return "Project";
   }
+}
+
+function classifyAuditRecentsItem(a: {
+  id: number;
+  asin?: string | null;
+}): { type: "audit" | "listing"; url: string; typeLabel: string } {
+  const isShopifyImport = isShopifyImportAsin(a.asin);
+  const isAuditListing = !!a.asin?.trim() && !isShopifyImport;
+  const type = isAuditListing ? "audit" as const : "listing" as const;
+  return {
+    type,
+    url: isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+    typeLabel: isShopifyImport ? "Shopify Import" : recentsTypeLabel(type),
+  };
 }
 
 function isUsableImageUrl(url: string | null | undefined): url is string {
@@ -277,17 +292,16 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
 
   const items = [
     ...audits.map((a) => {
-      const isAudit = !!a.asin;
-      const type = isAudit ? ("audit" as const) : ("listing" as const);
+      const classified = classifyAuditRecentsItem(a);
       return {
-        type,
+        type: classified.type,
         id: a.id,
         name: a.name || a.productName || "Untitled Project",
         createdAt: a.createdAt,
         updatedAt: a.updatedAt ?? a.createdAt,
-        url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+        url: classified.url,
         pinned: pinnedSet.has(`audit-${a.id}`),
-        typeLabel: recentsTypeLabel(type),
+        typeLabel: classified.typeLabel,
         category: a.category ?? null,
         score: a.overallScore ?? null,
         imageUrl: pickThumbnail({
@@ -467,17 +481,16 @@ router.get("/search/projects", requireAuth, resolveTeamAndWorkspace, async (req:
 
   const items = [
     ...audits.map((a) => {
-      const isAudit = !!a.asin;
-      const type = isAudit ? ("audit" as const) : ("listing" as const);
+      const classified = classifyAuditRecentsItem(a);
       return {
-        type,
+        type: classified.type,
         id: a.id,
         name: a.name || a.productName || "Untitled Project",
         createdAt: a.createdAt,
         updatedAt: a.updatedAt ?? a.createdAt,
-        url: isAudit ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+        url: classified.url,
         pinned: false,
-        typeLabel: recentsTypeLabel(type),
+        typeLabel: classified.typeLabel,
         category: a.category ?? null,
         score: a.overallScore ?? null,
         imageUrl: pickThumbnail({

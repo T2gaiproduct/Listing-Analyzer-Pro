@@ -158,6 +158,27 @@ export async function loadAuditCatalogExtras(
 
   for (const id of uniqueIds) {
     const productListings = listings.filter((row) => row.auditId === id);
+    const entry = result.get(id)!;
+    const shopifyListing = productListings.find((row) => row.marketplace === "Shopify");
+
+    if (shopifyListing) {
+      if (shopifyListing.priceCents != null) {
+        entry.price = shopifyListing.priceCents / 100;
+        entry.currency = shopifyListing.currency?.trim() || "INR";
+      }
+      if (shopifyListing.inventory != null) {
+        entry.stock = shopifyListing.inventory;
+        entry.inStock = shopifyListing.inventory > 0;
+      } else if (shopifyListing.status === "live") {
+        entry.inStock = true;
+      }
+      if (shopifyListing.status === "live") {
+        entry.isLiveOnShopify = true;
+      }
+    }
+
+    if (entry.price != null) continue;
+
     const chosen = LISTING_PRICE_PRIORITY
       .map((marketplace) => productListings.find((row) => (
         row.marketplace === marketplace
@@ -169,7 +190,6 @@ export async function loadAuditCatalogExtras(
 
     if (!chosen || chosen.priceCents == null) continue;
 
-    const entry = result.get(id)!;
     entry.price = chosen.priceCents / 100;
     entry.stock = chosen.inventory;
     entry.currency = chosen.currency?.trim() || "INR";

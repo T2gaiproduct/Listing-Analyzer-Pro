@@ -219,6 +219,11 @@ async function refreshShopifyProductFromCatalog(input: {
     .limit(1);
 
   const needsAudit = existingAudit ? auditNeedsAnalysis(existingAudit) : false;
+  const bulletPoints = parseBulletPoints(input.product.body_html, input.product.tags);
+  const imageUrls = (input.product.images ?? [])
+    .map((img) => img.src?.trim())
+    .filter((src): src is string => Boolean(src))
+    .slice(0, 9);
 
   const sku = input.product.variants?.find((v) => v.sku?.trim())?.sku?.trim()
     || input.product.handle.toUpperCase();
@@ -229,10 +234,24 @@ async function refreshShopifyProductFromCatalog(input: {
       projectName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
       productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
       title,
+      bulletPoints,
+      imageUrls,
+      targetKeywords: parseKeywords(title, bulletPoints),
+      brandName: input.product.vendor?.trim() || null,
+      category: input.product.product_type?.trim() || null,
       status: needsAudit ? "pending" : listing.auditStatus,
       updatedAt: new Date(),
     })
     .where(eq(auditsTable.id, input.auditId));
+
+  await db
+    .update(productProfilesTable)
+    .set({
+      sku,
+      referenceLinks: listing.productUrl,
+      notes: input.product.body_html ? stripHtml(input.product.body_html).slice(0, 2000) : null,
+    })
+    .where(eq(productProfilesTable.auditId, input.auditId));
 
   await db
     .update(productMarketplaceListingsTable)
