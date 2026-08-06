@@ -8,6 +8,11 @@ import {
 } from "@workspace/db";
 import { TARGET_MARKETPLACES } from "./create-product.js";
 import { assertAllowedOutboundUrl } from "./ssrf-guard.js";
+import {
+  isShopifyProductPublished,
+  parseShopifyPublishedAt,
+  summarizeShopifyVariants,
+} from "./shopify-import-utils.js";
 
 const FETCH_HEADERS = {
   "User-Agent":
@@ -28,13 +33,20 @@ export type ShopifyCatalogProduct = {
   vendor?: string;
   product_type?: string;
   tags?: string | string[];
+  published_at?: string | null;
   images?: Array<{ src?: string }>;
-  variants?: Array<{ sku?: string; price?: string; inventory_quantity?: number | null }>;
+  variants?: Array<{
+    sku?: string;
+    price?: string;
+    inventory_quantity?: number | null;
+    available?: boolean | null;
+  }>;
 };
 
 export type ShopifySyncResult = {
   imported: number;
   skipped: number;
+  updated: number;
   total: number;
   products: Array<{
     id: number;
@@ -134,12 +146,39 @@ export async function fetchShopifyCatalogProducts(storeUrl: string): Promise<Sho
   return products;
 }
 
-async function loadExistingShopifyHandles(workspaceId: number, handles: string[]): Promise<Set<string>> {
-  if (handles.length === 0) return new Set();
+function storeCurrencyForOrigin(origin: string): string {
+  return /\.co\.in\b/i.test(origin) || /\.in$/i.test(new URL(origin).hostname) ? "INR" : "USD";
+}
+
+function resolveShopifyListingFields(product: ShopifyCatalogProduct, origin: string) {
+  const { inventory } = summarizeShopifyVariants(product.variants);
+  const priceRaw = product.variants?.[0]?.price;
+  const priceCents = priceRaw ? Math.round(parseFloat(priceRaw) * 100) : null;
+  const published = isShopifyProductPublished(product);
+  const publishedAt = parseShopifyPublishedAt(product.published_at);
+  const productUrl = `${origin}/products/${product.handle}`;
+
+  return {
+    inventory,
+    priceCents,
+    currency: storeCurrencyForOrigin(origin),
+    published,
+    publishedAt,
+    productUrl,
+    listingStatus: published ? "live" as const : "pending" as const,
+    auditStatus: published ? "complete" as const : "draft" as const,
+  };
+}
+
+async function loadExistingShopifyAudits(
+  workspaceId: number,
+  handles: string[],
+): Promise<Map<string, number>> {
+  if (handles.length === 0) return new Map();
 
   const asins = handles.map(shopifyAsin);
   const rows = await db
-    .select({ asin: auditsTable.asin })
+    .select({ id: auditsTable.id, asin: auditsTable.asin })
     .from(auditsTable)
     .where(
       and(
@@ -149,11 +188,55 @@ async function loadExistingShopifyHandles(workspaceId: number, handles: string[]
       ),
     );
 
-  return new Set(
-    rows
-      .map((row) => row.asin?.replace(/^shopify:/, ""))
-      .filter((handle): handle is string => Boolean(handle)),
-  );
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const handle = row.asin?.replace(/^shopify:/, "");
+    if (handle) map.set(handle, row.id);
+  }
+  return map;
+}
+
+async function refreshShopifyProductFromCatalog(input: {
+  auditId: number;
+  workspaceId: number;
+  product: ShopifyCatalogProduct;
+  origin: string;
+}): Promise<void> {
+  const listing = resolveShopifyListingFields(input.product, input.origin);
+  const title = input.product.title?.trim();
+  if (!title) return;
+
+  const sku = input.product.variants?.find((v) => v.sku?.trim())?.sku?.trim()
+    || input.product.handle.toUpperCase();
+
+  await db
+    .update(auditsTable)
+    .set({
+      projectName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
+      productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
+      title,
+      status: listing.auditStatus,
+      updatedAt: new Date(),
+    })
+    .where(eq(auditsTable.id, input.auditId));
+
+  await db
+    .update(productMarketplaceListingsTable)
+    .set({
+      status: listing.listingStatus,
+      sku,
+      priceCents: listing.priceCents,
+      currency: listing.currency,
+      inventory: listing.inventory,
+      listingUrl: listing.productUrl,
+      publishedAt: listing.publishedAt,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(productMarketplaceListingsTable.auditId, input.auditId),
+      eq(productMarketplaceListingsTable.marketplace, "Shopify"),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ));
 }
 
 export async function syncShopifyProducts(input: {
@@ -164,11 +247,11 @@ export async function syncShopifyProducts(input: {
 }): Promise<ShopifySyncResult> {
   const catalog = await fetchShopifyCatalogProducts(input.storeUrl);
   if (catalog.length === 0) {
-    return { imported: 0, skipped: 0, total: 0, products: [], errors: [] };
+    return { imported: 0, skipped: 0, updated: 0, total: 0, products: [], errors: [] };
   }
 
   const limitedCatalog = catalog.slice(0, MAX_IMPORT);
-  const existingHandles = await loadExistingShopifyHandles(
+  const existingAudits = await loadExistingShopifyAudits(
     input.workspaceId,
     limitedCatalog.map((product) => product.handle),
   );
@@ -177,6 +260,7 @@ export async function syncShopifyProducts(input: {
   const result: ShopifySyncResult = {
     imported: 0,
     skipped: 0,
+    updated: 0,
     total: catalog.length,
     products: [],
     errors: [],
@@ -190,7 +274,21 @@ export async function syncShopifyProducts(input: {
       continue;
     }
 
-    if (existingHandles.has(handle)) {
+    if (existingAudits.has(handle)) {
+      try {
+        await refreshShopifyProductFromCatalog({
+          auditId: existingAudits.get(handle)!,
+          workspaceId: input.workspaceId,
+          product,
+          origin,
+        });
+        result.updated += 1;
+      } catch (err) {
+        result.errors.push({
+          handle,
+          error: err instanceof Error ? err.message : "Refresh failed",
+        });
+      }
       result.skipped += 1;
       continue;
     }
@@ -202,11 +300,7 @@ export async function syncShopifyProducts(input: {
         .filter((src): src is string => Boolean(src))
         .slice(0, 9);
       const sku = product.variants?.find((v) => v.sku?.trim())?.sku?.trim() || handle.toUpperCase();
-      const priceRaw = product.variants?.[0]?.price;
-      const priceCents = priceRaw ? Math.round(parseFloat(priceRaw) * 100) : null;
-      const inventory = product.variants?.[0]?.inventory_quantity ?? null;
-      const currency = /\.co\.in\b/i.test(origin) || /\.in$/i.test(new URL(origin).hostname) ? "INR" : "USD";
-      const productUrl = `${origin}/products/${handle}`;
+      const listing = resolveShopifyListingFields(product, origin);
 
       const [audit] = await db
         .insert(auditsTable)
@@ -224,7 +318,7 @@ export async function syncShopifyProducts(input: {
           imageUrls,
           targetKeywords: parseKeywords(title, bulletPoints),
           overallScore: 0,
-          status: "draft",
+          status: listing.auditStatus,
           currentStep: 1,
         })
         .returning();
@@ -233,7 +327,7 @@ export async function syncShopifyProducts(input: {
         auditId: audit.id,
         sku,
         priority: "medium",
-        referenceLinks: productUrl,
+        referenceLinks: listing.productUrl,
         notes: product.body_html ? stripHtml(product.body_html).slice(0, 2000) : null,
         workflowTemplate: DEFAULT_WORKFLOW_TEMPLATE,
         targetMarketplaces: ["Shopify"],
@@ -244,17 +338,17 @@ export async function syncShopifyProducts(input: {
           auditId: audit.id,
           workspaceId: input.workspaceId,
           marketplace,
-          status: marketplace === "Shopify" ? "live" : "not_listed",
+          status: marketplace === "Shopify" ? listing.listingStatus : "not_listed",
           sku: marketplace === "Shopify" ? sku : null,
-          priceCents: marketplace === "Shopify" ? priceCents : null,
-          currency,
-          listingUrl: marketplace === "Shopify" ? productUrl : null,
-          publishedAt: marketplace === "Shopify" ? new Date() : null,
-          inventory: marketplace === "Shopify" ? inventory : null,
+          priceCents: marketplace === "Shopify" ? listing.priceCents : null,
+          currency: listing.currency,
+          listingUrl: marketplace === "Shopify" ? listing.productUrl : null,
+          publishedAt: marketplace === "Shopify" ? listing.publishedAt : null,
+          inventory: marketplace === "Shopify" ? listing.inventory : null,
         })),
       );
 
-      existingHandles.add(handle);
+      existingAudits.set(handle, audit.id);
       result.imported += 1;
       result.products.push({
         id: audit.id,

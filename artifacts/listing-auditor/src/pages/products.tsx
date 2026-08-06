@@ -56,6 +56,7 @@ interface ProductListItem {
   price: number | null;
   currency: string;
   stock: number | null;
+  inStock?: boolean | null;
   status: ProductStatus;
   statusLabel: string;
   workflowUrl: string;
@@ -202,6 +203,13 @@ function formatPrice(amount: number | null, currency: string): string {
   if (amount == null) return "—";
   if (currency === "INR") return `₹${amount.toLocaleString("en-IN")}`;
   return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatStock(stock: number | null, inStock?: boolean | null): string {
+  if (stock != null) return stock.toLocaleString("en-IN");
+  if (inStock === true) return "In stock";
+  if (inStock === false) return "Out of stock";
+  return "—";
 }
 
 function statusBadgeClass(status: ProductStatus): string {
@@ -611,7 +619,7 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-3 py-2.5 align-middle">
                       <span className="text-xs text-slate-600 tabular-nums">
-                        {product.stock != null ? product.stock : "—"}
+                        {formatStock(product.stock, product.inStock)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">

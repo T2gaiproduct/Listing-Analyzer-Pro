@@ -3,6 +3,7 @@ import { loadScopedRecents, pickProjectThumbnail } from "./scoped-recents-load";
 import { getAccountOwnerId, getActiveWorkspaceId } from "./workspace-route-helpers";
 import { resolveTeamContext } from "../middlewares/team-auth";
 import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
+import { isShopifyImportAsin } from "./shopify-import-utils.js";
 
 export type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -15,6 +16,7 @@ export type UnifiedProductListItem = {
   price: number | null;
   currency: string;
   stock: number | null;
+  inStock: boolean | null;
   status: "active" | "in_progress" | "draft" | "failed";
   statusLabel: string;
   workflowUrl: string;
@@ -96,7 +98,8 @@ export async function loadUnifiedProductList(
   const items: UnifiedProductListItem[] = [];
 
   for (const a of audits) {
-    const isAuditListing = !!a.asin?.trim();
+    const isShopifyImport = isShopifyImportAsin(a.asin);
+    const isAuditListing = !!a.asin?.trim() && !isShopifyImport;
     const sourceType: ProductSourceType = isAuditListing ? "audit" : "listing";
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
     const mapped = mapAuditStatus(a.status, a.currentStep ?? null, (a.overallScore ?? 0) > 0);
@@ -120,12 +123,13 @@ export async function loadUnifiedProductList(
       price: null,
       currency: "INR",
       stock: null,
+      inStock: null,
       status: mapped.status,
       statusLabel: mapped.label,
       workflowUrl,
       detailUrl,
       sourceType,
-      sourceTypeLabel: sourceTypeLabel(sourceType),
+      sourceTypeLabel: isShopifyImport ? "Shopify Import" : sourceTypeLabel(sourceType),
       createdAt: a.createdAt,
       updatedAt: a.updatedAt ?? a.createdAt,
     });
@@ -145,6 +149,7 @@ export async function loadUnifiedProductList(
       price: null,
       currency: "INR",
       stock: null,
+      inStock: null,
       status: mapped.status,
       statusLabel: mapped.label,
       workflowUrl: `/projects/${g.id}`,
@@ -167,6 +172,7 @@ export async function loadUnifiedProductList(
       price: null,
       currency: "INR",
       stock: null,
+      inStock: null,
       status: mapped.status,
       statusLabel: mapped.label,
       workflowUrl: `/videos/${v.id}`,
@@ -189,6 +195,7 @@ export async function loadUnifiedProductList(
       price: null,
       currency: "INR",
       stock: null,
+      inStock: null,
       status: mapped.status,
       statusLabel: mapped.label,
       workflowUrl: `/ads/${ad.id}`,
@@ -214,7 +221,12 @@ export async function loadUnifiedProductList(
       if (extras?.sku) item.sku = extras.sku;
       if (extras?.price != null) item.price = extras.price;
       if (extras?.stock != null) item.stock = extras.stock;
+      if (extras?.inStock != null) item.inStock = extras.inStock;
       if (extras?.currency) item.currency = extras.currency;
+      if (extras?.isLiveOnShopify) {
+        item.status = "active";
+        item.statusLabel = "Live";
+      }
     }
   }
 

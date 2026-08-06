@@ -108,7 +108,9 @@ export type AuditCatalogExtras = {
   sku: string | null;
   price: number | null;
   stock: number | null;
+  inStock: boolean | null;
   currency: string;
+  isLiveOnShopify: boolean;
 };
 
 const LISTING_PRICE_PRIORITY = ["Shopify", "Amazon", "WooCommerce", "Flipkart", "Shopsy", "Meesho"];
@@ -121,7 +123,7 @@ export async function loadAuditCatalogExtras(
   if (uniqueIds.length === 0) return result;
 
   for (const id of uniqueIds) {
-    result.set(id, { sku: null, price: null, stock: null, currency: "INR" });
+    result.set(id, { sku: null, price: null, stock: null, inStock: null, currency: "INR", isLiveOnShopify: false });
   }
 
   const profiles = await db
@@ -171,6 +173,16 @@ export async function loadAuditCatalogExtras(
     entry.price = chosen.priceCents / 100;
     entry.stock = chosen.inventory;
     entry.currency = chosen.currency?.trim() || "INR";
+    if (chosen.marketplace === "Shopify" && chosen.status === "live") {
+      entry.isLiveOnShopify = true;
+      if (chosen.inventory == null) {
+        entry.inStock = true;
+      } else {
+        entry.inStock = chosen.inventory > 0;
+      }
+    } else if (chosen.inventory != null) {
+      entry.inStock = chosen.inventory > 0;
+    }
   }
 
   return result;

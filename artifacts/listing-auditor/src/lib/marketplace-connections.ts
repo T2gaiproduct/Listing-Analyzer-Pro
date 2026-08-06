@@ -40,6 +40,7 @@ export async function disconnectStoreMarketplace(platform: StoreMarketplace): Pr
 export type ShopifySyncResult = {
   imported: number;
   skipped: number;
+  updated: number;
   total: number;
   products: Array<{
     id: number;

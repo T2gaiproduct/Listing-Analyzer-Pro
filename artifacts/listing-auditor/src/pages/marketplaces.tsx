@@ -200,9 +200,10 @@ export default function MarketplacesPage() {
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
       const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+      const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Shopify.` : "";
       toast({
         title: "Shopify products imported",
-        description: `Imported ${result.imported} of ${result.total} products.${skippedNote}`,
+        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}`,
       });
       if (result.errors.length > 0) {
         toast({
