@@ -3,16 +3,11 @@
 import type { AuditResult } from "@workspace/api-client-react";
 import { buildProductSuggestions } from "@/lib/product-suggestions";
 import { mapProductPriority } from "@/lib/product-priority";
+import { isShopifyImportAsin } from "@/lib/shopify-import";
 
 export type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
 const WORKFLOW_STEP_LABELS = ["Upload", "Listing", "Graphics", "A+ Content", "Export"];
-
-const SHOPIFY_IMPORT_ASIN_PREFIX = "shopify:";
-
-function isShopifyImportAsin(asin: string | null | undefined): boolean {
-  return typeof asin === "string" && asin.startsWith(SHOPIFY_IMPORT_ASIN_PREFIX);
-}
 
 function buildAuditReferenceLinks(audit: AuditLike): Array<{ label: string; url: string }> {
   const referenceLinks: Array<{ label: string; url: string }> = [];
@@ -165,6 +160,8 @@ export interface ProductDetailView {
   sourceType?: "listing" | "audit" | "graphics" | "video" | "ads";
   sourceTypeLabel?: string;
   statsAuditId?: number | null;
+  isShopifyImport?: boolean;
+  referenceUrl?: string | null;
 }
 
 interface GraphicsProjectLike {

@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
+import { db, productMarketplaceListingsTable, productProfilesTable, auditsTable } from "@workspace/db";
+import { isShopifyImportAsin } from "./shopify-import-utils.js";
 
 export type MarketplaceListingStatus = "live" | "pending" | "not_listed";
 
@@ -111,6 +112,8 @@ export type AuditCatalogExtras = {
   inStock: boolean | null;
   currency: string;
   isLiveOnShopify: boolean;
+  isShopifyImport: boolean;
+  referenceUrl: string | null;
 };
 
 const LISTING_PRICE_PRIORITY = ["Shopify", "Amazon", "WooCommerce", "Flipkart", "Shopsy", "Meesho"];
@@ -123,13 +126,31 @@ export async function loadAuditCatalogExtras(
   if (uniqueIds.length === 0) return result;
 
   for (const id of uniqueIds) {
-    result.set(id, { sku: null, price: null, stock: null, inStock: null, currency: "INR", isLiveOnShopify: false });
+    result.set(id, {
+      sku: null,
+      price: null,
+      stock: null,
+      inStock: null,
+      currency: "INR",
+      isLiveOnShopify: false,
+      isShopifyImport: false,
+      referenceUrl: null,
+    });
   }
+
+  const audits = await db
+    .select({
+      id: auditsTable.id,
+      asin: auditsTable.asin,
+    })
+    .from(auditsTable)
+    .where(inArray(auditsTable.id, uniqueIds));
 
   const profiles = await db
     .select({
       auditId: productProfilesTable.auditId,
       sku: productProfilesTable.sku,
+      referenceLinks: productProfilesTable.referenceLinks,
     })
     .from(productProfilesTable)
     .where(inArray(productProfilesTable.auditId, uniqueIds));
@@ -142,6 +163,7 @@ export async function loadAuditCatalogExtras(
       priceCents: productMarketplaceListingsTable.priceCents,
       inventory: productMarketplaceListingsTable.inventory,
       currency: productMarketplaceListingsTable.currency,
+      listingUrl: productMarketplaceListingsTable.listingUrl,
     })
     .from(productMarketplaceListingsTable)
     .where(and(
@@ -154,6 +176,15 @@ export async function loadAuditCatalogExtras(
     if (entry && profile.sku?.trim()) {
       entry.sku = profile.sku.trim();
     }
+    if (entry && profile.referenceLinks?.trim()) {
+      entry.referenceUrl = profile.referenceLinks.trim();
+    }
+  }
+
+  for (const audit of audits) {
+    const entry = result.get(audit.id);
+    if (!entry) continue;
+    entry.isShopifyImport = isShopifyImportAsin(audit.asin);
   }
 
   for (const id of uniqueIds) {
@@ -165,6 +196,9 @@ export async function loadAuditCatalogExtras(
       if (shopifyListing.priceCents != null) {
         entry.price = shopifyListing.priceCents / 100;
         entry.currency = shopifyListing.currency?.trim() || "INR";
+      }
+      if (shopifyListing.listingUrl?.trim() && !entry.referenceUrl) {
+        entry.referenceUrl = shopifyListing.listingUrl.trim();
       }
       if (shopifyListing.inventory != null) {
         entry.stock = shopifyListing.inventory;

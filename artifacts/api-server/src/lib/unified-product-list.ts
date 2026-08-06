@@ -23,6 +23,8 @@ export type UnifiedProductListItem = {
   detailUrl: string;
   sourceType: ProductSourceType;
   sourceTypeLabel: string;
+  isShopifyImport: boolean;
+  referenceUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -130,6 +132,8 @@ export async function loadUnifiedProductList(
       detailUrl,
       sourceType,
       sourceTypeLabel: isShopifyImport ? "Shopify Import" : sourceTypeLabel(sourceType),
+      isShopifyImport,
+      referenceUrl: null,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt ?? a.createdAt,
     });
@@ -156,6 +160,8 @@ export async function loadUnifiedProductList(
       detailUrl: `/products/${g.id}?source=graphics`,
       sourceType: "graphics",
       sourceTypeLabel: sourceTypeLabel("graphics"),
+      isShopifyImport: false,
+      referenceUrl: null,
       createdAt: g.createdAt,
       updatedAt: g.updatedAt ?? g.createdAt,
     });
@@ -179,6 +185,8 @@ export async function loadUnifiedProductList(
       detailUrl: `/products/${v.id}?source=video`,
       sourceType: "video",
       sourceTypeLabel: sourceTypeLabel("video"),
+      isShopifyImport: false,
+      referenceUrl: null,
       createdAt: v.createdAt,
       updatedAt: v.updatedAt ?? v.createdAt,
     });
@@ -202,6 +210,8 @@ export async function loadUnifiedProductList(
       detailUrl: `/products/${ad.id}?source=ads`,
       sourceType: "ads",
       sourceTypeLabel: sourceTypeLabel("ads"),
+      isShopifyImport: false,
+      referenceUrl: null,
       createdAt: ad.createdAt,
       updatedAt: ad.updatedAt ?? ad.createdAt,
     });
@@ -226,6 +236,16 @@ export async function loadUnifiedProductList(
       if (extras?.isLiveOnShopify) {
         item.status = "active";
         item.statusLabel = "Live";
+      }
+      if (extras?.isShopifyImport) {
+        item.isShopifyImport = true;
+        item.sourceType = "listing";
+        item.sourceTypeLabel = "Shopify Import";
+        item.workflowUrl = `/audits/workflow?resume=${item.id}`;
+        item.detailUrl = `/products/${item.id}?source=listing`;
+      }
+      if (extras?.referenceUrl) {
+        item.referenceUrl = extras.referenceUrl;
       }
     }
   }

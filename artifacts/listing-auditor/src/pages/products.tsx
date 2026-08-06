@@ -66,6 +66,8 @@ interface ProductListItem {
   detailUrl: string;
   sourceType: ProductSourceType;
   sourceTypeLabel: string;
+  isShopifyImport?: boolean;
+  referenceUrl?: string | null;
 }
 
 interface ProductsResponse {
@@ -164,15 +166,22 @@ function productDetailUrl(id: number, sourceType: ProductSourceType): string {
 
 function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
   const workflowUrl = raw.workflowUrl ?? `/audits/workflow?resume=${raw.id}`;
-  const sourceType = raw.sourceType ?? inferSourceType(workflowUrl);
+  const isShopifyImport = raw.isShopifyImport === true;
+  const sourceType = isShopifyImport
+    ? "listing"
+    : (raw.sourceType ?? inferSourceType(workflowUrl));
   const detailUrl = raw.detailUrl ?? productDetailUrl(raw.id, sourceType);
 
   return {
     ...raw,
-    workflowUrl,
+    workflowUrl: isShopifyImport ? `/audits/workflow?resume=${raw.id}` : workflowUrl,
     sourceType,
-    sourceTypeLabel: raw.sourceTypeLabel ?? SOURCE_TYPE_LABELS[sourceType],
-    detailUrl,
+    sourceTypeLabel: isShopifyImport
+      ? "Shopify Import"
+      : (raw.sourceTypeLabel ?? SOURCE_TYPE_LABELS[sourceType]),
+    detailUrl: isShopifyImport ? productDetailUrl(raw.id, "listing") : detailUrl,
+    isShopifyImport,
+    referenceUrl: raw.referenceUrl ?? null,
   };
 }
 
@@ -770,7 +779,9 @@ export default function ProductsPage() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => navigate(`/products/${product.id}?source=${product.sourceType}`)}
+                              onClick={() => navigate(
+                                `/products/${product.id}?source=${product.isShopifyImport ? "listing" : product.sourceType}`,
+                              )}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
                               aria-label="View product"
                             >
@@ -796,14 +807,23 @@ export default function ProductsPage() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => navigate(product.workflowUrl)}
+                              onClick={() => {
+                                const listingUrl = product.referenceUrl?.trim();
+                                if (listingUrl) {
+                                  window.open(listingUrl, "_blank", "noopener,noreferrer");
+                                  return;
+                                }
+                                navigate(product.workflowUrl);
+                              }}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-                              aria-label="Export product"
+                              aria-label={product.referenceUrl ? "Open Shopify listing" : "Export product"}
                             >
                               <Upload className="w-3.5 h-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">Export</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">
+                            {product.referenceUrl ? "Open Shopify listing" : "Export"}
+                          </TooltipContent>
                         </Tooltip>
                         {canDeleteProduct(product) && (
                           <Tooltip>

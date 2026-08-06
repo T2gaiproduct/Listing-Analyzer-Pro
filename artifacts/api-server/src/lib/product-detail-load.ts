@@ -76,6 +76,8 @@ export type ProductDetailPayload = {
     keywordCount: number;
   };
   aiSuggestions: string[];
+  isShopifyImport?: boolean;
+  referenceUrl?: string | null;
 };
 
 const WORKFLOW_STEP_LABELS = ["Upload", "Listing", "Graphics", "A+ Content", "Export"];
@@ -336,6 +338,12 @@ async function loadAuditDetail(
   );
   const displayStatus = shopifyLive ? "active" as const : mapped.status;
   const displayStatusLabel = shopifyLive ? "Live" : (mapped.status === "active" ? "Live" : mapped.label);
+  const effectiveSourceType = isShopifyImport ? "listing" : sourceType;
+  const shopifyReferenceUrl = isShopifyImport
+    ? (profile?.referenceLinks?.trim()
+      || marketplaceStats.listings.find((l) => l.marketplace === "Shopify")?.listingUrl?.trim()
+      || null)
+    : null;
 
   return {
     id: row.id,
@@ -358,10 +366,12 @@ async function loadAuditDetail(
     currentStep: row.currentStep ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: (row.updatedAt ?? row.createdAt).toISOString(),
-    workflowUrl,
-    detailUrl: `/products/${row.id}?source=${sourceType}`,
-    sourceType,
+    workflowUrl: isShopifyImport ? `/audits/workflow?resume=${row.id}` : workflowUrl,
+    detailUrl: `/products/${row.id}?source=${effectiveSourceType}`,
+    sourceType: effectiveSourceType,
     sourceTypeLabel: isShopifyImport ? "Shopify Import" : SOURCE_TYPE_LABELS[sourceType],
+    isShopifyImport,
+    referenceUrl: shopifyReferenceUrl,
     statsAuditId: row.id,
     manager: {
       name: displayManagerName,

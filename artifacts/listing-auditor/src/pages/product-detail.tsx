@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent } from "@workspace/api-client-react";
 import type { GeneratedContent } from "@workspace/api-client-react";
+import { normalizeShopifyProductDetail } from "@/lib/shopify-product-detail";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -388,12 +389,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
   });
 
   const product = useMemo((): ProductDetailView | null => {
-    if (isValidProductDetail(apiProduct)) return apiProduct;
+    if (isValidProductDetail(apiProduct)) {
+      return normalizeShopifyProductDetail(apiProduct, auditData);
+    }
     if (apiLoading || apiError) return null;
     if (auditData && shouldFetchAudit) {
-      return mapAuditToProductDetail(auditData, "Account Owner", {
-        sourceType: source === "audit" ? "audit" : "listing",
-      });
+      return normalizeShopifyProductDetail(
+        mapAuditToProductDetail(auditData, "Account Owner", {
+          sourceType: source === "audit" ? "audit" : "listing",
+        }),
+        auditData,
+      );
     }
     return null;
   }, [apiProduct, apiLoading, apiError, auditData, shouldFetchAudit, source]);
