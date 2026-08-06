@@ -42,7 +42,6 @@ type MarketplaceEntry = {
 const marketplaces: MarketplaceEntry[] = [
   "Amazon",
   "Shopify",
-  "Flipkart",
   "WooCommerce",
 ].map((name) => ({
   name,
