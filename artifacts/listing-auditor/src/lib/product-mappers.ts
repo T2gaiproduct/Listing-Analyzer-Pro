@@ -131,6 +131,92 @@ export interface ProductDetailView {
   statsAuditId?: number | null;
 }
 
+interface GraphicsProjectLike {
+  id: number;
+  name: string;
+  productName: string;
+  category?: string | null;
+  status: string;
+  sourceImageUrls?: string[] | null;
+  imageRecords?: Array<{ currentUrl?: string }> | null;
+  generatedCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+function pickGraphicsThumbnail(project: GraphicsProjectLike): string | null {
+  for (const rec of project.imageRecords ?? []) {
+    if (rec?.currentUrl?.trim()) return rec.currentUrl.trim();
+  }
+  for (const url of project.sourceImageUrls ?? []) {
+    if (url?.trim()) return url.trim();
+  }
+  return null;
+}
+
+function genericProgress(status: string): number {
+  if (status === "complete" || status === "completed" || status === "active") return 100;
+  if (status === "generating" || status === "processing" || status === "pending") return 55;
+  if (status === "failed") return 0;
+  return 25;
+}
+
+export function mapGraphicsToProductDetail(project: GraphicsProjectLike): ProductDetailView {
+  const name = project.name?.trim() || project.productName?.trim() || "Untitled Project";
+  const brand = project.productName?.trim() || "Brand";
+  const mapped = mapProductStatus(project.status ?? "draft", null);
+  const workflowUrl = `/projects/${project.id}`;
+
+  return {
+    id: project.id,
+    name,
+    title: name,
+    sku: `GFX-${String(project.id).padStart(4, "0")}`,
+    imageUrl: pickGraphicsThumbnail(project),
+    brandName: brand,
+    category: project.category ?? null,
+    status: mapped.status,
+    statusLabel: mapped.label,
+    stageLabel: project.status === "completed" ? "Graphics ready" : "Graphics",
+    priorityLabel: "Medium Priority",
+    priorityLevel: "medium",
+    progressPercent: genericProgress(project.status),
+    currentStep: null,
+    createdAt: project.createdAt ?? new Date().toISOString(),
+    updatedAt: project.updatedAt ?? project.createdAt ?? new Date().toISOString(),
+    workflowUrl,
+    sourceType: "graphics",
+    sourceTypeLabel: "Create Graphics",
+    statsAuditId: null,
+    manager: { name: "Account Owner", initials: "AO" },
+    notes: `Graphics project for ${project.productName}. Open the workflow to generate lifestyle and feature images.`,
+    referenceLinks: [],
+    driveFolder: `${brand} / ${name}`,
+    driveFolderUrl: workflowUrl,
+    workflowSteps: ["Upload assets", "Generate graphics", "Customize", "Download"].map((label, index) => ({
+      id: index + 1,
+      label,
+      completed: project.status === "completed" || project.status === "complete",
+      active: project.status !== "completed" && project.status !== "complete" && index === 1,
+    })),
+    stats: {
+      totalOrders: 0,
+      revenue: null,
+      revenueCurrency: "USD",
+      marketplacesActive: 0,
+      listingScore: 0,
+      competitorCount: 0,
+      imageCount: project.generatedCount ?? 0,
+      keywordCount: 0,
+    },
+    aiSuggestions: [
+      "Generate lifestyle and infographic images in the Graphics workflow",
+      "Use consistent brand colors across all generated visuals",
+      "Add more source images for better AI output quality",
+    ],
+  };
+}
+
 interface AuditLike {
   id: number;
   productName: string;

@@ -25,8 +25,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import {
   mapAuditToProductDetail,
+  mapGraphicsToProductDetail,
   type ProductDetailView,
 } from "@/lib/product-mappers";
+import { ProductOrdersTab } from "@/components/product-orders-tab";
+import { ProductSalesTab } from "@/components/product-sales-tab";
+import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
+import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -36,10 +41,30 @@ function parseProductSource(raw: string | null): ProductSourceType | null {
   }
   return null;
 }
-import { ProductOrdersTab } from "@/components/product-orders-tab";
-import { ProductSalesTab } from "@/components/product-sales-tab";
-import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
-import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
+
+async function fetchProductDetail(id: number, source: ProductSourceType | null): Promise<ProductDetailView> {
+  const sourceQuery = source ? `?source=${source}` : "";
+  try {
+    return await fetchJson<ProductDetailView>(`${basePath}/api/products/${id}${sourceQuery}`);
+  } catch (error) {
+    if (!(error instanceof ApiFetchError) || error.status !== 404 || source !== "graphics") {
+      throw error;
+    }
+    const graphics = await fetchJson<{
+      id: number;
+      name: string;
+      productName: string;
+      category?: string | null;
+      status: string;
+      sourceImageUrls?: string[] | null;
+      imageRecords?: Array<{ currentUrl?: string }> | null;
+      generatedCount?: number;
+      createdAt?: string;
+      updatedAt?: string;
+    }>(`${basePath}/api/graphics/projects/${id}`);
+    return mapGraphicsToProductDetail(graphics);
+  }
+}
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -217,10 +242,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const validId = !Number.isNaN(id) && id > 0;
   const queryEnabled = clerkLoaded && !!user && !!featureWorkspaceId && validId;
 
-  const productDetailUrl = source
-    ? `${basePath}/api/products/${id}?source=${source}`
-    : `${basePath}/api/products/${id}`;
-
   const {
     data: apiProduct,
     isLoading: apiLoading,
@@ -228,7 +249,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     error: apiErrorObj,
   } = useQuery({
     queryKey: ["product", id, featureWorkspaceId, source ?? "auto"],
-    queryFn: () => fetchJson<ProductDetailView>(productDetailUrl),
+    queryFn: () => fetchProductDetail(id, source),
     enabled: queryEnabled,
     retry: false,
     staleTime: 10_000,
