@@ -126,6 +126,9 @@ export interface ProductDetailView {
     keywordCount: number;
   };
   aiSuggestions: string[];
+  sourceType?: "listing" | "audit" | "graphics" | "video" | "ads";
+  sourceTypeLabel?: string;
+  statsAuditId?: number | null;
 }
 
 interface AuditLike {
@@ -159,13 +162,24 @@ export function isBuildBrandAudit(audit: AuditLike): boolean {
   return !audit.asin?.trim();
 }
 
-export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account Owner"): ProductDetailView {
+export function mapAuditToProductDetail(
+  audit: AuditLike,
+  managerName = "Account Owner",
+  opts?: { sourceType?: "listing" | "audit" },
+): ProductDetailView {
+  const sourceType = opts?.sourceType ?? (audit.asin?.trim() ? "audit" : "listing");
   const name = audit.projectName?.trim() || audit.productName?.trim() || "Untitled Product";
   const mapped = mapProductStatus(audit.status ?? "draft", audit.currentStep ?? null);
-  const stageLabel = mapStageLabel(audit.status ?? "draft", audit.currentStep ?? null);
-  const progress = calcProgress(audit.status ?? "draft", audit.currentStep ?? null);
+  const stageLabel = sourceType === "audit"
+    ? (audit.status === "complete" ? "Audit Results" : "Audit in progress")
+    : mapStageLabel(audit.status ?? "draft", audit.currentStep ?? null);
+  const progress = sourceType === "audit"
+    ? (audit.status === "complete" ? 100 : audit.overallScore ? Math.min(95, audit.overallScore) : 40)
+    : calcProgress(audit.status ?? "draft", audit.currentStep ?? null);
   const brand = audit.brandName?.trim() || "Brand";
-  const workflowUrl = `/audits/workflow?resume=${audit.id}`;
+  const workflowUrl = sourceType === "audit"
+    ? `/audits/${audit.id}`
+    : `/audits/workflow?resume=${audit.id}`;
 
   const referenceLinks: Array<{ label: string; url: string }> = [];
   if (audit.asin?.trim()) {
@@ -223,6 +237,9 @@ export function mapAuditToProductDetail(audit: AuditLike, managerName = "Account
     createdAt: audit.createdAt ?? new Date().toISOString(),
     updatedAt: audit.updatedAt ?? new Date().toISOString(),
     workflowUrl,
+    sourceType,
+    sourceTypeLabel: sourceType === "audit" ? "Audit Listing" : "Build Your Brand",
+    statsAuditId: audit.id,
     manager: { name: managerName, initials: managerInitials(managerName) },
     notes: buildNotes(audit),
     referenceLinks,

@@ -131,12 +131,21 @@ function SalesTrendTooltip({
   );
 }
 
-export function ProductSalesTab({ productId, enabled }: { productId: number; enabled: boolean }) {
+export function ProductSalesTab({
+  productId,
+  enabled,
+  source,
+}: {
+  productId: number;
+  enabled: boolean;
+  source?: string;
+}) {
   const [metric, setMetric] = useState<SalesMetric>("revenue");
+  const sourceQuery = source ? `?source=${encodeURIComponent(source)}` : "";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["product-sales", productId],
-    queryFn: () => fetchJson<ProductSalesResponse>(`${basePath}/api/products/${productId}/sales`),
+    queryKey: ["product-sales", productId, source],
+    queryFn: () => fetchJson<ProductSalesResponse>(`${basePath}/api/products/${productId}/sales${sourceQuery}`),
     enabled: enabled && productId > 0,
     staleTime: 15_000,
   });

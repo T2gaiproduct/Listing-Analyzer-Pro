@@ -115,10 +115,20 @@ function MarketplaceCard({ listing }: { listing: MarketplaceListing }) {
   );
 }
 
-export function ProductMarketplacesTab({ productId, enabled }: { productId: number; enabled: boolean }) {
+export function ProductMarketplacesTab({
+  productId,
+  enabled,
+  source,
+}: {
+  productId: number;
+  enabled: boolean;
+  source?: string;
+}) {
+  const sourceQuery = source ? `?source=${encodeURIComponent(source)}` : "";
+
   const { data, isLoading } = useQuery({
-    queryKey: ["product-marketplaces", productId],
-    queryFn: () => fetchJson<MarketplacesResponse>(`${basePath}/api/products/${productId}/marketplaces`),
+    queryKey: ["product-marketplaces", productId, source],
+    queryFn: () => fetchJson<MarketplacesResponse>(`${basePath}/api/products/${productId}/marketplaces${sourceQuery}`),
     enabled: enabled && productId > 0,
     staleTime: 15_000,
   });

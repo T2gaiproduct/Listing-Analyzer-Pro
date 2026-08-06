@@ -19,7 +19,7 @@ import {
   getProductOrderStats,
   listProductOrders,
 } from "../lib/product-orders.js";
-import { getProductSales } from "../lib/product-sales.js";
+import { getProductSales, emptyProductSalesData } from "../lib/product-sales.js";
 import {
   ensureSampleMarketplaceListings,
   listProductMarketplaces,
@@ -27,6 +27,11 @@ import {
 import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 import { loadUnifiedProductList } from "../lib/unified-product-list.js";
+import {
+  loadProductDetail,
+  parseProductSourceFromRequest,
+  resolveStatsAuditId,
+} from "../lib/product-detail-load.js";
 
 const router: IRouter = Router();
 
@@ -269,27 +274,21 @@ router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (
     return;
   }
 
-  const where = await productsScopeWhere(req);
-  const [row] = await db
-    .select({ id: auditsTable.id })
-    .from(auditsTable)
-    .where(and(where, eq(auditsTable.id, id)))
-    .limit(1);
-
-  if (!row) {
-    res.status(404).json({ error: "Product not found" });
+  const statsAuditId = await resolveStatsAuditId(req, id, parseProductSourceFromRequest(req));
+  if (!statsAuditId) {
+    res.json({ orders: [], total: 0, revenue: 0 });
     return;
   }
 
   const workspaceId = getActiveWorkspaceId(req);
-  await ensureSampleProductOrders(id, workspaceId);
+  await ensureSampleProductOrders(statsAuditId, workspaceId);
 
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : undefined;
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const dateRange = typeof req.query.dateRange === "string" ? req.query.dateRange : undefined;
 
-  const result = await listProductOrders(id, { search, marketplace, status, dateRange });
+  const result = await listProductOrders(statsAuditId, { search, marketplace, status, dateRange });
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({
@@ -306,22 +305,16 @@ router.get("/products/:id/sales", requireAuth, resolveTeamAndWorkspace, async (r
     return;
   }
 
-  const where = await productsScopeWhere(req);
-  const [row] = await db
-    .select({ id: auditsTable.id })
-    .from(auditsTable)
-    .where(and(where, eq(auditsTable.id, id)))
-    .limit(1);
-
-  if (!row) {
-    res.status(404).json({ error: "Product not found" });
+  const statsAuditId = await resolveStatsAuditId(req, id, parseProductSourceFromRequest(req));
+  if (!statsAuditId) {
+    res.json(emptyProductSalesData());
     return;
   }
 
   const workspaceId = getActiveWorkspaceId(req);
-  await ensureSampleProductOrders(id, workspaceId);
+  await ensureSampleProductOrders(statsAuditId, workspaceId);
 
-  const sales = await getProductSales(id);
+  const sales = await getProductSales(statsAuditId);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json(sales);
@@ -334,28 +327,19 @@ router.get("/products/:id/marketplaces", requireAuth, resolveTeamAndWorkspace, a
     return;
   }
 
-  const where = await productsScopeWhere(req);
-  const [row] = await db
-    .select({
-      id: auditsTable.id,
-      productName: auditsTable.productName,
-      projectName: auditsTable.projectName,
-    })
-    .from(auditsTable)
-    .where(and(where, eq(auditsTable.id, id)))
-    .limit(1);
-
-  if (!row) {
-    res.status(404).json({ error: "Product not found" });
+  const statsAuditId = await resolveStatsAuditId(req, id, parseProductSourceFromRequest(req));
+  if (!statsAuditId) {
+    res.json({ listings: [], activeCount: 0 });
     return;
   }
 
   const workspaceId = getActiveWorkspaceId(req);
-  const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
-  const sku = deriveSku(name, row.id);
-  await ensureSampleMarketplaceListings(id, workspaceId, name, sku);
+  const detail = await loadProductDetail(req, id, parseProductSourceFromRequest(req));
+  const name = detail?.name ?? "Untitled Product";
+  const sku = detail?.sku ?? deriveSku(name, statsAuditId);
+  await ensureSampleMarketplaceListings(statsAuditId, workspaceId, name, sku);
 
-  const result = await listProductMarketplaces(id);
+  const result = await listProductMarketplaces(statsAuditId);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json(result);
@@ -368,144 +352,14 @@ router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Re
     return;
   }
 
-  const where = await productsScopeWhere(req);
-  const [row] = await db
-    .select()
-    .from(auditsTable)
-    .where(and(where, eq(auditsTable.id, id)))
-    .limit(1);
-
-  if (!row) {
+  const product = await loadProductDetail(req, id, parseProductSourceFromRequest(req));
+  if (!product) {
     res.status(404).json({ error: "Product not found" });
     return;
   }
 
-  const competitors = await db
-    .select({
-      id: competitorsTable.id,
-      productName: competitorsTable.productName,
-      asin: competitorsTable.asin,
-    })
-    .from(competitorsTable)
-    .where(and(eq(competitorsTable.auditId, id), eq(competitorsTable.isDeleted, 0)));
-
-  const managerUserId = row.createdByUserId ?? row.userId;
-  const [managerProfile] = await db
-    .select({ fullName: userProfilesTable.fullName, companyName: userProfilesTable.companyName })
-    .from(userProfilesTable)
-    .where(eq(userProfilesTable.userId, managerUserId))
-    .limit(1);
-
-  const managerName = managerProfile?.fullName?.trim()
-    || managerProfile?.companyName?.trim()
-    || "Account Owner";
-
-  const [profile] = await db
-    .select()
-    .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, id))
-    .limit(1);
-
-  const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
-  const sku = profile?.sku?.trim() || deriveSku(name, row.id);
-  const displayManagerName = profile?.assignedManager?.trim() || managerName;
-  const mapped = mapProductStatus(row.status, row.currentStep);
-  const stageLabel = mapStageLabel(row.status, row.currentStep);
-  const progress = calcProgress(row.status, row.currentStep);
-  const workflowUrl = `/audits/workflow?resume=${row.id}`;
-
-  const referenceLinks: Array<{ label: string; url: string }> = [];
-  if (row.asin?.trim()) {
-    referenceLinks.push({
-      label: "Amazon Ref",
-      url: `https://www.amazon.in/dp/${row.asin.trim()}`,
-    });
-  }
-  competitors.forEach((c, i) => {
-    const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
-    const url = c.asin?.trim()
-      ? `https://www.amazon.in/dp/${c.asin.trim()}`
-      : "#";
-    referenceLinks.push({ label, url });
-  });
-
-  const brand = row.brandName?.trim() || "Brand";
-  const driveFolder = `${brand} / ${name}`;
-
-  const aiSuggestions = buildProductSuggestions({
-    productName: row.productName,
-    title: row.title,
-    brandName: row.brandName,
-    category: row.category,
-    bulletPoints: row.bulletPoints,
-    generatedContent: row.generatedContent as ProductSuggestionInput["generatedContent"],
-    targetKeywords: row.targetKeywords,
-    imageUrls: row.imageUrls,
-    imageRecords: row.imageRecords as ProductSuggestionInput["imageRecords"],
-    generatedImages: row.generatedImages as ProductSuggestionInput["generatedImages"],
-    currentStep: row.currentStep,
-    status: row.status,
-    overallScore: row.overallScore,
-    result: row.result,
-    competitorCount: competitors.length,
-  });
-
-  const priority = priorityFromStoredLevel(profile?.priority)
-    ?? mapProductPriority({
-    overallScore: row.overallScore,
-    status: row.status,
-    currentStep: row.currentStep,
-    aiSuggestionCount: aiSuggestions.length,
-  });
-
-  const workspaceId = getActiveWorkspaceId(req);
-  await ensureSampleProductOrders(id, workspaceId);
-  const orderStats = await getProductOrderStats(id);
-  await ensureSampleMarketplaceListings(id, workspaceId, name, deriveSku(name, row.id));
-  const marketplaceStats = await listProductMarketplaces(id);
-
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
-  res.json({
-    ...mapRowToProductListItem(row),
-    sku,
-    title: name,
-    stageLabel,
-    priorityLabel: priority.label,
-    priorityLevel: priority.level,
-    progressPercent: progress,
-    manager: {
-      name: displayManagerName,
-      initials: managerInitials(displayManagerName),
-    },
-    notes: profile?.notes?.trim() || buildNotes(row),
-    referenceLinks,
-    driveFolder,
-    driveFolderUrl: workflowUrl,
-    workflowSteps: WORKFLOW_STEP_LABELS.map((label, index) => ({
-      id: index + 1,
-      label,
-      completed: (row.currentStep ?? 1) > index + 1 || row.status === "complete",
-      active: (row.currentStep ?? 1) === index + 1 && row.status !== "complete",
-    })),
-    stats: {
-      totalOrders: orderStats.totalOrders,
-      revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
-      revenueCurrency: "USD",
-      marketplacesActive: marketplaceStats.activeCount,
-      listingScore: row.overallScore ?? 0,
-      competitorCount: competitors.length,
-      imageCount: countImages(row),
-      keywordCount: (row.targetKeywords ?? []).length,
-    },
-    generatedContent: row.generatedContent,
-    bulletPoints: row.bulletPoints,
-    targetKeywords: row.targetKeywords,
-    detailUrl: `/products/${row.id}`,
-    workflowUrl,
-    aiSuggestions,
-    status: mapped.status,
-    statusLabel: mapped.status === "active" ? "Live" : mapped.label,
-  });
+  res.json(product);
 });
 
 router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req: Request, res: Response): Promise<void> => {

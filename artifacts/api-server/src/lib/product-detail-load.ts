@@ -1,0 +1,643 @@
+import type { Request } from "express";
+import { and, eq, or, isNull, sql } from "drizzle-orm";
+import {
+  db,
+  auditsTable,
+  competitorsTable,
+  userProfilesTable,
+  productProfilesTable,
+  graphicsProjectsTable,
+  videosProjectsTable,
+  adsProjectsTable,
+} from "@workspace/db";
+import {
+  getAccountOwnerId,
+  getActiveWorkspaceId,
+  getWorkspaceCtx,
+  loadWorkedProjects,
+  viewOwnIdFilter,
+  workspaceOwnerFilter,
+} from "./workspace-route-helpers";
+import type { TeamAuthedRequest } from "../middlewares/team-auth";
+import { buildProductSuggestions, type ProductSuggestionInput } from "./product-suggestions.js";
+import { mapProductPriority, priorityFromStoredLevel } from "./product-priority.js";
+import {
+  ensureSampleProductOrders,
+  getProductOrderStats,
+} from "./product-orders.js";
+import {
+  ensureSampleMarketplaceListings,
+  listProductMarketplaces,
+} from "./product-marketplaces.js";
+import { pickProjectThumbnail } from "./scoped-recents-load.js";
+import {
+  type ProductSourceType,
+  parseProductSourceType,
+  PRODUCT_SOURCE_TRY_ORDER,
+} from "./product-source.js";
+
+type AuthedRequest = Request & { userId: string };
+
+type ProductStatus = "active" | "in_progress" | "draft" | "failed";
+
+export type ProductDetailPayload = {
+  id: number;
+  name: string;
+  title: string;
+  sku: string;
+  imageUrl: string | null;
+  brandName: string | null;
+  category: string | null;
+  status: ProductStatus;
+  statusLabel: string;
+  stageLabel: string;
+  priorityLabel: string;
+  priorityLevel: "low" | "medium" | "high";
+  progressPercent: number;
+  currentStep: number | null;
+  createdAt: string;
+  updatedAt: string;
+  workflowUrl: string;
+  detailUrl: string;
+  sourceType: ProductSourceType;
+  sourceTypeLabel: string;
+  statsAuditId: number | null;
+  manager: { name: string; initials: string };
+  notes: string;
+  referenceLinks: Array<{ label: string; url: string }>;
+  driveFolder: string;
+  driveFolderUrl: string;
+  workflowSteps: Array<{ id: number; label: string; completed: boolean; active: boolean }>;
+  stats: {
+    totalOrders: number;
+    revenue: number | null;
+    revenueCurrency: string;
+    marketplacesActive: number;
+    listingScore: number;
+    competitorCount: number;
+    imageCount: number;
+    keywordCount: number;
+  };
+  aiSuggestions: string[];
+};
+
+const WORKFLOW_STEP_LABELS = ["Upload", "Listing", "Graphics", "A+ Content", "Export"];
+
+const SOURCE_TYPE_LABELS: Record<ProductSourceType, string> = {
+  listing: "Build Your Brand",
+  audit: "Audit Listing",
+  graphics: "Create Graphics",
+  video: "Create Video",
+  ads: "Manage Ads",
+};
+
+function getEffectiveUserId(req: Request): string {
+  if ((req as { workspace?: unknown }).workspace) return getAccountOwnerId(req);
+  const team = (req as TeamAuthedRequest).team;
+  return team?.ownerUserId ?? (req as AuthedRequest).userId;
+}
+
+function deriveSku(productName: string, id: number, prefix?: string): string {
+  if (prefix) return `${prefix}-${String(id).padStart(4, "0")}`;
+  const parts = productName
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w.slice(0, 3).toUpperCase());
+  const skuPrefix = parts.join("-") || "PRD";
+  return `${skuPrefix}-${String(id).padStart(4, "0")}`;
+}
+
+function mapProductStatus(status: string, currentStep: number | null): { status: ProductStatus; label: string } {
+  if (status === "complete" || status === "completed") return { status: "active", label: "Active" };
+  if (status === "failed") return { status: "failed", label: "Failed" };
+  if (status === "draft" && (currentStep ?? 1) > 1) {
+    return { status: "in_progress", label: "In progress" };
+  }
+  if (status === "pending" || status === "generating" || status === "processing") {
+    return { status: "in_progress", label: "In progress" };
+  }
+  return { status: "draft", label: "Draft" };
+}
+
+function mapStageLabel(status: string, currentStep: number | null): string {
+  if (status === "complete" || status === "completed") return "Live";
+  const step = Math.min(5, Math.max(1, currentStep ?? 1));
+  if (step >= 5) return "Ready to export";
+  return WORKFLOW_STEP_LABELS[step - 1] ?? "Upload";
+}
+
+function calcProgress(status: string, currentStep: number | null): number {
+  if (status === "complete" || status === "completed") return 100;
+  return Math.min(100, Math.round(((currentStep ?? 1) / 5) * 100));
+}
+
+function managerInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+}
+
+function buildNotes(audit: {
+  result?: { summary?: string } | null;
+  generatedContent?: { bulletPoints?: string[] } | null;
+  bulletPoints?: string[];
+}): string {
+  const summary = audit.result?.summary?.trim();
+  if (summary) return summary;
+  const bullets = audit.generatedContent?.bulletPoints ?? audit.bulletPoints ?? [];
+  if (bullets.length > 0) return bullets.slice(0, 2).join(" ");
+  return "No notes yet. Complete the listing step in Build Your Brand to generate product notes.";
+}
+
+function countImages(row: {
+  imageUrls?: string[] | null;
+  imageRecords?: unknown[] | null;
+  generatedImages?: { main?: string[]; infographic?: string[]; lifestyle?: string[] } | null;
+}): number {
+  const urls = new Set<string>();
+  for (const u of row.imageUrls ?? []) {
+    if (u?.trim()) urls.add(u.trim());
+  }
+  for (const rec of row.imageRecords ?? []) {
+    const url = (rec as { currentUrl?: string }).currentUrl;
+    if (url?.trim()) urls.add(url.trim());
+  }
+  const g = row.generatedImages;
+  if (g) {
+    for (const u of [...(g.main ?? []), ...(g.lifestyle ?? []), ...(g.infographic ?? [])]) {
+      if (u?.trim()) urls.add(u.trim());
+    }
+  }
+  return urls.size;
+}
+
+function genericWorkflowSteps(
+  labels: string[],
+  status: string,
+): ProductDetailPayload["workflowSteps"] {
+  const completed = status === "complete" || status === "completed" || status === "active";
+  const inProgress = status === "generating" || status === "processing" || status === "pending";
+  return labels.map((label, index) => ({
+    id: index + 1,
+    label,
+    completed: completed || (inProgress && index === 0),
+    active: !completed && inProgress && index === (completed ? -1 : inProgress ? 1 : 0),
+  }));
+}
+
+function genericProgress(status: string): number {
+  if (status === "complete" || status === "completed" || status === "active") return 100;
+  if (status === "generating" || status === "processing" || status === "pending") return 55;
+  if (status === "failed") return 0;
+  return 25;
+}
+
+async function auditScopeWhere(req: Request, sourceType: "listing" | "audit") {
+  const ownerId = getEffectiveUserId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+  const worked = await loadWorkedProjects(req);
+  const feature = sourceType === "audit" ? "audits" : "build_brand";
+  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), feature, worked, "audit", auditsTable);
+  return and(
+    eq(auditsTable.userId, ownerId),
+    or(
+      eq(auditsTable.workspaceId, workspaceId),
+      and(isNull(auditsTable.workspaceId), eq(auditsTable.userId, ownerId)),
+    ),
+    eq(auditsTable.isDeleted, 0),
+    sql`${auditsTable.status} != 'archived'`,
+    sourceType === "listing"
+      ? sql`(${auditsTable.asin} IS NULL OR trim(${auditsTable.asin}) = '')`
+      : sql`${auditsTable.asin} IS NOT NULL AND trim(${auditsTable.asin}) != ''`,
+    ownFilter,
+  );
+}
+
+async function projectScopeWhere(
+  req: Request,
+  feature: "graphics" | "video" | "ads",
+  table: typeof graphicsProjectsTable | typeof videosProjectsTable | typeof adsProjectsTable,
+  type: "graphics" | "video" | "ads",
+) {
+  const ownerId = getEffectiveUserId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+  const worked = await loadWorkedProjects(req);
+  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), feature, worked, type, table);
+  return and(
+    workspaceOwnerFilter(table, table, ownerId, workspaceId),
+    eq(table.isDeleted, 0),
+    sql`${table.status} != 'archived'`,
+    ownFilter,
+  );
+}
+
+async function loadAuditDetail(
+  req: Request,
+  id: number,
+  sourceType: "listing" | "audit",
+): Promise<ProductDetailPayload | null> {
+  const where = await auditScopeWhere(req, sourceType);
+  const [row] = await db.select().from(auditsTable).where(and(where, eq(auditsTable.id, id))).limit(1);
+  if (!row) return null;
+
+  const competitors = await db
+    .select({
+      id: competitorsTable.id,
+      productName: competitorsTable.productName,
+      asin: competitorsTable.asin,
+    })
+    .from(competitorsTable)
+    .where(and(eq(competitorsTable.auditId, id), eq(competitorsTable.isDeleted, 0)));
+
+  const managerUserId = row.createdByUserId ?? row.userId;
+  const [managerProfile] = await db
+    .select({ fullName: userProfilesTable.fullName, companyName: userProfilesTable.companyName })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, managerUserId))
+    .limit(1);
+
+  const managerName = managerProfile?.fullName?.trim()
+    || managerProfile?.companyName?.trim()
+    || "Account Owner";
+
+  const [profile] = await db
+    .select()
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, id))
+    .limit(1);
+
+  const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Product";
+  const sku = profile?.sku?.trim() || deriveSku(name, row.id, sourceType === "audit" ? "AUD" : undefined);
+  const displayManagerName = profile?.assignedManager?.trim() || managerName;
+  const mapped = mapProductStatus(row.status, row.currentStep);
+  const stageLabel = sourceType === "audit"
+    ? (row.status === "complete" ? "Audit Results" : "Audit in progress")
+    : mapStageLabel(row.status, row.currentStep);
+  const progress = sourceType === "audit"
+    ? (row.status === "complete" ? 100 : row.overallScore ? Math.min(95, row.overallScore) : 40)
+    : calcProgress(row.status, row.currentStep);
+  const workflowUrl = sourceType === "audit"
+    ? `/audits/${row.id}`
+    : `/audits/workflow?resume=${row.id}`;
+
+  const referenceLinks: Array<{ label: string; url: string }> = [];
+  if (row.asin?.trim()) {
+    referenceLinks.push({
+      label: "Amazon Ref",
+      url: `https://www.amazon.in/dp/${row.asin.trim()}`,
+    });
+  }
+  competitors.forEach((c, i) => {
+    const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
+    const url = c.asin?.trim() ? `https://www.amazon.in/dp/${c.asin.trim()}` : "#";
+    referenceLinks.push({ label, url });
+  });
+
+  const brand = row.brandName?.trim() || "Brand";
+  const aiSuggestions = buildProductSuggestions({
+    productName: row.productName,
+    title: row.title,
+    brandName: row.brandName,
+    category: row.category,
+    bulletPoints: row.bulletPoints,
+    generatedContent: row.generatedContent as ProductSuggestionInput["generatedContent"],
+    targetKeywords: row.targetKeywords,
+    imageUrls: row.imageUrls,
+    imageRecords: row.imageRecords as ProductSuggestionInput["imageRecords"],
+    generatedImages: row.generatedImages as ProductSuggestionInput["generatedImages"],
+    currentStep: row.currentStep,
+    status: row.status,
+    overallScore: row.overallScore,
+    result: row.result,
+    competitorCount: competitors.length,
+  });
+
+  const priority = priorityFromStoredLevel(profile?.priority)
+    ?? mapProductPriority({
+      overallScore: row.overallScore,
+      status: row.status,
+      currentStep: row.currentStep,
+      aiSuggestionCount: aiSuggestions.length,
+    });
+
+  const workspaceId = getActiveWorkspaceId(req);
+  await ensureSampleProductOrders(id, workspaceId);
+  const orderStats = await getProductOrderStats(id);
+  await ensureSampleMarketplaceListings(id, workspaceId, name, sku);
+  const marketplaceStats = await listProductMarketplaces(id);
+
+  return {
+    id: row.id,
+    name,
+    title: name,
+    sku,
+    imageUrl: pickProjectThumbnail({
+      imageUrls: row.imageUrls,
+      imageRecords: row.imageRecords as Array<{ currentUrl?: string }> | null,
+      generatedImages: row.generatedImages as ProductSuggestionInput["generatedImages"],
+    }),
+    brandName: row.brandName ?? null,
+    category: row.category ?? null,
+    status: mapped.status,
+    statusLabel: mapped.status === "active" ? "Live" : mapped.label,
+    stageLabel,
+    priorityLabel: priority.label,
+    priorityLevel: priority.level,
+    progressPercent: progress,
+    currentStep: row.currentStep ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: (row.updatedAt ?? row.createdAt).toISOString(),
+    workflowUrl,
+    detailUrl: `/products/${row.id}?source=${sourceType}`,
+    sourceType,
+    sourceTypeLabel: SOURCE_TYPE_LABELS[sourceType],
+    statsAuditId: row.id,
+    manager: {
+      name: displayManagerName,
+      initials: managerInitials(displayManagerName),
+    },
+    notes: profile?.notes?.trim() || buildNotes(row),
+    referenceLinks,
+    driveFolder: `${brand} / ${name}`,
+    driveFolderUrl: workflowUrl,
+    workflowSteps: WORKFLOW_STEP_LABELS.map((label, index) => ({
+      id: index + 1,
+      label,
+      completed: (row.currentStep ?? 1) > index + 1 || row.status === "complete",
+      active: (row.currentStep ?? 1) === index + 1 && row.status !== "complete",
+    })),
+    stats: {
+      totalOrders: orderStats.totalOrders,
+      revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
+      revenueCurrency: "USD",
+      marketplacesActive: marketplaceStats.activeCount,
+      listingScore: row.overallScore ?? 0,
+      competitorCount: competitors.length,
+      imageCount: countImages(row),
+      keywordCount: (row.targetKeywords ?? []).length,
+    },
+    aiSuggestions,
+  };
+}
+
+async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDetailPayload | null> {
+  const where = await projectScopeWhere(req, "graphics", graphicsProjectsTable, "graphics");
+  const [row] = await db
+    .select()
+    .from(graphicsProjectsTable)
+    .where(and(where, eq(graphicsProjectsTable.id, id)))
+    .limit(1);
+  if (!row) return null;
+
+  const name = row.name?.trim() || row.productName?.trim() || "Untitled Project";
+  const mapped = mapProductStatus(row.status, null);
+  const workflowUrl = `/projects/${row.id}`;
+  const brand = row.productName?.trim() || "Brand";
+  const statsAuditId = row.auditId ?? null;
+
+  let stats = {
+    totalOrders: 0,
+    revenue: null as number | null,
+    revenueCurrency: "USD",
+    marketplacesActive: 0,
+    listingScore: 0,
+    competitorCount: 0,
+    imageCount: row.generatedCount ?? 0,
+    keywordCount: 0,
+  };
+
+  if (statsAuditId) {
+    const workspaceId = getActiveWorkspaceId(req);
+    await ensureSampleProductOrders(statsAuditId, workspaceId);
+    const orderStats = await getProductOrderStats(statsAuditId);
+    await ensureSampleMarketplaceListings(statsAuditId, workspaceId, name, deriveSku(name, row.id, "GFX"));
+    const marketplaceStats = await listProductMarketplaces(statsAuditId);
+    stats = {
+      totalOrders: orderStats.totalOrders,
+      revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
+      revenueCurrency: "USD",
+      marketplacesActive: marketplaceStats.activeCount,
+      listingScore: 0,
+      competitorCount: 0,
+      imageCount: row.generatedCount ?? 0,
+      keywordCount: 0,
+    };
+  }
+
+  return {
+    id: row.id,
+    name,
+    title: name,
+    sku: deriveSku(name, row.id, "GFX"),
+    imageUrl: pickProjectThumbnail({
+      sourceImageUrls: row.sourceImageUrls,
+      imageRecords: row.imageRecords as Array<{ currentUrl?: string }> | null,
+    }),
+    brandName: brand,
+    category: row.category ?? null,
+    status: mapped.status,
+    statusLabel: mapped.label,
+    stageLabel: row.status === "completed" ? "Graphics ready" : "Graphics",
+    priorityLabel: "Medium Priority",
+    priorityLevel: "medium",
+    progressPercent: genericProgress(row.status),
+    currentStep: null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: (row.updatedAt ?? row.createdAt).toISOString(),
+    workflowUrl,
+    detailUrl: `/products/${row.id}?source=graphics`,
+    sourceType: "graphics",
+    sourceTypeLabel: SOURCE_TYPE_LABELS.graphics,
+    statsAuditId,
+    manager: { name: "Account Owner", initials: "AO" },
+    notes: `Graphics project for ${row.productName}. Open the workflow to generate lifestyle and feature images.`,
+    referenceLinks: [],
+    driveFolder: `${brand} / ${name}`,
+    driveFolderUrl: workflowUrl,
+    workflowSteps: genericWorkflowSteps(
+      ["Upload assets", "Generate graphics", "Customize", "Download"],
+      row.status,
+    ),
+    stats,
+    aiSuggestions: [
+      "Generate lifestyle and infographic images in the Graphics workflow",
+      "Use consistent brand colors across all generated visuals",
+      "Add more source images for better AI output quality",
+    ],
+  };
+}
+
+async function loadVideoDetail(req: Request, id: number): Promise<ProductDetailPayload | null> {
+  const where = await projectScopeWhere(req, "video", videosProjectsTable, "video");
+  const [row] = await db
+    .select()
+    .from(videosProjectsTable)
+    .where(and(where, eq(videosProjectsTable.id, id)))
+    .limit(1);
+  if (!row) return null;
+
+  const name = row.name?.trim() || row.productName?.trim() || "Untitled Video";
+  const mapped = mapProductStatus(row.status, null);
+  const workflowUrl = `/videos`;
+  const brand = row.productName?.trim() || "Brand";
+
+  return {
+    id: row.id,
+    name,
+    title: name,
+    sku: deriveSku(name, row.id, "VID"),
+    imageUrl: pickProjectThumbnail({ thumbnailUrl: row.thumbnailUrl }),
+    brandName: brand,
+    category: row.category ?? null,
+    status: mapped.status,
+    statusLabel: mapped.label,
+    stageLabel: row.status === "completed" ? "Video ready" : "Video production",
+    priorityLabel: "Medium Priority",
+    priorityLevel: "medium",
+    progressPercent: genericProgress(row.status),
+    currentStep: null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: (row.updatedAt ?? row.createdAt).toISOString(),
+    workflowUrl,
+    detailUrl: `/products/${row.id}?source=video`,
+    sourceType: "video",
+    sourceTypeLabel: SOURCE_TYPE_LABELS.video,
+    statsAuditId: row.auditId ?? null,
+    manager: { name: "Account Owner", initials: "AO" },
+    notes: `Video project for ${row.productName}. Continue in Create Video to finish production.`,
+    referenceLinks: [],
+    driveFolder: `${brand} / ${name}`,
+    driveFolderUrl: workflowUrl,
+    workflowSteps: genericWorkflowSteps(
+      ["Add product", "AI generates", "Customize", "Download"],
+      row.status,
+    ),
+    stats: {
+      totalOrders: 0,
+      revenue: null,
+      revenueCurrency: "USD",
+      marketplacesActive: 0,
+      listingScore: 0,
+      competitorCount: 0,
+      imageCount: row.thumbnailUrl ? 1 : 0,
+      keywordCount: 0,
+    },
+    aiSuggestions: [
+      "Choose a video style that matches your Amazon listing tone",
+      "Add high-quality product images before generating the video",
+      "Review script and scenes before final export",
+    ],
+  };
+}
+
+async function loadAdsDetail(req: Request, id: number): Promise<ProductDetailPayload | null> {
+  const where = await projectScopeWhere(req, "ads", adsProjectsTable, "ads");
+  const [row] = await db
+    .select()
+    .from(adsProjectsTable)
+    .where(and(where, eq(adsProjectsTable.id, id)))
+    .limit(1);
+  if (!row) return null;
+
+  const name = row.name?.trim() || row.productName?.trim() || "Untitled Campaign";
+  const mapped = mapProductStatus(row.status, null);
+  const workflowUrl = `/ads`;
+  const brand = row.productName?.trim() || "Brand";
+
+  return {
+    id: row.id,
+    name,
+    title: name,
+    sku: deriveSku(name, row.id, "ADS"),
+    imageUrl: null,
+    brandName: brand,
+    category: row.category ?? null,
+    status: mapped.status,
+    statusLabel: mapped.label,
+    stageLabel: row.status === "active" ? "Campaign live" : "Campaign setup",
+    priorityLabel: "High Priority",
+    priorityLevel: "high",
+    progressPercent: genericProgress(row.status),
+    currentStep: null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: (row.updatedAt ?? row.createdAt).toISOString(),
+    workflowUrl,
+    detailUrl: `/products/${row.id}?source=ads`,
+    sourceType: "ads",
+    sourceTypeLabel: SOURCE_TYPE_LABELS.ads,
+    statsAuditId: row.auditId ?? null,
+    manager: { name: "Account Owner", initials: "AO" },
+    notes: `Ad campaign for ${row.productName} on ${row.platform ?? "Amazon"}.`,
+    referenceLinks: row.platform
+      ? [{ label: row.platform, url: "#" }]
+      : [],
+    driveFolder: `${brand} / ${name}`,
+    driveFolderUrl: workflowUrl,
+    workflowSteps: genericWorkflowSteps(
+      ["Set targeting", "Create creatives", "Launch campaign", "Optimize"],
+      row.status,
+    ),
+    stats: {
+      totalOrders: 0,
+      revenue: null,
+      revenueCurrency: "USD",
+      marketplacesActive: row.platform ? 1 : 0,
+      listingScore: 0,
+      competitorCount: 0,
+      imageCount: Array.isArray(row.creativeUrls) ? row.creativeUrls.length : 0,
+      keywordCount: Array.isArray(row.targeting) ? row.targeting.length : 0,
+    },
+    aiSuggestions: [
+      "Review ACOS and ROAS weekly to reduce wasted ad spend",
+      "Test multiple ad creatives to find top performers",
+      "Align campaign keywords with your listing search terms",
+    ],
+  };
+}
+
+export async function loadProductDetail(
+  req: Request,
+  id: number,
+  sourceType?: ProductSourceType | null,
+): Promise<ProductDetailPayload | null> {
+  if (sourceType) {
+    switch (sourceType) {
+      case "listing":
+      case "audit":
+        return loadAuditDetail(req, id, sourceType);
+      case "graphics":
+        return loadGraphicsDetail(req, id);
+      case "video":
+        return loadVideoDetail(req, id);
+      case "ads":
+        return loadAdsDetail(req, id);
+      default:
+        return null;
+    }
+  }
+
+  for (const candidate of PRODUCT_SOURCE_TRY_ORDER) {
+    const detail = await loadProductDetail(req, id, candidate);
+    if (detail) return detail;
+  }
+  return null;
+}
+
+export async function resolveStatsAuditId(
+  req: Request,
+  id: number,
+  sourceType?: ProductSourceType | null,
+): Promise<number | null> {
+  const parsed = sourceType ?? parseProductSourceType(
+    typeof req.query.source === "string" ? req.query.source : null,
+  );
+  const detail = await loadProductDetail(req, id, parsed ?? undefined);
+  return detail?.statsAuditId ?? null;
+}
+
+export function parseProductSourceFromRequest(req: Request): ProductSourceType | null {
+  return parseProductSourceType(typeof req.query.source === "string" ? req.query.source : null);
+}

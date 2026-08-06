@@ -100,7 +100,7 @@ export async function loadUnifiedProductList(
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
     const mapped = mapAuditStatus(a.status, a.currentStep ?? null, (a.overallScore ?? 0) > 0);
     const workflowUrl = isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`;
-    const detailUrl = isAuditListing ? `/audits/${a.id}` : `/products/${a.id}`;
+    const detailUrl = `/products/${a.id}?source=${sourceType}`;
 
     items.push({
       id: a.id,
@@ -147,7 +147,7 @@ export async function loadUnifiedProductList(
       status: mapped.status,
       statusLabel: mapped.label,
       workflowUrl: `/projects/${g.id}`,
-      detailUrl: `/projects/${g.id}`,
+      detailUrl: `/products/${g.id}?source=graphics`,
       sourceType: "graphics",
       sourceTypeLabel: sourceTypeLabel("graphics"),
       createdAt: g.createdAt,
@@ -169,7 +169,7 @@ export async function loadUnifiedProductList(
       status: mapped.status,
       statusLabel: mapped.label,
       workflowUrl: `/videos/${v.id}`,
-      detailUrl: `/videos/${v.id}`,
+      detailUrl: `/products/${v.id}?source=video`,
       sourceType: "video",
       sourceTypeLabel: sourceTypeLabel("video"),
       createdAt: v.createdAt,
@@ -191,7 +191,7 @@ export async function loadUnifiedProductList(
       status: mapped.status,
       statusLabel: mapped.label,
       workflowUrl: `/ads/${ad.id}`,
-      detailUrl: `/ads/${ad.id}`,
+      detailUrl: `/products/${ad.id}?source=ads`,
       sourceType: "ads",
       sourceTypeLabel: sourceTypeLabel("ads"),
       createdAt: ad.createdAt,

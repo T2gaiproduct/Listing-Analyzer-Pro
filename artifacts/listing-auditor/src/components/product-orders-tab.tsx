@@ -99,7 +99,15 @@ function FilterButton({
   );
 }
 
-export function ProductOrdersTab({ productId, enabled }: { productId: number; enabled: boolean }) {
+export function ProductOrdersTab({
+  productId,
+  enabled,
+  source,
+}: {
+  productId: number;
+  enabled: boolean;
+  source?: string;
+}) {
   const [search, setSearch] = useState("");
   const [marketplace, setMarketplace] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
@@ -107,16 +115,17 @@ export function ProductOrdersTab({ productId, enabled }: { productId: number; en
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
+    if (source) params.set("source", source);
     if (search.trim()) params.set("search", search.trim());
     if (marketplace !== "all") params.set("marketplace", marketplace);
     if (status !== "all") params.set("status", status);
     if (dateRange !== "all") params.set("dateRange", dateRange);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
-  }, [search, marketplace, status, dateRange]);
+  }, [source, search, marketplace, status, dateRange]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["product-orders", productId, search, marketplace, status, dateRange],
+    queryKey: ["product-orders", productId, source, search, marketplace, status, dateRange],
     queryFn: () => fetchJson<ProductOrdersResponse>(`${basePath}/api/products/${productId}/orders${queryString}`),
     enabled: enabled && productId > 0,
     staleTime: 15_000,

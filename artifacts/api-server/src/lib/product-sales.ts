@@ -77,6 +77,22 @@ function formatDayLabel(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+export function emptyProductSalesData(): ProductSalesData {
+  const zero = buildKpi(0, 0);
+  return {
+    currency: "USD",
+    kpis: {
+      totalRevenue: zero,
+      totalOrders: zero,
+      unitsSold: zero,
+      avgOrderValue: zero,
+    },
+    trend: [],
+    revenueSplit: [],
+    marketplaceRevenue: [],
+  };
+}
+
 export async function getProductSales(auditId: number): Promise<ProductSalesData> {
   const now = new Date();
   const currentStart = startOfDay(new Date(now));

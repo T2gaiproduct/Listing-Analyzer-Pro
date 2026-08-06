@@ -128,16 +128,14 @@ function inferSourceType(workflowUrl: string): ProductSourceType {
   return "listing";
 }
 
+function productDetailUrl(id: number, sourceType: ProductSourceType): string {
+  return `/products/${id}?source=${sourceType}`;
+}
+
 function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
   const workflowUrl = raw.workflowUrl ?? `/audits/workflow?resume=${raw.id}`;
   const sourceType = raw.sourceType ?? inferSourceType(workflowUrl);
-  const detailUrl =
-    raw.detailUrl
-    ?? (sourceType === "listing"
-      ? `/products/${raw.id}`
-      : sourceType === "audit"
-        ? `/audits/${raw.id}`
-        : workflowUrl);
+  const detailUrl = raw.detailUrl ?? productDetailUrl(raw.id, sourceType);
 
   return {
     ...raw,
@@ -172,12 +170,7 @@ function mapRecentToProduct(item: RecentItem): ProductListItem {
   const score = item.score ?? null;
   const sourceType = (item.type === "video" ? "video" : item.type) as ProductSourceType;
   const typeLabel = (item as RecentItem & { typeLabel?: string }).typeLabel;
-  const detailUrl =
-    sourceType === "listing"
-      ? `/products/${item.id}`
-      : sourceType === "audit"
-        ? `/audits/${item.id}`
-        : item.url;
+  const detailUrl = productDetailUrl(item.id, sourceType);
 
   return {
     id: item.id,

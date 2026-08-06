@@ -24,10 +24,16 @@ import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import {
-  isBuildBrandAudit,
   mapAuditToProductDetail,
   type ProductDetailView,
 } from "@/lib/product-mappers";
+
+type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
+
+function parseProductSource(raw: string | null): ProductSourceType {
+  if (raw === "audit" || raw === "graphics" || raw === "video" || raw === "ads") return raw;
+  return "listing";
+}
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
@@ -192,13 +198,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const queryClient = useQueryClient();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { featureWorkspaceId, isAccountOwner, canEdit: wsCanEdit } = useWorkspace();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
 
-  const canEditProduct = isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand");
+  const source = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return parseProductSource(params.get("source"));
+  }, [location, id]);
+
+  const canEditProduct = (source === "listing" || source === "audit")
+    && (isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand"));
 
   const validId = !Number.isNaN(id) && id > 0;
   const queryEnabled = clerkLoaded && !!user && !!featureWorkspaceId && validId;
@@ -209,12 +221,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
     isError: apiError,
     error: apiErrorObj,
   } = useQuery({
-    queryKey: ["product", id, featureWorkspaceId],
-    queryFn: () => fetchJson<ProductDetailView>(`${basePath}/api/products/${id}`),
+    queryKey: ["product", id, featureWorkspaceId, source],
+    queryFn: () => fetchJson<ProductDetailView>(`${basePath}/api/products/${id}?source=${source}`),
     enabled: queryEnabled,
     retry: false,
     staleTime: 10_000,
   });
+
+  const shouldFetchAudit = source === "listing" || source === "audit";
 
   const {
     data: auditData,
@@ -223,38 +237,25 @@ export default function ProductDetailPage({ id }: { id: number }) {
   } = useGetAudit(id, {
     query: {
       queryKey: getGetAuditQueryKey(id),
-      enabled: queryEnabled,
+      enabled: queryEnabled && shouldFetchAudit,
       retry: 1,
     },
   });
 
   const product = useMemo((): ProductDetailView | null => {
-    if (auditData && isBuildBrandAudit(auditData)) {
-      const mapped = mapAuditToProductDetail(auditData);
-      if (isValidProductDetail(apiProduct)) {
-        return {
-          ...mapped,
-          ...apiProduct,
-          manager: apiProduct.manager ?? mapped.manager,
-          notes: apiProduct.notes || mapped.notes,
-          referenceLinks: apiProduct.referenceLinks?.length
-            ? apiProduct.referenceLinks
-            : mapped.referenceLinks,
-          aiSuggestions: apiProduct.aiSuggestions?.length
-            ? apiProduct.aiSuggestions
-            : mapped.aiSuggestions,
-          priorityLabel: apiProduct.priorityLabel ?? mapped.priorityLabel,
-          priorityLevel: apiProduct.priorityLevel ?? mapped.priorityLevel,
-          driveFolderUrl: apiProduct.driveFolderUrl ?? mapped.driveFolderUrl,
-        };
-      }
+    if (isValidProductDetail(apiProduct)) return apiProduct;
+    if (auditData && shouldFetchAudit) {
+      const mapped = mapAuditToProductDetail(auditData, "Account Owner", {
+        sourceType: source === "audit" ? "audit" : "listing",
+      });
       return mapped;
     }
-    if (isValidProductDetail(apiProduct)) return apiProduct;
     return null;
-  }, [apiProduct, auditData]);
+  }, [apiProduct, auditData, shouldFetchAudit, source]);
 
-  const isLoading = queryEnabled && (auditLoading || apiLoading) && !product;
+  const isLoading = queryEnabled && apiLoading && !product && !(shouldFetchAudit && auditLoading);
+
+  const workflowTitle = product?.sourceTypeLabel ?? "Project Workflow";
 
   const saveProductMutation = useMutation({
     mutationFn: async (data: ProductEditForm) => {
@@ -729,7 +730,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       {activeTab === "workflow" && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold text-slate-900">Build Your Brand Workflow</h2>
+            <h2 className="text-xs font-semibold text-slate-900">{workflowTitle}</h2>
             <Button
               type="button"
               size="sm"
@@ -770,15 +771,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
       )}
 
       {activeTab === "marketplaces" && (
-        <ProductMarketplacesTab productId={product.id} enabled={activeTab === "marketplaces"} />
+        <ProductMarketplacesTab productId={product.id} source={source} enabled={activeTab === "marketplaces"} />
       )}
 
       {activeTab === "orders" && (
-        <ProductOrdersTab productId={product.id} enabled={activeTab === "orders"} />
+        <ProductOrdersTab productId={product.id} source={source} enabled={activeTab === "orders"} />
       )}
 
       {activeTab === "sales" && (
-        <ProductSalesTab productId={product.id} enabled={activeTab === "sales"} />
+        <ProductSalesTab productId={product.id} source={source} enabled={activeTab === "sales"} />
       )}
 
       <button
