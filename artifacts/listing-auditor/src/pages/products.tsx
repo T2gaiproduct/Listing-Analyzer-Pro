@@ -12,6 +12,7 @@ import {
   Loader2,
   Package,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
+import { useActionDialog } from "@/components/ui/action-dialog";
 import { downloadProductImportTemplate, parseProductsCsv } from "@/lib/product-import";
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -32,6 +34,7 @@ import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useGetRecents, getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { useTeam } from "@/hooks/use-team";
+import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -128,6 +131,23 @@ function deriveSku(productName: string, id: number, skuPrefix?: string): string 
 
 function productKey(product: ProductListItem): string {
   return `${product.sourceType}-${product.id}`;
+}
+
+function productDeleteFeature(sourceType: ProductSourceType): WorkspaceFeature {
+  switch (sourceType) {
+    case "listing":
+      return "build_brand";
+    case "audit":
+      return "audits";
+    case "graphics":
+      return "graphics";
+    case "video":
+      return "videos";
+    case "ads":
+      return "ads";
+    default:
+      return "build_brand";
+  }
 }
 
 function inferSourceType(workflowUrl: string): ProductSourceType {
@@ -275,11 +295,12 @@ export default function ProductsPage() {
   const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { isTeamMember } = useTeam();
-  const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection, canEdit } = useWorkspace();
+  const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection, canEdit, isAccountOwner, canDelete } = useWorkspace();
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
 
   const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
 
@@ -316,6 +337,72 @@ export default function ProductsPage() {
   const isLoading = apiLoading || recentsLoading;
 
   const canImportProducts = canEdit("build_brand") || canEdit("audits");
+
+  const canDeleteProduct = (product: ProductListItem) =>
+    isAccountOwner || canDelete(productDeleteFeature(product.sourceType));
+
+  const deleteProductsMutation = useMutation({
+    mutationFn: async (items: Array<{ type: ProductSourceType; id: number }>) => {
+      await Promise.all(items.map(async ({ type, id }) => {
+        const response = await fetch(`${basePath}/api/projects/${type}/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to delete product #${id}`);
+        }
+      }));
+    },
+    onSuccess: (_data, items) => {
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey({ limit: 500 }) });
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const item of items) {
+          next.delete(`${item.type}-${item.id}`);
+        }
+        return next;
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Could not delete product(s).",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function requestDeleteProducts(productsToDelete: ProductListItem[]) {
+    const deletable = productsToDelete.filter(canDeleteProduct);
+    if (deletable.length === 0) {
+      toast({
+        title: "No permission",
+        description: "You do not have permission to delete the selected products.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const count = deletable.length;
+    triggerDeleteDialog(
+      async () => {
+        await deleteProductsMutation.mutateAsync(
+          deletable.map((product) => ({ type: product.sourceType, id: product.id })),
+        );
+      },
+      {
+        title: count === 1 ? "Delete product?" : `Delete ${count} products?`,
+        description: count === 1
+          ? `"${deletable[0]!.name}" will be permanently deleted. This cannot be undone.`
+          : `${count} selected listings will be permanently deleted. This cannot be undone.`,
+        confirmLabel: "Delete",
+        confirmVariant: "destructive",
+        successTitle: "Deleted",
+        successDescription: count === 1 ? "Product removed." : `${count} products removed.`,
+      },
+    );
+  }
 
   const importProductsMutation = useMutation({
     mutationFn: (products: ReturnType<typeof parseProductsCsv>) =>
@@ -385,6 +472,12 @@ export default function ProductsPage() {
   }, [products, search, channelFilter]);
 
   const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(productKey(p)));
+  const selectedProducts = useMemo(
+    () => filtered.filter((product) => selected.has(productKey(product))),
+    [filtered, selected],
+  );
+  const selectedCount = selectedProducts.length;
+  const selectedDeletableCount = selectedProducts.filter(canDeleteProduct).length;
 
   const toggleAll = () => {
     if (allSelected) {
@@ -532,6 +625,40 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {selectedCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-200 bg-orange-50/80 px-3 py-2">
+          <p className="text-xs font-medium text-orange-900">
+            {selectedCount} listing{selectedCount === 1 ? "" : "s"} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] border-orange-200 bg-white text-slate-700"
+              onClick={() => setSelected(new Set())}
+            >
+              Clear selection
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-7 text-[11px]"
+              disabled={selectedDeletableCount === 0 || deleteProductsMutation.isPending}
+              onClick={() => requestDeleteProducts(selectedProducts)}
+            >
+              {deleteProductsMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+              ) : (
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+              )}
+              Delete selected
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -539,12 +666,19 @@ export default function ProductsPage() {
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80">
                 <th className="w-10 px-3 py-2.5">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleAll}
-                    aria-label="Select all products"
-                    className="h-3.5 w-3.5"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleAll}
+                      aria-label="Select all products"
+                      className="h-3.5 w-3.5"
+                    />
+                    {selectedCount > 0 && (
+                      <span className="text-[10px] font-semibold text-orange-600 tabular-nums">
+                        {selectedCount}
+                      </span>
+                    )}
+                  </div>
                 </th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Product</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Type</th>
@@ -673,6 +807,22 @@ export default function ProductsPage() {
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">Export</TooltipContent>
                         </Tooltip>
+                        {canDeleteProduct(product) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={deleteProductsMutation.isPending}
+                                onClick={() => requestDeleteProducts([product])}
+                                className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                aria-label="Delete product"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="text-xs">Delete</TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -687,9 +837,11 @@ export default function ProductsPage() {
       {filtered.length > 0 && (
         <p className="text-[10px] text-slate-400 text-right">
           {filtered.length} product{filtered.length === 1 ? "" : "s"}
+          {selectedCount > 0 ? ` · ${selectedCount} selected` : ""}
           {channelFilter !== "all" ? ` · filtered by ${CHANNEL_FILTER_LABELS[channelFilter]}` : ""}
         </p>
       )}
+      {deleteDialog}
     </div>
   );
 }
