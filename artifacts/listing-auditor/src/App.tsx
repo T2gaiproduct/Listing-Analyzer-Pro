@@ -182,8 +182,17 @@ function ProfileSummaryError({ onRetry }: { onRetry: () => void }) {
 }
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
+const clerkProxyUrlFromEnv = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function resolveClerkProxyUrl(): string | undefined {
+  if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
+  if (typeof window === "undefined") return undefined;
+  if (!window.location.hostname.endsWith(".trycloudflare.com")) return undefined;
+  const origin = window.location.origin.replace(/\/$/, "");
+  const prefix = basePath && basePath !== "/" ? basePath.replace(/\/$/, "") : "";
+  return `${origin}${prefix}/api/__clerk`;
+}
 
 const adminUserIdsEnv = (import.meta.env.VITE_ADMIN_USER_IDS as string | undefined ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -764,6 +773,7 @@ function Router() {
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
   const { logoUrl, platformName } = useBranding();
+  const clerkProxyUrl = useMemo(() => resolveClerkProxyUrl(), []);
 
   const appearance = useMemo(
     () => ({

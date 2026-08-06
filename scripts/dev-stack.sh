@@ -138,18 +138,20 @@ configure_clerk_proxy_for_tunnel() {
 
   if [[ -z "$secret" ]]; then
     echo "WARNING: CLERK_SECRET_KEY missing — skipping Clerk proxy configuration" >&2
-    return 0
+    return 1
+  fi
+
+  echo "==> Validating Clerk secret key"
+  local domains_json
+  domains_json=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
+  if [[ -z "$domains_json" ]] || echo "$domains_json" | rg -q '"clerk_key_invalid"'; then
+    echo "ERROR: CLERK_SECRET_KEY is invalid or does not match VITE_CLERK_PUBLISHABLE_KEY." >&2
+    echo "       Update CLERK_SECRET_KEY in environment secrets with the secret for fitting-ox / your Clerk app." >&2
+    echo "       Sign-up on Cloudflare preview will not work until this is fixed." >&2
+    return 1
   fi
 
   echo "==> Configuring Clerk proxy for Cloudflare tunnel ($host)"
-  local domains_json primary_id satellite_id
-  domains_json=$(curl -sf -H "Authorization: Bearer $secret" "https://api.clerk.com/v1/domains" 2>/dev/null || true)
-  if [[ -z "$domains_json" ]]; then
-    echo "WARNING: Could not list Clerk domains — sign-in may fail on this tunnel URL" >&2
-    return 0
-  fi
-
-  read -r primary_id satellite_id < <(python3 -c "
 import json, sys
 host = sys.argv[1]
 data = json.loads(sys.stdin.read()).get('data', [])

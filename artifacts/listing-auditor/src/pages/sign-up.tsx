@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { SignUp } from "@clerk/react";
+import { SignUp, ClerkLoaded, ClerkLoading } from "@clerk/react";
 import { Link } from "wouter";
+import { Loader2 } from "lucide-react";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -53,6 +54,13 @@ export default function SignUpPage() {
           </p>
         </div>
       )}
+      <ClerkLoading>
+        <div className="flex flex-col items-center gap-3 py-12">
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+          <p className="text-sm text-slate-600">Loading sign-up…</p>
+        </div>
+      </ClerkLoading>
+      <ClerkLoaded>
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
@@ -62,6 +70,18 @@ export default function SignUpPage() {
         initialValues={email ? { emailAddress: email } : undefined}
         appearance={clerkAppearance}
       />
+      </ClerkLoaded>
+      {typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com") && (
+        <p className="mt-4 max-w-[440px] text-center text-[11px] text-slate-500">
+          Cloudflare preview: if the form stays blank, ask your admin to set a matching{" "}
+          <code className="text-slate-600">CLERK_SECRET_KEY</code> for this Clerk app and restart the dev stack.
+          You can also try{" "}
+          <Link href={signInPath} className="text-orange-600 font-medium hover:underline">
+            Sign in
+          </Link>{" "}
+          if you already have an account.
+        </p>
+      )}
     </div>
   );
 }
