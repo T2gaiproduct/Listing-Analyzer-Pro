@@ -509,47 +509,6 @@ router.get("/audits/:id/export/zip", requireAuth, resolveTeamAndWorkspace, async
   }
 });
 
-router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const params = GetAuditParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
-  const whereClause = isAdmin(userId)
-    ? and(eq(auditsTable.id, params.data.id), eq(auditsTable.isDeleted, 0))
-    : await auditScopeWhere(req, eq(auditsTable.id, params.data.id));
-
-  const [audit] = await db
-    .select()
-    .from(auditsTable)
-    .where(whereClause);
-
-  if (!audit) {
-    res.status(404).json({ error: "Audit not found" });
-    return;
-  }
-
-  const competitors = await db
-    .select()
-    .from(competitorsTable)
-    .where(and(eq(competitorsTable.auditId, audit.id), eq(competitorsTable.isDeleted, 0)));
-
-  const [profile] = await db
-    .select({ referenceLinks: productProfilesTable.referenceLinks })
-    .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, audit.id))
-    .limit(1);
-
-  res.json({
-    ...audit,
-    referenceLinks: profile?.referenceLinks ?? null,
-    result: audit.result ?? null,
-    competitors,
-  });
-});
-
 router.post("/audits/:id/analyze", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
   const params = GetAuditParams.safeParse(req.params);
   if (!params.success) {
@@ -594,6 +553,47 @@ router.post("/audits/:id/analyze", requireAuth, resolveTeamAndWorkspace, require
   }
 
   res.status(402).json({ error: outcome.reason });
+});
+
+router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const params = GetAuditParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const whereClause = isAdmin(userId)
+    ? and(eq(auditsTable.id, params.data.id), eq(auditsTable.isDeleted, 0))
+    : await auditScopeWhere(req, eq(auditsTable.id, params.data.id));
+
+  const [audit] = await db
+    .select()
+    .from(auditsTable)
+    .where(whereClause);
+
+  if (!audit) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const competitors = await db
+    .select()
+    .from(competitorsTable)
+    .where(and(eq(competitorsTable.auditId, audit.id), eq(competitorsTable.isDeleted, 0)));
+
+  const [profile] = await db
+    .select({ referenceLinks: productProfilesTable.referenceLinks })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, audit.id))
+    .limit(1);
+
+  res.json({
+    ...audit,
+    referenceLinks: profile?.referenceLinks ?? null,
+    result: audit.result ?? null,
+    competitors,
+  });
 });
 
 router.delete("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "delete"), async (req, res): Promise<void> => {
