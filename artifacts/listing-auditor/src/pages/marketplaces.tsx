@@ -201,9 +201,12 @@ export default function MarketplacesPage() {
       void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
       const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
       const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Shopify.` : "";
+      const auditNote = result.auditsQueued > 0
+        ? ` Running AI audits for ${result.auditsQueued} listing${result.auditsQueued === 1 ? "" : "s"} (1 audit credit each).`
+        : "";
       toast({
         title: "Shopify products imported",
-        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}`,
+        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}${auditNote}`,
       });
       if (result.errors.length > 0) {
         toast({

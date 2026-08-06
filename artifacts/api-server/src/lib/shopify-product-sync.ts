@@ -13,6 +13,7 @@ import {
   parseShopifyPublishedAt,
   summarizeShopifyVariants,
 } from "./shopify-import-utils.js";
+import { auditNeedsAnalysis } from "./listing-audit-runner.js";
 
 const FETCH_HEADERS = {
   "User-Agent":
@@ -48,6 +49,8 @@ export type ShopifySyncResult = {
   skipped: number;
   updated: number;
   total: number;
+  auditsQueued: number;
+  pendingAuditIds: number[];
   products: Array<{
     id: number;
     name: string;
@@ -201,10 +204,21 @@ async function refreshShopifyProductFromCatalog(input: {
   workspaceId: number;
   product: ShopifyCatalogProduct;
   origin: string;
-}): Promise<void> {
+}): Promise<{ needsAudit: boolean }> {
   const listing = resolveShopifyListingFields(input.product, input.origin);
   const title = input.product.title?.trim();
-  if (!title) return;
+  if (!title) return { needsAudit: false };
+
+  const [existingAudit] = await db
+    .select({
+      result: auditsTable.result,
+      overallScore: auditsTable.overallScore,
+    })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, input.auditId))
+    .limit(1);
+
+  const needsAudit = existingAudit ? auditNeedsAnalysis(existingAudit) : false;
 
   const sku = input.product.variants?.find((v) => v.sku?.trim())?.sku?.trim()
     || input.product.handle.toUpperCase();
@@ -215,7 +229,7 @@ async function refreshShopifyProductFromCatalog(input: {
       projectName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
       productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
       title,
-      status: listing.auditStatus,
+      status: needsAudit ? "pending" : listing.auditStatus,
       updatedAt: new Date(),
     })
     .where(eq(auditsTable.id, input.auditId));
@@ -237,6 +251,8 @@ async function refreshShopifyProductFromCatalog(input: {
       eq(productMarketplaceListingsTable.marketplace, "Shopify"),
       eq(productMarketplaceListingsTable.isDeleted, 0),
     ));
+
+  return { needsAudit };
 }
 
 export async function syncShopifyProducts(input: {
@@ -247,7 +263,16 @@ export async function syncShopifyProducts(input: {
 }): Promise<ShopifySyncResult> {
   const catalog = await fetchShopifyCatalogProducts(input.storeUrl);
   if (catalog.length === 0) {
-    return { imported: 0, skipped: 0, updated: 0, total: 0, products: [], errors: [] };
+    return {
+      imported: 0,
+      skipped: 0,
+      updated: 0,
+      total: 0,
+      auditsQueued: 0,
+      pendingAuditIds: [],
+      products: [],
+      errors: [],
+    };
   }
 
   const limitedCatalog = catalog.slice(0, MAX_IMPORT);
@@ -262,6 +287,8 @@ export async function syncShopifyProducts(input: {
     skipped: 0,
     updated: 0,
     total: catalog.length,
+    auditsQueued: 0,
+    pendingAuditIds: [],
     products: [],
     errors: [],
   };
@@ -276,12 +303,15 @@ export async function syncShopifyProducts(input: {
 
     if (existingAudits.has(handle)) {
       try {
-        await refreshShopifyProductFromCatalog({
+        const refresh = await refreshShopifyProductFromCatalog({
           auditId: existingAudits.get(handle)!,
           workspaceId: input.workspaceId,
           product,
           origin,
         });
+        if (refresh.needsAudit) {
+          result.pendingAuditIds.push(existingAudits.get(handle)!);
+        }
         result.updated += 1;
       } catch (err) {
         result.errors.push({
@@ -318,7 +348,7 @@ export async function syncShopifyProducts(input: {
           imageUrls,
           targetKeywords: parseKeywords(title, bulletPoints),
           overallScore: 0,
-          status: listing.auditStatus,
+          status: "pending",
           currentStep: 1,
         })
         .returning();
@@ -350,6 +380,7 @@ export async function syncShopifyProducts(input: {
 
       existingAudits.set(handle, audit.id);
       result.imported += 1;
+      result.pendingAuditIds.push(audit.id);
       result.products.push({
         id: audit.id,
         name: audit.projectName ?? audit.productName,
@@ -365,6 +396,8 @@ export async function syncShopifyProducts(input: {
       });
     }
   }
+
+  result.auditsQueued = result.pendingAuditIds.length;
 
   if (catalog.length > MAX_IMPORT) {
     result.errors.push({

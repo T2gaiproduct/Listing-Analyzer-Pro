@@ -42,6 +42,7 @@ export type ShopifySyncResult = {
   skipped: number;
   updated: number;
   total: number;
+  auditsQueued: number;
   products: Array<{
     id: number;
     name: string;

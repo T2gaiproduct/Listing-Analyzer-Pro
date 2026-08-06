@@ -10,6 +10,7 @@ import {
   viewOwnIdFilter,
   getWorkspaceCtx,
   requireWorkspaceActionAny,
+  buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { getWorkspaceMarketplacesOverview } from "../lib/workspace-marketplaces.js";
@@ -26,6 +27,7 @@ import {
   canSignSpApiRequests,
 } from "../lib/amazon-sp-settings.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
+import { runListingAuditsInBackground } from "../lib/listing-audit-runner.js";
 
 const router: IRouter = Router();
 
@@ -236,6 +238,13 @@ router.post(
       });
 
       res.status(201).json(result);
+
+      if (result.pendingAuditIds.length > 0) {
+        const creditCtx = buildTeamAwareCreditCtx(req);
+        void runListingAuditsInBackground(result.pendingAuditIds, creditCtx).catch((err) => {
+          req.log?.error?.({ err, auditIds: result.pendingAuditIds }, "Shopify import audit batch failed");
+        });
+      }
     } catch (err) {
       req.log?.error?.({ err }, "Shopify product sync failed");
       const message = err instanceof Error ? err.message : "Failed to import Shopify products";
