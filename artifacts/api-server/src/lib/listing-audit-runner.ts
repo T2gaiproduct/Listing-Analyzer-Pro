@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { Response } from "express";
 import { db, auditsTable } from "@workspace/db";
 import { analyzeListingWithAI } from "./analyzer.js";
 import {
@@ -109,4 +110,35 @@ export async function runListingAuditsInBackground(
   }
 
   return summary;
+}
+
+export async function sendRunListingAuditResult(
+  res: Response,
+  auditId: number,
+  outcome: RunListingAuditResult,
+): Promise<void> {
+  if (outcome.status === "completed") {
+    const [updated] = await db
+      .select()
+      .from(auditsTable)
+      .where(eq(auditsTable.id, auditId))
+      .limit(1);
+    res.json({
+      ...updated,
+      overallScore: outcome.overallScore,
+    });
+    return;
+  }
+
+  if (outcome.status === "failed") {
+    res.status(500).json({ error: outcome.error });
+    return;
+  }
+
+  if (outcome.reason === "Audit not found") {
+    res.status(404).json({ error: outcome.reason });
+    return;
+  }
+
+  res.status(402).json({ error: outcome.reason });
 }

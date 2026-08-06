@@ -11,7 +11,7 @@ import {
 import { generateChatCompletion } from "../lib/ai-provider";
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
-import { runListingAuditForAuditId } from "../lib/listing-audit-runner.js";
+import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
 import { generateListingContent } from "../lib/content-generator";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
@@ -533,26 +533,7 @@ router.post("/audits/:id/analyze", requireAuth, resolveTeamAndWorkspace, require
 
   const creditCtx = buildTeamAwareCreditCtx(req);
   const outcome = await runListingAuditForAuditId(audit.id, creditCtx);
-
-  if (outcome.status === "completed") {
-    const [updated] = await db
-      .select()
-      .from(auditsTable)
-      .where(eq(auditsTable.id, audit.id))
-      .limit(1);
-    res.json({
-      ...updated,
-      overallScore: outcome.overallScore,
-    });
-    return;
-  }
-
-  if (outcome.status === "failed") {
-    res.status(500).json({ error: outcome.error });
-    return;
-  }
-
-  res.status(402).json({ error: outcome.reason });
+  await sendRunListingAuditResult(res, audit.id, outcome);
 });
 
 router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
@@ -642,7 +623,15 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     priority: string;
     assignedManager: string;
     notes: string;
+    runAnalysis: boolean;
   }>;
+
+  if (body.runAnalysis === true) {
+    const creditCtx = buildTeamAwareCreditCtx(req);
+    const outcome = await runListingAuditForAuditId(id, creditCtx);
+    await sendRunListingAuditResult(res, id, outcome);
+    return;
+  }
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.projectName !== undefined) updates.projectName = body.projectName;

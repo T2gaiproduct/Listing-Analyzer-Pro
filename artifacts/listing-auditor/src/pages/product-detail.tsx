@@ -27,6 +27,7 @@ import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { runListingAudit } from "@/lib/run-listing-audit";
 import {
   mapAuditToProductDetail,
   mapGraphicsToProductDetail,
@@ -517,10 +518,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   });
 
   const runAuditMutation = useMutation({
-    mutationFn: async (auditId: number) => fetchJson<{ overallScore: number }>(
-      `${basePath}/api/audits/${auditId}/analyze`,
-      { method: "POST" },
-    ),
+    mutationFn: (auditId: number) => runListingAudit(auditId),
     onSuccess: (data, auditId) => {
       void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });

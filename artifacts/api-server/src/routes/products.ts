@@ -10,6 +10,7 @@ import {
   viewOwnIdFilter,
   getWorkspaceCtx,
   requireWorkspaceActionAny,
+  buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
@@ -31,6 +32,7 @@ import {
   parseProductSourceFromRequest,
   resolveStatsAuditId,
 } from "../lib/product-detail-load.js";
+import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
 
 const router: IRouter = Router();
 
@@ -353,6 +355,24 @@ router.get("/products/:id/marketplaces", requireAuth, resolveTeamAndWorkspace, a
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json(result);
+});
+
+router.post("/products/:id/run-audit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""), 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid product id" });
+    return;
+  }
+
+  const auditId = await resolveStatsAuditId(req, id, parseProductSourceFromRequest(req));
+  if (!auditId) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const creditCtx = buildTeamAwareCreditCtx(req);
+  const outcome = await runListingAuditForAuditId(auditId, creditCtx);
+  await sendRunListingAuditResult(res, auditId, outcome);
 });
 
 router.get("/products/:id", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
