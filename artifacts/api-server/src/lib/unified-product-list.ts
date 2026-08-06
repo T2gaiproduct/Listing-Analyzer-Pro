@@ -202,13 +202,8 @@ export async function loadUnifiedProductList(
 
   const auditItems = items.filter((item) => item.sourceType === "listing" || item.sourceType === "audit");
   if (auditItems.length > 0) {
-    const namesByAuditId = new Map(auditItems.map((item) => [item.id, item.name]));
-    const skusByAuditId = new Map(auditItems.map((item) => [item.id, item.sku]));
     const channelsByAuditId = await listLiveChannelsForAudits(
       auditItems.map((item) => item.id),
-      workspaceId,
-      namesByAuditId,
-      skusByAuditId,
     );
 
     for (const item of auditItems) {

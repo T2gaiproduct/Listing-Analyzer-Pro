@@ -1,5 +1,4 @@
 import {
-  ensureSampleMarketplaceListings,
   listProductMarketplaces,
   type MarketplaceListingRow,
 } from "./product-marketplaces.js";
@@ -44,16 +43,7 @@ export async function getWorkspaceMarketplacesOverview(input: {
     imageUrl: string | null;
   }>;
 }): Promise<WorkspaceMarketplacesOverview> {
-  const { workspaceId, products } = input;
-
-  for (const product of products) {
-    await ensureSampleMarketplaceListings(
-      product.id,
-      workspaceId,
-      product.name,
-      product.sku,
-    );
-  }
+  const { products } = input;
 
   const productRows: WorkspaceProductMarketplaceRow[] = [];
   const marketplaceStats = new Map<string, { live: number; pending: number; notListed: number; products: number }>();

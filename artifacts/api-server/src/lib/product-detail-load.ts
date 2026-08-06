@@ -21,11 +21,9 @@ import {
 import { buildProductSuggestions, type ProductSuggestionInput } from "./product-suggestions.js";
 import { mapProductPriority, priorityFromStoredLevel } from "./product-priority.js";
 import {
-  ensureSampleProductOrders,
   getProductOrderStats,
 } from "./product-orders.js";
 import {
-  ensureSampleMarketplaceListings,
   listProductMarketplaces,
 } from "./product-marketplaces.js";
 import { pickProjectThumbnail } from "./scoped-recents-load.js";
@@ -313,10 +311,7 @@ async function loadAuditDetail(
       aiSuggestionCount: aiSuggestions.length,
     });
 
-  const workspaceId = getActiveWorkspaceId(req);
-  await ensureSampleProductOrders(id, workspaceId);
   const orderStats = await getProductOrderStats(id);
-  await ensureSampleMarketplaceListings(id, workspaceId, name, sku);
   const marketplaceStats = await listProductMarketplaces(id);
 
   return {
@@ -400,10 +395,7 @@ async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDeta
   };
 
   if (statsAuditId) {
-    const workspaceId = getActiveWorkspaceId(req);
-    await ensureSampleProductOrders(statsAuditId, workspaceId);
     const orderStats = await getProductOrderStats(statsAuditId);
-    await ensureSampleMarketplaceListings(statsAuditId, workspaceId, name, deriveSku(name, row.id, "GFX"));
     const marketplaceStats = await listProductMarketplaces(statsAuditId);
     stats = {
       totalOrders: orderStats.totalOrders,

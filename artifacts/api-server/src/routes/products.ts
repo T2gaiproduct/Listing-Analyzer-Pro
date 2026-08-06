@@ -15,13 +15,11 @@ import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
 import { mapProductPriority, priorityFromStoredLevel } from "../lib/product-priority.js";
 import {
-  ensureSampleProductOrders,
   getProductOrderStats,
   listProductOrders,
 } from "../lib/product-orders.js";
 import { getProductSales, emptyProductSalesData } from "../lib/product-sales.js";
 import {
-  ensureSampleMarketplaceListings,
   listProductMarketplaces,
 } from "../lib/product-marketplaces.js";
 import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
@@ -304,9 +302,6 @@ router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (
     return;
   }
 
-  const workspaceId = getActiveWorkspaceId(req);
-  await ensureSampleProductOrders(statsAuditId, workspaceId);
-
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : undefined;
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
@@ -335,9 +330,6 @@ router.get("/products/:id/sales", requireAuth, resolveTeamAndWorkspace, async (r
     return;
   }
 
-  const workspaceId = getActiveWorkspaceId(req);
-  await ensureSampleProductOrders(statsAuditId, workspaceId);
-
   const sales = await getProductSales(statsAuditId);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
@@ -356,12 +348,6 @@ router.get("/products/:id/marketplaces", requireAuth, resolveTeamAndWorkspace, a
     res.json({ listings: [], activeCount: 0 });
     return;
   }
-
-  const workspaceId = getActiveWorkspaceId(req);
-  const detail = await loadProductDetail(req, id, parseProductSourceFromRequest(req));
-  const name = detail?.name ?? "Untitled Product";
-  const sku = detail?.sku ?? deriveSku(name, statsAuditId);
-  await ensureSampleMarketplaceListings(statsAuditId, workspaceId, name, sku);
 
   const result = await listProductMarketplaces(statsAuditId);
 
