@@ -14,7 +14,7 @@ import {
   Sparkles,
   Star,
 } from "lucide-react";
-import { useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
+import { useGetAudit, getGetAuditQueryKey, useGenerateContent } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { refreshCreditBalances } from "@/lib/credit-queries";
 import {
   mapAuditToProductDetail,
   mapGraphicsToProductDetail,
@@ -161,10 +162,16 @@ function AiSuggestionsCard({
   suggestions,
   workflowUrl,
   onNavigate,
+  onOptimizeContent,
+  isOptimizing,
+  optimizeDisabled,
 }: {
   suggestions: string[];
   workflowUrl: string;
   onNavigate: (url: string) => void;
+  onOptimizeContent: () => void;
+  isOptimizing: boolean;
+  optimizeDisabled?: boolean;
 }) {
   const items = suggestions.length > 0
     ? suggestions
@@ -189,10 +196,17 @@ function AiSuggestionsCard({
           variant="outline"
           size="sm"
           className="h-7 text-[11px] bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-          onClick={() => onNavigate(workflowUrl)}
+          onClick={onOptimizeContent}
+          disabled={optimizeDisabled || isOptimizing}
         >
-          Optimize content
-          <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+          {isOptimizing ? (
+            <>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              Optimizing…
+            </>
+          ) : (
+            "Optimize content"
+          )}
         </Button>
         <Button
           type="button"
@@ -218,6 +232,34 @@ function isValidProductDetail(p: ProductDetailView | undefined | null): p is Pro
     && p.priorityLabel
     && p.manager?.name,
   );
+}
+
+function formatOptimizeError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (raw.toLowerCase().includes("spend limit") || raw.includes("403")) {
+    return "OpenAI API usage limit reached. Check your OpenAI account billing or try again later.";
+  }
+  if (raw.includes("402") || raw.toLowerCase().includes("insufficient")) {
+    return "You don't have enough AI credits. Go to Billing to purchase more.";
+  }
+  if (raw.toLowerCase().includes("api key") || raw.includes("401") || raw.includes("authentication")) {
+    return "OpenAI API key is invalid or missing. Check AI Settings in the admin panel.";
+  }
+  return raw || "Something went wrong. Please try again.";
+}
+
+function resolveOptimizeAuditId(
+  product: ProductDetailView | null,
+  auditId: number | undefined,
+  source: ProductSourceType | null,
+): number | null {
+  if (product?.statsAuditId) return product.statsAuditId;
+  if (auditId) return auditId;
+  const src = product?.sourceType ?? source;
+  if (product && (src === "listing" || src === "audit" || src === null)) {
+    return product.id;
+  }
+  return null;
 }
 
 export default function ProductDetailPage({ id }: { id: number }) {
@@ -278,6 +320,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
     }
     return null;
   }, [apiProduct, auditData, shouldFetchAudit, source]);
+
+  const optimizeAuditId = useMemo(
+    () => resolveOptimizeAuditId(product, auditData?.id, source),
+    [product, auditData?.id, source],
+  );
+
+  const generateContent = useGenerateContent();
 
   const resolvedSource = product?.sourceType ?? source ?? "listing";
 
@@ -431,6 +480,43 @@ export default function ProductDetailPage({ id }: { id: number }) {
     setEditForm((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
+  const canOptimizeContent = canEditProduct && optimizeAuditId != null;
+  const isOptimizingContent = generateContent.isPending;
+
+  function handleOptimizeContent() {
+    if (!optimizeAuditId) {
+      toast({
+        title: "Cannot optimize",
+        description: "This product has no linked listing audit. Open the workflow to create one first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!canEditProduct) return;
+
+    generateContent.mutate(
+      { id: optimizeAuditId },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+          void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(optimizeAuditId) });
+          refreshCreditBalances(queryClient);
+          toast({
+            title: "Listing content regenerated",
+            description: "Your optimized content is ready. 1 AI credit was used.",
+          });
+        },
+        onError: (err) => {
+          toast({
+            title: "Optimize failed",
+            description: formatOptimizeError(err),
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  }
+
   return (
     <div className="space-y-3 animate-in fade-in duration-300 pb-8">
       <ProductDetailRibbon productId={product.id} productName={product.name} />
@@ -519,11 +605,24 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate(product.workflowUrl)}
-                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+                  onClick={handleOptimizeContent}
+                  disabled={!canOptimizeContent || isOptimizingContent}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors",
+                    (!canOptimizeContent || isOptimizingContent) && "opacity-50 cursor-not-allowed",
+                  )}
                 >
-                  <Sparkles className="w-3 h-3 opacity-70" />
-                  Optimize Content
+                  {isOptimizingContent ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Optimizing…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 opacity-70" />
+                      Optimize Content
+                    </>
+                  )}
                 </button>
               </>
             )}
@@ -715,6 +814,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
               suggestions={product.aiSuggestions ?? []}
               workflowUrl={product.workflowUrl}
               onNavigate={navigate}
+              onOptimizeContent={handleOptimizeContent}
+              isOptimizing={isOptimizingContent}
+              optimizeDisabled={!canOptimizeContent}
             />
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>

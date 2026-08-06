@@ -884,7 +884,7 @@ router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWo
   }
 });
 
-router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
