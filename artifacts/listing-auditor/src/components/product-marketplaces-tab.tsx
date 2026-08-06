@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Check, Clock, ExternalLink } from "lucide-react";
@@ -133,24 +134,25 @@ export function ProductMarketplacesTab({
     staleTime: 15_000,
   });
 
+  const liveListings = useMemo(
+    () => (data?.listings ?? []).filter((listing) => listing.status === "live"),
+    [data?.listings],
+  );
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-64 rounded-xl" />
-        ))}
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     );
   }
 
-  const listings = data?.listings ?? [];
-
-  if (listings.length === 0) {
+  if (liveListings.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
-        <p className="text-xs font-medium text-slate-800">No marketplace listings yet</p>
+        <p className="text-xs font-medium text-slate-800">No live marketplace listings</p>
         <p className="text-[11px] text-slate-500 mt-1">
-          Export your listing from the workflow to publish on connected marketplaces.
+          This product is not live on any marketplace yet. Publish from the workflow or import from a connected store.
         </p>
       </div>
     );
@@ -158,7 +160,7 @@ export function ProductMarketplacesTab({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {listings.map((listing) => (
+      {liveListings.map((listing) => (
         <MarketplaceCard key={listing.marketplace} listing={listing} />
       ))}
     </div>
