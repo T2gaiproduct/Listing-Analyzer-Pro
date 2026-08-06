@@ -26,6 +26,7 @@ import {
 } from "../lib/product-marketplaces.js";
 import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
+import { loadUnifiedProductList } from "../lib/unified-product-list.js";
 
 const router: IRouter = Router();
 
@@ -255,27 +256,7 @@ router.post("/products", requireAuth, resolveTeamAndWorkspace, requireWorkspaceA
 });
 
 router.get("/products", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const where = await productsScopeWhere(req);
-  const rows = await db
-    .select({
-      id: auditsTable.id,
-      productName: auditsTable.productName,
-      projectName: auditsTable.projectName,
-      brandName: auditsTable.brandName,
-      category: auditsTable.category,
-      status: auditsTable.status,
-      currentStep: auditsTable.currentStep,
-      imageUrls: auditsTable.imageUrls,
-      imageRecords: auditsTable.imageRecords,
-      generatedImages: auditsTable.generatedImages,
-      createdAt: auditsTable.createdAt,
-      updatedAt: auditsTable.updatedAt,
-    })
-    .from(auditsTable)
-    .where(where)
-    .orderBy(desc(auditsTable.updatedAt));
-
-  const products = rows.map((row) => mapRowToProductListItem(row));
+  const products = await loadUnifiedProductList(req as AuthedRequest);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json({ products });

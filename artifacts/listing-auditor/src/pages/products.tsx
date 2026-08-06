@@ -36,6 +36,8 @@ type ChannelFilter = "all" | "amazon" | "shopify" | "flipkart";
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
+type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
+
 interface ProductListItem {
   id: number;
   name: string;
@@ -48,6 +50,9 @@ interface ProductListItem {
   status: ProductStatus;
   statusLabel: string;
   workflowUrl: string;
+  detailUrl: string;
+  sourceType: ProductSourceType;
+  sourceTypeLabel: string;
 }
 
 interface ProductsResponse {
@@ -60,6 +65,29 @@ const CHANNEL_FILTERS: Array<{ id: ChannelFilter; label: string }> = [
   { id: "shopify", label: "Shopify" },
   { id: "flipkart", label: "Flipkart" },
 ];
+
+const SOURCE_TYPE_LABELS: Record<ProductSourceType, string> = {
+  listing: "Build Your Brand",
+  audit: "Audit Listing",
+  graphics: "Create Graphics",
+  video: "Create Video",
+  ads: "Manage Ads",
+};
+
+const SKU_PREFIX_BY_SOURCE: Partial<Record<ProductSourceType, string>> = {
+  audit: "AUD",
+  graphics: "GFX",
+  video: "VID",
+  ads: "ADS",
+};
+
+const RECENT_PRODUCT_TYPES = new Set<ProductSourceType | "video">([
+  "listing",
+  "audit",
+  "graphics",
+  "video",
+  "ads",
+]);
 
 function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
@@ -76,7 +104,8 @@ function resolveImageUrl(url: string | null | undefined): string | null {
   return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
 }
 
-function deriveSku(productName: string, id: number): string {
+function deriveSku(productName: string, id: number, skuPrefix?: string): string {
+  if (skuPrefix) return `${skuPrefix}-${String(id).padStart(4, "0")}`;
   const parts = productName
     .replace(/[^a-zA-Z0-9\s]/g, "")
     .split(/\s+/)
@@ -87,12 +116,25 @@ function deriveSku(productName: string, id: number): string {
   return `${prefix}-${String(id).padStart(4, "0")}`;
 }
 
+function productKey(product: ProductListItem): string {
+  return `${product.sourceType}-${product.id}`;
+}
+
 function mapRecentToProduct(item: RecentItem): ProductListItem {
   const score = item.score ?? null;
+  const sourceType = (item.type === "video" ? "video" : item.type) as ProductSourceType;
+  const typeLabel = (item as RecentItem & { typeLabel?: string }).typeLabel;
+  const detailUrl =
+    sourceType === "listing"
+      ? `/products/${item.id}`
+      : sourceType === "audit"
+        ? `/audits/${item.id}`
+        : item.url;
+
   return {
     id: item.id,
     name: item.name,
-    sku: deriveSku(item.name, item.id),
+    sku: deriveSku(item.name, item.id, SKU_PREFIX_BY_SOURCE[sourceType]),
     imageUrl: item.imageUrl ?? null,
     channels: [],
     price: null,
@@ -101,6 +143,9 @@ function mapRecentToProduct(item: RecentItem): ProductListItem {
     status: score != null && score > 0 ? "active" : "in_progress",
     statusLabel: score != null && score > 0 ? "Active" : "In progress",
     workflowUrl: item.url,
+    detailUrl,
+    sourceType,
+    sourceTypeLabel: typeLabel ?? SOURCE_TYPE_LABELS[sourceType],
   };
 }
 function formatInr(amount: number | null): string {
@@ -172,7 +217,7 @@ export default function ProductsPage() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
 
@@ -201,8 +246,10 @@ export default function ProductsPage() {
     const fromApi = apiData?.products ?? [];
     if (fromApi.length > 0) return fromApi;
 
-    const listings = (recentsData?.items ?? []).filter((item) => item.type === "listing");
-    return listings.map(mapRecentToProduct);
+    const items = (recentsData?.items ?? []).filter((item) =>
+      RECENT_PRODUCT_TYPES.has(item.type as ProductSourceType),
+    );
+    return items.map(mapRecentToProduct);
   }, [apiData, recentsData]);
 
   const isLoading = apiLoading || recentsLoading;
@@ -222,21 +269,21 @@ export default function ProductsPage() {
     });
   }, [products, search, channelFilter]);
 
-  const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+  const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(productKey(p)));
 
   const toggleAll = () => {
     if (allSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(filtered.map((p) => p.id)));
+      setSelected(new Set(filtered.map((p) => productKey(p))));
     }
   };
 
-  const toggleOne = (id: number) => {
+  const toggleOne = (key: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -356,6 +403,7 @@ export default function ProductsPage() {
                   />
                 </th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Product</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Type</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">SKU</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Channels</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Price</th>
@@ -367,11 +415,11 @@ export default function ProductsPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
+                  <td colSpan={9} className="px-4 py-12 text-center">
                     <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs font-medium text-slate-700">No products yet</p>
                     <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
-                      Create your first product with Build Your Brand. It will appear here automatically.
+                      Projects from Build Your Brand, Audit Listing, Create Graphics, Create Video, and Manage Ads appear here automatically.
                     </p>
                     <Button
                       asChild
@@ -386,15 +434,17 @@ export default function ProductsPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((product) => (
+                filtered.map((product) => {
+                  const key = productKey(product);
+                  return (
                   <tr
-                    key={product.id}
+                    key={key}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors"
                   >
                     <td className="px-3 py-2.5 align-middle">
                       <Checkbox
-                        checked={selected.has(product.id)}
-                        onCheckedChange={() => toggleOne(product.id)}
+                        checked={selected.has(key)}
+                        onCheckedChange={() => toggleOne(key)}
                         aria-label={`Select ${product.name}`}
                         className="h-3.5 w-3.5"
                       />
@@ -406,6 +456,11 @@ export default function ProductsPage() {
                           {product.name}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-3 py-2.5 align-middle">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200 bg-slate-50 text-slate-600 whitespace-nowrap">
+                        {product.sourceTypeLabel}
+                      </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">
                       <span className="text-[11px] font-mono text-slate-500">{product.sku}</span>
@@ -439,7 +494,7 @@ export default function ProductsPage() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => navigate(`/products/${product.id}`)}
+                              onClick={() => navigate(product.detailUrl)}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
                               aria-label="View product"
                             >
@@ -477,7 +532,8 @@ export default function ProductsPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
