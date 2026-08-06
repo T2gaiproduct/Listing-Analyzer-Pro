@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { db, productMarketplaceListingsTable } from "@workspace/db";
+import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
 
 export type MarketplaceListingStatus = "live" | "pending" | "not_listed";
 
@@ -102,4 +102,76 @@ export async function listLiveChannelsForAudits(
   }
 
   return channelsByAuditId;
+}
+
+export type AuditCatalogExtras = {
+  sku: string | null;
+  price: number | null;
+  stock: number | null;
+  currency: string;
+};
+
+const LISTING_PRICE_PRIORITY = ["Shopify", "Amazon", "WooCommerce", "Flipkart", "Shopsy", "Meesho"];
+
+export async function loadAuditCatalogExtras(
+  auditIds: number[],
+): Promise<Map<number, AuditCatalogExtras>> {
+  const uniqueIds = [...new Set(auditIds.filter((id) => id > 0))];
+  const result = new Map<number, AuditCatalogExtras>();
+  if (uniqueIds.length === 0) return result;
+
+  for (const id of uniqueIds) {
+    result.set(id, { sku: null, price: null, stock: null, currency: "INR" });
+  }
+
+  const profiles = await db
+    .select({
+      auditId: productProfilesTable.auditId,
+      sku: productProfilesTable.sku,
+    })
+    .from(productProfilesTable)
+    .where(inArray(productProfilesTable.auditId, uniqueIds));
+
+  const listings = await db
+    .select({
+      auditId: productMarketplaceListingsTable.auditId,
+      marketplace: productMarketplaceListingsTable.marketplace,
+      status: productMarketplaceListingsTable.status,
+      priceCents: productMarketplaceListingsTable.priceCents,
+      inventory: productMarketplaceListingsTable.inventory,
+      currency: productMarketplaceListingsTable.currency,
+    })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      inArray(productMarketplaceListingsTable.auditId, uniqueIds),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ));
+
+  for (const profile of profiles) {
+    const entry = result.get(profile.auditId);
+    if (entry && profile.sku?.trim()) {
+      entry.sku = profile.sku.trim();
+    }
+  }
+
+  for (const id of uniqueIds) {
+    const productListings = listings.filter((row) => row.auditId === id);
+    const chosen = LISTING_PRICE_PRIORITY
+      .map((marketplace) => productListings.find((row) => (
+        row.marketplace === marketplace
+        && row.status === "live"
+        && row.priceCents != null
+      )))
+      .find(Boolean)
+      ?? productListings.find((row) => row.priceCents != null);
+
+    if (!chosen || chosen.priceCents == null) continue;
+
+    const entry = result.get(id)!;
+    entry.price = chosen.priceCents / 100;
+    entry.stock = chosen.inventory;
+    entry.currency = chosen.currency?.trim() || "INR";
+  }
+
+  return result;
 }

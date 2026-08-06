@@ -198,9 +198,10 @@ function mapRecentToProduct(item: RecentItem): ProductListItem {
     sourceTypeLabel: typeLabel ?? SOURCE_TYPE_LABELS[sourceType],
   };
 }
-function formatInr(amount: number | null): string {
+function formatPrice(amount: number | null, currency: string): string {
   if (amount == null) return "—";
-  return `₹${amount.toLocaleString("en-IN")}`;
+  if (currency === "INR") return `₹${amount.toLocaleString("en-IN")}`;
+  return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function statusBadgeClass(status: ProductStatus): string {
@@ -605,7 +606,7 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-3 py-2.5 align-middle">
                       <span className="text-xs font-semibold text-slate-900 tabular-nums">
-                        {formatInr(product.price)}
+                        {formatPrice(product.price, product.currency)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">

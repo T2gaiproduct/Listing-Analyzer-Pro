@@ -2,7 +2,7 @@ import type { Request } from "express";
 import { loadScopedRecents, pickProjectThumbnail } from "./scoped-recents-load";
 import { getAccountOwnerId, getActiveWorkspaceId } from "./workspace-route-helpers";
 import { resolveTeamContext } from "../middlewares/team-auth";
-import { listLiveChannelsForAudits } from "./product-marketplaces.js";
+import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
 
 export type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -202,12 +202,19 @@ export async function loadUnifiedProductList(
 
   const auditItems = items.filter((item) => item.sourceType === "listing" || item.sourceType === "audit");
   if (auditItems.length > 0) {
-    const channelsByAuditId = await listLiveChannelsForAudits(
-      auditItems.map((item) => item.id),
-    );
+    const auditIds = auditItems.map((item) => item.id);
+    const [channelsByAuditId, catalogExtras] = await Promise.all([
+      listLiveChannelsForAudits(auditIds),
+      loadAuditCatalogExtras(auditIds),
+    ]);
 
     for (const item of auditItems) {
       item.channels = channelsByAuditId.get(item.id) ?? [];
+      const extras = catalogExtras.get(item.id);
+      if (extras?.sku) item.sku = extras.sku;
+      if (extras?.price != null) item.price = extras.price;
+      if (extras?.stock != null) item.stock = extras.stock;
+      if (extras?.currency) item.currency = extras.currency;
     }
   }
 

@@ -29,7 +29,7 @@ export type ShopifyCatalogProduct = {
   product_type?: string;
   tags?: string | string[];
   images?: Array<{ src?: string }>;
-  variants?: Array<{ sku?: string; price?: string }>;
+  variants?: Array<{ sku?: string; price?: string; inventory_quantity?: number | null }>;
 };
 
 export type ShopifySyncResult = {
@@ -204,6 +204,8 @@ export async function syncShopifyProducts(input: {
       const sku = product.variants?.find((v) => v.sku?.trim())?.sku?.trim() || handle.toUpperCase();
       const priceRaw = product.variants?.[0]?.price;
       const priceCents = priceRaw ? Math.round(parseFloat(priceRaw) * 100) : null;
+      const inventory = product.variants?.[0]?.inventory_quantity ?? null;
+      const currency = /\.co\.in\b/i.test(origin) || /\.in$/i.test(new URL(origin).hostname) ? "INR" : "USD";
       const productUrl = `${origin}/products/${handle}`;
 
       const [audit] = await db
@@ -245,9 +247,10 @@ export async function syncShopifyProducts(input: {
           status: marketplace === "Shopify" ? "live" : "not_listed",
           sku: marketplace === "Shopify" ? sku : null,
           priceCents: marketplace === "Shopify" ? priceCents : null,
-          currency: "USD",
+          currency,
           listingUrl: marketplace === "Shopify" ? productUrl : null,
           publishedAt: marketplace === "Shopify" ? new Date() : null,
+          inventory: marketplace === "Shopify" ? inventory : null,
         })),
       );
 
