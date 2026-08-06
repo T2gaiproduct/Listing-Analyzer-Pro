@@ -209,7 +209,7 @@ async function auditScopeWhere(req: Request, sourceType: "listing" | "audit") {
 
 async function projectScopeWhere(
   req: Request,
-  feature: "graphics" | "video" | "ads",
+  feature: "graphics" | "videos" | "ads",
   table: typeof graphicsProjectsTable | typeof videosProjectsTable | typeof adsProjectsTable,
   type: "graphics" | "video" | "ads",
 ) {
@@ -461,7 +461,7 @@ async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDeta
 }
 
 async function loadVideoDetail(req: Request, id: number): Promise<ProductDetailPayload | null> {
-  const where = await projectScopeWhere(req, "video", videosProjectsTable, "video");
+  const where = await projectScopeWhere(req, "videos", videosProjectsTable, "video");
   const [row] = await db
     .select()
     .from(videosProjectsTable)
