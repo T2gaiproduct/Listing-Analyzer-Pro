@@ -18,7 +18,6 @@ import {
   viewOwnIdFilter,
   workspaceOwnerFilter,
 } from "./workspace-route-helpers";
-import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "./product-suggestions.js";
 import { mapProductPriority, priorityFromStoredLevel } from "./product-priority.js";
 import {
@@ -90,12 +89,6 @@ const SOURCE_TYPE_LABELS: Record<ProductSourceType, string> = {
   video: "Create Video",
   ads: "Manage Ads",
 };
-
-function getEffectiveUserId(req: Request): string {
-  if ((req as { workspace?: unknown }).workspace) return getAccountOwnerId(req);
-  const team = (req as TeamAuthedRequest).team;
-  return team?.ownerUserId ?? (req as AuthedRequest).userId;
-}
 
 function deriveSku(productName: string, id: number, prefix?: string): string {
   if (prefix) return `${prefix}-${String(id).padStart(4, "0")}`;
@@ -196,7 +189,7 @@ function genericProgress(status: string): number {
 }
 
 async function auditScopeWhere(req: Request, sourceType: "listing" | "audit") {
-  const ownerId = getEffectiveUserId(req);
+  const ownerId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
   const feature = sourceType === "audit" ? "audits" : "build_brand";
@@ -222,14 +215,13 @@ async function projectScopeWhere(
   table: typeof graphicsProjectsTable | typeof videosProjectsTable | typeof adsProjectsTable,
   type: "graphics" | "video" | "ads",
 ) {
-  const ownerId = getEffectiveUserId(req);
+  const ownerId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
   const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), feature, worked, type, table);
   return and(
     workspaceOwnerFilter(table, table, ownerId, workspaceId),
     eq(table.isDeleted, 0),
-    sql`${table.status} != 'archived'`,
     ownFilter,
   );
 }
@@ -604,26 +596,36 @@ export async function loadProductDetail(
   sourceType?: ProductSourceType | null,
 ): Promise<ProductDetailPayload | null> {
   if (sourceType) {
-    switch (sourceType) {
-      case "listing":
-      case "audit":
-        return loadAuditDetail(req, id, sourceType);
-      case "graphics":
-        return loadGraphicsDetail(req, id);
-      case "video":
-        return loadVideoDetail(req, id);
-      case "ads":
-        return loadAdsDetail(req, id);
-      default:
-        return null;
-    }
+    const direct = await loadProductDetailBySource(req, id, sourceType);
+    if (direct) return direct;
   }
 
   for (const candidate of PRODUCT_SOURCE_TRY_ORDER) {
-    const detail = await loadProductDetail(req, id, candidate);
+    if (candidate === sourceType) continue;
+    const detail = await loadProductDetailBySource(req, id, candidate);
     if (detail) return detail;
   }
   return null;
+}
+
+async function loadProductDetailBySource(
+  req: Request,
+  id: number,
+  sourceType: ProductSourceType,
+): Promise<ProductDetailPayload | null> {
+  switch (sourceType) {
+    case "listing":
+    case "audit":
+      return loadAuditDetail(req, id, sourceType);
+    case "graphics":
+      return loadGraphicsDetail(req, id);
+    case "video":
+      return loadVideoDetail(req, id);
+    case "ads":
+      return loadAdsDetail(req, id);
+    default:
+      return null;
+  }
 }
 
 export async function resolveStatsAuditId(

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -30,9 +30,11 @@ import {
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
-function parseProductSource(raw: string | null): ProductSourceType {
-  if (raw === "audit" || raw === "graphics" || raw === "video" || raw === "ads") return raw;
-  return "listing";
+function parseProductSource(raw: string | null): ProductSourceType | null {
+  if (raw === "listing" || raw === "audit" || raw === "graphics" || raw === "video" || raw === "ads") {
+    return raw;
+  }
+  return null;
 }
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
@@ -209,11 +211,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return parseProductSource(params.get("source"));
   }, [location, id]);
 
-  const canEditProduct = (source === "listing" || source === "audit")
+  const canEditProduct = (source === null || source === "listing" || source === "audit")
     && (isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand"));
 
   const validId = !Number.isNaN(id) && id > 0;
   const queryEnabled = clerkLoaded && !!user && !!featureWorkspaceId && validId;
+
+  const productDetailUrl = source
+    ? `${basePath}/api/products/${id}?source=${source}`
+    : `${basePath}/api/products/${id}`;
 
   const {
     data: apiProduct,
@@ -221,14 +227,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
     isError: apiError,
     error: apiErrorObj,
   } = useQuery({
-    queryKey: ["product", id, featureWorkspaceId, source],
-    queryFn: () => fetchJson<ProductDetailView>(`${basePath}/api/products/${id}?source=${source}`),
+    queryKey: ["product", id, featureWorkspaceId, source ?? "auto"],
+    queryFn: () => fetchJson<ProductDetailView>(productDetailUrl),
     enabled: queryEnabled,
     retry: false,
     staleTime: 10_000,
   });
 
-  const shouldFetchAudit = source === "listing" || source === "audit";
+  const shouldFetchAudit = source === null || source === "listing" || source === "audit";
 
   const {
     data: auditData,
@@ -245,13 +251,21 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const product = useMemo((): ProductDetailView | null => {
     if (isValidProductDetail(apiProduct)) return apiProduct;
     if (auditData && shouldFetchAudit) {
-      const mapped = mapAuditToProductDetail(auditData, "Account Owner", {
+      return mapAuditToProductDetail(auditData, "Account Owner", {
         sourceType: source === "audit" ? "audit" : "listing",
       });
-      return mapped;
     }
     return null;
   }, [apiProduct, auditData, shouldFetchAudit, source]);
+
+  const resolvedSource = product?.sourceType ?? source ?? "listing";
+
+  useEffect(() => {
+    if (!product?.sourceType) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("source") === product.sourceType) return;
+    navigate(`/products/${id}?source=${product.sourceType}`, { replace: true });
+  }, [product?.sourceType, id, navigate]);
 
   const isLoading = queryEnabled && apiLoading && !product && !(shouldFetchAudit && auditLoading);
 
@@ -331,7 +345,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           {auditError
             ? "This product may have been removed or you may not have access to it in the current workspace."
             : apiMissing
-              ? "The product detail API is not available yet. Deploy the latest API build, or open this product from Build Your Brand workflow."
+              ? "This product could not be loaded. It may have been removed, or the project type may not match this URL. Try opening it again from the Products tab."
               : "This product may have been removed or you may not have access to it in the current workspace."}
         </p>
         <div className="flex gap-2 mt-5">
@@ -771,15 +785,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
       )}
 
       {activeTab === "marketplaces" && (
-        <ProductMarketplacesTab productId={product.id} source={source} enabled={activeTab === "marketplaces"} />
+        <ProductMarketplacesTab productId={product.id} source={resolvedSource} enabled={activeTab === "marketplaces"} />
       )}
 
       {activeTab === "orders" && (
-        <ProductOrdersTab productId={product.id} source={source} enabled={activeTab === "orders"} />
+        <ProductOrdersTab productId={product.id} source={resolvedSource} enabled={activeTab === "orders"} />
       )}
 
       {activeTab === "sales" && (
-        <ProductSalesTab productId={product.id} source={source} enabled={activeTab === "sales"} />
+        <ProductSalesTab productId={product.id} source={resolvedSource} enabled={activeTab === "sales"} />
       )}
 
       <button
