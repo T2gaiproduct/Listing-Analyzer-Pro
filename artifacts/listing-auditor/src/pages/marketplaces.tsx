@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Loader2, Plug, Store, Unplug } from "lucide-react";
+import { Check, ChevronRight, Download, Loader2, Plug, Store, Unplug } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
   disconnectStoreMarketplace,
   fetchMarketplaceConnections,
   startAmazonConnect,
+  syncShopifyProducts,
   type StoreMarketplace,
 } from "@/lib/marketplace-connections";
 
@@ -66,6 +67,8 @@ function ConnectCard({
   loading,
   onConnect,
   onDisconnect,
+  onImport,
+  importLoading,
 }: {
   marketplace: string;
   description: string;
@@ -74,6 +77,8 @@ function ConnectCard({
   loading?: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
+  onImport?: () => void;
+  importLoading?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-5">
@@ -97,21 +102,39 @@ function ConnectCard({
 
       <div className="flex flex-wrap gap-2">
         {connected ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            disabled={loading}
-            onClick={onDisconnect}
-          >
-            {loading ? (
-              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Unplug className="w-3.5 h-3.5 mr-1.5" />
-            )}
-            Disconnect
-          </Button>
+          <>
+            {onImport ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={loading || importLoading}
+                onClick={onImport}
+              >
+                {importLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                Import products
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              disabled={loading || importLoading}
+              onClick={onDisconnect}
+            >
+              {loading ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Unplug className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Disconnect
+            </Button>
+          </>
         ) : (
           <Button
             type="button"
@@ -169,6 +192,33 @@ export default function MarketplacesPage() {
       });
     },
     onSettled: () => setPendingAction(null),
+  });
+
+  const shopifySyncMutation = useMutation({
+    mutationFn: syncShopifyProducts,
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+      toast({
+        title: "Shopify products imported",
+        description: `Imported ${result.imported} of ${result.total} products.${skippedNote}`,
+      });
+      if (result.errors.length > 0) {
+        toast({
+          title: "Some products could not be imported",
+          description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "Could not import Shopify products.",
+        variant: "destructive",
+      });
+    },
   });
 
   async function handleAmazonConnect() {
@@ -303,8 +353,10 @@ export default function MarketplacesPage() {
           connected={shopifyConnected}
           detail={data?.shopify.storeUrl}
           loading={pendingAction === "shopify"}
+          importLoading={shopifySyncMutation.isPending}
           onConnect={() => openStoreDialog("shopify")}
           onDisconnect={() => void handleStoreDisconnect("shopify")}
+          onImport={shopifyConnected ? () => shopifySyncMutation.mutate() : undefined}
         />
         <ConnectCard
           marketplace="WooCommerce"

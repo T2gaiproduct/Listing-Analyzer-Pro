@@ -9,6 +9,7 @@ import {
   loadWorkedProjects,
   viewOwnIdFilter,
   getWorkspaceCtx,
+  requireWorkspaceActionAny,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { getWorkspaceMarketplacesOverview } from "../lib/workspace-marketplaces.js";
@@ -24,6 +25,7 @@ import {
   isAmazonPublishReady,
   canSignSpApiRequests,
 } from "../lib/amazon-sp-settings.js";
+import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 
 const router: IRouter = Router();
 
@@ -128,6 +130,12 @@ function getEffectiveUserId(req: Request): string {
   return team?.ownerUserId ?? (req as AuthedRequest).userId;
 }
 
+function auditCreatedByUserId(req: Request): string | null {
+  const team = (req as TeamAuthedRequest).team;
+  if (team?.memberUserId) return team.memberUserId;
+  return (req as AuthedRequest).userId;
+}
+
 async function productsScopeWhere(req: Request) {
   const ownerId = getEffectiveUserId(req);
   const workspaceId = getActiveWorkspaceId(req);
@@ -205,6 +213,36 @@ router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAnd
   await disconnectStoreConnection(workspaceId, platform);
   res.status(204).end();
 });
+
+router.post(
+  "/marketplaces/shopify/sync",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["build_brand", "audits"], "create"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getStoreConnection(workspaceId, "shopify");
+    if (!connection) {
+      res.status(400).json({ error: "Connect your Shopify store first on the Marketplaces page." });
+      return;
+    }
+
+    try {
+      const result = await syncShopifyProducts({
+        storeUrl: connection.storeUrl,
+        ownerId: getEffectiveUserId(req),
+        createdByUserId: auditCreatedByUserId(req),
+        workspaceId,
+      });
+
+      res.status(201).json(result);
+    } catch (err) {
+      req.log?.error?.({ err }, "Shopify product sync failed");
+      const message = err instanceof Error ? err.message : "Failed to import Shopify products";
+      res.status(500).json({ error: message });
+    }
+  },
+);
 
 router.get("/marketplaces", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const where = await productsScopeWhere(req);

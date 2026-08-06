@@ -37,4 +37,25 @@ export async function disconnectStoreMarketplace(platform: StoreMarketplace): Pr
   });
 }
 
+export type ShopifySyncResult = {
+  imported: number;
+  skipped: number;
+  total: number;
+  products: Array<{
+    id: number;
+    name: string;
+    sku: string;
+    handle: string;
+    detailUrl: string;
+    workflowUrl: string;
+  }>;
+  errors: Array<{ handle: string; error: string }>;
+};
+
+export async function syncShopifyProducts(): Promise<ShopifySyncResult> {
+  return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/shopify/sync`, {
+    method: "POST",
+  });
+}
+
 export { fetchAmazonStatus, startAmazonConnect, disconnectAmazon };
