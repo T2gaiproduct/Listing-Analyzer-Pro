@@ -31,9 +31,7 @@ import { downloadProductImportTemplate, parseProductsCsv } from "@/lib/product-i
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
-import { useGetRecents, getGetRecentsQueryKey } from "@workspace/api-client-react";
-import type { RecentItem } from "@workspace/api-client-react";
-import { useTeam } from "@/hooks/use-team";
+import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -68,6 +66,8 @@ interface ProductListItem {
   sourceTypeLabel: string;
   isShopifyImport?: boolean;
   referenceUrl?: string | null;
+  auditScore?: number | null;
+  auditPending?: boolean;
 }
 
 interface ProductsResponse {
@@ -89,21 +89,6 @@ const SOURCE_TYPE_LABELS: Record<ProductSourceType, string> = {
   ads: "Manage Ads",
 };
 
-const SKU_PREFIX_BY_SOURCE: Partial<Record<ProductSourceType, string>> = {
-  audit: "AUD",
-  graphics: "GFX",
-  video: "VID",
-  ads: "ADS",
-};
-
-const RECENT_PRODUCT_TYPES = new Set<ProductSourceType | "video">([
-  "listing",
-  "audit",
-  "graphics",
-  "video",
-  "ads",
-]);
-
 function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
   const trimmed = url.trim();
@@ -117,18 +102,6 @@ function resolveImageUrl(url: string | null | undefined): string | null {
   }
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
   return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
-}
-
-function deriveSku(productName: string, id: number, skuPrefix?: string): string {
-  if (skuPrefix) return `${skuPrefix}-${String(id).padStart(4, "0")}`;
-  const parts = productName
-    .replace(/[^a-zA-Z0-9\s]/g, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w.slice(0, 3).toUpperCase());
-  const prefix = parts.join("-") || "PRD";
-  return `${prefix}-${String(id).padStart(4, "0")}`;
 }
 
 function productKey(product: ProductListItem): string {
@@ -171,6 +144,7 @@ function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): P
     ? "listing"
     : (raw.sourceType ?? inferSourceType(workflowUrl));
   const detailUrl = raw.detailUrl ?? productDetailUrl(raw.id, sourceType);
+  const auditScore = raw.auditScore != null && raw.auditScore > 0 ? raw.auditScore : null;
 
   return {
     ...raw,
@@ -182,50 +156,13 @@ function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): P
     detailUrl: isShopifyImport ? productDetailUrl(raw.id, "listing") : detailUrl,
     isShopifyImport,
     referenceUrl: raw.referenceUrl ?? null,
+    auditScore,
+    auditPending: raw.auditPending ?? auditScore == null,
+    inStock: raw.inStock ?? null,
+    stock: raw.stock ?? null,
   };
 }
 
-function mergeProductLists(apiProducts: ProductListItem[], recentProducts: ProductListItem[]): ProductListItem[] {
-  const merged = new Map<number, ProductListItem>();
-  const order: number[] = [];
-
-  for (const product of apiProducts) {
-    if (!merged.has(product.id)) order.push(product.id);
-    merged.set(product.id, product);
-  }
-  for (const product of recentProducts) {
-    if (!merged.has(product.id)) {
-      merged.set(product.id, product);
-      order.push(product.id);
-    }
-  }
-
-  return order.map((id) => merged.get(id)!);
-}
-
-function mapRecentToProduct(item: RecentItem): ProductListItem {
-  const score = item.score ?? null;
-  const sourceType = (item.type === "video" ? "video" : item.type) as ProductSourceType;
-  const typeLabel = (item as RecentItem & { typeLabel?: string }).typeLabel;
-  const detailUrl = productDetailUrl(item.id, sourceType);
-
-  return {
-    id: item.id,
-    name: item.name,
-    sku: deriveSku(item.name, item.id, SKU_PREFIX_BY_SOURCE[sourceType]),
-    imageUrl: item.imageUrl ?? null,
-    channels: [],
-    price: null,
-    currency: "INR",
-    stock: null,
-    status: score != null && score > 0 ? "active" : "in_progress",
-    statusLabel: score != null && score > 0 ? "Active" : "In progress",
-    workflowUrl: item.url,
-    detailUrl,
-    sourceType,
-    sourceTypeLabel: typeLabel ?? SOURCE_TYPE_LABELS[sourceType],
-  };
-}
 function formatPrice(amount: number | null, currency: string): string {
   if (amount == null) return "—";
   if (currency === "INR") return `₹${amount.toLocaleString("en-IN")}`;
@@ -237,6 +174,22 @@ function formatStock(stock: number | null, inStock?: boolean | null): string {
   if (inStock === true) return "In stock";
   if (inStock === false) return "Out of stock";
   return "—";
+}
+
+function formatAuditScore(score: number | null | undefined, pending?: boolean): string {
+  if (score != null && score > 0) return `${score}`;
+  if (pending) return "Pending";
+  return "—";
+}
+
+function auditScoreBadgeClass(score: number | null | undefined, pending?: boolean): string {
+  if (score != null && score > 0) {
+    if (score >= 70) return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (score >= 50) return "bg-amber-50 text-amber-700 border-amber-200";
+    return "bg-red-50 text-red-600 border-red-200";
+  }
+  if (pending) return "bg-slate-50 text-slate-500 border-slate-200";
+  return "bg-slate-50 text-slate-400 border-slate-200";
 }
 
 function statusBadgeClass(status: ProductStatus): string {
@@ -301,7 +254,6 @@ export default function ProductsPage() {
   const importInputRef = useRef<HTMLInputElement>(null);
   const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
-  const { isTeamMember } = useTeam();
   const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection, canEdit, isAccountOwner, canDelete } = useWorkspace();
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
@@ -309,9 +261,7 @@ export default function ProductsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
 
-  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
-
-  const { data: apiData, isLoading: apiLoading } = useQuery({
+  const { data: apiData, isLoading } = useQuery({
     queryKey: ["products", featureWorkspaceId],
     queryFn: () => fetchJson<ProductsResponse>(`${basePath}/api/products`),
     enabled: clerkLoaded && !!user && !!featureWorkspaceId,
@@ -320,28 +270,10 @@ export default function ProductsPage() {
     retry: 1,
   });
 
-  const { data: recentsData, isLoading: recentsLoading } = useGetRecents(
-    { limit: 500 },
-    {
-      query: {
-        queryKey: [...getGetRecentsQueryKey({ limit: 500 }), recentsScope],
-        staleTime: 10_000,
-        enabled: clerkLoaded && !!user && !!featureWorkspaceId,
-        refetchOnMount: "always",
-      },
-    },
+  const products = useMemo(
+    () => (apiData?.products ?? []).map(normalizeApiProduct),
+    [apiData],
   );
-
-  const products = useMemo(() => {
-    const fromApi = (apiData?.products ?? []).map(normalizeApiProduct);
-    const fromRecents = (recentsData?.items ?? [])
-      .filter((item) => RECENT_PRODUCT_TYPES.has(item.type as ProductSourceType))
-      .map(mapRecentToProduct);
-
-    return mergeProductLists(fromApi, fromRecents);
-  }, [apiData, recentsData]);
-
-  const isLoading = apiLoading || recentsLoading;
 
   const canImportProducts = canEdit("build_brand") || canEdit("audits");
 
@@ -689,6 +621,7 @@ export default function ProductsPage() {
                 </th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Product</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Type</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Audit Score</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">SKU</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Channels</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Price</th>
@@ -700,7 +633,7 @@ export default function ProductsPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
+                  <td colSpan={10} className="px-4 py-12 text-center">
                     <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs font-medium text-slate-700">No products yet</p>
                     <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
@@ -745,6 +678,16 @@ export default function ProductsPage() {
                     <td className="px-3 py-2.5 align-middle">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200 bg-slate-50 text-slate-600 whitespace-nowrap">
                         {product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 align-middle">
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border tabular-nums",
+                          auditScoreBadgeClass(product.auditScore, product.auditPending),
+                        )}
+                      >
+                        {formatAuditScore(product.auditScore, product.auditPending)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">

@@ -25,6 +25,8 @@ export type UnifiedProductListItem = {
   sourceTypeLabel: string;
   isShopifyImport: boolean;
   referenceUrl: string | null;
+  auditScore: number | null;
+  auditPending: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -104,7 +106,8 @@ export async function loadUnifiedProductList(
     const isAuditListing = !!a.asin?.trim() && !isShopifyImport;
     const sourceType: ProductSourceType = isAuditListing ? "audit" : "listing";
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
-    const mapped = mapAuditStatus(a.status, a.currentStep ?? null, (a.overallScore ?? 0) > 0);
+    const hasAuditScore = (a.overallScore ?? 0) > 0;
+    const mapped = mapAuditStatus(a.status, a.currentStep ?? null, hasAuditScore);
     const workflowUrl = isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`;
     const detailUrl = `/products/${a.id}?source=${sourceType}`;
 
@@ -134,6 +137,8 @@ export async function loadUnifiedProductList(
       sourceTypeLabel: isShopifyImport ? "Shopify Import" : sourceTypeLabel(sourceType),
       isShopifyImport,
       referenceUrl: null,
+      auditScore: hasAuditScore ? a.overallScore : null,
+      auditPending: !hasAuditScore && a.status !== "failed",
       createdAt: a.createdAt,
       updatedAt: a.updatedAt ?? a.createdAt,
     });
@@ -162,6 +167,8 @@ export async function loadUnifiedProductList(
       sourceTypeLabel: sourceTypeLabel("graphics"),
       isShopifyImport: false,
       referenceUrl: null,
+      auditScore: null,
+      auditPending: false,
       createdAt: g.createdAt,
       updatedAt: g.updatedAt ?? g.createdAt,
     });
@@ -187,6 +194,8 @@ export async function loadUnifiedProductList(
       sourceTypeLabel: sourceTypeLabel("video"),
       isShopifyImport: false,
       referenceUrl: null,
+      auditScore: null,
+      auditPending: false,
       createdAt: v.createdAt,
       updatedAt: v.updatedAt ?? v.createdAt,
     });
@@ -212,6 +221,8 @@ export async function loadUnifiedProductList(
       sourceTypeLabel: sourceTypeLabel("ads"),
       isShopifyImport: false,
       referenceUrl: null,
+      auditScore: null,
+      auditPending: false,
       createdAt: ad.createdAt,
       updatedAt: ad.updatedAt ?? ad.createdAt,
     });
@@ -236,6 +247,9 @@ export async function loadUnifiedProductList(
       if (extras?.isLiveOnShopify) {
         item.status = "active";
         item.statusLabel = "Live";
+        if (item.inStock == null) {
+          item.inStock = true;
+        }
       }
       if (extras?.isShopifyImport) {
         item.isShopifyImport = true;

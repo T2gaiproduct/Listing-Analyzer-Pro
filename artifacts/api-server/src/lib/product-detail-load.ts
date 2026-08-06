@@ -392,7 +392,7 @@ async function loadAuditDetail(
       revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
       revenueCurrency: "USD",
       marketplacesActive: marketplaceStats.activeCount,
-      listingScore: row.overallScore ?? 0,
+      listingScore: (row.overallScore ?? 0) > 0 ? row.overallScore! : 0,
       competitorCount: competitors.length,
       imageCount: countImages(row),
       keywordCount: (row.targetKeywords ?? []).length,

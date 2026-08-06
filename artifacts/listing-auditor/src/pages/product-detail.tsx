@@ -168,8 +168,11 @@ function AiSuggestionsCard({
   workflowUrl,
   onNavigate,
   onOptimizeContent,
+  onRunAudit,
   isOptimizing,
+  isRunningAudit,
   optimizeDisabled,
+  runAuditDisabled,
 }: {
   auditScore: number | null;
   suggestions: string[];
@@ -177,8 +180,11 @@ function AiSuggestionsCard({
   workflowUrl: string;
   onNavigate: (url: string) => void;
   onOptimizeContent: () => void;
+  onRunAudit?: () => void;
   isOptimizing: boolean;
+  isRunningAudit?: boolean;
   optimizeDisabled?: boolean;
+  runAuditDisabled?: boolean;
 }) {
   const items = suggestions.length > 0
     ? suggestions
@@ -216,10 +222,28 @@ function AiSuggestionsCard({
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-orange-200/80 bg-white/50 px-3 py-2">
+        <div className="rounded-lg border border-dashed border-orange-200/80 bg-white/50 px-3 py-2 space-y-2">
           <p className="text-[11px] text-slate-600">
-            No audit score yet. Run an audit in the workflow to unlock scored suggestions.
+            No audit score yet. Run an AI audit to unlock scored suggestions (1 audit credit).
           </p>
+          {onRunAudit && (
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 text-[11px] bg-orange-500 hover:bg-orange-600"
+              onClick={onRunAudit}
+              disabled={runAuditDisabled || isRunningAudit}
+            >
+              {isRunningAudit ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Running audit…
+                </>
+              ) : (
+                "Run AI Audit"
+              )}
+            </Button>
+          )}
         </div>
       )}
 
@@ -492,6 +516,30 @@ export default function ProductDetailPage({ id }: { id: number }) {
     },
   });
 
+  const runAuditMutation = useMutation({
+    mutationFn: async (auditId: number) => fetchJson<{ overallScore: number }>(
+      `${basePath}/api/audits/${auditId}/analyze`,
+      { method: "POST" },
+    ),
+    onSuccess: (data, auditId) => {
+      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+      refreshCreditBalances(queryClient);
+      toast({
+        title: "Audit complete",
+        description: `Listing score: ${data.overallScore}/100`,
+      });
+    },
+    onError: (err) => {
+      toast({
+        title: "Audit failed",
+        description: formatOptimizeError(err),
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in">
@@ -583,6 +631,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
+  const canRunAudit = canEditProduct && optimizeAuditId != null;
+  const resolvedAuditScore = product.stats.listingScore > 0
+    ? product.stats.listingScore
+    : (effectiveAudit?.result && (effectiveAudit.overallScore ?? 0) > 0
+      ? effectiveAudit.overallScore!
+      : null);
 
   function handleOptimizeContent() {
     if (!optimizeAuditId) {
@@ -616,6 +670,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
         },
       },
     );
+  }
+
+  function handleRunAudit() {
+    if (!optimizeAuditId || !canRunAudit) return;
+    runAuditMutation.mutate(optimizeAuditId);
   }
 
   return (
@@ -912,14 +971,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
           <div className="space-y-4">
             <AiSuggestionsCard
-              auditScore={product.stats.listingScore > 0 ? product.stats.listingScore : effectiveAudit?.overallScore ?? null}
+              auditScore={resolvedAuditScore}
               suggestions={product.aiSuggestions ?? []}
               generatedContent={effectiveAudit?.generatedContent ?? null}
               workflowUrl={product.workflowUrl}
               onNavigate={navigate}
               onOptimizeContent={handleOptimizeContent}
+              onRunAudit={canRunAudit ? handleRunAudit : undefined}
               isOptimizing={isOptimizingContent}
+              isRunningAudit={runAuditMutation.isPending}
               optimizeDisabled={!canOptimizeContent}
+              runAuditDisabled={!canRunAudit}
             />
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>

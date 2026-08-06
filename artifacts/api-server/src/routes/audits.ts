@@ -11,6 +11,7 @@ import {
 import { generateChatCompletion } from "../lib/ai-provider";
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
+import { runListingAuditForAuditId } from "../lib/listing-audit-runner.js";
 import { generateListingContent } from "../lib/content-generator";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
@@ -544,16 +545,55 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
   res.json({
     ...audit,
     referenceLinks: profile?.referenceLinks ?? null,
-    result: audit.result ?? {
-      titleScore: { score: 0, issues: [], suggestions: [] },
-      bulletScore: { score: 0, issues: [], suggestions: [] },
-      imageScore: { score: 0, issues: [], suggestions: [] },
-      keywordScore: { score: 0, issues: [], suggestions: [] },
-      overallScore: 0,
-      summary: "Analysis pending or failed.",
-    },
+    result: audit.result ?? null,
     competitors,
   });
+});
+
+router.post("/audits/:id/analyze", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
+  const params = GetAuditParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const whereClause = isAdmin((req as AuthedRequest).userId)
+    ? and(eq(auditsTable.id, params.data.id), eq(auditsTable.isDeleted, 0))
+    : await auditScopeWhere(req, eq(auditsTable.id, params.data.id));
+
+  const [audit] = await db
+    .select({ id: auditsTable.id })
+    .from(auditsTable)
+    .where(whereClause)
+    .limit(1);
+
+  if (!audit) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
+  const creditCtx = buildTeamAwareCreditCtx(req);
+  const outcome = await runListingAuditForAuditId(audit.id, creditCtx);
+
+  if (outcome.status === "completed") {
+    const [updated] = await db
+      .select()
+      .from(auditsTable)
+      .where(eq(auditsTable.id, audit.id))
+      .limit(1);
+    res.json({
+      ...updated,
+      overallScore: outcome.overallScore,
+    });
+    return;
+  }
+
+  if (outcome.status === "failed") {
+    res.status(500).json({ error: outcome.error });
+    return;
+  }
+
+  res.status(402).json({ error: outcome.reason });
 });
 
 router.delete("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "delete"), async (req, res): Promise<void> => {

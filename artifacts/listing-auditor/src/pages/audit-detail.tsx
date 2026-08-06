@@ -217,7 +217,15 @@ export default function AuditDetail({ id }: { id: number }) {
     });
   };
 
-  const result = audit.result;
+  const hasAnalysis = audit.result != null;
+  const result = audit.result ?? {
+    titleScore: { score: 0, issues: [], suggestions: [] },
+    bulletScore: { score: 0, issues: [], suggestions: [] },
+    imageScore: { score: 0, issues: [], suggestions: [] },
+    keywordScore: { score: 0, issues: [], suggestions: [] },
+    overallScore: 0,
+    summary: "Analysis pending. Run the audit to generate scores.",
+  };
   const scoreCategories = [
     { icon: Type, title: "Title Analysis", ...result.titleScore },
     { icon: AlignLeft, title: "Bullet Points", ...result.bulletScore },
@@ -237,6 +245,18 @@ export default function AuditDetail({ id }: { id: number }) {
             <p className="text-sm font-semibold text-destructive">AI Analysis Failed</p>
             <p className="text-sm text-muted-foreground mt-0.5">
               {"The AI service could not analyze this listing. This may be caused by an invalid API key, a network issue, or an AI provider error. Check your AI Settings in the admin panel."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!hasAnalysis && audit.status !== "failed" && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Analysis pending</p>
+            <p className="text-sm text-amber-800/80 mt-0.5">
+              This listing has not been scored yet. Run the AI audit to generate your listing score and recommendations.
             </p>
           </div>
         </div>

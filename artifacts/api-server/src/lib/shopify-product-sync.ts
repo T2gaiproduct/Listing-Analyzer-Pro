@@ -154,7 +154,7 @@ function storeCurrencyForOrigin(origin: string): string {
 }
 
 function resolveShopifyListingFields(product: ShopifyCatalogProduct, origin: string) {
-  const { inventory } = summarizeShopifyVariants(product.variants);
+  const { inventory, inStock } = summarizeShopifyVariants(product.variants);
   const priceRaw = product.variants?.[0]?.price;
   const priceCents = priceRaw ? Math.round(parseFloat(priceRaw) * 100) : null;
   const published = isShopifyProductPublished(product);
@@ -163,6 +163,7 @@ function resolveShopifyListingFields(product: ShopifyCatalogProduct, origin: str
 
   return {
     inventory,
+    inStock,
     priceCents,
     currency: storeCurrencyForOrigin(origin),
     published,
@@ -321,15 +322,16 @@ export async function syncShopifyProducts(input: {
     }
 
     if (existingAudits.has(handle)) {
+      const auditId = existingAudits.get(handle)!;
       try {
         const refresh = await refreshShopifyProductFromCatalog({
-          auditId: existingAudits.get(handle)!,
+          auditId,
           workspaceId: input.workspaceId,
           product,
           origin,
         });
-        if (refresh.needsAudit) {
-          result.pendingAuditIds.push(existingAudits.get(handle)!);
+        if (refresh.needsAudit && !result.pendingAuditIds.includes(auditId)) {
+          result.pendingAuditIds.push(auditId);
         }
         result.updated += 1;
       } catch (err) {
