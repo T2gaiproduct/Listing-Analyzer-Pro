@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, or, isNull, sql, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable } from "@workspace/db";
+import { db, auditsTable, amazonSellerConnectionsTable } from "@workspace/db";
 import {
   resolveTeamAndWorkspace,
   getAccountOwnerId,
@@ -12,6 +12,18 @@ import {
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { getWorkspaceMarketplacesOverview } from "../lib/workspace-marketplaces.js";
+import {
+  disconnectStoreConnection,
+  getStoreConnection,
+  saveStoreConnection,
+  type StoreMarketplace,
+} from "../lib/marketplace-connections.js";
+import {
+  ensureAmazonAutoEnabled,
+  isAmazonSpConfigured,
+  isAmazonPublishReady,
+  canSignSpApiRequests,
+} from "../lib/amazon-sp-settings.js";
 
 const router: IRouter = Router();
 
@@ -72,6 +84,44 @@ function deriveSku(productName: string, id: number): string {
   return `${prefix}-${String(id).padStart(4, "0")}`;
 }
 
+function parseStorePlatform(raw: string): StoreMarketplace | null {
+  if (raw === "shopify" || raw === "woocommerce") return raw;
+  return null;
+}
+
+function normalizeStoreUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const url = new URL(withProtocol);
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+async function loadAmazonConnectionStatus(userId: string) {
+  const settings = await ensureAmazonAutoEnabled();
+  const [connection] = await db
+    .select()
+    .from(amazonSellerConnectionsTable)
+    .where(and(eq(amazonSellerConnectionsTable.userId, userId), eq(amazonSellerConnectionsTable.isDeleted, 0)))
+    .limit(1);
+
+  return {
+    configured: isAmazonSpConfigured(settings),
+    publishReady: isAmazonPublishReady(settings),
+    enabled: settings.enabled,
+    sandbox: settings.sandbox,
+    canSignRequests: canSignSpApiRequests(settings),
+    connected: Boolean(connection),
+    sellerId: connection?.sellerId ?? null,
+    marketplaceIds: connection?.marketplaceIds ?? [],
+    defaultMarketplace: settings.defaultMarketplace,
+  };
+}
+
 function getEffectiveUserId(req: Request): string {
   if ((req as { workspace?: unknown }).workspace) return getAccountOwnerId(req);
   const team = (req as TeamAuthedRequest).team;
@@ -95,6 +145,66 @@ async function productsScopeWhere(req: Request) {
     ownFilter,
   );
 }
+
+router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const workspaceId = getActiveWorkspaceId(req);
+
+  const [amazon, shopify, woocommerce] = await Promise.all([
+    loadAmazonConnectionStatus(userId),
+    getStoreConnection(workspaceId, "shopify"),
+    getStoreConnection(workspaceId, "woocommerce"),
+  ]);
+
+  res.json({
+    amazon,
+    shopify: {
+      connected: Boolean(shopify),
+      storeUrl: shopify?.storeUrl ?? null,
+      connectedAt: shopify?.connectedAt ?? null,
+    },
+    woocommerce: {
+      connected: Boolean(woocommerce),
+      storeUrl: woocommerce?.storeUrl ?? null,
+      connectedAt: woocommerce?.connectedAt ?? null,
+    },
+  });
+});
+
+router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const platform = parseStorePlatform(String(req.params.platform ?? ""));
+  if (!platform) {
+    res.status(400).json({ error: "Invalid marketplace platform" });
+    return;
+  }
+
+  const storeUrl = normalizeStoreUrl(String((req.body as { storeUrl?: string })?.storeUrl ?? ""));
+  if (!storeUrl) {
+    res.status(400).json({ error: "A valid store URL is required" });
+    return;
+  }
+
+  const workspaceId = getActiveWorkspaceId(req);
+  const connection = await saveStoreConnection(workspaceId, platform, storeUrl);
+
+  res.status(201).json({
+    connected: true,
+    storeUrl: connection.storeUrl,
+    connectedAt: connection.connectedAt,
+  });
+});
+
+router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const platform = parseStorePlatform(String(req.params.platform ?? ""));
+  if (!platform) {
+    res.status(400).json({ error: "Invalid marketplace platform" });
+    return;
+  }
+
+  const workspaceId = getActiveWorkspaceId(req);
+  await disconnectStoreConnection(workspaceId, platform);
+  res.status(204).end();
+});
 
 router.get("/marketplaces", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const where = await productsScopeWhere(req);
