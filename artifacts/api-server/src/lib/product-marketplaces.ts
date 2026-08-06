@@ -44,6 +44,9 @@ function mapListingRow(row: typeof productMarketplaceListingsTable.$inferSelect)
 export async function listProductMarketplaces(auditId: number): Promise<{
   listings: MarketplaceListingRow[];
   activeCount: number;
+  listedCount: number;
+  liveMarketplaces: string[];
+  listedMarketplaces: string[];
 }> {
   const rows = await db
     .select()
@@ -71,9 +74,19 @@ export async function listProductMarketplaces(auditId: number): Promise<{
     };
   });
 
-  const activeCount = listings.filter((l) => l.status === "live").length;
+  const listed = listings.filter((listing) => listing.status !== "not_listed");
+  const liveMarketplaces = listed
+    .filter((listing) => listing.status === "live")
+    .map((listing) => listing.marketplace);
+  const listedMarketplaces = listed.map((listing) => listing.marketplace);
 
-  return { listings, activeCount };
+  return {
+    listings,
+    activeCount: liveMarketplaces.length,
+    listedCount: listed.length,
+    liveMarketplaces,
+    listedMarketplaces,
+  };
 }
 
 /** Live marketplace names per audit id from stored listing rows only. */

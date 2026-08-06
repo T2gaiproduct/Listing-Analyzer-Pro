@@ -27,7 +27,16 @@ interface MarketplaceListing {
 interface MarketplacesResponse {
   listings: MarketplaceListing[];
   activeCount: number;
+  listedCount?: number;
+  liveMarketplaces?: string[];
+  listedMarketplaces?: string[];
 }
+
+const STATUS_SORT: Record<ListingStatus, number> = {
+  live: 0,
+  pending: 1,
+  not_listed: 2,
+};
 
 function StatusBadge({ status, label }: { status: ListingStatus; label: string }) {
   return (
@@ -116,6 +125,64 @@ function MarketplaceCard({ listing }: { listing: MarketplaceListing }) {
   );
 }
 
+function ListedMarketplacesSummary({
+  liveMarketplaces,
+  listedListings,
+}: {
+  liveMarketplaces: string[];
+  listedListings: MarketplaceListing[];
+}) {
+  const pendingCount = listedListings.filter((listing) => listing.status === "pending").length;
+  const liveCount = liveMarketplaces.length;
+  const totalListed = listedListings.length;
+
+  let headline = "Not listed on any marketplace yet";
+  if (liveCount > 0) {
+    headline = liveCount === 1
+      ? `Live on ${liveMarketplaces[0]}`
+      : `Live on ${liveCount} marketplaces`;
+  } else if (totalListed > 0) {
+    headline = totalListed === 1
+      ? `Listed on ${listedListings[0]?.marketplace}`
+      : `Listed on ${totalListed} marketplaces`;
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      <div>
+        <p className="text-xs font-semibold text-slate-900">{headline}</p>
+        <p className="text-[11px] text-slate-500 mt-0.5">
+          {totalListed === 0
+            ? "Publish from the workflow or import from a connected store to list this product."
+            : liveCount > 0 && pendingCount > 0
+              ? `${liveCount} live · ${pendingCount} pending`
+              : liveCount > 0
+                ? "This product is actively selling on the platforms below."
+                : "Listings are queued and not live yet."}
+        </p>
+      </div>
+
+      {listedListings.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {listedListings.map((listing) => (
+            <span
+              key={listing.marketplace}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 bg-slate-50",
+                listing.status === "live" && "border-emerald-200 bg-emerald-50/50",
+                listing.status === "pending" && "border-amber-200 bg-amber-50/50",
+              )}
+            >
+              <MarketplaceLogo marketplace={listing.marketplace} className="h-4 w-20" />
+              <StatusBadge status={listing.status} label={listing.statusLabel} />
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProductMarketplacesTab({
   productId,
   enabled,
@@ -134,35 +201,44 @@ export function ProductMarketplacesTab({
     staleTime: 15_000,
   });
 
-  const liveListings = useMemo(
-    () => (data?.listings ?? []).filter((listing) => listing.status === "live"),
-    [data?.listings],
+  const listedListings = useMemo(() => {
+    const listings = data?.listings ?? [];
+    return listings
+      .filter((listing) => listing.status !== "not_listed" && listing.id > 0)
+      .sort((a, b) => STATUS_SORT[a.status] - STATUS_SORT[b.status]);
+  }, [data?.listings]);
+
+  const liveMarketplaces = useMemo(
+    () => data?.liveMarketplaces
+      ?? listedListings.filter((listing) => listing.status === "live").map((listing) => listing.marketplace),
+    [data?.liveMarketplaces, listedListings],
   );
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
-    );
-  }
-
-  if (liveListings.length === 0) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
-        <p className="text-xs font-medium text-slate-800">No live marketplace listings</p>
-        <p className="text-[11px] text-slate-500 mt-1">
-          This product is not live on any marketplace yet. Publish from the workflow or import from a connected store.
-        </p>
+      <div className="space-y-4">
+        <Skeleton className="h-24 rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {liveListings.map((listing) => (
-        <MarketplaceCard key={listing.marketplace} listing={listing} />
-      ))}
+    <div className="space-y-4">
+      <ListedMarketplacesSummary
+        liveMarketplaces={liveMarketplaces}
+        listedListings={listedListings}
+      />
+
+      {listedListings.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {listedListings.map((listing) => (
+            <MarketplaceCard key={listing.marketplace} listing={listing} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

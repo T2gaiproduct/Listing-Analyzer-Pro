@@ -347,7 +347,13 @@ router.get("/products/:id/marketplaces", requireAuth, resolveTeamAndWorkspace, a
 
   const statsAuditId = await resolveStatsAuditId(req, id, parseProductSourceFromRequest(req));
   if (!statsAuditId) {
-    res.json({ listings: [], activeCount: 0 });
+    res.json({
+      listings: [],
+      activeCount: 0,
+      listedCount: 0,
+      liveMarketplaces: [],
+      listedMarketplaces: [],
+    });
     return;
   }
 

@@ -36,6 +36,7 @@ import {
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
+import { MarketplaceLogo } from "@/components/marketplace-logos";
 import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
@@ -456,6 +457,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const resolvedSource = product?.sourceType ?? source ?? "listing";
 
+  const { data: marketplaceData } = useQuery({
+    queryKey: ["product-marketplaces", id, resolvedSource],
+    queryFn: () => fetchJson<{
+      liveMarketplaces?: string[];
+      listedMarketplaces?: string[];
+      activeCount: number;
+    }>(`${basePath}/api/products/${id}/marketplaces?source=${encodeURIComponent(resolvedSource)}`),
+    enabled: queryEnabled && id > 0,
+    staleTime: 15_000,
+  });
+
+  const liveMarketplaces = marketplaceData?.liveMarketplaces ?? [];
+
   useEffect(() => {
     if (!product?.sourceType) return;
     const params = new URLSearchParams(window.location.search);
@@ -710,6 +724,24 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <span className="mx-1.5 text-slate-300">|</span>
                 <span className="font-medium text-slate-600">Manager:</span> {product.manager?.name ?? "—"}
               </p>
+              {liveMarketplaces.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                    Listed on
+                  </span>
+                  {liveMarketplaces.map((marketplace) => (
+                    <button
+                      key={marketplace}
+                      type="button"
+                      onClick={() => setActiveTab("marketplaces")}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 hover:bg-emerald-50 transition-colors"
+                      title={`View ${marketplace} listing`}
+                    >
+                      <MarketplaceLogo marketplace={marketplace} className="h-3.5 w-16" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="sm:w-44 shrink-0 sm:text-right">
@@ -742,6 +774,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
               )}
             >
               {tab.label}
+              {tab.id === "marketplaces" && liveMarketplaces.length > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.125rem] h-4 px-1 rounded-full bg-emerald-100 text-[9px] font-semibold text-emerald-700">
+                  {liveMarketplaces.length}
+                </span>
+              )}
             </button>
 
             {tab.id === "overview" && (
@@ -1004,12 +1041,25 @@ export default function ProductDetailPage({ id }: { id: number }) {
                       : "—"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Marketplaces</span>
-                  <span className="font-semibold text-slate-900">
-                    {product.stats.marketplacesActive}{" "}
-                    <span className="text-emerald-600 font-medium">active</span>
-                  </span>
+                <div className="flex items-center justify-between text-[11px] gap-3">
+                  <span className="text-slate-500 shrink-0">Marketplaces</span>
+                  {liveMarketplaces.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {liveMarketplaces.map((marketplace) => (
+                        <span
+                          key={marketplace}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-[10px] font-medium text-emerald-700"
+                        >
+                          {marketplace}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="font-semibold text-slate-900">
+                      {product.stats.marketplacesActive}{" "}
+                      <span className="text-slate-400 font-medium">active</span>
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Listing Score</span>
