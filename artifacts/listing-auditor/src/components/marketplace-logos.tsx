@@ -34,8 +34,13 @@ const cardClass =
   "flex flex-1 min-w-0 basis-0 sm:flex-none sm:w-28 items-center justify-center h-9 sm:h-14 px-0.5 sm:px-3 bg-transparent";
 const logoBoxClass = "flex items-center justify-center w-full h-4 sm:h-7 overflow-hidden";
 
+const LOGO_IMAGE_CLASS: Partial<Record<string, string>> = {
+  WooCommerce: "scale-[1.35] sm:scale-[1.5] origin-left",
+};
+
 type MarketplaceEntry = {
   name: string;
+  logoBoxClass?: string;
   render: (className?: string) => ReactNode;
 };
 
@@ -45,7 +50,13 @@ const marketplaces: MarketplaceEntry[] = [
   "WooCommerce",
 ].map((name) => ({
   name,
-  render: (className?: string) => <MarketplaceImage marketplace={name} className={className} />,
+  logoBoxClass: name === "WooCommerce" ? "overflow-visible" : undefined,
+  render: (className?: string) => (
+    <MarketplaceImage
+      marketplace={name}
+      className={cn(LOGO_IMAGE_CLASS[name], className)}
+    />
+  ),
 }));
 
 function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
@@ -58,7 +69,9 @@ function LogoCard({ item, pill }: { item: MarketplaceEntry; pill?: boolean }) {
       )}
       title={item.name}
     >
-      <div className={cn(logoBoxClass, pill && "h-5 w-24")}>{item.render()}</div>
+      <div className={cn(logoBoxClass, item.logoBoxClass, pill && "h-5 w-24")}>
+        {item.render()}
+      </div>
       <span className="sr-only">{item.name}</span>
     </div>
   );
@@ -73,7 +86,10 @@ export function MarketplaceLogo({
 }) {
   return (
     <div className={cn("h-5 w-24 flex items-center", className)}>
-      <MarketplaceImage marketplace={marketplace} className="max-h-5" />
+      <MarketplaceImage
+        marketplace={marketplace}
+        className={cn("max-h-5", LOGO_IMAGE_CLASS[marketplace])}
+      />
     </div>
   );
 }
