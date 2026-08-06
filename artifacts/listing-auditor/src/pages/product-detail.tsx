@@ -15,10 +15,12 @@ import {
   Star,
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent } from "@workspace/api-client-react";
+import type { GeneratedContent } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ScoreRing } from "@/components/score-ring";
 import { cn } from "@/lib/utils";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
@@ -159,14 +161,18 @@ function PriorityBadge({ label, level }: { label?: string | null; level?: string
 }
 
 function AiSuggestionsCard({
+  auditScore,
   suggestions,
+  generatedContent,
   workflowUrl,
   onNavigate,
   onOptimizeContent,
   isOptimizing,
   optimizeDisabled,
 }: {
+  auditScore: number | null;
   suggestions: string[];
+  generatedContent?: GeneratedContent | null;
   workflowUrl: string;
   onNavigate: (url: string) => void;
   onOptimizeContent: () => void;
@@ -177,19 +183,84 @@ function AiSuggestionsCard({
     ? suggestions
     : ["Complete your listing workflow to unlock personalized AI suggestions"];
 
+  const starRating = auditScore != null && auditScore > 0
+    ? (auditScore / 20).toFixed(1)
+    : null;
+
+  const previewBullets = generatedContent?.bulletPoints?.filter(Boolean).slice(0, 3) ?? [];
+
   return (
     <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-4 shadow-sm space-y-3">
       <div className="flex items-center gap-1.5">
         <Sparkles className="w-3.5 h-3.5 text-orange-600" />
         <h2 className="text-xs font-semibold text-orange-900">AI Suggestions</h2>
       </div>
-      <ul className="space-y-1.5 pl-4 list-disc marker:text-orange-400">
-        {items.map((suggestion) => (
-          <li key={suggestion} className="text-[11px] text-slate-800 leading-relaxed">
-            {suggestion}
-          </li>
-        ))}
-      </ul>
+
+      {auditScore != null && auditScore > 0 ? (
+        <div className="flex items-center gap-3 rounded-lg border border-orange-200/80 bg-white/70 px-3 py-2.5">
+          <ScoreRing score={auditScore} size="sm" showLabel={false} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-orange-800/80">
+              Audit Score
+            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-0.5">
+              <span className="text-sm font-semibold text-slate-900 tabular-nums">{auditScore}/100</span>
+              {starRating && (
+                <span className="inline-flex items-center gap-0.5 text-[11px] text-slate-600">
+                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                  {starRating}/5
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-orange-200/80 bg-white/50 px-3 py-2">
+          <p className="text-[11px] text-slate-600">
+            No audit score yet. Run an audit in the workflow to unlock scored suggestions.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-orange-800/80">
+          Optimized Content
+        </p>
+        {generatedContent?.title ? (
+          <div className="rounded-lg border border-orange-200/80 bg-white/70 px-3 py-2.5 space-y-2">
+            <p className="text-[11px] font-medium text-slate-900 leading-snug line-clamp-2">
+              {generatedContent.title}
+            </p>
+            {previewBullets.length > 0 && (
+              <ul className="space-y-1 pl-3.5 list-disc marker:text-orange-300">
+                {previewBullets.map((bullet) => (
+                  <li key={bullet} className="text-[10px] text-slate-700 leading-relaxed line-clamp-2">
+                    {bullet}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <p className="text-[11px] text-slate-600 px-0.5">
+            No optimized content yet. Use the button below to generate listing copy (1 AI credit).
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-orange-800/80">
+          Suggestions
+        </p>
+        <ul className="space-y-1.5 pl-4 list-disc marker:text-orange-400">
+          {items.map((suggestion) => (
+            <li key={suggestion} className="text-[11px] text-slate-800 leading-relaxed">
+              {suggestion}
+            </li>
+          ))}
+        </ul>
+      </div>
+
       <div className="flex flex-wrap gap-2 pt-1">
         <Button
           type="button"
@@ -205,7 +276,7 @@ function AiSuggestionsCard({
               Optimizing…
             </>
           ) : (
-            "Optimize content"
+            "Optimize content (1 AI credit)"
           )}
         </Button>
         <Button
@@ -325,6 +396,24 @@ export default function ProductDetailPage({ id }: { id: number }) {
     () => resolveOptimizeAuditId(product, auditData?.id, source),
     [product, auditData?.id, source],
   );
+
+  const shouldFetchLinkedAudit = queryEnabled
+    && optimizeAuditId != null
+    && optimizeAuditId !== id;
+
+  const { data: linkedAuditData } = useGetAudit(optimizeAuditId ?? 0, {
+    query: {
+      queryKey: getGetAuditQueryKey(optimizeAuditId ?? 0),
+      enabled: shouldFetchLinkedAudit,
+      retry: 1,
+    },
+  });
+
+  const effectiveAudit = useMemo(() => {
+    if (!optimizeAuditId) return auditData;
+    if (auditData?.id === optimizeAuditId) return auditData;
+    return linkedAuditData ?? auditData;
+  }, [auditData, linkedAuditData, optimizeAuditId]);
 
   const generateContent = useGenerateContent();
 
@@ -811,7 +900,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
           <div className="space-y-4">
             <AiSuggestionsCard
+              auditScore={product.stats.listingScore > 0 ? product.stats.listingScore : effectiveAudit?.overallScore ?? null}
               suggestions={product.aiSuggestions ?? []}
+              generatedContent={effectiveAudit?.generatedContent ?? null}
               workflowUrl={product.workflowUrl}
               onNavigate={navigate}
               onOptimizeContent={handleOptimizeContent}
