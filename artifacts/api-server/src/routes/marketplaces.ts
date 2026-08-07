@@ -268,9 +268,13 @@ router.post(
       return;
     }
 
+    const credentials = await getShopifyConnection(workspaceId);
+
     try {
       const result = await syncShopifyProducts({
         storeUrl: connection.storeUrl,
+        clientId: credentials?.clientId,
+        clientSecret: credentials?.clientSecret,
         ownerId: getEffectiveUserId(req),
         createdByUserId: auditCreatedByUserId(req),
         workspaceId,

@@ -13,6 +13,12 @@ import {
   parseShopifyPublishedAt,
   summarizeShopifyVariants,
 } from "./shopify-import-utils.js";
+import {
+  fetchShopifyCatalogViaAdmin,
+  getShopifyAccessToken,
+  parseShopifyShopHost,
+  type ShopifyAdminCatalogProduct,
+} from "./shopify-admin-client.js";
 import { auditNeedsAnalysis } from "./listing-audit-runner.js";
 
 const FETCH_HEADERS = {
@@ -128,9 +134,19 @@ export async function fetchShopifyCatalogProducts(storeUrl: string): Promise<Sho
 
     const res = await fetch(url, {
       headers: FETCH_HEADERS,
-      redirect: "follow",
+      redirect: "manual",
       signal: AbortSignal.timeout(20000),
     });
+
+    if (res.status === 302 || res.status === 301) {
+      const location = res.headers.get("location") ?? "";
+      if (location.includes("/password")) {
+        throw new Error(
+          "This Shopify store is password protected. Connect Admin API credentials on the Marketplaces page, or disable the storefront password in Shopify Admin → Online Store → Preferences.",
+        );
+      }
+      throw new Error(`Shopify redirected the catalog request (HTTP ${res.status}).`);
+    }
 
     if (!res.ok) {
       throw new Error(
@@ -138,7 +154,23 @@ export async function fetchShopifyCatalogProducts(storeUrl: string): Promise<Sho
       );
     }
 
-    const data = await res.json() as { products?: ShopifyCatalogProduct[] };
+    const contentType = res.headers.get("content-type") ?? "";
+    const text = await res.text();
+    if (!contentType.includes("application/json")) {
+      throw new Error(
+        "Shopify did not return product JSON. If your store is password protected, connect Admin API credentials on the Marketplaces page.",
+      );
+    }
+
+    let data: { products?: ShopifyCatalogProduct[] };
+    try {
+      data = JSON.parse(text) as { products?: ShopifyCatalogProduct[] };
+    } catch {
+      throw new Error(
+        "Could not read Shopify product catalog. If the store is password protected, connect Admin API credentials on the Marketplaces page.",
+      );
+    }
+
     const batch = data.products ?? [];
     if (batch.length === 0) break;
 
@@ -147,6 +179,42 @@ export async function fetchShopifyCatalogProducts(storeUrl: string): Promise<Sho
   }
 
   return products;
+}
+
+function mapAdminProductToCatalog(product: ShopifyAdminCatalogProduct): ShopifyCatalogProduct {
+  const publishedAt = product.published_at
+    ?? (product.status === "active" ? new Date().toISOString() : null);
+  return {
+    id: product.id,
+    title: product.title,
+    handle: product.handle,
+    body_html: product.body_html,
+    vendor: product.vendor,
+    product_type: product.product_type,
+    tags: product.tags,
+    published_at: publishedAt,
+    images: product.images,
+    variants: product.variants,
+  };
+}
+
+export async function fetchShopifyCatalogProductsWithCredentials(opts: {
+  storeUrl: string;
+  clientId: string;
+  clientSecret: string;
+}): Promise<ShopifyCatalogProduct[]> {
+  const shopHost = parseShopifyShopHost(opts.storeUrl);
+  const accessToken = await getShopifyAccessToken({
+    shopHost,
+    clientId: opts.clientId,
+    clientSecret: opts.clientSecret,
+  });
+  const products = await fetchShopifyCatalogViaAdmin({
+    shopHost,
+    accessToken,
+    maxProducts: MAX_IMPORT,
+  });
+  return products.map(mapAdminProductToCatalog);
 }
 
 function storeCurrencyForOrigin(origin: string): string {
@@ -280,8 +348,16 @@ export async function syncShopifyProducts(input: {
   ownerId: string;
   createdByUserId: string | null;
   workspaceId: number;
+  clientId?: string;
+  clientSecret?: string;
 }): Promise<ShopifySyncResult> {
-  const catalog = await fetchShopifyCatalogProducts(input.storeUrl);
+  const catalog = input.clientId?.trim() && input.clientSecret?.trim()
+    ? await fetchShopifyCatalogProductsWithCredentials({
+      storeUrl: input.storeUrl,
+      clientId: input.clientId.trim(),
+      clientSecret: input.clientSecret.trim(),
+    })
+    : await fetchShopifyCatalogProducts(input.storeUrl);
   if (catalog.length === 0) {
     return {
       imported: 0,

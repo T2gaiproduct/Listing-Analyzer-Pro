@@ -141,6 +141,86 @@ export async function createShopifyProduct(opts: {
   return data.product;
 }
 
+export async function listShopifyProducts(opts: {
+  shopHost: string;
+  accessToken: string;
+  limit?: number;
+}): Promise<ShopifyRestProduct[]> {
+  const products: ShopifyRestProduct[] = [];
+  const pageSize = Math.min(opts.limit ?? 250, 250);
+  let sinceId = 0;
+
+  for (let page = 0; page < 40; page += 1) {
+    const path = sinceId > 0
+      ? `/products.json?limit=${pageSize}&since_id=${sinceId}`
+      : `/products.json?limit=${pageSize}`;
+    const data = await shopifyAdminRequest<{ products: ShopifyRestProduct[] }>({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+      method: "GET",
+      path,
+    });
+
+    const batch = data.products ?? [];
+    if (batch.length === 0) break;
+    products.push(...batch);
+    sinceId = batch[batch.length - 1]!.id;
+    if (batch.length < pageSize) break;
+    if (opts.limit && products.length >= opts.limit) break;
+  }
+
+  return opts.limit ? products.slice(0, opts.limit) : products;
+}
+
+export type ShopifyAdminCatalogProduct = {
+  id: number;
+  title: string;
+  handle: string;
+  body_html?: string;
+  vendor?: string;
+  product_type?: string;
+  tags?: string;
+  status?: string;
+  published_at?: string | null;
+  images?: Array<{ src?: string }>;
+  variants?: Array<{
+    sku?: string;
+    price?: string;
+    inventory_quantity?: number | null;
+  }>;
+};
+
+export async function fetchShopifyCatalogViaAdmin(opts: {
+  shopHost: string;
+  accessToken: string;
+  maxProducts?: number;
+}): Promise<ShopifyAdminCatalogProduct[]> {
+  const products: ShopifyAdminCatalogProduct[] = [];
+  const pageSize = 250;
+  let sinceId = 0;
+  const maxProducts = opts.maxProducts ?? 500;
+
+  for (let page = 0; page < 40 && products.length < maxProducts; page += 1) {
+    const path = sinceId > 0
+      ? `/products.json?limit=${pageSize}&since_id=${sinceId}`
+      : `/products.json?limit=${pageSize}`;
+    const data = await shopifyAdminRequest<{ products: ShopifyAdminCatalogProduct[] }>({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+      method: "GET",
+      path,
+    });
+
+    const batch = data.products ?? [];
+    if (batch.length === 0) break;
+    products.push(...batch);
+    sinceId = batch[batch.length - 1]!.id;
+    if (batch.length < pageSize) break;
+  }
+
+  return products.slice(0, maxProducts);
+}
+
 export async function updateShopifyProduct(opts: {
   shopHost: string;
   accessToken: string;
