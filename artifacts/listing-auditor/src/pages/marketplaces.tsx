@@ -48,7 +48,7 @@ const CONNECT_CARDS: Array<{
   {
     id: "shopify",
     marketplace: "Shopify",
-    description: "Connect your Shopify store to sync products and export optimized listings.",
+    description: "Connect your Shopify store with Admin API credentials to sync, export, and publish listings.",
     placeholder: "https://your-store.myshopify.com",
   },
   {
@@ -164,6 +164,8 @@ export default function MarketplacesPage() {
   const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
   const [dialogTarget, setDialogTarget] = useState<StoreMarketplace | null>(null);
   const [storeUrl, setStoreUrl] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [pendingAction, setPendingAction] = useState<ConnectTarget | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -176,12 +178,28 @@ export default function MarketplacesPage() {
   });
 
   const connectStoreMutation = useMutation({
-    mutationFn: ({ platform, url }: { platform: StoreMarketplace; url: string }) =>
-      connectStoreMarketplace(platform, url),
+    mutationFn: ({
+      platform,
+      url,
+      shopifyClientId,
+      shopifyClientSecret,
+    }: {
+      platform: StoreMarketplace;
+      url: string;
+      shopifyClientId?: string;
+      shopifyClientSecret?: string;
+    }) => connectStoreMarketplace(platform, {
+      storeUrl: url,
+      clientId: shopifyClientId,
+      clientSecret: shopifyClientSecret,
+    }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      void queryClient.invalidateQueries({ queryKey: ["shopify-connection-status"] });
       setDialogTarget(null);
       setStoreUrl("");
+      setClientId("");
+      setClientSecret("");
       toast({ title: "Store connected", description: "Your marketplace connection is ready." });
     },
     onError: (error) => {
@@ -262,6 +280,8 @@ export default function MarketplacesPage() {
 
   function openStoreDialog(platform: StoreMarketplace) {
     setStoreUrl("");
+    setClientId("");
+    setClientSecret("");
     setDialogTarget(platform);
   }
 
@@ -276,8 +296,23 @@ export default function MarketplacesPage() {
       });
       return;
     }
+    if (dialogTarget === "shopify") {
+      if (!clientId.trim() || !clientSecret.trim()) {
+        toast({
+          title: "API credentials required",
+          description: "Enter your Shopify Client ID and Client secret from the Dev Dashboard.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     setPendingAction(dialogTarget);
-    connectStoreMutation.mutate({ platform: dialogTarget, url });
+    connectStoreMutation.mutate({
+      platform: dialogTarget,
+      url,
+      shopifyClientId: dialogTarget === "shopify" ? clientId.trim() : undefined,
+      shopifyClientSecret: dialogTarget === "shopify" ? clientSecret.trim() : undefined,
+    });
   }
 
   async function handleStoreDisconnect(platform: StoreMarketplace) {
@@ -359,7 +394,14 @@ export default function MarketplacesPage() {
           marketplace="Shopify"
           description={CONNECT_CARDS[1]!.description}
           connected={shopifyConnected}
-          detail={data?.shopify.storeUrl}
+          detail={
+            shopifyConnected
+              ? [
+                  data?.shopify.storeUrl,
+                  data?.shopify.publishReady ? "Direct publish enabled" : "Add API credentials to publish",
+                ].filter(Boolean).join(" · ")
+              : null
+          }
           loading={pendingAction === "shopify"}
           importLoading={shopifySyncMutation.isPending}
           onConnect={() => openStoreDialog("shopify")}
@@ -384,24 +426,59 @@ export default function MarketplacesPage() {
               Connect with {dialogTarget === "shopify" ? "Shopify" : "WooCommerce"}
             </DialogTitle>
             <DialogDescription>
-              Enter your store URL. We will use it for exports and marketplace sync in this workspace.
+              {dialogTarget === "shopify"
+                ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret)."
+                : "Enter your store URL. We will use it for exports and marketplace sync in this workspace."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="store-url" className="text-xs text-slate-600">
-              Store URL
-            </Label>
-            <Input
-              id="store-url"
-              value={storeUrl}
-              onChange={(e) => setStoreUrl(e.target.value)}
-              placeholder={
-                dialogTarget === "shopify"
-                  ? "https://your-store.myshopify.com"
-                  : "https://your-store.com"
-              }
-              className="h-9 text-xs"
-            />
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="store-url" className="text-xs text-slate-600">
+                Store URL
+              </Label>
+              <Input
+                id="store-url"
+                value={storeUrl}
+                onChange={(e) => setStoreUrl(e.target.value)}
+                placeholder={
+                  dialogTarget === "shopify"
+                    ? "https://your-store.myshopify.com"
+                    : "https://your-store.com"
+                }
+                className="h-9 text-xs"
+              />
+            </div>
+            {dialogTarget === "shopify" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="client-id" className="text-xs text-slate-600">
+                    Client ID
+                  </Label>
+                  <Input
+                    id="client-id"
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    placeholder="From Dev Dashboard → Settings"
+                    className="h-9 text-xs"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="client-secret" className="text-xs text-slate-600">
+                    Client secret
+                  </Label>
+                  <Input
+                    id="client-secret"
+                    type="password"
+                    value={clientSecret}
+                    onChange={(e) => setClientSecret(e.target.value)}
+                    placeholder="From Dev Dashboard → Settings"
+                    className="h-9 text-xs"
+                    autoComplete="off"
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button

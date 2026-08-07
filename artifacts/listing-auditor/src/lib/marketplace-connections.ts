@@ -12,7 +12,13 @@ export type StoreMarketplace = "shopify" | "woocommerce";
 
 export type MarketplaceConnectionsResponse = {
   amazon: AmazonConnectionStatus;
-  shopify: { connected: boolean; storeUrl: string | null; connectedAt: string | null };
+  shopify: {
+    connected: boolean;
+    publishReady: boolean;
+    storeUrl: string | null;
+    clientId: string | null;
+    connectedAt: string | null;
+  };
   woocommerce: { connected: boolean; storeUrl: string | null; connectedAt: string | null };
 };
 
@@ -22,12 +28,12 @@ export async function fetchMarketplaceConnections(): Promise<MarketplaceConnecti
 
 export async function connectStoreMarketplace(
   platform: StoreMarketplace,
-  storeUrl: string,
-): Promise<{ connected: boolean; storeUrl: string; connectedAt: string }> {
+  input: { storeUrl: string; clientId?: string; clientSecret?: string },
+): Promise<{ connected: boolean; storeUrl: string; connectedAt: string; publishReady?: boolean }> {
   return fetchJson(`${basePath}/api/marketplaces/connections/${platform}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ storeUrl }),
+    body: JSON.stringify(input),
   });
 }
 

@@ -60,6 +60,7 @@ import {
   buildShopifyZipBuffer,
   shopifyExportFilename,
 } from "../lib/shopify-listing-export.js";
+import { loadAuditForExport } from "../lib/audit-export-loader.js";
 
 export type ExportPlatform = "amazon" | "shopify";
 
@@ -369,27 +370,6 @@ function resolvePublicBaseUrl(req: Request): string {
   const proto = typeof forwardedProto === "string" ? forwardedProto.split(",")[0]!.trim() : req.protocol;
   const host = req.get("host") ?? "localhost";
   return `${proto}://${host}`;
-}
-
-async function loadAuditForExport(req: Request, auditId: number) {
-  const userId = (req as AuthedRequest).userId;
-  const whereClause = isAdmin(userId)
-    ? and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0))
-    : await auditScopeWhere(req, eq(auditsTable.id, auditId));
-
-  const [audit] = await db.select().from(auditsTable).where(whereClause).limit(1);
-  if (!audit) return null;
-
-  const [graphicsProject] = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(and(
-      eq(graphicsProjectsTable.auditId, auditId),
-      eq(graphicsProjectsTable.isDeleted, 0),
-    ))
-    .limit(1);
-
-  return { audit, graphicsProject: graphicsProject ?? null };
 }
 
 router.get("/audits/export/marketplaces", requireAuth, (_req, res): void => {

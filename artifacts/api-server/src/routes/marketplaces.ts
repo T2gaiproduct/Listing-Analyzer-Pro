@@ -16,7 +16,11 @@ import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { getWorkspaceMarketplacesOverview } from "../lib/workspace-marketplaces.js";
 import {
   disconnectStoreConnection,
+  getShopifyConnection,
+  getShopifyConnectionPublic,
   getStoreConnection,
+  isShopifyPublishReady,
+  saveShopifyConnection,
   saveStoreConnection,
   type StoreMarketplace,
 } from "../lib/marketplace-connections.js";
@@ -164,15 +168,19 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
 
   const [amazon, shopify, woocommerce] = await Promise.all([
     loadAmazonConnectionStatus(userId),
-    getStoreConnection(workspaceId, "shopify"),
+    getShopifyConnectionPublic(workspaceId),
     getStoreConnection(workspaceId, "woocommerce"),
   ]);
+
+  const shopifyWithSecret = await getShopifyConnection(workspaceId);
 
   res.json({
     amazon,
     shopify: {
       connected: Boolean(shopify),
+      publishReady: isShopifyPublishReady(shopifyWithSecret),
       storeUrl: shopify?.storeUrl ?? null,
+      clientId: shopify?.clientId ?? null,
       connectedAt: shopify?.connectedAt ?? null,
     },
     woocommerce: {
@@ -190,13 +198,42 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
     return;
   }
 
+  const workspaceId = getActiveWorkspaceId(req);
+
+  if (platform === "shopify") {
+    const body = req.body as {
+      storeUrl?: string;
+      clientId?: string;
+      clientSecret?: string;
+    };
+    const storeUrl = normalizeStoreUrl(String(body.storeUrl ?? ""));
+    const clientId = String(body.clientId ?? "").trim();
+    const clientSecret = String(body.clientSecret ?? "").trim();
+    if (!storeUrl) {
+      res.status(400).json({ error: "A valid store URL is required" });
+      return;
+    }
+    if (!clientId || !clientSecret) {
+      res.status(400).json({ error: "Shopify Client ID and Client secret are required for direct publishing." });
+      return;
+    }
+    const connection = await saveShopifyConnection(workspaceId, { storeUrl, clientId, clientSecret });
+    res.status(201).json({
+      connected: true,
+      publishReady: true,
+      storeUrl: connection.storeUrl,
+      clientId: connection.clientId,
+      connectedAt: connection.connectedAt,
+    });
+    return;
+  }
+
   const storeUrl = normalizeStoreUrl(String((req.body as { storeUrl?: string })?.storeUrl ?? ""));
   if (!storeUrl) {
     res.status(400).json({ error: "A valid store URL is required" });
     return;
   }
 
-  const workspaceId = getActiveWorkspaceId(req);
   const connection = await saveStoreConnection(workspaceId, platform, storeUrl);
 
   res.status(201).json({
@@ -225,8 +262,8 @@ router.post(
   requireWorkspaceActionAny(["build_brand", "audits"], "create"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
-    const connection = await getStoreConnection(workspaceId, "shopify");
-    if (!connection) {
+    const connection = await getShopifyConnectionPublic(workspaceId);
+    if (!connection?.storeUrl) {
       res.status(400).json({ error: "Connect your Shopify store first on the Marketplaces page." });
       return;
     }

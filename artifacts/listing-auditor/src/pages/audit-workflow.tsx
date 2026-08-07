@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AMAZON_MARKETPLACES, EXPORT_PLATFORMS, downloadAuditExport, type AmazonMarketplaceId, type ExportPlatform } from "@/lib/amazon-export";
 import { fetchAmazonStatus, startAmazonConnect, disconnectAmazon, publishAuditToAmazon } from "@/lib/amazon-publish";
+import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
@@ -673,20 +674,45 @@ export default function AuditWorkflow() {
     retry: 2,
   });
 
+  const { data: shopifyStatus, isError: shopifyStatusError } = useQuery({
+    queryKey: ["shopify-connection-status"],
+    queryFn: fetchShopifyStatus,
+    staleTime: 30_000,
+    retry: 2,
+  });
+
   const publishBlockers = useMemo((): string[] => {
-    if (exportPlatform !== "amazon") return [];
     const blockers: string[] = [];
-    if (amazonStatusError) blockers.push("Amazon publishing is temporarily unavailable. Please try again later.");
-    if (!amazonStatusError && !amazonStatus?.publishReady) {
-      blockers.push("Amazon publishing isn't set up yet. Contact your administrator.");
+    if (exportPlatform === "amazon") {
+      if (amazonStatusError) blockers.push("Amazon publishing is temporarily unavailable. Please try again later.");
+      if (!amazonStatusError && !amazonStatus?.publishReady) {
+        blockers.push("Amazon publishing isn't set up yet. Contact your administrator.");
+      }
+      if (amazonStatus?.publishReady && !amazonStatus.connected) {
+        blockers.push("Click Connect Amazon above to link your seller account.");
+      }
     }
-    if (amazonStatus?.publishReady && !amazonStatus.connected) {
-      blockers.push("Click Connect Amazon above to link your seller account.");
+    if (exportPlatform === "shopify") {
+      if (shopifyStatusError) blockers.push("Shopify publishing is temporarily unavailable. Please try again later.");
+      if (!shopifyStatusError && !shopifyStatus?.connected) {
+        blockers.push("Connect your Shopify store on the Marketplaces page.");
+      }
+      if (shopifyStatus?.connected && !shopifyStatus.publishReady) {
+        blockers.push("Add your Shopify Client ID and Client secret on the Marketplaces page.");
+      }
     }
     if (!currentAuditId) blockers.push("Save your project in Step 1.");
     if (!generatedContent) blockers.push("Generate listing content in Step 2.");
     return blockers;
-  }, [exportPlatform, amazonStatus, amazonStatusError, currentAuditId, generatedContent]);
+  }, [
+    exportPlatform,
+    amazonStatus,
+    amazonStatusError,
+    shopifyStatus,
+    shopifyStatusError,
+    currentAuditId,
+    generatedContent,
+  ]);
 
   const generateAplus = useMutation({
     mutationFn: async ({
@@ -1306,6 +1332,41 @@ export default function AuditWorkflow() {
       setPublishLoading(false);
     }
   }, [currentAuditId, generatedContent, amazonStatus, exportMarketplace, toast]);
+
+  const handlePublishShopify = useCallback(async () => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete Step 1 before publishing.", variant: "destructive" });
+      return;
+    }
+    if (!generatedContent) {
+      toast({ title: "Listing content required", description: "Generate listing content before publishing.", variant: "destructive" });
+      return;
+    }
+    if (!shopifyStatus?.publishReady) {
+      toast({
+        title: "Connect Shopify",
+        description: "Add your Shopify store URL, Client ID, and Client secret on the Marketplaces page.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPublishLoading(true);
+    try {
+      const result = await publishAuditToShopify({ auditId: currentAuditId, publishMode: "draft" });
+      toast({
+        title: "Published to Shopify",
+        description: result.listingUrl ?? result.message,
+      });
+    } catch (err) {
+      toast({
+        title: "Publish failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPublishLoading(false);
+    }
+  }, [currentAuditId, generatedContent, shopifyStatus, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -2358,7 +2419,7 @@ export default function AuditWorkflow() {
                 </p>
               )}
 
-              {exportPlatform === "amazon" && publishBlockers.length > 0 && (
+              {(exportPlatform === "amazon" || exportPlatform === "shopify") && publishBlockers.length > 0 && (
                 <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
                   <p className="font-semibold">Before you can publish:</p>
                   <ul className="list-disc list-inside text-xs space-y-0.5">
@@ -2397,10 +2458,10 @@ export default function AuditWorkflow() {
                     ? {
                         icon: "🛒",
                         title: "Publish to Shopify",
-                        desc: "Push directly to your Shopify store",
-                        action: "Coming soon",
+                        desc: "Push listing to your connected Shopify store as a draft",
+                        action: "Publish to Shopify",
                         format: null,
-                        comingSoon: true,
+                        comingSoon: !shopifyStatus?.publishReady,
                         kind: "publish" as const,
                       }
                     : {
@@ -2430,7 +2491,8 @@ export default function AuditWorkflow() {
                       disabled={
                         opt.comingSoon
                         || (opt.kind === "export" && (!currentAuditId || !generatedContent || exportLoading !== null))
-                        || (opt.kind === "publish" && (!currentAuditId || !generatedContent || publishLoading || !amazonStatus?.publishReady || !amazonStatus?.connected))
+                        || (opt.kind === "publish" && exportPlatform === "amazon" && (!currentAuditId || !generatedContent || publishLoading || !amazonStatus?.publishReady || !amazonStatus?.connected))
+                        || (opt.kind === "publish" && exportPlatform === "shopify" && (!currentAuditId || !generatedContent || publishLoading || !shopifyStatus?.publishReady))
                       }
                       onClick={() => {
                         if (opt.comingSoon) return;
@@ -2439,7 +2501,11 @@ export default function AuditWorkflow() {
                           return;
                         }
                         if (opt.kind === "publish") {
-                          void handlePublishAmazon();
+                          if (exportPlatform === "shopify") {
+                            void handlePublishShopify();
+                          } else {
+                            void handlePublishAmazon();
+                          }
                         }
                       }}
                     >
