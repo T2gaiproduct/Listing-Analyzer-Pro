@@ -160,7 +160,6 @@ async function productsScopeWhere(req: Request) {
   );
 }
 
-const SYNC_AUDITS_PER_IMPORT = 25;
 
 router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
@@ -280,27 +279,18 @@ router.post(
         workspaceId,
       });
 
-      let auditsCompleted = 0;
-      let auditsFailed = 0;
       if (result.pendingAuditIds.length > 0) {
         const creditCtx = buildTeamAwareCreditCtx(req);
-        const toRunNow = result.pendingAuditIds.slice(0, SYNC_AUDITS_PER_IMPORT);
-        const toRunLater = result.pendingAuditIds.slice(SYNC_AUDITS_PER_IMPORT);
-        const summary = await runListingAuditsInBackground(toRunNow, creditCtx);
-        auditsCompleted = summary.completed;
-        auditsFailed = summary.failed;
-        if (toRunLater.length > 0) {
-          void runListingAuditsInBackground(toRunLater, creditCtx).catch((err) => {
-            req.log?.error?.({ err, auditIds: toRunLater }, "Shopify import audit batch failed");
-          });
-        }
+        void runListingAuditsInBackground(result.pendingAuditIds, creditCtx).catch((err) => {
+          req.log?.error?.({ err, auditIds: result.pendingAuditIds }, "Shopify import audit batch failed");
+        });
       }
 
       res.status(201).json({
         ...result,
-        auditsCompleted,
-        auditsFailed,
-        auditsRemaining: Math.max(0, result.pendingAuditIds.length - auditsCompleted - auditsFailed),
+        auditsCompleted: 0,
+        auditsFailed: 0,
+        auditsRemaining: result.pendingAuditIds.length,
       });
     } catch (err) {
       req.log?.error?.({ err }, "Shopify product sync failed");
