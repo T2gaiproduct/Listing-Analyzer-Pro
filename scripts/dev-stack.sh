@@ -68,6 +68,19 @@ tunnel_url_from_log() {
   fi
 }
 
+tunnel_host_resolves() {
+  local host="$1"
+  [[ -n "$host" ]] || return 1
+
+  if dig @1.1.1.1 +short "$host" 2>/dev/null | rg -q '.'; then
+    return 0
+  fi
+
+  # Some dev VMs cannot resolve trycloudflare.com locally; fall back to Google DNS-over-HTTPS.
+  curl -sf "https://dns.google/resolve?name=${host}&type=A" \
+    | rg -q '"data":'
+}
+
 public_url_is_healthy() {
   local url="$1"
   [[ -n "$url" ]] || return 1
@@ -75,8 +88,18 @@ public_url_is_healthy() {
   local host="${url#https://}"
   host="${host%%/*}"
 
-  if ! dig @1.1.1.1 +short "$host" | rg -q '.'; then
+  if ! tunnel_host_resolves "$host"; then
     return 1
+  fi
+
+  local ip
+  ip=$(dig @1.1.1.1 +short "$host" 2>/dev/null | head -1)
+  if [[ -z "$ip" ]]; then
+    ip=$(curl -sf "https://dns.google/resolve?name=${host}&type=A" \
+      | python3 -c "import sys,json; print(json.load(sys.stdin).get('Answer',[{}])[0].get('data',''))" 2>/dev/null || true)
+  fi
+  if [[ -n "$ip" ]]; then
+    curl -sf --max-time 15 --resolve "${host}:443:${ip}" "$url/" >/dev/null && return 0
   fi
 
   curl -sf --max-time 15 "$url/" >/dev/null
@@ -220,6 +243,7 @@ tmux_cmd kill-session -t api-server-live 2>/dev/null || true
 tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export DATABASE_URL='$DATABASE_URL'
   export PORT=8080
+  export ENABLE_CLERK_PROXY=\"\${ENABLE_CLERK_PROXY:-true}\"
   export CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
   export CLERK_SECRET_KEY='$CLERK_SEC_FOR_STACK'
   export ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
