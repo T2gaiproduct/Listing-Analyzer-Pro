@@ -31,6 +31,7 @@ import {
   canSignSpApiRequests,
 } from "../lib/amazon-sp-settings.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
+import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
 import { runListingAuditsInBackground } from "../lib/listing-audit-runner.js";
 
 const router: IRouter = Router();
@@ -286,11 +287,31 @@ router.post(
         });
       }
 
+      let ordersImported = 0;
+      let ordersUpdated = 0;
+      try {
+        const orderSync = await syncShopifyOrders({
+          workspaceId,
+          storeUrl: connection.storeUrl,
+          clientId: credentials?.clientId,
+          clientSecret: credentials?.clientSecret,
+        });
+        ordersImported = orderSync.imported;
+        ordersUpdated = orderSync.updated;
+        if (orderSync.errors.length > 0) {
+          req.log?.warn?.({ errors: orderSync.errors }, "Shopify order sync completed with errors");
+        }
+      } catch (err) {
+        req.log?.error?.({ err }, "Shopify order sync failed");
+      }
+
       res.status(201).json({
         ...result,
         auditsCompleted: 0,
         auditsFailed: 0,
         auditsRemaining: result.pendingAuditIds.length,
+        ordersImported,
+        ordersUpdated,
       });
     } catch (err) {
       req.log?.error?.({ err }, "Shopify product sync failed");
