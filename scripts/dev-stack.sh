@@ -152,6 +152,7 @@ configure_clerk_proxy_for_tunnel() {
   fi
 
   echo "==> Configuring Clerk proxy for Cloudflare tunnel ($host)"
+  read -r primary_id satellite_id < <(python3 -c "
 import json, sys
 host = sys.argv[1]
 data = json.loads(sys.stdin.read()).get('data', [])
