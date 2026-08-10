@@ -306,7 +306,7 @@ export async function spApiRequest<T>(opts: {
   accessToken?: string;
 }): Promise<T> {
   if (!opts.settings.awsAccessKeyId.trim() || !opts.settings.awsSecretAccessKey.trim()) {
-    throw new Error("AWS access credentials are required for SP-API. Add them in Admin → Amazon Settings.");
+    throw new Error("AWS access credentials are required for SP-API. Add them on the Marketplaces page.");
   }
   const token = opts.accessToken
     ?? (await refreshAccessToken(opts.settings, opts.refreshToken)).access_token;
