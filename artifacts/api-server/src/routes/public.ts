@@ -31,7 +31,8 @@ import { acceptAdminInviteByToken } from "../lib/admin-invites.js";
 import { isAdminUser } from "../lib/admin-auth.js";
 import { clerkAccountExistsForEmail } from "../lib/clerk-user.js";
 import { sendSupportTicketCreatedEmails } from "../lib/support-ticket-email.js";
-import { planIncludesWorkspaces } from "@workspace/workspace-permissions";
+import { planIncludesWorkspacesFromPlan, type PlanEnabledFeatures } from "@workspace/workspace-permissions";
+import { listWorkspaceEntitledPlanNames } from "../lib/plan-workspaces.js";
 import { notifyAdminUsers } from "../lib/notify-admins.js";
 import { rateLimit } from "../lib/rate-limit";
 import { recordPendingGatewayPayment } from "../lib/gateway-payment";
@@ -295,6 +296,7 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   const subRows = await db
     .select({
       planName: plansTable.name,
+      enabledFeatures: plansTable.enabledFeatures,
       status: subscriptionsTable.status,
     })
     .from(subscriptionsTable)
@@ -320,11 +322,21 @@ router.get("/profile/summary", requireAuth, async (req, res): Promise<void> => {
   }
 
   const credits = await ensureSubscriptionCredits(userId);
+  const workspacesUpgradePlanNames = await listWorkspaceEntitledPlanNames();
+  const subscriptionEnabledFeatures = (sub?.enabledFeatures as PlanEnabledFeatures | null) ?? null;
   res.json({
     profile: profile ?? null,
     onboardingCompleted,
     subscription: sub
-      ? { ...sub, workspacesEnabled: planIncludesWorkspaces(sub.planName) }
+      ? {
+          ...sub,
+          enabledFeatures: subscriptionEnabledFeatures,
+          workspacesEnabled: planIncludesWorkspacesFromPlan({
+            planName: sub.planName,
+            enabledFeatures: subscriptionEnabledFeatures,
+          }),
+          workspacesUpgradePlanNames,
+        }
       : null,
     credits,
     accountRole,
@@ -616,6 +628,7 @@ router.get("/subscription", requireAuth, async (req, res): Promise<void> => {
     discountAmount: subscriptionsTable.discountAmount,
     stripeSubscriptionId: subscriptionsTable.stripeSubscriptionId,
     planName: plansTable.name,
+    enabledFeatures: plansTable.enabledFeatures,
     priceMonthly: plansTable.priceMonthly,
     priceYearly: plansTable.priceYearly,
     planAiCredits: plansTable.aiCredits,
@@ -630,9 +643,16 @@ router.get("/subscription", requireAuth, async (req, res): Promise<void> => {
     res.json(null);
     return;
   }
+  const workspacesUpgradePlanNames = await listWorkspaceEntitledPlanNames();
+  const planEnabledFeatures = (row.enabledFeatures as PlanEnabledFeatures | null) ?? null;
   res.json({
     ...row,
-    workspacesEnabled: planIncludesWorkspaces(row.planName),
+    enabledFeatures: planEnabledFeatures,
+    workspacesEnabled: planIncludesWorkspacesFromPlan({
+      planName: row.planName,
+      enabledFeatures: planEnabledFeatures,
+    }),
+    workspacesUpgradePlanNames,
   });
 });
 

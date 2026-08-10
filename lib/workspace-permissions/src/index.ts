@@ -235,3 +235,17 @@ export {
   WORKSPACES_UPGRADE_MESSAGE,
   WORKSPACES_UPGRADE_SHORT,
 } from "./plan-workspaces.js";
+export {
+  PLAN_CAPABILITY_CATALOG,
+  planHasCapability,
+  planIncludesWorkspacesFromPlan,
+  defaultEnabledFeaturesForPlanName,
+  formatWorkspacesIncludedPlansLabel,
+  workspacesUpgradeMessage,
+  workspacesUpgradeShort,
+  workspacesPlanGateBody,
+  WORKSPACES_UPGRADE_MESSAGE_GENERIC,
+  WORKSPACES_UPGRADE_SHORT_GENERIC,
+  type PlanCapabilityKey,
+  type PlanEnabledFeatures,
+} from "./plan-capabilities.js";

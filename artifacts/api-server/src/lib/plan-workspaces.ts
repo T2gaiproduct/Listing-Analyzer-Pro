@@ -1,14 +1,21 @@
 import { eq, desc } from "drizzle-orm";
 import { db, subscriptionsTable, plansTable } from "@workspace/db";
 import {
-  planIncludesWorkspaces,
-  WORKSPACES_UPGRADE_MESSAGE,
+  planIncludesWorkspacesFromPlan,
+  workspacesPlanGateBody,
+  type PlanEnabledFeatures,
 } from "@workspace/workspace-permissions";
 
-export async function resolveAccountOwnerPlanName(accountOwnerId: string): Promise<string | null> {
+export type AccountOwnerPlan = {
+  planName: string | null;
+  enabledFeatures: PlanEnabledFeatures | null;
+};
+
+export async function resolveAccountOwnerPlan(accountOwnerId: string): Promise<AccountOwnerPlan> {
   const subRows = await db
     .select({
       planName: plansTable.name,
+      enabledFeatures: plansTable.enabledFeatures,
       status: subscriptionsTable.status,
     })
     .from(subscriptionsTable)
@@ -19,21 +26,44 @@ export async function resolveAccountOwnerPlanName(accountOwnerId: string): Promi
   const subRow =
     subRows.find((s) => s.status === "active" || s.status === "trialing" || s.status === "trial")
     ?? subRows[0];
-  return subRow?.planName ?? null;
+
+  return {
+    planName: subRow?.planName ?? null,
+    enabledFeatures: (subRow?.enabledFeatures as PlanEnabledFeatures | null) ?? null,
+  };
 }
 
-export function isWorkspacesPlanEntitled(planName: string | null | undefined): boolean {
-  return planIncludesWorkspaces(planName);
+export async function resolveAccountOwnerPlanName(accountOwnerId: string): Promise<string | null> {
+  const plan = await resolveAccountOwnerPlan(accountOwnerId);
+  return plan.planName;
+}
+
+export function isWorkspacesPlanEntitled(plan: AccountOwnerPlan): boolean {
+  return planIncludesWorkspacesFromPlan(plan);
 }
 
 export async function accountWorkspacesEnabled(accountOwnerId: string): Promise<boolean> {
-  const planName = await resolveAccountOwnerPlanName(accountOwnerId);
-  return isWorkspacesPlanEntitled(planName);
+  const plan = await resolveAccountOwnerPlan(accountOwnerId);
+  return isWorkspacesPlanEntitled(plan);
 }
 
-export function workspacesPlanGateBody() {
-  return {
-    error: WORKSPACES_UPGRADE_MESSAGE,
-    code: "WORKSPACES_PLAN_REQUIRED",
-  };
+export async function listWorkspaceEntitledPlanNames(): Promise<string[]> {
+  const rows = await db
+    .select({ name: plansTable.name, enabledFeatures: plansTable.enabledFeatures })
+    .from(plansTable)
+    .where(eq(plansTable.isActive, true));
+
+  return rows
+    .filter((row) => planIncludesWorkspacesFromPlan({
+      planName: row.name,
+      enabledFeatures: (row.enabledFeatures as PlanEnabledFeatures | null) ?? null,
+    }))
+    .map((row) => row.name);
 }
+
+export async function workspacesPlanGateBodyForAccount(accountOwnerId: string) {
+  const planNames = await listWorkspaceEntitledPlanNames();
+  return workspacesPlanGateBody(planNames);
+}
+
+export { workspacesPlanGateBody };

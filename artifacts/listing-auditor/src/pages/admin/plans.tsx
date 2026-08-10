@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Check, X, Layers, FlaskConical, Star, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Layers, FlaskConical, Star, ArrowUpDown, ToggleLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   resolvePlanAllocationCounts,
 } from "@/lib/plan-credits";
+import {
+  PLAN_CAPABILITY_CATALOG,
+  planHasCapability,
+  type PlanCapabilityKey,
+  type PlanEnabledFeatures,
+} from "@workspace/workspace-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -27,6 +33,7 @@ interface Plan {
   creditAllocations: Record<string, number> | null;
   features: string[];
   excludedFeatures: string[];
+  enabledFeatures: PlanEnabledFeatures | null;
   isActive: boolean;
   isTrial: boolean;
   trialDays: number;
@@ -36,7 +43,35 @@ interface Plan {
   ctaText: string | null;
 }
 
-const emptyPlan = {
+type PlanFormState = {
+  name: string;
+  description: string;
+  priceMonthly: number;
+  priceYearly: number;
+  auditCredits: number;
+  textContentCredits: number;
+  imageCredits: number;
+  ebcCredits: number;
+  competitorCredits: number;
+  teamMembers: number;
+  featuresText: string;
+  excludedFeaturesText: string;
+  enabledFeatures: PlanEnabledFeatures;
+  isTrial: boolean;
+  trialDays: number;
+  tag: string;
+  sortOrder: number;
+  isHighlighted: boolean;
+  ctaText: string;
+};
+
+function emptyEnabledFeatures(): PlanEnabledFeatures {
+  return Object.fromEntries(
+    PLAN_CAPABILITY_CATALOG.map((cap) => [cap.key, false]),
+  ) as PlanEnabledFeatures;
+}
+
+const emptyPlan: PlanFormState = {
   name: "",
   description: "",
   priceMonthly: 0,
@@ -49,6 +84,7 @@ const emptyPlan = {
   teamMembers: 1,
   featuresText: "",
   excludedFeaturesText: "",
+  enabledFeatures: emptyEnabledFeatures(),
   isTrial: false,
   trialDays: 14,
   tag: "",
@@ -65,14 +101,21 @@ function PlanForm({
   onCancel,
   isPending,
 }: {
-  initial: typeof emptyPlan;
-  onSave: (v: typeof emptyPlan) => void;
+  initial: PlanFormState;
+  onSave: (v: PlanFormState) => void;
   onCancel: () => void;
   isPending: boolean;
 }) {
   const [form, setForm] = useState(initial);
-  const f = (key: keyof typeof emptyPlan) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const f = (key: keyof PlanFormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [key]: e.target.type === "number" ? Number(e.target.value) : e.target.value }));
+
+  const setCapability = (key: PlanCapabilityKey, enabled: boolean) => {
+    setForm((p) => ({
+      ...p,
+      enabledFeatures: { ...p.enabledFeatures, [key]: enabled },
+    }));
+  };
 
   return (
     <div className="grid grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-200">
@@ -122,6 +165,34 @@ function PlanForm({
       <div>
         <Label className="text-xs">Team Members</Label>
         <Input className="mt-1 h-8 text-sm" type="number" value={form.teamMembers} onChange={f("teamMembers")} />
+      </div>
+
+      {/* Functional capabilities */}
+      <div className="col-span-2">
+        <Label className="text-xs flex items-center gap-1.5">
+          <ToggleLeft className="w-3 h-3 text-orange-500" />
+          Plan capabilities (enforced in app)
+        </Label>
+        <p className="text-xs text-slate-400 mt-1 mb-2">
+          Toggle functional access per plan. Marketing bullets below are display-only on the pricing page.
+        </p>
+        <div className="space-y-2">
+          {PLAN_CAPABILITY_CATALOG.map((cap) => (
+            <div
+              key={cap.key}
+              className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-800">{cap.label}</p>
+                <p className="text-xs text-slate-500">{cap.description}</p>
+              </div>
+              <Switch
+                checked={Boolean(form.enabledFeatures[cap.key])}
+                onCheckedChange={(v) => setCapability(cap.key, v)}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Features */}
@@ -211,6 +282,17 @@ function PlanForm({
   );
 }
 
+function mergeEnabledFeatures(plan: Plan | null | undefined): PlanEnabledFeatures {
+  const base = emptyEnabledFeatures();
+  if (!plan?.enabledFeatures) return base;
+  for (const cap of PLAN_CAPABILITY_CATALOG) {
+    if (cap.key in plan.enabledFeatures) {
+      base[cap.key] = Boolean(plan.enabledFeatures[cap.key]);
+    }
+  }
+  return base;
+}
+
 export default function AdminPlans() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -250,7 +332,7 @@ export default function AdminPlans() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-plans"] }),
   });
 
-  function buildPayload(form: typeof emptyPlan) {
+  function buildPayload(form: PlanFormState) {
     return {
       name: form.name,
       description: form.description || null,
@@ -267,6 +349,7 @@ export default function AdminPlans() {
       teamMembers: Number(form.teamMembers),
       features: form.featuresText ? form.featuresText.split(",").map((s) => s.trim()).filter(Boolean) : [],
       excludedFeatures: form.excludedFeaturesText ? form.excludedFeaturesText.split(",").map((s) => s.trim()).filter(Boolean) : [],
+      enabledFeatures: form.enabledFeatures,
       isTrial: form.isTrial,
       trialDays: form.isTrial ? Number(form.trialDays) : 0,
       tag: form.tag || null,
@@ -276,7 +359,7 @@ export default function AdminPlans() {
     };
   }
 
-  function planToFormInitial(plan: Plan) {
+  function planToFormInitial(plan: Plan): PlanFormState {
     const counts = resolvePlanAllocationCounts(plan, creditRules);
     return {
       name: plan.name,
@@ -291,6 +374,7 @@ export default function AdminPlans() {
       teamMembers: counts.teamMembers,
       featuresText: (plan.features ?? []).join(", "),
       excludedFeaturesText: (plan.excludedFeatures ?? []).join(", "),
+      enabledFeatures: mergeEnabledFeatures(plan),
       isTrial: plan.isTrial,
       trialDays: plan.trialDays || 14,
       tag: plan.tag ?? "",
@@ -307,7 +391,7 @@ export default function AdminPlans() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Plans & Packages</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage subscription tiers, credit allocations, and trial offers</p>
+          <p className="text-slate-500 text-sm mt-1">Manage subscription tiers, credit allocations, capabilities, and trial offers</p>
         </div>
         <Button className="bg-orange-500 hover:bg-orange-600" onClick={() => setCreating(true)} disabled={creating}>
           <Plus className="w-4 h-4 mr-2" /> New Plan
@@ -404,6 +488,22 @@ export default function AdminPlans() {
                       </div>
                     ));
                   })()}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PLAN_CAPABILITY_CATALOG.map((cap) => {
+                    const active = planHasCapability(plan.enabledFeatures, plan.name, cap.key);
+                    return (
+                      <Badge
+                        key={cap.key}
+                        variant="secondary"
+                        className={active
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-400 line-through"}
+                      >
+                        {cap.label}
+                      </Badge>
+                    );
+                  })}
                 </div>
                 {plan.features.length > 0 && (
                   <ul className="space-y-1">

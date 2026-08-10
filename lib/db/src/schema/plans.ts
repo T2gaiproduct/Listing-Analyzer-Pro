@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar } from "drizzle-orm/pg-core";
+import type { PlanEnabledFeatures } from "@workspace/workspace-permissions";
 
 export const plansTable = pgTable("plans", {
   id: serial("id").primaryKey(),
@@ -13,6 +14,8 @@ export const plansTable = pgTable("plans", {
   creditAllocations: jsonb("credit_allocations").$type<Record<string, number>>().notNull().default({}),
   features: jsonb("features").$type<string[]>().notNull().default([]),
   excludedFeatures: jsonb("excluded_features").$type<string[]>().notNull().default([]),
+  /** Admin-controlled functional capabilities (workspaces, api_access, …). Null = use legacy plan-name rules. */
+  enabledFeatures: jsonb("enabled_features").$type<PlanEnabledFeatures | null>(),
   isActive: boolean("is_active").notNull().default(true),
   isTrial: boolean("is_trial").notNull().default(false),
   trialDays: integer("trial_days").notNull().default(0),

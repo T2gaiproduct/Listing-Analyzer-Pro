@@ -23,7 +23,7 @@ import {
 } from "@workspace/workspace-permissions";
 import {
   accountWorkspacesEnabled,
-  workspacesPlanGateBody,
+  workspacesPlanGateBodyForAccount,
 } from "../lib/plan-workspaces.js";
 import {
   listAccessibleWorkspaces,
@@ -342,7 +342,7 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
   }
 
   if (!await accountWorkspacesEnabled(accountOwnerId)) {
-    res.status(403).json(workspacesPlanGateBody());
+    res.status(403).json(await workspacesPlanGateBodyForAccount(accountOwnerId));
     return;
   }
 
@@ -396,7 +396,7 @@ router.patch("/workspaces/:id/credits", requireAuth, requireWorkspaceAccess, asy
   }
 
   if (!await accountWorkspacesEnabled(ctx.accountOwnerId)) {
-    res.status(403).json(workspacesPlanGateBody());
+    res.status(403).json(await workspacesPlanGateBodyForAccount(ctx.accountOwnerId));
     return;
   }
 

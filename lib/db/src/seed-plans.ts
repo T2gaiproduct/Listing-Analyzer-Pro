@@ -1,6 +1,7 @@
 import { db, pool } from "./index.js";
 import { plansTable } from "./schema/index.js";
 import { eq } from "drizzle-orm";
+import { defaultEnabledFeaturesForPlanName } from "@workspace/workspace-permissions";
 
 const SEED_PLANS = [
   {
@@ -123,7 +124,10 @@ async function seed() {
     if (existing.length > 0) {
       console.log(`  ⏭  Skipping "${plan.name}" — already exists (id ${existing[0]!.id})`);
     } else {
-      const [inserted] = await db.insert(plansTable).values(plan).returning({ id: plansTable.id });
+      const [inserted] = await db.insert(plansTable).values({
+        ...plan,
+        enabledFeatures: defaultEnabledFeaturesForPlanName(plan.name),
+      }).returning({ id: plansTable.id });
       console.log(`  ✓  Inserted "${plan.name}" (id ${inserted!.id})`);
     }
   }

@@ -31,6 +31,7 @@ import {
   type AdminRequest,
 } from "../lib/admin-auth";
 import { ADMIN_PERMISSIONS } from "@workspace/admin-permissions";
+import { PLAN_CAPABILITY_CATALOG } from "@workspace/workspace-permissions";
 import { getClerkUserEmailAndName, sendAdminRoleAssignedEmail, sendAdminRoleInviteEmail } from "../lib/admin-role-email.js";
 import { reconcileUserPendingPayPalPayments, testPayPalCredentials } from "../lib/paypal-capture";
 import { enrichPaymentCouponAsync } from "../lib/gateway-payment";
@@ -645,8 +646,12 @@ router.get("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
   res.json(plans);
 });
 
+router.get("/admin/plan-capabilities", requireAdmin, async (_req, res): Promise<void> => {
+  res.json({ capabilities: PLAN_CAPABILITY_CATALOG });
+});
+
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
-  const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
+  const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, enabledFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
   const allocations = creditAllocations ?? {};
   const pools = await computePlanPoolsFromAllocations(allocations);
   const [plan] = await db
@@ -660,6 +665,7 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
       creditAllocations: allocations,
       features: features ?? [],
       excludedFeatures: excludedFeatures ?? [],
+      enabledFeatures: enabledFeatures ?? null,
       isTrial: isTrial ?? false,
       trialDays: trialDays ?? 0,
       tag: tag ?? null,
@@ -674,8 +680,11 @@ router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
 router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
+  const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, enabledFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
   const setObj: Record<string, unknown> = { name, description, priceMonthly, priceYearly, teamMembers, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() };
+  if (enabledFeatures !== undefined) {
+    setObj.enabledFeatures = enabledFeatures;
+  }
   if (creditAllocations !== undefined) {
     setObj.creditAllocations = creditAllocations;
     const pools = await computePlanPoolsFromAllocations(creditAllocations);
