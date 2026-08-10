@@ -277,6 +277,7 @@ interface AuditLike {
     title?: string;
     bulletPoints?: string[];
     keywords?: string[];
+    htmlDescription?: string;
   };
   bulletPoints?: string[];
   targetKeywords?: string[];

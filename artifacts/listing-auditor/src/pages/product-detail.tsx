@@ -139,6 +139,79 @@ function formatListingPrice(price: number | null | undefined, currency: string |
   return price.toFixed(2);
 }
 
+function listingDraftStorageKey(productId: number): string {
+  return `listing-editor-draft:${productId}`;
+}
+
+function readListingDraft(productId: number): ProductEditForm | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(listingDraftStorageKey(productId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ProductEditForm;
+    if (typeof parsed.listingTitle !== "string" || typeof parsed.sku !== "string") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeListingDraft(productId: number, form: ProductEditForm): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(listingDraftStorageKey(productId), JSON.stringify(form));
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+function clearListingDraft(productId: number): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.removeItem(listingDraftStorageKey(productId));
+}
+
+function buildListingEditForm(
+  product: ProductDetailView,
+  audit?: {
+    title?: string | null;
+    bulletPoints?: string[];
+    targetKeywords?: string[];
+    brandName?: string | null;
+    category?: string | null;
+    generatedContent?: GeneratedContent | null;
+  } | null,
+): ProductEditForm {
+  const bullets = (product.bulletPoints?.length ? product.bulletPoints : audit?.bulletPoints)
+    ?? audit?.generatedContent?.bulletPoints
+    ?? [];
+  const tags = (product.targetKeywords?.length ? product.targetKeywords : audit?.targetKeywords)
+    ?? audit?.generatedContent?.keywords
+    ?? [];
+  const title = product.listingTitle?.trim()
+    || product.title?.trim()
+    || audit?.title?.trim()
+    || audit?.generatedContent?.title?.trim()
+    || product.name;
+  const description = product.descriptionHtml?.trim()
+    || audit?.generatedContent?.htmlDescription?.trim()
+    || bulletsToTextarea(bullets);
+
+  return {
+    productName: product.name,
+    sku: product.sku,
+    brandName: product.brandName ?? audit?.brandName ?? "",
+    category: product.category ?? audit?.category ?? "",
+    assignedManager: product.manager?.name ?? "",
+    priority: product.priorityLevel ?? "medium",
+    notes: product.notes ?? "",
+    listingTitle: title,
+    bulletPointsText: bulletsToTextarea(bullets),
+    tagsText: tagsToTextarea(tags),
+    descriptionHtml: description,
+    price: formatListingPrice(product.listingPrice, product.listingCurrency),
+  };
+}
+
 function EditDetailField({
   label,
   children,
@@ -590,12 +663,45 @@ export default function ProductDetailPage({ id }: { id: number }) {
       liveMarketplaces?: string[];
       listedMarketplaces?: string[];
       activeCount: number;
+      listings?: Array<{
+        marketplace: string;
+        price: number | null;
+        currency: string;
+        sku: string | null;
+      }>;
     }>(`${basePath}/api/products/${id}/marketplaces?source=${encodeURIComponent(resolvedSource)}`),
     enabled: queryEnabled && id > 0,
     staleTime: 15_000,
   });
 
   const liveMarketplaces = marketplaceData?.liveMarketplaces ?? [];
+
+  const displayProduct = useMemo((): ProductDetailView | null => {
+    if (!product) return null;
+    const shopifyListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Shopify");
+    if (!shopifyListing) return product;
+    return {
+      ...product,
+      listingPrice: product.listingPrice ?? shopifyListing.price ?? null,
+      listingCurrency: product.listingCurrency ?? shopifyListing.currency ?? null,
+      sku: product.sku || shopifyListing.sku || product.sku,
+    };
+  }, [product, marketplaceData]);
+
+  async function refreshProductData() {
+    const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] }),
+      queryClient.refetchQueries({ queryKey: getGetAuditQueryKey(auditId) }),
+      queryClient.refetchQueries({ queryKey: getGetAuditQueryKey(id) }),
+      queryClient.refetchQueries({ queryKey: ["product-marketplaces", id, resolvedSource] }),
+    ]);
+  }
+
+  useEffect(() => {
+    if (!isEditingListing || !editForm) return;
+    writeListingDraft(id, editForm);
+  }, [id, isEditingListing, editForm]);
 
   useEffect(() => {
     if (!product?.sourceType) return;
@@ -656,6 +762,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const saveProductMutation = useMutation({
     mutationFn: async (data: ProductEditForm) => {
+      const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
       const payload: Record<string, unknown> = {
         productName: data.productName.trim(),
         brandName: data.brandName.trim(),
@@ -673,13 +780,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
         payload.bulletPoints = parseBulletTextarea(data.bulletPointsText);
         payload.targetKeywords = parseTagsTextarea(data.tagsText);
         payload.descriptionHtml = data.descriptionHtml.trim();
-        if (data.price.trim()) {
-          payload.price = data.price.trim();
-        }
+        payload.price = data.price.trim() ? data.price.trim() : null;
       }
 
       try {
-        await fetchJson(`${basePath}/api/audits/${id}`, {
+        await fetchJson(`${basePath}/api/audits/${auditId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -696,9 +801,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
         throw error;
       }
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId] });
-      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(id) });
+    onSuccess: async () => {
+      clearListingDraft(id);
+      await refreshProductData();
       setIsEditingListing(false);
       setEditForm(null);
       toast({ title: "Saved", description: "Product details updated." });
@@ -792,22 +897,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
     : "—";
 
   function openListingEditor() {
-    if (!canEditProduct || !product) return;
+    const listingProduct = displayProduct ?? product;
+    if (!canEditProduct || !listingProduct) return;
     setActiveTab("overview");
-    setEditForm({
-      productName: product.name,
-      sku: product.sku,
-      brandName: product.brandName ?? "",
-      category: product.category ?? "",
-      assignedManager: product.manager?.name ?? "",
-      priority: product.priorityLevel ?? "medium",
-      notes: product.notes ?? "",
-      listingTitle: product.listingTitle ?? product.title ?? product.name,
-      bulletPointsText: bulletsToTextarea(product.bulletPoints),
-      tagsText: tagsToTextarea(product.targetKeywords),
-      descriptionHtml: product.descriptionHtml ?? bulletsToTextarea(product.bulletPoints),
-      price: formatListingPrice(product.listingPrice, product.listingCurrency),
-    });
+    const savedDraft = readListingDraft(id);
+    setEditForm(savedDraft ?? buildListingEditForm(listingProduct, effectiveAudit));
     setIsEditingListing(true);
   }
 
@@ -819,23 +913,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   function saveListingEditor() {
     if (!validateListingEditor() || !editForm) return;
     saveProductMutation.mutate(editForm);
-  }
-
-  async function saveAndPublishShopify(publishMode: "draft" | "live") {
-    if (!editForm || !product?.isShopifyImport) return;
-    if (!shopifyStatus?.publishReady) {
-      toast({
-        title: "Shopify not ready",
-        description: "Connect Shopify with API credentials on the Marketplaces page first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    saveProductMutation.mutate(editForm, {
-      onSuccess: () => {
-        publishShopifyMutation.mutate(publishMode);
-      },
-    });
   }
 
   function validateListingEditor(): boolean {
@@ -922,10 +999,20 @@ export default function ProductDetailPage({ id }: { id: number }) {
       return;
     }
 
+    if (isEditingListing && editForm) {
+      saveProductMutation.mutate(editForm, {
+        onSuccess: async () => {
+          publishShopifyMutation.mutate("live");
+        },
+      });
+      return;
+    }
+
     publishShopifyMutation.mutate("live");
   }
 
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+  const listingProduct = displayProduct ?? product;
   const canPublishToShopify = Boolean(product?.isShopifyImport && canEditProduct);
 
   function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
@@ -1009,7 +1096,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-base font-semibold text-slate-900 truncate">{product.name}</h1>
+                <h1 className="text-base font-semibold text-slate-900 truncate">
+                  {product.isShopifyImport
+                    ? (listingProduct?.listingTitle ?? listingProduct?.title ?? product.name)
+                    : product.name}
+                </h1>
                 <LiveBadge label={product.statusLabel} />
                 <PriorityBadge label={product.priorityLabel} level={product.priorityLevel} />
               </div>
@@ -1371,16 +1462,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
             ) : product.isShopifyImport ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <DetailField label="Title">
-                {product.listingTitle ?? product.title ?? product.name}
+                {listingProduct?.listingTitle ?? listingProduct?.title ?? product.name}
               </DetailField>
               <DetailField label="SKU">
-                <span className="font-mono text-[11px]">{product.sku}</span>
+                <span className="font-mono text-[11px]">{listingProduct?.sku ?? product.sku}</span>
               </DetailField>
               <DetailField label="Brand">{product.brandName || "—"}</DetailField>
               <DetailField label="Category">{product.category || "—"}</DetailField>
               <DetailField label="Price">
-                {product.listingPrice != null
-                  ? `${product.listingCurrency ?? ""} ${product.listingPrice.toFixed(2)}`.trim()
+                {listingProduct?.listingPrice != null
+                  ? `${listingProduct.listingCurrency ?? ""} ${listingProduct.listingPrice.toFixed(2)}`.trim()
                   : "—"}
               </DetailField>
               <DetailField label="Current Stage">
