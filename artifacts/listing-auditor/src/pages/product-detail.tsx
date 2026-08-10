@@ -150,6 +150,23 @@ function parsePriceInput(value: string | undefined): number | null {
   return Number.isFinite(num) && num >= 0 ? num : null;
 }
 
+function normalizeStringList(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function resolvePositivePrice(...candidates: Array<number | null | undefined>): number | null {
+  for (const candidate of candidates) {
+    if (candidate != null && Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 function listingDraftStorageKey(productId: number): string {
   return `listing-editor-draft:${productId}`;
 }
@@ -822,17 +839,44 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const liveMarketplaces = marketplaceData?.liveMarketplaces ?? [];
 
-  const displayProduct = useMemo((): ProductDetailView | null => {
+  const listingProduct = useMemo((): ProductDetailView | null => {
     if (!product) return null;
+
     const shopifyListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Shopify");
-    if (!shopifyListing) return product;
+    const auditBullets = normalizeStringList(effectiveAudit?.bulletPoints);
+    const generatedBullets = normalizeStringList(effectiveAudit?.generatedContent?.bulletPoints);
+    const auditTags = normalizeStringList(effectiveAudit?.targetKeywords);
+    const generatedTags = normalizeStringList(effectiveAudit?.generatedContent?.keywords);
+    const productBullets = normalizeStringList(product.bulletPoints);
+    const productTags = normalizeStringList(product.targetKeywords);
+
+    const listingPrice = resolvePositivePrice(product.listingPrice, shopifyListing?.price);
+    const listingCurrency = product.listingCurrency ?? shopifyListing?.currency ?? null;
+
     return {
       ...product,
-      listingPrice: product.listingPrice ?? shopifyListing.price ?? null,
-      listingCurrency: product.listingCurrency ?? shopifyListing.currency ?? null,
-      sku: product.sku || shopifyListing.sku || product.sku,
+      sku: product.sku || shopifyListing?.sku || product.sku,
+      listingTitle: product.listingTitle?.trim()
+        || product.title?.trim()
+        || effectiveAudit?.title?.trim()
+        || product.name,
+      bulletPoints: productBullets.length > 0
+        ? productBullets
+        : auditBullets.length > 0
+          ? auditBullets
+          : generatedBullets,
+      targetKeywords: productTags.length > 0
+        ? productTags
+        : auditTags.length > 0
+          ? auditTags
+          : generatedTags,
+      descriptionHtml: product.descriptionHtml?.trim()
+        || effectiveAudit?.generatedContent?.htmlDescription?.trim()
+        || "",
+      listingPrice,
+      listingCurrency,
     };
-  }, [product, marketplaceData]);
+  }, [product, marketplaceData, effectiveAudit]);
 
   async function refreshProductData() {
     const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
@@ -1088,7 +1132,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
     : "—";
 
   function openListingEditor() {
-    const listingProduct = displayProduct ?? product;
     if (!canEditProduct || !listingProduct) return;
     setActiveTab("overview");
     const baseForm = buildListingEditForm(listingProduct, effectiveAudit);
@@ -1174,7 +1217,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (isEditingListing && editForm) return editForm;
     const draft = readListingDraft(id);
     if (!draft) return null;
-    const listingProduct = displayProduct ?? product;
     if (!listingProduct) return draft;
     return mergeListingEditForm(buildListingEditForm(listingProduct, effectiveAudit), draft);
   }
@@ -1224,7 +1266,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     }
 
     const pendingForm = resolvePendingListingForm();
-    const savedPrice = (displayProduct ?? product)?.listingPrice;
+    const savedPrice = listingProduct?.listingPrice;
     const pendingPrice = parsePriceInput(pendingForm?.price);
     const hasSavedPrice = savedPrice != null && savedPrice > 0;
     const hasPendingPrice = pendingPrice != null && pendingPrice > 0;
@@ -1237,9 +1279,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!hasSavedPrice) {
       toast({
         title: "Price required",
-        description: "Open Edit Listing, enter a price, then click Publish (we will save it automatically).",
+        description: "Enter a price in Edit Listing, then click Save & sync to Shopify.",
         variant: "destructive",
       });
+      openListingEditor();
       return;
     }
 
@@ -1247,7 +1290,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
-  const listingProduct = displayProduct ?? product;
   const canPublishToShopify = Boolean(product?.isShopifyImport && canEditProduct);
 
   function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
@@ -1707,7 +1749,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               <DetailField label="Brand">{product.brandName || "—"}</DetailField>
               <DetailField label="Category">{product.category || "—"}</DetailField>
               <DetailField label="Price">
-                {listingProduct?.listingPrice != null
+                {listingProduct?.listingPrice != null && listingProduct.listingPrice > 0
                   ? `${listingProduct.listingCurrency ?? ""} ${listingProduct.listingPrice.toFixed(2)}`.trim()
                   : "—"}
               </DetailField>
@@ -1716,16 +1758,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
               </DetailField>
               <div className="sm:col-span-2">
                 <DetailField label="Tags">
-                  {(product.targetKeywords ?? []).length > 0
-                    ? (product.targetKeywords ?? []).join(", ")
+                  {(listingProduct?.targetKeywords ?? []).length > 0
+                    ? (listingProduct?.targetKeywords ?? []).join(", ")
                     : "—"}
                 </DetailField>
               </div>
               <div className="sm:col-span-2">
                 <DetailField label="Bullet points">
-                  {(product.bulletPoints ?? []).length > 0 ? (
+                  {(listingProduct?.bulletPoints ?? []).length > 0 ? (
                     <ul className="list-disc pl-4 space-y-1 text-[11px]">
-                      {(product.bulletPoints ?? []).map((bullet) => (
+                      {(listingProduct?.bulletPoints ?? []).map((bullet) => (
                         <li key={bullet}>{bullet}</li>
                       ))}
                     </ul>
@@ -1734,12 +1776,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   )}
                 </DetailField>
               </div>
-              {product.descriptionHtml?.trim() && (
+              {listingProduct?.descriptionHtml?.trim() && (
                 <div className="sm:col-span-2">
                   <DetailField label="Description">
                     <div
                       className="text-[11px] text-slate-700 prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+                      dangerouslySetInnerHTML={{ __html: listingProduct.descriptionHtml }}
                     />
                   </DetailField>
                 </div>

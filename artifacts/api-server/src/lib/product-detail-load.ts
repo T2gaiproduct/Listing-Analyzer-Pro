@@ -35,6 +35,7 @@ import {
 } from "./product-source.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
 import { resolveDescriptionHtml } from "./resolve-listing-content.js";
+import { readGeneratedContent } from "./listing-export-shared.js";
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -352,6 +353,18 @@ async function loadAuditDetail(
       || null)
     : null;
   const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
+  const generated = readGeneratedContent(row);
+  const listingBullets = (row.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
+  const listingKeywords = (row.targetKeywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
+  const bulletPoints = listingBullets.length > 0
+    ? listingBullets
+    : (generated?.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
+  const targetKeywords = listingKeywords.length > 0
+    ? listingKeywords
+    : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
+  const listingPrice = shopifyListing?.price != null && shopifyListing.price > 0
+    ? shopifyListing.price
+    : null;
 
   return {
     id: row.id,
@@ -381,10 +394,10 @@ async function loadAuditDetail(
     isShopifyImport,
     referenceUrl: shopifyReferenceUrl,
     listingTitle: row.title?.trim() || name,
-    bulletPoints: (row.bulletPoints ?? []).filter((bullet) => typeof bullet === "string"),
-    targetKeywords: (row.targetKeywords ?? []).filter((keyword) => typeof keyword === "string"),
+    bulletPoints,
+    targetKeywords,
     descriptionHtml: resolveDescriptionHtml(row),
-    listingPrice: shopifyListing?.price ?? null,
+    listingPrice,
     listingCurrency: shopifyListing?.currency ?? null,
     statsAuditId: row.id,
     manager: {
