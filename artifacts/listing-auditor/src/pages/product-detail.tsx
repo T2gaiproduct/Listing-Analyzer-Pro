@@ -464,8 +464,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
       void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
       toast({
         title: publishMode === "live" ? "Published to Shopify" : "Saved to Shopify draft",
-        description: result.listingUrl
-          ? "Your listing changes are now on Shopify."
+        description: publishMode === "live"
+          ? result.listingUrl
+            ? "Your listing is live on your Shopify Online Store."
+            : result.message
           : result.message,
       });
     },

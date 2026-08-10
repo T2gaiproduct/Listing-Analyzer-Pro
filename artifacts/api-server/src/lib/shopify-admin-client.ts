@@ -237,6 +237,129 @@ export async function updateShopifyProduct(opts: {
   return data.product;
 }
 
+type ShopifyGraphqlResponse<T> = {
+  data?: T;
+  errors?: Array<{ message: string }>;
+};
+
+export async function shopifyAdminGraphqlRequest<T>(opts: {
+  shopHost: string;
+  accessToken: string;
+  query: string;
+  variables?: Record<string, unknown>;
+}): Promise<T> {
+  const response = await fetch(
+    `https://${opts.shopHost}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": opts.accessToken,
+      },
+      body: JSON.stringify({
+        query: opts.query,
+        variables: opts.variables,
+      }),
+    },
+  );
+
+  const body = await response.json().catch(() => ({})) as ShopifyGraphqlResponse<T>;
+  if (!response.ok) {
+    throw new Error(`Shopify GraphQL error (${response.status})`);
+  }
+  if (body.errors?.length) {
+    throw new Error(body.errors.map((error) => error.message).join(", "));
+  }
+  if (!body.data) {
+    throw new Error("Shopify GraphQL returned no data");
+  }
+  return body.data;
+}
+
+const onlineStorePublicationCache = new Map<string, string>();
+
+export async function getOnlineStorePublicationId(opts: {
+  shopHost: string;
+  accessToken: string;
+}): Promise<string | null> {
+  const cached = onlineStorePublicationCache.get(opts.shopHost);
+  if (cached) return cached;
+
+  const data = await shopifyAdminGraphqlRequest<{
+    publications: {
+      edges: Array<{ node: { id: string; name?: string | null } }>;
+    };
+  }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    query: `
+      query OnlineStorePublication {
+        publications(first: 20) {
+          edges {
+            node {
+              id
+              name
+            }
+          }
+        }
+      }
+    `,
+  });
+
+  const publications = data.publications?.edges ?? [];
+  const onlineStore = publications.find((edge) =>
+    edge.node.name?.toLowerCase().includes("online store"),
+  );
+  const publicationId = onlineStore?.node.id ?? publications[0]?.node.id ?? null;
+  if (publicationId) {
+    onlineStorePublicationCache.set(opts.shopHost, publicationId);
+  }
+  return publicationId;
+}
+
+export async function publishProductToOnlineStore(opts: {
+  shopHost: string;
+  accessToken: string;
+  productGid: string;
+  publicationId: string;
+}): Promise<void> {
+  const data = await shopifyAdminGraphqlRequest<{
+    publishablePublish: {
+      userErrors: Array<{ field?: string[] | null; message: string }>;
+    };
+  }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    query: `
+      mutation PublishProduct($id: ID!, $input: [PublicationInput!]!) {
+        publishablePublish(id: $id, input: $input) {
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    variables: {
+      id: opts.productGid,
+      input: [{ publicationId: opts.publicationId }],
+    },
+  });
+
+  const userErrors = data.publishablePublish?.userErrors ?? [];
+  if (userErrors.length > 0) {
+    throw new Error(userErrors.map((error) => error.message).join(", "));
+  }
+}
+
+export function shopifyProductAdminUrl(shopHost: string, productId: number): string {
+  return `https://${shopHost}/admin/products/${productId}`;
+}
+
+export function shopifyProductGid(productId: number): string {
+  return `gid://shopify/Product/${productId}`;
+}
+
 export type ShopifyRestOrderLineItem = {
   id: number;
   product_id: number | null;

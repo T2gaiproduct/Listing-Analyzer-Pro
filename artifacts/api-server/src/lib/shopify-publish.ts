@@ -7,8 +7,11 @@ import type { ShopifyStoreConnectionWithSecret } from "./marketplace-connections
 import {
   createShopifyProduct,
   findShopifyProductByHandle,
+  getOnlineStorePublicationId,
   getShopifyAccessToken,
   parseShopifyShopHost,
+  publishProductToOnlineStore,
+  shopifyProductGid,
   updateShopifyProduct,
   type ShopifyRestProduct,
 } from "./shopify-admin-client.js";
@@ -52,6 +55,7 @@ function buildRestProductPayload(opts: {
     tags: primary.Tags || undefined,
     handle: primary.Handle,
     status: opts.publishMode === "live" ? "active" : "draft",
+    published_at: opts.publishMode === "live" ? new Date().toISOString() : null,
     variants: [
       {
         sku: primary["Variant SKU"] || undefined,
@@ -166,6 +170,22 @@ export async function publishListingToShopify(opts: {
       product: payload,
     });
     created = true;
+  }
+
+  if (publishMode === "live") {
+    const productGid = product.admin_graphql_api_id ?? shopifyProductGid(product.id);
+    const publicationId = await getOnlineStorePublicationId({ shopHost, accessToken });
+    if (!publicationId) {
+      throw new Error(
+        "Could not find the Shopify Online Store publication. Check your store sales channels.",
+      );
+    }
+    await publishProductToOnlineStore({
+      shopHost,
+      accessToken,
+      productGid,
+      publicationId,
+    });
   }
 
   const listingUrl = shopifyProductUrl(shopHost, product.handle || handle);
