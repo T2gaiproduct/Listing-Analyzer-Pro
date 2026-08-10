@@ -26,7 +26,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ScoreRing } from "@/components/score-ring";
 import { cn } from "@/lib/utils";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
@@ -287,70 +286,6 @@ function OptimizedContentPanel({
           No optimized content yet. Click Optimize Content to generate listing copy (1 AI credit).
         </p>
       )}
-    </div>
-  );
-}
-
-function AiSuggestionsCard({
-  auditScore,
-  suggestions,
-}: {
-  auditScore: number | null;
-  suggestions: string[];
-}) {
-  const items = suggestions.length > 0
-    ? suggestions
-    : ["Complete your listing workflow to unlock personalized AI suggestions"];
-
-  const starRating = auditScore != null && auditScore > 0
-    ? (auditScore / 20).toFixed(1)
-    : null;
-
-  return (
-    <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-4 shadow-sm space-y-3">
-      <div className="flex items-center gap-1.5">
-        <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-        <h2 className="text-xs font-semibold text-orange-900">AI Suggestions</h2>
-      </div>
-
-      {auditScore != null && auditScore > 0 ? (
-        <div className="flex items-center gap-3 rounded-lg border border-orange-200/80 bg-white/70 px-3 py-2.5">
-          <ScoreRing score={auditScore} size="sm" showLabel={false} />
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-orange-800/80">
-              Audit Score
-            </p>
-            <div className="flex flex-wrap items-center gap-2 mt-0.5">
-              <span className="text-sm font-semibold text-slate-900 tabular-nums">{auditScore}/100</span>
-              {starRating && (
-                <span className="inline-flex items-center gap-0.5 text-[11px] text-slate-600">
-                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                  {starRating}/5
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-orange-200/80 bg-white/50 px-3 py-2">
-          <p className="text-[11px] text-slate-600">
-            No audit score yet. Click <span className="font-medium text-slate-800">Run Audit</span> in Product Details to score this listing (1 audit credit).
-          </p>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-orange-800/80">
-          Suggestions
-        </p>
-        <ul className="space-y-1.5 pl-4 list-disc marker:text-orange-400">
-          {items.map((suggestion) => (
-            <li key={suggestion} className="text-[11px] text-slate-800 leading-relaxed">
-              {suggestion}
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }
@@ -781,11 +716,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
   const canRunAudit = canEditProduct && optimizeAuditId != null;
-  const resolvedAuditScore = product.stats.listingScore > 0
-    ? product.stats.listingScore
-    : (effectiveAudit?.result && (effectiveAudit.overallScore ?? 0) > 0
-      ? effectiveAudit.overallScore!
-      : null);
 
   function handleOptimizeContent() {
     if (!optimizeAuditId) {
@@ -933,8 +863,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
       {/* Tab panels */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
               {!isEditingListing ? (
@@ -1368,6 +1297,64 @@ export default function ProductDetailPage({ id }: { id: number }) {
               </div>
             </div>
 
+            <div className="border-t border-slate-100 pt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h2 className="text-xs font-semibold text-slate-900">Notes</h2>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {isEditingListing && editForm ? editForm.notes : product.notes}
+                </p>
+              </div>
+              <div className="space-y-3">
+                <h2 className="text-xs font-semibold text-slate-900">Quick Stats</h2>
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">Total Orders</span>
+                    <span className="font-semibold text-slate-900 tabular-nums">{product.stats.totalOrders}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">Revenue</span>
+                    <span className="font-semibold text-emerald-600 tabular-nums">
+                      {product.stats.revenue != null
+                        ? product.stats.revenueCurrency === "INR"
+                          ? `₹${product.stats.revenue.toLocaleString("en-IN")}`
+                          : `$${product.stats.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] gap-3">
+                    <span className="text-slate-500 shrink-0">Marketplaces</span>
+                    {liveMarketplaces.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {liveMarketplaces.map((marketplace) => (
+                          <span
+                            key={marketplace}
+                            className="inline-flex items-center px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-[10px] font-medium text-emerald-700"
+                          >
+                            {marketplace}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="font-semibold text-slate-900">
+                        {product.stats.marketplacesActive}{" "}
+                        <span className="text-slate-400 font-medium">active</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">Listing Score</span>
+                    <span className="font-semibold text-slate-900 inline-flex items-center gap-1 tabular-nums">
+                      <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                      {listingRating}
+                      {product.stats.listingScore > 0 && (
+                        <span className="text-slate-400 font-normal">/ 5</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {isEditingListing && editForm && (
               <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
                 <Button
@@ -1402,69 +1389,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 </Button>
               </div>
             )}
-          </div>
-
-          <div className="space-y-4">
-            <AiSuggestionsCard
-              auditScore={resolvedAuditScore}
-              suggestions={product.aiSuggestions ?? []}
-            />
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                {isEditingListing && editForm ? editForm.notes : product.notes}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-              <h2 className="text-xs font-semibold text-slate-900">Quick Stats</h2>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Total Orders</span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{product.stats.totalOrders}</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Revenue</span>
-                  <span className="font-semibold text-emerald-600 tabular-nums">
-                    {product.stats.revenue != null
-                      ? product.stats.revenueCurrency === "INR"
-                        ? `₹${product.stats.revenue.toLocaleString("en-IN")}`
-                        : `$${product.stats.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                      : "—"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[11px] gap-3">
-                  <span className="text-slate-500 shrink-0">Marketplaces</span>
-                  {liveMarketplaces.length > 0 ? (
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {liveMarketplaces.map((marketplace) => (
-                        <span
-                          key={marketplace}
-                          className="inline-flex items-center px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-[10px] font-medium text-emerald-700"
-                        >
-                          {marketplace}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="font-semibold text-slate-900">
-                      {product.stats.marketplacesActive}{" "}
-                      <span className="text-slate-400 font-medium">active</span>
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Listing Score</span>
-                  <span className="font-semibold text-slate-900 inline-flex items-center gap-1 tabular-nums">
-                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                    {listingRating}
-                    {product.stats.listingScore > 0 && (
-                      <span className="text-slate-400 font-normal">/ 5</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
