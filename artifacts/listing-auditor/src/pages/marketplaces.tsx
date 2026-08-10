@@ -43,7 +43,7 @@ function buildAmazonRedirectUri(): string {
 }
 
 const CONNECT_CARDS: Array<{
-  id: ConnectTarget;
+  id: DialogTarget;
   marketplace: string;
   description: string;
   placeholder: string;
@@ -455,7 +455,7 @@ export default function MarketplacesPage() {
   }
 
   function submitStoreConnection() {
-    if (!dialogTarget) return;
+    if (!dialogTarget || dialogTarget === "amazon") return;
     const url = storeUrl.trim();
     if (!url) {
       toast({

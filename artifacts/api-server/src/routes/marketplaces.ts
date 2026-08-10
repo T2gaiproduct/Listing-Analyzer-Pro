@@ -17,8 +17,8 @@ import {
   disconnectStoreConnection,
   getShopifyConnection,
   getShopifyConnectionPublic,
-  getStoreConnection,
   getWooCommerceConnection,
+  getWooCommerceConnectionPublic,
   isShopifyPublishReady,
   isWooCommercePublishReady,
   saveShopifyConnection,
@@ -162,7 +162,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
   const [amazon, shopify, woocommerce] = await Promise.all([
     loadAmazonConnectionStatus(userId, workspaceId),
     getShopifyConnectionPublic(workspaceId),
-    getStoreConnection(workspaceId, "woocommerce"),
+    getWooCommerceConnectionPublic(workspaceId),
   ]);
 
   const shopifyWithSecret = await getShopifyConnection(workspaceId);

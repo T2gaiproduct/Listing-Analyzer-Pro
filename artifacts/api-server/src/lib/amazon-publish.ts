@@ -8,7 +8,8 @@ import {
   truncate,
 } from "./listing-export-shared.js";
 import { resolveAmazonMarketplace } from "./amazon-marketplaces.js";
-import { publishListingToAmazon, type AmazonSpSettings } from "./amazon-sp-api.js";
+import { publishListingToAmazon } from "./amazon-sp-api.js";
+import type { AmazonSpSettings } from "./amazon-sp-settings.js";
 import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
