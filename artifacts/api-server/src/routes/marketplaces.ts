@@ -10,8 +10,7 @@ import {
   viewOwnIdFilter,
   getWorkspaceCtx,
   requireWorkspaceActionAny,
-  buildTeamAwareCreditCtx,
-} from "../lib/workspace-route-helpers";
+} from "../lib/workspace-route-helpers.js";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { getWorkspaceMarketplacesOverview } from "../lib/workspace-marketplaces.js";
 import {
@@ -32,7 +31,6 @@ import {
 } from "../lib/amazon-sp-settings.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
-import { runListingAuditsInBackground } from "../lib/listing-audit-runner.js";
 
 const router: IRouter = Router();
 
@@ -280,13 +278,6 @@ router.post(
         workspaceId,
       });
 
-      if (result.pendingAuditIds.length > 0) {
-        const creditCtx = buildTeamAwareCreditCtx(req);
-        void runListingAuditsInBackground(result.pendingAuditIds, creditCtx).catch((err) => {
-          req.log?.error?.({ err, auditIds: result.pendingAuditIds }, "Shopify import audit batch failed");
-        });
-      }
-
       const orderSyncInput = {
         workspaceId,
         storeUrl: connection.storeUrl,
@@ -301,7 +292,7 @@ router.post(
         ...result,
         auditsCompleted: 0,
         auditsFailed: 0,
-        auditsRemaining: result.pendingAuditIds.length,
+        auditsRemaining: 0,
         ordersSyncQueued: true,
       });
     } catch (err) {

@@ -219,9 +219,6 @@ export default function MarketplacesPage() {
       void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
       const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
       const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Shopify.` : "";
-      const auditNote = result.auditsQueued > 0
-        ? ` Auditing ${result.auditsQueued} listing${result.auditsQueued === 1 ? "" : "s"} in the background (1 audit credit each).`
-        : "";
       const ordersNote = (result.ordersImported ?? 0) > 0 || (result.ordersUpdated ?? 0) > 0
         ? ` Synced ${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0)} Shopify order${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0) === 1 ? "" : "s"}.`
         : result.ordersSyncQueued
@@ -229,7 +226,7 @@ export default function MarketplacesPage() {
           : "";
       toast({
         title: "Shopify products imported",
-        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}${auditNote}${ordersNote}`,
+        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}${ordersNote}`,
       });
       if (result.errors.length > 0) {
         toast({

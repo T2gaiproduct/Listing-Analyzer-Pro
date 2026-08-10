@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import {
   ArrowLeft,
   ArrowRight,
+  ClipboardCheck,
   ExternalLink,
   FolderOpen,
   ImageIcon,
@@ -293,15 +294,9 @@ function OptimizedContentPanel({
 function AiSuggestionsCard({
   auditScore,
   suggestions,
-  onRunAudit,
-  isRunningAudit,
-  runAuditDisabled,
 }: {
   auditScore: number | null;
   suggestions: string[];
-  onRunAudit?: () => void;
-  isRunningAudit?: boolean;
-  runAuditDisabled?: boolean;
 }) {
   const items = suggestions.length > 0
     ? suggestions
@@ -337,28 +332,10 @@ function AiSuggestionsCard({
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-orange-200/80 bg-white/50 px-3 py-2 space-y-2">
+        <div className="rounded-lg border border-dashed border-orange-200/80 bg-white/50 px-3 py-2">
           <p className="text-[11px] text-slate-600">
-            No audit score yet. Run an AI audit to unlock scored suggestions (1 audit credit).
+            No audit score yet. Click <span className="font-medium text-slate-800">Run Audit</span> in Product Details to score this listing (1 audit credit).
           </p>
-          {onRunAudit && (
-            <Button
-              type="button"
-              size="sm"
-              className="h-7 text-[11px] bg-orange-500 hover:bg-orange-600"
-              onClick={onRunAudit}
-              disabled={runAuditDisabled || isRunningAudit}
-            >
-              {isRunningAudit ? (
-                <>
-                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  Running audit…
-                </>
-              ) : (
-                "Run AI Audit"
-              )}
-            </Button>
-          )}
         </div>
       )}
 
@@ -961,7 +938,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
               {!isEditingListing ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={handleRunAudit}
+                    disabled={!canRunAudit || runAuditMutation.isPending}
+                  >
+                    {runAuditMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Running audit…
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardCheck className="w-3 h-3 mr-1 opacity-70" />
+                        Run Audit
+                      </>
+                    )}
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -1411,9 +1408,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <AiSuggestionsCard
               auditScore={resolvedAuditScore}
               suggestions={product.aiSuggestions ?? []}
-              onRunAudit={canRunAudit ? handleRunAudit : undefined}
-              isRunningAudit={runAuditMutation.isPending}
-              runAuditDisabled={!canRunAudit}
             />
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-xs font-semibold text-slate-900 mb-2">Notes</h2>
