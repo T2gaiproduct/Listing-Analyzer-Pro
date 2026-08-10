@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ExternalLink,
   FolderOpen,
+  ImageIcon,
   Link2,
   Loader2,
   Package,
@@ -787,18 +788,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
     saveProductMutation.mutate(editForm, {
       onSuccess: async () => {
-        try {
-          await fetchJson(`${basePath}/api/audits/${auditId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ currentStep: 3 }),
-          });
-        } catch {
-          // Still navigate even if step update fails — workflow resumes from saved audit.
-        }
-        navigate(`/audits/workflow?resume=${auditId}`);
+        await goToGraphicsStep(auditId);
       },
     });
+  }
+
+  async function goToGraphicsStep(auditId: number) {
+    try {
+      await fetchJson(`${basePath}/api/audits/${auditId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentStep: 3 }),
+      });
+    } catch {
+      // Still navigate even if step update fails — workflow resumes from saved audit.
+    }
+    navigate(`/audits/workflow?resume=${auditId}`);
+  }
+
+  function handleGenerateGraphics() {
+    const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+    void goToGraphicsStep(auditId);
   }
 
   function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
@@ -999,6 +1009,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   >
                     <Pencil className="w-3 h-3 mr-1 opacity-70" />
                     Edit Listing
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                    onClick={handleGenerateGraphics}
+                  >
+                    <ImageIcon className="w-3 h-3 mr-1 opacity-70" />
+                    Generate Graphic
                   </Button>
                 </div>
               ) : editForm ? (
