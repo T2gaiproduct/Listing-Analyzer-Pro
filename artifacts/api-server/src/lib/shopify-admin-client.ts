@@ -236,3 +236,70 @@ export async function updateShopifyProduct(opts: {
   });
   return data.product;
 }
+
+export type ShopifyRestOrderLineItem = {
+  id: number;
+  product_id: number | null;
+  variant_id: number | null;
+  sku: string | null;
+  title: string;
+  quantity: number;
+  price: string;
+};
+
+export type ShopifyRestOrder = {
+  id: number;
+  name: string;
+  order_number: number;
+  email?: string | null;
+  financial_status: string | null;
+  fulfillment_status: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+  currency: string;
+  customer?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+  } | null;
+  line_items: ShopifyRestOrderLineItem[];
+  fulfillments?: Array<{
+    tracking_number?: string | null;
+    tracking_numbers?: string[] | null;
+  }>;
+};
+
+export async function listShopifyOrders(opts: {
+  shopHost: string;
+  accessToken: string;
+  createdAtMin?: string;
+  maxOrders?: number;
+}): Promise<ShopifyRestOrder[]> {
+  const orders: ShopifyRestOrder[] = [];
+  const pageSize = 250;
+  const maxOrders = opts.maxOrders ?? 500;
+  let sinceId = 0;
+  const createdAtMin = opts.createdAtMin
+    ? `&created_at_min=${encodeURIComponent(opts.createdAtMin)}`
+    : "";
+
+  for (let page = 0; page < 40 && orders.length < maxOrders; page += 1) {
+    const path = sinceId > 0
+      ? `/orders.json?status=any&limit=${pageSize}&since_id=${sinceId}${createdAtMin}`
+      : `/orders.json?status=any&limit=${pageSize}${createdAtMin}`;
+    const data = await shopifyAdminRequest<{ orders: ShopifyRestOrder[] }>({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+      method: "GET",
+      path,
+    });
+
+    const batch = data.orders ?? [];
+    if (batch.length === 0) break;
+    orders.push(...batch);
+    sinceId = batch[batch.length - 1]!.id;
+    if (batch.length < pageSize) break;
+  }
+
+  return orders.slice(0, maxOrders);
+}

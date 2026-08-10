@@ -240,6 +240,11 @@ export function ProductOrdersTab({
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center text-[11px] text-slate-500">
                   No orders match your filters yet.
+                  {marketplace === "all" || marketplace === "Shopify" ? (
+                    <span className="block mt-1 text-[10px] text-slate-400">
+                      Shopify orders sync when you import products or open this tab.
+                    </span>
+                  ) : null}
                 </td>
               </tr>
             ) : (

@@ -33,6 +33,12 @@ import {
   resolveStatsAuditId,
 } from "../lib/product-detail-load.js";
 import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
+import {
+  getShopifyConnection,
+  getShopifyConnectionPublic,
+} from "../lib/marketplace-connections.js";
+import { maybeSyncShopifyOrdersForWorkspace } from "../lib/shopify-order-sync.js";
+import { isShopifyImportAsin } from "../lib/shopify-import-utils.js";
 
 const router: IRouter = Router();
 
@@ -91,6 +97,28 @@ function deriveSku(productName: string, id: number): string {
     .map((w) => w.slice(0, 3).toUpperCase());
   const prefix = parts.join("-") || "PRD";
   return `${prefix}-${String(id).padStart(4, "0")}`;
+}
+
+async function maybeRefreshShopifyOrders(req: Request, auditId: number): Promise<void> {
+  const workspaceId = getActiveWorkspaceId(req);
+  const [audit] = await db
+    .select({ asin: auditsTable.asin })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, auditId))
+    .limit(1);
+
+  if (!isShopifyImportAsin(audit?.asin)) return;
+
+  const connection = await getShopifyConnectionPublic(workspaceId);
+  if (!connection?.storeUrl) return;
+
+  const credentials = await getShopifyConnection(workspaceId);
+  await maybeSyncShopifyOrdersForWorkspace({
+    workspaceId,
+    storeUrl: connection.storeUrl,
+    clientId: credentials?.clientId,
+    clientSecret: credentials?.clientSecret,
+  });
 }
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
@@ -304,6 +332,8 @@ router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (
     return;
   }
 
+  await maybeRefreshShopifyOrders(req, statsAuditId);
+
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : undefined;
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
@@ -331,6 +361,8 @@ router.get("/products/:id/sales", requireAuth, resolveTeamAndWorkspace, async (r
     res.json(emptyProductSalesData());
     return;
   }
+
+  await maybeRefreshShopifyOrders(req, statsAuditId);
 
   const sales = await getProductSales(statsAuditId);
 

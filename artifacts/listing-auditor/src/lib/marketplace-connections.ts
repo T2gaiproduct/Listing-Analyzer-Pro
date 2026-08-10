@@ -52,6 +52,8 @@ export type ShopifySyncResult = {
   auditsCompleted?: number;
   auditsFailed?: number;
   auditsRemaining?: number;
+  ordersImported?: number;
+  ordersUpdated?: number;
   products: Array<{
     id: number;
     name: string;
