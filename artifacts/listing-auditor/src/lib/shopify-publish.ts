@@ -1,3 +1,5 @@
+import { fetchJson } from "@/lib/api-fetch";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export interface ShopifyConnectionStatus {
@@ -9,9 +11,7 @@ export interface ShopifyConnectionStatus {
 }
 
 export async function fetchShopifyStatus(): Promise<ShopifyConnectionStatus> {
-  const res = await fetch(`${basePath}/api/shopify/status`, { credentials: "include" });
-  if (!res.ok) throw new Error("Failed to load Shopify status");
-  return res.json() as Promise<ShopifyConnectionStatus>;
+  return fetchJson<ShopifyConnectionStatus>(`${basePath}/api/shopify/status`);
 }
 
 export async function publishAuditToShopify(opts: {
@@ -22,27 +22,25 @@ export async function publishAuditToShopify(opts: {
   message: string;
   listingUrl?: string;
   status?: "live" | "pending";
+  warning?: string;
 }> {
-  const res = await fetch(`${basePath}/api/audits/${opts.auditId}/publish/shopify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ publishMode: opts.publishMode ?? "draft" }),
-  });
-  const data = await res.json().catch(() => ({})) as {
+  const data = await fetchJson<{
     ok?: boolean;
     message?: string;
     error?: string;
     listingUrl?: string;
     status?: "live" | "pending";
-  };
-  if (!res.ok) {
-    throw new Error(data.error ?? "Publish failed");
-  }
+    warning?: string;
+  }>(`${basePath}/api/audits/${opts.auditId}/publish/shopify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ publishMode: opts.publishMode ?? "draft" }),
+  });
   return {
     ok: true,
     message: data.message ?? "Published to Shopify",
     listingUrl: data.listingUrl,
     status: data.status,
+    warning: data.warning,
   };
 }

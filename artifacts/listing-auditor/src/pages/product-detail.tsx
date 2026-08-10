@@ -462,6 +462,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
     onSuccess: (result, publishMode) => {
       void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
       void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
+      if (result.warning) {
+        toast({
+          title: "Published with a warning",
+          description: result.warning,
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: publishMode === "live" ? "Published to Shopify" : "Saved to Shopify draft",
         description: publishMode === "live"
@@ -472,9 +480,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
       });
     },
     onError: (error) => {
+      const description = error instanceof ApiFetchError && error.status === 401
+        ? "Your session expired or the server could not verify your login. Sign in again and retry."
+        : error instanceof Error
+          ? error.message
+          : "Could not publish to Shopify.";
       toast({
         title: "Publish failed",
-        description: error instanceof Error ? error.message : "Could not publish to Shopify.",
+        description,
         variant: "destructive",
       });
     },

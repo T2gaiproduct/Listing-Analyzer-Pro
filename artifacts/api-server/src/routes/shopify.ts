@@ -113,13 +113,19 @@ router.post(
         listingUrl: result.listingUrl,
         status: result.status,
         created: result.created,
-        message: publishMode === "live"
-          ? "Product published live on Shopify."
-          : "Product saved as draft on Shopify.",
+        warning: result.warning,
+        message: result.warning
+          ? "Product updated in Shopify."
+          : publishMode === "live"
+            ? "Product published live on Shopify."
+            : "Product saved as draft on Shopify.",
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Publish failed";
-      res.status(400).json({ error: message });
+      const friendly = /unauthorized|access denied|permission|scope|read_publications|write_publications/i.test(message)
+        ? "Shopify rejected the request. In Shopify Dev Dashboard, add read_products, write_products, read_publications, and write_publications API scopes, then reconnect on Marketplaces."
+        : message;
+      res.status(400).json({ error: friendly });
     }
   },
 );

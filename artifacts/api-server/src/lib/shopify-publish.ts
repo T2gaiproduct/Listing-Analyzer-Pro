@@ -24,7 +24,51 @@ export type ShopifyPublishResult = {
   listingUrl: string;
   status: "live" | "pending";
   created: boolean;
+  warning?: string;
 };
+
+function shopifyPublicationScopeMessage(): string {
+  return "Product was saved in Shopify, but your app needs read_publications and write_publications API scopes to publish to the Online Store. Add those scopes in Shopify Dev Dashboard → API credentials, then reconnect on Marketplaces.";
+}
+
+function isShopifyPublicationAuthError(message: string): boolean {
+  return /unauthorized|access denied|permission|scope|read_publications|write_publications/i.test(message);
+}
+
+async function tryPublishToOnlineStoreChannel(opts: {
+  shopHost: string;
+  accessToken: string;
+  productGid: string;
+}): Promise<{ published: boolean; warning?: string }> {
+  try {
+    const publicationId = await getOnlineStorePublicationId({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+    });
+    if (!publicationId) {
+      return {
+        published: false,
+        warning: "Product was saved in Shopify, but the Online Store publication could not be found.",
+      };
+    }
+    await publishProductToOnlineStore({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+      productGid: opts.productGid,
+      publicationId,
+    });
+    return { published: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (isShopifyPublicationAuthError(message)) {
+      return { published: false, warning: shopifyPublicationScopeMessage() };
+    }
+    return {
+      published: false,
+      warning: `Product was saved in Shopify, but Online Store publishing failed: ${message}`,
+    };
+  }
+}
 
 function shopifyProductUrl(shopHost: string, handle: string): string {
   return `https://${shopHost}/products/${handle}`;
@@ -183,24 +227,21 @@ export async function publishListingToShopify(opts: {
     created = true;
   }
 
+  let channelWarning: string | undefined;
   if (publishMode === "live") {
     const productGid = product.admin_graphql_api_id ?? shopifyProductGid(product.id);
-    const publicationId = await getOnlineStorePublicationId({ shopHost, accessToken });
-    if (!publicationId) {
-      throw new Error(
-        "Could not find the Shopify Online Store publication. Check your store sales channels.",
-      );
-    }
-    await publishProductToOnlineStore({
+    const channelResult = await tryPublishToOnlineStoreChannel({
       shopHost,
       accessToken,
       productGid,
-      publicationId,
     });
+    if (!channelResult.published) {
+      channelWarning = channelResult.warning;
+    }
   }
 
   const listingUrl = shopifyProductUrl(shopHost, product.handle || handle);
-  const listingStatus = publishMode === "live" ? "live" : "pending";
+  const listingStatus = publishMode === "live" && !channelWarning ? "live" : "pending";
   const sku = variantSku;
   const priceRaw = bundle.rows[0]?.["Variant Price"]?.trim();
   const priceCents = priceRaw && !Number.isNaN(Number(priceRaw))
@@ -245,5 +286,6 @@ export async function publishListingToShopify(opts: {
     listingUrl,
     status: listingStatus,
     created,
+    warning: channelWarning,
   };
 }

@@ -425,7 +425,7 @@ export default function MarketplacesPage() {
             </DialogTitle>
             <DialogDescription>
               {dialogTarget === "shopify"
-                ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). The app needs product and publication scopes (read/write products and publications) to publish live to your Online Store."
+                ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). Required API scopes: read_products, write_products, read_publications, write_publications."
                 : "Enter your store URL. We will use it for exports and marketplace sync in this workspace."}
             </DialogDescription>
           </DialogHeader>
