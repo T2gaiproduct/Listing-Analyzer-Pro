@@ -6,6 +6,7 @@ import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import type { ShopifyStoreConnectionWithSecret } from "./marketplace-connections.js";
 import {
   createShopifyProduct,
+  clearShopifyAccessTokenCache,
   findShopifyProductByHandle,
   getOnlineStorePublicationId,
   getShopifyAccessToken,
@@ -148,11 +149,20 @@ export async function publishListingToShopify(opts: {
 }): Promise<ShopifyPublishResult> {
   const publishMode = opts.publishMode ?? "draft";
   const shopHost = parseShopifyShopHost(opts.connection.storeUrl);
-  const accessToken = await getShopifyAccessToken({
+  const fetchAccessToken = async () => getShopifyAccessToken({
     shopHost,
     clientId: opts.connection.clientId,
     clientSecret: opts.connection.clientSecret,
   });
+  let accessToken: string;
+  try {
+    accessToken = await fetchAccessToken();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!/unauthorized|invalid/i.test(message)) throw err;
+    clearShopifyAccessTokenCache({ shopHost, clientId: opts.connection.clientId });
+    accessToken = await fetchAccessToken();
+  }
 
   const [profile] = await db
     .select({ sku: productProfilesTable.sku })

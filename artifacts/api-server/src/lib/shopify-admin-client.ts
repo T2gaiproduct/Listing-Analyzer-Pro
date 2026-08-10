@@ -1,9 +1,24 @@
 type TokenCacheEntry = {
   accessToken: string;
   expiresAtMs: number;
+  scope?: string;
 };
 
 const tokenCache = new Map<string, TokenCacheEntry>();
+const onlineStorePublicationCache = new Map<string, string>();
+
+export function clearShopifyAccessTokenCache(opts?: {
+  shopHost?: string;
+  clientId?: string;
+}): void {
+  if (opts?.shopHost && opts?.clientId) {
+    tokenCache.delete(`${opts.shopHost}:${opts.clientId}`);
+    onlineStorePublicationCache.delete(opts.shopHost);
+    return;
+  }
+  tokenCache.clear();
+  onlineStorePublicationCache.clear();
+}
 
 export function parseShopifyShopHost(storeUrl: string): string {
   const trimmed = storeUrl.trim();
@@ -40,6 +55,7 @@ export async function getShopifyAccessToken(opts: {
   const body = await response.json().catch(() => ({})) as {
     access_token?: string;
     expires_in?: number;
+    scope?: string;
     error?: string;
     error_description?: string;
   };
@@ -53,9 +69,23 @@ export async function getShopifyAccessToken(opts: {
   tokenCache.set(cacheKey, {
     accessToken: body.access_token,
     expiresAtMs: Date.now() + expiresIn * 1000,
+    scope: body.scope,
   });
 
   return body.access_token;
+}
+
+export async function getShopifyAccessTokenWithScope(opts: {
+  shopHost: string;
+  clientId: string;
+  clientSecret: string;
+}): Promise<{ accessToken: string; scope: string }> {
+  const accessToken = await getShopifyAccessToken(opts);
+  const cached = tokenCache.get(`${opts.shopHost}:${opts.clientId}`);
+  return {
+    accessToken,
+    scope: cached?.scope ?? "",
+  };
 }
 
 const SHOPIFY_API_VERSION = "2025-01";
@@ -280,8 +310,6 @@ export async function shopifyAdminGraphqlRequest<T>(opts: {
   }
   return body.data;
 }
-
-const onlineStorePublicationCache = new Map<string, string>();
 
 export async function getOnlineStorePublicationId(opts: {
   shopHost: string;

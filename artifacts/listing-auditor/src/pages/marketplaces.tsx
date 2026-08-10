@@ -193,14 +193,18 @@ export default function MarketplacesPage() {
       clientId: shopifyClientId,
       clientSecret: shopifyClientSecret,
     }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
       void queryClient.invalidateQueries({ queryKey: ["shopify-connection-status"] });
+      void queryClient.invalidateQueries({ queryKey: ["shopify-status"] });
       setDialogTarget(null);
       setStoreUrl("");
       setClientId("");
       setClientSecret("");
-      toast({ title: "Store connected", description: "Your marketplace connection is ready." });
+      const message = typeof result === "object" && result && "message" in result && typeof result.message === "string"
+        ? result.message
+        : "Your marketplace connection is ready.";
+      toast({ title: "Store connected", description: message });
     },
     onError: (error) => {
       toast({

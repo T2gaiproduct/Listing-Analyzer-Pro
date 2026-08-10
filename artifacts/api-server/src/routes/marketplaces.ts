@@ -31,6 +31,7 @@ import {
 } from "../lib/amazon-sp-settings.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
+import { verifyShopifyConnection } from "../lib/shopify-connection-verify.js";
 
 const router: IRouter = Router();
 
@@ -215,6 +216,20 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       res.status(400).json({ error: "Shopify Client ID and Client secret are required for direct publishing." });
       return;
     }
+
+    let verification;
+    try {
+      verification = await verifyShopifyConnection({ storeUrl, clientId, clientSecret });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not verify Shopify credentials";
+      res.status(400).json({ error: message });
+      return;
+    }
+    if (!verification.ok) {
+      res.status(400).json({ error: verification.message, scopes: verification.scopes });
+      return;
+    }
+
     const connection = await saveShopifyConnection(workspaceId, { storeUrl, clientId, clientSecret });
     res.status(201).json({
       connected: true,
@@ -222,6 +237,8 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       storeUrl: connection.storeUrl,
       clientId: connection.clientId,
       connectedAt: connection.connectedAt,
+      scopes: verification.scopes,
+      message: verification.message,
     });
     return;
   }

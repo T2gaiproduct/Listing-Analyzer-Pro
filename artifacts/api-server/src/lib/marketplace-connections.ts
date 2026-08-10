@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, settingsTable } from "@workspace/db";
+import { clearShopifyAccessTokenCache, parseShopifyShopHost } from "./shopify-admin-client.js";
 
 export type StoreMarketplace = "shopify" | "woocommerce";
 
@@ -191,6 +192,15 @@ export async function saveShopifyConnection(
       category: "marketplace_connections",
       isSecret: true,
     });
+  }
+
+  try {
+    clearShopifyAccessTokenCache({
+      shopHost: parseShopifyShopHost(connection.storeUrl),
+      clientId: connection.clientId,
+    });
+  } catch {
+    clearShopifyAccessTokenCache();
   }
 
   return {
