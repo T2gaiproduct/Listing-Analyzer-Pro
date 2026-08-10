@@ -224,7 +224,9 @@ export default function MarketplacesPage() {
         : "";
       const ordersNote = (result.ordersImported ?? 0) > 0 || (result.ordersUpdated ?? 0) > 0
         ? ` Synced ${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0)} Shopify order${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0) === 1 ? "" : "s"}.`
-        : "";
+        : result.ordersSyncQueued
+          ? " Syncing Shopify orders in the background."
+          : "";
       toast({
         title: "Shopify products imported",
         description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}${auditNote}${ordersNote}`,

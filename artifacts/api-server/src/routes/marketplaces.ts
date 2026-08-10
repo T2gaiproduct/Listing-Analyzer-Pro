@@ -287,31 +287,22 @@ router.post(
         });
       }
 
-      let ordersImported = 0;
-      let ordersUpdated = 0;
-      try {
-        const orderSync = await syncShopifyOrders({
-          workspaceId,
-          storeUrl: connection.storeUrl,
-          clientId: credentials?.clientId,
-          clientSecret: credentials?.clientSecret,
-        });
-        ordersImported = orderSync.imported;
-        ordersUpdated = orderSync.updated;
-        if (orderSync.errors.length > 0) {
-          req.log?.warn?.({ errors: orderSync.errors }, "Shopify order sync completed with errors");
-        }
-      } catch (err) {
+      const orderSyncInput = {
+        workspaceId,
+        storeUrl: connection.storeUrl,
+        clientId: credentials?.clientId,
+        clientSecret: credentials?.clientSecret,
+      };
+      void syncShopifyOrders(orderSyncInput).catch((err) => {
         req.log?.error?.({ err }, "Shopify order sync failed");
-      }
+      });
 
       res.status(201).json({
         ...result,
         auditsCompleted: 0,
         auditsFailed: 0,
         auditsRemaining: result.pendingAuditIds.length,
-        ordersImported,
-        ordersUpdated,
+        ordersSyncQueued: true,
       });
     } catch (err) {
       req.log?.error?.({ err }, "Shopify product sync failed");
