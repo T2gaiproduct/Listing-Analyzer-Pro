@@ -42,6 +42,7 @@ import { ProductSalesTab } from "@/components/product-sales-tab";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
+import { GraphicsWizard } from "@/components/graphics-wizard";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -292,16 +293,12 @@ function OptimizedContentPanel({
 function AiSuggestionsCard({
   auditScore,
   suggestions,
-  workflowUrl,
-  onNavigate,
   onRunAudit,
   isRunningAudit,
   runAuditDisabled,
 }: {
   auditScore: number | null;
   suggestions: string[];
-  workflowUrl: string;
-  onNavigate: (url: string) => void;
   onRunAudit?: () => void;
   isRunningAudit?: boolean;
   runAuditDisabled?: boolean;
@@ -377,19 +374,6 @@ function AiSuggestionsCard({
           ))}
         </ul>
       </div>
-
-      <div className="flex flex-wrap gap-2 pt-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-[11px] bg-orange-100/80 border-orange-200 text-orange-900 hover:bg-orange-100"
-          onClick={() => onNavigate(workflowUrl)}
-        >
-          Generate images
-          <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
-        </Button>
-      </div>
     </div>
   );
 }
@@ -444,6 +428,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
   const [showOptimizedContent, setShowOptimizedContent] = useState(false);
+  const [showGraphicsPanel, setShowGraphicsPanel] = useState(false);
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -807,9 +792,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   function handleGenerateGraphics() {
-    const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
-    void goToGraphicsStep(auditId);
+    setShowGraphicsPanel(true);
   }
+
+  const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
 
   function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
     setEditForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -1014,7 +1000,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                    className={cn(
+                      "h-7 text-[11px]",
+                      showGraphicsPanel && "bg-orange-50 text-orange-700 border-orange-200",
+                    )}
                     onClick={handleGenerateGraphics}
                   >
                     <ImageIcon className="w-3 h-3 mr-1 opacity-70" />
@@ -1324,6 +1313,25 @@ export default function ProductDetailPage({ id }: { id: number }) {
               />
             )}
 
+            {showGraphicsPanel && !isEditingListing && graphicsAuditId > 0 && (
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-orange-600" />
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+                    Product Graphics
+                  </p>
+                </div>
+                <GraphicsWizard
+                  embedded
+                  auditId={graphicsAuditId}
+                  productName={product.name}
+                  imageUrls={effectiveAudit?.imageUrls ?? null}
+                  category={product.category ?? effectiveAudit?.category ?? null}
+                  targetKeywords={effectiveAudit?.targetKeywords ?? null}
+                />
+              </div>
+            )}
+
             <div className="border-t border-slate-100 pt-4 space-y-3">
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-2">
@@ -1403,8 +1411,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <AiSuggestionsCard
               auditScore={resolvedAuditScore}
               suggestions={product.aiSuggestions ?? []}
-              workflowUrl={product.workflowUrl}
-              onNavigate={navigate}
               onRunAudit={canRunAudit ? handleRunAudit : undefined}
               isRunningAudit={runAuditMutation.isPending}
               runAuditDisabled={!canRunAudit}

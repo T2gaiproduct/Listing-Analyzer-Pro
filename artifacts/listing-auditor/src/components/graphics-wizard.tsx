@@ -82,6 +82,7 @@ interface GraphicsWizardProps {
   imageUrls?: string[] | null;
   category?: string | null;
   targetKeywords?: string[] | null;
+  embedded?: boolean;
 }
 
 function fetchProjectForAudit(auditId: number): Promise<WizardProject | null> {
@@ -124,7 +125,7 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
   );
 }
 
-export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords }: GraphicsWizardProps) {
+export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords, embedded = false }: GraphicsWizardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { canEditGraphics, isTeamMember, memberCredits } = useTeam();
@@ -156,7 +157,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const categoryRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>(() => ((imageUrls?.length ?? 0) > 0 ? 2 : 1));
   const [wizardCategory, setWizardCategory] = useState(category ?? "");
   const [categorySearch, setCategorySearch] = useState(category ?? "");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -595,8 +596,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   // If generating, show centered loader
   if (isGenerating) {
     return (
-      <div className="min-h-[40vh] flex items-center justify-center">
-        <div className="text-center space-y-6 max-w-md mx-auto">
+      <div className={embedded ? "py-8" : "min-h-[40vh] flex items-center justify-center"}>
+        <div className={`text-center space-y-6 max-w-md ${embedded ? "mx-auto" : "mx-auto"}`}>
           {/* Centered loader */}
           <div className="relative w-20 h-20 mx-auto">
             <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
