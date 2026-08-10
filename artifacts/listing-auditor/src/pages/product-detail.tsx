@@ -5,6 +5,7 @@ import { useUser } from "@clerk/react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
+  ArrowRight,
   ExternalLink,
   FolderOpen,
   Link2,
@@ -705,23 +706,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   function saveListingEditor() {
-    if (!editForm) return;
-    if (!editForm.productName.trim() || !editForm.sku.trim()) {
-      toast({
-        title: "Missing fields",
-        description: "Product name and SKU are required.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (product?.isShopifyImport && !editForm.listingTitle.trim()) {
-      toast({
-        title: "Missing fields",
-        description: "Shopify listing title is required.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!validateListingEditor() || !editForm) return;
     saveProductMutation.mutate(editForm);
   }
 
@@ -738,6 +723,47 @@ export default function ProductDetailPage({ id }: { id: number }) {
     saveProductMutation.mutate(editForm, {
       onSuccess: () => {
         publishShopifyMutation.mutate(publishMode);
+      },
+    });
+  }
+
+  function validateListingEditor(): boolean {
+    if (!editForm) return false;
+    if (!editForm.productName.trim() || !editForm.sku.trim()) {
+      toast({
+        title: "Missing fields",
+        description: "Product name and SKU are required.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (product?.isShopifyImport && !editForm.listingTitle.trim()) {
+      toast({
+        title: "Missing fields",
+        description: "Shopify listing title is required.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  }
+
+  function handleSaveAndContinueToGraphics() {
+    if (!validateListingEditor() || !editForm) return;
+    const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+
+    saveProductMutation.mutate(editForm, {
+      onSuccess: async () => {
+        try {
+          await fetchJson(`${basePath}/api/audits/${auditId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ currentStep: 3 }),
+          });
+        } catch {
+          // Still navigate even if step update fails — workflow resumes from saved audit.
+        }
+        navigate(`/audits/workflow?resume=${auditId}`);
       },
     });
   }
@@ -1263,6 +1289,41 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 </Link>
               </div>
             </div>
+
+            {isEditingListing && editForm && (
+              <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[11px] rounded-xl gap-1.5"
+                  onClick={cancelListingEditor}
+                  disabled={saveProductMutation.isPending}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 text-[11px] rounded-xl bg-orange-500 hover:bg-orange-600 gap-1.5"
+                  onClick={handleSaveAndContinueToGraphics}
+                  disabled={saveProductMutation.isPending}
+                >
+                  {saveProductMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      Save &amp; Continue
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
