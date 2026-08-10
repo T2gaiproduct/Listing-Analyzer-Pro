@@ -23,7 +23,7 @@ function normalizeKeywords(raw: string[]): string[] {
 function parsePriceCents(raw: number | string | null | undefined): number | null {
   if (raw === null || raw === undefined || raw === "") return null;
   const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw).trim());
-  if (!Number.isFinite(value) || value < 0) return null;
+  if (!Number.isFinite(value) || value <= 0) return null;
   return Math.round(value * 100);
 }
 
@@ -96,7 +96,7 @@ export async function applyProductListingUpdates(
     const priceCents = body.price !== undefined ? parsePriceCents(body.price) : undefined;
     const sku = typeof body.sku === "string" ? body.sku.trim() || null : undefined;
     const listingPatch: Record<string, unknown> = { updatedAt: new Date() };
-    if (priceCents !== undefined) listingPatch.priceCents = priceCents;
+    if (priceCents != null && priceCents > 0) listingPatch.priceCents = priceCents;
     if (sku !== undefined) listingPatch.sku = sku;
 
     const listingUpdate = await db
@@ -123,7 +123,7 @@ export async function applyProductListingUpdates(
         workspaceId: auditRow.workspaceId,
         marketplace: "Shopify",
         status: "pending",
-        priceCents: priceCents ?? null,
+        priceCents: priceCents != null && priceCents > 0 ? priceCents : null,
         sku: sku ?? null,
         currency: "USD",
       });

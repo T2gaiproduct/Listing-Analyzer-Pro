@@ -79,7 +79,7 @@ function parseVariantPriceCents(product: ShopifyRestProduct): number | null {
   const raw = product.variants?.[0]?.price?.trim();
   if (!raw) return null;
   const value = Number.parseFloat(raw);
-  if (!Number.isFinite(value) || value < 0) return null;
+  if (!Number.isFinite(value) || value <= 0) return null;
   return Math.round(value * 100);
 }
 
@@ -196,7 +196,7 @@ export async function publishListingToShopify(opts: {
   const variantSku = profile?.sku?.trim()
     || shopifyListing?.sku?.trim()
     || `SL-${opts.audit.id}`;
-  const variantPrice = shopifyListing?.priceCents != null
+  const variantPrice = shopifyListing?.priceCents != null && shopifyListing.priceCents > 0
     ? (shopifyListing.priceCents / 100).toFixed(2)
     : "";
   const listingCurrency = shopifyListing?.currency?.trim() || "USD";
@@ -267,7 +267,13 @@ export async function publishListingToShopify(opts: {
     ? Math.round(Number(priceRaw) * 100)
     : null;
   const responsePriceCents = parseVariantPriceCents(product);
-  const priceCents = responsePriceCents ?? sentPriceCents ?? shopifyListing?.priceCents ?? null;
+  const priceCents = responsePriceCents != null && responsePriceCents > 0
+    ? responsePriceCents
+    : sentPriceCents != null && sentPriceCents > 0
+      ? sentPriceCents
+      : shopifyListing?.priceCents != null && shopifyListing.priceCents > 0
+        ? shopifyListing.priceCents
+        : null;
 
   const listingUpdate = await db
     .update(productMarketplaceListingsTable)

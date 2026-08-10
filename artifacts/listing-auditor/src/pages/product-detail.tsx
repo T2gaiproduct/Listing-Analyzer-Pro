@@ -147,7 +147,12 @@ function parsePriceInput(value: string | undefined): number | null {
   const cleaned = value.replace(/[^0-9.]/g, "");
   if (!cleaned) return null;
   const num = Number.parseFloat(cleaned);
-  return Number.isFinite(num) && num >= 0 ? num : null;
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+function normalizePriceField(value: string | undefined): string {
+  const parsed = parsePriceInput(value);
+  return parsed != null ? parsed.toFixed(2) : "";
 }
 
 function normalizeStringList(values: unknown): string[] {
@@ -199,24 +204,25 @@ function clearListingDraft(productId: number): void {
 }
 
 function mergeListingEditForm(base: ProductEditForm, draft: ProductEditForm | null): ProductEditForm {
-  if (!draft) return base;
+  if (!draft) return { ...base, price: normalizePriceField(base.price) };
   const draftPrice = parsePriceInput(draft.price);
   const basePrice = parsePriceInput(base.price);
-  const mergedPrice = draftPrice != null && draftPrice > 0
-    ? draft.price
-    : basePrice != null && basePrice > 0
-      ? base.price
-      : draft.price.trim() || base.price;
+  const mergedPrice = draftPrice != null
+    ? normalizePriceField(draft.price)
+    : basePrice != null
+      ? normalizePriceField(base.price)
+      : "";
   return {
+    ...base,
     ...draft,
-    listingTitle: base.listingTitle || draft.listingTitle,
-    sku: base.sku || draft.sku,
+    listingTitle: draft.listingTitle.trim() || base.listingTitle,
+    sku: draft.sku.trim() || base.sku,
     price: mergedPrice,
-    brandName: base.brandName || draft.brandName,
-    category: base.category || draft.category,
-    bulletPointsText: base.bulletPointsText.trim() ? base.bulletPointsText : draft.bulletPointsText,
-    tagsText: base.tagsText.trim() ? base.tagsText : draft.tagsText,
-    descriptionHtml: base.descriptionHtml.trim() ? base.descriptionHtml : draft.descriptionHtml,
+    brandName: draft.brandName.trim() || base.brandName,
+    category: draft.category.trim() || base.category,
+    bulletPointsText: draft.bulletPointsText.trim() || base.bulletPointsText,
+    tagsText: draft.tagsText.trim() || base.tagsText,
+    descriptionHtml: draft.descriptionHtml.trim() || base.descriptionHtml,
   };
 }
 
@@ -258,7 +264,7 @@ function buildListingEditForm(
     bulletPointsText: bulletsToTextarea(bullets),
     tagsText: tagsToTextarea(tags),
     descriptionHtml: description,
-    price: formatListingPrice(product.listingPrice, product.listingCurrency),
+    price: normalizePriceField(formatListingPrice(product.listingPrice, product.listingCurrency)),
   };
 }
 
@@ -972,19 +978,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
       };
 
       const isShopifyListing = Boolean(product?.isShopifyImport) || Boolean(data.listingTitle.trim());
+      const parsedPrice = parsePriceInput(data.price);
 
-      if (isShopifyListing && data.listingTitle.trim()) {
-        const title = data.listingTitle.trim();
+      if (isShopifyListing) {
+        const title = data.listingTitle.trim() || data.productName.trim();
+        if (!title) {
+          throw new Error("Listing title is required");
+        }
         payload.productName = title;
         payload.listingTitle = title;
         payload.bulletPoints = parseBulletTextarea(data.bulletPointsText);
         payload.targetKeywords = parseTagsTextarea(data.tagsText);
         payload.descriptionHtml = data.descriptionHtml.trim();
         payload.sku = data.sku.trim();
-      }
-
-      if (isShopifyListing) {
-        const parsedPrice = parsePriceInput(data.price);
         if (parsedPrice != null) {
           payload.price = String(parsedPrice);
         }
@@ -1009,22 +1015,34 @@ export default function ProductDetailPage({ id }: { id: number }) {
       }
 
       const shouldSyncToShopify = Boolean(product?.isShopifyImport) && Boolean(shopifyStatus?.publishReady);
-      if (!shouldSyncToShopify) return null;
+      if (!shouldSyncToShopify) {
+        return { synced: false as const };
+      }
 
-      return publishAuditToShopify({ auditId, publishMode: "live" });
+      try {
+        const publishResult = await publishAuditToShopify({ auditId, publishMode: "live" });
+        return { synced: true as const, publishResult };
+      } catch (error) {
+        const message = error instanceof ApiFetchError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not sync to Shopify.";
+        return { synced: false as const, publishError: message };
+      }
     },
-    onSuccess: async (publishResult) => {
+    onSuccess: async (result) => {
       clearListingDraft(id);
       await refreshProductData();
       void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id, resolvedSource] });
       setIsEditingListing(false);
       setEditForm(null);
 
-      if (publishResult) {
-        if (publishResult.warning) {
+      if (result?.synced && result.publishResult) {
+        if (result.publishResult.warning) {
           toast({
             title: "Saved & synced with a warning",
-            description: publishResult.warning,
+            description: result.publishResult.warning,
             variant: "destructive",
           });
           return;
@@ -1032,6 +1050,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
         toast({
           title: "Saved & synced to Shopify",
           description: "Title, price, description, tags, and other fields are updated on your Shopify store.",
+        });
+        return;
+      }
+
+      if (result?.publishError) {
+        toast({
+          title: "Saved locally — Shopify sync failed",
+          description: result.publishError,
+          variant: "destructive",
         });
         return;
       }
@@ -1608,8 +1635,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
                       <Input
                         value={editForm.price}
                         onChange={(e) => updateEditField("price", e.target.value)}
+                        onBlur={(e) => updateEditField("price", normalizePriceField(e.target.value))}
                         className="text-[11px] font-mono"
-                        placeholder="0.00"
+                        placeholder="Enter price"
                         inputMode="decimal"
                       />
                       {product.listingCurrency && (
