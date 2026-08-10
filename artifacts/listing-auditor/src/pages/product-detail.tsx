@@ -142,6 +142,14 @@ function formatListingPrice(price: number | null | undefined, currency: string |
   return price.toFixed(2);
 }
 
+function parsePriceInput(value: string | undefined): number | null {
+  if (!value?.trim()) return null;
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  if (!cleaned) return null;
+  const num = Number.parseFloat(cleaned);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
 function listingDraftStorageKey(productId: number): string {
   return `listing-editor-draft:${productId}`;
 }
@@ -912,15 +920,23 @@ export default function ProductDetailPage({ id }: { id: number }) {
         notes: data.notes.trim(),
       };
 
-      if (data.listingTitle.trim()) {
+      const isShopifyListing = Boolean(product?.isShopifyImport) || Boolean(data.listingTitle.trim());
+
+      if (isShopifyListing && data.listingTitle.trim()) {
         const title = data.listingTitle.trim();
         payload.productName = title;
         payload.listingTitle = title;
         payload.bulletPoints = parseBulletTextarea(data.bulletPointsText);
         payload.targetKeywords = parseTagsTextarea(data.tagsText);
         payload.descriptionHtml = data.descriptionHtml.trim();
-        payload.price = data.price.trim() || null;
         payload.sku = data.sku.trim();
+      }
+
+      if (isShopifyListing) {
+        const parsedPrice = parsePriceInput(data.price);
+        if (parsedPrice != null) {
+          payload.price = String(parsedPrice);
+        }
       }
 
       try {
@@ -1108,6 +1124,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
     setShowGraphicsPanel(true);
   }
 
+  function resolvePendingListingForm(): ProductEditForm | null {
+    if (isEditingListing && editForm) return editForm;
+    const draft = readListingDraft(id);
+    if (!draft) return null;
+    const listingProduct = displayProduct ?? product;
+    if (!listingProduct) return draft;
+    return mergeListingEditForm(buildListingEditForm(listingProduct, effectiveAudit), draft);
+  }
+
+  function publishAfterSave(form?: ProductEditForm | null) {
+    if (form) {
+      saveProductMutation.mutate(form, {
+        onSuccess: () => {
+          publishShopifyMutation.mutate("live");
+        },
+      });
+      return;
+    }
+    publishShopifyMutation.mutate("live");
+  }
+
   function handlePublishToShopify() {
     if (!product?.isShopifyImport) return;
     if (!canEditProduct) return;
@@ -1140,29 +1177,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
       return;
     }
 
+    const pendingForm = resolvePendingListingForm();
     const savedPrice = (displayProduct ?? product)?.listingPrice;
-    const pendingPrice = editForm?.price.trim();
-    const hasPrice = (savedPrice != null && savedPrice > 0)
-      || (pendingPrice ? Number.parseFloat(pendingPrice) > 0 : false);
-    if (!hasPrice) {
+    const pendingPrice = parsePriceInput(pendingForm?.price);
+    const hasSavedPrice = savedPrice != null && savedPrice > 0;
+    const hasPendingPrice = pendingPrice != null && pendingPrice > 0;
+
+    if (pendingForm && hasPendingPrice) {
+      publishAfterSave(pendingForm);
+      return;
+    }
+
+    if (!hasSavedPrice) {
       toast({
         title: "Price required",
-        description: "Open Edit Listing, enter a price, click Save changes, then Publish.",
+        description: "Open Edit Listing, enter a price, then click Publish (we will save it automatically).",
         variant: "destructive",
       });
       return;
     }
 
-    if (isEditingListing && editForm) {
-      saveProductMutation.mutate(editForm, {
-        onSuccess: async () => {
-          publishShopifyMutation.mutate("live");
-        },
-      });
-      return;
-    }
-
-    publishShopifyMutation.mutate("live");
+    publishAfterSave();
   }
 
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
