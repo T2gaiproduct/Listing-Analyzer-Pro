@@ -65,7 +65,11 @@ export async function applyProductListingUpdates(
     auditUpdates.targetKeywords = nextKeywords;
   }
 
-  if (typeof body.descriptionHtml === "string" || Array.isArray(body.bulletPoints)) {
+  const shouldSyncGeneratedContent = typeof body.listingTitle === "string"
+    || Array.isArray(body.bulletPoints)
+    || Array.isArray(body.targetKeywords)
+    || typeof body.descriptionHtml === "string";
+  if (shouldSyncGeneratedContent) {
     const htmlDescription = typeof body.descriptionHtml === "string" && body.descriptionHtml.trim()
       ? body.descriptionHtml.trim()
       : bulletsToHtmlDescription(nextBullets);

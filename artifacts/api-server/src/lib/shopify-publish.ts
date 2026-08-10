@@ -34,6 +34,7 @@ function buildRestProductPayload(opts: {
   bundle: ReturnType<typeof buildShopifyExportBundle>;
   publishMode: ShopifyPublishMode;
   existingProductId?: number;
+  existingVariants?: Array<{ id: number; sku?: string | null; price?: string | null }>;
 }): Record<string, unknown> {
   const primary = opts.bundle.rows[0];
   if (!primary) throw new Error("Export bundle is empty");
@@ -47,6 +48,14 @@ function buildRestProductPayload(opts: {
       alt: primary["Image Alt Text"]?.trim() || primary.Title?.trim() || undefined,
     }));
 
+  const targetSku = primary["Variant SKU"]?.trim();
+  const existingVariant = opts.existingVariants?.find((variant) =>
+    targetSku && variant.sku?.trim()
+      ? variant.sku.trim() === targetSku
+      : false,
+  ) ?? opts.existingVariants?.[0];
+  const variantPrice = primary["Variant Price"]?.trim() || existingVariant?.price || "0.00";
+
   const payload: Record<string, unknown> = {
     title: primary.Title,
     body_html: primary["Body (HTML)"],
@@ -58,8 +67,9 @@ function buildRestProductPayload(opts: {
     published_at: opts.publishMode === "live" ? new Date().toISOString() : null,
     variants: [
       {
-        sku: primary["Variant SKU"] || undefined,
-        price: primary["Variant Price"] || "0.00",
+        ...(existingVariant?.id ? { id: existingVariant.id } : {}),
+        sku: targetSku || existingVariant?.sku || undefined,
+        price: variantPrice,
         inventory_policy: primary["Variant Inventory Policy"] || "deny",
         fulfillment_service: "manual",
         requires_shipping: primary["Variant Requires Shipping"] === "TRUE",
@@ -152,6 +162,7 @@ export async function publishListingToShopify(opts: {
     bundle,
     publishMode,
     existingProductId: existing?.id,
+    existingVariants: existing?.variants,
   });
 
   let product: ShopifyRestProduct;

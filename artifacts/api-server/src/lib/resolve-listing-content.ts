@@ -17,18 +17,19 @@ export function bulletsToHtmlDescription(bullets: string[]): string {
 
 export function resolveListingContentForExport(audit: Audit): GeneratedContent {
   const generated = readGeneratedContent(audit);
-  const title = generated?.title?.trim()
-    || audit.title?.trim()
+  const title = audit.title?.trim()
+    || generated?.title?.trim()
     || audit.productName?.trim()
     || "Untitled Product";
-  const bulletPoints = generated?.bulletPoints?.length
-    ? generated.bulletPoints
-    : (audit.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
-  const keywords = generated?.keywords?.length
-    ? generated.keywords
-    : (audit.targetKeywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
-  const htmlDescription = generated?.htmlDescription?.trim()
-    || bulletsToHtmlDescription(bulletPoints);
+  const auditBullets = (audit.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
+  const bulletPoints = auditBullets.length > 0
+    ? auditBullets
+    : (generated?.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
+  const auditKeywords = (audit.targetKeywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
+  const keywords = auditKeywords.length > 0
+    ? auditKeywords
+    : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
+  const htmlDescription = resolveDescriptionHtml(audit);
 
   return { title, bulletPoints, keywords, htmlDescription };
 }

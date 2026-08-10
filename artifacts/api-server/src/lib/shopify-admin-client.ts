@@ -110,6 +110,11 @@ export type ShopifyRestProduct = {
   title: string;
   status: string;
   admin_graphql_api_id?: string;
+  variants?: Array<{
+    id: number;
+    sku?: string | null;
+    price?: string | null;
+  }>;
 };
 
 export async function findShopifyProductByHandle(opts: {
@@ -121,7 +126,7 @@ export async function findShopifyProductByHandle(opts: {
     shopHost: opts.shopHost,
     accessToken: opts.accessToken,
     method: "GET",
-    path: `/products.json?handle=${encodeURIComponent(opts.handle)}&limit=1`,
+    path: `/products.json?handle=${encodeURIComponent(opts.handle)}&limit=1&fields=id,handle,title,status,admin_graphql_api_id,variants`,
   });
   return data.products?.[0] ?? null;
 }
