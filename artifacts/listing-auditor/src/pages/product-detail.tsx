@@ -6,10 +6,15 @@ import { format } from "date-fns";
 import {
   ArrowLeft,
   ArrowRight,
+  AlignLeft,
+  AlertCircle,
+  CheckCircle2,
   ClipboardCheck,
   ExternalLink,
   FolderOpen,
+  Image as ImageLucide,
   ImageIcon,
+  Lightbulb,
   Link2,
   Loader2,
   Package,
@@ -17,11 +22,14 @@ import {
   Send,
   Sparkles,
   Star,
+  Tag,
+  Type,
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent } from "@workspace/api-client-react";
-import type { GeneratedContent } from "@workspace/api-client-react";
+import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import { normalizeShopifyProductDetail } from "@/lib/shopify-product-detail";
 import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
+import { ScoreBadge, ScoreRing } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -290,6 +298,158 @@ function OptimizedContentPanel({
   );
 }
 
+function AuditResultsPanel({
+  overallScore,
+  result,
+  isRunning,
+  onRunAudit,
+  runDisabled,
+  failed,
+}: {
+  overallScore: number;
+  result: AuditResult | null | undefined;
+  isRunning: boolean;
+  onRunAudit: () => void;
+  runDisabled?: boolean;
+  failed?: boolean;
+}) {
+  const scoreCategories = result
+    ? [
+        { icon: Type, title: "Title", ...result.titleScore },
+        { icon: AlignLeft, title: "Bullet points", ...result.bulletScore },
+        { icon: ImageLucide, title: "Images", ...result.imageScore },
+        { icon: Tag, title: "Keywords", ...result.keywordScore },
+      ]
+    : [];
+
+  return (
+    <div className="border-t border-slate-100 pt-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <ClipboardCheck className="w-3.5 h-3.5 text-orange-600" />
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+            Audit Results
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px]"
+          onClick={onRunAudit}
+          disabled={runDisabled || isRunning}
+        >
+          {isRunning ? (
+            <>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              Running audit…
+            </>
+          ) : (
+            <>
+              <ClipboardCheck className="w-3 h-3 mr-1 opacity-70" />
+              {result ? "Re-run audit" : "Run Audit"}
+            </>
+          )}
+        </Button>
+      </div>
+
+      {failed && (
+        <div className="rounded-lg border border-red-200 bg-red-50/60 px-3 py-2 text-[11px] text-red-700">
+          AI analysis failed. Check your OpenAI API key in Admin → AI Settings and try again.
+        </div>
+      )}
+
+      {isRunning && !result ? (
+        <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/40 px-4 py-8 text-center">
+          <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
+          <p className="text-[11px] text-slate-600">Analyzing your listing…</p>
+        </div>
+      ) : result ? (
+        <div className="rounded-lg border border-orange-200/80 bg-orange-50/40 overflow-hidden">
+          <div className="max-h-[28rem] overflow-y-auto overscroll-contain px-4 py-3 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <ScoreRing score={overallScore || result.overallScore} size="md" showLabel={false} />
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                  AI Summary
+                </p>
+                <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                  {result.summary}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {scoreCategories.map((category) => (
+                <div
+                  key={category.title}
+                  className="flex items-center justify-between rounded-md border border-white/80 bg-white/70 px-2.5 py-2"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <category.icon className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span className="text-[10px] font-medium text-slate-600 truncate">
+                      {category.title}
+                    </span>
+                  </div>
+                  <ScoreBadge score={category.score} className="text-[10px] px-1.5 py-0" />
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              {scoreCategories.map((category) => (
+                <div key={`${category.title}-details`} className="space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    {category.title}
+                  </p>
+                  {category.issues.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-rose-500" />
+                        <span className="text-[10px] font-medium text-rose-600">Issues</span>
+                      </div>
+                      <ul className="space-y-1 pl-4 list-disc marker:text-rose-300">
+                        {category.issues.map((issue) => (
+                          <li key={issue} className="text-[11px] text-slate-700 leading-relaxed">
+                            {issue}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {category.suggestions.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Lightbulb className="w-3 h-3 text-amber-500" />
+                        <span className="text-[10px] font-medium text-amber-600">Suggestions</span>
+                      </div>
+                      <ul className="space-y-1">
+                        {category.suggestions.map((suggestion) => (
+                          <li
+                            key={suggestion}
+                            className="text-[11px] text-slate-700 leading-relaxed flex gap-1.5"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-orange-500 shrink-0 mt-0.5" />
+                            <span>{suggestion}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-[11px] text-slate-500">
+          No audit results yet. Click Run Audit to score this listing and get recommendations.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function isValidProductDetail(p: ProductDetailView | undefined | null): p is ProductDetailView {
   return Boolean(
     p?.id
@@ -341,6 +501,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
   const [showOptimizedContent, setShowOptimizedContent] = useState(false);
   const [showGraphicsPanel, setShowGraphicsPanel] = useState(false);
+  const [showAuditPanel, setShowAuditPanel] = useState(false);
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -560,6 +721,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
       refreshCreditBalances(queryClient);
+      setShowAuditPanel(true);
+      setActiveTab("overview");
       toast({
         title: "Audit complete",
         description: `Listing score: ${data.overallScore}/100`,
@@ -814,6 +977,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   function handleRunAudit() {
     if (!optimizeAuditId || !canRunAudit) return;
+    setActiveTab("overview");
+    setShowAuditPanel(true);
     runAuditMutation.mutate(optimizeAuditId);
   }
 
@@ -923,7 +1088,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px]"
+                    className={cn(
+                      "h-7 text-[11px]",
+                      showAuditPanel && "bg-orange-50 text-orange-700 border-orange-200",
+                    )}
                     onClick={handleRunAudit}
                     disabled={!canRunAudit || runAuditMutation.isPending}
                   >
@@ -1272,6 +1440,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   </div>
                 </div>
               </div>
+            )}
+
+            {(showAuditPanel || runAuditMutation.isPending) && !isEditingListing && (
+              <AuditResultsPanel
+                overallScore={effectiveAudit?.overallScore ?? product.stats.listingScore ?? 0}
+                result={effectiveAudit?.result ?? null}
+                isRunning={runAuditMutation.isPending}
+                onRunAudit={handleRunAudit}
+                runDisabled={!canRunAudit}
+                failed={effectiveAudit?.status === "failed"}
+              />
             )}
 
             {(showOptimizedContent || isOptimizingContent) && !isEditingListing && (
