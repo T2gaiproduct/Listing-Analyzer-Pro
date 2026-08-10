@@ -654,12 +654,25 @@ export default function ProductsPage() {
               ) : (
                 filtered.map((product) => {
                   const key = productKey(product);
+                  const viewUrl = product.detailUrl;
                   return (
                   <tr
                     key={key}
-                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => navigate(viewUrl)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(viewUrl);
+                      }
+                    }}
+                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
                   >
-                    <td className="px-3 py-2.5 align-middle">
+                    <td
+                      className="px-3 py-2.5 align-middle"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Checkbox
                         checked={selected.has(key)}
                         onCheckedChange={() => toggleOne(key)}
@@ -716,15 +729,16 @@ export default function ProductsPage() {
                         {product.statusLabel}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 align-middle">
+                    <td
+                      className="px-3 py-2.5 align-middle"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center justify-end gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => navigate(
-                                `/products/${product.id}?source=${product.isShopifyImport ? "listing" : product.sourceType}`,
-                              )}
+                              onClick={() => navigate(viewUrl)}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
                               aria-label="View product"
                             >
