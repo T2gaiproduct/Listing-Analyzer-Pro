@@ -11,12 +11,14 @@ import {
   Loader2,
   Package,
   Pencil,
+  Send,
   Sparkles,
   Star,
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent } from "@workspace/api-client-react";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { normalizeShopifyProductDetail } from "@/lib/shopify-product-detail";
+import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,7 +94,39 @@ type ProductEditForm = {
   assignedManager: string;
   priority: "high" | "medium" | "low";
   notes: string;
+  listingTitle: string;
+  bulletPointsText: string;
+  tagsText: string;
+  descriptionHtml: string;
+  price: string;
 };
+
+function bulletsToTextarea(bullets: string[] | undefined): string {
+  return (bullets ?? []).filter(Boolean).join("\n");
+}
+
+function parseBulletTextarea(value: string): string[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function tagsToTextarea(tags: string[] | undefined): string {
+  return (tags ?? []).filter(Boolean).join(", ");
+}
+
+function parseTagsTextarea(value: string): string[] {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function formatListingPrice(price: number | null | undefined, currency: string | null | undefined): string {
+  if (price == null || Number.isNaN(price)) return "";
+  return price.toFixed(2);
+}
 
 function EditDetailField({
   label,
@@ -481,9 +515,40 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const workflowTitle = product?.sourceTypeLabel ?? "Project Workflow";
 
+  const { data: shopifyStatus } = useQuery({
+    queryKey: ["shopify-status"],
+    queryFn: fetchShopifyStatus,
+    enabled: Boolean(product?.isShopifyImport),
+    staleTime: 60_000,
+  });
+
+  const publishShopifyMutation = useMutation({
+    mutationFn: async (publishMode: "draft" | "live") => {
+      const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+      return publishAuditToShopify({ auditId, publishMode });
+    },
+    onSuccess: (result, publishMode) => {
+      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+      void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
+      toast({
+        title: publishMode === "live" ? "Published to Shopify" : "Saved to Shopify draft",
+        description: result.listingUrl
+          ? "Your listing changes are now on Shopify."
+          : result.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Publish failed",
+        description: error instanceof Error ? error.message : "Could not publish to Shopify.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveProductMutation = useMutation({
     mutationFn: async (data: ProductEditForm) => {
-      const payload = {
+      const payload: Record<string, unknown> = {
         productName: data.productName.trim(),
         brandName: data.brandName.trim(),
         category: data.category.trim(),
@@ -492,6 +557,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
         assignedManager: data.assignedManager.trim(),
         notes: data.notes.trim(),
       };
+
+      if (product?.isShopifyImport) {
+        payload.listingTitle = data.listingTitle.trim();
+        payload.bulletPoints = parseBulletTextarea(data.bulletPointsText);
+        payload.targetKeywords = parseTagsTextarea(data.tagsText);
+        payload.descriptionHtml = data.descriptionHtml.trim();
+        if (data.price.trim()) {
+          payload.price = data.price.trim();
+        }
+      }
 
       try {
         await fetchJson(`${basePath}/api/audits/${id}`, {
@@ -615,6 +690,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
       assignedManager: product.manager?.name ?? "",
       priority: product.priorityLevel ?? "medium",
       notes: product.notes ?? "",
+      listingTitle: product.listingTitle ?? product.title ?? product.name,
+      bulletPointsText: bulletsToTextarea(product.bulletPoints),
+      tagsText: tagsToTextarea(product.targetKeywords),
+      descriptionHtml: product.descriptionHtml ?? bulletsToTextarea(product.bulletPoints),
+      price: formatListingPrice(product.listingPrice, product.listingCurrency),
     });
     setIsEditingListing(true);
   }
@@ -634,7 +714,32 @@ export default function ProductDetailPage({ id }: { id: number }) {
       });
       return;
     }
+    if (product?.isShopifyImport && !editForm.listingTitle.trim()) {
+      toast({
+        title: "Missing fields",
+        description: "Shopify listing title is required.",
+        variant: "destructive",
+      });
+      return;
+    }
     saveProductMutation.mutate(editForm);
+  }
+
+  async function saveAndPublishShopify(publishMode: "draft" | "live") {
+    if (!editForm || !product?.isShopifyImport) return;
+    if (!shopifyStatus?.publishReady) {
+      toast({
+        title: "Shopify not ready",
+        description: "Connect Shopify with API credentials on the Marketplaces page first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveProductMutation.mutate(editForm, {
+      onSuccess: () => {
+        publishShopifyMutation.mutate(publishMode);
+      },
+    });
   }
 
   function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
@@ -833,6 +938,39 @@ export default function ProductDetailPage({ id }: { id: number }) {
               <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
               {isEditingListing && editForm && (
                 <div className="flex items-center gap-1.5">
+                  {product.isShopifyImport && shopifyStatus?.publishReady && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        onClick={() => void saveAndPublishShopify("draft")}
+                        disabled={saveProductMutation.isPending || publishShopifyMutation.isPending}
+                      >
+                        {publishShopifyMutation.isPending ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Send className="w-3 h-3 mr-1" />
+                        )}
+                        Save &amp; push draft
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => void saveAndPublishShopify("live")}
+                        disabled={saveProductMutation.isPending || publishShopifyMutation.isPending}
+                      >
+                        {publishShopifyMutation.isPending ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Send className="w-3 h-3 mr-1" />
+                        )}
+                        Publish live
+                      </Button>
+                    </>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -934,6 +1072,68 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     />
                   </EditDetailField>
                 </div>
+
+                {product.isShopifyImport && (
+                  <>
+                    <div className="sm:col-span-2 border-t border-slate-100 pt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 mb-3">
+                        Shopify listing fields
+                      </p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Listing title (Shopify)">
+                        <Input
+                          value={editForm.listingTitle}
+                          onChange={(e) => updateEditField("listingTitle", e.target.value)}
+                          className="text-[11px]"
+                          placeholder="Title shown on your Shopify store"
+                        />
+                      </EditDetailField>
+                    </div>
+                    <EditDetailField label="Price">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editForm.price}
+                          onChange={(e) => updateEditField("price", e.target.value)}
+                          className="text-[11px] font-mono"
+                          placeholder="0.00"
+                          inputMode="decimal"
+                        />
+                        {product.listingCurrency && (
+                          <span className="text-[10px] text-slate-500 shrink-0">{product.listingCurrency}</span>
+                        )}
+                      </div>
+                    </EditDetailField>
+                    <EditDetailField label="Tags">
+                      <Input
+                        value={editForm.tagsText}
+                        onChange={(e) => updateEditField("tagsText", e.target.value)}
+                        className="text-[11px]"
+                        placeholder="comma, separated, tags"
+                      />
+                    </EditDetailField>
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Bullet points">
+                        <Textarea
+                          value={editForm.bulletPointsText}
+                          onChange={(e) => updateEditField("bulletPointsText", e.target.value)}
+                          className="text-[11px] min-h-[96px] font-mono"
+                          placeholder="One bullet per line"
+                        />
+                      </EditDetailField>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Description (HTML)">
+                        <Textarea
+                          value={editForm.descriptionHtml}
+                          onChange={(e) => updateEditField("descriptionHtml", e.target.value)}
+                          className="text-[11px] min-h-[120px] font-mono"
+                          placeholder="Product description for Shopify"
+                        />
+                      </EditDetailField>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
@@ -962,6 +1162,72 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <LiveBadge label={product.stageLabel} />
               </DetailField>
             </div>
+            )}
+
+            {product.isShopifyImport && !isEditingListing && (
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+                  Shopify listing
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                  <DetailField label="Listing title">
+                    {product.listingTitle ?? product.title ?? product.name}
+                  </DetailField>
+                  <DetailField label="Price">
+                    {product.listingPrice != null
+                      ? `${product.listingCurrency ?? ""} ${product.listingPrice.toFixed(2)}`.trim()
+                      : "—"}
+                  </DetailField>
+                  <div className="sm:col-span-2">
+                    <DetailField label="Tags">
+                      {(product.targetKeywords ?? []).length > 0
+                        ? (product.targetKeywords ?? []).join(", ")
+                        : "—"}
+                    </DetailField>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <DetailField label="Bullet points">
+                      {(product.bulletPoints ?? []).length > 0 ? (
+                        <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                          {(product.bulletPoints ?? []).map((bullet) => (
+                            <li key={bullet}>{bullet}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "—"
+                      )}
+                    </DetailField>
+                  </div>
+                </div>
+                {shopifyStatus?.publishReady && canEditProduct && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={() => publishShopifyMutation.mutate("draft")}
+                      disabled={publishShopifyMutation.isPending}
+                    >
+                      {publishShopifyMutation.isPending ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <Send className="w-3 h-3 mr-1" />
+                      )}
+                      Push to Shopify draft
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => publishShopifyMutation.mutate("live")}
+                      disabled={publishShopifyMutation.isPending}
+                    >
+                      Publish live on Shopify
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="border-t border-slate-100 pt-4 space-y-3">

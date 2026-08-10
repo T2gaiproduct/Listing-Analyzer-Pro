@@ -26,6 +26,7 @@ import {
 import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
 import { importProductRecords, parseImportProductsBody } from "../lib/import-products.js";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
+import { applyProductListingUpdates } from "../lib/product-listing-update.js";
 import { loadUnifiedProductList } from "../lib/unified-product-list.js";
 import {
   loadProductDetail,
@@ -445,6 +446,11 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
     priority: string;
     assignedManager: string;
     notes: string;
+    listingTitle: string;
+    bulletPoints: string[];
+    targetKeywords: string[];
+    descriptionHtml: string;
+    price: number | string | null;
   }>;
 
   const where = await productsScopeWhere(req);
@@ -468,7 +474,9 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
     }
     auditUpdates.projectName = trimmed;
     auditUpdates.productName = trimmed;
-    auditUpdates.title = trimmed;
+    if (body.listingTitle === undefined) {
+      auditUpdates.title = trimmed;
+    }
   }
   if (typeof body.brandName === "string") {
     auditUpdates.brandName = body.brandName.trim() || null;
@@ -479,6 +487,20 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
 
   if (Object.keys(auditUpdates).length > 1) {
     await db.update(auditsTable).set(auditUpdates).where(eq(auditsTable.id, id));
+  }
+
+  try {
+    await applyProductListingUpdates(id, {
+      listingTitle: body.listingTitle,
+      bulletPoints: body.bulletPoints,
+      targetKeywords: body.targetKeywords,
+      descriptionHtml: body.descriptionHtml,
+      price: body.price,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not update listing fields";
+    res.status(400).json({ error: message });
+    return;
   }
 
   try {

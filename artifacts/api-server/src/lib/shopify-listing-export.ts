@@ -7,11 +7,11 @@ import {
   buildProductImageAssets,
   collectAplusImages,
   collectProductImages,
-  readGeneratedContent,
   slugify,
   truncate,
   type ExportImageAsset,
 } from "./listing-export-shared.js";
+import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 /** Shopify product CSV import columns (single-variant product). */
 export const SHOPIFY_CSV_HEADERS = [
@@ -67,11 +67,10 @@ export function buildShopifyExportBundle(opts: {
   audit: Audit;
   graphicsImageRecords?: ImageRecord[];
   publicBaseUrl?: string;
+  variantSku?: string;
+  variantPrice?: string;
 }): ShopifyExportBundle {
-  const content = readGeneratedContent(opts.audit);
-  if (!content) {
-    throw new Error("Listing content not generated yet. Complete the Listing step before exporting.");
-  }
+  const content = resolveListingContentForExport(opts.audit);
 
   const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
   const aplusImages = collectAplusImages(opts.audit);
@@ -94,13 +93,13 @@ export function buildShopifyExportBundle(opts: {
     Published: "FALSE",
     "Option1 Name": "Title",
     "Option1 Value": "Default Title",
-    "Variant SKU": `SL-${opts.audit.id}`,
+    "Variant SKU": opts.variantSku?.trim() || `SL-${opts.audit.id}`,
     "Variant Grams": "",
     "Variant Inventory Tracker": "",
     "Variant Inventory Qty": "",
     "Variant Inventory Policy": "deny",
     "Variant Fulfillment Service": "manual",
-    "Variant Price": "",
+    "Variant Price": opts.variantPrice?.trim() || "",
     "Variant Compare At Price": "",
     "Variant Requires Shipping": "TRUE",
     "Variant Taxable": "TRUE",

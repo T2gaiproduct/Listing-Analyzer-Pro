@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
-import { db, productMarketplaceListingsTable } from "@workspace/db";
+import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
 import { buildShopifyExportBundle } from "./shopify-listing-export.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import type { ShopifyStoreConnectionWithSecret } from "./marketplace-connections.js";
@@ -96,10 +96,40 @@ export async function publishListingToShopify(opts: {
     clientSecret: opts.connection.clientSecret,
   });
 
+  const [profile] = await db
+    .select({ sku: productProfilesTable.sku })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, opts.audit.id))
+    .limit(1);
+
+  const [shopifyListing] = await db
+    .select({
+      priceCents: productMarketplaceListingsTable.priceCents,
+      currency: productMarketplaceListingsTable.currency,
+      sku: productMarketplaceListingsTable.sku,
+    })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      eq(productMarketplaceListingsTable.auditId, opts.audit.id),
+      eq(productMarketplaceListingsTable.marketplace, "Shopify"),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  const variantSku = profile?.sku?.trim()
+    || shopifyListing?.sku?.trim()
+    || `SL-${opts.audit.id}`;
+  const variantPrice = shopifyListing?.priceCents != null
+    ? (shopifyListing.priceCents / 100).toFixed(2)
+    : "";
+  const listingCurrency = shopifyListing?.currency?.trim() || "USD";
+
   const bundle = buildShopifyExportBundle({
     audit: opts.audit,
     graphicsImageRecords: opts.graphicsImageRecords,
     publicBaseUrl: opts.publicBaseUrl,
+    variantSku,
+    variantPrice,
   });
 
   const importedHandle = shopifyHandleFromAsin(opts.audit.asin);
@@ -140,11 +170,11 @@ export async function publishListingToShopify(opts: {
 
   const listingUrl = shopifyProductUrl(shopHost, product.handle || handle);
   const listingStatus = publishMode === "live" ? "live" : "pending";
-  const sku = bundle.rows[0]?.["Variant SKU"]?.trim() || `SL-${opts.audit.id}`;
+  const sku = variantSku;
   const priceRaw = bundle.rows[0]?.["Variant Price"]?.trim();
   const priceCents = priceRaw && !Number.isNaN(Number(priceRaw))
     ? Math.round(Number(priceRaw) * 100)
-    : null;
+    : shopifyListing?.priceCents ?? null;
 
   const listingUpdate = await db
     .update(productMarketplaceListingsTable)
@@ -152,7 +182,7 @@ export async function publishListingToShopify(opts: {
       status: listingStatus,
       sku,
       priceCents,
-      currency: "INR",
+      currency: listingCurrency,
       listingUrl,
       publishedAt: publishMode === "live" ? new Date() : null,
       updatedAt: new Date(),
@@ -172,7 +202,7 @@ export async function publishListingToShopify(opts: {
       status: listingStatus,
       sku,
       priceCents,
-      currency: "INR",
+      currency: listingCurrency,
       listingUrl,
       publishedAt: publishMode === "live" ? new Date() : null,
     });

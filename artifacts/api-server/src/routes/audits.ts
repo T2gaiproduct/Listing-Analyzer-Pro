@@ -47,6 +47,7 @@ import {
   buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
+import { applyProductListingUpdates } from "../lib/product-listing-update.js";
 import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
 import {
   buildAuditExportBundle,
@@ -603,6 +604,11 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     priority: string;
     assignedManager: string;
     notes: string;
+    listingTitle: string;
+    bulletPoints: string[];
+    targetKeywords: string[];
+    descriptionHtml: string;
+    price: number | string | null;
     runAnalysis: boolean;
   }>;
 
@@ -624,7 +630,9 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     }
     updates.productName = trimmed;
     updates.projectName = trimmed;
-    updates.title = trimmed;
+    if (body.listingTitle === undefined) {
+      updates.title = trimmed;
+    }
   }
   if (body.category !== undefined) updates.category = body.category;
   if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;
@@ -638,6 +646,20 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     .set(updates)
     .where(eq(auditsTable.id, id))
     .returning();
+
+  try {
+    await applyProductListingUpdates(id, {
+      listingTitle: body.listingTitle,
+      bulletPoints: body.bulletPoints,
+      targetKeywords: body.targetKeywords,
+      descriptionHtml: body.descriptionHtml,
+      price: body.price,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not update listing fields";
+    res.status(400).json({ error: message });
+    return;
+  }
 
   try {
     await applyProductProfileUpdates(

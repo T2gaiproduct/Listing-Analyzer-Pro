@@ -162,6 +162,12 @@ export interface ProductDetailView {
   statsAuditId?: number | null;
   isShopifyImport?: boolean;
   referenceUrl?: string | null;
+  listingTitle?: string;
+  bulletPoints?: string[];
+  targetKeywords?: string[];
+  descriptionHtml?: string;
+  listingPrice?: number | null;
+  listingCurrency?: string | null;
 }
 
 interface GraphicsProjectLike {
@@ -354,6 +360,12 @@ export function mapAuditToProductDetail(
     sourceType,
     sourceTypeLabel: isShopifyImport ? "Shopify Import" : (sourceType === "audit" ? "Audit Listing" : "Build Your Brand"),
     statsAuditId: audit.id,
+    isShopifyImport,
+    listingTitle: audit.title?.trim() || name,
+    bulletPoints: (audit.bulletPoints ?? []).filter((bullet) => typeof bullet === "string"),
+    targetKeywords: (audit.targetKeywords ?? []).filter((keyword) => typeof keyword === "string"),
+    descriptionHtml: audit.generatedContent?.htmlDescription?.trim()
+      || (audit.bulletPoints ?? []).map((bullet) => `<li>${bullet}</li>`).join(""),
     manager: { name: managerName, initials: managerInitials(managerName) },
     notes: buildNotes(audit),
     referenceLinks,

@@ -34,6 +34,7 @@ import {
   auditAsinScopeFilter,
 } from "./product-source.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
+import { resolveDescriptionHtml } from "./resolve-listing-content.js";
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -78,6 +79,12 @@ export type ProductDetailPayload = {
   aiSuggestions: string[];
   isShopifyImport?: boolean;
   referenceUrl?: string | null;
+  listingTitle?: string;
+  bulletPoints?: string[];
+  targetKeywords?: string[];
+  descriptionHtml?: string;
+  listingPrice?: number | null;
+  listingCurrency?: string | null;
 };
 
 const WORKFLOW_STEP_LABELS = ["Upload", "Listing", "Graphics", "A+ Content", "Export"];
@@ -344,11 +351,12 @@ async function loadAuditDetail(
       || marketplaceStats.listings.find((l) => l.marketplace === "Shopify")?.listingUrl?.trim()
       || null)
     : null;
+  const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
 
   return {
     id: row.id,
     name,
-    title: name,
+    title: row.title?.trim() || name,
     sku,
     imageUrl: pickProjectThumbnail({
       imageUrls: row.imageUrls,
@@ -372,6 +380,12 @@ async function loadAuditDetail(
     sourceTypeLabel: isShopifyImport ? "Shopify Import" : SOURCE_TYPE_LABELS[sourceType],
     isShopifyImport,
     referenceUrl: shopifyReferenceUrl,
+    listingTitle: row.title?.trim() || name,
+    bulletPoints: (row.bulletPoints ?? []).filter((bullet) => typeof bullet === "string"),
+    targetKeywords: (row.targetKeywords ?? []).filter((keyword) => typeof keyword === "string"),
+    descriptionHtml: resolveDescriptionHtml(row),
+    listingPrice: shopifyListing?.price ?? null,
+    listingCurrency: shopifyListing?.currency ?? null,
     statsAuditId: row.id,
     manager: {
       name: displayManagerName,
