@@ -90,4 +90,10 @@ export async function syncShopifyProducts(): Promise<ShopifySyncResult> {
   });
 }
 
+export async function syncWooCommerceProducts(): Promise<ShopifySyncResult> {
+  return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/woocommerce/sync`, {
+    method: "POST",
+  });
+}
+
 export { fetchAmazonStatus, startAmazonConnect, disconnectAmazon };

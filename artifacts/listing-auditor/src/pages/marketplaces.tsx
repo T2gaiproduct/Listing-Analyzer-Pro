@@ -28,6 +28,7 @@ import {
   fetchMarketplaceConnections,
   startAmazonConnect,
   syncShopifyProducts,
+  syncWooCommerceProducts,
   type StoreMarketplace,
 } from "@/lib/marketplace-connections";
 
@@ -259,6 +260,34 @@ export default function MarketplacesPage() {
     },
   });
 
+  const woocommerceSyncMutation = useMutation({
+    mutationFn: syncWooCommerceProducts,
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+      const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from WooCommerce.` : "";
+      toast({
+        title: "WooCommerce products imported",
+        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}`,
+      });
+      if (result.errors.length > 0) {
+        toast({
+          title: "Some products could not be imported",
+          description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "Could not import WooCommerce products.",
+        variant: "destructive",
+      });
+    },
+  });
+
   async function handleAmazonConnect() {
     setPendingAction("amazon");
     try {
@@ -447,8 +476,14 @@ export default function MarketplacesPage() {
               : null
           }
           loading={pendingAction === "woocommerce"}
+          importLoading={woocommerceSyncMutation.isPending}
           onConnect={() => openStoreDialog("woocommerce")}
           onDisconnect={() => void handleStoreDisconnect("woocommerce")}
+          onImport={
+            woocommerceConnected && data?.woocommerce.publishReady
+              ? () => woocommerceSyncMutation.mutate()
+              : undefined
+          }
         />
       </div>
 

@@ -35,6 +35,7 @@ import {
 } from "../lib/amazon-sp-settings.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
+import { syncWooCommerceProducts } from "../lib/woocommerce-product-sync.js";
 import { verifyShopifyConnection } from "../lib/shopify-connection-verify.js";
 
 const router: IRouter = Router();
@@ -369,6 +370,45 @@ router.post(
     } catch (err) {
       req.log?.error?.({ err }, "Shopify product sync failed");
       const message = err instanceof Error ? err.message : "Failed to import Shopify products";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.post(
+  "/marketplaces/woocommerce/sync",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["build_brand", "audits"], "create"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getWooCommerceConnection(workspaceId);
+    if (!connection?.storeUrl || !connection.consumerKey || !connection.consumerSecret) {
+      res.status(400).json({
+        error: "Connect your WooCommerce store with REST API credentials on the Marketplaces page first.",
+      });
+      return;
+    }
+
+    try {
+      const result = await syncWooCommerceProducts({
+        storeUrl: connection.storeUrl,
+        consumerKey: connection.consumerKey,
+        consumerSecret: connection.consumerSecret,
+        ownerId: getEffectiveUserId(req),
+        createdByUserId: auditCreatedByUserId(req),
+        workspaceId,
+      });
+
+      res.status(201).json({
+        ...result,
+        auditsCompleted: 0,
+        auditsFailed: 0,
+        auditsRemaining: 0,
+      });
+    } catch (err) {
+      req.log?.error?.({ err }, "WooCommerce product sync failed");
+      const message = err instanceof Error ? err.message : "Failed to import WooCommerce products";
       res.status(500).json({ error: message });
     }
   },
