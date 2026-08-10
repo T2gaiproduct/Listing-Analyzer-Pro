@@ -887,44 +887,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
             </button>
 
             {tab.id === "overview" && (
-              <>
-                <button
-                  type="button"
-                  onClick={openListingEditor}
-                  disabled={!canEditProduct}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border transition-colors",
-                    isEditingListing
-                      ? "bg-slate-100 text-slate-800 border-slate-300 shadow-sm"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-                    !canEditProduct && "opacity-50 cursor-not-allowed",
-                  )}
-                >
-                  <Pencil className="w-3 h-3 opacity-70" />
-                  Edit Listing
-                </button>
-                <button
-                  type="button"
-                  onClick={handleOptimizeContent}
-                  disabled={!canOptimizeContent || isOptimizingContent}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors",
-                    (!canOptimizeContent || isOptimizingContent) && "opacity-50 cursor-not-allowed",
-                  )}
-                >
-                  {isOptimizingContent ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Optimizing…
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3 h-3 opacity-70" />
-                      Optimize Content
-                    </>
-                  )}
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={handleOptimizeContent}
+                disabled={!canOptimizeContent || isOptimizingContent}
+                className={cn(
+                  "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors",
+                  (!canOptimizeContent || isOptimizingContent) && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                {isOptimizingContent ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3 opacity-70" />
+                    Optimize Content
+                  </>
+                )}
+              </button>
             )}
           </span>
         ))}
@@ -936,7 +919,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
           <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
-              {isEditingListing && editForm && (
+              {!isEditingListing ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={openListingEditor}
+                  disabled={!canEditProduct}
+                >
+                  <Pencil className="w-3 h-3 mr-1 opacity-70" />
+                  Edit Listing
+                </Button>
+              ) : editForm ? (
                 <div className="flex items-center gap-1.5">
                   {product.isShopifyImport && shopifyStatus?.publishReady && (
                     <>
@@ -998,7 +993,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     )}
                   </Button>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {isEditingListing && editForm ? (
