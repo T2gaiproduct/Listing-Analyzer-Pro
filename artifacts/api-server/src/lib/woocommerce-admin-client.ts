@@ -11,7 +11,7 @@ export type WooCommerceRestProduct = {
   status?: string;
   categories?: Array<{ name?: string }>;
   tags?: Array<{ name?: string }>;
-  images?: Array<{ src?: string }>;
+  images?: Array<{ id?: number; src?: string; name?: string; alt?: string }>;
 };
 
 function normalizeStoreUrl(raw: string): string {
@@ -120,6 +120,13 @@ export async function findWooCommerceProductBySlug(input: WooCommerceAuth & {
   return data[0] as WooCommerceRestProduct;
 }
 
+export type WooCommerceProductImage = {
+  id?: number;
+  src?: string;
+  name?: string;
+  alt?: string;
+};
+
 export type WooCommerceProductPayload = {
   name: string;
   slug: string;
@@ -129,7 +136,7 @@ export type WooCommerceProductPayload = {
   short_description?: string;
   sku?: string;
   regular_price?: string;
-  images?: Array<{ src: string }>;
+  images?: WooCommerceProductImage[];
   categories?: Array<{ name: string }>;
   tags?: Array<{ name: string }>;
 };
@@ -154,6 +161,39 @@ export async function updateWooCommerceProduct(
     method: "PUT",
     body: input.product,
   });
+}
+
+export async function uploadWooCommerceMedia(input: WooCommerceAuth & {
+  filename: string;
+  contentType: string;
+  data: Buffer;
+}): Promise<{ id: number; source_url: string }> {
+  const storeUrl = normalizeStoreUrl(input.storeUrl);
+  const endpoint = `${storeUrl}/wp-json/wp/v2/media`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuthHeader(input.consumerKey, input.consumerSecret),
+      "Content-Disposition": `attachment; filename="${input.filename.replace(/"/g, "")}"`,
+      "Content-Type": input.contentType,
+    },
+    body: input.data,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      text.trim()
+        ? `WooCommerce media upload failed (${response.status}): ${text.slice(0, 200)}`
+        : `WooCommerce media upload failed (${response.status})`,
+    );
+  }
+
+  const media = await response.json() as { id?: number; source_url?: string };
+  if (!media.id) {
+    throw new Error("WooCommerce media upload did not return a media id");
+  }
+  return { id: media.id, source_url: media.source_url?.trim() || "" };
 }
 
 export async function fetchWooCommerceCatalog(input: {

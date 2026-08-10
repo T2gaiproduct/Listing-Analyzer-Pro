@@ -1,10 +1,13 @@
 import { and, eq } from "drizzle-orm";
+import path from "node:path";
 import type { Audit, ImageRecord } from "@workspace/db";
 import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
 import {
   buildProductImageAssets,
   collectProductImages,
+  loadImageBuffer,
   slugify,
+  type ExportImageAsset,
 } from "./listing-export-shared.js";
 import type { WooCommerceStoreConnectionWithSecret } from "./marketplace-connections.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
@@ -12,6 +15,8 @@ import {
   createWooCommerceProduct,
   findWooCommerceProductBySlug,
   updateWooCommerceProduct,
+  uploadWooCommerceMedia,
+  type WooCommerceProductImage,
   type WooCommerceProductPayload,
   type WooCommerceRestProduct,
 } from "./woocommerce-admin-client.js";
@@ -49,24 +54,124 @@ function buildShortDescription(bulletPoints: string[]): string {
     .join("\n");
 }
 
-function buildProductPayload(opts: {
+function isProtectedAppImageUrl(url: string): boolean {
+  return /\/api\/images\/(?:\d+|graphics\/\d+)\//i.test(url);
+}
+
+function isPublicRemoteImageUrl(url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return false;
+  if (isProtectedAppImageUrl(url)) return false;
+  return true;
+}
+
+function contentTypeForFilename(filename: string): string {
+  switch (path.extname(filename).toLowerCase()) {
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    default:
+      return "image/jpeg";
+  }
+}
+
+function filenameForAsset(asset: ExportImageAsset, index: number): string {
+  const fromZip = path.basename(asset.zipPath);
+  if (fromZip && fromZip !== ".") return fromZip;
+  const fromSource = path.basename((asset.sourceUrl.split("?")[0] ?? asset.sourceUrl));
+  if (fromSource && fromSource !== ".") return fromSource;
+  return `product-image-${String(index + 1).padStart(2, "0")}.jpg`;
+}
+
+async function resolveWooCommerceProductImages(opts: {
+  connection: WooCommerceStoreConnectionWithSecret;
   audit: Audit;
   graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
   publicBaseUrl?: string;
+  altText?: string;
+  existingImages?: WooCommerceRestProduct["images"];
+}): Promise<WooCommerceProductImage[]> {
+  const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
+  const imageAssets = buildProductImageAssets(productImages, opts.publicBaseUrl);
+  const resolved: WooCommerceProductImage[] = [];
+  const seen = new Set<string>();
+
+  for (const [index, asset] of imageAssets.entries()) {
+    const candidates = [
+      asset.sourceUrl?.trim(),
+      asset.absoluteUrl?.trim(),
+    ].filter((url): url is string => Boolean(url));
+
+    let pushed = false;
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) continue;
+
+      if (isPublicRemoteImageUrl(candidate)) {
+        resolved.push({
+          src: candidate,
+          alt: opts.altText,
+          name: filenameForAsset(asset, index),
+        });
+        seen.add(candidate);
+        pushed = true;
+        break;
+      }
+    }
+    if (pushed) continue;
+
+    const buffer = await loadImageBuffer({
+      auditId: opts.audit.id,
+      sourceUrl: asset.sourceUrl,
+      graphicsProjectId: opts.graphicsProjectId,
+    });
+    if (!buffer || buffer.length < 1024) continue;
+
+    const filename = filenameForAsset(asset, index);
+    const media = await uploadWooCommerceMedia({
+      storeUrl: opts.connection.storeUrl,
+      consumerKey: opts.connection.consumerKey,
+      consumerSecret: opts.connection.consumerSecret,
+      filename,
+      contentType: contentTypeForFilename(filename),
+      data: buffer,
+    });
+    resolved.push({
+      id: media.id,
+      src: media.source_url || undefined,
+      alt: opts.altText,
+      name: filename,
+    });
+    seen.add(`media:${media.id}`);
+    if (resolved.length >= 9) break;
+  }
+
+  if (resolved.length > 0) return resolved.slice(0, 9);
+
+  const fallback = (opts.existingImages ?? [])
+    .filter((image) => image.id || image.src?.trim())
+    .slice(0, 9)
+    .map((image) => ({
+      ...(image.id ? { id: image.id } : {}),
+      ...(image.src?.trim() ? { src: image.src.trim() } : {}),
+      alt: image.alt?.trim() || opts.altText,
+      name: image.name?.trim() || undefined,
+    }));
+
+  return fallback;
+}
+
+function buildProductPayload(opts: {
+  audit: Audit;
   slug: string;
   sku: string;
   price: string | null;
   publishMode: WooCommercePublishMode;
+  images: WooCommerceProductImage[];
 }): WooCommerceProductPayload {
   const content = resolveListingContentForExport(opts.audit);
-  const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
-  const imageAssets = buildProductImageAssets(productImages, opts.publicBaseUrl);
-  const images = imageAssets
-    .map((asset) => asset.absoluteUrl?.trim() || asset.sourceUrl?.trim())
-    .filter((src): src is string => Boolean(src))
-    .slice(0, 9)
-    .map((src) => ({ src }));
-
   const category = opts.audit.category?.trim();
   const tags = content.keywords
     .map((keyword) => keyword.trim())
@@ -83,7 +188,7 @@ function buildProductPayload(opts: {
     short_description: buildShortDescription(content.bulletPoints) || undefined,
     sku: opts.sku,
     regular_price: opts.price ?? undefined,
-    images: images.length > 0 ? images : undefined,
+    images: opts.images.length > 0 ? opts.images : undefined,
     categories: category ? [{ name: category }] : undefined,
     tags: tags.length > 0 ? tags : undefined,
   };
@@ -93,6 +198,7 @@ export async function publishListingToWooCommerce(opts: {
   connection: WooCommerceStoreConnectionWithSecret;
   audit: Audit;
   graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
   publicBaseUrl?: string;
   publishMode?: WooCommercePublishMode;
 }): Promise<WooCommercePublishResult> {
@@ -132,21 +238,30 @@ export async function publishListingToWooCommerce(opts: {
   const price = priceCents != null ? (priceCents / 100).toFixed(2) : null;
   const listingCurrency = wooListing?.currency?.trim() || "USD";
 
-  const payload = buildProductPayload({
-    audit: opts.audit,
-    graphicsImageRecords: opts.graphicsImageRecords,
-    publicBaseUrl: opts.publicBaseUrl,
-    slug,
-    sku,
-    price,
-    publishMode,
-  });
-
   const existing = await findWooCommerceProductBySlug({
     storeUrl: opts.connection.storeUrl,
     consumerKey: opts.connection.consumerKey,
     consumerSecret: opts.connection.consumerSecret,
     slug,
+  });
+
+  const images = await resolveWooCommerceProductImages({
+    connection: opts.connection,
+    audit: opts.audit,
+    graphicsImageRecords: opts.graphicsImageRecords,
+    graphicsProjectId: opts.graphicsProjectId,
+    publicBaseUrl: opts.publicBaseUrl,
+    altText: content.title,
+    existingImages: existing?.images,
+  });
+
+  const payload = buildProductPayload({
+    audit: opts.audit,
+    slug,
+    sku,
+    price,
+    publishMode,
+    images,
   });
 
   let product: WooCommerceRestProduct;

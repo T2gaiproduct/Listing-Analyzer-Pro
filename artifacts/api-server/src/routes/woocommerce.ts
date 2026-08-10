@@ -93,12 +93,14 @@ router.post(
 
     const publishMode = parsePublishMode((req.body as { publishMode?: string })?.publishMode);
     const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+    const graphicsProjectId = loaded.graphicsProject?.id ?? null;
 
     try {
       const result = await publishListingToWooCommerce({
         connection,
         audit: loaded.audit,
         graphicsImageRecords,
+        graphicsProjectId,
         publicBaseUrl: resolvePublicBaseUrl(req),
         publishMode,
       });
