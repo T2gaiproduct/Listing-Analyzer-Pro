@@ -10,7 +10,10 @@ import {
   AlertCircle,
   CheckCircle2,
   ClipboardCheck,
+  Code2,
+  Copy,
   ExternalLink,
+  Eye,
   FolderOpen,
   Image as ImageLucide,
   ImageIcon,
@@ -307,7 +310,17 @@ function OptimizedContentPanel({
   onOptimize: () => void;
   optimizeDisabled?: boolean;
 }) {
+  const { toast } = useToast();
+  const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
   const contentBullets = generatedContent?.bulletPoints?.filter(Boolean) ?? [];
+  const keywords = generatedContent?.keywords?.filter(Boolean) ?? [];
+  const htmlDescription = generatedContent?.htmlDescription?.trim() ?? "";
+
+  function copyText(text: string, label: string) {
+    void navigator.clipboard.writeText(text).then(() => {
+      toast({ title: "Copied", description: `${label} copied to clipboard.` });
+    });
+  }
 
   return (
     <div className="border-t border-slate-100 pt-4 space-y-3">
@@ -346,33 +359,136 @@ function OptimizedContentPanel({
           <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
         </div>
       ) : generatedContent?.title ? (
-        <div className="rounded-lg border border-orange-200/80 bg-orange-50/40 overflow-hidden">
-          <div className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
+        <div className="rounded-lg border border-orange-200/80 bg-white overflow-hidden shadow-sm">
+          <div className="bg-orange-50 border-b border-orange-100 px-4 py-2.5 flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+            <p className="text-[10px] font-semibold text-orange-900">Generated Content</p>
+          </div>
+          <div className="px-4 py-4 space-y-4">
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1">Title</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Product Title</p>
+                <button
+                  type="button"
+                  onClick={() => copyText(generatedContent.title, "Title")}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                >
+                  <Copy className="w-3 h-3" />
+                  Copy
+                </button>
+              </div>
               <p className="text-[11px] font-medium text-slate-900 leading-snug whitespace-pre-wrap break-words">
                 {generatedContent.title}
               </p>
             </div>
+
             {contentBullets.length > 0 && (
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1.5">Bullet points</p>
-                <ul className="space-y-1.5 pl-3.5 list-disc marker:text-orange-300">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Bullet Points</p>
+                  <button
+                    type="button"
+                    onClick={() => copyText(contentBullets.join("\n"), "Bullet points")}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copy
+                  </button>
+                </div>
+                <ul className="space-y-2">
                   {contentBullets.map((bullet, index) => (
-                    <li
-                      key={`${index}-${bullet.slice(0, 24)}`}
-                      className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words"
-                    >
-                      {bullet}
+                    <li key={`${index}-${bullet.slice(0, 24)}`} className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {index + 1}
+                      </span>
+                      <span className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                        {bullet}
+                      </span>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-            {generatedContent.keywords?.length > 0 && (
+
+            {keywords.length > 0 && (
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1">Keywords</p>
-                <p className="text-[11px] text-slate-700">{generatedContent.keywords.join(", ")}</p>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Keywords</p>
+                  <button
+                    type="button"
+                    onClick={() => copyText(keywords.join(", "), "Keywords")}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copy
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {keywords.map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 text-[10px] font-medium border border-orange-100"
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {htmlDescription && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Description</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => copyText(htmlDescription, "HTML description")}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                    >
+                      <Copy className="w-3 h-3" />
+                      Copy
+                    </button>
+                    <div className="flex items-center bg-slate-100 rounded-md p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setDescViewMode("preview")}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all",
+                          descViewMode === "preview"
+                            ? "bg-white text-slate-700 shadow-sm"
+                            : "text-slate-400 hover:text-slate-500",
+                        )}
+                      >
+                        <Eye className="w-3 h-3" />
+                        Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDescViewMode("code")}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all",
+                          descViewMode === "code"
+                            ? "bg-white text-slate-700 shadow-sm"
+                            : "text-slate-400 hover:text-slate-500",
+                        )}
+                      >
+                        <Code2 className="w-3 h-3" />
+                        Code
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {descViewMode === "preview" ? (
+                  <div
+                    className="prose prose-sm max-w-none text-slate-800 border border-slate-200 rounded-md p-3 bg-slate-50/50"
+                    dangerouslySetInnerHTML={{ __html: htmlDescription }}
+                  />
+                ) : (
+                  <pre className="text-[10px] text-slate-100 leading-relaxed border border-slate-700 rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">
+                    {htmlDescription}
+                  </pre>
+                )}
               </div>
             )}
           </div>
@@ -717,6 +833,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!isEditingListing || !editForm) return;
     writeListingDraft(id, editForm);
   }, [id, isEditingListing, editForm]);
+
+  const hasOptimizedContent = Boolean(effectiveAudit?.generatedContent?.title?.trim());
+
+  useEffect(() => {
+    if (hasOptimizedContent) {
+      setShowOptimizedContent(true);
+    }
+  }, [hasOptimizedContent]);
 
   useEffect(() => {
     if (!product?.sourceType) return;
@@ -1565,7 +1689,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               />
             )}
 
-            {(showOptimizedContent || isOptimizingContent) && !isEditingListing && (
+            {(showOptimizedContent || isOptimizingContent || hasOptimizedContent) && !isEditingListing && (
               <OptimizedContentPanel
                 generatedContent={effectiveAudit?.generatedContent ?? null}
                 isOptimizing={isOptimizingContent}
@@ -1728,8 +1852,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
       )}
 
       {activeTab === "workflow" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold text-slate-900">{workflowTitle}</h2>
             <Button
               type="button"
@@ -1767,6 +1891,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
               </div>
             ))}
           </div>
+          {(hasOptimizedContent || isOptimizingContent) && (
+            <OptimizedContentPanel
+              generatedContent={effectiveAudit?.generatedContent ?? null}
+              isOptimizing={isOptimizingContent}
+              onOptimize={handleOptimizeContent}
+              optimizeDisabled={!canOptimizeContent}
+            />
+          )}
         </div>
       )}
 
