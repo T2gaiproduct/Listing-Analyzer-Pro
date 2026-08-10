@@ -1183,39 +1183,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 </div>
               ) : editForm ? (
                 <div className="flex items-center gap-1.5">
-                  {product.isShopifyImport && shopifyStatus?.publishReady && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px]"
-                        onClick={() => void saveAndPublishShopify("draft")}
-                        disabled={saveProductMutation.isPending || publishShopifyMutation.isPending}
-                      >
-                        {publishShopifyMutation.isPending ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <Send className="w-3 h-3 mr-1" />
-                        )}
-                        Save &amp; push draft
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => void saveAndPublishShopify("live")}
-                        disabled={saveProductMutation.isPending || publishShopifyMutation.isPending}
-                      >
-                        {publishShopifyMutation.isPending ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <Send className="w-3 h-3 mr-1" />
-                        )}
-                        Publish live
-                      </Button>
-                    </>
-                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -1615,7 +1582,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               </div>
             </div>
 
-            {isEditingListing && editForm && (
+            {isEditingListing && editForm && !product.isShopifyImport && (
               <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
                 <Button
                   type="button"
