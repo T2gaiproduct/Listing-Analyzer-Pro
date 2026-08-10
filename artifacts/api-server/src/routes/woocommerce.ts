@@ -13,6 +13,7 @@ import {
 } from "../lib/marketplace-connections.js";
 import { publishListingToWooCommerce, type WooCommercePublishMode } from "../lib/woocommerce-publish.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
+import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
 
 const router: IRouter = Router();
 
@@ -29,15 +30,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   }
   (req as AuthedRequest).userId = userId;
   next();
-}
-
-function resolvePublicBaseUrl(req: Request): string {
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  const proto = typeof forwardedProto === "string"
-    ? forwardedProto.split(",")[0]?.trim()
-    : req.protocol;
-  const host = req.get("host");
-  return `${proto}://${host}`;
 }
 
 function parsePublishMode(raw: unknown): WooCommercePublishMode {
@@ -96,12 +88,13 @@ router.post(
     const graphicsProjectId = loaded.graphicsProject?.id ?? null;
 
     try {
+      const publicBaseUrl = resolveMarketplacePublishBaseUrl(req);
       const result = await publishListingToWooCommerce({
         connection,
         audit: loaded.audit,
         graphicsImageRecords,
         graphicsProjectId,
-        publicBaseUrl: resolvePublicBaseUrl(req),
+        publicBaseUrl,
         publishMode,
       });
 

@@ -40,10 +40,13 @@ function originFromRequest(req: Request): string | undefined {
   if (host) {
     const proto = req.get("x-forwarded-proto")?.split(",")[0]?.trim()
       ?? (host.includes("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-    try {
-      return new URL(`${proto}://${host}`).origin;
-    } catch {
-      /* ignore */
+    const hostname = host.split(":")[0] ?? host;
+    if (hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1") {
+      try {
+        return new URL(`${proto}://${host}`).origin;
+      } catch {
+        /* ignore */
+      }
     }
   }
 
