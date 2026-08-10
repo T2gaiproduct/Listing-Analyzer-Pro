@@ -707,7 +707,43 @@ export default function ProductDetailPage({ id }: { id: number }) {
     setShowGraphicsPanel(true);
   }
 
+  function handlePublishToShopify() {
+    if (!product?.isShopifyImport) return;
+    if (!canEditProduct) return;
+
+    if (!shopifyStatus?.connected) {
+      toast({
+        title: "Shopify not connected",
+        description: "Connect your Shopify store on the Marketplaces page before publishing.",
+        variant: "destructive",
+        action: (
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
+            <Link href="/marketplaces">Go to Marketplaces</Link>
+          </Button>
+        ),
+      });
+      return;
+    }
+
+    if (!shopifyStatus.publishReady) {
+      toast({
+        title: "Shopify credentials required",
+        description: "Add your Shopify Client ID and Client secret on the Marketplaces page to enable direct publishing.",
+        variant: "destructive",
+        action: (
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
+            <Link href="/marketplaces">Go to Marketplaces</Link>
+          </Button>
+        ),
+      });
+      return;
+    }
+
+    publishShopifyMutation.mutate("live");
+  }
+
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+  const canPublishToShopify = Boolean(product?.isShopifyImport && canEditProduct);
 
   function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
     setEditForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -935,6 +971,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     <ImageIcon className="w-3 h-3 mr-1 opacity-70" />
                     Generate Graphic
                   </Button>
+                  {canPublishToShopify && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
+                      onClick={handlePublishToShopify}
+                      disabled={publishShopifyMutation.isPending}
+                    >
+                      {publishShopifyMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          Publishing…
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3 h-3 mr-1" />
+                          Publish
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               ) : editForm ? (
                 <div className="flex items-center gap-1.5">
@@ -1199,34 +1256,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     </DetailField>
                   </div>
                 </div>
-                {shopifyStatus?.publishReady && canEditProduct && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px]"
-                      onClick={() => publishShopifyMutation.mutate("draft")}
-                      disabled={publishShopifyMutation.isPending}
-                    >
-                      {publishShopifyMutation.isPending ? (
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                      ) : (
-                        <Send className="w-3 h-3 mr-1" />
-                      )}
-                      Push to Shopify draft
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => publishShopifyMutation.mutate("live")}
-                      disabled={publishShopifyMutation.isPending}
-                    >
-                      Publish live on Shopify
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
 
