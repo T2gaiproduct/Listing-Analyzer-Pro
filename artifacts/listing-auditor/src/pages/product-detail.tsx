@@ -667,7 +667,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
       };
 
       if (product?.isShopifyImport) {
-        payload.listingTitle = data.listingTitle.trim();
+        const title = data.listingTitle.trim();
+        payload.productName = title;
+        payload.listingTitle = title;
         payload.bulletPoints = parseBulletTextarea(data.bulletPointsText);
         payload.targetKeywords = parseTagsTextarea(data.tagsText);
         payload.descriptionHtml = data.descriptionHtml.trim();
@@ -838,18 +840,21 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   function validateListingEditor(): boolean {
     if (!editForm) return false;
+    if (product?.isShopifyImport) {
+      if (!editForm.listingTitle.trim() || !editForm.sku.trim()) {
+        toast({
+          title: "Missing fields",
+          description: "Title and SKU are required.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      return true;
+    }
     if (!editForm.productName.trim() || !editForm.sku.trim()) {
       toast({
         title: "Missing fields",
         description: "Product name and SKU are required.",
-        variant: "destructive",
-      });
-      return false;
-    }
-    if (product?.isShopifyImport && !editForm.listingTitle.trim()) {
-      toast({
-        title: "Missing fields",
-        description: "Shopify listing title is required.",
         variant: "destructive",
       });
       return false;
@@ -1242,6 +1247,87 @@ export default function ProductDetailPage({ id }: { id: number }) {
             </div>
 
             {isEditingListing && editForm ? (
+              product.isShopifyImport ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="sm:col-span-2">
+                    <EditDetailField label="Title">
+                      <Input
+                        value={editForm.listingTitle}
+                        onChange={(e) => updateEditField("listingTitle", e.target.value)}
+                        className="text-[11px]"
+                        placeholder="Product title on your Shopify store"
+                      />
+                    </EditDetailField>
+                  </div>
+                  <EditDetailField label="SKU">
+                    <Input
+                      value={editForm.sku}
+                      onChange={(e) => updateEditField("sku", e.target.value)}
+                      className="text-[11px] font-mono"
+                    />
+                  </EditDetailField>
+                  <EditDetailField label="Price">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editForm.price}
+                        onChange={(e) => updateEditField("price", e.target.value)}
+                        className="text-[11px] font-mono"
+                        placeholder="0.00"
+                        inputMode="decimal"
+                      />
+                      {product.listingCurrency && (
+                        <span className="text-[10px] text-slate-500 shrink-0">{product.listingCurrency}</span>
+                      )}
+                    </div>
+                  </EditDetailField>
+                  <EditDetailField label="Brand">
+                    <Input
+                      value={editForm.brandName}
+                      onChange={(e) => updateEditField("brandName", e.target.value)}
+                      className="text-[11px]"
+                      placeholder="Vendor"
+                    />
+                  </EditDetailField>
+                  <EditDetailField label="Category">
+                    <Input
+                      value={editForm.category}
+                      onChange={(e) => updateEditField("category", e.target.value)}
+                      className="text-[11px]"
+                      placeholder="Product type"
+                    />
+                  </EditDetailField>
+                  <div className="sm:col-span-2">
+                    <EditDetailField label="Tags">
+                      <Input
+                        value={editForm.tagsText}
+                        onChange={(e) => updateEditField("tagsText", e.target.value)}
+                        className="text-[11px]"
+                        placeholder="comma, separated, tags"
+                      />
+                    </EditDetailField>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <EditDetailField label="Bullet points">
+                      <Textarea
+                        value={editForm.bulletPointsText}
+                        onChange={(e) => updateEditField("bulletPointsText", e.target.value)}
+                        className="text-[11px] min-h-[96px] font-mono"
+                        placeholder="One bullet per line"
+                      />
+                    </EditDetailField>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <EditDetailField label="Description (HTML)">
+                      <Textarea
+                        value={editForm.descriptionHtml}
+                        onChange={(e) => updateEditField("descriptionHtml", e.target.value)}
+                        className="text-[11px] min-h-[120px] font-mono"
+                        placeholder="Product description for Shopify"
+                      />
+                    </EditDetailField>
+                  </div>
+                </div>
+              ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                 <EditDetailField label="Product Name">
                   <Input
@@ -1313,68 +1399,57 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   </EditDetailField>
                 </div>
 
-                {product.isShopifyImport && (
-                  <>
-                    <div className="sm:col-span-2 border-t border-slate-100 pt-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 mb-3">
-                        Shopify listing fields
-                      </p>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <EditDetailField label="Listing title (Shopify)">
-                        <Input
-                          value={editForm.listingTitle}
-                          onChange={(e) => updateEditField("listingTitle", e.target.value)}
-                          className="text-[11px]"
-                          placeholder="Title shown on your Shopify store"
-                        />
-                      </EditDetailField>
-                    </div>
-                    <EditDetailField label="Price">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editForm.price}
-                          onChange={(e) => updateEditField("price", e.target.value)}
-                          className="text-[11px] font-mono"
-                          placeholder="0.00"
-                          inputMode="decimal"
-                        />
-                        {product.listingCurrency && (
-                          <span className="text-[10px] text-slate-500 shrink-0">{product.listingCurrency}</span>
-                        )}
-                      </div>
-                    </EditDetailField>
-                    <EditDetailField label="Tags">
-                      <Input
-                        value={editForm.tagsText}
-                        onChange={(e) => updateEditField("tagsText", e.target.value)}
-                        className="text-[11px]"
-                        placeholder="comma, separated, tags"
-                      />
-                    </EditDetailField>
-                    <div className="sm:col-span-2">
-                      <EditDetailField label="Bullet points">
-                        <Textarea
-                          value={editForm.bulletPointsText}
-                          onChange={(e) => updateEditField("bulletPointsText", e.target.value)}
-                          className="text-[11px] min-h-[96px] font-mono"
-                          placeholder="One bullet per line"
-                        />
-                      </EditDetailField>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <EditDetailField label="Description (HTML)">
-                        <Textarea
-                          value={editForm.descriptionHtml}
-                          onChange={(e) => updateEditField("descriptionHtml", e.target.value)}
-                          className="text-[11px] min-h-[120px] font-mono"
-                          placeholder="Product description for Shopify"
-                        />
-                      </EditDetailField>
-                    </div>
-                  </>
-                )}
               </div>
+              )
+            ) : product.isShopifyImport ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              <DetailField label="Title">
+                {product.listingTitle ?? product.title ?? product.name}
+              </DetailField>
+              <DetailField label="SKU">
+                <span className="font-mono text-[11px]">{product.sku}</span>
+              </DetailField>
+              <DetailField label="Brand">{product.brandName || "—"}</DetailField>
+              <DetailField label="Category">{product.category || "—"}</DetailField>
+              <DetailField label="Price">
+                {product.listingPrice != null
+                  ? `${product.listingCurrency ?? ""} ${product.listingPrice.toFixed(2)}`.trim()
+                  : "—"}
+              </DetailField>
+              <DetailField label="Current Stage">
+                <LiveBadge label={product.stageLabel} />
+              </DetailField>
+              <div className="sm:col-span-2">
+                <DetailField label="Tags">
+                  {(product.targetKeywords ?? []).length > 0
+                    ? (product.targetKeywords ?? []).join(", ")
+                    : "—"}
+                </DetailField>
+              </div>
+              <div className="sm:col-span-2">
+                <DetailField label="Bullet points">
+                  {(product.bulletPoints ?? []).length > 0 ? (
+                    <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                      {(product.bulletPoints ?? []).map((bullet) => (
+                        <li key={bullet}>{bullet}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    "—"
+                  )}
+                </DetailField>
+              </div>
+              {product.descriptionHtml?.trim() && (
+                <div className="sm:col-span-2">
+                  <DetailField label="Description">
+                    <div
+                      className="text-[11px] text-slate-700 prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+                    />
+                  </DetailField>
+                </div>
+              )}
+            </div>
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <DetailField label="Product Name">{product.name}</DetailField>
@@ -1402,44 +1477,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <LiveBadge label={product.stageLabel} />
               </DetailField>
             </div>
-            )}
-
-            {product.isShopifyImport && !isEditingListing && (
-              <div className="border-t border-slate-100 pt-4 space-y-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                  Shopify listing
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                  <DetailField label="Listing title">
-                    {product.listingTitle ?? product.title ?? product.name}
-                  </DetailField>
-                  <DetailField label="Price">
-                    {product.listingPrice != null
-                      ? `${product.listingCurrency ?? ""} ${product.listingPrice.toFixed(2)}`.trim()
-                      : "—"}
-                  </DetailField>
-                  <div className="sm:col-span-2">
-                    <DetailField label="Tags">
-                      {(product.targetKeywords ?? []).length > 0
-                        ? (product.targetKeywords ?? []).join(", ")
-                        : "—"}
-                    </DetailField>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <DetailField label="Bullet points">
-                      {(product.bulletPoints ?? []).length > 0 ? (
-                        <ul className="list-disc pl-4 space-y-1 text-[11px]">
-                          {(product.bulletPoints ?? []).map((bullet) => (
-                            <li key={bullet}>{bullet}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        "—"
-                      )}
-                    </DetailField>
-                  </div>
-                </div>
-              </div>
             )}
 
             {(showAuditPanel || runAuditMutation.isPending) && !isEditingListing && (
