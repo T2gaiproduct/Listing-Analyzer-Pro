@@ -2,15 +2,13 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { getAuth } from "@clerk/express";
 import { eq, and } from "drizzle-orm";
 import { db, amazonSellerConnectionsTable, amazonPublishJobsTable } from "@workspace/db";
+import type { ImageRecord } from "@workspace/db";
 import {
   loadAmazonSpSettings,
   ensureAmazonAutoEnabled,
   isAmazonSpConfigured,
   isAmazonPublishReady,
   canSignSpApiRequests,
-  AMAZON_SETTINGS_CATEGORY,
-  AMAZON_SETTING_KEYS,
-  shouldAutoEnableAmazon,
 } from "../lib/amazon-sp-settings.js";
 import {
   buildAmazonAuthorizeUrl,
@@ -18,12 +16,15 @@ import {
   parseOAuthState,
   exchangeAuthorizationCode,
   testAmazonSpConnection,
-  publishListingToAmazon,
 } from "../lib/amazon-sp-api.js";
-import { buildAuditExportBundle } from "../lib/amazon-listing-export.js";
+import { publishListingToAmazonMarketplace } from "../lib/amazon-publish.js";
 import { resolveAmazonMarketplace } from "../lib/amazon-marketplaces.js";
-import { graphicsProjectsTable, auditsTable } from "@workspace/db";
-import type { ImageRecord } from "@workspace/db";
+import { loadAuditForExport } from "../lib/audit-export-loader.js";
+import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
+import {
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny,
+} from "../lib/workspace-route-helpers.js";
 
 const router: IRouter = Router();
 
@@ -40,13 +41,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   }
   (req as AuthedRequest).userId = userId;
   next();
-}
-
-function resolvePublicBaseUrl(req: Request): string {
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  const proto = typeof forwardedProto === "string" ? forwardedProto.split(",")[0]!.trim() : req.protocol;
-  const host = req.get("host") ?? "localhost";
-  return `${proto}://${host}`;
 }
 
 router.get("/amazon/status", requireAuth, async (req, res): Promise<void> => {
@@ -154,124 +148,102 @@ router.post("/amazon/test-connection", requireAuth, async (_req, res): Promise<v
   res.status(result.ok ? 200 : 400).json(result);
 });
 
-router.post("/audits/:id/publish/amazon", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
-  const auditId = Number.parseInt(String(req.params.id), 10);
-  if (!Number.isFinite(auditId)) {
-    res.status(400).json({ error: "Invalid audit id" });
-    return;
-  }
+router.post(
+  "/audits/:id/publish/amazon",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["build_brand", "audits"], "edit"),
+  async (req, res): Promise<void> => {
+    const userId = (req as AuthedRequest).userId;
+    const auditId = Number.parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(auditId)) {
+      res.status(400).json({ error: "Invalid audit id" });
+      return;
+    }
 
-  const settings = await ensureAmazonAutoEnabled();
-  if (!isAmazonPublishReady(settings)) {
-    res.status(400).json({ error: "Amazon publishing isn't set up yet. Contact your administrator." });
-    return;
-  }
+    const settings = await ensureAmazonAutoEnabled();
+    if (!isAmazonPublishReady(settings)) {
+      res.status(400).json({ error: "Amazon publishing isn't set up yet. Contact your administrator." });
+      return;
+    }
 
-  const [connection] = await db
-    .select()
-    .from(amazonSellerConnectionsTable)
-    .where(and(eq(amazonSellerConnectionsTable.userId, userId), eq(amazonSellerConnectionsTable.isDeleted, 0)))
-    .limit(1);
-  if (!connection) {
-    res.status(400).json({ error: "Connect your Amazon seller account before publishing." });
-    return;
-  }
+    const [connection] = await db
+      .select()
+      .from(amazonSellerConnectionsTable)
+      .where(and(eq(amazonSellerConnectionsTable.userId, userId), eq(amazonSellerConnectionsTable.isDeleted, 0)))
+      .limit(1);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your Amazon seller account before publishing." });
+      return;
+    }
 
-  const [audit] = await db
-    .select()
-    .from(auditsTable)
-    .where(and(eq(auditsTable.id, auditId), eq(auditsTable.userId, userId), eq(auditsTable.isDeleted, 0)))
-    .limit(1);
-  if (!audit) {
-    res.status(404).json({ error: "Audit not found" });
-    return;
-  }
+    const loaded = await loadAuditForExport(req, auditId);
+    if (!loaded) {
+      res.status(404).json({ error: "Audit not found" });
+      return;
+    }
 
-  const [graphicsProject] = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.auditId, auditId), eq(graphicsProjectsTable.isDeleted, 0)))
-    .limit(1);
+    const marketplace = typeof req.body?.marketplace === "string"
+      ? req.body.marketplace
+      : settings.defaultMarketplace;
+    resolveAmazonMarketplace(marketplace);
 
-  const marketplace = typeof req.body?.marketplace === "string"
-    ? req.body.marketplace
-    : settings.defaultMarketplace;
-  resolveAmazonMarketplace(marketplace);
-
-  try {
-    const bundle = buildAuditExportBundle({
-      audit,
-      marketplaceId: marketplace,
-      graphicsImageRecords: (graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined,
-      publicBaseUrl: resolvePublicBaseUrl(req),
-    });
-
-    const imageUrls = [
-      bundle.row.main_image_url,
-      bundle.row.other_image_url1,
-      bundle.row.other_image_url2,
-      bundle.row.other_image_url3,
-      bundle.row.other_image_url4,
-      bundle.row.other_image_url5,
-      bundle.row.other_image_url6,
-      bundle.row.other_image_url7,
-      bundle.row.other_image_url8,
-    ].filter(Boolean);
-
-    const sku = bundle.row.item_sku;
-    const [job] = await db.insert(amazonPublishJobsTable)
-      .values({ auditId, userId, marketplace, sku, status: "pending" })
-      .returning();
+    const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+    const graphicsProjectId = loaded.graphicsProject?.id ?? null;
 
     try {
-      const response = await publishListingToAmazon({
-        settings,
-        refreshToken: connection.refreshToken,
-        input: {
+      const publicBaseUrl = resolveMarketplacePublishBaseUrl(req);
+      const [job] = await db.insert(amazonPublishJobsTable)
+        .values({
+          auditId,
+          userId,
+          marketplace,
+          sku: `SL-${auditId}`,
+          status: "pending",
+        })
+        .returning();
+
+      try {
+        const result = await publishListingToAmazonMarketplace({
+          settings,
+          refreshToken: connection.refreshToken,
           sellerId: connection.sellerId,
-          sku,
+          audit: loaded.audit,
           marketplaceCode: marketplace,
-          title: bundle.row.item_name,
-          brand: bundle.row.brand_name,
-          bullets: [
-            bundle.row.bullet_point1,
-            bundle.row.bullet_point2,
-            bundle.row.bullet_point3,
-            bundle.row.bullet_point4,
-            bundle.row.bullet_point5,
-          ].filter(Boolean),
-          description: bundle.row.product_description,
-          keywords: bundle.row.generic_keywords,
-          imageUrls,
-        },
-      });
+          graphicsImageRecords,
+          graphicsProjectId,
+          publicBaseUrl,
+        });
 
-      await db.update(amazonPublishJobsTable)
-        .set({ status: "success", response })
-        .where(eq(amazonPublishJobsTable.id, job!.id));
+        await db.update(amazonPublishJobsTable)
+          .set({ status: "success", sku: result.sku, response: { marketplace: result.marketplace } })
+          .where(eq(amazonPublishJobsTable.id, job!.id));
 
-      res.json({
-        ok: true,
-        sandbox: settings.sandbox,
-        marketplace,
-        sku,
-        jobId: job!.id,
-        message: settings.sandbox
-          ? "Listing submitted to Amazon SP-API sandbox."
-          : "Listing submitted to Amazon.",
-      });
-    } catch (publishErr) {
-      const message = publishErr instanceof Error ? publishErr.message : "Publish failed";
-      await db.update(amazonPublishJobsTable)
-        .set({ status: "failed", errorMessage: message })
-        .where(eq(amazonPublishJobsTable.id, job!.id));
+        res.json({
+          ok: true,
+          sandbox: result.sandbox,
+          marketplace: result.marketplace,
+          sku: result.sku,
+          listingUrl: result.listingUrl,
+          status: result.status,
+          jobId: job!.id,
+          warning: result.warning,
+          message: result.sandbox
+            ? "Listing submitted to Amazon SP-API sandbox."
+            : "Listing submitted to Amazon.",
+        });
+      } catch (publishErr) {
+        const message = publishErr instanceof Error ? publishErr.message : "Publish failed";
+        await db.update(amazonPublishJobsTable)
+          .set({ status: "failed", errorMessage: message })
+          .where(eq(amazonPublishJobsTable.id, job!.id));
+        res.status(400).json({ error: message });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Publish failed";
       res.status(400).json({ error: message });
     }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Publish failed";
-    res.status(400).json({ error: message });
-  }
-});
+  },
+);
 
 export default router;

@@ -37,17 +37,39 @@ export async function disconnectAmazon(): Promise<void> {
 
 export async function publishAuditToAmazon(opts: {
   auditId: number;
-  marketplace: string;
-}): Promise<{ ok: boolean; message: string; sandbox?: boolean }> {
+  marketplace?: string;
+}): Promise<{
+  ok: boolean;
+  message: string;
+  sandbox?: boolean;
+  sku?: string;
+  listingUrl?: string | null;
+  warning?: string;
+}> {
   const res = await fetch(`${basePath}/api/audits/${opts.auditId}/publish/amazon`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ marketplace: opts.marketplace }),
   });
-  const data = await res.json().catch(() => ({})) as { ok?: boolean; message?: string; error?: string; sandbox?: boolean };
+  const data = await res.json().catch(() => ({})) as {
+    ok?: boolean;
+    message?: string;
+    error?: string;
+    sandbox?: boolean;
+    sku?: string;
+    listingUrl?: string | null;
+    warning?: string;
+  };
   if (!res.ok) {
     throw new Error(data.error ?? "Publish failed");
   }
-  return { ok: true, message: data.message ?? "Published", sandbox: data.sandbox };
+  return {
+    ok: true,
+    message: data.message ?? "Published",
+    sandbox: data.sandbox,
+    sku: data.sku,
+    listingUrl: data.listingUrl,
+    warning: data.warning,
+  };
 }

@@ -9,12 +9,12 @@ import {
   buildProductImageAssets,
   collectAplusImages,
   collectProductImages,
-  readGeneratedContent,
   slugify,
   stripHtml,
   truncate,
   type ExportImageAsset,
 } from "./listing-export-shared.js";
+import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 /** Amazon Inventory Loader–style columns (compatible across marketplaces). */
 export const AMAZON_FLAT_FILE_HEADERS = [
@@ -63,10 +63,11 @@ export function buildAuditExportBundle(opts: {
   marketplaceId?: string | null;
   graphicsImageRecords?: ImageRecord[];
   publicBaseUrl?: string;
+  profileSku?: string | null;
 }): AuditExportBundle {
-  const content = readGeneratedContent(opts.audit);
-  if (!content) {
-    throw new Error("Listing content not generated yet. Complete the Listing step before exporting.");
+  const content = resolveListingContentForExport(opts.audit);
+  if (!content.title.trim()) {
+    throw new Error("Listing title is required before exporting.");
   }
 
   const marketplace = resolveAmazonMarketplace(opts.marketplaceId);
@@ -76,7 +77,7 @@ export function buildAuditExportBundle(opts: {
   const aplusAssets = buildAplusImageAssets(aplusImages, opts.publicBaseUrl);
   const images = [...productAssets, ...aplusAssets];
 
-  const sku = `SL-${opts.audit.id}`;
+  const sku = opts.profileSku?.trim() || `SL-${opts.audit.id}`;
   const brand = opts.audit.brandName?.trim() || opts.audit.productName?.trim() || "Brand";
   const bullets = [...content.bulletPoints].slice(0, 5);
   while (bullets.length < 5) bullets.push("");

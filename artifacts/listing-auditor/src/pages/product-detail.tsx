@@ -33,6 +33,7 @@ import type { AuditResult, GeneratedContent } from "@workspace/api-client-react"
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
 import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
+import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
 import { ScoreBadge, ScoreRing } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -937,6 +938,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
     staleTime: 60_000,
   });
 
+  const canPublishToAmazon = Boolean(product && !isStoreImportProduct(product) && canEditProduct);
+  const { data: amazonStatus } = useQuery({
+    queryKey: ["amazon-status"],
+    queryFn: fetchAmazonStatus,
+    enabled: canPublishToAmazon,
+    staleTime: 60_000,
+  });
+
   const publishShopifyMutation = useMutation({
     mutationFn: async (publishMode: "draft" | "live") => {
       const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
@@ -1007,6 +1016,46 @@ export default function ProductDetailPage({ id }: { id: number }) {
         : error instanceof Error
           ? error.message
           : "Could not publish to WooCommerce.";
+      toast({
+        title: "Publish failed",
+        description,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const publishAmazonMutation = useMutation({
+    mutationFn: async () => {
+      const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+      return publishAuditToAmazon({
+        auditId,
+        marketplace: amazonStatus?.defaultMarketplace,
+      });
+    },
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+      void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
+      if (result.warning) {
+        toast({
+          title: "Published with a warning",
+          description: result.warning,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: result.sandbox ? "Published to Amazon sandbox" : "Published to Amazon",
+        description: result.listingUrl
+          ? `Listing submitted${result.sku ? ` (SKU: ${result.sku})` : ""}.`
+          : result.message,
+      });
+    },
+    onError: (error) => {
+      const description = error instanceof ApiFetchError && error.status === 401
+        ? "Your session expired or the server could not verify your login. Sign in again and retry."
+        : error instanceof Error
+          ? error.message
+          : "Could not publish to Amazon.";
       toast({
         title: "Publish failed",
         description,
@@ -1399,9 +1448,64 @@ export default function ProductDetailPage({ id }: { id: number }) {
     handlePublishToStore();
   }
 
+  function handlePublishToAmazon() {
+    if (!canPublishToAmazon) return;
+
+    if (!amazonStatus?.connected) {
+      toast({
+        title: "Amazon not connected",
+        description: "Connect your Amazon seller account on the Marketplaces page before publishing.",
+        variant: "destructive",
+        action: (
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
+            <Link href="/marketplaces">Go to Marketplaces</Link>
+          </Button>
+        ),
+      });
+      return;
+    }
+
+    if (!amazonStatus.publishReady) {
+      toast({
+        title: "Amazon publishing unavailable",
+        description: "Amazon publishing isn't set up yet. Contact your administrator.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const hasTitle = Boolean(
+      listingProduct?.listingTitle?.trim()
+        || effectiveAudit?.title?.trim()
+        || effectiveAudit?.generatedContent?.title?.trim()
+        || product?.name?.trim(),
+    );
+    if (!hasTitle) {
+      toast({
+        title: "Listing content required",
+        description: "Add a product title or generate listing content before publishing to Amazon.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const pendingForm = resolvePendingListingForm();
+    if (pendingForm) {
+      saveProductMutation.mutate(pendingForm, {
+        onSuccess: () => {
+          publishAmazonMutation.mutate();
+        },
+      });
+      return;
+    }
+
+    publishAmazonMutation.mutate();
+  }
+
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
   const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
   const isPublishingToStore = publishShopifyMutation.isPending || publishWooCommerceMutation.isPending;
+  const isPublishingToAmazon = publishAmazonMutation.isPending;
   const storePublishReady = product?.isWooCommerceImport
     ? woocommerceStatus?.publishReady
     : product?.isShopifyImport
@@ -1661,6 +1765,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         <>
                           <Send className="w-3 h-3 mr-1" />
                           Publish
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {canPublishToAmazon && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-[11px] bg-amber-600 hover:bg-amber-700"
+                      onClick={handlePublishToAmazon}
+                      disabled={isPublishingToAmazon || saveProductMutation.isPending}
+                    >
+                      {isPublishingToAmazon || saveProductMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          Publishing…
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3 h-3 mr-1" />
+                          Publish to Amazon
                         </>
                       )}
                     </Button>
