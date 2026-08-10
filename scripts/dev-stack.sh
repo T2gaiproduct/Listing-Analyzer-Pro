@@ -121,7 +121,7 @@ wait_for_public_url() {
 start_cloudflare_tunnel() {
   ensure_cloudflared
 
-  echo "==> Starting Cloudflare tunnel"
+  echo "==> Starting Cloudflare tunnel" >&2
   tmux_cmd kill-session -t cloudflare-tunnel 2>/dev/null || true
   tmux_cmd kill-session -t cf-tunnel 2>/dev/null || true
   sleep 1
@@ -132,10 +132,15 @@ start_cloudflare_tunnel() {
   "
 }
 
+normalize_public_url() {
+  local raw="${1:-}"
+  rg -o 'https://[a-z0-9-]+\.trycloudflare\.com' <<<"$raw" | tail -1 || true
+}
+
 ensure_cloudflare_tunnel() {
   local existing_url=""
   if [[ -f "$PUBLIC_URL_FILE" ]]; then
-    existing_url=$(tr -d '[:space:]' <"$PUBLIC_URL_FILE")
+    existing_url=$(normalize_public_url "$(cat "$PUBLIC_URL_FILE")")
   fi
 
   if tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null; then
@@ -144,7 +149,7 @@ ensure_cloudflare_tunnel() {
       echo "$existing_url"
       return 0
     fi
-    echo "==> Existing Cloudflare tunnel is unhealthy; restarting"
+    echo "==> Existing Cloudflare tunnel is unhealthy; restarting" >&2
   fi
 
   start_cloudflare_tunnel
