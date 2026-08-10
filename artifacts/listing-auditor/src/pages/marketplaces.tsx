@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useToast } from "@/hooks/use-toast";
@@ -70,6 +71,9 @@ function ConnectCard({
   onDisconnect,
   onImport,
   importLoading,
+  setupRequired,
+  setupMessage,
+  setupHref,
 }: {
   marketplace: string;
   description: string;
@@ -80,6 +84,9 @@ function ConnectCard({
   onDisconnect: () => void;
   onImport?: () => void;
   importLoading?: boolean;
+  setupRequired?: boolean;
+  setupMessage?: string;
+  setupHref?: string;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-5">
@@ -98,6 +105,12 @@ function ConnectCard({
       {connected && detail ? (
         <p className="text-[11px] text-slate-500 break-all rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
           {detail}
+        </p>
+      ) : null}
+
+      {setupRequired && setupMessage ? (
+        <p className="text-[11px] text-amber-800 leading-relaxed rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+          {setupMessage}
         </p>
       ) : null}
 
@@ -136,6 +149,27 @@ function ConnectCard({
               Disconnect
             </Button>
           </>
+        ) : setupRequired ? (
+          setupHref ? (
+            <Button
+              asChild
+              type="button"
+              size="sm"
+              className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Link href={setupHref}>Configure Amazon SP-API</Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 text-xs"
+              variant="outline"
+              disabled
+            >
+              Setup required
+            </Button>
+          )
         ) : (
           <Button
             type="button"
@@ -161,6 +195,7 @@ export default function MarketplacesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { platformName } = useBranding();
+  const { isAdmin } = useIsAdmin();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
   const [dialogTarget, setDialogTarget] = useState<StoreMarketplace | null>(null);
@@ -289,6 +324,22 @@ export default function MarketplacesPage() {
   });
 
   async function handleAmazonConnect() {
+    if (!data?.amazon.configured) {
+      toast({
+        title: "Amazon setup required",
+        description: isAdmin
+          ? "Configure Amazon SP-API credentials in Admin → Amazon Settings before connecting your seller account."
+          : "Amazon publishing isn't set up yet. Ask your administrator to configure Amazon SP-API.",
+        variant: "destructive",
+        action: isAdmin ? (
+          <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
+            <Link href="/admin/settings/amazon">Open settings</Link>
+          </Button>
+        ) : undefined,
+      });
+      return;
+    }
+
     setPendingAction("amazon");
     try {
       await startAmazonConnect();
@@ -417,8 +468,12 @@ export default function MarketplacesPage() {
   }
 
   const amazonConnected = Boolean(data?.amazon.connected);
+  const amazonConfigured = Boolean(data?.amazon.configured);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
+  const amazonSetupMessage = isAdmin
+    ? "Amazon SP-API credentials are required before sellers can connect. Add your LWA app ID, client credentials, and AWS IAM keys in Admin → Amazon Settings."
+    : "Amazon publishing isn't set up yet. Ask your administrator to configure Amazon SP-API in Admin → Amazon Settings.";
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300 max-w-5xl">
@@ -440,7 +495,17 @@ export default function MarketplacesPage() {
           marketplace="Amazon"
           description={CONNECT_CARDS[0]!.description}
           connected={amazonConnected}
-          detail={amazonConnected ? data?.amazon.sellerId ?? "Seller account linked" : null}
+          detail={
+            amazonConnected
+              ? [
+                  data?.amazon.sellerId ?? "Seller account linked",
+                  data?.amazon.publishReady ? "Direct publish enabled" : "Add AWS IAM keys in Admin to enable publishing",
+                ].filter(Boolean).join(" · ")
+              : null
+          }
+          setupRequired={!amazonConnected && !amazonConfigured}
+          setupMessage={amazonSetupMessage}
+          setupHref={isAdmin ? "/admin/settings/amazon" : undefined}
           loading={pendingAction === "amazon"}
           onConnect={handleAmazonConnect}
           onDisconnect={handleAmazonDisconnect}

@@ -45,7 +45,7 @@ const DEFAULTS: AmazonSpSettings = {
 export async function loadAmazonSpSettings(): Promise<AmazonSpSettings> {
   const rows = await db.select().from(settingsTable).where(eq(settingsTable.category, AMAZON_SETTINGS_CATEGORY));
   const map = new Map(rows.map((r) => [r.key, r.value]));
-  return {
+  const fromDb: AmazonSpSettings = {
     enabled: map.get(AMAZON_SETTING_KEYS.enabled) === "true",
     sandbox: map.get(AMAZON_SETTING_KEYS.sandbox) !== "false",
     applicationId: map.get(AMAZON_SETTING_KEYS.applicationId) ?? DEFAULTS.applicationId,
@@ -56,6 +56,34 @@ export async function loadAmazonSpSettings(): Promise<AmazonSpSettings> {
     awsAccessKeyId: map.get(AMAZON_SETTING_KEYS.awsAccessKeyId) ?? DEFAULTS.awsAccessKeyId,
     awsSecretAccessKey: map.get(AMAZON_SETTING_KEYS.awsSecretAccessKey) ?? DEFAULTS.awsSecretAccessKey,
     awsRoleArn: map.get(AMAZON_SETTING_KEYS.awsRoleArn) ?? DEFAULTS.awsRoleArn,
+  };
+
+  return mergeAmazonSpSettingsFromEnv(fromDb);
+}
+
+function envValue(...keys: string[]): string {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function mergeAmazonSpSettingsFromEnv(settings: AmazonSpSettings): AmazonSpSettings {
+  const enabledEnv = process.env.AMAZON_SP_ENABLED?.trim().toLowerCase();
+  const sandboxEnv = process.env.AMAZON_SP_SANDBOX?.trim().toLowerCase();
+
+  return {
+    enabled: enabledEnv === "true" ? true : enabledEnv === "false" ? false : settings.enabled,
+    sandbox: sandboxEnv === "false" ? false : sandboxEnv === "true" ? true : settings.sandbox,
+    applicationId: settings.applicationId || envValue("AMAZON_SP_APPLICATION_ID"),
+    clientId: settings.clientId || envValue("AMAZON_SP_CLIENT_ID"),
+    clientSecret: settings.clientSecret || envValue("AMAZON_SP_CLIENT_SECRET"),
+    redirectUri: settings.redirectUri || envValue("AMAZON_SP_REDIRECT_URI"),
+    defaultMarketplace: settings.defaultMarketplace || envValue("AMAZON_SP_DEFAULT_MARKETPLACE") || DEFAULTS.defaultMarketplace,
+    awsAccessKeyId: settings.awsAccessKeyId || envValue("AMAZON_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID"),
+    awsSecretAccessKey: settings.awsSecretAccessKey || envValue("AMAZON_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"),
+    awsRoleArn: settings.awsRoleArn || envValue("AMAZON_AWS_ROLE_ARN", "AWS_ROLE_ARN"),
   };
 }
 
