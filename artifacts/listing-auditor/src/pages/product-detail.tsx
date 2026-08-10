@@ -198,29 +198,111 @@ function PriorityBadge({ label, level }: { label?: string | null; level?: string
   );
 }
 
+function OptimizedContentPanel({
+  generatedContent,
+  isOptimizing,
+  onOptimize,
+  optimizeDisabled,
+}: {
+  generatedContent?: GeneratedContent | null;
+  isOptimizing: boolean;
+  onOptimize: () => void;
+  optimizeDisabled?: boolean;
+}) {
+  const contentBullets = generatedContent?.bulletPoints?.filter(Boolean) ?? [];
+
+  return (
+    <div className="border-t border-slate-100 pt-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+            Optimized Content
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px]"
+          onClick={onOptimize}
+          disabled={optimizeDisabled || isOptimizing}
+        >
+          {isOptimizing ? (
+            <>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              Optimizing…
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-3 h-3 mr-1 opacity-70" />
+              {generatedContent?.title ? "Regenerate" : "Optimize Content"}
+            </>
+          )}
+        </Button>
+      </div>
+
+      {isOptimizing && !generatedContent?.title ? (
+        <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/40 px-4 py-8 text-center">
+          <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
+          <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
+        </div>
+      ) : generatedContent?.title ? (
+        <div className="rounded-lg border border-orange-200/80 bg-orange-50/40 overflow-hidden">
+          <div className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1">Title</p>
+              <p className="text-[11px] font-medium text-slate-900 leading-snug whitespace-pre-wrap break-words">
+                {generatedContent.title}
+              </p>
+            </div>
+            {contentBullets.length > 0 && (
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1.5">Bullet points</p>
+                <ul className="space-y-1.5 pl-3.5 list-disc marker:text-orange-300">
+                  {contentBullets.map((bullet, index) => (
+                    <li
+                      key={`${index}-${bullet.slice(0, 24)}`}
+                      className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words"
+                    >
+                      {bullet}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {generatedContent.keywords?.length > 0 && (
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1">Keywords</p>
+                <p className="text-[11px] text-slate-700">{generatedContent.keywords.join(", ")}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-[11px] text-slate-500">
+          No optimized content yet. Click Optimize Content to generate listing copy (1 AI credit).
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AiSuggestionsCard({
   auditScore,
   suggestions,
-  generatedContent,
   workflowUrl,
   onNavigate,
-  onOptimizeContent,
   onRunAudit,
-  isOptimizing,
   isRunningAudit,
-  optimizeDisabled,
   runAuditDisabled,
 }: {
   auditScore: number | null;
   suggestions: string[];
-  generatedContent?: GeneratedContent | null;
   workflowUrl: string;
   onNavigate: (url: string) => void;
-  onOptimizeContent: () => void;
   onRunAudit?: () => void;
-  isOptimizing: boolean;
   isRunningAudit?: boolean;
-  optimizeDisabled?: boolean;
   runAuditDisabled?: boolean;
 }) {
   const items = suggestions.length > 0
@@ -230,8 +312,6 @@ function AiSuggestionsCard({
   const starRating = auditScore != null && auditScore > 0
     ? (auditScore / 20).toFixed(1)
     : null;
-
-  const contentBullets = generatedContent?.bulletPoints?.filter(Boolean) ?? [];
 
   return (
     <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-4 shadow-sm space-y-3">
@@ -286,37 +366,6 @@ function AiSuggestionsCard({
 
       <div className="space-y-2">
         <p className="text-[10px] font-medium uppercase tracking-wide text-orange-800/80">
-          Optimized Content
-        </p>
-        {generatedContent?.title ? (
-          <div className="rounded-lg border border-orange-200/80 bg-white/70 overflow-hidden">
-            <div className="max-h-48 overflow-y-auto overscroll-contain px-3 py-2.5 space-y-2">
-              <p className="text-[11px] font-medium text-slate-900 leading-snug whitespace-pre-wrap break-words">
-                {generatedContent.title}
-              </p>
-              {contentBullets.length > 0 && (
-                <ul className="space-y-1.5 pl-3.5 list-disc marker:text-orange-300">
-                  {contentBullets.map((bullet, index) => (
-                    <li
-                      key={`${index}-${bullet.slice(0, 24)}`}
-                      className="text-[10px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words"
-                    >
-                      {bullet}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        ) : (
-          <p className="text-[11px] text-slate-600 px-0.5">
-            No optimized content yet. Use the button below to generate listing copy (1 AI credit).
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-orange-800/80">
           Suggestions
         </p>
         <ul className="space-y-1.5 pl-4 list-disc marker:text-orange-400">
@@ -329,23 +378,6 @@ function AiSuggestionsCard({
       </div>
 
       <div className="flex flex-wrap gap-2 pt-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-[11px] bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-          onClick={onOptimizeContent}
-          disabled={optimizeDisabled || isOptimizing}
-        >
-          {isOptimizing ? (
-            <>
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              Optimizing…
-            </>
-          ) : (
-            "Optimize content (1 AI credit)"
-          )}
-        </Button>
         <Button
           type="button"
           variant="outline"
@@ -410,6 +442,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
+  const [showOptimizedContent, setShowOptimizedContent] = useState(false);
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -792,6 +825,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     }
     if (!canEditProduct) return;
 
+    setShowOptimizedContent(true);
+
     generateContent.mutate(
       { id: optimizeAuditId },
       {
@@ -813,6 +848,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
         },
       },
     );
+  }
+
+  function handleShowOptimizedContent() {
+    setShowOptimizedContent(true);
+    const hasContent = Boolean(effectiveAudit?.generatedContent?.title?.trim());
+    if (!hasContent && canOptimizeContent && !isOptimizingContent) {
+      handleOptimizeContent();
+    }
   }
 
   function handleRunAudit() {
@@ -911,30 +954,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 </span>
               )}
             </button>
-
-            {tab.id === "overview" && (
-              <button
-                type="button"
-                onClick={handleOptimizeContent}
-                disabled={!canOptimizeContent || isOptimizingContent}
-                className={cn(
-                  "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors",
-                  (!canOptimizeContent || isOptimizingContent) && "opacity-50 cursor-not-allowed",
-                )}
-              >
-                {isOptimizingContent ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Optimizing…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3 opacity-70" />
-                    Optimize Content
-                  </>
-                )}
-              </button>
-            )}
           </span>
         ))}
       </div>
@@ -946,17 +965,42 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold text-slate-900">Product Details</h2>
               {!isEditingListing ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[11px]"
-                  onClick={openListingEditor}
-                  disabled={!canEditProduct}
-                >
-                  <Pencil className="w-3 h-3 mr-1 opacity-70" />
-                  Edit Listing
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-7 text-[11px]",
+                      showOptimizedContent && "bg-orange-50 text-orange-700 border-orange-200",
+                    )}
+                    onClick={handleShowOptimizedContent}
+                    disabled={!canOptimizeContent || isOptimizingContent}
+                  >
+                    {isOptimizingContent ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Optimizing…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3 mr-1 opacity-70" />
+                        Optimize Content
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={openListingEditor}
+                    disabled={!canEditProduct}
+                  >
+                    <Pencil className="w-3 h-3 mr-1 opacity-70" />
+                    Edit Listing
+                  </Button>
+                </div>
               ) : editForm ? (
                 <div className="flex items-center gap-1.5">
                   {product.isShopifyImport && shopifyStatus?.publishReady && (
@@ -1251,6 +1295,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
               </div>
             )}
 
+            {(showOptimizedContent || isOptimizingContent) && !isEditingListing && (
+              <OptimizedContentPanel
+                generatedContent={effectiveAudit?.generatedContent ?? null}
+                isOptimizing={isOptimizingContent}
+                onOptimize={handleOptimizeContent}
+                optimizeDisabled={!canOptimizeContent}
+              />
+            )}
+
             <div className="border-t border-slate-100 pt-4 space-y-3">
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-2">
@@ -1330,14 +1383,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <AiSuggestionsCard
               auditScore={resolvedAuditScore}
               suggestions={product.aiSuggestions ?? []}
-              generatedContent={effectiveAudit?.generatedContent ?? null}
               workflowUrl={product.workflowUrl}
               onNavigate={navigate}
-              onOptimizeContent={handleOptimizeContent}
               onRunAudit={canRunAudit ? handleRunAudit : undefined}
-              isOptimizing={isOptimizingContent}
               isRunningAudit={runAuditMutation.isPending}
-              optimizeDisabled={!canOptimizeContent}
               runAuditDisabled={!canRunAudit}
             />
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
