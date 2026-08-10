@@ -1,6 +1,5 @@
 import { fetchJson } from "@/lib/api-fetch";
 import {
-  disconnectAmazon,
   fetchAmazonStatus,
   startAmazonConnect,
   type AmazonConnectionStatus,
@@ -9,6 +8,7 @@ import {
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export type StoreMarketplace = "shopify" | "woocommerce";
+export type MarketplacePlatform = StoreMarketplace | "amazon";
 
 export type MarketplaceConnectionsResponse = {
   amazon: AmazonConnectionStatus;
@@ -96,4 +96,33 @@ export async function syncWooCommerceProducts(): Promise<ShopifySyncResult> {
   });
 }
 
-export { fetchAmazonStatus, startAmazonConnect, disconnectAmazon };
+export async function connectAmazonMarketplace(input: {
+  applicationId: string;
+  clientId: string;
+  clientSecret: string;
+  awsAccessKeyId: string;
+  awsSecretAccessKey: string;
+  awsRoleArn?: string;
+  defaultMarketplace?: string;
+  sandbox?: boolean;
+}): Promise<{
+  connected: boolean;
+  credentialsReady: boolean;
+  publishReady: boolean;
+  redirectUri: string;
+  message?: string;
+}> {
+  return fetchJson(`${basePath}/api/marketplaces/connections/amazon`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disconnectAmazon(): Promise<void> {
+  await fetchJson(`${basePath}/api/marketplaces/connections/amazon`, {
+    method: "DELETE",
+  });
+}
+
+export { fetchAmazonStatus, startAmazonConnect };

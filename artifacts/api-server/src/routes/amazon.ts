@@ -1,14 +1,11 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and } from "drizzle-orm";
-import { db, amazonSellerConnectionsTable, amazonPublishJobsTable } from "@workspace/db";
+import { db, amazonSellerConnectionsTable, amazonPublishJobsTable, settingsTable } from "@workspace/db";
 import type { ImageRecord } from "@workspace/db";
 import {
-  loadAmazonSpSettings,
-  ensureAmazonAutoEnabled,
   isAmazonSpConfigured,
   isAmazonPublishReady,
-  canSignSpApiRequests,
 } from "../lib/amazon-sp-settings.js";
 import {
   buildAmazonAuthorizeUrl,
@@ -22,9 +19,20 @@ import { resolveAmazonMarketplace } from "../lib/amazon-marketplaces.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
 import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
 import {
+  getActiveWorkspaceId,
   resolveTeamAndWorkspace,
   requireWorkspaceActionAny,
 } from "../lib/workspace-route-helpers.js";
+import {
+  resolveAmazonConnectionForWorkspace,
+  resolveAmazonSettingsForWorkspace,
+  loadAmazonConnectionStatusForWorkspace,
+} from "../lib/resolve-amazon-settings.js";
+import {
+  disconnectAmazonWorkspaceConnection,
+  getAmazonWorkspaceConnection,
+  saveAmazonWorkspaceSellerConnection,
+} from "../lib/amazon-workspace-connection.js";
 
 const router: IRouter = Router();
 
@@ -43,42 +51,33 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-router.get("/amazon/status", requireAuth, async (req, res): Promise<void> => {
-  const settings = await ensureAmazonAutoEnabled();
+router.get("/amazon/status", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const [connection] = await db
-    .select()
-    .from(amazonSellerConnectionsTable)
-    .where(and(eq(amazonSellerConnectionsTable.userId, userId), eq(amazonSellerConnectionsTable.isDeleted, 0)))
-    .limit(1);
-
-  res.json({
-    configured: isAmazonSpConfigured(settings),
-    publishReady: isAmazonPublishReady(settings),
-    enabled: settings.enabled,
-    sandbox: settings.sandbox,
-    canSignRequests: canSignSpApiRequests(settings),
-    connected: Boolean(connection),
-    sellerId: connection?.sellerId ?? null,
-    marketplaceIds: connection?.marketplaceIds ?? [],
-    defaultMarketplace: settings.defaultMarketplace,
-  });
+  const workspaceId = getActiveWorkspaceId(req);
+  const status = await loadAmazonConnectionStatusForWorkspace({ workspaceId, userId });
+  res.json(status);
 });
 
-router.get("/amazon/oauth/authorize", requireAuth, async (req, res): Promise<void> => {
-  const settings = await loadAmazonSpSettings();
+router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const workspaceId = getActiveWorkspaceId(req);
+  const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId);
+
   if (!isAmazonSpConfigured(settings)) {
-    res.status(400).json({ error: "Amazon publishing isn't set up yet. Contact your administrator." });
+    res.status(400).json({
+      error: workspaceId
+        ? "Add your Amazon SP-API credentials on the Marketplaces page before connecting your seller account."
+        : "Amazon publishing isn't set up yet. Contact your administrator.",
+    });
     return;
   }
-  const userId = (req as AuthedRequest).userId;
-  const state = createOAuthState(userId);
+
+  const state = createOAuthState({ userId, workspaceId });
   const url = buildAmazonAuthorizeUrl(settings, state);
   res.json({ url });
 });
 
 router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
-  const settings = await loadAmazonSpSettings();
   const stateRaw = typeof req.query.state === "string" ? req.query.state : "";
   const parsed = parseOAuthState(stateRaw);
   if (!parsed) {
@@ -103,47 +102,88 @@ router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
   }
 
   try {
+    const { settings } = await resolveAmazonSettingsForWorkspace(parsed.workspaceId);
+    if (!isAmazonSpConfigured(settings)) {
+      res.status(400).send("Amazon SP-API credentials are missing. Reconnect from the Marketplaces page.");
+      return;
+    }
+
     const tokens = await exchangeAuthorizationCode(settings, code);
     const marketplaceIds = typeof req.query.mws_auth_token === "string" ? [] : [];
 
-    await db.insert(amazonSellerConnectionsTable)
-      .values({
-        userId: parsed.userId,
+    if (parsed.workspaceId) {
+      await saveAmazonWorkspaceSellerConnection(parsed.workspaceId, {
         sellerId,
         refreshToken: tokens.refresh_token!,
         marketplaceIds,
-        connectedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: amazonSellerConnectionsTable.userId,
-        set: {
+      });
+    } else {
+      await db.insert(amazonSellerConnectionsTable)
+        .values({
+          userId: parsed.userId,
           sellerId,
           refreshToken: tokens.refresh_token!,
-          isDeleted: 0,
-          deletedAt: null,
+          marketplaceIds,
+          connectedAt: new Date(),
           updatedAt: new Date(),
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: amazonSellerConnectionsTable.userId,
+          set: {
+            sellerId,
+            refreshToken: tokens.refresh_token!,
+            isDeleted: 0,
+            deletedAt: null,
+            updatedAt: new Date(),
+          },
+        });
+    }
 
     const base = settings.redirectUri.replace(/\/api\/amazon\/oauth\/callback.*$/, "");
-    res.redirect(`${base}/audits/new?amazon=connected`);
+    res.redirect(`${base}/marketplaces?amazon=connected`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Amazon authorization failed";
     res.status(400).send(message);
   }
 });
 
-router.delete("/amazon/connection", requireAuth, async (req, res): Promise<void> => {
+router.delete("/amazon/connection", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const workspaceId = getActiveWorkspaceId(req);
+
+  if (workspaceId) {
+    const existing = await getAmazonWorkspaceConnection(workspaceId);
+    if (existing?.sellerId && existing.refreshToken) {
+      const key = `marketplace_connection_${workspaceId}_amazon`;
+      const updated = {
+        ...existing,
+        sellerId: undefined,
+        refreshToken: undefined,
+        marketplaceIds: [],
+        sellerConnectedAt: undefined,
+      };
+      await db.update(settingsTable)
+        .set({ value: JSON.stringify(updated), updatedAt: new Date() })
+        .where(eq(settingsTable.key, key));
+      res.json({ ok: true });
+      return;
+    }
+    if (existing) {
+      await disconnectAmazonWorkspaceConnection(workspaceId);
+      res.json({ ok: true });
+      return;
+    }
+  }
+
   await db.update(amazonSellerConnectionsTable)
     .set({ isDeleted: 1, deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(amazonSellerConnectionsTable.userId, userId));
   res.json({ ok: true });
 });
 
-router.post("/amazon/test-connection", requireAuth, async (_req, res): Promise<void> => {
-  const settings = await loadAmazonSpSettings();
+router.post("/amazon/test-connection", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const workspaceId = getActiveWorkspaceId(req);
+  const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId);
   const result = await testAmazonSpConnection(settings);
   res.status(result.ok ? 200 : 400).json(result);
 });
@@ -155,25 +195,20 @@ router.post(
   requireWorkspaceActionAny(["build_brand", "audits"], "edit"),
   async (req, res): Promise<void> => {
     const userId = (req as AuthedRequest).userId;
+    const workspaceId = getActiveWorkspaceId(req);
     const auditId = Number.parseInt(String(req.params.id), 10);
     if (!Number.isFinite(auditId)) {
       res.status(400).json({ error: "Invalid audit id" });
       return;
     }
 
-    const settings = await ensureAmazonAutoEnabled();
-    if (!isAmazonPublishReady(settings)) {
-      res.status(400).json({ error: "Amazon publishing isn't set up yet. Contact your administrator." });
-      return;
-    }
-
-    const [connection] = await db
-      .select()
-      .from(amazonSellerConnectionsTable)
-      .where(and(eq(amazonSellerConnectionsTable.userId, userId), eq(amazonSellerConnectionsTable.isDeleted, 0)))
-      .limit(1);
-    if (!connection) {
-      res.status(400).json({ error: "Connect your Amazon seller account before publishing." });
+    const resolved = await resolveAmazonConnectionForWorkspace({ workspaceId, userId });
+    if (!resolved || !isAmazonPublishReady(resolved.settings)) {
+      res.status(400).json({
+        error: workspaceId
+          ? "Connect your Amazon seller account on the Marketplaces page before publishing."
+          : "Amazon publishing isn't set up yet. Contact your administrator.",
+      });
       return;
     }
 
@@ -185,7 +220,7 @@ router.post(
 
     const marketplace = typeof req.body?.marketplace === "string"
       ? req.body.marketplace
-      : settings.defaultMarketplace;
+      : resolved.settings.defaultMarketplace;
     resolveAmazonMarketplace(marketplace);
 
     const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
@@ -205,9 +240,9 @@ router.post(
 
       try {
         const result = await publishListingToAmazonMarketplace({
-          settings,
-          refreshToken: connection.refreshToken,
-          sellerId: connection.sellerId,
+          settings: resolved.settings,
+          refreshToken: resolved.refreshToken,
+          sellerId: resolved.sellerId,
           audit: loaded.audit,
           marketplaceCode: marketplace,
           graphicsImageRecords,

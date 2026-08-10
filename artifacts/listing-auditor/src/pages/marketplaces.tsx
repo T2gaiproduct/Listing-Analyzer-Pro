@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,12 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
-import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { AMAZON_MARKETPLACES } from "@/lib/amazon-export";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useToast } from "@/hooks/use-toast";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import {
+  connectAmazonMarketplace,
   connectStoreMarketplace,
   disconnectAmazon,
   disconnectStoreMarketplace,
@@ -33,7 +34,13 @@ import {
   type StoreMarketplace,
 } from "@/lib/marketplace-connections";
 
-type ConnectTarget = "amazon" | StoreMarketplace;
+type DialogTarget = StoreMarketplace | "amazon";
+
+function buildAmazonRedirectUri(): string {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const path = `${basePath}/api/amazon/oauth/callback`.replace(/^\/\//, "/").replace(/([^:]\/)\/+/g, "$1");
+  return `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 const CONNECT_CARDS: Array<{
   id: ConnectTarget;
@@ -195,16 +202,26 @@ export default function MarketplacesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { platformName } = useBranding();
-  const { isAdmin } = useIsAdmin();
   const { user, isLoaded: clerkLoaded } = useUser();
   const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection } = useWorkspace();
-  const [dialogTarget, setDialogTarget] = useState<StoreMarketplace | null>(null);
+  const [dialogTarget, setDialogTarget] = useState<DialogTarget | null>(null);
   const [storeUrl, setStoreUrl] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
-  const [pendingAction, setPendingAction] = useState<ConnectTarget | null>(null);
+  const [amazonApplicationId, setAmazonApplicationId] = useState("");
+  const [amazonClientId, setAmazonClientId] = useState("");
+  const [amazonClientSecret, setAmazonClientSecret] = useState("");
+  const [amazonAwsAccessKeyId, setAmazonAwsAccessKeyId] = useState("");
+  const [amazonAwsSecretAccessKey, setAmazonAwsSecretAccessKey] = useState("");
+  const [amazonAwsRoleArn, setAmazonAwsRoleArn] = useState("");
+  const [amazonDefaultMarketplace, setAmazonDefaultMarketplace] = useState("US");
+  const [amazonSandbox, setAmazonSandbox] = useState(true);
+  const [pendingAction, setPendingAction] = useState<DialogTarget | null>(null);
+  const amazonRedirectUri = useMemo(() => (
+    typeof window === "undefined" ? "" : buildAmazonRedirectUri()
+  ), []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-connections", featureWorkspaceId],
@@ -323,34 +340,100 @@ export default function MarketplacesPage() {
     },
   });
 
-  async function handleAmazonConnect() {
-    if (!data?.amazon.configured) {
+  const connectAmazonMutation = useMutation({
+    mutationFn: connectAmazonMarketplace,
+    onSuccess: async (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      setDialogTarget(null);
       toast({
-        title: "Amazon setup required",
-        description: isAdmin
-          ? "Configure Amazon SP-API credentials in Admin → Amazon Settings before connecting your seller account."
-          : "Amazon publishing isn't set up yet. Ask your administrator to configure Amazon SP-API.",
+        title: "Amazon credentials saved",
+        description: result.message ?? "Authorize your seller account to finish connecting.",
+      });
+      try {
+        await startAmazonConnect();
+      } catch (error) {
+        toast({
+          title: "Authorize your seller account",
+          description: error instanceof Error ? error.message : "Open Marketplaces and click Connect with Amazon again to authorize.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Amazon connection failed",
+        description: error instanceof Error ? error.message : "Could not save Amazon credentials.",
         variant: "destructive",
-        action: isAdmin ? (
-          <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
-            <Link href="/admin/settings/amazon">Open settings</Link>
-          </Button>
-        ) : undefined,
+      });
+    },
+    onSettled: () => setPendingAction(null),
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("amazon") !== "connected") return;
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    toast({ title: "Amazon connected", description: "Your seller account is linked to this workspace." });
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [queryClient, toast]);
+
+  async function handleAmazonConnect() {
+    if (data?.amazon.configured && !data.amazon.connected) {
+      setPendingAction("amazon");
+      try {
+        await startAmazonConnect();
+      } catch (error) {
+        toast({
+          title: "Amazon authorization failed",
+          description: error instanceof Error ? error.message : "Could not start Amazon authorization.",
+          variant: "destructive",
+        });
+      } finally {
+        setPendingAction(null);
+      }
+      return;
+    }
+
+    setAmazonApplicationId("");
+    setAmazonClientId("");
+    setAmazonClientSecret("");
+    setAmazonAwsAccessKeyId("");
+    setAmazonAwsSecretAccessKey("");
+    setAmazonAwsRoleArn("");
+    setAmazonDefaultMarketplace(data?.amazon.defaultMarketplace ?? "US");
+    setAmazonSandbox(data?.amazon.sandbox ?? true);
+    setDialogTarget("amazon");
+  }
+
+  function submitAmazonConnection() {
+    if (!amazonApplicationId.trim() || !amazonClientId.trim() || !amazonClientSecret.trim()) {
+      toast({
+        title: "Amazon credentials required",
+        description: "Enter your Application ID, LWA Client ID, and Client secret.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!amazonAwsAccessKeyId.trim() || !amazonAwsSecretAccessKey.trim()) {
+      toast({
+        title: "AWS credentials required",
+        description: "Enter your AWS Access Key ID and Secret Access Key for SP-API signing.",
+        variant: "destructive",
       });
       return;
     }
 
     setPendingAction("amazon");
-    try {
-      await startAmazonConnect();
-    } catch (error) {
-      setPendingAction(null);
-      toast({
-        title: "Amazon connection failed",
-        description: error instanceof Error ? error.message : "Could not start Amazon authorization.",
-        variant: "destructive",
-      });
-    }
+    connectAmazonMutation.mutate({
+      applicationId: amazonApplicationId.trim(),
+      clientId: amazonClientId.trim(),
+      clientSecret: amazonClientSecret.trim(),
+      awsAccessKeyId: amazonAwsAccessKeyId.trim(),
+      awsSecretAccessKey: amazonAwsSecretAccessKey.trim(),
+      awsRoleArn: amazonAwsRoleArn.trim() || undefined,
+      defaultMarketplace: amazonDefaultMarketplace,
+      sandbox: amazonSandbox,
+    });
   }
 
   async function handleAmazonDisconnect() {
@@ -469,11 +552,9 @@ export default function MarketplacesPage() {
 
   const amazonConnected = Boolean(data?.amazon.connected);
   const amazonConfigured = Boolean(data?.amazon.configured);
+  const amazonAwaitingSellerAuth = amazonConfigured && !amazonConnected;
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
-  const amazonSetupMessage = isAdmin
-    ? "Amazon SP-API credentials are required before sellers can connect. Add your LWA app ID, client credentials, and AWS IAM keys in Admin → Amazon Settings."
-    : "Amazon publishing isn't set up yet. Ask your administrator to configure Amazon SP-API in Admin → Amazon Settings.";
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300 max-w-5xl">
@@ -499,13 +580,12 @@ export default function MarketplacesPage() {
             amazonConnected
               ? [
                   data?.amazon.sellerId ?? "Seller account linked",
-                  data?.amazon.publishReady ? "Direct publish enabled" : "Add AWS IAM keys in Admin to enable publishing",
+                  data?.amazon.publishReady ? "Direct publish enabled" : "Publishing not ready yet",
                 ].filter(Boolean).join(" · ")
-              : null
+              : amazonAwaitingSellerAuth
+                ? "SP-API credentials saved · authorize your seller account to finish"
+                : null
           }
-          setupRequired={!amazonConnected && !amazonConfigured}
-          setupMessage={amazonSetupMessage}
-          setupHref={isAdmin ? "/admin/settings/amazon" : undefined}
           loading={pendingAction === "amazon"}
           onConnect={handleAmazonConnect}
           onDisconnect={handleAmazonDisconnect}
@@ -553,18 +633,140 @@ export default function MarketplacesPage() {
       </div>
 
       <Dialog open={dialogTarget != null} onOpenChange={(open) => !open && setDialogTarget(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Connect with {dialogTarget === "shopify" ? "Shopify" : "WooCommerce"}
+              Connect with {dialogTarget === "amazon" ? "Amazon" : dialogTarget === "shopify" ? "Shopify" : "WooCommerce"}
             </DialogTitle>
             <DialogDescription>
-              {dialogTarget === "shopify"
-                ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). Required API scopes: read_products, write_products, read_publications, write_publications."
-                : "Enter your WooCommerce store URL and REST API credentials from WordPress → WooCommerce → Settings → Advanced → REST API. Create a key with Read/Write permissions."}
+              {dialogTarget === "amazon"
+                ? "Enter your Amazon SP-API app credentials from Seller Central → Apps & Services → Develop Apps. Add the redirect URI below to your LWA app before authorizing."
+                : dialogTarget === "shopify"
+                  ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). Required API scopes: read_products, write_products, read_publications, write_publications."
+                  : "Enter your WooCommerce store URL and REST API credentials from WordPress → WooCommerce → Settings → Advanced → REST API. Create a key with Read/Write permissions."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
+            {dialogTarget === "amazon" ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-redirect-uri" className="text-xs text-slate-600">
+                    OAuth redirect URI
+                  </Label>
+                  <Input
+                    id="amazon-redirect-uri"
+                    value={amazonRedirectUri}
+                    readOnly
+                    className="h-9 text-[10px] font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-application-id" className="text-xs text-slate-600">
+                    Application ID
+                  </Label>
+                  <Input
+                    id="amazon-application-id"
+                    value={amazonApplicationId}
+                    onChange={(e) => setAmazonApplicationId(e.target.value)}
+                    placeholder="amzn1.sp.solution...."
+                    className="h-9 text-xs font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-client-id" className="text-xs text-slate-600">
+                    LWA Client ID
+                  </Label>
+                  <Input
+                    id="amazon-client-id"
+                    value={amazonClientId}
+                    onChange={(e) => setAmazonClientId(e.target.value)}
+                    placeholder="amzn1.application-oa2-client...."
+                    className="h-9 text-xs font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-client-secret" className="text-xs text-slate-600">
+                    LWA Client secret
+                  </Label>
+                  <Input
+                    id="amazon-client-secret"
+                    type="password"
+                    value={amazonClientSecret}
+                    onChange={(e) => setAmazonClientSecret(e.target.value)}
+                    placeholder="amzn1.oa2-cs.v1...."
+                    className="h-9 text-xs font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-aws-access-key" className="text-xs text-slate-600">
+                    AWS Access Key ID
+                  </Label>
+                  <Input
+                    id="amazon-aws-access-key"
+                    value={amazonAwsAccessKeyId}
+                    onChange={(e) => setAmazonAwsAccessKeyId(e.target.value)}
+                    placeholder="AKIA..."
+                    className="h-9 text-xs font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-aws-secret-key" className="text-xs text-slate-600">
+                    AWS Secret Access Key
+                  </Label>
+                  <Input
+                    id="amazon-aws-secret-key"
+                    type="password"
+                    value={amazonAwsSecretAccessKey}
+                    onChange={(e) => setAmazonAwsSecretAccessKey(e.target.value)}
+                    className="h-9 text-xs font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-aws-role-arn" className="text-xs text-slate-600">
+                    AWS Role ARN (optional)
+                  </Label>
+                  <Input
+                    id="amazon-aws-role-arn"
+                    value={amazonAwsRoleArn}
+                    onChange={(e) => setAmazonAwsRoleArn(e.target.value)}
+                    placeholder="arn:aws:iam::..."
+                    className="h-9 text-xs font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amazon-marketplace" className="text-xs text-slate-600">
+                    Default marketplace
+                  </Label>
+                  <select
+                    id="amazon-marketplace"
+                    value={amazonDefaultMarketplace}
+                    onChange={(e) => setAmazonDefaultMarketplace(e.target.value)}
+                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"
+                  >
+                    {AMAZON_MARKETPLACES.map((marketplace) => (
+                      <option key={marketplace.id} value={marketplace.id}>
+                        {marketplace.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={amazonSandbox}
+                    onChange={(e) => setAmazonSandbox(e.target.checked)}
+                  />
+                  Use Amazon SP-API sandbox
+                </label>
+              </>
+            ) : (
+              <>
             <div className="space-y-2">
               <Label htmlFor="store-url" className="text-xs text-slate-600">
                 Store URL
@@ -643,6 +845,8 @@ export default function MarketplacesPage() {
                 </div>
               </>
             )}
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -650,23 +854,23 @@ export default function MarketplacesPage() {
               variant="outline"
               className="h-9 text-xs"
               onClick={() => setDialogTarget(null)}
-              disabled={connectStoreMutation.isPending}
+              disabled={connectStoreMutation.isPending || connectAmazonMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               type="button"
               className={cn("h-9 text-xs bg-slate-900 hover:bg-slate-800 text-white")}
-              onClick={submitStoreConnection}
-              disabled={connectStoreMutation.isPending}
+              onClick={dialogTarget === "amazon" ? submitAmazonConnection : submitStoreConnection}
+              disabled={connectStoreMutation.isPending || connectAmazonMutation.isPending}
             >
-              {connectStoreMutation.isPending ? (
+              {(connectStoreMutation.isPending || connectAmazonMutation.isPending) ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                   Connecting…
                 </>
               ) : (
-                "Connect store"
+                dialogTarget === "amazon" ? "Save & authorize" : "Connect store"
               )}
             </Button>
           </DialogFooter>

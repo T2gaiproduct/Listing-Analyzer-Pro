@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, or, isNull, sql, desc } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, auditsTable, amazonSellerConnectionsTable } from "@workspace/db";
+import { db, auditsTable } from "@workspace/db";
 import {
   resolveTeamAndWorkspace,
   getAccountOwnerId,
@@ -23,16 +23,16 @@ import {
   isWooCommercePublishReady,
   saveShopifyConnection,
   saveWooCommerceConnection,
-  saveStoreConnection,
   type StoreMarketplace,
 } from "../lib/marketplace-connections.js";
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
-  ensureAmazonAutoEnabled,
-  isAmazonSpConfigured,
-  isAmazonPublishReady,
-  canSignSpApiRequests,
-} from "../lib/amazon-sp-settings.js";
+  buildAmazonOAuthRedirectUri,
+  disconnectAmazonWorkspaceConnection,
+  saveAmazonWorkspaceConnection,
+} from "../lib/amazon-workspace-connection.js";
+import { loadAmazonConnectionStatusForWorkspace } from "../lib/resolve-amazon-settings.js";
+import { normalizeLwaClientSecret, testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
 import { syncWooCommerceProducts } from "../lib/woocommerce-product-sync.js";
@@ -114,25 +114,13 @@ function normalizeStoreUrl(raw: string): string | null {
   }
 }
 
-async function loadAmazonConnectionStatus(userId: string) {
-  const settings = await ensureAmazonAutoEnabled();
-  const [connection] = await db
-    .select()
-    .from(amazonSellerConnectionsTable)
-    .where(and(eq(amazonSellerConnectionsTable.userId, userId), eq(amazonSellerConnectionsTable.isDeleted, 0)))
-    .limit(1);
+function parseConnectionPlatform(raw: string): StoreMarketplace | "amazon" | null {
+  if (raw === "amazon") return "amazon";
+  return parseStorePlatform(raw);
+}
 
-  return {
-    configured: isAmazonSpConfigured(settings),
-    publishReady: isAmazonPublishReady(settings),
-    enabled: settings.enabled,
-    sandbox: settings.sandbox,
-    canSignRequests: canSignSpApiRequests(settings),
-    connected: Boolean(connection),
-    sellerId: connection?.sellerId ?? null,
-    marketplaceIds: connection?.marketplaceIds ?? [],
-    defaultMarketplace: settings.defaultMarketplace,
-  };
+async function loadAmazonConnectionStatus(userId: string, workspaceId: number) {
+  return loadAmazonConnectionStatusForWorkspace({ userId, workspaceId });
 }
 
 function getEffectiveUserId(req: Request): string {
@@ -171,7 +159,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
   const workspaceId = getActiveWorkspaceId(req);
 
   const [amazon, shopify, woocommerce] = await Promise.all([
-    loadAmazonConnectionStatus(userId),
+    loadAmazonConnectionStatus(userId, workspaceId),
     getShopifyConnectionPublic(workspaceId),
     getStoreConnection(workspaceId, "woocommerce"),
   ]);
@@ -199,7 +187,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
 });
 
 router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const platform = parseStorePlatform(String(req.params.platform ?? ""));
+  const platform = parseConnectionPlatform(String(req.params.platform ?? ""));
   if (!platform) {
     res.status(400).json({ error: "Invalid marketplace platform" });
     return;
@@ -207,7 +195,78 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
 
   const workspaceId = getActiveWorkspaceId(req);
 
-  if (platform === "shopify") {
+  if (platform === "amazon") {
+    const body = req.body as {
+      applicationId?: string;
+      clientId?: string;
+      clientSecret?: string;
+      awsAccessKeyId?: string;
+      awsSecretAccessKey?: string;
+      awsRoleArn?: string;
+      defaultMarketplace?: string;
+      sandbox?: boolean;
+    };
+
+    const applicationId = String(body.applicationId ?? "").trim();
+    const clientId = String(body.clientId ?? "").trim();
+    const clientSecret = normalizeLwaClientSecret(String(body.clientSecret ?? ""));
+    const awsAccessKeyId = String(body.awsAccessKeyId ?? "").trim();
+    const awsSecretAccessKey = String(body.awsSecretAccessKey ?? "").trim();
+    const redirectUri = buildAmazonOAuthRedirectUri(req);
+
+    if (!applicationId || !clientId || !clientSecret) {
+      res.status(400).json({ error: "Amazon Application ID, LWA Client ID, and Client secret are required." });
+      return;
+    }
+    if (!awsAccessKeyId || !awsSecretAccessKey) {
+      res.status(400).json({ error: "AWS Access Key ID and Secret Access Key are required for Amazon publishing." });
+      return;
+    }
+
+    const verification = await testAmazonSpConnection({
+      enabled: true,
+      sandbox: body.sandbox !== false,
+      applicationId,
+      clientId,
+      clientSecret,
+      redirectUri,
+      defaultMarketplace: body.defaultMarketplace?.trim().toUpperCase() || "US",
+      awsAccessKeyId,
+      awsSecretAccessKey,
+      awsRoleArn: String(body.awsRoleArn ?? "").trim(),
+    });
+    if (!verification.ok) {
+      res.status(400).json({ error: verification.message });
+      return;
+    }
+
+    const connection = await saveAmazonWorkspaceConnection(workspaceId, {
+      applicationId,
+      clientId,
+      clientSecret,
+      awsAccessKeyId,
+      awsSecretAccessKey,
+      awsRoleArn: String(body.awsRoleArn ?? "").trim(),
+      defaultMarketplace: body.defaultMarketplace,
+      sandbox: body.sandbox,
+      redirectUri,
+    });
+
+    res.status(201).json({
+      connected: false,
+      credentialsReady: true,
+      publishReady: false,
+      redirectUri,
+      defaultMarketplace: connection.defaultMarketplace,
+      sandbox: connection.sandbox,
+      message: "Amazon SP-API credentials saved. Authorize your seller account to finish connecting.",
+    });
+    return;
+  }
+
+  const storePlatform = platform as StoreMarketplace;
+
+  if (storePlatform === "shopify") {
     const body = req.body as {
       storeUrl?: string;
       clientId?: string;
@@ -251,7 +310,7 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
     return;
   }
 
-  if (platform === "woocommerce") {
+  if (storePlatform === "woocommerce") {
     const body = req.body as {
       storeUrl?: string;
       consumerKey?: string;
@@ -298,29 +357,24 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
     return;
   }
 
-  const storeUrl = normalizeStoreUrl(String((req.body as { storeUrl?: string })?.storeUrl ?? ""));
-  if (!storeUrl) {
-    res.status(400).json({ error: "A valid store URL is required" });
-    return;
-  }
-
-  const connection = await saveStoreConnection(workspaceId, platform, storeUrl);
-
-  res.status(201).json({
-    connected: true,
-    storeUrl: connection.storeUrl,
-    connectedAt: connection.connectedAt,
-  });
+  res.status(400).json({ error: "Invalid marketplace platform" });
 });
 
 router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const platform = parseStorePlatform(String(req.params.platform ?? ""));
+  const platform = parseConnectionPlatform(String(req.params.platform ?? ""));
   if (!platform) {
     res.status(400).json({ error: "Invalid marketplace platform" });
     return;
   }
 
   const workspaceId = getActiveWorkspaceId(req);
+
+  if (platform === "amazon") {
+    await disconnectAmazonWorkspaceConnection(workspaceId);
+    res.status(204).end();
+    return;
+  }
+
   await disconnectStoreConnection(workspaceId, platform);
   res.status(204).end();
 });

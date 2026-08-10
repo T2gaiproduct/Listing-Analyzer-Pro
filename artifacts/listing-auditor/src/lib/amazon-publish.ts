@@ -10,6 +10,9 @@ export interface AmazonConnectionStatus {
   sellerId: string | null;
   marketplaceIds: string[];
   defaultMarketplace: string;
+  source?: "workspace" | "global";
+  credentialsReady?: boolean;
+  redirectUri?: string | null;
 }
 
 export async function fetchAmazonStatus(): Promise<AmazonConnectionStatus> {
@@ -28,11 +31,10 @@ export async function startAmazonConnect(): Promise<void> {
 }
 
 export async function disconnectAmazon(): Promise<void> {
-  const res = await fetch(`${basePath}/api/amazon/connection`, {
+  await fetch(`${basePath}/api/marketplaces/connections/amazon`, {
     method: "DELETE",
     credentials: "include",
   });
-  if (!res.ok) throw new Error("Failed to disconnect Amazon");
 }
 
 export async function publishAuditToAmazon(opts: {

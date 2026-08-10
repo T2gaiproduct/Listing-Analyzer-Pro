@@ -17,22 +17,33 @@ export function oauthStateSecret(): string {
     ?? "amazon-oauth-dev-secret";
 }
 
-export function createOAuthState(userId: string): string {
-  const payload = Buffer.from(JSON.stringify({ userId, ts: Date.now() })).toString("base64url");
+export function createOAuthState(input: { userId: string; workspaceId?: number | null }): string {
+  const payload = Buffer.from(JSON.stringify({
+    userId: input.userId,
+    workspaceId: input.workspaceId ?? null,
+    ts: Date.now(),
+  })).toString("base64url");
   const sig = crypto.createHmac("sha256", oauthStateSecret()).update(payload).digest("base64url");
   return `${payload}.${sig}`;
 }
 
-export function parseOAuthState(state: string): { userId: string } | null {
+export function parseOAuthState(state: string): { userId: string; workspaceId: number | null } | null {
   const [payload, sig] = state.split(".");
   if (!payload || !sig) return null;
   const expected = crypto.createHmac("sha256", oauthStateSecret()).update(payload).digest("base64url");
   if (sig !== expected) return null;
   try {
-    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId?: string; ts?: number };
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+      userId?: string;
+      workspaceId?: number | null;
+      ts?: number;
+    };
     if (!data.userId || !data.ts) return null;
     if (Date.now() - data.ts > 30 * 60 * 1000) return null;
-    return { userId: data.userId };
+    return {
+      userId: data.userId,
+      workspaceId: typeof data.workspaceId === "number" ? data.workspaceId : null,
+    };
   } catch {
     return null;
   }
