@@ -66,13 +66,13 @@ const mainNavItems: Array<{
   comingSoon?: boolean;
 }> = [
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
-  { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
   { icon: Package, label: "Product Explorer", href: "/products", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos" },
   { icon: Megaphone, label: "Manage Ads", href: "/ads", feature: "ads" },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
+  { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------
