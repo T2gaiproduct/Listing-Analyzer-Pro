@@ -1,21 +1,19 @@
 import { and, eq } from "drizzle-orm";
-import path from "node:path";
 import type { Audit, ImageRecord } from "@workspace/db";
 import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
 import {
   buildProductImageAssets,
   collectProductImages,
-  loadImageBuffer,
   slugify,
   type ExportImageAsset,
 } from "./listing-export-shared.js";
 import type { WooCommerceStoreConnectionWithSecret } from "./marketplace-connections.js";
+import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
   createWooCommerceProduct,
   findWooCommerceProductBySlug,
   updateWooCommerceProduct,
-  uploadWooCommerceMedia,
   type WooCommerceProductImage,
   type WooCommerceProductPayload,
   type WooCommerceRestProduct,
@@ -64,29 +62,15 @@ function isPublicRemoteImageUrl(url: string): boolean {
   return true;
 }
 
-function contentTypeForFilename(filename: string): string {
-  switch (path.extname(filename).toLowerCase()) {
-    case ".png":
-      return "image/png";
-    case ".webp":
-      return "image/webp";
-    case ".gif":
-      return "image/gif";
-    default:
-      return "image/jpeg";
-  }
-}
-
 function filenameForAsset(asset: ExportImageAsset, index: number): string {
-  const fromZip = path.basename(asset.zipPath);
+  const fromZip = asset.zipPath.split("/").pop();
   if (fromZip && fromZip !== ".") return fromZip;
-  const fromSource = path.basename((asset.sourceUrl.split("?")[0] ?? asset.sourceUrl));
+  const fromSource = (asset.sourceUrl.split("?")[0] ?? asset.sourceUrl).split("/").pop();
   if (fromSource && fromSource !== ".") return fromSource;
   return `product-image-${String(index + 1).padStart(2, "0")}.jpg`;
 }
 
 async function resolveWooCommerceProductImages(opts: {
-  connection: WooCommerceStoreConnectionWithSecret;
   audit: Audit;
   graphicsImageRecords?: ImageRecord[];
   graphicsProjectId?: number | null;
@@ -105,7 +89,6 @@ async function resolveWooCommerceProductImages(opts: {
       asset.absoluteUrl?.trim(),
     ].filter((url): url is string => Boolean(url));
 
-    let pushed = false;
     for (const candidate of candidates) {
       if (seen.has(candidate)) continue;
 
@@ -116,35 +99,28 @@ async function resolveWooCommerceProductImages(opts: {
           name: filenameForAsset(asset, index),
         });
         seen.add(candidate);
-        pushed = true;
         break;
       }
+
+      if (isProtectedAppImageUrl(candidate) && opts.publicBaseUrl?.trim()) {
+        const signedUrl = buildSignedPublishImageUrl({
+          publicBaseUrl: opts.publicBaseUrl,
+          auditId: opts.audit.id,
+          sourceUrl: asset.sourceUrl,
+          graphicsProjectId: opts.graphicsProjectId,
+        });
+        if (signedUrl && !seen.has(signedUrl)) {
+          resolved.push({
+            src: signedUrl,
+            alt: opts.altText,
+            name: filenameForAsset(asset, index),
+          });
+          seen.add(signedUrl);
+          break;
+        }
+      }
     }
-    if (pushed) continue;
 
-    const buffer = await loadImageBuffer({
-      auditId: opts.audit.id,
-      sourceUrl: asset.sourceUrl,
-      graphicsProjectId: opts.graphicsProjectId,
-    });
-    if (!buffer || buffer.length < 1024) continue;
-
-    const filename = filenameForAsset(asset, index);
-    const media = await uploadWooCommerceMedia({
-      storeUrl: opts.connection.storeUrl,
-      consumerKey: opts.connection.consumerKey,
-      consumerSecret: opts.connection.consumerSecret,
-      filename,
-      contentType: contentTypeForFilename(filename),
-      data: buffer,
-    });
-    resolved.push({
-      id: media.id,
-      src: media.source_url || undefined,
-      alt: opts.altText,
-      name: filename,
-    });
-    seen.add(`media:${media.id}`);
     if (resolved.length >= 9) break;
   }
 
@@ -246,7 +222,6 @@ export async function publishListingToWooCommerce(opts: {
   });
 
   const images = await resolveWooCommerceProductImages({
-    connection: opts.connection,
     audit: opts.audit,
     graphicsImageRecords: opts.graphicsImageRecords,
     graphicsProjectId: opts.graphicsProjectId,

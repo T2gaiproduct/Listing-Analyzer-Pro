@@ -18,6 +18,10 @@ import {
   sendAuditImage,
   sendGraphicsImage,
 } from "./lib/protected-images";
+import {
+  sendMarketplacePublishAuditImage,
+  sendMarketplacePublishGraphicsImage,
+} from "./lib/marketplace-publish-images";
 import { isAllowedOrigin } from "./lib/allowed-origins";
 import {
   CLERK_PROXY_PATH,
@@ -103,6 +107,16 @@ app.use("/api/images/heroes", express.static(HERO_IMAGES_DIR));
 app.use("/api/images/portfolio", express.static(PORTFOLIO_IMAGES_DIR));
 app.use("/api/images/workflow", express.static(WORKFLOW_IMAGES_DIR));
 app.use("/api/images/blog", express.static(BLOG_IMAGES_DIR));
+
+app.get(
+  /^\/api\/marketplace-publish\/images\/graphics\/(?<projectId>\d+)\/(?<filename>[^/]+)$/,
+  sendMarketplacePublishGraphicsImage,
+);
+
+app.get(
+  /^\/api\/marketplace-publish\/images\/(?<auditId>\d+)\/(?<filename>[^/]+)$/,
+  sendMarketplacePublishAuditImage,
+);
 
 app.get(
   /^\/api\/images\/(?<auditId>\d+)\/(?<filename>[^/]+)$/,
