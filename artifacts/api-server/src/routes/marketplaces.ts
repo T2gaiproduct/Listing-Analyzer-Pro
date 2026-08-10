@@ -18,11 +18,15 @@ import {
   getShopifyConnection,
   getShopifyConnectionPublic,
   getStoreConnection,
+  getWooCommerceConnection,
   isShopifyPublishReady,
+  isWooCommercePublishReady,
   saveShopifyConnection,
+  saveWooCommerceConnection,
   saveStoreConnection,
   type StoreMarketplace,
 } from "../lib/marketplace-connections.js";
+import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
   ensureAmazonAutoEnabled,
   isAmazonSpConfigured,
@@ -172,6 +176,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
   ]);
 
   const shopifyWithSecret = await getShopifyConnection(workspaceId);
+  const woocommerceWithSecret = await getWooCommerceConnection(workspaceId);
 
   res.json({
     amazon,
@@ -184,7 +189,9 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
     },
     woocommerce: {
       connected: Boolean(woocommerce),
+      publishReady: isWooCommercePublishReady(woocommerceWithSecret),
       storeUrl: woocommerce?.storeUrl ?? null,
+      consumerKey: woocommerce?.consumerKey ?? null,
       connectedAt: woocommerce?.connectedAt ?? null,
     },
   });
@@ -238,6 +245,53 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       clientId: connection.clientId,
       connectedAt: connection.connectedAt,
       scopes: verification.scopes,
+      message: verification.message,
+    });
+    return;
+  }
+
+  if (platform === "woocommerce") {
+    const body = req.body as {
+      storeUrl?: string;
+      consumerKey?: string;
+      consumerSecret?: string;
+    };
+    const storeUrl = normalizeStoreUrl(String(body.storeUrl ?? ""));
+    const consumerKey = String(body.consumerKey ?? "").trim();
+    const consumerSecret = String(body.consumerSecret ?? "").trim();
+    if (!storeUrl) {
+      res.status(400).json({ error: "A valid store URL is required" });
+      return;
+    }
+    if (!consumerKey || !consumerSecret) {
+      res.status(400).json({ error: "WooCommerce consumer key and consumer secret are required." });
+      return;
+    }
+
+    let verification;
+    try {
+      verification = await verifyWooCommerceConnection({ storeUrl, consumerKey, consumerSecret });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not verify WooCommerce credentials";
+      res.status(400).json({ error: message });
+      return;
+    }
+    if (!verification.ok) {
+      res.status(400).json({ error: verification.message });
+      return;
+    }
+
+    const connection = await saveWooCommerceConnection(workspaceId, {
+      storeUrl,
+      consumerKey,
+      consumerSecret,
+    });
+    res.status(201).json({
+      connected: true,
+      publishReady: true,
+      storeUrl: connection.storeUrl,
+      consumerKey: connection.consumerKey,
+      connectedAt: connection.connectedAt,
       message: verification.message,
     });
     return;

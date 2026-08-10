@@ -17,6 +17,14 @@ export type ShopifyStoreConnectionWithSecret = ShopifyStoreConnection & {
   clientSecret: string;
 };
 
+export type WooCommerceStoreConnection = StoreConnection & {
+  consumerKey: string;
+};
+
+export type WooCommerceStoreConnectionWithSecret = WooCommerceStoreConnection & {
+  consumerSecret: string;
+};
+
 function connectionKey(workspaceId: number, platform: StoreMarketplace): string {
   return `marketplace_connection_${workspaceId}_${platform}`;
 }
@@ -75,12 +83,55 @@ export function isShopifyPublishReady(
   return "clientSecret" in connection && Boolean(connection.clientSecret?.trim());
 }
 
+function parseWooCommerceConnectionPublic(raw: string | null | undefined): WooCommerceStoreConnection | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as WooCommerceStoreConnectionWithSecret;
+    if (!parsed.storeUrl?.trim()) return null;
+    return {
+      storeUrl: parsed.storeUrl.trim(),
+      consumerKey: parsed.consumerKey?.trim() ?? "",
+      connectedAt: parsed.connectedAt ?? new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseWooCommerceConnection(raw: string | null | undefined): WooCommerceStoreConnectionWithSecret | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as WooCommerceStoreConnectionWithSecret;
+    if (!parsed.storeUrl?.trim() || !parsed.consumerKey?.trim() || !parsed.consumerSecret?.trim()) {
+      return null;
+    }
+    return {
+      storeUrl: parsed.storeUrl.trim(),
+      consumerKey: parsed.consumerKey.trim(),
+      consumerSecret: parsed.consumerSecret.trim(),
+      connectedAt: parsed.connectedAt ?? new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function isWooCommercePublishReady(
+  connection: WooCommerceStoreConnection | WooCommerceStoreConnectionWithSecret | null,
+): boolean {
+  if (!connection?.storeUrl || !connection.consumerKey) return false;
+  return "consumerSecret" in connection && Boolean(connection.consumerSecret?.trim());
+}
+
 export async function getStoreConnection(
   workspaceId: number,
   platform: StoreMarketplace,
 ): Promise<StoreConnection | null> {
   if (platform === "shopify") {
     return getShopifyConnectionPublic(workspaceId);
+  }
+  if (platform === "woocommerce") {
+    return getWooCommerceConnectionPublic(workspaceId);
   }
 
   const key = connectionKey(workspaceId, platform);
@@ -119,6 +170,32 @@ export async function getShopifyConnectionPublic(
   return parseShopifyConnectionPublic(row?.value);
 }
 
+export async function getWooCommerceConnection(
+  workspaceId: number,
+): Promise<WooCommerceStoreConnectionWithSecret | null> {
+  const key = connectionKey(workspaceId, "woocommerce");
+  const [row] = await db
+    .select()
+    .from(settingsTable)
+    .where(eq(settingsTable.key, key))
+    .limit(1);
+
+  return parseWooCommerceConnection(row?.value);
+}
+
+export async function getWooCommerceConnectionPublic(
+  workspaceId: number,
+): Promise<WooCommerceStoreConnection | null> {
+  const key = connectionKey(workspaceId, "woocommerce");
+  const [row] = await db
+    .select()
+    .from(settingsTable)
+    .where(eq(settingsTable.key, key))
+    .limit(1);
+
+  return parseWooCommerceConnectionPublic(row?.value);
+}
+
 export async function saveStoreConnection(
   workspaceId: number,
   platform: StoreMarketplace,
@@ -126,6 +203,9 @@ export async function saveStoreConnection(
 ): Promise<StoreConnection> {
   if (platform === "shopify") {
     throw new Error("Use saveShopifyConnection for Shopify credentials");
+  }
+  if (platform === "woocommerce") {
+    throw new Error("Use saveWooCommerceConnection for WooCommerce credentials");
   }
 
   const key = connectionKey(workspaceId, platform);
@@ -206,6 +286,50 @@ export async function saveShopifyConnection(
   return {
     storeUrl: connection.storeUrl,
     clientId: connection.clientId,
+    connectedAt: connection.connectedAt,
+  };
+}
+
+export async function saveWooCommerceConnection(
+  workspaceId: number,
+  input: {
+    storeUrl: string;
+    consumerKey: string;
+    consumerSecret: string;
+  },
+): Promise<WooCommerceStoreConnection> {
+  const key = connectionKey(workspaceId, "woocommerce");
+  const connection: WooCommerceStoreConnectionWithSecret = {
+    storeUrl: input.storeUrl.trim(),
+    consumerKey: input.consumerKey.trim(),
+    consumerSecret: input.consumerSecret.trim(),
+    connectedAt: new Date().toISOString(),
+  };
+
+  const [existing] = await db
+    .select()
+    .from(settingsTable)
+    .where(eq(settingsTable.key, key))
+    .limit(1);
+
+  const payload = JSON.stringify(connection);
+  if (existing) {
+    await db
+      .update(settingsTable)
+      .set({ value: payload, updatedAt: new Date(), isSecret: true })
+      .where(eq(settingsTable.key, key));
+  } else {
+    await db.insert(settingsTable).values({
+      key,
+      value: payload,
+      category: "marketplace_connections",
+      isSecret: true,
+    });
+  }
+
+  return {
+    storeUrl: connection.storeUrl,
+    consumerKey: connection.consumerKey,
     connectedAt: connection.connectedAt,
   };
 }

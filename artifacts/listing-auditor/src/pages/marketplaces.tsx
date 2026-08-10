@@ -54,7 +54,7 @@ const CONNECT_CARDS: Array<{
   {
     id: "woocommerce",
     marketplace: "WooCommerce",
-    description: "Connect your WooCommerce store to manage catalog exports from one workspace.",
+    description: "Connect your WooCommerce store with REST API credentials to sync and export listings.",
     placeholder: "https://your-store.com",
   },
 ];
@@ -166,6 +166,8 @@ export default function MarketplacesPage() {
   const [storeUrl, setStoreUrl] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
+  const [consumerKey, setConsumerKey] = useState("");
+  const [consumerSecret, setConsumerSecret] = useState("");
   const [pendingAction, setPendingAction] = useState<ConnectTarget | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -183,15 +185,21 @@ export default function MarketplacesPage() {
       url,
       shopifyClientId,
       shopifyClientSecret,
+      wooConsumerKey,
+      wooConsumerSecret,
     }: {
       platform: StoreMarketplace;
       url: string;
       shopifyClientId?: string;
       shopifyClientSecret?: string;
+      wooConsumerKey?: string;
+      wooConsumerSecret?: string;
     }) => connectStoreMarketplace(platform, {
       storeUrl: url,
       clientId: shopifyClientId,
       clientSecret: shopifyClientSecret,
+      consumerKey: wooConsumerKey,
+      consumerSecret: wooConsumerSecret,
     }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
@@ -201,6 +209,8 @@ export default function MarketplacesPage() {
       setStoreUrl("");
       setClientId("");
       setClientSecret("");
+      setConsumerKey("");
+      setConsumerSecret("");
       const message = typeof result === "object" && result && "message" in result && typeof result.message === "string"
         ? result.message
         : "Your marketplace connection is ready.";
@@ -284,6 +294,8 @@ export default function MarketplacesPage() {
     setStoreUrl("");
     setClientId("");
     setClientSecret("");
+    setConsumerKey("");
+    setConsumerSecret("");
     setDialogTarget(platform);
   }
 
@@ -308,12 +320,24 @@ export default function MarketplacesPage() {
         return;
       }
     }
+    if (dialogTarget === "woocommerce") {
+      if (!consumerKey.trim() || !consumerSecret.trim()) {
+        toast({
+          title: "API credentials required",
+          description: "Enter your WooCommerce consumer key and consumer secret from WordPress → WooCommerce → Settings → Advanced → REST API.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     setPendingAction(dialogTarget);
     connectStoreMutation.mutate({
       platform: dialogTarget,
       url,
       shopifyClientId: dialogTarget === "shopify" ? clientId.trim() : undefined,
       shopifyClientSecret: dialogTarget === "shopify" ? clientSecret.trim() : undefined,
+      wooConsumerKey: dialogTarget === "woocommerce" ? consumerKey.trim() : undefined,
+      wooConsumerSecret: dialogTarget === "woocommerce" ? consumerSecret.trim() : undefined,
     });
   }
 
@@ -414,7 +438,14 @@ export default function MarketplacesPage() {
           marketplace="WooCommerce"
           description={CONNECT_CARDS[2]!.description}
           connected={woocommerceConnected}
-          detail={data?.woocommerce.storeUrl}
+          detail={
+            woocommerceConnected
+              ? [
+                  data?.woocommerce.storeUrl,
+                  data?.woocommerce.publishReady ? "REST API connected" : "Add API credentials to connect",
+                ].filter(Boolean).join(" · ")
+              : null
+          }
           loading={pendingAction === "woocommerce"}
           onConnect={() => openStoreDialog("woocommerce")}
           onDisconnect={() => void handleStoreDisconnect("woocommerce")}
@@ -430,7 +461,7 @@ export default function MarketplacesPage() {
             <DialogDescription>
               {dialogTarget === "shopify"
                 ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). Required API scopes: read_products, write_products, read_publications, write_publications."
-                : "Enter your store URL. We will use it for exports and marketplace sync in this workspace."}
+                : "Enter your WooCommerce store URL and REST API credentials from WordPress → WooCommerce → Settings → Advanced → REST API. Create a key with Read/Write permissions."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -476,6 +507,37 @@ export default function MarketplacesPage() {
                     onChange={(e) => setClientSecret(e.target.value)}
                     placeholder="From Dev Dashboard → Settings"
                     className="h-9 text-xs"
+                    autoComplete="off"
+                  />
+                </div>
+              </>
+            )}
+            {dialogTarget === "woocommerce" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="consumer-key" className="text-xs text-slate-600">
+                    Consumer key
+                  </Label>
+                  <Input
+                    id="consumer-key"
+                    value={consumerKey}
+                    onChange={(e) => setConsumerKey(e.target.value)}
+                    placeholder="ck_..."
+                    className="h-9 text-xs font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="consumer-secret" className="text-xs text-slate-600">
+                    Consumer secret
+                  </Label>
+                  <Input
+                    id="consumer-secret"
+                    type="password"
+                    value={consumerSecret}
+                    onChange={(e) => setConsumerSecret(e.target.value)}
+                    placeholder="cs_..."
+                    className="h-9 text-xs font-mono"
                     autoComplete="off"
                   />
                 </div>
