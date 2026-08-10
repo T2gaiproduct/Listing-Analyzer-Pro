@@ -138,7 +138,7 @@ function parseTagsTextarea(value: string): string[] {
 }
 
 function formatListingPrice(price: number | null | undefined, currency: string | null | undefined): string {
-  if (price == null || Number.isNaN(price)) return "";
+  if (price == null || Number.isNaN(price) || price <= 0) return "";
   return price.toFixed(2);
 }
 
@@ -183,11 +183,18 @@ function clearListingDraft(productId: number): void {
 
 function mergeListingEditForm(base: ProductEditForm, draft: ProductEditForm | null): ProductEditForm {
   if (!draft) return base;
+  const draftPrice = parsePriceInput(draft.price);
+  const basePrice = parsePriceInput(base.price);
+  const mergedPrice = draftPrice != null && draftPrice > 0
+    ? draft.price
+    : basePrice != null && basePrice > 0
+      ? base.price
+      : draft.price.trim() || base.price;
   return {
     ...draft,
     listingTitle: base.listingTitle || draft.listingTitle,
     sku: base.sku || draft.sku,
-    price: base.price.trim() ? base.price : draft.price,
+    price: mergedPrice,
     brandName: base.brandName || draft.brandName,
     category: base.category || draft.category,
     bulletPointsText: base.bulletPointsText.trim() ? base.bulletPointsText : draft.bulletPointsText,
@@ -952,17 +959,45 @@ export default function ProductDetailPage({ id }: { id: number }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
-          return;
+        } else {
+          throw error;
         }
-        throw error;
       }
+
+      const shouldSyncToShopify = Boolean(product?.isShopifyImport) && Boolean(shopifyStatus?.publishReady);
+      if (!shouldSyncToShopify) return null;
+
+      return publishAuditToShopify({ auditId, publishMode: "live" });
     },
-    onSuccess: async () => {
+    onSuccess: async (publishResult) => {
       clearListingDraft(id);
       await refreshProductData();
+      void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id, resolvedSource] });
       setIsEditingListing(false);
       setEditForm(null);
-      toast({ title: "Saved", description: "Product details updated. Click Publish to push changes to Shopify." });
+
+      if (publishResult) {
+        if (publishResult.warning) {
+          toast({
+            title: "Saved & synced with a warning",
+            description: publishResult.warning,
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({
+          title: "Saved & synced to Shopify",
+          description: "Title, price, description, tags, and other fields are updated on your Shopify store.",
+        });
+        return;
+      }
+
+      toast({
+        title: "Saved",
+        description: product?.isShopifyImport
+          ? "Changes saved. Connect Shopify credentials on Marketplaces to sync to your store."
+          : "Product details updated.",
+      });
     },
     onError: (error) => {
       const description =
@@ -1082,6 +1117,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
           variant: "destructive",
         });
         return false;
+      }
+      if (shopifyStatus?.publishReady) {
+        const price = parsePriceInput(editForm.price);
+        if (price == null || price <= 0) {
+          toast({
+            title: "Price required",
+            description: "Enter a valid price — it will sync to your Shopify product when you save.",
+            variant: "destructive",
+          });
+          return false;
+        }
       }
       return true;
     }
@@ -1483,10 +1529,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     {saveProductMutation.isPending ? (
                       <>
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        Saving…
+                        {product.isShopifyImport && shopifyStatus?.publishReady ? "Syncing…" : "Saving…"}
                       </>
                     ) : (
-                      "Save changes"
+                      product.isShopifyImport && shopifyStatus?.publishReady
+                        ? "Save & sync to Shopify"
+                        : "Save changes"
                     )}
                   </Button>
                 </div>

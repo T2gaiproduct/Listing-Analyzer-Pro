@@ -115,17 +115,18 @@ export async function applyProductListingUpdates(
         .from(auditsTable)
         .where(eq(auditsTable.id, auditId))
         .limit(1);
-      if (auditRow?.workspaceId) {
-        await db.insert(productMarketplaceListingsTable).values({
-          auditId,
-          workspaceId: auditRow.workspaceId,
-          marketplace: "Shopify",
-          status: "pending",
-          priceCents: priceCents ?? null,
-          sku: sku ?? null,
-          currency: "USD",
-        });
+      if (!auditRow?.workspaceId) {
+        throw new Error("Could not save Shopify listing — workspace not found");
       }
+      await db.insert(productMarketplaceListingsTable).values({
+        auditId,
+        workspaceId: auditRow.workspaceId,
+        marketplace: "Shopify",
+        status: "pending",
+        priceCents: priceCents ?? null,
+        sku: sku ?? null,
+        currency: "USD",
+      });
     }
   }
 }
