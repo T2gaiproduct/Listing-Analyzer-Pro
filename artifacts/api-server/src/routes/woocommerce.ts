@@ -106,9 +106,12 @@ router.post(
         listingUrl: result.listingUrl,
         status: result.status,
         created: result.created,
-        message: publishMode === "live"
-          ? "Product published live on WooCommerce."
-          : "Product saved as draft on WooCommerce.",
+        warning: result.warning,
+        message: result.warning
+          ? "Product updated on WooCommerce."
+          : publishMode === "live"
+            ? "Product published live on WooCommerce."
+            : "Product saved as draft on WooCommerce.",
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Publish failed";

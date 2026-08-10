@@ -984,6 +984,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
     onSuccess: (result, publishMode) => {
       void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
       void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
+      if (result.warning) {
+        toast({
+          title: "Published with a warning",
+          description: result.warning,
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: publishMode === "live" ? "Published to WooCommerce" : "Saved to WooCommerce draft",
         description: publishMode === "live"

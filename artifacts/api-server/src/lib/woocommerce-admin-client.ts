@@ -120,6 +120,36 @@ export async function findWooCommerceProductBySlug(input: WooCommerceAuth & {
   return data[0] as WooCommerceRestProduct;
 }
 
+export async function findWooCommerceProductBySku(input: WooCommerceAuth & {
+  sku: string;
+}): Promise<WooCommerceRestProduct | null> {
+  const sku = input.sku.trim();
+  if (!sku) return null;
+
+  const storeUrl = normalizeStoreUrl(input.storeUrl);
+  const endpoint = `${storeUrl}/wp-json/wc/v3/products?sku=${encodeURIComponent(sku)}&per_page=1`;
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      Authorization: basicAuthHeader(input.consumerKey, input.consumerSecret),
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      text.trim()
+        ? `WooCommerce API error (${response.status}): ${text.slice(0, 200)}`
+        : `WooCommerce API error (${response.status})`,
+    );
+  }
+
+  const data = await response.json() as unknown;
+  if (!Array.isArray(data) || data.length === 0) return null;
+  return data[0] as WooCommerceRestProduct;
+}
+
 export type WooCommerceProductImage = {
   id?: number;
   src?: string;

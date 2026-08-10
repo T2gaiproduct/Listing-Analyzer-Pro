@@ -12,6 +12,7 @@ import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
   createWooCommerceProduct,
+  findWooCommerceProductBySku,
   findWooCommerceProductBySlug,
   updateWooCommerceProduct,
   type WooCommerceProductImage,
@@ -28,6 +29,7 @@ export type WooCommercePublishResult = {
   listingUrl: string;
   status: "live" | "pending";
   created: boolean;
+  warning?: string;
 };
 
 function wooCommerceProductUrl(storeUrl: string, slug: string): string {
@@ -139,10 +141,57 @@ async function resolveWooCommerceProductImages(opts: {
   return fallback;
 }
 
+async function resolvePublishSku(opts: {
+  connection: WooCommerceStoreConnectionWithSecret;
+  existing: WooCommerceRestProduct | null;
+  profileSku: string | null | undefined;
+  listingSku: string | null | undefined;
+  auditId: number;
+  slug: string;
+}): Promise<{ sku: string | undefined; warning?: string }> {
+  const requested = opts.profileSku?.trim()
+    || opts.listingSku?.trim()
+    || opts.existing?.sku?.trim()
+    || `SL-${opts.auditId}`;
+
+  if (!opts.existing?.id) {
+    const owner = await findWooCommerceProductBySku({
+      ...opts.connection,
+      sku: requested,
+    });
+    if (owner) {
+      const uniqueSku = `${requested}-${opts.slug}`.slice(0, 96);
+      return {
+        sku: uniqueSku,
+        warning: `SKU "${requested}" is already used on WooCommerce. Published with SKU "${uniqueSku}" instead.`,
+      };
+    }
+    return { sku: requested };
+  }
+
+  const existingSku = opts.existing.sku?.trim();
+  if (!existingSku || requested === existingSku) {
+    return { sku: existingSku || requested };
+  }
+
+  const owner = await findWooCommerceProductBySku({
+    ...opts.connection,
+    sku: requested,
+  });
+  if (!owner || owner.id === opts.existing.id) {
+    return { sku: requested };
+  }
+
+  return {
+    sku: existingSku,
+    warning: `SKU "${requested}" is already used by another WooCommerce product. Kept the store SKU "${existingSku}".`,
+  };
+}
+
 function buildProductPayload(opts: {
   audit: Audit;
   slug: string;
-  sku: string;
+  sku?: string;
   price: string | null;
   publishMode: WooCommercePublishMode;
   images: WooCommerceProductImage[];
@@ -162,7 +211,7 @@ function buildProductPayload(opts: {
     status: opts.publishMode === "live" ? "publish" : "draft",
     description: content.htmlDescription || undefined,
     short_description: buildShortDescription(content.bulletPoints) || undefined,
-    sku: opts.sku,
+    ...(opts.sku ? { sku: opts.sku } : {}),
     regular_price: opts.price ?? undefined,
     images: opts.images.length > 0 ? opts.images : undefined,
     categories: category ? [{ name: category }] : undefined,
@@ -205,9 +254,6 @@ export async function publishListingToWooCommerce(opts: {
   const slug = importedSlug ?? slugify(content.title);
   if (!slug) throw new Error("Could not resolve WooCommerce product slug");
 
-  const sku = profile?.sku?.trim()
-    || wooListing?.sku?.trim()
-    || `SL-${opts.audit.id}`;
   const priceCents = wooListing?.priceCents != null && wooListing.priceCents > 0
     ? wooListing.priceCents
     : null;
@@ -218,6 +264,15 @@ export async function publishListingToWooCommerce(opts: {
     storeUrl: opts.connection.storeUrl,
     consumerKey: opts.connection.consumerKey,
     consumerSecret: opts.connection.consumerSecret,
+    slug,
+  });
+
+  let { sku, warning: skuWarning } = await resolvePublishSku({
+    connection: opts.connection,
+    existing,
+    profileSku: profile?.sku,
+    listingSku: wooListing?.sku,
+    auditId: opts.audit.id,
     slug,
   });
 
@@ -241,23 +296,48 @@ export async function publishListingToWooCommerce(opts: {
 
   let product: WooCommerceRestProduct;
   let created = false;
-  if (existing?.id) {
-    product = await updateWooCommerceProduct({
-      storeUrl: opts.connection.storeUrl,
-      consumerKey: opts.connection.consumerKey,
-      consumerSecret: opts.connection.consumerSecret,
-      productId: existing.id,
-      product: payload,
-    });
-  } else {
-    product = await createWooCommerceProduct({
-      storeUrl: opts.connection.storeUrl,
-      consumerKey: opts.connection.consumerKey,
-      consumerSecret: opts.connection.consumerSecret,
-      product: payload,
-    });
-    created = true;
+  try {
+    if (existing?.id) {
+      product = await updateWooCommerceProduct({
+        storeUrl: opts.connection.storeUrl,
+        consumerKey: opts.connection.consumerKey,
+        consumerSecret: opts.connection.consumerSecret,
+        productId: existing.id,
+        product: payload,
+      });
+    } else {
+      product = await createWooCommerceProduct({
+        storeUrl: opts.connection.storeUrl,
+        consumerKey: opts.connection.consumerKey,
+        consumerSecret: opts.connection.consumerSecret,
+        product: payload,
+      });
+      created = true;
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (existing?.id && /product_invalid_sku|duplicated sku/i.test(message) && existing.sku?.trim()) {
+      product = await updateWooCommerceProduct({
+        storeUrl: opts.connection.storeUrl,
+        consumerKey: opts.connection.consumerKey,
+        consumerSecret: opts.connection.consumerSecret,
+        productId: existing.id,
+        product: buildProductPayload({
+          audit: opts.audit,
+          slug,
+          sku: existing.sku.trim(),
+          price,
+          publishMode,
+          images,
+        }),
+      });
+      skuWarning = skuWarning ?? `SKU "${sku}" is already used on WooCommerce. Kept the store SKU "${existing.sku.trim()}".`;
+    } else {
+      throw err;
+    }
   }
+
+  const resolvedSku = product.sku?.trim() || sku || existing?.sku?.trim() || `SL-${opts.audit.id}`;
 
   const listingUrl = product.permalink?.trim() || wooCommerceProductUrl(opts.connection.storeUrl, product.slug || slug);
   const listingStatus = publishMode === "live" ? "live" as const : "pending" as const;
@@ -273,7 +353,7 @@ export async function publishListingToWooCommerce(opts: {
     .update(productMarketplaceListingsTable)
     .set({
       status: listingStatus,
-      sku,
+      sku: resolvedSku,
       priceCents: resolvedPriceCents,
       currency: listingCurrency,
       listingUrl,
@@ -293,7 +373,7 @@ export async function publishListingToWooCommerce(opts: {
       workspaceId: opts.audit.workspaceId,
       marketplace: "WooCommerce",
       status: listingStatus,
-      sku,
+      sku: resolvedSku,
       priceCents: resolvedPriceCents,
       currency: listingCurrency,
       listingUrl,
@@ -307,5 +387,6 @@ export async function publishListingToWooCommerce(opts: {
     listingUrl,
     status: listingStatus,
     created,
+    warning: skuWarning,
   };
 }

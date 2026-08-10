@@ -22,6 +22,7 @@ export async function publishAuditToWooCommerce(opts: {
   message: string;
   listingUrl?: string;
   status?: "live" | "pending";
+  warning?: string;
 }> {
   const data = await fetchJson<{
     ok?: boolean;
@@ -29,6 +30,7 @@ export async function publishAuditToWooCommerce(opts: {
     error?: string;
     listingUrl?: string;
     status?: "live" | "pending";
+    warning?: string;
   }>(`${basePath}/api/audits/${opts.auditId}/publish/woocommerce`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -39,5 +41,6 @@ export async function publishAuditToWooCommerce(opts: {
     message: data.message ?? "Published to WooCommerce",
     listingUrl: data.listingUrl,
     status: data.status,
+    warning: data.warning,
   };
 }
