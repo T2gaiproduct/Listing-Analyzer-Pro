@@ -51,9 +51,6 @@ export async function resolveAmazonConnectionForWorkspace(opts: {
     if (isAmazonWorkspacePublishReady(workspaceConnection)) {
       return workspaceConnectionToResolved(workspaceConnection!, "workspace");
     }
-    if (isAmazonWorkspaceCredentialsReady(workspaceConnection) && workspaceConnection?.sellerId && workspaceConnection.refreshToken) {
-      return workspaceConnectionToResolved(workspaceConnection, "workspace");
-    }
   }
 
   const settings = await ensureAmazonAutoEnabled();

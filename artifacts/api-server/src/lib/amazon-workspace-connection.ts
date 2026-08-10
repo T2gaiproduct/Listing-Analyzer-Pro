@@ -150,14 +150,16 @@ export async function saveAmazonWorkspaceConnection(
     applicationId: string;
     clientId: string;
     clientSecret: string;
-    awsAccessKeyId: string;
-    awsSecretAccessKey: string;
+    awsAccessKeyId?: string;
+    awsSecretAccessKey?: string;
     awsRoleArn?: string;
     defaultMarketplace?: string;
     sandbox?: boolean;
     redirectUri: string;
   },
 ): Promise<AmazonWorkspaceConnectionPublic> {
+  const awsAccessKeyId = input.awsAccessKeyId?.trim() ?? "";
+  const awsSecretAccessKey = input.awsSecretAccessKey?.trim() ?? "";
   const awsError = validateAmazonAwsCredentials({
     enabled: true,
     sandbox: input.sandbox !== false,
@@ -166,8 +168,8 @@ export async function saveAmazonWorkspaceConnection(
     clientSecret: input.clientSecret,
     redirectUri: input.redirectUri,
     defaultMarketplace: input.defaultMarketplace ?? "US",
-    awsAccessKeyId: input.awsAccessKeyId,
-    awsSecretAccessKey: input.awsSecretAccessKey,
+    awsAccessKeyId,
+    awsSecretAccessKey,
     awsRoleArn: input.awsRoleArn ?? "",
   });
   if (awsError) {
@@ -179,8 +181,8 @@ export async function saveAmazonWorkspaceConnection(
     applicationId: input.applicationId.trim(),
     clientId: input.clientId.trim(),
     clientSecret: input.clientSecret.trim(),
-    awsAccessKeyId: input.awsAccessKeyId.trim(),
-    awsSecretAccessKey: input.awsSecretAccessKey.trim(),
+    awsAccessKeyId,
+    awsSecretAccessKey,
     awsRoleArn: input.awsRoleArn?.trim() ?? "",
     defaultMarketplace: input.defaultMarketplace?.trim().toUpperCase() || "US",
     sandbox: input.sandbox !== false,

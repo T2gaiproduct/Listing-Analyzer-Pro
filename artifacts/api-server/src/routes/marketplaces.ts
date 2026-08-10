@@ -29,6 +29,7 @@ import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verif
 import {
   buildAmazonOAuthRedirectUri,
   disconnectAmazonWorkspaceConnection,
+  getAmazonWorkspaceConnection,
   saveAmazonWorkspaceConnection,
 } from "../lib/amazon-workspace-connection.js";
 import { loadAmazonConnectionStatusForWorkspace } from "../lib/resolve-amazon-settings.js";
@@ -218,10 +219,11 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       res.status(400).json({ error: "Amazon Application ID, LWA Client ID, and Client secret are required." });
       return;
     }
-    if (!awsAccessKeyId || !awsSecretAccessKey) {
-      res.status(400).json({ error: "AWS Access Key ID and Secret Access Key are required for Amazon publishing." });
-      return;
-    }
+
+    const existingConnection = await getAmazonWorkspaceConnection(workspaceId);
+    const resolvedAwsAccessKeyId = awsAccessKeyId || existingConnection?.awsAccessKeyId || "";
+    const resolvedAwsSecretAccessKey = awsSecretAccessKey || existingConnection?.awsSecretAccessKey || "";
+    const resolvedAwsRoleArn = String(body.awsRoleArn ?? "").trim() || existingConnection?.awsRoleArn || "";
 
     const verification = await testAmazonSpConnection({
       enabled: true,
@@ -231,9 +233,9 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       clientSecret,
       redirectUri,
       defaultMarketplace: body.defaultMarketplace?.trim().toUpperCase() || "US",
-      awsAccessKeyId,
-      awsSecretAccessKey,
-      awsRoleArn: String(body.awsRoleArn ?? "").trim(),
+      awsAccessKeyId: resolvedAwsAccessKeyId,
+      awsSecretAccessKey: resolvedAwsSecretAccessKey,
+      awsRoleArn: resolvedAwsRoleArn,
     });
     if (!verification.ok) {
       res.status(400).json({ error: verification.message });
@@ -244,22 +246,25 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       applicationId,
       clientId,
       clientSecret,
-      awsAccessKeyId,
-      awsSecretAccessKey,
-      awsRoleArn: String(body.awsRoleArn ?? "").trim(),
+      awsAccessKeyId: resolvedAwsAccessKeyId,
+      awsSecretAccessKey: resolvedAwsSecretAccessKey,
+      awsRoleArn: resolvedAwsRoleArn,
       defaultMarketplace: body.defaultMarketplace,
       sandbox: body.sandbox,
       redirectUri,
     });
 
+    const publishReady = Boolean(resolvedAwsAccessKeyId && resolvedAwsSecretAccessKey);
     res.status(201).json({
       connected: false,
       credentialsReady: true,
-      publishReady: false,
+      publishReady,
       redirectUri,
       defaultMarketplace: connection.defaultMarketplace,
       sandbox: connection.sandbox,
-      message: "Amazon SP-API credentials saved. Authorize your seller account to finish connecting.",
+      message: publishReady
+        ? "Amazon SP-API credentials saved. Authorize your seller account to finish connecting."
+        : "Amazon credentials saved. Authorize your seller account now. Add AWS IAM keys later if you want to publish listings.",
     });
     return;
   }

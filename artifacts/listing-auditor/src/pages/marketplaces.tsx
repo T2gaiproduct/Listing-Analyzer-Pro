@@ -414,22 +414,14 @@ export default function MarketplacesPage() {
       });
       return;
     }
-    if (!amazonAwsAccessKeyId.trim() || !amazonAwsSecretAccessKey.trim()) {
-      toast({
-        title: "AWS credentials required",
-        description: "Enter your AWS Access Key ID and Secret Access Key for SP-API signing.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setPendingAction("amazon");
     connectAmazonMutation.mutate({
       applicationId: amazonApplicationId.trim(),
       clientId: amazonClientId.trim(),
       clientSecret: amazonClientSecret.trim(),
-      awsAccessKeyId: amazonAwsAccessKeyId.trim(),
-      awsSecretAccessKey: amazonAwsSecretAccessKey.trim(),
+      awsAccessKeyId: amazonAwsAccessKeyId.trim() || undefined,
+      awsSecretAccessKey: amazonAwsSecretAccessKey.trim() || undefined,
       awsRoleArn: amazonAwsRoleArn.trim() || undefined,
       defaultMarketplace: amazonDefaultMarketplace,
       sandbox: amazonSandbox,
@@ -580,7 +572,9 @@ export default function MarketplacesPage() {
             amazonConnected
               ? [
                   data?.amazon.sellerId ?? "Seller account linked",
-                  data?.amazon.publishReady ? "Direct publish enabled" : "Publishing not ready yet",
+                  data?.amazon.publishReady
+                    ? "Direct publish enabled"
+                    : "Add AWS IAM keys to publish listings",
                 ].filter(Boolean).join(" · ")
               : amazonAwaitingSellerAuth
                 ? "SP-API credentials saved · authorize your seller account to finish"
@@ -640,7 +634,7 @@ export default function MarketplacesPage() {
             </DialogTitle>
             <DialogDescription>
               {dialogTarget === "amazon"
-                ? "Enter your Amazon SP-API app credentials from Seller Central → Apps & Services → Develop Apps. Add the redirect URI below to your LWA app before authorizing."
+                ? "Enter your Amazon SP-API app credentials from Seller Central → Apps & Services → Develop Apps. Add the redirect URI below to your LWA app before authorizing. AWS keys are optional now — add them only if you want to publish listings from SellerLens."
                 : dialogTarget === "shopify"
                   ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). Required API scopes: read_products, write_products, read_publications, write_publications."
                   : "Enter your WooCommerce store URL and REST API credentials from WordPress → WooCommerce → Settings → Advanced → REST API. Create a key with Read/Write permissions."}
@@ -700,9 +694,12 @@ export default function MarketplacesPage() {
                     autoComplete="off"
                   />
                 </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                  Optional — only needed if you want to publish listings to Amazon. You can connect your seller account now and add AWS IAM keys later.
+                </p>
                 <div className="space-y-2">
                   <Label htmlFor="amazon-aws-access-key" className="text-xs text-slate-600">
-                    AWS Access Key ID
+                    AWS Access Key ID <span className="text-slate-400">(optional)</span>
                   </Label>
                   <Input
                     id="amazon-aws-access-key"
@@ -715,7 +712,7 @@ export default function MarketplacesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amazon-aws-secret-key" className="text-xs text-slate-600">
-                    AWS Secret Access Key
+                    AWS Secret Access Key <span className="text-slate-400">(optional)</span>
                   </Label>
                   <Input
                     id="amazon-aws-secret-key"

@@ -203,11 +203,17 @@ router.post(
     }
 
     const resolved = await resolveAmazonConnectionForWorkspace({ workspaceId, userId });
-    if (!resolved || !isAmazonPublishReady(resolved.settings)) {
+    if (!resolved) {
       res.status(400).json({
         error: workspaceId
           ? "Connect your Amazon seller account on the Marketplaces page before publishing."
           : "Amazon publishing isn't set up yet. Contact your administrator.",
+      });
+      return;
+    }
+    if (!isAmazonPublishReady(resolved.settings)) {
+      res.status(400).json({
+        error: "Add your AWS Access Key ID and Secret Access Key on the Marketplaces page to publish listings to Amazon.",
       });
       return;
     }

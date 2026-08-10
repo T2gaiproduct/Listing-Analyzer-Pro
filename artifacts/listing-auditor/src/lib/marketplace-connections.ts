@@ -100,8 +100,8 @@ export async function connectAmazonMarketplace(input: {
   applicationId: string;
   clientId: string;
   clientSecret: string;
-  awsAccessKeyId: string;
-  awsSecretAccessKey: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
   awsRoleArn?: string;
   defaultMarketplace?: string;
   sandbox?: boolean;
