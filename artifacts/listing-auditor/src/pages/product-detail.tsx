@@ -576,12 +576,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
           {auditError
             ? "This product may have been removed or you may not have access to it in the current workspace."
             : apiMissing
-              ? "This product could not be loaded. It may have been removed, or the project type may not match this URL. Try opening it again from the Products tab."
+              ? "This product could not be loaded. It may have been removed, or the project type may not match this URL. Try opening it again from Product Explorer."
               : "This product may have been removed or you may not have access to it in the current workspace."}
         </p>
         <div className="flex gap-2 mt-5">
           <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-            <Link href="/products">Back to Products</Link>
+            <Link href="/products">Back to Product Explorer</Link>
           </Button>
           {validId && (
             <Button
@@ -1138,7 +1138,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
         className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
       >
         <ArrowLeft className="w-3 h-3" />
-        Back to Products
+        Back to Product Explorer
       </button>
     </div>
   );

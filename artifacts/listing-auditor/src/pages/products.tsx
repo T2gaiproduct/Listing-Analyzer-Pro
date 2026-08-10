@@ -467,12 +467,12 @@ export default function ProductsPage() {
       <div className="flex items-center gap-1 text-[11px] text-slate-400">
         <span>{platformName}</span>
         <ChevronRight className="w-3 h-3" />
-        <span className="text-slate-600">Products</span>
+        <span className="text-slate-600">Product Explorer</span>
       </div>
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-lg font-semibold text-slate-900 tracking-tight">Products</h1>
+        <h1 className="text-lg font-semibold text-slate-900 tracking-tight">Product Explorer</h1>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
           <div className="relative flex-1 sm:max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />

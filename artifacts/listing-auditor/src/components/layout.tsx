@@ -67,7 +67,7 @@ const mainNavItems: Array<{
 }> = [
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
-  { icon: Package, label: "Products", href: "/products", feature: "build_brand" },
+  { icon: Package, label: "Product Explorer", href: "/products", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos" },
@@ -138,7 +138,7 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 function getPageTitle(location: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
   if (location === "/marketplaces") return "Marketplaces";
-  if (location === "/products") return "Products";
+  if (location === "/products") return "Product Explorer";
   if (location.startsWith("/products/")) return "Product Details";
   if (location === "/recent-projects") return "Recent Projects";
   if (location === "/audits/new") return "Create Listing";
