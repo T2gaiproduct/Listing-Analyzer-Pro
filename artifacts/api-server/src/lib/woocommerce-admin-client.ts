@@ -36,7 +36,7 @@ export async function fetchWooCommerceProducts(input: {
   const storeUrl = normalizeStoreUrl(input.storeUrl);
   const page = input.page ?? 1;
   const perPage = input.perPage ?? 100;
-  const endpoint = `${storeUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&status=publish,draft,pending,private`;
+  const endpoint = `${storeUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&status=any`;
   const response = await fetch(endpoint, {
     method: "GET",
     headers: {
