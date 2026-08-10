@@ -496,6 +496,7 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
       targetKeywords: body.targetKeywords,
       descriptionHtml: body.descriptionHtml,
       price: body.price,
+      sku: body.sku,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not update listing fields";

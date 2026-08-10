@@ -9,6 +9,7 @@ export interface ProductListingPatchInput {
   targetKeywords?: string[];
   descriptionHtml?: string;
   price?: number | string | null;
+  sku?: string;
 }
 
 function normalizeBulletPoints(raw: string[]): string[] {
@@ -91,14 +92,16 @@ export async function applyProductListingUpdates(
     await db.update(auditsTable).set(auditUpdates).where(eq(auditsTable.id, auditId));
   }
 
-  if (body.price !== undefined) {
-    const priceCents = parsePriceCents(body.price);
+  if (body.price !== undefined || typeof body.sku === "string") {
+    const priceCents = body.price !== undefined ? parsePriceCents(body.price) : undefined;
+    const sku = typeof body.sku === "string" ? body.sku.trim() || null : undefined;
+    const listingPatch: Record<string, unknown> = { updatedAt: new Date() };
+    if (priceCents !== undefined) listingPatch.priceCents = priceCents;
+    if (sku !== undefined) listingPatch.sku = sku;
+
     const listingUpdate = await db
       .update(productMarketplaceListingsTable)
-      .set({
-        priceCents,
-        updatedAt: new Date(),
-      })
+      .set(listingPatch)
       .where(and(
         eq(productMarketplaceListingsTable.auditId, auditId),
         eq(productMarketplaceListingsTable.marketplace, "Shopify"),
@@ -118,7 +121,8 @@ export async function applyProductListingUpdates(
           workspaceId: auditRow.workspaceId,
           marketplace: "Shopify",
           status: "pending",
-          priceCents,
+          priceCents: priceCents ?? null,
+          sku: sku ?? null,
           currency: "USD",
         });
       }

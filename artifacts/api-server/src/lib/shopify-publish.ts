@@ -99,7 +99,8 @@ function buildRestProductPayload(opts: {
       ? variant.sku.trim() === targetSku
       : false,
   ) ?? opts.existingVariants?.[0];
-  const variantPrice = primary["Variant Price"]?.trim() || existingVariant?.price || "0.00";
+  const bundlePrice = primary["Variant Price"]?.trim();
+  const variantPrice = bundlePrice || existingVariant?.price || undefined;
 
   const payload: Record<string, unknown> = {
     title: primary.Title,
@@ -114,7 +115,7 @@ function buildRestProductPayload(opts: {
       {
         ...(existingVariant?.id ? { id: existingVariant.id } : {}),
         sku: targetSku || existingVariant?.sku || undefined,
-        price: variantPrice,
+        ...(variantPrice ? { price: variantPrice } : {}),
         inventory_policy: primary["Variant Inventory Policy"] || "deny",
         fulfillment_service: "manual",
         requires_shipping: primary["Variant Requires Shipping"] === "TRUE",

@@ -170,6 +170,21 @@ function clearListingDraft(productId: number): void {
   sessionStorage.removeItem(listingDraftStorageKey(productId));
 }
 
+function mergeListingEditForm(base: ProductEditForm, draft: ProductEditForm | null): ProductEditForm {
+  if (!draft) return base;
+  return {
+    ...draft,
+    listingTitle: base.listingTitle || draft.listingTitle,
+    sku: base.sku || draft.sku,
+    price: base.price.trim() ? base.price : draft.price,
+    brandName: base.brandName || draft.brandName,
+    category: base.category || draft.category,
+    bulletPointsText: base.bulletPointsText.trim() ? base.bulletPointsText : draft.bulletPointsText,
+    tagsText: base.tagsText.trim() ? base.tagsText : draft.tagsText,
+    descriptionHtml: base.descriptionHtml.trim() ? base.descriptionHtml : draft.descriptionHtml,
+  };
+}
+
 function buildListingEditForm(
   product: ProductDetailView,
   audit?: {
@@ -773,14 +788,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
         notes: data.notes.trim(),
       };
 
-      if (product?.isShopifyImport) {
+      if (data.listingTitle.trim()) {
         const title = data.listingTitle.trim();
         payload.productName = title;
         payload.listingTitle = title;
         payload.bulletPoints = parseBulletTextarea(data.bulletPointsText);
         payload.targetKeywords = parseTagsTextarea(data.tagsText);
         payload.descriptionHtml = data.descriptionHtml.trim();
-        payload.price = data.price.trim() ? data.price.trim() : null;
+        payload.price = data.price.trim() || null;
+        payload.sku = data.sku.trim();
       }
 
       try {
@@ -806,7 +822,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       await refreshProductData();
       setIsEditingListing(false);
       setEditForm(null);
-      toast({ title: "Saved", description: "Product details updated." });
+      toast({ title: "Saved", description: "Product details updated. Click Publish to push changes to Shopify." });
     },
     onError: (error) => {
       const description =
@@ -900,8 +916,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const listingProduct = displayProduct ?? product;
     if (!canEditProduct || !listingProduct) return;
     setActiveTab("overview");
+    const baseForm = buildListingEditForm(listingProduct, effectiveAudit);
     const savedDraft = readListingDraft(id);
-    setEditForm(savedDraft ?? buildListingEditForm(listingProduct, effectiveAudit));
+    setEditForm(mergeListingEditForm(baseForm, savedDraft));
     setIsEditingListing(true);
   }
 
