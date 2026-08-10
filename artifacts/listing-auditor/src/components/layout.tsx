@@ -65,9 +65,9 @@ const mainNavItems: Array<{
   feature: WorkspaceFeature;
   comingSoon?: boolean;
 }> = [
+  { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
   { icon: Package, label: "Products", href: "/products", feature: "build_brand" },
-  { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos" },
