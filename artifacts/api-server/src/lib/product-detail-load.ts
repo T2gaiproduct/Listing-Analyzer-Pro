@@ -34,6 +34,7 @@ import {
   auditAsinScopeFilter,
 } from "./product-source.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
+import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 import { resolveDescriptionHtml } from "./resolve-listing-content.js";
 import { readGeneratedContent } from "./listing-export-shared.js";
 
@@ -79,6 +80,7 @@ export type ProductDetailPayload = {
   };
   aiSuggestions: string[];
   isShopifyImport?: boolean;
+  isWooCommerceImport?: boolean;
   referenceUrl?: string | null;
   listingTitle?: string;
   bulletPoints?: string[];
@@ -270,12 +272,16 @@ async function loadAuditDetail(
     .limit(1);
 
   const isShopifyImport = isShopifyImportAsin(row.asin);
+  const isWooCommerceImport = isWooCommerceImportAsin(row.asin);
+  const isStoreImport = isShopifyImport || isWooCommerceImport;
   const name = row.projectName?.trim() || row.productName?.trim() || "Untitled Project";
   const sku = profile?.sku?.trim() || deriveSku(name, row.id, sourceType === "audit" ? "AUD" : undefined);
   const displayManagerName = profile?.assignedManager?.trim() || managerName;
   const mapped = mapProductStatus(row.status, row.currentStep);
   const stageLabel = isShopifyImport
     ? "Imported from Shopify"
+    : isWooCommerceImport
+      ? "Imported from WooCommerce"
     : sourceType === "audit"
       ? (row.status === "complete" ? "Audit Results" : "Audit in progress")
       : mapStageLabel(row.status, row.currentStep);
@@ -298,6 +304,15 @@ async function loadAuditDetail(
         url: shopifyUrl,
       });
     }
+  } else if (isWooCommerceImport) {
+    const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
+    const wooUrl = profile?.referenceLinks?.trim() || wooListing?.listingUrl?.trim();
+    if (wooUrl) {
+      referenceLinks.push({
+        label: "WooCommerce",
+        url: wooUrl,
+      });
+    }
   } else if (row.asin?.trim()) {
     referenceLinks.push({
       label: "Amazon Ref",
@@ -307,7 +322,7 @@ async function loadAuditDetail(
   competitors.forEach((c, i) => {
     const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
     const competitorAsin = c.asin?.trim();
-    const url = competitorAsin && !isShopifyImportAsin(competitorAsin)
+    const url = competitorAsin && !isShopifyImportAsin(competitorAsin) && !isWooCommerceImportAsin(competitorAsin)
       ? `https://www.amazon.in/dp/${competitorAsin}`
       : "#";
     referenceLinks.push({ label, url });
@@ -341,18 +356,25 @@ async function loadAuditDetail(
     });
 
   const orderStats = await getProductOrderStats(id);
-  const shopifyLive = marketplaceStats.listings.some(
-    (listing) => listing.marketplace === "Shopify" && listing.status === "live",
+  const storeLive = marketplaceStats.listings.some(
+    (listing) => (listing.marketplace === "Shopify" || listing.marketplace === "WooCommerce")
+      && listing.status === "live",
   );
-  const displayStatus = shopifyLive ? "active" as const : mapped.status;
-  const displayStatusLabel = shopifyLive ? "Live" : (mapped.status === "active" ? "Live" : mapped.label);
-  const effectiveSourceType = isShopifyImport ? "listing" : sourceType;
-  const shopifyReferenceUrl = isShopifyImport
+  const displayStatus = storeLive ? "active" as const : mapped.status;
+  const displayStatusLabel = storeLive ? "Live" : (mapped.status === "active" ? "Live" : mapped.label);
+  const effectiveSourceType = isStoreImport ? "listing" : sourceType;
+  const storeReferenceUrl = isShopifyImport
     ? (profile?.referenceLinks?.trim()
       || marketplaceStats.listings.find((l) => l.marketplace === "Shopify")?.listingUrl?.trim()
       || null)
-    : null;
+    : isWooCommerceImport
+      ? (profile?.referenceLinks?.trim()
+        || marketplaceStats.listings.find((l) => l.marketplace === "WooCommerce")?.listingUrl?.trim()
+        || null)
+      : null;
   const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
+  const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
+  const storeListing = shopifyListing ?? wooListing;
   const generated = readGeneratedContent(row);
   const listingBullets = (row.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
   const listingKeywords = (row.targetKeywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
@@ -362,8 +384,8 @@ async function loadAuditDetail(
   const targetKeywords = listingKeywords.length > 0
     ? listingKeywords
     : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
-  const listingPrice = shopifyListing?.price != null && shopifyListing.price > 0
-    ? shopifyListing.price
+  const listingPrice = storeListing?.price != null && storeListing.price > 0
+    ? storeListing.price
     : null;
 
   return {
@@ -387,18 +409,23 @@ async function loadAuditDetail(
     currentStep: row.currentStep ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: (row.updatedAt ?? row.createdAt).toISOString(),
-    workflowUrl: isShopifyImport ? `/audits/workflow?resume=${row.id}` : workflowUrl,
+    workflowUrl: isStoreImport ? `/audits/workflow?resume=${row.id}` : workflowUrl,
     detailUrl: `/products/${row.id}?source=${effectiveSourceType}`,
     sourceType: effectiveSourceType,
-    sourceTypeLabel: isShopifyImport ? "Shopify Import" : SOURCE_TYPE_LABELS[sourceType],
+    sourceTypeLabel: isShopifyImport
+      ? "Shopify Import"
+      : isWooCommerceImport
+        ? "WooCommerce Import"
+        : SOURCE_TYPE_LABELS[sourceType],
     isShopifyImport,
-    referenceUrl: shopifyReferenceUrl,
+    isWooCommerceImport,
+    referenceUrl: storeReferenceUrl,
     listingTitle: row.title?.trim() || name,
     bulletPoints,
     targetKeywords,
     descriptionHtml: resolveDescriptionHtml(row),
     listingPrice,
-    listingCurrency: shopifyListing?.currency ?? null,
+    listingCurrency: storeListing?.currency ?? null,
     statsAuditId: row.id,
     manager: {
       name: displayManagerName,

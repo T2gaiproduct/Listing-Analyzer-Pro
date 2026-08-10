@@ -30,8 +30,9 @@ import {
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent } from "@workspace/api-client-react";
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
-import { normalizeShopifyProductDetail } from "@/lib/shopify-product-detail";
+import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
 import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
+import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { ScoreBadge, ScoreRing } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,10 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "orders", label: "Orders" },
   { id: "sales", label: "Sales" },
 ];
+
+function isStoreImportProduct(product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport"> | null): boolean {
+  return Boolean(product?.isShopifyImport || product?.isWooCommerceImport);
+}
 
 type ProductEditForm = {
   productName: string;
@@ -785,11 +790,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const product = useMemo((): ProductDetailView | null => {
     if (isValidProductDetail(apiProduct)) {
-      return normalizeShopifyProductDetail(apiProduct, auditData);
+      return normalizeStoreImportProductDetail(apiProduct, auditData);
     }
     if (apiLoading || apiError) return null;
     if (auditData && shouldFetchAudit) {
-      return normalizeShopifyProductDetail(
+      return normalizeStoreImportProductDetail(
         mapAuditToProductDetail(auditData, "Account Owner", {
           sourceType: source === "audit" ? "audit" : "listing",
         }),
@@ -925,6 +930,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
     staleTime: 60_000,
   });
 
+  const { data: woocommerceStatus } = useQuery({
+    queryKey: ["woocommerce-status"],
+    queryFn: fetchWooCommerceStatus,
+    enabled: Boolean(product?.isWooCommerceImport),
+    staleTime: 60_000,
+  });
+
   const publishShopifyMutation = useMutation({
     mutationFn: async (publishMode: "draft" | "live") => {
       const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
@@ -964,6 +976,37 @@ export default function ProductDetailPage({ id }: { id: number }) {
     },
   });
 
+  const publishWooCommerceMutation = useMutation({
+    mutationFn: async (publishMode: "draft" | "live") => {
+      const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+      return publishAuditToWooCommerce({ auditId, publishMode });
+    },
+    onSuccess: (result, publishMode) => {
+      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+      void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
+      toast({
+        title: publishMode === "live" ? "Published to WooCommerce" : "Saved to WooCommerce draft",
+        description: publishMode === "live"
+          ? result.listingUrl
+            ? "Your listing is live on your WooCommerce store."
+            : result.message
+          : result.message,
+      });
+    },
+    onError: (error) => {
+      const description = error instanceof ApiFetchError && error.status === 401
+        ? "Your session expired or the server could not verify your login. Sign in again and retry."
+        : error instanceof Error
+          ? error.message
+          : "Could not publish to WooCommerce.";
+      toast({
+        title: "Publish failed",
+        description,
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveProductMutation = useMutation({
     mutationFn: async (data: ProductEditForm) => {
       const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
@@ -977,10 +1020,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
         notes: data.notes.trim(),
       };
 
-      const isShopifyListing = Boolean(product?.isShopifyImport) || Boolean(data.listingTitle.trim());
+      const isStoreListing = isStoreImportProduct(product) || Boolean(data.listingTitle.trim());
       const parsedPrice = parsePriceInput(data.price);
 
-      if (isShopifyListing) {
+      if (isStoreListing) {
         const title = data.listingTitle.trim() || data.productName.trim();
         if (!title) {
           throw new Error("Listing title is required");
@@ -1015,19 +1058,26 @@ export default function ProductDetailPage({ id }: { id: number }) {
       }
 
       const shouldSyncToShopify = Boolean(product?.isShopifyImport) && Boolean(shopifyStatus?.publishReady);
-      if (!shouldSyncToShopify) {
+      const shouldSyncToWooCommerce = Boolean(product?.isWooCommerceImport) && Boolean(woocommerceStatus?.publishReady);
+      if (!shouldSyncToShopify && !shouldSyncToWooCommerce) {
         return { synced: false as const };
       }
 
       try {
-        const publishResult = await publishAuditToShopify({ auditId, publishMode: "live" });
-        return { synced: true as const, publishResult };
+        if (shouldSyncToShopify) {
+          const publishResult = await publishAuditToShopify({ auditId, publishMode: "live" });
+          return { synced: true as const, publishResult, platform: "shopify" as const };
+        }
+        const publishResult = await publishAuditToWooCommerce({ auditId, publishMode: "live" });
+        return { synced: true as const, publishResult, platform: "woocommerce" as const };
       } catch (error) {
         const message = error instanceof ApiFetchError
           ? error.message
           : error instanceof Error
             ? error.message
-            : "Could not sync to Shopify.";
+            : shouldSyncToShopify
+              ? "Could not sync to Shopify."
+              : "Could not sync to WooCommerce.";
         return { synced: false as const, publishError: message };
       }
     },
@@ -1039,7 +1089,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       setEditForm(null);
 
       if (result?.synced && result.publishResult) {
-        if (result.publishResult.warning) {
+        if ("warning" in result.publishResult && result.publishResult.warning) {
           toast({
             title: "Saved & synced with a warning",
             description: result.publishResult.warning,
@@ -1048,15 +1098,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
           return;
         }
         toast({
-          title: "Saved & synced to Shopify",
-          description: "Title, price, description, tags, and other fields are updated on your Shopify store.",
+          title: result.platform === "woocommerce" ? "Saved & synced to WooCommerce" : "Saved & synced to Shopify",
+          description: result.platform === "woocommerce"
+            ? "Title, price, description, tags, and other fields are updated on your WooCommerce store."
+            : "Title, price, description, tags, and other fields are updated on your Shopify store.",
         });
         return;
       }
 
       if (result?.publishError) {
         toast({
-          title: "Saved locally — Shopify sync failed",
+          title: product?.isWooCommerceImport ? "Saved locally — WooCommerce sync failed" : "Saved locally — Shopify sync failed",
           description: result.publishError,
           variant: "destructive",
         });
@@ -1065,8 +1117,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
       toast({
         title: "Saved",
-        description: product?.isShopifyImport
-          ? "Changes saved. Connect Shopify credentials on Marketplaces to sync to your store."
+        description: isStoreImportProduct(product)
+          ? `Changes saved. Connect ${product?.isWooCommerceImport ? "WooCommerce" : "Shopify"} credentials on Marketplaces to sync to your store.`
           : "Product details updated.",
       });
     },
@@ -1179,7 +1231,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   function validateListingEditor(): boolean {
     if (!editForm) return false;
-    if (product?.isShopifyImport) {
+    if (isStoreImportProduct(product)) {
       if (!editForm.listingTitle.trim() || !editForm.sku.trim()) {
         toast({
           title: "Missing fields",
@@ -1188,12 +1240,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
         });
         return false;
       }
-      if (shopifyStatus?.publishReady) {
+      const publishReady = product?.isShopifyImport
+        ? shopifyStatus?.publishReady
+        : product?.isWooCommerceImport
+          ? woocommerceStatus?.publishReady
+          : false;
+      if (publishReady) {
         const price = parsePriceInput(editForm.price);
         if (price == null || price <= 0) {
           toast({
             title: "Price required",
-            description: "Enter a valid price — it will sync to your Shopify product when you save.",
+            description: "Enter a valid price — it will sync to your store when you save.",
             variant: "destructive",
           });
           return false;
@@ -1252,22 +1309,34 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (form) {
       saveProductMutation.mutate(form, {
         onSuccess: () => {
-          publishShopifyMutation.mutate("live");
+          if (product?.isWooCommerceImport) {
+            publishWooCommerceMutation.mutate("live");
+          } else {
+            publishShopifyMutation.mutate("live");
+          }
         },
       });
+      return;
+    }
+    if (product?.isWooCommerceImport) {
+      publishWooCommerceMutation.mutate("live");
       return;
     }
     publishShopifyMutation.mutate("live");
   }
 
-  function handlePublishToShopify() {
-    if (!product?.isShopifyImport) return;
+  function handlePublishToStore() {
+    if (!isStoreImportProduct(product)) return;
     if (!canEditProduct) return;
 
-    if (!shopifyStatus?.connected) {
+    const isWoo = Boolean(product?.isWooCommerceImport);
+    const status = isWoo ? woocommerceStatus : shopifyStatus;
+    const platformLabel = isWoo ? "WooCommerce" : "Shopify";
+
+    if (!status?.connected) {
       toast({
-        title: "Shopify not connected",
-        description: "Connect your Shopify store on the Marketplaces page before publishing.",
+        title: `${platformLabel} not connected`,
+        description: `Connect your ${platformLabel} store on the Marketplaces page before publishing.`,
         variant: "destructive",
         action: (
           <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
@@ -1278,10 +1347,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
       return;
     }
 
-    if (!shopifyStatus.publishReady) {
+    if (!status.publishReady) {
       toast({
-        title: "Shopify credentials required",
-        description: "Add your Shopify Client ID and Client secret on the Marketplaces page to enable direct publishing.",
+        title: `${platformLabel} credentials required`,
+        description: isWoo
+          ? "Add your WooCommerce Consumer key and Consumer secret on the Marketplaces page to enable direct publishing."
+          : "Add your Shopify Client ID and Client secret on the Marketplaces page to enable direct publishing.",
         variant: "destructive",
         action: (
           <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
@@ -1306,7 +1377,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!hasSavedPrice) {
       toast({
         title: "Price required",
-        description: "Enter a price in Edit Listing, then click Save & sync to Shopify.",
+        description: `Enter a price in Edit Listing, then click Save & sync to ${platformLabel}.`,
         variant: "destructive",
       });
       openListingEditor();
@@ -1316,8 +1387,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
     publishAfterSave();
   }
 
+  function handlePublishToShopify() {
+    handlePublishToStore();
+  }
+
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
-  const canPublishToShopify = Boolean(product?.isShopifyImport && canEditProduct);
+  const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
+  const isPublishingToStore = publishShopifyMutation.isPending || publishWooCommerceMutation.isPending;
+  const storePublishReady = product?.isWooCommerceImport
+    ? woocommerceStatus?.publishReady
+    : product?.isShopifyImport
+      ? shopifyStatus?.publishReady
+      : false;
+  const storePlatformLabel = product?.isWooCommerceImport ? "WooCommerce" : "Shopify";
 
   function updateEditField<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
     setEditForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -1401,7 +1483,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-base font-semibold text-slate-900 truncate">
-                  {product.isShopifyImport
+                  {product.isShopifyImport || product.isWooCommerceImport
                     ? (listingProduct?.listingTitle ?? listingProduct?.title ?? product.name)
                     : product.name}
                 </h1>
@@ -1554,15 +1636,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     <ImageIcon className="w-3 h-3 mr-1 opacity-70" />
                     Generate Graphic
                   </Button>
-                  {canPublishToShopify && (
+                  {canPublishToStore && (
                     <Button
                       type="button"
                       size="sm"
                       className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
-                      onClick={handlePublishToShopify}
-                      disabled={publishShopifyMutation.isPending}
+                      onClick={handlePublishToStore}
+                      disabled={isPublishingToStore}
                     >
-                      {publishShopifyMutation.isPending ? (
+                      {isPublishingToStore ? (
                         <>
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                           Publishing…
@@ -1598,11 +1680,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     {saveProductMutation.isPending ? (
                       <>
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        {product.isShopifyImport && shopifyStatus?.publishReady ? "Syncing…" : "Saving…"}
+                        {storePublishReady ? "Syncing…" : "Saving…"}
                       </>
                     ) : (
-                      product.isShopifyImport && shopifyStatus?.publishReady
-                        ? "Save & sync to Shopify"
+                      storePublishReady
+                        ? `Save & sync to ${storePlatformLabel}`
                         : "Save changes"
                     )}
                   </Button>
@@ -1611,7 +1693,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             </div>
 
             {isEditingListing && editForm ? (
-              product.isShopifyImport ? (
+              product.isShopifyImport || product.isWooCommerceImport ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                   <div className="sm:col-span-2">
                     <EditDetailField label="Title">
@@ -1619,7 +1701,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         value={editForm.listingTitle}
                         onChange={(e) => updateEditField("listingTitle", e.target.value)}
                         className="text-[11px]"
-                        placeholder="Product title on your Shopify store"
+                        placeholder={`Product title on your ${storePlatformLabel} store`}
                       />
                     </EditDetailField>
                   </div>
@@ -1766,7 +1848,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
               </div>
               )
-            ) : product.isShopifyImport ? (
+            ) : isStoreImportProduct(product) ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <DetailField label="Title">
                 {listingProduct?.listingTitle ?? listingProduct?.title ?? product.name}
@@ -1980,7 +2062,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               </div>
             </div>
 
-            {isEditingListing && editForm && !product.isShopifyImport && (
+            {isEditingListing && editForm && !isStoreImportProduct(product) && (
               <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
                 <Button
                   type="button"

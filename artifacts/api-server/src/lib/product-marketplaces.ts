@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, productMarketplaceListingsTable, productProfilesTable, auditsTable } from "@workspace/db";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
+import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 
 export type MarketplaceListingStatus = "live" | "pending" | "not_listed";
 
@@ -126,6 +127,7 @@ export type AuditCatalogExtras = {
   currency: string;
   isLiveOnShopify: boolean;
   isShopifyImport: boolean;
+  isWooCommerceImport: boolean;
   referenceUrl: string | null;
 };
 
@@ -147,6 +149,7 @@ export async function loadAuditCatalogExtras(
       currency: "INR",
       isLiveOnShopify: false,
       isShopifyImport: false,
+      isWooCommerceImport: false,
       referenceUrl: null,
     });
   }
@@ -198,6 +201,7 @@ export async function loadAuditCatalogExtras(
     const entry = result.get(audit.id);
     if (!entry) continue;
     entry.isShopifyImport = isShopifyImportAsin(audit.asin);
+    entry.isWooCommerceImport = isWooCommerceImportAsin(audit.asin);
   }
 
   for (const id of uniqueIds) {

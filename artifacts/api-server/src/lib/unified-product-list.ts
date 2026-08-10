@@ -4,6 +4,7 @@ import { getAccountOwnerId, getActiveWorkspaceId } from "./workspace-route-helpe
 import { resolveTeamContext } from "../middlewares/team-auth";
 import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
+import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 
 export type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -24,6 +25,7 @@ export type UnifiedProductListItem = {
   sourceType: ProductSourceType;
   sourceTypeLabel: string;
   isShopifyImport: boolean;
+  isWooCommerceImport: boolean;
   referenceUrl: string | null;
   auditScore: number | null;
   auditPending: boolean;
@@ -103,7 +105,8 @@ export async function loadUnifiedProductList(
 
   for (const a of audits) {
     const isShopifyImport = isShopifyImportAsin(a.asin);
-    const isAuditListing = !!a.asin?.trim() && !isShopifyImport;
+    const isWooCommerceImport = isWooCommerceImportAsin(a.asin);
+    const isAuditListing = !!a.asin?.trim() && !isShopifyImport && !isWooCommerceImport;
     const sourceType: ProductSourceType = isAuditListing ? "audit" : "listing";
     const name = a.name?.trim() || a.productName?.trim() || "Untitled Project";
     const hasAuditScore = (a.overallScore ?? 0) > 0;
@@ -134,8 +137,13 @@ export async function loadUnifiedProductList(
       workflowUrl,
       detailUrl,
       sourceType,
-      sourceTypeLabel: isShopifyImport ? "Shopify Import" : sourceTypeLabel(sourceType),
+      sourceTypeLabel: isShopifyImport
+        ? "Shopify Import"
+        : isWooCommerceImport
+          ? "WooCommerce Import"
+          : sourceTypeLabel(sourceType),
       isShopifyImport,
+      isWooCommerceImport,
       referenceUrl: null,
       auditScore: hasAuditScore ? a.overallScore : null,
       auditPending: !hasAuditScore && a.status !== "failed",
@@ -166,6 +174,7 @@ export async function loadUnifiedProductList(
       sourceType: "graphics",
       sourceTypeLabel: sourceTypeLabel("graphics"),
       isShopifyImport: false,
+      isWooCommerceImport: false,
       referenceUrl: null,
       auditScore: null,
       auditPending: false,
@@ -193,6 +202,7 @@ export async function loadUnifiedProductList(
       sourceType: "video",
       sourceTypeLabel: sourceTypeLabel("video"),
       isShopifyImport: false,
+      isWooCommerceImport: false,
       referenceUrl: null,
       auditScore: null,
       auditPending: false,
@@ -220,6 +230,7 @@ export async function loadUnifiedProductList(
       sourceType: "ads",
       sourceTypeLabel: sourceTypeLabel("ads"),
       isShopifyImport: false,
+      isWooCommerceImport: false,
       referenceUrl: null,
       auditScore: null,
       auditPending: false,
@@ -255,6 +266,13 @@ export async function loadUnifiedProductList(
         item.isShopifyImport = true;
         item.sourceType = "listing";
         item.sourceTypeLabel = "Shopify Import";
+        item.workflowUrl = `/audits/workflow?resume=${item.id}`;
+        item.detailUrl = `/products/${item.id}?source=listing`;
+      }
+      if (extras?.isWooCommerceImport) {
+        item.isWooCommerceImport = true;
+        item.sourceType = "listing";
+        item.sourceTypeLabel = "WooCommerce Import";
         item.workflowUrl = `/audits/workflow?resume=${item.id}`;
         item.detailUrl = `/products/${item.id}?source=listing`;
       }

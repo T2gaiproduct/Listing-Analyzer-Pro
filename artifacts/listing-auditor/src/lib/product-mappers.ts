@@ -4,6 +4,7 @@ import type { AuditResult } from "@workspace/api-client-react";
 import { buildProductSuggestions } from "@/lib/product-suggestions";
 import { mapProductPriority } from "@/lib/product-priority";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
+import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 
 export type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -19,6 +20,10 @@ function buildAuditReferenceLinks(audit: AuditLike): Array<{ label: string; url:
       if (profileRef) {
         referenceLinks.push({ label: "Shopify", url: profileRef });
       }
+    } else if (isWooCommerceImportAsin(asin)) {
+      if (profileRef) {
+        referenceLinks.push({ label: "WooCommerce", url: profileRef });
+      }
     } else {
       referenceLinks.push({
         label: "Amazon Ref",
@@ -30,7 +35,7 @@ function buildAuditReferenceLinks(audit: AuditLike): Array<{ label: string; url:
   (audit.competitors ?? []).forEach((c, i) => {
     const label = c.productName?.trim() || `Competitor ${String.fromCharCode(65 + i)}`;
     const competitorAsin = c.asin?.trim();
-    const url = competitorAsin && !isShopifyImportAsin(competitorAsin)
+    const url = competitorAsin && !isShopifyImportAsin(competitorAsin) && !isWooCommerceImportAsin(competitorAsin)
       ? `https://www.amazon.in/dp/${competitorAsin}`
       : "#";
     referenceLinks.push({ label, url });
@@ -161,6 +166,7 @@ export interface ProductDetailView {
   sourceTypeLabel?: string;
   statsAuditId?: number | null;
   isShopifyImport?: boolean;
+  isWooCommerceImport?: boolean;
   referenceUrl?: string | null;
   listingTitle?: string;
   bulletPoints?: string[];
@@ -286,7 +292,7 @@ interface AuditLike {
 }
 
 export function isBuildBrandAudit(audit: AuditLike): boolean {
-  return !audit.asin?.trim() || isShopifyImportAsin(audit.asin);
+  return !audit.asin?.trim() || isShopifyImportAsin(audit.asin) || isWooCommerceImportAsin(audit.asin);
 }
 
 export function mapAuditToProductDetail(
@@ -295,13 +301,18 @@ export function mapAuditToProductDetail(
   opts?: { sourceType?: "listing" | "audit" },
 ): ProductDetailView {
   const sourceType = opts?.sourceType ?? (
-    audit.asin?.trim() && !isShopifyImportAsin(audit.asin) ? "audit" : "listing"
+    audit.asin?.trim() && !isShopifyImportAsin(audit.asin) && !isWooCommerceImportAsin(audit.asin)
+      ? "audit"
+      : "listing"
   );
   const isShopifyImport = isShopifyImportAsin(audit.asin);
+  const isWooCommerceImport = isWooCommerceImportAsin(audit.asin);
   const name = audit.projectName?.trim() || audit.productName?.trim() || "Untitled Product";
   const mapped = mapProductStatus(audit.status ?? "draft", audit.currentStep ?? null);
   const stageLabel = isShopifyImport
     ? "Imported from Shopify"
+    : isWooCommerceImport
+      ? "Imported from WooCommerce"
     : sourceType === "audit"
       ? (audit.status === "complete" ? "Audit Results" : "Audit in progress")
       : mapStageLabel(audit.status ?? "draft", audit.currentStep ?? null);
@@ -359,9 +370,14 @@ export function mapAuditToProductDetail(
     updatedAt: audit.updatedAt ?? new Date().toISOString(),
     workflowUrl,
     sourceType,
-    sourceTypeLabel: isShopifyImport ? "Shopify Import" : (sourceType === "audit" ? "Audit Listing" : "Build Your Brand"),
+    sourceTypeLabel: isShopifyImport
+      ? "Shopify Import"
+      : isWooCommerceImport
+        ? "WooCommerce Import"
+        : (sourceType === "audit" ? "Audit Listing" : "Build Your Brand"),
     statsAuditId: audit.id,
     isShopifyImport,
+    isWooCommerceImport,
     listingTitle: audit.title?.trim() || name,
     bulletPoints: (audit.bulletPoints ?? []).filter((bullet) => typeof bullet === "string"),
     targetKeywords: (audit.targetKeywords ?? []).filter((keyword) => typeof keyword === "string"),
