@@ -75,6 +75,14 @@ function shopifyProductUrl(shopHost: string, handle: string): string {
   return `https://${shopHost}/products/${handle}`;
 }
 
+function parseVariantPriceCents(product: ShopifyRestProduct): number | null {
+  const raw = product.variants?.[0]?.price?.trim();
+  if (!raw) return null;
+  const value = Number.parseFloat(raw);
+  if (!Number.isFinite(value) || value < 0) return null;
+  return Math.round(value * 100);
+}
+
 function buildRestProductPayload(opts: {
   bundle: ReturnType<typeof buildShopifyExportBundle>;
   publishMode: ShopifyPublishMode;
@@ -255,9 +263,11 @@ export async function publishListingToShopify(opts: {
   const listingStatus = publishMode === "live" && !channelWarning ? "live" : "pending";
   const sku = variantSku;
   const priceRaw = bundle.rows[0]?.["Variant Price"]?.trim();
-  const priceCents = priceRaw && !Number.isNaN(Number(priceRaw))
+  const sentPriceCents = priceRaw && !Number.isNaN(Number(priceRaw))
     ? Math.round(Number(priceRaw) * 100)
-    : shopifyListing?.priceCents ?? null;
+    : null;
+  const responsePriceCents = parseVariantPriceCents(product);
+  const priceCents = responsePriceCents ?? sentPriceCents ?? shopifyListing?.priceCents ?? null;
 
   const listingUpdate = await db
     .update(productMarketplaceListingsTable)

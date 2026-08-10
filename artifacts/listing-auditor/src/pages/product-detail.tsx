@@ -1140,6 +1140,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
       return;
     }
 
+    const savedPrice = (displayProduct ?? product)?.listingPrice;
+    const pendingPrice = editForm?.price.trim();
+    const hasPrice = (savedPrice != null && savedPrice > 0)
+      || (pendingPrice ? Number.parseFloat(pendingPrice) > 0 : false);
+    if (!hasPrice) {
+      toast({
+        title: "Price required",
+        description: "Open Edit Listing, enter a price, click Save changes, then Publish.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (isEditingListing && editForm) {
       saveProductMutation.mutate(editForm, {
         onSuccess: async () => {

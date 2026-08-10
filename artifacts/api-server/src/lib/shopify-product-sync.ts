@@ -223,8 +223,11 @@ function storeCurrencyForOrigin(origin: string): string {
 
 function resolveShopifyListingFields(product: ShopifyCatalogProduct, origin: string) {
   const { inventory, inStock } = summarizeShopifyVariants(product.variants);
-  const priceRaw = product.variants?.[0]?.price;
-  const priceCents = priceRaw ? Math.round(parseFloat(priceRaw) * 100) : null;
+  const priceRaw = product.variants?.find((variant) => variant.price?.trim())?.price?.trim()
+    ?? product.variants?.[0]?.price?.trim();
+  const priceCents = priceRaw && Number.isFinite(Number.parseFloat(priceRaw))
+    ? Math.round(Number.parseFloat(priceRaw) * 100)
+    : null;
   const published = isShopifyProductPublished(product);
   const publishedAt = parseShopifyPublishedAt(product.published_at);
   const productUrl = `${origin}/products/${product.handle}`;
@@ -322,12 +325,26 @@ async function refreshShopifyProductFromCatalog(input: {
     })
     .where(eq(productProfilesTable.auditId, input.auditId));
 
+  const [existingListing] = await db
+    .select({ priceCents: productMarketplaceListingsTable.priceCents })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      eq(productMarketplaceListingsTable.auditId, input.auditId),
+      eq(productMarketplaceListingsTable.marketplace, "Shopify"),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  const syncedPriceCents = listing.priceCents != null && listing.priceCents > 0
+    ? listing.priceCents
+    : (existingListing?.priceCents ?? listing.priceCents);
+
   await db
     .update(productMarketplaceListingsTable)
     .set({
       status: listing.listingStatus,
       sku,
-      priceCents: listing.priceCents,
+      priceCents: syncedPriceCents,
       currency: listing.currency,
       inventory: listing.inventory,
       listingUrl: listing.productUrl,
