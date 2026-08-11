@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -72,6 +72,20 @@ interface Plan {
   tag: string | null;
   isHighlighted: boolean;
   ctaText: string | null;
+  sortOrder: number;
+}
+
+const ONBOARDING_PLAN_STORAGE_KEY = "onboarding-selected-plan-id";
+
+function readSavedPlanId(): number | null {
+  try {
+    const saved = sessionStorage.getItem(ONBOARDING_PLAN_STORAGE_KEY);
+    if (!saved) return null;
+    const id = Number(saved);
+    return Number.isFinite(id) ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 interface PaymentConfig {
@@ -133,7 +147,8 @@ export default function Onboarding() {
     fullName: "", companyName: "", phone: "", country: "",
     gstNumber: "", websiteUrl: "", teamSize: "",
   });
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(() => readSavedPlanId());
+  const userPickedPlanRef = useRef(readSavedPlanId() !== null);
   const [couponCode, setCouponCode] = useState("");
   const [couponResult, setCouponResult] = useState<{ code: string; discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
   const [couponError, setCouponError] = useState("");
@@ -211,7 +226,19 @@ export default function Onboarding() {
     }
   }, [profileSummary, setLocation]);
 
-  const displayPlans = Array.isArray(plans) ? plans : [];
+  const displayPlans = Array.isArray(plans)
+    ? [...plans].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id)
+    : [];
+
+  const selectPlan = useCallback((planId: number) => {
+    userPickedPlanRef.current = true;
+    setSelectedPlanId(planId);
+    try {
+      sessionStorage.setItem(ONBOARDING_PLAN_STORAGE_KEY, String(planId));
+    } catch {
+      // sessionStorage may be unavailable in private browsing
+    }
+  }, []);
 
   // Pre-fill profile from existing data for returning customers
   useEffect(() => {
@@ -233,17 +260,53 @@ export default function Onboarding() {
     }
   }, [existingProfile]);
 
-  // Auto-select first plan
+  // Default plan only before the user picks one; never override a saved or manual selection
   useEffect(() => {
-    if (displayPlans.length > 0 && selectedPlanId === null) {
-      const highlighted = displayPlans.find((p) => p.isHighlighted) ?? displayPlans[0];
-      if (highlighted) {
-        setSelectedPlanId(highlighted.id);
+    if (displayPlans.length === 0) return;
+
+    if (selectedPlanId !== null) {
+      const stillValid = displayPlans.some((p) => p.id === selectedPlanId);
+      if (!stillValid) {
+        userPickedPlanRef.current = false;
+        setSelectedPlanId(null);
+        try {
+          sessionStorage.removeItem(ONBOARDING_PLAN_STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+      }
+      return;
+    }
+
+    if (userPickedPlanRef.current) return;
+
+    const savedId = readSavedPlanId();
+    if (savedId !== null && displayPlans.some((p) => p.id === savedId)) {
+      setSelectedPlanId(savedId);
+      return;
+    }
+
+    const defaultPlan = displayPlans.find((p) => p.isHighlighted) ?? displayPlans[0];
+    if (defaultPlan) {
+      setSelectedPlanId(defaultPlan.id);
+      try {
+        sessionStorage.setItem(ONBOARDING_PLAN_STORAGE_KEY, String(defaultPlan.id));
+      } catch {
+        // ignore
       }
     }
   }, [displayPlans, selectedPlanId]);
 
-  const selectedPlan = displayPlans.find((p) => p.id === selectedPlanId) ?? displayPlans[0];
+  const selectedPlan = selectedPlanId !== null
+    ? displayPlans.find((p) => p.id === selectedPlanId) ?? null
+    : null;
+
+  // Payment step requires a valid plan choice
+  useEffect(() => {
+    if (step === 2 && displayPlans.length > 0 && !selectedPlan) {
+      setStep(1);
+    }
+  }, [step, displayPlans.length, selectedPlan]);
 
   const validateCouponMutation = useMutation({
     mutationFn: (code: string) =>
@@ -585,14 +648,19 @@ export default function Onboarding() {
                     No plans are available right now. Please try again shortly or contact support.
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className={`grid grid-cols-1 gap-4 ${
+                  displayPlans.length <= 1 ? "md:grid-cols-1"
+                  : displayPlans.length === 2 ? "md:grid-cols-2"
+                  : displayPlans.length === 3 ? "md:grid-cols-3"
+                  : "md:grid-cols-2 xl:grid-cols-4"
+                }`}>
                   {displayPlans.map((plan) => (
                     <div
                       key={plan.id}
-                      onClick={() => setSelectedPlanId(plan.id)}
-                      className={`relative rounded-xl border-2 p-5 cursor-pointer transition-all ${selectedPlanId === plan.id ? "border-orange-400 bg-orange-50/50 shadow-md" : "border-slate-200 hover:border-slate-300"}`}
+                      onClick={() => selectPlan(plan.id)}
+                      className={`relative rounded-xl border-2 p-5 cursor-pointer transition-all ${selectedPlanId === plan.id ? "border-orange-400 bg-orange-50/50 shadow-md ring-2 ring-orange-200" : "border-slate-200 hover:border-slate-300"}`}
                     >
-                      {plan.tag && (
+                      {selectedPlanId === plan.id && plan.tag && (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                           <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">{plan.tag}</span>
                         </div>
@@ -649,7 +717,7 @@ export default function Onboarding() {
 
               <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                 <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
-                <Button className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto" onClick={() => setStep(2)} disabled={!selectedPlanId}>
+                <Button className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto" onClick={() => { if (selectedPlan) setStep(2); }} disabled={!selectedPlan}>
                   Continue <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
