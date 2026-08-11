@@ -34,6 +34,7 @@ invoices:coupon_code
 invoices:discount_amount
 subscriptions:coupon_code
 subscriptions:discount_amount
+plans:enabled_features
 EOF
 
 missing=()

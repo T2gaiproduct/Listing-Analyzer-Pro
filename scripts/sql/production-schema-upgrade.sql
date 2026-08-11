@@ -191,6 +191,98 @@ CREATE TABLE IF NOT EXISTS product_profiles (
   target_marketplaces jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
+-- ─── plans (admin plan capabilities — required for POST /api/admin/plans) ───
+ALTER TABLE plans
+  ADD COLUMN IF NOT EXISTS enabled_features jsonb;
+
+-- ─── admin invites (pending admin access before sign-up) ───────────────────
+CREATE TABLE IF NOT EXISTS admin_invites (
+  id serial PRIMARY KEY,
+  email text NOT NULL UNIQUE,
+  role_id integer NOT NULL,
+  invite_token text UNIQUE,
+  invited_by_user_id text,
+  accepted_at timestamp,
+  accepted_user_id text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+-- ─── Amazon SP-API integration ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS amazon_seller_connections (
+  id serial PRIMARY KEY,
+  user_id text NOT NULL UNIQUE,
+  seller_id text NOT NULL,
+  refresh_token text NOT NULL,
+  marketplace_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_deleted integer NOT NULL DEFAULT 0,
+  deleted_at timestamp,
+  connected_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS amazon_publish_jobs (
+  id serial PRIMARY KEY,
+  audit_id integer NOT NULL,
+  user_id text NOT NULL,
+  marketplace text NOT NULL,
+  sku text NOT NULL,
+  status text NOT NULL,
+  response jsonb,
+  error_message text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+-- ─── ads + video project tables (workspace-scoped) ─────────────────────────
+CREATE TABLE IF NOT EXISTS ads_projects (
+  id serial PRIMARY KEY,
+  user_id text NOT NULL,
+  workspace_id integer,
+  team_id text,
+  audit_id integer,
+  name text NOT NULL DEFAULT 'Untitled Campaign',
+  product_name text NOT NULL,
+  category text,
+  status text NOT NULL DEFAULT 'draft',
+  platform text NOT NULL DEFAULT 'amazon',
+  budget integer,
+  spend integer NOT NULL DEFAULT 0,
+  impressions integer NOT NULL DEFAULT 0,
+  clicks integer NOT NULL DEFAULT 0,
+  conversions integer NOT NULL DEFAULT 0,
+  targeting jsonb,
+  creative_urls jsonb,
+  error_message text,
+  is_deleted integer NOT NULL DEFAULT 0,
+  deleted_at timestamp,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS videos_projects (
+  id serial PRIMARY KEY,
+  user_id text NOT NULL,
+  workspace_id integer,
+  team_id text,
+  audit_id integer,
+  name text NOT NULL DEFAULT 'Untitled Video',
+  product_name text NOT NULL,
+  category text,
+  status text NOT NULL DEFAULT 'draft',
+  video_url text,
+  thumbnail_url text,
+  duration integer,
+  script text,
+  style text,
+  error_message text,
+  is_deleted integer NOT NULL DEFAULT 0,
+  deleted_at timestamp,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
+ALTER TABLE videos_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

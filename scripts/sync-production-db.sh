@@ -14,6 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+DATABASE_URL="${DATABASE_URL:-${PRODUCTION_DATABASE_URL:-}}"
 DATABASE_URL="${DATABASE_URL:?Set DATABASE_URL to the production connection string}"
 
 echo "==> Production DB sync"
@@ -34,6 +35,11 @@ fi
 if [[ "${SKIP_DATA:-}" != "1" ]]; then
   echo "==> Data backfill (workspace credits + plan credit columns from allocations)"
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-data-migration.sql
+
+  echo "==> Backfill plans.enabled_features for legacy plan names"
+  DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run backfill-plan-features || {
+    echo "    WARN: enabled_features backfill failed — run manually after schema sync"
+  }
 else
   echo "==> SKIP_DATA=1 — data backfill skipped (API boot will run ensureWorkspaceCreditsMigrated)"
 fi
