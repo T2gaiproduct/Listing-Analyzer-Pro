@@ -17,6 +17,7 @@ import {
   Lightbulb,
   Loader2,
   Package,
+  Pencil,
   Sparkles,
   Star,
   Tag,
@@ -1266,7 +1267,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   function openListingEditor() {
     if (!canEditProduct || !listingProduct) return;
-    setSelectedWorkflowStep(3);
+    setSelectedWorkflowStep(2);
     const baseForm = buildListingEditForm(listingProduct, effectiveAudit);
     const savedDraft = readListingDraft(id);
     setEditForm(mergeListingEditForm(baseForm, savedDraft));
@@ -1658,14 +1659,26 @@ export default function ProductDetailPage({ id }: { id: number }) {
           isOptimizing={isOptimizingContent}
           onOptimize={handleOptimizeContent}
           optimizeDisabled={!canOptimizeContent}
-          onEditListing={openListingEditor}
-          canEditListing={canEditProduct}
           productId={product.id}
           productSource={resolvedSource}
           OptimizedContentPanel={OptimizedContentPanel}
           overviewContent={
             <div className="space-y-4">
-              <h2 className="text-xs font-semibold text-slate-900">Overview</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-xs font-semibold text-slate-900">Overview</h2>
+                {canEditProduct && !isEditingListing && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={openListingEditor}
+                  >
+                    <Pencil className="w-3 h-3 mr-1 opacity-70" />
+                    Edit listing
+                  </Button>
+                )}
+              </div>
               {isStoreImportProduct(product) ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <CompactSummaryField label="SKU" value={listingProduct?.sku ?? product.sku} mono />
