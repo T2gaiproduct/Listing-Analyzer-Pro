@@ -14,12 +14,9 @@ import {
   Copy,
   Eye,
   Image as ImageLucide,
-  ImageIcon,
   Lightbulb,
   Loader2,
   Package,
-  Pencil,
-  Send,
   Sparkles,
   Star,
   Tag,
@@ -41,7 +38,6 @@ import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { refreshCreditBalances } from "@/lib/credit-queries";
-import { runListingAudit } from "@/lib/run-listing-audit";
 import {
   mapAuditToProductDetail,
   mapGraphicsToProductDetail,
@@ -52,12 +48,12 @@ import { ProductSalesTab } from "@/components/product-sales-tab";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
-import { GraphicsWizard } from "@/components/graphics-wizard";
 import {
   BuildBrandWorkflowStepper,
   buildBrandStepCompletedFromCurrentStep,
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
+import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
 
@@ -789,9 +785,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
-  const [showOptimizedContent, setShowOptimizedContent] = useState(false);
-  const [showGraphicsPanel, setShowGraphicsPanel] = useState(false);
-  const [showAuditPanel, setShowAuditPanel] = useState(false);
+  const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<BuildBrandWorkflowStepId>(1);
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -946,14 +940,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!isEditingListing || !editForm) return;
     writeListingDraft(id, editForm);
   }, [id, isEditingListing, editForm]);
-
-  const hasOptimizedContent = Boolean(effectiveAudit?.generatedContent?.title?.trim());
-
-  useEffect(() => {
-    if (hasOptimizedContent) {
-      setShowOptimizedContent(true);
-    }
-  }, [hasOptimizedContent]);
 
   useEffect(() => {
     if (!product?.sourceType) return;
@@ -1232,29 +1218,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
     },
   });
 
-  const runAuditMutation = useMutation({
-    mutationFn: (auditId: number) => runListingAudit(auditId),
-    onSuccess: (data, auditId) => {
-      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
-      void queryClient.invalidateQueries({ queryKey: ["products"] });
-      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
-      refreshCreditBalances(queryClient);
-      setShowAuditPanel(true);
-      setActiveTab("overview");
-      toast({
-        title: "Audit complete",
-        description: `Listing score: ${data.overallScore}/100`,
-      });
-    },
-    onError: (err) => {
-      toast({
-        title: "Audit failed",
-        description: formatOptimizeError(err),
-        variant: "destructive",
-      });
-    },
-  });
-
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in">
@@ -1378,33 +1341,27 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   async function goToGraphicsStep(auditId: number) {
-    await goToWorkflowStep(3, auditId);
+    await selectWorkflowStep(3, auditId);
   }
 
-  async function goToWorkflowStep(stepId: BuildBrandWorkflowStepId, auditIdOverride?: number) {
+  async function selectWorkflowStep(
+    stepId: BuildBrandWorkflowStepId,
+    auditIdOverride?: number,
+  ) {
+    setSelectedWorkflowStep(stepId);
     const auditId = auditIdOverride ?? optimizeAuditId ?? product?.statsAuditId ?? id;
-    if (!auditId) {
-      toast({
-        title: "Workflow unavailable",
-        description: "Open Build Your Brand to start this product workflow.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!auditId) return;
     try {
       await fetchJson(`${basePath}/api/audits/${auditId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentStep: stepId }),
       });
+      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
     } catch {
-      // Still navigate even if step update fails — workflow resumes from saved audit.
+      // Local step selection still works if persistence fails.
     }
-    navigate(`/audits/workflow?resume=${auditId}`);
-  }
-
-  function handleGenerateGraphics() {
-    setShowGraphicsPanel(true);
   }
 
   function resolvePendingListingForm(): ProductEditForm | null {
@@ -1557,14 +1514,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
   const showBuildBrandWorkflow = resolvedSource === "listing" || resolvedSource === "audit";
-  const activeWorkflowStep = Math.min(
-    5,
-    Math.max(1, product?.currentStep ?? 1),
-  ) as BuildBrandWorkflowStepId;
   const workflowStepCompleted = buildBrandStepCompletedFromCurrentStep(
     product?.currentStep,
     product?.status,
   );
+
+  useEffect(() => {
+    if (!product?.currentStep) return;
+    setSelectedWorkflowStep(
+      Math.min(5, Math.max(1, product.currentStep)) as BuildBrandWorkflowStepId,
+    );
+  }, [product?.id, product?.currentStep]);
   const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
   const isPublishingToStore = publishShopifyMutation.isPending || publishWooCommerceMutation.isPending;
   const isPublishingToAmazon = publishAmazonMutation.isPending;
@@ -1581,20 +1541,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
-  const canRunAudit = canEditProduct && optimizeAuditId != null;
 
   function handleOptimizeContent() {
     if (!optimizeAuditId) {
       toast({
         title: "Cannot optimize",
-        description: "This product has no linked listing audit. Open the workflow to create one first.",
+        description: "This product has no linked listing audit.",
         variant: "destructive",
       });
       return;
     }
     if (!canEditProduct) return;
-
-    setShowOptimizedContent(true);
 
     generateContent.mutate(
       { id: optimizeAuditId },
@@ -1617,21 +1574,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
         },
       },
     );
-  }
-
-  function handleShowOptimizedContent() {
-    setShowOptimizedContent(true);
-    const hasContent = Boolean(effectiveAudit?.generatedContent?.title?.trim());
-    if (!hasContent && canOptimizeContent && !isOptimizingContent) {
-      handleOptimizeContent();
-    }
-  }
-
-  function handleRunAudit() {
-    if (!optimizeAuditId || !canRunAudit) return;
-    setActiveTab("overview");
-    setShowAuditPanel(true);
-    runAuditMutation.mutate(optimizeAuditId);
   }
 
   return (
@@ -1710,13 +1652,36 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
       {showBuildBrandWorkflow && (
         <BuildBrandWorkflowStepper
-          activeStep={activeWorkflowStep}
+          activeStep={selectedWorkflowStep}
           stepCompleted={workflowStepCompleted}
-          onStepClick={(stepId) => void goToWorkflowStep(stepId)}
+          onStepClick={(stepId) => void selectWorkflowStep(stepId)}
         />
       )}
 
-      {/* Tabs + quick actions */}
+      {showBuildBrandWorkflow && graphicsAuditId > 0 && (
+        <ProductWorkflowStepContent
+          step={selectedWorkflowStep}
+          auditId={graphicsAuditId}
+          productName={product.name}
+          audit={effectiveAudit}
+          generatedContent={effectiveAudit?.generatedContent ?? null}
+          isOptimizing={isOptimizingContent}
+          onOptimize={handleOptimizeContent}
+          optimizeDisabled={!canOptimizeContent}
+          onEditListing={openListingEditor}
+          canEditListing={canEditProduct}
+          canPublishToStore={canPublishToStore}
+          canPublishToAmazon={canPublishToAmazon}
+          onPublishToStore={handlePublishToStore}
+          onPublishToAmazon={handlePublishToAmazon}
+          isPublishingToStore={isPublishingToStore}
+          isPublishingToAmazon={isPublishingToAmazon || saveProductMutation.isPending}
+          storePlatformLabel={storePlatformLabel}
+          OptimizedContentPanel={OptimizedContentPanel}
+        />
+      )}
+
+      {/* Tabs */}
       <div className="flex flex-wrap items-center gap-1.5">
         {TABS.map((tab) => (
           <span key={tab.id} className="contents">
@@ -1746,122 +1711,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold text-slate-900">Overview</h2>
-              {!isEditingListing ? (
-                <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-7 text-[11px]",
-                      showAuditPanel && "bg-orange-50 text-orange-700 border-orange-200",
-                    )}
-                    onClick={handleRunAudit}
-                    disabled={!canRunAudit || runAuditMutation.isPending}
-                  >
-                    {runAuditMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        Running audit…
-                      </>
-                    ) : (
-                      <>
-                        <ClipboardCheck className="w-3 h-3 mr-1 opacity-70" />
-                        Run Audit
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-7 text-[11px]",
-                      showOptimizedContent && "bg-orange-50 text-orange-700 border-orange-200",
-                    )}
-                    onClick={handleShowOptimizedContent}
-                    disabled={!canOptimizeContent || isOptimizingContent}
-                  >
-                    {isOptimizingContent ? (
-                      <>
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        Optimizing…
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                        Optimize Content
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px]"
-                    onClick={openListingEditor}
-                    disabled={!canEditProduct}
-                  >
-                    <Pencil className="w-3 h-3 mr-1 opacity-70" />
-                    Edit Listing
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-7 text-[11px]",
-                      showGraphicsPanel && "bg-orange-50 text-orange-700 border-orange-200",
-                    )}
-                    onClick={handleGenerateGraphics}
-                  >
-                    <ImageIcon className="w-3 h-3 mr-1 opacity-70" />
-                    Generate Graphic
-                  </Button>
-                  {canPublishToStore && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
-                      onClick={handlePublishToStore}
-                      disabled={isPublishingToStore}
-                    >
-                      {isPublishingToStore ? (
-                        <>
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          Publishing…
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3 h-3 mr-1" />
-                          Publish
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  {canPublishToAmazon && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-7 text-[11px] bg-amber-600 hover:bg-amber-700"
-                      onClick={handlePublishToAmazon}
-                      disabled={isPublishingToAmazon || saveProductMutation.isPending}
-                    >
-                      {isPublishingToAmazon || saveProductMutation.isPending ? (
-                        <>
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          Publishing…
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3 h-3 mr-1" />
-                          Publish to Amazon
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              ) : editForm ? (
+              {isEditingListing && editForm && (
                 <div className="flex items-center gap-1.5">
                   <Button
                     type="button"
@@ -1892,7 +1742,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     )}
                   </Button>
                 </div>
-              ) : null}
+              )}
             </div>
 
             {isEditingListing && editForm ? (
@@ -2098,45 +1948,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
               />
               <CompactSummaryField label="Created" value={createdDate} />
             </div>
-            )}
-
-            {(showAuditPanel || runAuditMutation.isPending) && !isEditingListing && (
-              <AuditResultsPanel
-                overallScore={effectiveAudit?.overallScore ?? product.stats.listingScore ?? 0}
-                result={effectiveAudit?.result ?? null}
-                isRunning={runAuditMutation.isPending}
-                onRunAudit={handleRunAudit}
-                runDisabled={!canRunAudit}
-                failed={effectiveAudit?.status === "failed"}
-              />
-            )}
-
-            {(showOptimizedContent || isOptimizingContent || hasOptimizedContent) && !isEditingListing && (
-              <OptimizedContentPanel
-                generatedContent={effectiveAudit?.generatedContent ?? null}
-                isOptimizing={isOptimizingContent}
-                onOptimize={handleOptimizeContent}
-                optimizeDisabled={!canOptimizeContent}
-              />
-            )}
-
-            {showGraphicsPanel && !isEditingListing && graphicsAuditId > 0 && (
-              <div className="border-t border-slate-100 pt-4 space-y-3">
-                <div className="flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-orange-600" />
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                    Product Graphics
-                  </p>
-                </div>
-                <GraphicsWizard
-                  embedded
-                  auditId={graphicsAuditId}
-                  productName={product.name}
-                  imageUrls={effectiveAudit?.imageUrls ?? null}
-                  category={product.category ?? effectiveAudit?.category ?? null}
-                  targetKeywords={effectiveAudit?.targetKeywords ?? null}
-                />
-              </div>
             )}
 
             {!isEditingListing && (
