@@ -1,8 +1,8 @@
 import type { ElementType } from "react";
-import { Check, Download, FileText, Image as ImageIcon, LayoutDashboard, Sparkles, Upload } from "lucide-react";
+import { Check, FileText, Image as ImageIcon, LayoutDashboard, Sparkles, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6;
+export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5;
 
 export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   id: ProductExplorerWorkflowStepId;
@@ -16,15 +16,15 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   { id: 3, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
   { id: 4, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
   { id: 5, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
-  { id: 6, key: "export", label: "EXPORT", sub: "Export & publish", icon: Download },
 ];
 
-/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–6). Step 1 lands on Overview. */
+/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–5). Step 1 lands on Overview. */
 export function apiStepToProductExplorerStep(
   currentStep: number | null | undefined,
 ): ProductExplorerWorkflowStepId {
   const apiStep = Math.min(5, Math.max(1, currentStep ?? 1));
   if (apiStep === 1) return 2;
+  if (apiStep >= 5) return 5;
   return (apiStep + 1) as ProductExplorerWorkflowStepId;
 }
 
@@ -34,6 +34,7 @@ export function productExplorerStepToApiStep(
 ): number | null {
   if (peStep === 1) return 1;
   if (peStep === 2) return null;
+  if (peStep === 5) return 4;
   return peStep - 1;
 }
 
@@ -48,8 +49,7 @@ export function productExplorerStepCompletedFromCurrentStep(
     2: complete || apiStep > 1,
     3: complete || apiStep > 2,
     4: complete || apiStep > 3,
-    5: complete || apiStep > 4,
-    6: complete,
+    5: complete || apiStep >= 4,
   };
 }
 

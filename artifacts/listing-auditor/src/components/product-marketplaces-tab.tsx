@@ -153,7 +153,7 @@ function ListedMarketplacesSummary({
         <p className="text-xs font-semibold text-slate-900">{headline}</p>
         <p className="text-[11px] text-slate-500 mt-0.5">
           {totalListed === 0
-            ? "Publish from the workflow or import from a connected store to list this product."
+            ? "Connect a marketplace or import from a store to list this product."
             : liveCount > 0 && pendingCount > 0
               ? `${liveCount} live · ${pendingCount} pending`
               : liveCount > 0

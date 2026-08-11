@@ -1672,13 +1672,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
           optimizeDisabled={!canOptimizeContent}
           onEditListing={openListingEditor}
           canEditListing={canEditProduct}
-          canPublishToStore={canPublishToStore}
-          canPublishToAmazon={canPublishToAmazon}
-          onPublishToStore={handlePublishToStore}
-          onPublishToAmazon={handlePublishToAmazon}
-          isPublishingToStore={isPublishingToStore}
-          isPublishingToAmazon={isPublishingToAmazon || saveProductMutation.isPending}
-          storePlatformLabel={storePlatformLabel}
           OptimizedContentPanel={OptimizedContentPanel}
           overviewContent={
             <div className="space-y-4">
@@ -1982,6 +1975,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
         />
       )}
 
+      {showBuildBrandWorkflow && (
+        <>
       {/* Tabs */}
       <div className="flex flex-wrap items-center gap-1.5">
         {TABS.map((tab) => (
@@ -2018,6 +2013,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
       {activeTab === "sales" && (
         <ProductSalesTab productId={product.id} source={resolvedSource} enabled={activeTab === "sales"} />
+      )}
+        </>
       )}
 
       <button
