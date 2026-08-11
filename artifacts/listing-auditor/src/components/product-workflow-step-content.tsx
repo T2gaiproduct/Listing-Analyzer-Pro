@@ -5,8 +5,9 @@ import type { GeneratedContent } from "@workspace/api-client-react";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { GraphicsWizard } from "@/components/graphics-wizard";
 import type { ProductExplorerWorkflowStepId } from "@/components/product-explorer-workflow-stepper";
-import { ProductCommerceTabs } from "@/components/product-commerce-tabs";
-import type { ProductCommerceTabId } from "@/components/product-explorer-workflow-stepper";
+import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
+import { ProductOrdersTab } from "@/components/product-orders-tab";
+import { ProductSalesTab } from "@/components/product-sales-tab";
 
 type AuditLike = {
   id?: number;
@@ -49,11 +50,8 @@ export function ProductWorkflowStepContent({
   canEditListing,
   overviewContent,
   listingEditorContent,
-  commerceTab,
-  onCommerceTabChange,
   productId,
   productSource,
-  liveMarketplaceCount,
   OptimizedContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
@@ -68,11 +66,8 @@ export function ProductWorkflowStepContent({
   canEditListing: boolean;
   overviewContent?: React.ReactNode;
   listingEditorContent?: React.ReactNode;
-  commerceTab?: ProductCommerceTabId;
-  onCommerceTabChange?: (tab: ProductCommerceTabId) => void;
   productId?: number;
   productSource?: string;
-  liveMarketplaceCount?: number;
   OptimizedContentPanel: React.ComponentType<{
     generatedContent: GeneratedContent | null | undefined;
     isOptimizing: boolean;
@@ -196,16 +191,26 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 6 && productId && productSource && commerceTab && onCommerceTabChange) {
+  if (step === 6 && productId && productSource) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <ProductCommerceTabs
-          activeTab={commerceTab}
-          onTabChange={onCommerceTabChange}
-          productId={productId}
-          source={productSource}
-          liveMarketplaceCount={liveMarketplaceCount}
-        />
+        <ProductMarketplacesTab productId={productId} source={productSource} enabled />
+      </div>
+    );
+  }
+
+  if (step === 7 && productId && productSource) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <ProductOrdersTab productId={productId} source={productSource} enabled />
+      </div>
+    );
+  }
+
+  if (step === 8 && productId && productSource) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <ProductSalesTab productId={productId} source={productSource} enabled />
       </div>
     );
   }

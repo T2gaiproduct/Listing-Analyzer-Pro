@@ -50,7 +50,6 @@ import {
   apiStepToProductExplorerStep,
   productExplorerStepCompletedFromCurrentStep,
   productExplorerStepToApiStep,
-  type ProductCommerceTabId,
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
@@ -776,7 +775,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
   const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<ProductExplorerWorkflowStepId>(2);
-  const [commerceTab, setCommerceTab] = useState<ProductCommerceTabId>("marketplaces");
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1534,13 +1532,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
 
-  function handleCommerceTabChange(tab: ProductCommerceTabId) {
-    setCommerceTab(tab);
-    if (selectedWorkflowStep !== 6) {
-      void selectWorkflowStep(6);
-    }
-  }
-
   function handleOptimizeContent() {
     if (!optimizeAuditId) {
       toast({
@@ -1623,10 +1614,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     <button
                       key={marketplace}
                       type="button"
-                      onClick={() => {
-                        setCommerceTab("marketplaces");
-                        void selectWorkflowStep(6);
-                      }}
+                      onClick={() => void selectWorkflowStep(6)}
                       className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 hover:bg-emerald-50 transition-colors"
                       title={`View ${marketplace} listing`}
                     >
@@ -1672,11 +1660,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
           optimizeDisabled={!canOptimizeContent}
           onEditListing={openListingEditor}
           canEditListing={canEditProduct}
-          commerceTab={commerceTab}
-          onCommerceTabChange={handleCommerceTabChange}
           productId={product.id}
           productSource={resolvedSource}
-          liveMarketplaceCount={liveMarketplaces.length}
           OptimizedContentPanel={OptimizedContentPanel}
           overviewContent={
             <div className="space-y-4">

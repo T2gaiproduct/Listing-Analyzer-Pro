@@ -4,21 +4,15 @@ import {
   FileText,
   Image as ImageIcon,
   LayoutDashboard,
+  ShoppingCart,
   Sparkles,
   Store,
+  TrendingUp,
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6;
-
-export type ProductCommerceTabId = "marketplaces" | "orders" | "sales";
-
-export const PRODUCT_COMMERCE_TABS: Array<{ id: ProductCommerceTabId; label: string }> = [
-  { id: "marketplaces", label: "Marketplaces" },
-  { id: "orders", label: "Orders" },
-  { id: "sales", label: "Sales" },
-];
+export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   id: ProductExplorerWorkflowStepId;
@@ -32,10 +26,12 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   { id: 3, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
   { id: 4, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
   { id: 5, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
-  { id: 6, key: "commerce", label: "MARKETPLACES", sub: "Orders & sales", icon: Store },
+  { id: 6, key: "marketplaces", label: "MARKETPLACES", sub: "List & publish", icon: Store },
+  { id: 7, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
+  { id: 8, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
 ];
 
-/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–6). Step 1 lands on Overview. */
+/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–8). Step 1 lands on Overview. */
 export function apiStepToProductExplorerStep(
   currentStep: number | null | undefined,
 ): ProductExplorerWorkflowStepId {
@@ -47,7 +43,7 @@ export function apiStepToProductExplorerStep(
   return 6;
 }
 
-/** Returns API step to persist, or null for local-only steps (Overview). */
+/** Returns API step to persist, or null for local-only steps (Overview, Marketplaces+). */
 export function productExplorerStepToApiStep(
   peStep: ProductExplorerWorkflowStepId,
 ): number | null {
@@ -70,6 +66,8 @@ export function productExplorerStepCompletedFromCurrentStep(
     4: complete || apiStep > 3,
     5: complete || apiStep > 4,
     6: complete || apiStep >= 5,
+    7: complete || apiStep >= 5,
+    8: complete,
   };
 }
 
@@ -93,7 +91,7 @@ export function ProductExplorerWorkflowStepper({
         className,
       )}
     >
-      <div className="flex items-stretch min-w-[28rem] w-full">
+      <div className="flex items-stretch min-w-[32rem] w-full">
         {PRODUCT_EXPLORER_WORKFLOW_STEPS.map((s) => {
           const isActive = activeStep === s.id;
           const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
@@ -106,7 +104,7 @@ export function ProductExplorerWorkflowStepper({
               disabled={!clickable}
               onClick={() => onStepClick?.(s.id)}
               className={cn(
-                "flex-1 min-w-[3.5rem] flex flex-col items-center py-3 gap-0.5 border-b-2 transition-all text-center px-1",
+                "flex-1 min-w-[3.25rem] flex flex-col items-center py-3 gap-0.5 border-b-2 transition-all text-center px-1",
                 isActive ? "border-orange-500" : "border-transparent",
                 clickable && !isActive && "hover:border-slate-200 cursor-pointer",
                 !clickable && "cursor-default",
