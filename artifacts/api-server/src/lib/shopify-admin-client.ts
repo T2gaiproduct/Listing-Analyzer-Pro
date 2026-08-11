@@ -101,19 +101,36 @@ export async function fetchShopifyAccessScopeHandles(opts: {
     .filter((handle): handle is string => Boolean(handle));
 }
 
+export async function resolveShopifyGrantedScopes(opts: {
+  shopHost: string;
+  accessToken: string;
+  tokenScope?: string;
+}): Promise<string[]> {
+  try {
+    const handles = await fetchShopifyAccessScopeHandles({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+    });
+    if (handles.length > 0) return handles;
+  } catch {
+    // Fall back to the token response when access_scopes is unavailable.
+  }
+
+  const fromToken = opts.tokenScope?.trim() ?? "";
+  if (!fromToken) return [];
+
+  return fromToken
+    .split(/[,\s]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 async function resolveShopifyGrantedScopeString(opts: {
   shopHost: string;
-  clientId: string;
   accessToken: string;
   tokenScope?: string;
 }): Promise<string> {
-  const fromToken = opts.tokenScope?.trim() ?? "";
-  if (fromToken) return fromToken;
-
-  const handles = await fetchShopifyAccessScopeHandles({
-    shopHost: opts.shopHost,
-    accessToken: opts.accessToken,
-  });
+  const handles = await resolveShopifyGrantedScopes(opts);
   return handles.join(",");
 }
 
@@ -126,7 +143,6 @@ export async function getShopifyAccessTokenWithScope(opts: {
   const cached = tokenCache.get(`${opts.shopHost}:${opts.clientId}`);
   const scope = await resolveShopifyGrantedScopeString({
     shopHost: opts.shopHost,
-    clientId: opts.clientId,
     accessToken,
     tokenScope: cached?.scope,
   });

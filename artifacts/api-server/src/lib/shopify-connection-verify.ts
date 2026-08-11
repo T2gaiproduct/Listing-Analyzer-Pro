@@ -3,6 +3,7 @@ import {
   getOnlineStorePublicationId,
   getShopifyAccessTokenWithScope,
   parseShopifyShopHost,
+  resolveShopifyGrantedScopes,
   shopifyAdminRequest,
 } from "./shopify-admin-client.js";
 
@@ -13,9 +14,9 @@ const REQUIRED_PUBLISH_SCOPES = [
   "write_publications",
 ] as const;
 
-function missingScopes(scope: string): string[] {
-  const granted = new Set(scope.split(/[,\s]+/).map((entry) => entry.trim()).filter(Boolean));
-  return REQUIRED_PUBLISH_SCOPES.filter((required) => !granted.has(required));
+function missingScopes(granted: Iterable<string>): string[] {
+  const grantedSet = new Set(granted);
+  return REQUIRED_PUBLISH_SCOPES.filter((required) => !grantedSet.has(required));
 }
 
 export type ShopifyConnectionVerification = {
@@ -32,13 +33,21 @@ export async function verifyShopifyConnection(input: {
   const shopHost = parseShopifyShopHost(input.storeUrl);
   clearShopifyAccessTokenCache({ shopHost, clientId: input.clientId });
 
-  const { accessToken, scope } = await getShopifyAccessTokenWithScope({
+  const { accessToken, scope: cachedScope } = await getShopifyAccessTokenWithScope({
     shopHost,
     clientId: input.clientId,
     clientSecret: input.clientSecret,
   });
 
-  let publicationId: string | null = null;
+  const grantedScopes = await resolveShopifyGrantedScopes({
+    shopHost,
+    accessToken,
+    tokenScope: cachedScope,
+  });
+  const scope = grantedScopes.join(",");
+
+  let productsOk = false;
+  let productsError: string | null = null;
   try {
     await shopifyAdminRequest<{ products: unknown[] }>({
       shopHost,
@@ -46,31 +55,60 @@ export async function verifyShopifyConnection(input: {
       method: "GET",
       path: "/products.json?limit=1",
     });
-    publicationId = await getOnlineStorePublicationId({ shopHost, accessToken });
-  } catch {
-    // Fall through to scope / publication checks below.
+    productsOk = true;
+  } catch (err) {
+    productsError = err instanceof Error ? err.message : "Could not read products from Shopify";
   }
 
-  const missing = missingScopes(scope);
-  if (missing.length > 0 && !publicationId) {
+  let publicationId: string | null = null;
+  let publicationsError: string | null = null;
+  try {
+    publicationId = await getOnlineStorePublicationId({ shopHost, accessToken });
+  } catch (err) {
+    publicationsError = err instanceof Error ? err.message : "Could not read Shopify publications";
+  }
+
+  // Functional probes are authoritative — if both succeed, the token has what we need.
+  if (productsOk && publicationId) {
     return {
-      ok: false,
+      ok: true,
       scopes: scope,
-      message: `Shopify token is missing required scopes: ${missing.join(", ")}. Add them in Dev Dashboard, release the app version, then reconnect here.`,
+      message: "Shopify connection verified for product and Online Store publishing.",
     };
   }
 
-  if (!publicationId) {
+  if (productsOk && !publicationId) {
     return {
       ok: false,
       scopes: scope,
-      message: "Connected to Shopify, but no Online Store publication was found. Check your store sales channels.",
+      message: publicationsError
+        ? `Connected to Shopify, but publications could not be verified: ${publicationsError}`
+        : "Connected to Shopify, but no Online Store publication was found. Check your store sales channels.",
+    };
+  }
+
+  const missing = missingScopes(grantedScopes);
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      scopes: scope,
+      message: `Shopify token is missing required scopes: ${missing.join(", ")}. Add them in Dev Dashboard, release the app version, install the app on this store, then reconnect here.`,
+    };
+  }
+
+  if (productsError) {
+    return {
+      ok: false,
+      scopes: scope,
+      message: `Shopify product access failed: ${productsError}. Confirm the app is installed on ${shopHost} and the Client ID/secret match the active app version.`,
     };
   }
 
   return {
-    ok: true,
+    ok: false,
     scopes: scope,
-    message: "Shopify connection verified for product and Online Store publishing.",
+    message: publicationsError
+      ? `Shopify publications access failed: ${publicationsError}`
+      : "Could not verify Shopify connection. Check your credentials and try again.",
   };
 }
