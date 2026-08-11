@@ -49,10 +49,12 @@ import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
 import {
-  BuildBrandWorkflowStepper,
-  buildBrandStepCompletedFromCurrentStep,
-  type BuildBrandWorkflowStepId,
-} from "@/components/build-brand-workflow-stepper";
+  ProductExplorerWorkflowStepper,
+  apiStepToProductExplorerStep,
+  productExplorerStepCompletedFromCurrentStep,
+  productExplorerStepToApiStep,
+  type ProductExplorerWorkflowStepId,
+} from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
 
 type ProductSourceType = "listing" | "audit" | "graphics" | "video" | "ads";
@@ -90,10 +92,9 @@ async function fetchProductDetail(id: number, source: ProductSourceType | null):
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type TabId = "overview" | "marketplaces" | "orders" | "sales";
+type TabId = "marketplaces" | "orders" | "sales";
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "overview", label: "Overview" },
   { id: "marketplaces", label: "Marketplaces" },
   { id: "orders", label: "Orders" },
   { id: "sales", label: "Sales" },
@@ -781,11 +782,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { featureWorkspaceId, isAccountOwner, canEdit: wsCanEdit } = useWorkspace();
   const [location, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [activeTab, setActiveTab] = useState<TabId>("marketplaces");
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
-  const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<BuildBrandWorkflowStepId>(1);
+  const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<ProductExplorerWorkflowStepId>(2);
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1220,9 +1221,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   useEffect(() => {
     if (!product?.currentStep) return;
-    setSelectedWorkflowStep(
-      Math.min(5, Math.max(1, product.currentStep)) as BuildBrandWorkflowStepId,
-    );
+    setSelectedWorkflowStep(apiStepToProductExplorerStep(product.currentStep));
   }, [product?.id, product?.currentStep]);
 
   if (isLoading) {
@@ -1279,7 +1278,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   function openListingEditor() {
     if (!canEditProduct || !listingProduct) return;
-    setActiveTab("overview");
+    setSelectedWorkflowStep(3);
     const baseForm = buildListingEditForm(listingProduct, effectiveAudit);
     const savedDraft = readListingDraft(id);
     setEditForm(mergeListingEditForm(baseForm, savedDraft));
@@ -1348,21 +1347,23 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   async function goToGraphicsStep(auditId: number) {
-    await selectWorkflowStep(3, auditId);
+    await selectWorkflowStep(4, auditId);
   }
 
   async function selectWorkflowStep(
-    stepId: BuildBrandWorkflowStepId,
+    stepId: ProductExplorerWorkflowStepId,
     auditIdOverride?: number,
   ) {
     setSelectedWorkflowStep(stepId);
+    const apiStep = productExplorerStepToApiStep(stepId);
+    if (apiStep == null) return;
     const auditId = auditIdOverride ?? optimizeAuditId ?? product?.statsAuditId ?? id;
     if (!auditId) return;
     try {
       await fetchJson(`${basePath}/api/audits/${auditId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentStep: stepId }),
+        body: JSON.stringify({ currentStep: apiStep }),
       });
       void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
       void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
@@ -1521,7 +1522,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
   const showBuildBrandWorkflow = resolvedSource === "listing" || resolvedSource === "audit";
-  const workflowStepCompleted = buildBrandStepCompletedFromCurrentStep(
+  const workflowStepCompleted = productExplorerStepCompletedFromCurrentStep(
     product?.currentStep,
     product?.status,
   );
@@ -1652,7 +1653,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       </div>
 
       {showBuildBrandWorkflow && (
-        <BuildBrandWorkflowStepper
+        <ProductExplorerWorkflowStepper
           activeStep={selectedWorkflowStep}
           stepCompleted={workflowStepCompleted}
           onStepClick={(stepId) => void selectWorkflowStep(stepId)}
@@ -1679,6 +1680,305 @@ export default function ProductDetailPage({ id }: { id: number }) {
           isPublishingToAmazon={isPublishingToAmazon || saveProductMutation.isPending}
           storePlatformLabel={storePlatformLabel}
           OptimizedContentPanel={OptimizedContentPanel}
+          overviewContent={
+            <div className="space-y-4">
+              <h2 className="text-xs font-semibold text-slate-900">Overview</h2>
+              {isStoreImportProduct(product) ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <CompactSummaryField label="SKU" value={listingProduct?.sku ?? product.sku} mono />
+                  <CompactSummaryField label="Brand" value={product.brandName || "—"} />
+                  <CompactSummaryField label="Category" value={product.category || "—"} />
+                  <CompactSummaryField
+                    label="Price"
+                    value={
+                      listingProduct?.listingPrice != null && listingProduct.listingPrice > 0
+                        ? `${listingProduct.listingCurrency ?? ""} ${listingProduct.listingPrice.toFixed(2)}`.trim()
+                        : "—"
+                    }
+                  />
+                  <div className="col-span-2 sm:col-span-4">
+                    <CompactSummaryField label="Stage" value={<LiveBadge label={product.stageLabel} />} />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <CompactSummaryField label="SKU" value={product.sku} mono />
+                  <CompactSummaryField label="Brand" value={product.brandName || "—"} />
+                  <CompactSummaryField label="Category" value={product.category || "—"} />
+                  <CompactSummaryField label="Manager" value={product.manager?.name ?? "—"} />
+                  <CompactSummaryField label="Stage" value={<LiveBadge label={product.stageLabel} />} />
+                  <CompactSummaryField
+                    label="Priority"
+                    value={
+                      <PriorityBadge
+                        label={(product.priorityLabel ?? "Medium Priority").replace(" Priority", "")}
+                        level={product.priorityLevel}
+                      />
+                    }
+                  />
+                  <CompactSummaryField
+                    label="Listing Score"
+                    value={
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                        {listingRating}
+                        {product.stats.listingScore > 0 && (
+                          <span className="text-slate-400 font-normal">/ 5</span>
+                        )}
+                      </span>
+                    }
+                  />
+                  <CompactSummaryField label="Created" value={createdDate} />
+                </div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-100 pt-3">
+                <CompactStatChip label="Orders" value={String(product.stats.totalOrders)} />
+                <CompactStatChip
+                  label="Revenue"
+                  value={
+                    product.stats.revenue != null
+                      ? product.stats.revenueCurrency === "INR"
+                        ? `₹${product.stats.revenue.toLocaleString("en-IN")}`
+                        : `$${product.stats.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                      : "—"
+                  }
+                  accent="emerald"
+                />
+                <CompactStatChip
+                  label="Marketplaces"
+                  value={liveMarketplaces.length > 0 ? String(liveMarketplaces.length) : String(product.stats.marketplacesActive)}
+                />
+                <CompactStatChip label="Images" value={String(product.stats.imageCount)} />
+              </div>
+            </div>
+          }
+          listingEditorContent={
+            isEditingListing && editForm ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-xs font-semibold text-slate-900">Edit listing</h2>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={cancelListingEditor}
+                      disabled={saveProductMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-[11px] bg-orange-500 hover:bg-orange-600"
+                      onClick={saveListingEditor}
+                      disabled={saveProductMutation.isPending}
+                    >
+                      {saveProductMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          {storePublishReady ? "Syncing…" : "Saving…"}
+                        </>
+                      ) : (
+                        storePublishReady
+                          ? `Save & sync to ${storePlatformLabel}`
+                          : "Save changes"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                {product.isShopifyImport || product.isWooCommerceImport ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Title">
+                        <Input
+                          value={editForm.listingTitle}
+                          onChange={(e) => updateEditField("listingTitle", e.target.value)}
+                          className="text-[11px]"
+                          placeholder={`Product title on your ${storePlatformLabel} store`}
+                        />
+                      </EditDetailField>
+                    </div>
+                    <EditDetailField label="SKU">
+                      <Input
+                        value={editForm.sku}
+                        onChange={(e) => updateEditField("sku", e.target.value)}
+                        className="text-[11px] font-mono"
+                      />
+                    </EditDetailField>
+                    <EditDetailField label="Price">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editForm.price}
+                          onChange={(e) => updateEditField("price", e.target.value)}
+                          onBlur={(e) => updateEditField("price", normalizePriceField(e.target.value))}
+                          className="text-[11px] font-mono"
+                          placeholder="Enter price"
+                          inputMode="decimal"
+                        />
+                        {product.listingCurrency && (
+                          <span className="text-[10px] text-slate-500 shrink-0">{product.listingCurrency}</span>
+                        )}
+                      </div>
+                    </EditDetailField>
+                    <EditDetailField label="Brand">
+                      <Input
+                        value={editForm.brandName}
+                        onChange={(e) => updateEditField("brandName", e.target.value)}
+                        className="text-[11px]"
+                        placeholder="Vendor"
+                      />
+                    </EditDetailField>
+                    <EditDetailField label="Category">
+                      <Input
+                        value={editForm.category}
+                        onChange={(e) => updateEditField("category", e.target.value)}
+                        className="text-[11px]"
+                        placeholder="Product type"
+                      />
+                    </EditDetailField>
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Tags">
+                        <Input
+                          value={editForm.tagsText}
+                          onChange={(e) => updateEditField("tagsText", e.target.value)}
+                          className="text-[11px]"
+                          placeholder="comma, separated, tags"
+                        />
+                      </EditDetailField>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Bullet points">
+                        <Textarea
+                          value={editForm.bulletPointsText}
+                          onChange={(e) => updateEditField("bulletPointsText", e.target.value)}
+                          className="text-[11px] min-h-[96px] font-mono"
+                          placeholder="One bullet per line"
+                        />
+                      </EditDetailField>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Description (HTML)">
+                        <Textarea
+                          value={editForm.descriptionHtml}
+                          onChange={(e) => updateEditField("descriptionHtml", e.target.value)}
+                          className="text-[11px] min-h-[120px] font-mono"
+                          placeholder="Product description for Shopify"
+                        />
+                      </EditDetailField>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <EditDetailField label="Product Name">
+                      <Input
+                        value={editForm.productName}
+                        onChange={(e) => updateEditField("productName", e.target.value)}
+                        className="text-[11px]"
+                      />
+                    </EditDetailField>
+                    <EditDetailField label="SKU">
+                      <Input
+                        value={editForm.sku}
+                        onChange={(e) => updateEditField("sku", e.target.value)}
+                        className="text-[11px] font-mono"
+                      />
+                    </EditDetailField>
+                    <EditDetailField label="Brand">
+                      <Input
+                        value={editForm.brandName}
+                        onChange={(e) => updateEditField("brandName", e.target.value)}
+                        className="text-[11px]"
+                      />
+                    </EditDetailField>
+                    <EditDetailField label="Category">
+                      <Input
+                        value={editForm.category}
+                        onChange={(e) => updateEditField("category", e.target.value)}
+                        className="text-[11px]"
+                        placeholder="e.g. Watches"
+                      />
+                    </EditDetailField>
+                    <EditDetailField label="Assigned Manager">
+                      <Input
+                        value={editForm.assignedManager}
+                        onChange={(e) => updateEditField("assignedManager", e.target.value)}
+                        className="text-[11px]"
+                      />
+                    </EditDetailField>
+                    <EditDetailField label="Created Date">
+                      <p className="text-xs text-slate-500 py-1.5">{createdDate}</p>
+                    </EditDetailField>
+                    <EditDetailField label="Priority">
+                      <select
+                        value={editForm.priority}
+                        onChange={(e) =>
+                          updateEditField(
+                            "priority",
+                            e.target.value as ProductEditForm["priority"],
+                          )
+                        }
+                        className="flex h-8 w-full rounded-lg border border-input bg-transparent px-3 text-[11px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </EditDetailField>
+                    <EditDetailField label="Current Stage">
+                      <div className="py-1">
+                        <LiveBadge label={product.stageLabel} />
+                      </div>
+                    </EditDetailField>
+                    <div className="sm:col-span-2">
+                      <EditDetailField label="Notes">
+                        <Textarea
+                          value={editForm.notes}
+                          onChange={(e) => updateEditField("notes", e.target.value)}
+                          className="text-[11px] min-h-[72px]"
+                        />
+                      </EditDetailField>
+                    </div>
+                  </div>
+                )}
+                {!isStoreImportProduct(product) && (
+                  <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-[11px] rounded-xl gap-1.5"
+                      onClick={cancelListingEditor}
+                      disabled={saveProductMutation.isPending}
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 text-[11px] rounded-xl bg-orange-500 hover:bg-orange-600 gap-1.5"
+                      onClick={handleSaveAndContinueToGraphics}
+                      disabled={saveProductMutation.isPending}
+                    >
+                      {saveProductMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        <>
+                          Save &amp; Continue
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : undefined
+          }
         />
       )}
 
@@ -1708,308 +2008,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
       </div>
 
       {/* Tab panels */}
-      {activeTab === "overview" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-xs font-semibold text-slate-900">Overview</h2>
-              {isEditingListing && editForm && (
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px]"
-                    onClick={cancelListingEditor}
-                    disabled={saveProductMutation.isPending}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 text-[11px] bg-orange-500 hover:bg-orange-600"
-                    onClick={saveListingEditor}
-                    disabled={saveProductMutation.isPending}
-                  >
-                    {saveProductMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        {storePublishReady ? "Syncing…" : "Saving…"}
-                      </>
-                    ) : (
-                      storePublishReady
-                        ? `Save & sync to ${storePlatformLabel}`
-                        : "Save changes"
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {isEditingListing && editForm ? (
-              product.isShopifyImport || product.isWooCommerceImport ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                  <div className="sm:col-span-2">
-                    <EditDetailField label="Title">
-                      <Input
-                        value={editForm.listingTitle}
-                        onChange={(e) => updateEditField("listingTitle", e.target.value)}
-                        className="text-[11px]"
-                        placeholder={`Product title on your ${storePlatformLabel} store`}
-                      />
-                    </EditDetailField>
-                  </div>
-                  <EditDetailField label="SKU">
-                    <Input
-                      value={editForm.sku}
-                      onChange={(e) => updateEditField("sku", e.target.value)}
-                      className="text-[11px] font-mono"
-                    />
-                  </EditDetailField>
-                  <EditDetailField label="Price">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={editForm.price}
-                        onChange={(e) => updateEditField("price", e.target.value)}
-                        onBlur={(e) => updateEditField("price", normalizePriceField(e.target.value))}
-                        className="text-[11px] font-mono"
-                        placeholder="Enter price"
-                        inputMode="decimal"
-                      />
-                      {product.listingCurrency && (
-                        <span className="text-[10px] text-slate-500 shrink-0">{product.listingCurrency}</span>
-                      )}
-                    </div>
-                  </EditDetailField>
-                  <EditDetailField label="Brand">
-                    <Input
-                      value={editForm.brandName}
-                      onChange={(e) => updateEditField("brandName", e.target.value)}
-                      className="text-[11px]"
-                      placeholder="Vendor"
-                    />
-                  </EditDetailField>
-                  <EditDetailField label="Category">
-                    <Input
-                      value={editForm.category}
-                      onChange={(e) => updateEditField("category", e.target.value)}
-                      className="text-[11px]"
-                      placeholder="Product type"
-                    />
-                  </EditDetailField>
-                  <div className="sm:col-span-2">
-                    <EditDetailField label="Tags">
-                      <Input
-                        value={editForm.tagsText}
-                        onChange={(e) => updateEditField("tagsText", e.target.value)}
-                        className="text-[11px]"
-                        placeholder="comma, separated, tags"
-                      />
-                    </EditDetailField>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <EditDetailField label="Bullet points">
-                      <Textarea
-                        value={editForm.bulletPointsText}
-                        onChange={(e) => updateEditField("bulletPointsText", e.target.value)}
-                        className="text-[11px] min-h-[96px] font-mono"
-                        placeholder="One bullet per line"
-                      />
-                    </EditDetailField>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <EditDetailField label="Description (HTML)">
-                      <Textarea
-                        value={editForm.descriptionHtml}
-                        onChange={(e) => updateEditField("descriptionHtml", e.target.value)}
-                        className="text-[11px] min-h-[120px] font-mono"
-                        placeholder="Product description for Shopify"
-                      />
-                    </EditDetailField>
-                  </div>
-                </div>
-              ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                <EditDetailField label="Product Name">
-                  <Input
-                    value={editForm.productName}
-                    onChange={(e) => updateEditField("productName", e.target.value)}
-                    className="text-[11px]"
-                  />
-                </EditDetailField>
-                <EditDetailField label="SKU">
-                  <Input
-                    value={editForm.sku}
-                    onChange={(e) => updateEditField("sku", e.target.value)}
-                    className="text-[11px] font-mono"
-                  />
-                </EditDetailField>
-                <EditDetailField label="Brand">
-                  <Input
-                    value={editForm.brandName}
-                    onChange={(e) => updateEditField("brandName", e.target.value)}
-                    className="text-[11px]"
-                  />
-                </EditDetailField>
-                <EditDetailField label="Category">
-                  <Input
-                    value={editForm.category}
-                    onChange={(e) => updateEditField("category", e.target.value)}
-                    className="text-[11px]"
-                    placeholder="e.g. Watches"
-                  />
-                </EditDetailField>
-                <EditDetailField label="Assigned Manager">
-                  <Input
-                    value={editForm.assignedManager}
-                    onChange={(e) => updateEditField("assignedManager", e.target.value)}
-                    className="text-[11px]"
-                  />
-                </EditDetailField>
-                <EditDetailField label="Created Date">
-                  <p className="text-xs text-slate-500 py-1.5">{createdDate}</p>
-                </EditDetailField>
-                <EditDetailField label="Priority">
-                  <select
-                    value={editForm.priority}
-                    onChange={(e) =>
-                      updateEditField(
-                        "priority",
-                        e.target.value as ProductEditForm["priority"],
-                      )
-                    }
-                    className="flex h-8 w-full rounded-lg border border-input bg-transparent px-3 text-[11px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-                </EditDetailField>
-                <EditDetailField label="Current Stage">
-                  <div className="py-1">
-                    <LiveBadge label={product.stageLabel} />
-                  </div>
-                </EditDetailField>
-                <div className="sm:col-span-2">
-                  <EditDetailField label="Notes">
-                    <Textarea
-                      value={editForm.notes}
-                      onChange={(e) => updateEditField("notes", e.target.value)}
-                      className="text-[11px] min-h-[72px]"
-                    />
-                  </EditDetailField>
-                </div>
-
-              </div>
-              )
-            ) : isStoreImportProduct(product) ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <CompactSummaryField label="SKU" value={listingProduct?.sku ?? product.sku} mono />
-              <CompactSummaryField label="Brand" value={product.brandName || "—"} />
-              <CompactSummaryField label="Category" value={product.category || "—"} />
-              <CompactSummaryField
-                label="Price"
-                value={
-                  listingProduct?.listingPrice != null && listingProduct.listingPrice > 0
-                    ? `${listingProduct.listingCurrency ?? ""} ${listingProduct.listingPrice.toFixed(2)}`.trim()
-                    : "—"
-                }
-              />
-              <div className="col-span-2 sm:col-span-4">
-                <CompactSummaryField label="Stage" value={<LiveBadge label={product.stageLabel} />} />
-              </div>
-            </div>
-            ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <CompactSummaryField label="SKU" value={product.sku} mono />
-              <CompactSummaryField label="Brand" value={product.brandName || "—"} />
-              <CompactSummaryField label="Category" value={product.category || "—"} />
-              <CompactSummaryField label="Manager" value={product.manager?.name ?? "—"} />
-              <CompactSummaryField label="Stage" value={<LiveBadge label={product.stageLabel} />} />
-              <CompactSummaryField
-                label="Priority"
-                value={
-                  <PriorityBadge
-                    label={(product.priorityLabel ?? "Medium Priority").replace(" Priority", "")}
-                    level={product.priorityLevel}
-                  />
-                }
-              />
-              <CompactSummaryField
-                label="Listing Score"
-                value={
-                  <span className="inline-flex items-center gap-1">
-                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                    {listingRating}
-                    {product.stats.listingScore > 0 && (
-                      <span className="text-slate-400 font-normal">/ 5</span>
-                    )}
-                  </span>
-                }
-              />
-              <CompactSummaryField label="Created" value={createdDate} />
-            </div>
-            )}
-
-            {!isEditingListing && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-100 pt-3">
-                <CompactStatChip label="Orders" value={String(product.stats.totalOrders)} />
-                <CompactStatChip
-                  label="Revenue"
-                  value={
-                    product.stats.revenue != null
-                      ? product.stats.revenueCurrency === "INR"
-                        ? `₹${product.stats.revenue.toLocaleString("en-IN")}`
-                        : `$${product.stats.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                      : "—"
-                  }
-                  accent="emerald"
-                />
-                <CompactStatChip
-                  label="Marketplaces"
-                  value={liveMarketplaces.length > 0 ? String(liveMarketplaces.length) : String(product.stats.marketplacesActive)}
-                />
-                <CompactStatChip label="Images" value={String(product.stats.imageCount)} />
-              </div>
-            )}
-
-            {isEditingListing && editForm && !isStoreImportProduct(product) && (
-              <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-[11px] rounded-xl gap-1.5"
-                  onClick={cancelListingEditor}
-                  disabled={saveProductMutation.isPending}
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  Back
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 text-[11px] rounded-xl bg-orange-500 hover:bg-orange-600 gap-1.5"
-                  onClick={handleSaveAndContinueToGraphics}
-                  disabled={saveProductMutation.isPending}
-                >
-                  {saveProductMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      Save &amp; Continue
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-        </div>
-      )}
-
       {activeTab === "marketplaces" && (
         <ProductMarketplacesTab productId={product.id} source={resolvedSource} enabled={activeTab === "marketplaces"} />
       )}

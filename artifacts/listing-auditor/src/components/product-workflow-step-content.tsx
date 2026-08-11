@@ -12,7 +12,7 @@ import {
   type AmazonMarketplaceId,
   type ExportPlatform,
 } from "@/lib/amazon-export";
-import type { BuildBrandWorkflowStepId } from "@/components/build-brand-workflow-stepper";
+import type { ProductExplorerWorkflowStepId } from "@/components/product-explorer-workflow-stepper";
 import { cn } from "@/lib/utils";
 
 type AuditLike = {
@@ -61,9 +61,11 @@ export function ProductWorkflowStepContent({
   isPublishingToStore,
   isPublishingToAmazon,
   storePlatformLabel,
+  overviewContent,
+  listingEditorContent,
   OptimizedContentPanel,
 }: {
-  step: BuildBrandWorkflowStepId;
+  step: ProductExplorerWorkflowStepId;
   auditId: number;
   productName: string;
   audit: AuditLike | null | undefined;
@@ -80,6 +82,8 @@ export function ProductWorkflowStepContent({
   isPublishingToStore: boolean;
   isPublishingToAmazon: boolean;
   storePlatformLabel?: string;
+  overviewContent?: React.ReactNode;
+  listingEditorContent?: React.ReactNode;
   OptimizedContentPanel: React.ComponentType<{
     generatedContent: GeneratedContent | null | undefined;
     isOptimizing: boolean;
@@ -125,6 +129,24 @@ export function ProductWorkflowStepContent({
   if (step === 2) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        {overviewContent ?? (
+          <p className="text-[11px] text-slate-500">Product summary and stats appear here.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (step === 3) {
+    if (listingEditorContent) {
+      return (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+          {listingEditorContent}
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-orange-500" />
@@ -147,7 +169,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 3) {
+  if (step === 4) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         <div className="flex items-center gap-2">
@@ -166,7 +188,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 4) {
+  if (step === 5) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         <div className="flex items-center gap-2">
