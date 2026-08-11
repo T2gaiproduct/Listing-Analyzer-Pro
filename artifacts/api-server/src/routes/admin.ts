@@ -652,36 +652,68 @@ router.get("/admin/plan-capabilities", requireAdmin, async (_req, res): Promise<
 
 router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, enabledFeatures, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
-  const allocations = creditAllocations ?? {};
-  const pools = await computePlanPoolsFromAllocations(allocations);
-  const [plan] = await db
-    .insert(plansTable)
-    .values({
-      name, description, priceMonthly, priceYearly,
-      aiCredits: pools.aiCredits,
-      imageCredits: pools.imageCredits,
-      auditCredits: pools.auditCredits,
-      teamMembers: teamMembers ?? 1,
-      creditAllocations: allocations,
-      features: features ?? [],
-      excludedFeatures: excludedFeatures ?? [],
-      enabledFeatures: enabledFeatures ?? null,
-      isTrial: isTrial ?? false,
-      trialDays: trialDays ?? 0,
-      tag: tag ?? null,
-      sortOrder: sortOrder ?? 0,
-      isHighlighted: isHighlighted ?? false,
-      ctaText: ctaText ?? null,
-    })
-    .returning();
-  res.status(201).json(plan);
+  if (!name || typeof name !== "string" || !name.trim()) {
+    res.status(400).json({ error: "Plan name is required" });
+    return;
+  }
+
+  try {
+    const allocations = creditAllocations ?? {};
+    const pools = await computePlanPoolsFromAllocations(allocations);
+    const [plan] = await db
+      .insert(plansTable)
+      .values({
+        name: name.trim(),
+        description: description ?? null,
+        priceMonthly: priceMonthly ?? 0,
+        priceYearly: priceYearly ?? 0,
+        aiCredits: pools.aiCredits,
+        imageCredits: pools.imageCredits,
+        auditCredits: pools.auditCredits,
+        teamMembers: teamMembers ?? 1,
+        creditAllocations: allocations,
+        features: features ?? [],
+        excludedFeatures: excludedFeatures ?? [],
+        enabledFeatures: enabledFeatures ?? null,
+        isActive: true,
+        isTrial: isTrial ?? false,
+        trialDays: trialDays ?? 0,
+        tag: tag ?? null,
+        sortOrder: sortOrder ?? 0,
+        isHighlighted: isHighlighted ?? false,
+        ctaText: ctaText ?? null,
+      })
+      .returning();
+    res.status(201).json(plan);
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to create plan");
+    const message = err instanceof Error ? err.message : "Failed to create plan";
+    res.status(500).json({
+      error: message.includes("enabled_features")
+        ? "Database schema is out of date. Run `pnpm --filter @workspace/db run push` on the server, then try again."
+        : message,
+    });
+  }
 });
 
 router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { name, description, priceMonthly, priceYearly, creditAllocations, teamMembers, features, excludedFeatures, enabledFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText } = req.body;
-  const setObj: Record<string, unknown> = { name, description, priceMonthly, priceYearly, teamMembers, excludedFeatures, isActive, isTrial, trialDays, tag, sortOrder, isHighlighted, ctaText, updatedAt: new Date() };
+  const setObj: Record<string, unknown> = { updatedAt: new Date() };
+  if (name !== undefined) setObj.name = typeof name === "string" ? name.trim() : name;
+  if (description !== undefined) setObj.description = description;
+  if (priceMonthly !== undefined) setObj.priceMonthly = priceMonthly;
+  if (priceYearly !== undefined) setObj.priceYearly = priceYearly;
+  if (teamMembers !== undefined) setObj.teamMembers = teamMembers;
+  if (excludedFeatures !== undefined) setObj.excludedFeatures = excludedFeatures;
+  if (isActive !== undefined) setObj.isActive = isActive;
+  if (isTrial !== undefined) setObj.isTrial = isTrial;
+  if (trialDays !== undefined) setObj.trialDays = trialDays;
+  if (tag !== undefined) setObj.tag = tag;
+  if (sortOrder !== undefined) setObj.sortOrder = sortOrder;
+  if (isHighlighted !== undefined) setObj.isHighlighted = isHighlighted;
+  if (ctaText !== undefined) setObj.ctaText = ctaText;
   if (enabledFeatures !== undefined) {
     setObj.enabledFeatures = enabledFeatures;
   }
@@ -695,13 +727,20 @@ router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> =
   if (features !== undefined) {
     setObj.features = features;
   }
-  const [plan] = await db
-    .update(plansTable)
-    .set(setObj)
-    .where(eq(plansTable.id, id))
-    .returning();
-  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
-  res.json(plan);
+
+  try {
+    const [plan] = await db
+      .update(plansTable)
+      .set(setObj)
+      .where(eq(plansTable.id, id))
+      .returning();
+    if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+    res.json(plan);
+  } catch (err) {
+    req.log?.error?.({ err, planId: id }, "Failed to update plan");
+    const message = err instanceof Error ? err.message : "Failed to update plan";
+    res.status(500).json({ error: message });
+  }
 });
 
 router.delete("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> => {

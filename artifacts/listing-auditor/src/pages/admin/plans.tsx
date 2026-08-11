@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { fetchJsonArray, readApiJson } from "@/lib/api-fetch";
 import {
   resolvePlanAllocationCounts,
 } from "@/lib/plan-credits";
@@ -19,6 +20,16 @@ import {
 } from "@workspace/workspace-permissions";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function adminPlanRequest<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { credentials: "include", ...init });
+  return readApiJson<T>(res);
+}
+
+function invalidatePlanQueries(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["admin-plans"] });
+  void qc.invalidateQueries({ queryKey: ["public-plans"] });
+}
 
 interface Plan {
   id: number;
@@ -299,37 +310,65 @@ export default function AdminPlans() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: plans = [], isLoading } = useQuery<Plan[]>({
+  const { data: plans = [], isLoading, isError, error } = useQuery<Plan[]>({
     queryKey: ["admin-plans"],
-    queryFn: () => fetch(`${basePath}/api/admin/plans`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: () => fetchJsonArray<Plan>(`${basePath}/api/admin/plans`),
   });
 
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number; isActive?: boolean }[]>({
     queryKey: ["admin-credit-rules"],
-    queryFn: () => fetch(`${basePath}/api/admin/credit-rules`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: () => fetchJsonArray(`${basePath}/api/admin/credit-rules`),
   });
 
   const createMutation = useMutation({
     mutationFn: (body: object) =>
-      fetch(`${basePath}/api/admin/plans`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); setCreating(false); toast({ title: "Plan created" }); },
+      adminPlanRequest<Plan>(`${basePath}/api/admin/plans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      invalidatePlanQueries(qc);
+      setCreating(false);
+      toast({ title: "Plan created" });
+    },
+    onError: (e: Error) => toast({ title: "Could not create plan", description: e.message, variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...body }: { id: number } & object) =>
-      fetch(`${basePath}/api/admin/plans/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); setEditingId(null); toast({ title: "Plan updated" }); },
+      adminPlanRequest<Plan>(`${basePath}/api/admin/plans/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      invalidatePlanQueries(qc);
+      setEditingId(null);
+      toast({ title: "Plan updated" });
+    },
+    onError: (e: Error) => toast({ title: "Could not update plan", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => fetch(`${basePath}/api/admin/plans/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); toast({ title: "Plan deleted" }); },
+    mutationFn: (id: number) =>
+      adminPlanRequest<void>(`${basePath}/api/admin/plans/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      invalidatePlanQueries(qc);
+      toast({ title: "Plan deleted" });
+    },
+    onError: (e: Error) => toast({ title: "Could not delete plan", description: e.message, variant: "destructive" }),
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      fetch(`${basePath}/api/admin/plans/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-plans"] }),
+      adminPlanRequest<Plan>(`${basePath}/api/admin/plans/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive }),
+      }),
+    onSuccess: () => invalidatePlanQueries(qc),
+    onError: (e: Error) => toast({ title: "Could not update plan status", description: e.message, variant: "destructive" }),
   });
 
   function buildPayload(form: PlanFormState) {
@@ -413,7 +452,13 @@ export default function AdminPlans() {
         </div>
       )}
 
-      {!isLoading && plans.length === 0 && !creating && (
+      {isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Could not load plans: {error instanceof Error ? error.message : "Unknown error"}
+        </div>
+      )}
+
+      {!isLoading && !isError && plans.length === 0 && !creating && (
         <div className="text-center py-20">
           <Layers className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500 font-medium">No plans yet</p>
