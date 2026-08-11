@@ -28,6 +28,7 @@ import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { resolvePlanAllocationCounts } from "@/lib/plan-credits";
 import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
+import { buildSignUpHref } from "@/lib/plan-selection";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -255,10 +256,10 @@ function planCta(p: DbPlan) {
   return "Get Started";
 }
 
-function planCtaHref(p: DbPlan) {
-  const cta = planCta(p).toLowerCase();
+function planCtaHref(plan: DbPlan, yearly: boolean) {
+  const cta = planCta(plan).toLowerCase();
   if (cta.includes("contact")) return "/contact";
-  return "/sign-up";
+  return buildSignUpHref(plan.id, yearly);
 }
 
 function sortPlansFromAdmin(plans: DbPlan[]) {
@@ -354,7 +355,7 @@ function PricingPlanCard({
         variant={highlighted ? "default" : "outline"}
         asChild
       >
-        <Link href={planCtaHref(plan)}>{cta}</Link>
+        <Link href={planCtaHref(plan, yearly)}>{cta}</Link>
       </Button>
     </div>
   );

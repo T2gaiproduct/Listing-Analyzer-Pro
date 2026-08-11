@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { PlanCreditsTable } from "@/components/plan-credits-table";
 import { BillingCycleToggle } from "@/components/billing-cycle-toggle";
 import { maxPlanYearlySavingsPercent, resolvePlanPriceDisplay } from "@/lib/plan-price";
+import { appendPlanSelectionToPath, buildSignUpHref, coercePlanId } from "@/lib/plan-selection";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -296,7 +297,13 @@ export default function Pricing() {
                   className={`w-full ${plan.isHighlighted ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}`}
                   asChild
                 >
-                  <Link href={plan.isEnterprise ? "/contact" : "/sign-up"}>
+                  <Link href={
+                    plan.isEnterprise
+                      ? "/contact"
+                      : dbPlan
+                        ? buildSignUpHref(dbPlan.id, yearly)
+                        : "/sign-up"
+                  }>
                     {plan.cta}
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </Link>

@@ -3,6 +3,7 @@ import { SignUp, ClerkLoaded, ClerkLoading } from "@clerk/react";
 import { Link } from "wouter";
 import { Loader2 } from "lucide-react";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import { appendPlanSelectionToPath, coercePlanId } from "@/lib/plan-selection";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -16,18 +17,26 @@ export default function SignUpPage() {
 
   const redirectParam = searchParams.get("redirect_url");
   const email = searchParams.get("email") ?? undefined;
+  const planId = coercePlanId(searchParams.get("plan"));
+  const billingYearly = searchParams.get("billing") === "yearly";
 
-  const redirectUrl = redirectParam?.startsWith("/")
-    ? `${basePath}${redirectParam}`
-    : `${basePath}/onboarding`;
+  const redirectUrl = useMemo(() => {
+    if (redirectParam?.startsWith("/")) {
+      return `${basePath}${appendPlanSelectionToPath(redirectParam, planId, billingYearly)}`;
+    }
+    const onboardingPath = appendPlanSelectionToPath("/onboarding", planId, billingYearly);
+    return `${basePath}${onboardingPath}`;
+  }, [redirectParam, planId, billingYearly]);
 
   const signInPath = useMemo(() => {
     const qs = new URLSearchParams();
     if (redirectParam) qs.set("redirect_url", redirectParam);
     if (email) qs.set("email", email);
+    if (planId !== null) qs.set("plan", String(planId));
+    if (billingYearly) qs.set("billing", "yearly");
     const query = qs.toString();
     return query ? `/sign-in?${query}` : "/sign-in";
-  }, [redirectParam, email]);
+  }, [redirectParam, email, planId, billingYearly]);
 
   const signInUrl = `${basePath}${signInPath}`;
 

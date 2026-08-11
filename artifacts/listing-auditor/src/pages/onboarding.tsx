@@ -18,6 +18,13 @@ import { useTeam } from "@/hooks/use-team";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { isUnlimitedPlanCreditValue } from "@/lib/plan-credits";
+import {
+  coercePlanId,
+  ONBOARDING_BILLING_STORAGE_KEY,
+  ONBOARDING_PLAN_STORAGE_KEY,
+  readSavedBillingYearly,
+  readSavedPlanId,
+} from "@/lib/plan-selection";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -75,28 +82,6 @@ interface Plan {
   sortOrder: number;
 }
 
-const ONBOARDING_PLAN_STORAGE_KEY = "onboarding-selected-plan-id";
-
-function coercePlanId(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function readSavedPlanId(): number | null {
-  try {
-    const saved = sessionStorage.getItem(ONBOARDING_PLAN_STORAGE_KEY);
-    if (!saved) return null;
-    const id = Number(saved);
-    return Number.isFinite(id) ? id : null;
-  } catch {
-    return null;
-  }
-}
-
 interface PaymentConfig {
   defaultGateway: "stripe" | "razorpay" | "paypal";
   currency: string;
@@ -150,7 +135,8 @@ export default function Onboarding() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
-  const [yearly, setYearly] = useState(false);
+  const [yearly, setYearly] = useState(() => readSavedBillingYearly() ?? false);
+  const appliedPlanFromUrlRef = useRef(false);
 
   const [profile, setProfile] = useState({
     fullName: "", companyName: "", phone: "", country: "",
@@ -256,10 +242,11 @@ export default function Onboarding() {
     setConfirmedPlanId(null);
     try {
       sessionStorage.setItem(ONBOARDING_PLAN_STORAGE_KEY, String(normalizedId));
+      sessionStorage.setItem(ONBOARDING_BILLING_STORAGE_KEY, yearly ? "yearly" : "monthly");
     } catch {
       // sessionStorage may be unavailable in private browsing
     }
-  }, []);
+  }, [yearly]);
 
   const findPlanById = useCallback(
     (planId: number | null | undefined) => {
@@ -268,6 +255,20 @@ export default function Onboarding() {
     },
     [displayPlans],
   );
+
+  // Plan picked on homepage/pricing (?plan=) survives sign-up → onboarding
+  useEffect(() => {
+    if (appliedPlanFromUrlRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const planFromUrl = coercePlanId(params.get("plan"));
+    const billing = params.get("billing");
+    if (billing === "yearly") setYearly(true);
+    if (billing === "monthly") setYearly(false);
+    if (planFromUrl !== null) {
+      appliedPlanFromUrlRef.current = true;
+      selectPlan(planFromUrl);
+    }
+  }, [selectPlan]);
 
   // Pre-fill profile from existing data for returning customers
   useEffect(() => {
