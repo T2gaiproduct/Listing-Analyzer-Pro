@@ -28,6 +28,11 @@ import {
   Save,
   Copy,
 } from "lucide-react";
+import {
+  BUILD_BRAND_WORKFLOW_STEPS,
+  BuildBrandWorkflowStepper,
+  type BuildBrandWorkflowStepId,
+} from "@/components/build-brand-workflow-stepper";
 import { cn } from "@/lib/utils";
 import { AMAZON_MARKETPLACES, EXPORT_PLATFORMS, downloadAuditExport, type AmazonMarketplaceId, type ExportPlatform } from "@/lib/amazon-export";
 import { fetchAmazonStatus, startAmazonConnect, disconnectAmazon, publishAuditToAmazon } from "@/lib/amazon-publish";
@@ -114,15 +119,8 @@ function CategoryPortalDropdown({
 }
 
 /* ── Steps ─────────────────────────────────────────────────────────────── */
-type StepId = 1 | 2 | 3 | 4 | 5;
-
-const STEPS: { id: StepId; key: string; label: string; sub: string; icon: React.ElementType }[] = [
-  { id: 1, key: "upload",   label: "UPLOAD",     sub: "Upload product images",   icon: Upload    },
-  { id: 2, key: "listing",  label: "LISTING",    sub: "Create listing content",  icon: FileText  },
-  { id: 3, key: "graphics", label: "GRAPHICS",   sub: "Create product graphics", icon: ImageIcon },
-  { id: 4, key: "aplus",    label: "A+ CONTENT", sub: "Create A+ content",       icon: Sparkles  },
-  { id: 5, key: "export",   label: "EXPORT",     sub: "Export & publish",        icon: Download  },
-];
+type StepId = BuildBrandWorkflowStepId;
+const STEPS = BUILD_BRAND_WORKFLOW_STEPS;
 
 interface AplusModule extends AplusModuleItem {}
 
@@ -1495,42 +1493,13 @@ export default function AuditWorkflow() {
     <div className="flex flex-col h-full overflow-hidden bg-white">
 
       {/* ── Top Progress Stepper ─────────────────────────────────────────── */}
-      <div className="border-b border-slate-200 bg-white px-4 sm:px-6 py-0 flex-shrink-0 overflow-x-auto">
-        <div className="flex items-stretch max-w-5xl mx-auto min-w-[20rem] w-full">
-          {STEPS.map((s) => {
-            const isActive    = activeStep === s.id;
-            const isCompleted = !isActive && stepCompleted[s.id];
-            return (
-              <button
-                key={s.id}
-                onClick={() => setActiveStep(s.id)}
-                className={cn(
-                  "flex-1 min-w-[4rem] flex flex-col items-center py-3 gap-0.5 border-b-2 transition-all text-center px-1",
-                  isActive ? "border-orange-500" : "border-transparent hover:border-slate-200"
-                )}
-              >
-                <div className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors",
-                  isCompleted ? "bg-orange-500 border-orange-500 text-white"
-                  : isActive  ? "bg-orange-500 border-orange-500 text-white"
-                             : "bg-white border-slate-300 text-slate-400"
-                )}>
-                  {isCompleted ? <Check className="w-4 h-4" /> : s.id}
-                </div>
-                <p className={cn("text-[10px] font-bold uppercase tracking-wide leading-none whitespace-nowrap",
-                  isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-slate-400"
-                )}>
-                  {s.label}
-                </p>
-                <p className={cn("text-[10px] leading-tight hidden sm:block",
-                  isActive || isCompleted ? "text-slate-600" : "text-slate-400"
-                )}>
-                  {s.sub}
-                </p>
-              </button>
-            );
-          })}
-        </div>
+      <div className="border-b border-slate-200 bg-white px-4 sm:px-6 py-0 flex-shrink-0">
+        <BuildBrandWorkflowStepper
+          className="max-w-5xl mx-auto border-0 rounded-none"
+          activeStep={activeStep}
+          stepCompleted={stepCompleted}
+          onStepClick={setActiveStep}
+        />
       </div>
 
       {/* ── Content area (relative for panel positioning) ─────────────────── */}
