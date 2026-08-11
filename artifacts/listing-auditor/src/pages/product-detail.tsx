@@ -1218,6 +1218,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
     },
   });
 
+  useEffect(() => {
+    if (!product?.currentStep) return;
+    setSelectedWorkflowStep(
+      Math.min(5, Math.max(1, product.currentStep)) as BuildBrandWorkflowStepId,
+    );
+  }, [product?.id, product?.currentStep]);
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in">
@@ -1519,12 +1526,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
     product?.status,
   );
 
-  useEffect(() => {
-    if (!product?.currentStep) return;
-    setSelectedWorkflowStep(
-      Math.min(5, Math.max(1, product.currentStep)) as BuildBrandWorkflowStepId,
-    );
-  }, [product?.id, product?.currentStep]);
   const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
   const isPublishingToStore = publishShopifyMutation.isPending || publishWooCommerceMutation.isPending;
   const isPublishingToAmazon = publishAmazonMutation.isPending;
