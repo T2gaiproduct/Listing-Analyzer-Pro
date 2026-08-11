@@ -77,6 +77,15 @@ interface Plan {
 
 const ONBOARDING_PLAN_STORAGE_KEY = "onboarding-selected-plan-id";
 
+function coercePlanId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function readSavedPlanId(): number | null {
   try {
     const saved = sessionStorage.getItem(ONBOARDING_PLAN_STORAGE_KEY);
@@ -148,7 +157,9 @@ export default function Onboarding() {
     gstNumber: "", websiteUrl: "", teamSize: "",
   });
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(() => readSavedPlanId());
+  const selectedPlanIdRef = useRef<number | null>(readSavedPlanId());
   const userPickedPlanRef = useRef(readSavedPlanId() !== null);
+  const [confirmedPlanId, setConfirmedPlanId] = useState<number | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [couponResult, setCouponResult] = useState<{ code: string; discountPercent?: number; discountAmount?: number; description?: string } | null>(null);
   const [couponError, setCouponError] = useState("");
@@ -227,18 +238,36 @@ export default function Onboarding() {
   }, [profileSummary, setLocation]);
 
   const displayPlans = Array.isArray(plans)
-    ? [...plans].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id)
+    ? [...plans]
+      .map((plan) => {
+        const id = coercePlanId(plan.id);
+        return id === null ? null : { ...plan, id };
+      })
+      .filter((plan): plan is Plan => plan !== null)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id)
     : [];
 
-  const selectPlan = useCallback((planId: number) => {
+  const selectPlan = useCallback((planId: unknown) => {
+    const normalizedId = coercePlanId(planId);
+    if (normalizedId === null) return;
     userPickedPlanRef.current = true;
-    setSelectedPlanId(planId);
+    selectedPlanIdRef.current = normalizedId;
+    setSelectedPlanId(normalizedId);
+    setConfirmedPlanId(null);
     try {
-      sessionStorage.setItem(ONBOARDING_PLAN_STORAGE_KEY, String(planId));
+      sessionStorage.setItem(ONBOARDING_PLAN_STORAGE_KEY, String(normalizedId));
     } catch {
       // sessionStorage may be unavailable in private browsing
     }
   }, []);
+
+  const findPlanById = useCallback(
+    (planId: number | null | undefined) => {
+      if (planId === null || planId === undefined) return null;
+      return displayPlans.find((plan) => plan.id === planId) ?? null;
+    },
+    [displayPlans],
+  );
 
   // Pre-fill profile from existing data for returning customers
   useEffect(() => {
@@ -260,20 +289,26 @@ export default function Onboarding() {
     }
   }, [existingProfile]);
 
-  // Default plan only before the user picks one; never override a saved or manual selection
+  // Restore a saved plan id once plans load; never auto-pick admin "highlighted" plans.
   useEffect(() => {
     if (displayPlans.length === 0) return;
 
-    if (selectedPlanId !== null) {
-      const stillValid = displayPlans.some((p) => p.id === selectedPlanId);
+    const currentId = selectedPlanIdRef.current ?? selectedPlanId;
+
+    if (currentId !== null) {
+      const stillValid = displayPlans.some((plan) => plan.id === currentId);
       if (!stillValid) {
         userPickedPlanRef.current = false;
+        selectedPlanIdRef.current = null;
         setSelectedPlanId(null);
+        setConfirmedPlanId(null);
         try {
           sessionStorage.removeItem(ONBOARDING_PLAN_STORAGE_KEY);
         } catch {
           // ignore
         }
+      } else if (selectedPlanId !== currentId) {
+        setSelectedPlanId(currentId);
       }
       return;
     }
@@ -281,32 +316,30 @@ export default function Onboarding() {
     if (userPickedPlanRef.current) return;
 
     const savedId = readSavedPlanId();
-    if (savedId !== null && displayPlans.some((p) => p.id === savedId)) {
+    if (savedId !== null && displayPlans.some((plan) => plan.id === savedId)) {
+      selectedPlanIdRef.current = savedId;
       setSelectedPlanId(savedId);
-      return;
-    }
-
-    const defaultPlan = displayPlans.find((p) => p.isHighlighted) ?? displayPlans[0];
-    if (defaultPlan) {
-      setSelectedPlanId(defaultPlan.id);
-      try {
-        sessionStorage.setItem(ONBOARDING_PLAN_STORAGE_KEY, String(defaultPlan.id));
-      } catch {
-        // ignore
-      }
     }
   }, [displayPlans, selectedPlanId]);
 
-  const selectedPlan = selectedPlanId !== null
-    ? displayPlans.find((p) => p.id === selectedPlanId) ?? null
-    : null;
+  const selectedPlan = findPlanById(selectedPlanId);
+  const paymentPlan = findPlanById(confirmedPlanId);
 
-  // Payment step requires a valid plan choice
+  const goToPaymentStep = useCallback(() => {
+    const planId = selectedPlanIdRef.current ?? selectedPlanId;
+    const plan = findPlanById(planId);
+    if (!plan) return;
+    setConfirmedPlanId(plan.id);
+    setStep(2);
+  }, [findPlanById, selectedPlanId]);
+
+  // Payment step requires a locked plan choice
   useEffect(() => {
-    if (step === 2 && displayPlans.length > 0 && !selectedPlan) {
+    if (step === 2 && displayPlans.length > 0 && !paymentPlan) {
+      setConfirmedPlanId(null);
       setStep(1);
     }
-  }, [step, displayPlans.length, selectedPlan]);
+  }, [step, displayPlans.length, paymentPlan]);
 
   const validateCouponMutation = useMutation({
     mutationFn: (code: string) =>
@@ -336,12 +369,15 @@ export default function Onboarding() {
     onSuccess: (data: { url?: string; approvalUrl?: string; orderId?: string }) => {
       if (data.url) {
         window.location.href = data.url;
-      } else if (data.approvalUrl && selectedPlan) {
+      } else if (data.approvalUrl) {
+        const planId = confirmedPlanId ?? selectedPlanIdRef.current ?? selectedPlanId;
         const orderId = data.orderId ?? "";
         localStorage.setItem("paypal_order_id", orderId);
         sessionStorage.setItem("paypal_order_id", orderId);
-        localStorage.setItem("paypal_plan_id", String(selectedPlan.id));
-        sessionStorage.setItem("paypal_plan_id", String(selectedPlan.id));
+        if (planId !== null) {
+          localStorage.setItem("paypal_plan_id", String(planId));
+          sessionStorage.setItem("paypal_plan_id", String(planId));
+        }
         localStorage.setItem("paypal_billing_cycle", yearly ? "yearly" : "monthly");
         sessionStorage.setItem("paypal_billing_cycle", yearly ? "yearly" : "monthly");
         window.location.href = data.approvalUrl;
@@ -390,7 +426,7 @@ export default function Onboarding() {
   });
 
   const freePlanMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (planId: number) => {
       const body = {
         fullName: profile.fullName,
         companyName: profile.companyName,
@@ -399,7 +435,7 @@ export default function Onboarding() {
         gstNumber: profile.gstNumber || undefined,
         websiteUrl: profile.websiteUrl || undefined,
         teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
-        planId: selectedPlan!.id,
+        planId,
         billingCycle: yearly ? "yearly" : "monthly",
         autoRenew,
         useTrial: false,
@@ -432,7 +468,8 @@ export default function Onboarding() {
   if (!isLoaded) return null;
   if (!user) { setLocation("/sign-in"); return null; }
 
-  const price = yearly ? selectedPlan?.priceYearly : selectedPlan?.priceMonthly;
+  const checkoutPlan = step === 2 ? paymentPlan : selectedPlan;
+  const price = yearly ? checkoutPlan?.priceYearly : checkoutPlan?.priceMonthly;
   const chargeBase = yearly ? (price ?? 0) * 12 : (price ?? 0);
   const discount = couponResult
     ? (couponResult.discountPercent
@@ -447,7 +484,7 @@ export default function Onboarding() {
   const gatewayDisplayName = gatewayLabels[gateway] ?? gatewayName;
 
   async function handleSubmit() {
-    if (!selectedPlan) return;
+    if (!paymentPlan) return;
 
     if (couponCode.trim() && !appliedCouponCode) {
       toast({ title: "Apply your coupon first", description: "Click Apply to validate your coupon code before continuing.", variant: "destructive" });
@@ -462,7 +499,7 @@ export default function Onboarding() {
 
     // Free plan — activate directly without payment gateway
     if (finalPrice === 0) {
-      freePlanMutation.mutate();
+      freePlanMutation.mutate(paymentPlan.id);
       return;
     }
 
@@ -474,7 +511,7 @@ export default function Onboarding() {
       gstNumber: profile.gstNumber || undefined,
       websiteUrl: profile.websiteUrl || undefined,
       teamSize: profile.teamSize ? Number(profile.teamSize) : undefined,
-      planId: selectedPlan.id,
+      planId: paymentPlan.id,
       billingCycle: yearly ? "yearly" : "monthly",
       autoRenew,
       couponCode: appliedCouponCode || undefined,
@@ -717,7 +754,7 @@ export default function Onboarding() {
 
               <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                 <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
-                <Button className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto" onClick={() => { if (selectedPlan) setStep(2); }} disabled={!selectedPlan}>
+                <Button className="bg-orange-500 hover:bg-orange-600 px-8 w-full sm:w-auto" onClick={goToPaymentStep} disabled={!selectedPlan}>
                   Continue <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
@@ -736,7 +773,7 @@ export default function Onboarding() {
                     <div className="flex items-start gap-2.5 bg-green-50 rounded-xl border border-green-100 px-3.5 py-3 mb-5">
                       <Zap className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-green-700 leading-relaxed">
-                        You're about to start the <strong className="text-green-800">{selectedPlan?.name}</strong> plan at no cost. No payment details required.
+                        You're about to start the <strong className="text-green-800">{paymentPlan?.name}</strong> plan at no cost. No payment details required.
                       </p>
                     </div>
                   ) : (
@@ -750,12 +787,12 @@ export default function Onboarding() {
                   )}
 
                   {/* Payment / Free plan breakdown */}
-                  {selectedPlan && (
+                  {paymentPlan && (
                     <div className="space-y-4">
                       {/* Price breakdown */}
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">{selectedPlan?.name} Plan</span>
+                          <span className="text-slate-600">{paymentPlan.name} Plan</span>
                           <span className="font-semibold text-slate-900">
                             {finalPrice === 0 ? "Free" : <>${price}{yearly ? "/year" : "/mo"}</>}
                           </span>
@@ -802,11 +839,11 @@ export default function Onboarding() {
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
-                  <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
+                  <Button variant="ghost" className="w-full sm:w-auto" onClick={() => { setConfirmedPlanId(null); setStep(1); }}><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>
                   <Button
                     className={`px-8 w-full sm:w-auto ${finalPrice === 0 ? "bg-green-600 hover:bg-green-700" : "bg-orange-500 hover:bg-orange-600"}`}
                     onClick={handleSubmit}
-                    disabled={checkoutMutation.isPending || freePlanMutation.isPending}
+                    disabled={!paymentPlan || checkoutMutation.isPending || freePlanMutation.isPending}
                   >
                     {freePlanMutation.isPending
                       ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Activating...</>
@@ -825,7 +862,7 @@ export default function Onboarding() {
                   <p className="font-bold text-slate-900 mb-4">Order Summary</p>
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">{selectedPlan?.name} Plan</span>
+                      <span className="text-slate-600">{paymentPlan?.name} Plan</span>
                       <span className="font-medium">
                         {finalPrice === 0 ? "Free" : <>${price}{yearly ? "/year" : "/mo"}</>}
                       </span>
@@ -851,9 +888,9 @@ export default function Onboarding() {
                   </div>
                   <div className="mt-5 pt-4 border-t space-y-2 text-xs text-slate-500">
                     <p className="font-semibold text-slate-700">Includes:</p>
-                    <div className="flex items-center gap-1.5"><Zap className="w-3 h-3 text-blue-500" />{selectedPlan?.aiCredits} AI credits/mo</div>
-                    <div className="flex items-center gap-1.5"><Image className="w-3 h-3 text-purple-500" />{selectedPlan?.imageCredits} image credits/mo</div>
-                    <div className="flex items-center gap-1.5"><BarChart3 className="w-3 h-3 text-orange-500" />{selectedPlan && isUnlimitedPlanCreditValue(selectedPlan.auditCredits) ? "Unlimited" : selectedPlan?.auditCredits.toLocaleString()} audit credits/mo</div>
+                    <div className="flex items-center gap-1.5"><Zap className="w-3 h-3 text-blue-500" />{paymentPlan?.aiCredits} AI credits/mo</div>
+                    <div className="flex items-center gap-1.5"><Image className="w-3 h-3 text-purple-500" />{paymentPlan?.imageCredits} image credits/mo</div>
+                    <div className="flex items-center gap-1.5"><BarChart3 className="w-3 h-3 text-orange-500" />{paymentPlan && isUnlimitedPlanCreditValue(paymentPlan.auditCredits) ? "Unlimited" : paymentPlan?.auditCredits.toLocaleString()} audit credits/mo</div>
                   </div>
                 </div>
               </div>
