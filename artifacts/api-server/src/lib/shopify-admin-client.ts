@@ -75,6 +75,48 @@ export async function getShopifyAccessToken(opts: {
   return body.access_token;
 }
 
+/** Shopify client-credentials tokens often omit `scope`; use the OAuth access_scopes endpoint instead. */
+export async function fetchShopifyAccessScopeHandles(opts: {
+  shopHost: string;
+  accessToken: string;
+}): Promise<string[]> {
+  const response = await fetch(`https://${opts.shopHost}/admin/oauth/access_scopes.json`, {
+    headers: { "X-Shopify-Access-Token": opts.accessToken },
+  });
+
+  const body = await response.json().catch(() => ({})) as {
+    access_scopes?: Array<{ handle?: string }>;
+    errors?: unknown;
+  };
+
+  if (!response.ok) {
+    const detail = typeof body.errors === "string"
+      ? body.errors
+      : JSON.stringify(body.errors ?? `HTTP ${response.status}`);
+    throw new Error(`Shopify scope lookup failed: ${detail}`);
+  }
+
+  return (body.access_scopes ?? [])
+    .map((entry) => entry.handle?.trim())
+    .filter((handle): handle is string => Boolean(handle));
+}
+
+async function resolveShopifyGrantedScopeString(opts: {
+  shopHost: string;
+  clientId: string;
+  accessToken: string;
+  tokenScope?: string;
+}): Promise<string> {
+  const fromToken = opts.tokenScope?.trim() ?? "";
+  if (fromToken) return fromToken;
+
+  const handles = await fetchShopifyAccessScopeHandles({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+  });
+  return handles.join(",");
+}
+
 export async function getShopifyAccessTokenWithScope(opts: {
   shopHost: string;
   clientId: string;
@@ -82,10 +124,16 @@ export async function getShopifyAccessTokenWithScope(opts: {
 }): Promise<{ accessToken: string; scope: string }> {
   const accessToken = await getShopifyAccessToken(opts);
   const cached = tokenCache.get(`${opts.shopHost}:${opts.clientId}`);
-  return {
+  const scope = await resolveShopifyGrantedScopeString({
+    shopHost: opts.shopHost,
+    clientId: opts.clientId,
     accessToken,
-    scope: cached?.scope ?? "",
-  };
+    tokenScope: cached?.scope,
+  });
+  if (cached && scope) {
+    cached.scope = scope;
+  }
+  return { accessToken, scope };
 }
 
 const SHOPIFY_API_VERSION = "2025-01";

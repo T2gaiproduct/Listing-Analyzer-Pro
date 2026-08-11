@@ -38,8 +38,21 @@ export async function verifyShopifyConnection(input: {
     clientSecret: input.clientSecret,
   });
 
+  let publicationId: string | null = null;
+  try {
+    await shopifyAdminRequest<{ products: unknown[] }>({
+      shopHost,
+      accessToken,
+      method: "GET",
+      path: "/products.json?limit=1",
+    });
+    publicationId = await getOnlineStorePublicationId({ shopHost, accessToken });
+  } catch {
+    // Fall through to scope / publication checks below.
+  }
+
   const missing = missingScopes(scope);
-  if (missing.length > 0) {
+  if (missing.length > 0 && !publicationId) {
     return {
       ok: false,
       scopes: scope,
@@ -47,14 +60,6 @@ export async function verifyShopifyConnection(input: {
     };
   }
 
-  await shopifyAdminRequest<{ products: unknown[] }>({
-    shopHost,
-    accessToken,
-    method: "GET",
-    path: "/products.json?limit=1",
-  });
-
-  const publicationId = await getOnlineStorePublicationId({ shopHost, accessToken });
   if (!publicationId) {
     return {
       ok: false,
