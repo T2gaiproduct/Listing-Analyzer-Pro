@@ -416,7 +416,7 @@ export default function Onboarding() {
       } | undefined) => ({
         ...prev,
         profile: { ...(prev?.profile ?? {}), fullName: profile.fullName },
-        accountRole: prev?.accountRole ?? { type: "user", label: "User" },
+        accountRole: prev?.accountRole ?? { type: "user", label: "Account Owner" },
       }));
       void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       void queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });
@@ -456,7 +456,7 @@ export default function Onboarding() {
         ...prev,
         onboardingCompleted: true,
         profile: { ...(prev?.profile ?? {}), fullName: profile.fullName },
-        accountRole: prev?.accountRole ?? { type: "user", label: "User" },
+        accountRole: prev?.accountRole ?? { type: "user", label: "Account Owner" },
       }));
       await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       await queryClient.invalidateQueries({ queryKey: ["user-profile-summary"] });

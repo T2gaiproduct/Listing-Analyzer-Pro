@@ -79,5 +79,5 @@ export async function resolveUserAccountRole(userId: string): Promise<UserAccoun
     return { type: "team_member", label: "Member" };
   }
 
-  return { type: "user", label: "User" };
+  return { type: "user", label: "Account Owner" };
 }
