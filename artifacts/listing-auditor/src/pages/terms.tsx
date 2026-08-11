@@ -97,7 +97,7 @@ export default function Terms() {
           <section className="mb-10">
             <h2 className="text-xl font-semibold text-slate-900 mb-3">10. Contact</h2>
             <p className="text-slate-600 leading-relaxed">
-              If you have any questions about these Terms, please contact us at support@listingauditor.com.
+              If you have any questions about these Terms, please contact us at support@sellerlens.io.
             </p>
           </section>
         </div>

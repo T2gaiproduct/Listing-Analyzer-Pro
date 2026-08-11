@@ -19,6 +19,7 @@ import { AdminAccessDenied } from "@/components/admin-access-denied";
 import { ApiTokenBridge } from "@/components/api-token-bridge";
 import { fetchJson } from "@/lib/api-fetch";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import { buildClerkLocalization } from "@/lib/clerk-localization";
 import {
   pendingWorkspaceInviteRedirect,
   requiresOnboarding,
@@ -785,6 +786,8 @@ function ClerkProviderWithRoutes() {
     [logoUrl],
   );
 
+  const localization = useMemo(() => buildClerkLocalization(platformName), [platformName]);
+
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -792,20 +795,7 @@ function ClerkProviderWithRoutes() {
       appearance={appearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
-      localization={{
-        signIn: {
-          start: {
-            title: "Welcome back",
-            subtitle: `Sign in to your ${platformName} account`,
-          },
-        },
-        signUp: {
-          start: {
-            title: "Create your account",
-            subtitle: "Start auditing your Amazon listings today",
-          },
-        },
-      }}
+      localization={localization}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >

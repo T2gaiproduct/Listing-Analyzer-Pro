@@ -209,13 +209,13 @@ export async function buildReceiptPdfBytes(data: ReceiptPdfInput): Promise<Uint8
   const footerLineTop = PAGE_H - margin - 42;
   hLine(footerLineTop);
   drawTextCenter(
-    "Thank you for your business. If you have questions, contact support@listingauditor.com.",
+    "Thank you for your business. If you have questions, contact support@sellerlens.io.",
     margin,
     contentRight,
     footerLineTop + 14,
     { size: 9, color: slate400 },
   );
-  drawTextCenter("SellerLens · listingauditor.com", margin, contentRight, footerLineTop + 26, {
+  drawTextCenter("Seller Lens · sellerlens.io", margin, contentRight, footerLineTop + 26, {
     size: 9,
     color: slate400,
   });

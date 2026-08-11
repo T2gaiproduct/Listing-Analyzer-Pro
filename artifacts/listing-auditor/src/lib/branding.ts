@@ -1,4 +1,4 @@
-export const DEFAULT_PLATFORM_NAME = "SellerLens";
+export const DEFAULT_PLATFORM_NAME = "Seller Lens";
 
 export interface SiteBranding {
   platformName: string;

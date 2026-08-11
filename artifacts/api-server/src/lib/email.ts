@@ -4,7 +4,7 @@ import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { inArray } from "drizzle-orm";
 import { db, settingsTable } from "@workspace/db";
 
-export const emailFrom = process.env.EMAIL_FROM ?? "SellerLens <noreply@listingauditor.com>";
+export const emailFrom = process.env.EMAIL_FROM ?? "Seller Lens <noreply@sellerlens.io>";
 
 const EMAIL_SETTING_KEYS = [
   "smtp_host",
@@ -62,7 +62,7 @@ async function resolveSmtpConfigFromDb(): Promise<SmtpConfig | null> {
   const password = map.smtp_password?.trim() ?? "";
   if (username && (!password || password === "***")) return null;
 
-  const fromName = map.email_from_name?.trim() || "SellerLens";
+  const fromName = map.email_from_name?.trim() || "Seller Lens";
   const fromAddress = map.email_from_address?.trim();
   const replyTo = map.email_reply_to?.trim();
 

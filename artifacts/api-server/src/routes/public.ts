@@ -222,7 +222,7 @@ router.get("/branding", async (_req, res): Promise<void> => {
   }
 
   res.json({
-    platformName: map.platform_name?.trim() || "SellerLens",
+    platformName: map.platform_name?.trim() || "Seller Lens",
     logoUrl,
     faviconUrl,
     supportEmail: map.support_email?.trim() ?? "",

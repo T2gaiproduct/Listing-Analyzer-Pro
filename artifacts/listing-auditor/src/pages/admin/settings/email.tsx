@@ -27,7 +27,7 @@ export default function AdminSettingsEmail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    email_from_name: "SellerLens",
+    email_from_name: "Seller Lens",
     email_from_address: "",
     email_reply_to: "",
     email_notifications_enabled: "true",
@@ -105,7 +105,7 @@ export default function AdminSettingsEmail() {
         <Card>
           <CardHeader><CardTitle>Sender</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {field("email_from_name", "From Name", "text", "SellerLens")}
+            {field("email_from_name", "From Name", "text", "Seller Lens")}
             {field("email_from_address", "From Email", "email", "no-reply@yourdomain.com")}
             {field("email_reply_to", "Reply-To Email", "email", "support@yourdomain.com")}
             <p className="text-xs text-muted-foreground">

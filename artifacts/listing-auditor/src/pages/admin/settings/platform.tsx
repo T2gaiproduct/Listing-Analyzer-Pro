@@ -115,7 +115,7 @@ export default function AdminSettingsPlatform() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    platform_name: "SellerLens",
+    platform_name: "Seller Lens",
     support_email: "",
     support_phone: "",
     company_address: "",

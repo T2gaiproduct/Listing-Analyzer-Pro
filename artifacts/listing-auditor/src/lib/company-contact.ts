@@ -5,7 +5,7 @@ export type CompanyContact = {
 };
 
 export const DEFAULT_COMPANY_CONTACT: CompanyContact = {
-  supportEmail: "hello@listingauditor.com",
+  supportEmail: "hello@sellerlens.io",
   supportPhone: "+1 (800) 555-0193",
   companyAddress: "San Francisco, CA 94105",
 };
