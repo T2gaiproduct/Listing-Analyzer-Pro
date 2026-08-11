@@ -43,16 +43,14 @@ import {
   mapGraphicsToProductDetail,
   type ProductDetailView,
 } from "@/lib/product-mappers";
-import { ProductOrdersTab } from "@/components/product-orders-tab";
-import { ProductSalesTab } from "@/components/product-sales-tab";
-import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
-import { MarketplaceLogo } from "@/components/marketplace-logos";
 import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
+import { MarketplaceLogo } from "@/components/marketplace-logos";
 import {
   ProductExplorerWorkflowStepper,
   apiStepToProductExplorerStep,
   productExplorerStepCompletedFromCurrentStep,
   productExplorerStepToApiStep,
+  type ProductCommerceTabId,
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
@@ -91,14 +89,6 @@ async function fetchProductDetail(id: number, source: ProductSourceType | null):
 }
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-type TabId = "marketplaces" | "orders" | "sales";
-
-const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "marketplaces", label: "Marketplaces" },
-  { id: "orders", label: "Orders" },
-  { id: "sales", label: "Sales" },
-];
 
 function isStoreImportProduct(product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport"> | null): boolean {
   return Boolean(product?.isShopifyImport || product?.isWooCommerceImport);
@@ -782,11 +772,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const { user, isLoaded: clerkLoaded } = useUser();
   const { featureWorkspaceId, isAccountOwner, canEdit: wsCanEdit } = useWorkspace();
   const [location, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabId>("marketplaces");
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
   const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<ProductExplorerWorkflowStepId>(2);
+  const [commerceTab, setCommerceTab] = useState<ProductCommerceTabId>("marketplaces");
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1544,6 +1534,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const canOptimizeContent = canEditProduct && optimizeAuditId != null;
   const isOptimizingContent = generateContent.isPending;
 
+  function handleCommerceTabChange(tab: ProductCommerceTabId) {
+    setCommerceTab(tab);
+    if (selectedWorkflowStep !== 6) {
+      void selectWorkflowStep(6);
+    }
+  }
+
   function handleOptimizeContent() {
     if (!optimizeAuditId) {
       toast({
@@ -1626,7 +1623,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     <button
                       key={marketplace}
                       type="button"
-                      onClick={() => setActiveTab("marketplaces")}
+                      onClick={() => {
+                        setCommerceTab("marketplaces");
+                        void selectWorkflowStep(6);
+                      }}
                       className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 hover:bg-emerald-50 transition-colors"
                       title={`View ${marketplace} listing`}
                     >
@@ -1672,6 +1672,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
           optimizeDisabled={!canOptimizeContent}
           onEditListing={openListingEditor}
           canEditListing={canEditProduct}
+          commerceTab={commerceTab}
+          onCommerceTabChange={handleCommerceTabChange}
+          productId={product.id}
+          productSource={resolvedSource}
+          liveMarketplaceCount={liveMarketplaces.length}
           OptimizedContentPanel={OptimizedContentPanel}
           overviewContent={
             <div className="space-y-4">
@@ -1973,48 +1978,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
             ) : undefined
           }
         />
-      )}
-
-      {showBuildBrandWorkflow && (
-        <>
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {TABS.map((tab) => (
-          <span key={tab.id} className="contents">
-            <button
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "h-8 px-3.5 rounded-lg text-[11px] font-medium border transition-colors",
-                activeTab === tab.id
-                  ? "bg-orange-50 text-orange-700 border-orange-200 shadow-sm"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
-              )}
-            >
-              {tab.label}
-              {tab.id === "marketplaces" && liveMarketplaces.length > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.125rem] h-4 px-1 rounded-full bg-emerald-100 text-[9px] font-semibold text-emerald-700">
-                  {liveMarketplaces.length}
-                </span>
-              )}
-            </button>
-          </span>
-        ))}
-      </div>
-
-      {/* Tab panels */}
-      {activeTab === "marketplaces" && (
-        <ProductMarketplacesTab productId={product.id} source={resolvedSource} enabled={activeTab === "marketplaces"} />
-      )}
-
-      {activeTab === "orders" && (
-        <ProductOrdersTab productId={product.id} source={resolvedSource} enabled={activeTab === "orders"} />
-      )}
-
-      {activeTab === "sales" && (
-        <ProductSalesTab productId={product.id} source={resolvedSource} enabled={activeTab === "sales"} />
-      )}
-        </>
       )}
 
       <button

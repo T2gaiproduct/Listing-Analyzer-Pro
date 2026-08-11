@@ -5,6 +5,8 @@ import type { GeneratedContent } from "@workspace/api-client-react";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { GraphicsWizard } from "@/components/graphics-wizard";
 import type { ProductExplorerWorkflowStepId } from "@/components/product-explorer-workflow-stepper";
+import { ProductCommerceTabs } from "@/components/product-commerce-tabs";
+import type { ProductCommerceTabId } from "@/components/product-explorer-workflow-stepper";
 
 type AuditLike = {
   id?: number;
@@ -47,6 +49,11 @@ export function ProductWorkflowStepContent({
   canEditListing,
   overviewContent,
   listingEditorContent,
+  commerceTab,
+  onCommerceTabChange,
+  productId,
+  productSource,
+  liveMarketplaceCount,
   OptimizedContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
@@ -61,6 +68,11 @@ export function ProductWorkflowStepContent({
   canEditListing: boolean;
   overviewContent?: React.ReactNode;
   listingEditorContent?: React.ReactNode;
+  commerceTab?: ProductCommerceTabId;
+  onCommerceTabChange?: (tab: ProductCommerceTabId) => void;
+  productId?: number;
+  productSource?: string;
+  liveMarketplaceCount?: number;
   OptimizedContentPanel: React.ComponentType<{
     generatedContent: GeneratedContent | null | undefined;
     isOptimizing: boolean;
@@ -161,24 +173,42 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-      <div className="flex items-center gap-2">
-        <Sparkles className="w-4 h-4 text-orange-500" />
-        <h3 className="text-sm font-semibold text-slate-900">A+ content</h3>
+  if (step === 5) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-orange-500" />
+          <h3 className="text-sm font-semibold text-slate-900">A+ content</h3>
+        </div>
+        {aplusModules.length > 0 ? (
+          <AplusModuleGallery
+            auditId={auditId}
+            modules={aplusModules}
+            onModulesUpdate={setAplusModules}
+            onLightbox={() => undefined}
+          />
+        ) : (
+          <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+            Complete listing and graphics steps, then generate A+ modules here when available.
+          </p>
+        )}
       </div>
-      {aplusModules.length > 0 ? (
-        <AplusModuleGallery
-          auditId={auditId}
-          modules={aplusModules}
-          onModulesUpdate={setAplusModules}
-          onLightbox={() => undefined}
+    );
+  }
+
+  if (step === 6 && productId && productSource && commerceTab && onCommerceTabChange) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <ProductCommerceTabs
+          activeTab={commerceTab}
+          onTabChange={onCommerceTabChange}
+          productId={productId}
+          source={productSource}
+          liveMarketplaceCount={liveMarketplaceCount}
         />
-      ) : (
-        <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-          Complete listing and graphics steps, then generate A+ modules here when available.
-        </p>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return null;
 }

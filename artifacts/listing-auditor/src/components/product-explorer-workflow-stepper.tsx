@@ -1,8 +1,24 @@
 import type { ElementType } from "react";
-import { Check, FileText, Image as ImageIcon, LayoutDashboard, Sparkles, Upload } from "lucide-react";
+import {
+  Check,
+  FileText,
+  Image as ImageIcon,
+  LayoutDashboard,
+  Sparkles,
+  Store,
+  Upload,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5;
+export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6;
+
+export type ProductCommerceTabId = "marketplaces" | "orders" | "sales";
+
+export const PRODUCT_COMMERCE_TABS: Array<{ id: ProductCommerceTabId; label: string }> = [
+  { id: "marketplaces", label: "Marketplaces" },
+  { id: "orders", label: "Orders" },
+  { id: "sales", label: "Sales" },
+];
 
 export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   id: ProductExplorerWorkflowStepId;
@@ -16,16 +32,19 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   { id: 3, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
   { id: 4, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
   { id: 5, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
+  { id: 6, key: "commerce", label: "MARKETPLACES", sub: "Orders & sales", icon: Store },
 ];
 
-/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–5). Step 1 lands on Overview. */
+/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–6). Step 1 lands on Overview. */
 export function apiStepToProductExplorerStep(
   currentStep: number | null | undefined,
 ): ProductExplorerWorkflowStepId {
   const apiStep = Math.min(5, Math.max(1, currentStep ?? 1));
   if (apiStep === 1) return 2;
-  if (apiStep >= 5) return 5;
-  return (apiStep + 1) as ProductExplorerWorkflowStepId;
+  if (apiStep === 2) return 3;
+  if (apiStep === 3) return 4;
+  if (apiStep === 4) return 5;
+  return 6;
 }
 
 /** Returns API step to persist, or null for local-only steps (Overview). */
@@ -34,7 +53,7 @@ export function productExplorerStepToApiStep(
 ): number | null {
   if (peStep === 1) return 1;
   if (peStep === 2) return null;
-  if (peStep === 5) return 4;
+  if (peStep >= 6) return null;
   return peStep - 1;
 }
 
@@ -49,7 +68,8 @@ export function productExplorerStepCompletedFromCurrentStep(
     2: complete || apiStep > 1,
     3: complete || apiStep > 2,
     4: complete || apiStep > 3,
-    5: complete || apiStep >= 4,
+    5: complete || apiStep > 4,
+    6: complete || apiStep >= 5,
   };
 }
 
@@ -73,7 +93,7 @@ export function ProductExplorerWorkflowStepper({
         className,
       )}
     >
-      <div className="flex items-stretch min-w-[24rem] w-full">
+      <div className="flex items-stretch min-w-[28rem] w-full">
         {PRODUCT_EXPLORER_WORKFLOW_STEPS.map((s) => {
           const isActive = activeStep === s.id;
           const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
