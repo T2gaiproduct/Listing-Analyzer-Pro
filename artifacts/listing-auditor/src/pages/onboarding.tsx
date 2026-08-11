@@ -336,7 +336,7 @@ export default function Onboarding() {
     onSuccess: (data: { url?: string; approvalUrl?: string; orderId?: string }) => {
       if (data.url) {
         window.location.href = data.url;
-      } else if (data.approvalUrl) {
+      } else if (data.approvalUrl && selectedPlan) {
         const orderId = data.orderId ?? "";
         localStorage.setItem("paypal_order_id", orderId);
         sessionStorage.setItem("paypal_order_id", orderId);
