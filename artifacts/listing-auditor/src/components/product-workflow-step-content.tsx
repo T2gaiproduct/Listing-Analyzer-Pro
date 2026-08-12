@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { ArrowRight, ImageIcon, Loader2, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeneratedContent } from "@workspace/api-client-react";
-import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
+import { AplusContentWizard } from "@/components/aplus-content-wizard";
 import { GraphicsWizard } from "@/components/graphics-wizard";
 import {
   nextProductExplorerWorkflowStep,
@@ -33,11 +33,6 @@ function collectImageUrls(audit: AuditLike | null | undefined): string[] {
     if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
   }
   return urls;
-}
-
-function readAplusModules(generatedImages: unknown): AplusModuleItem[] {
-  const modules = (generatedImages as { aplus?: { modules?: AplusModuleItem[] } } | null)?.aplus?.modules;
-  return Array.isArray(modules) ? modules : [];
 }
 
 function WorkflowStepShell({
@@ -120,13 +115,8 @@ export function ProductWorkflowStepContent({
   }>;
 }) {
   const imageUrls = useMemo(() => collectImageUrls(audit), [audit]);
-  const [aplusModules, setAplusModules] = useState<AplusModuleItem[]>([]);
   const hasNextStep = nextProductExplorerWorkflowStep(step) != null;
   const showFooter = hasNextStep && !listingEditorContent && Boolean(onSaveAndContinue);
-
-  useEffect(() => {
-    setAplusModules(readAplusModules(audit?.generatedImages));
-  }, [audit?.generatedImages]);
 
   if (step === 1) {
     return (
@@ -229,22 +219,7 @@ export function ProductWorkflowStepContent({
         onSaveAndContinue={onSaveAndContinue}
         isSaving={isSavingContinue}
       >
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-orange-500" />
-          <h3 className="text-sm font-semibold text-slate-900">A+ content</h3>
-        </div>
-        {aplusModules.length > 0 ? (
-          <AplusModuleGallery
-            auditId={auditId}
-            modules={aplusModules}
-            onModulesUpdate={setAplusModules}
-            onLightbox={() => undefined}
-          />
-        ) : (
-          <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-            Complete listing and graphics steps, then generate A+ modules here when available.
-          </p>
-        )}
+        <AplusContentWizard embedded auditId={auditId} productName={productName} />
       </WorkflowStepShell>
     );
   }
