@@ -29,6 +29,14 @@ export function isPublicRemoteImageUrl(url: string): boolean {
   return true;
 }
 
+/** Reject malformed marketplace image URLs (e.g. base URL prefixed onto data:image). */
+export function sanitizeMarketplacePublishImageUrl(url: string | null | undefined): string | null {
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes("data:image/")) return null;
+  return trimmed;
+}
+
 export function resolvePublishImageCandidate(opts: {
   auditId: number;
   sourceUrl: string;
@@ -124,9 +132,10 @@ export function resolvePublishImageUrlsFromAudit(opts: {
       graphicsProjectId: opts.graphicsProjectId,
       index,
     });
-    if (url && !seen.has(url)) {
-      resolved.push(url);
-      seen.add(url);
+    const safe = sanitizeMarketplacePublishImageUrl(url);
+    if (safe && !seen.has(safe)) {
+      resolved.push(safe);
+      seen.add(safe);
     }
   }
 

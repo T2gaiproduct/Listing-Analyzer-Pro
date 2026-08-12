@@ -11,6 +11,7 @@ import type { WooCommerceStoreConnectionWithSecret } from "./marketplace-connect
 import {
   materializeAuditImagesForPublish,
   resolvePublishImageUrlsFromAudit,
+  sanitizeMarketplacePublishImageUrl,
 } from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
@@ -82,23 +83,29 @@ async function resolveWooCommerceProductImages(opts: {
     publicBaseUrl: opts.publicBaseUrl,
   });
 
-  const resolved: WooCommerceProductImage[] = publishUrls.map((src, index) => ({
-    src,
-    alt: opts.altText,
-    name: filenameForAsset(imageAssets[index] ?? imageAssets[0]!, index),
-  }));
+  const resolved: WooCommerceProductImage[] = publishUrls
+    .map((src, index) => ({
+      src: sanitizeMarketplacePublishImageUrl(src) ?? "",
+      alt: opts.altText,
+      name: filenameForAsset(imageAssets[index] ?? imageAssets[0]!, index),
+    }))
+    .filter((image) => Boolean(image.src));
 
   if (resolved.length > 0) return resolved.slice(0, 9);
 
   const fallback = (opts.existingImages ?? [])
     .filter((image) => image.id || image.src?.trim())
     .slice(0, 9)
-    .map((image) => ({
-      ...(image.id ? { id: image.id } : {}),
-      ...(image.src?.trim() ? { src: image.src.trim() } : {}),
-      alt: image.alt?.trim() || opts.altText,
-      name: image.name?.trim() || undefined,
-    }));
+    .map((image) => {
+      const src = sanitizeMarketplacePublishImageUrl(image.src);
+      return {
+        ...(image.id ? { id: image.id } : {}),
+        ...(src ? { src } : {}),
+        alt: image.alt?.trim() || opts.altText,
+        name: image.name?.trim() || undefined,
+      };
+    })
+    .filter((image) => image.id || image.src);
 
   return fallback;
 }
@@ -247,6 +254,15 @@ export async function publishListingToWooCommerce(opts: {
     altText: content.title,
     existingImages: existing?.images,
   });
+
+  if (
+    collectProductImages(audit, opts.graphicsImageRecords).length > 0
+    && images.length === 0
+  ) {
+    throw new Error(
+      "Could not prepare product images for WooCommerce. Redeploy or restart the API server, then publish again.",
+    );
+  }
 
   const payload = buildProductPayload({
     audit,

@@ -3,7 +3,10 @@ import { Router, type IRouter } from "express";
 const router: IRouter = Router();
 
 router.get("/healthz", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    publishImageFix: "marketplace-data-url-v2",
+  });
 });
 
 export default router;
