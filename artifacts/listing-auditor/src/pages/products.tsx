@@ -740,46 +740,39 @@ export default function ProductsPage() {
                               type="button"
                               onClick={() => navigate(viewUrl)}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-                              aria-label="View product"
+                              aria-label="View in Product Explorer"
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">View</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">View in Product Explorer</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => navigate(product.workflowUrl)}
+                              onClick={() => navigate(viewUrl)}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-                              aria-label="Edit product"
+                              aria-label="Edit in Product Explorer"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">Edit</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">Edit in Product Explorer</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => {
-                                const listingUrl = product.referenceUrl?.trim();
-                                if (listingUrl) {
-                                  window.open(listingUrl, "_blank", "noopener,noreferrer");
-                                  return;
-                                }
-                                navigate(product.workflowUrl);
-                              }}
+                              onClick={() => navigate(viewUrl)}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-                              aria-label={product.referenceUrl ? "Open Shopify listing" : "Export product"}
+                              aria-label="Open in Product Explorer"
                             >
                               <Upload className="w-3.5 h-3.5" />
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">
-                            {product.referenceUrl ? "Open Shopify listing" : "Export"}
+                            Open in Product Explorer
                           </TooltipContent>
                         </Tooltip>
                         {canDeleteProduct(product) && (
