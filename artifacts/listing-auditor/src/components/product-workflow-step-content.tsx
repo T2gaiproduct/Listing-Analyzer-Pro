@@ -118,7 +118,11 @@ export function ProductWorkflowStepContent({
 }) {
   const imageUrls = useMemo(() => collectImageUrls(audit), [audit]);
   const hasNextStep = nextProductExplorerWorkflowStep(step) != null;
-  const showFooter = hasNextStep && !listingEditorContent && Boolean(onSaveAndContinue);
+  const showFooter = hasNextStep
+    && !listingEditorContent
+    && Boolean(onSaveAndContinue)
+    && step !== 6
+    && step !== 7;
 
   if (step === 1) {
     return (
