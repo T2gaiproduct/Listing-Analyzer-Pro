@@ -28,6 +28,7 @@ import {
   type WooCommerceRestProduct,
 } from "./woocommerce-admin-client.js";
 import { woocommerceSlugFromAsin } from "./woocommerce-import-utils.js";
+import { resolveAuditListingPriceCents } from "./product-marketplaces.js";
 
 export type WooCommercePublishMode = "draft" | "live";
 
@@ -338,16 +339,19 @@ export async function publishListingToWooCommerce(opts: {
     ))
     .limit(1);
 
+  const resolvedListingPrice = await resolveAuditListingPriceCents(audit.id);
+  const priceCents = wooListing?.priceCents != null && wooListing.priceCents > 0
+    ? wooListing.priceCents
+    : resolvedListingPrice.priceCents;
+  const price = priceCents != null && priceCents > 0 ? (priceCents / 100).toFixed(2) : null;
+  const listingCurrency = wooListing?.currency?.trim()
+    || resolvedListingPrice.currency
+    || "USD";
+
   const importedSlug = woocommerceSlugFromAsin(audit.asin);
   const content = resolveListingContentForExport(audit);
   const slug = importedSlug ?? slugify(content.title);
   if (!slug) throw new Error("Could not resolve WooCommerce product slug");
-
-  const priceCents = wooListing?.priceCents != null && wooListing.priceCents > 0
-    ? wooListing.priceCents
-    : null;
-  const price = priceCents != null ? (priceCents / 100).toFixed(2) : null;
-  const listingCurrency = wooListing?.currency?.trim() || "USD";
 
   const existing = await findWooCommerceProductBySlug({
     storeUrl: opts.connection.storeUrl,

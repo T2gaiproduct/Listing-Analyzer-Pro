@@ -94,6 +94,82 @@ function normalizeListingRow(
   return mapListingRow({ ...row, status: effectiveStatus });
 }
 
+const LISTING_PRICE_PRIORITY = ["Shopify", "WooCommerce", "Amazon", "Flipkart", "Shopsy", "Meesho"] as const;
+
+export async function resolveAuditListingPriceCents(auditId: number): Promise<{
+  priceCents: number | null;
+  currency: string;
+}> {
+  const rows = await db
+    .select({
+      marketplace: productMarketplaceListingsTable.marketplace,
+      priceCents: productMarketplaceListingsTable.priceCents,
+      currency: productMarketplaceListingsTable.currency,
+    })
+    .from(productMarketplaceListingsTable)
+    .where(and(
+      eq(productMarketplaceListingsTable.auditId, auditId),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ));
+
+  const byMarketplace = new Map(rows.map((row) => [row.marketplace, row]));
+  const chosen = LISTING_PRICE_PRIORITY
+    .map((marketplace) => byMarketplace.get(marketplace))
+    .find((row) => row?.priceCents != null && row.priceCents > 0)
+    ?? rows.find((row) => row.priceCents != null && row.priceCents > 0);
+
+  if (!chosen?.priceCents) {
+    return { priceCents: null, currency: "USD" };
+  }
+
+  return {
+    priceCents: chosen.priceCents,
+    currency: chosen.currency?.trim() || "USD",
+  };
+}
+
+function findRawPriceFallback(
+  rows: Array<typeof productMarketplaceListingsTable.$inferSelect>,
+): { priceCents: number; currency: string } | null {
+  const byMarketplace = new Map(rows.map((row) => [row.marketplace, row]));
+  for (const marketplace of LISTING_PRICE_PRIORITY) {
+    const row = byMarketplace.get(marketplace);
+    if (row?.priceCents != null && row.priceCents > 0) {
+      return { priceCents: row.priceCents, currency: row.currency?.trim() || "USD" };
+    }
+  }
+
+  const anyPriced = rows.find((row) => row.priceCents != null && row.priceCents > 0);
+  if (!anyPriced?.priceCents) return null;
+  return { priceCents: anyPriced.priceCents, currency: anyPriced.currency?.trim() || "USD" };
+}
+
+async function backfillMissingListingPrices(
+  listings: MarketplaceListingRow[],
+  rawFallback: { priceCents: number; currency: string } | null,
+): Promise<void> {
+  if (!rawFallback) return;
+
+  const price = rawFallback.priceCents / 100;
+  for (const listing of listings) {
+    if (listing.status === "not_listed") continue;
+    if (listing.price != null && listing.price > 0) continue;
+    if (listing.id <= 0) continue;
+
+    await db
+      .update(productMarketplaceListingsTable)
+      .set({
+        priceCents: rawFallback.priceCents,
+        currency: listing.currency || rawFallback.currency,
+        updatedAt: new Date(),
+      })
+      .where(eq(productMarketplaceListingsTable.id, listing.id));
+
+    listing.price = price;
+    listing.currency = listing.currency || rawFallback.currency;
+  }
+}
+
 export async function listProductMarketplaces(auditId: number): Promise<{
   listings: MarketplaceListingRow[];
   activeCount: number;
@@ -144,6 +220,8 @@ export async function listProductMarketplaces(auditId: number): Promise<{
       listingUrl: null,
     };
   });
+
+  await backfillMissingListingPrices(listings, findRawPriceFallback(rows));
 
   const listed = listings.filter((listing) => listing.status !== "not_listed");
   const liveMarketplaces = listed
@@ -200,8 +278,6 @@ export type AuditCatalogExtras = {
   isWooCommerceImport: boolean;
   referenceUrl: string | null;
 };
-
-const LISTING_PRICE_PRIORITY = ["Shopify", "Amazon", "WooCommerce", "Flipkart", "Shopsy", "Meesho"];
 
 export async function loadAuditCatalogExtras(
   auditIds: number[],
