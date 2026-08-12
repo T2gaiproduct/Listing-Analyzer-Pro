@@ -159,7 +159,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const categoryRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
 
-  const [step, setStep] = useState<Step>(() => (createOnly || (imageUrls?.length ?? 0) > 0 ? 2 : 1));
+  const [step, setStep] = useState<Step>(() => (
+    createOnly ? 2 : ((imageUrls?.length ?? 0) > 0 ? 2 : 1)
+  ));
   const [wizardCategory, setWizardCategory] = useState(category ?? "");
   const [categorySearch, setCategorySearch] = useState(category ?? "");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -179,6 +181,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       setStep((current) => (current === 1 ? 2 : current));
     }
   }, [createOnly, imageUrls]);
+
+  useEffect(() => {
+    if (createOnly && step === 1) {
+      setStep(2);
+    }
+  }, [createOnly, step]);
 
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
@@ -991,7 +999,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           className="mt-2 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
           onClick={() => {
             setProjectId(null);
-            setStep(1);
+            setStep(createOnly ? 2 : 1);
             setUploadedImages(imageUrls ?? []);
             setWizardCategory(category ?? "");
             setCategorySearch(category ?? "");
@@ -1080,22 +1088,16 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         </p>
       )}
 
-      {/* Step 1: Upload Product */}
-      {step === 1 && (
+      {/* Step 1: Upload Product — hidden in Product Explorer split view */}
+      {step === 1 && !createOnly && (
         <div className="space-y-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
               <Upload className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                {createOnly ? "Upload Images" : "Upload Product"}
-              </h2>
-              <p className="text-sm text-slate-500">
-                {createOnly
-                  ? "Add more source photos. Images already on this product are shown under Existing Graphics on the left."
-                  : "Upload one or more images of your product. We'll use them to create stunning graphics."}
-              </p>
+              <h2 className="text-xl font-bold text-slate-900">Upload Product</h2>
+              <p className="text-sm text-slate-500">Upload one or more images of your product. We&apos;ll use them to create stunning graphics.</p>
             </div>
           </div>
 
@@ -1122,8 +1124,8 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
           </div>
 
-          {/* Image Preview + Form — full wizard only; left panel shows existing in Product Explorer */}
-          {!createOnly && uploadedImages.length > 0 && (
+          {/* Image Preview + Form */}
+          {uploadedImages.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-100 p-6">
               <div className="mb-6">
                 <p className="text-sm font-medium text-slate-700 mb-3">Uploaded Images ({uploadedImages.length})</p>
@@ -1180,38 +1182,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {createOnly && !wizardCategory.trim() && (
-            <div className="relative" ref={categoryRef}>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Product Category</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                <Input
-                  value={categorySearch}
-                  onChange={(e) => { setCategorySearch(e.target.value); setShowCategoryDropdown(true); }}
-                  onFocus={() => setShowCategoryDropdown(true)}
-                  placeholder="Search Amazon category..."
-                  className="border-slate-200 h-11 rounded-lg pl-9"
-                />
-                {showCategoryDropdown && (
-                  <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-y-auto overscroll-contain">
-                    {AMAZON_CATEGORIES.filter((c) => c.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
-                      <div className="px-3 py-2 text-sm text-slate-400">No categories found</div>
-                    )}
-                    {AMAZON_CATEGORIES.filter((c) => c.toLowerCase().includes(categorySearch.toLowerCase())).map((c) => (
-                      <div
-                        key={c}
-                        className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-orange-50 ${wizardCategory === c ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-700"}`}
-                        onClick={() => { setWizardCategory(c); setCategorySearch(c); setShowCategoryDropdown(false); }}
-                      >
-                        {c}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1311,7 +1281,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {/* Actions */}
       <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 w-full">
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          {step > 1 && (
+          {step > 1 && !createOnly && (
             <Button variant="outline" className="w-full sm:w-auto text-slate-500 border-slate-200 rounded-lg min-h-11" onClick={() => setStep((s) => (s - 1) as Step)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
