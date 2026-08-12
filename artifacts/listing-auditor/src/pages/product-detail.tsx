@@ -110,6 +110,55 @@ type ProductEditForm = {
   price: string;
 };
 
+type MarketplaceSyncPlatformResult = {
+  ok: boolean;
+  listingUrl?: string | null;
+  warning?: string;
+  error?: string;
+};
+
+type MarketplaceSyncResult = {
+  shopify?: MarketplaceSyncPlatformResult;
+  woocommerce?: MarketplaceSyncPlatformResult;
+  amazon?: MarketplaceSyncPlatformResult;
+  synced: boolean;
+};
+
+function extractMarketplaceSync(payload: unknown): MarketplaceSyncResult | null {
+  if (!payload || typeof payload !== "object") return null;
+  const sync = (payload as { marketplaceSync?: MarketplaceSyncResult }).marketplaceSync;
+  return sync ?? null;
+}
+
+const MARKETPLACE_SYNC_LABELS: Record<"shopify" | "woocommerce" | "amazon", string> = {
+  shopify: "Shopify",
+  woocommerce: "WooCommerce",
+  amazon: "Amazon",
+};
+
+function describeMarketplaceSyncResult(sync: MarketplaceSyncResult | null | undefined): {
+  syncedPlatforms: string[];
+  warnings: string[];
+  errors: string[];
+} {
+  const syncedPlatforms: string[] = [];
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  for (const key of ["shopify", "woocommerce", "amazon"] as const) {
+    const entry = sync?.[key];
+    if (!entry) continue;
+    if (entry.ok) {
+      syncedPlatforms.push(MARKETPLACE_SYNC_LABELS[key]);
+      if (entry.warning?.trim()) warnings.push(entry.warning.trim());
+    } else if (entry.error?.trim()) {
+      errors.push(`${MARKETPLACE_SYNC_LABELS[key]}: ${entry.error.trim()}`);
+    }
+  }
+
+  return { syncedPlatforms, warnings, errors };
+}
+
 function bulletsToTextarea(bullets: string[] | undefined): string {
   return (bullets ?? []).filter(Boolean).join("\n");
 }
@@ -1131,15 +1180,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
         }
       }
 
+      let response: unknown;
       try {
-        await fetchJson(`${basePath}/api/audits/${auditId}`, {
+        response = await fetchJson(`${basePath}/api/audits/${auditId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
       } catch (error) {
         if (error instanceof ApiFetchError && error.status === 404) {
-          await fetchJson(`${basePath}/api/products/${id}`, {
+          response = await fetchJson(`${basePath}/api/products/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -1149,29 +1199,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
         }
       }
 
-      const shouldSyncToShopify = Boolean(product?.isShopifyImport) && Boolean(shopifyStatus?.publishReady);
-      const shouldSyncToWooCommerce = Boolean(product?.isWooCommerceImport) && Boolean(woocommerceStatus?.publishReady);
-      if (!shouldSyncToShopify && !shouldSyncToWooCommerce) {
-        return { synced: false as const };
-      }
-
-      try {
-        if (shouldSyncToShopify) {
-          const publishResult = await publishAuditToShopify({ auditId, publishMode: "live" });
-          return { synced: true as const, publishResult, platform: "shopify" as const };
-        }
-        const publishResult = await publishAuditToWooCommerce({ auditId, publishMode: "live" });
-        return { synced: true as const, publishResult, platform: "woocommerce" as const };
-      } catch (error) {
-        const message = error instanceof ApiFetchError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : shouldSyncToShopify
-              ? "Could not sync to Shopify."
-              : "Could not sync to WooCommerce.";
-        return { synced: false as const, publishError: message };
-      }
+      return { marketplaceSync: extractMarketplaceSync(response) };
     },
     onSuccess: async (result) => {
       clearListingDraft(id);
@@ -1180,28 +1208,41 @@ export default function ProductDetailPage({ id }: { id: number }) {
       setIsEditingListing(false);
       setEditForm(null);
 
-      if (result?.synced && result.publishResult) {
-        if ("warning" in result.publishResult && result.publishResult.warning) {
+      const { syncedPlatforms, warnings, errors } = describeMarketplaceSyncResult(result?.marketplaceSync);
+
+      if (syncedPlatforms.length > 0) {
+        const syncedDescription = syncedPlatforms.length === 1
+          ? `${syncedPlatforms[0]} listing updated with your latest title, price, description, and tags.`
+          : `${syncedPlatforms.join(", ")} listings updated with your latest title, price, description, and tags.`;
+        if (errors.length > 0) {
+          toast({
+            title: "Saved with partial marketplace sync",
+            description: `${syncedDescription} ${errors.join(" ")}`,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (warnings.length > 0) {
           toast({
             title: "Saved & synced with a warning",
-            description: result.publishResult.warning,
+            description: `${syncedDescription} ${warnings.join(" ")}`,
             variant: "destructive",
           });
           return;
         }
         toast({
-          title: result.platform === "woocommerce" ? "Saved & synced to WooCommerce" : "Saved & synced to Shopify",
-          description: result.platform === "woocommerce"
-            ? "Title, price, description, tags, and other fields are updated on your WooCommerce store."
-            : "Title, price, description, tags, and other fields are updated on your Shopify store.",
+          title: syncedPlatforms.length === 1
+            ? `Saved & synced to ${syncedPlatforms[0]}`
+            : `Saved & synced to ${syncedPlatforms.join(", ")}`,
+          description: syncedDescription,
         });
         return;
       }
 
-      if (result?.publishError) {
+      if (errors.length > 0) {
         toast({
-          title: product?.isWooCommerceImport ? "Saved locally — WooCommerce sync failed" : "Saved locally — Shopify sync failed",
-          description: result.publishError,
+          title: "Saved locally — marketplace sync failed",
+          description: errors.join(" "),
           variant: "destructive",
         });
         return;
@@ -1210,7 +1251,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       toast({
         title: "Saved",
         description: isStoreImportProduct(product)
-          ? `Changes saved. Connect ${product?.isWooCommerceImport ? "WooCommerce" : "Shopify"} credentials on Marketplaces to sync to your store.`
+          ? "Changes saved. Connect Shopify, WooCommerce, or Amazon on Marketplaces to sync listing updates."
           : "Product details updated.",
       });
     },

@@ -48,6 +48,7 @@ import {
 } from "../lib/workspace-route-helpers";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 import { applyProductListingUpdates } from "../lib/product-listing-update.js";
+import { syncListingToConnectedMarketplaces } from "../lib/product-listing-sync.js";
 import { AMAZON_MARKETPLACES } from "../lib/amazon-marketplaces.js";
 import {
   buildAuditExportBundle,
@@ -679,7 +680,13 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     return;
   }
 
-  res.json(updated);
+  const marketplaceSync = await syncListingToConnectedMarketplaces({
+    req,
+    auditId: id,
+    body: body as Record<string, unknown>,
+  });
+
+  res.json({ ...updated, marketplaceSync });
 });
 
 router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {

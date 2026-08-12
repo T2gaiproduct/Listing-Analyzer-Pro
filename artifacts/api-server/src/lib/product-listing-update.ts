@@ -97,38 +97,56 @@ export async function applyProductListingUpdates(
   if (body.price !== undefined || typeof body.sku === "string") {
     const priceCents = body.price !== undefined ? parsePriceCents(body.price) : undefined;
     const sku = typeof body.sku === "string" ? body.sku.trim() || null : undefined;
-    const listingPatch: Record<string, unknown> = { updatedAt: new Date() };
-    if (priceCents != null && priceCents > 0) listingPatch.priceCents = priceCents;
-    if (sku !== undefined) listingPatch.sku = sku;
-
-    const listingUpdate = await db
-      .update(productMarketplaceListingsTable)
-      .set(listingPatch)
-      .where(and(
-        eq(productMarketplaceListingsTable.auditId, auditId),
-        eq(productMarketplaceListingsTable.marketplace, "Shopify"),
-        eq(productMarketplaceListingsTable.isDeleted, 0),
-      ))
-      .returning({ id: productMarketplaceListingsTable.id });
-
-    if (listingUpdate.length === 0) {
-      const [auditRow] = await db
-        .select({ workspaceId: auditsTable.workspaceId })
-        .from(auditsTable)
-        .where(eq(auditsTable.id, auditId))
-        .limit(1);
-      if (!auditRow?.workspaceId) {
-        throw new Error("Could not save Shopify listing — workspace not found");
-      }
-      await db.insert(productMarketplaceListingsTable).values({
-        auditId,
-        workspaceId: auditRow.workspaceId,
-        marketplace: "Shopify",
-        status: "pending",
-        priceCents: priceCents != null && priceCents > 0 ? priceCents : null,
-        sku: sku ?? null,
-        currency: "USD",
-      });
-    }
+    await upsertMarketplaceListingPriceSku(auditId, "Shopify", { priceCents, sku });
+    await upsertMarketplaceListingPriceSku(auditId, "WooCommerce", { priceCents, sku });
+    await upsertMarketplaceListingPriceSku(auditId, "Amazon", { priceCents, sku });
   }
+}
+
+const SYNC_MARKETPLACES = ["Shopify", "WooCommerce", "Amazon"] as const;
+type SyncMarketplace = (typeof SYNC_MARKETPLACES)[number];
+
+async function upsertMarketplaceListingPriceSku(
+  auditId: number,
+  marketplace: SyncMarketplace,
+  patch: { priceCents?: number | null; sku?: string | null | undefined },
+): Promise<void> {
+  const listingPatch: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.priceCents != null && patch.priceCents > 0) {
+    listingPatch.priceCents = patch.priceCents;
+  }
+  if (patch.sku !== undefined) {
+    listingPatch.sku = patch.sku;
+  }
+  if (Object.keys(listingPatch).length <= 1) return;
+
+  const listingUpdate = await db
+    .update(productMarketplaceListingsTable)
+    .set(listingPatch)
+    .where(and(
+      eq(productMarketplaceListingsTable.auditId, auditId),
+      eq(productMarketplaceListingsTable.marketplace, marketplace),
+      eq(productMarketplaceListingsTable.isDeleted, 0),
+    ))
+    .returning({ id: productMarketplaceListingsTable.id });
+
+  if (listingUpdate.length > 0 || marketplace !== "Shopify") return;
+
+  const [auditRow] = await db
+    .select({ workspaceId: auditsTable.workspaceId })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, auditId))
+    .limit(1);
+  if (!auditRow?.workspaceId) {
+    throw new Error("Could not save Shopify listing — workspace not found");
+  }
+  await db.insert(productMarketplaceListingsTable).values({
+    auditId,
+    workspaceId: auditRow.workspaceId,
+    marketplace: "Shopify",
+    status: "pending",
+    priceCents: patch.priceCents != null && patch.priceCents > 0 ? patch.priceCents : null,
+    sku: patch.sku ?? null,
+    currency: "USD",
+  });
 }

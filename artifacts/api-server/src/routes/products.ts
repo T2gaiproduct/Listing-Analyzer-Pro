@@ -27,6 +27,7 @@ import { createProductRecord, parseCreateProductBody } from "../lib/create-produ
 import { importProductRecords, parseImportProductsBody } from "../lib/import-products.js";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 import { applyProductListingUpdates } from "../lib/product-listing-update.js";
+import { syncListingToConnectedMarketplaces } from "../lib/product-listing-sync.js";
 import { loadUnifiedProductList } from "../lib/unified-product-list.js";
 import {
   loadProductDetail,
@@ -521,7 +522,13 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
     return;
   }
 
-  res.json({ success: true });
+  const marketplaceSync = await syncListingToConnectedMarketplaces({
+    req,
+    auditId: id,
+    body: body as Record<string, unknown>,
+  });
+
+  res.json({ success: true, marketplaceSync });
 });
 
 export default router;
