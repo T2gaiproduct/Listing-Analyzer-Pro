@@ -23,7 +23,7 @@ import {
   Tag,
   Type,
 } from "lucide-react";
-import { useGetAudit, getGetAuditQueryKey, useGenerateContent } from "@workspace/api-client-react";
+import { useGetAudit, getGetAuditQueryKey, useGenerateContent, type GetAuditQueryResult } from "@workspace/api-client-react";
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
 import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
@@ -1665,8 +1665,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     generateContent.mutate(
       { id: optimizeAuditId },
       {
-        onSuccess: (generatedContent) => {
-          queryClient.setQueryData(
+        onSuccess: (generatedContent: GeneratedContent) => {
+          queryClient.setQueryData<GetAuditQueryResult>(
             getGetAuditQueryKey(optimizeAuditId),
             (current) => (current
               ? {
@@ -1683,7 +1683,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               : current),
           );
           if (optimizeAuditId !== id) {
-            queryClient.setQueryData(
+            queryClient.setQueryData<GetAuditQueryResult>(
               getGetAuditQueryKey(id),
               (current) => (current
                 ? {

@@ -163,10 +163,8 @@ export function AplusContentWizard({
     for (const moduleId of selectedAplusModules) {
       const config = { ...DEFAULT_IMAGE_TYPE_PROMPT_CONFIG, ...aplusModulePromptConfigs[moduleId] };
       payload[moduleId] = {
-        imageCustomPrompt: config.imageCustomPrompt?.trim() || undefined,
-        promptReferenceImageUrls: config.promptReferenceImageUrls?.length
-          ? config.promptReferenceImageUrls
-          : undefined,
+        imageCustomPrompt: config.customPrompt.trim() || undefined,
+        promptReferenceImageUrls: config.referenceImages.length > 0 ? config.referenceImages : undefined,
         quality: config.quality,
       };
     }
