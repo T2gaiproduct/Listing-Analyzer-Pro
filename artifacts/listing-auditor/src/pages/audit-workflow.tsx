@@ -2614,7 +2614,7 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* Step 5: Save only (no navigation) */}
+          {/* Step 6: Save only (no navigation) */}
           {activeStep === 6 && currentAuditId !== null && (
             <Button
               variant="outline"
@@ -2631,7 +2631,7 @@ export default function AuditWorkflow() {
             </Button>
           )}
 
-          {/* Steps 1-4: Save & Continue */}
+          {/* Steps 1-5: Save & Continue */}
           {activeStep < 6 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
