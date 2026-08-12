@@ -3,6 +3,7 @@ import { ArrowRight, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { AplusContentWizard } from "@/components/aplus-content-wizard";
+import { ExistingGraphicsPanel } from "@/components/existing-graphics-panel";
 import { GraphicsWizard } from "@/components/graphics-wizard";
 import {
   nextProductExplorerWorkflowStep,
@@ -192,14 +193,26 @@ export function ProductWorkflowStepContent({
           <ImageIcon className="w-4 h-4 text-orange-500" />
           <h3 className="text-sm font-semibold text-slate-900">Product graphics</h3>
         </div>
-        <GraphicsWizard
-          embedded
-          auditId={auditId}
-          productName={productName}
-          imageUrls={imageUrls}
-          category={audit?.category ?? null}
-          targetKeywords={audit?.targetKeywords ?? null}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <ExistingGraphicsPanel auditId={auditId} audit={audit} />
+          <div className="space-y-2 min-w-0">
+            <div className="flex items-center gap-1.5 px-1">
+              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+                Create Graphics
+              </p>
+            </div>
+            <GraphicsWizard
+              embedded
+              createOnly
+              auditId={auditId}
+              productName={productName}
+              imageUrls={imageUrls}
+              category={audit?.category ?? null}
+              targetKeywords={audit?.targetKeywords ?? null}
+            />
+          </div>
+        </div>
       </WorkflowStepShell>
     );
   }

@@ -83,6 +83,8 @@ interface GraphicsWizardProps {
   category?: string | null;
   targetKeywords?: string[] | null;
   embedded?: boolean;
+  /** Product Explorer split view: hide upload/results; keep create flow on the right column. */
+  createOnly?: boolean;
 }
 
 function fetchProjectForAudit(auditId: number): Promise<WizardProject | null> {
@@ -125,7 +127,7 @@ function ActionBtn({ icon, title, onClick }: { icon: React.ReactNode; title: str
   );
 }
 
-export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords, embedded = false }: GraphicsWizardProps) {
+export function GraphicsWizard({ auditId, productName, imageUrls, category, targetKeywords, embedded = false, createOnly = false }: GraphicsWizardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { canEditGraphics, isTeamMember, memberCredits } = useTeam();
@@ -157,7 +159,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const categoryRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
 
-  const [step, setStep] = useState<Step>(() => ((imageUrls?.length ?? 0) > 0 ? 2 : 1));
+  const [step, setStep] = useState<Step>(() => (createOnly || (imageUrls?.length ?? 0) > 0 ? 2 : 1));
   const [wizardCategory, setWizardCategory] = useState(category ?? "");
   const [categorySearch, setCategorySearch] = useState(category ?? "");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -173,8 +175,10 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       }
       return merged;
     });
-    setStep((current) => (current === 1 ? 2 : current));
-  }, [imageUrls]);
+    if (!createOnly) {
+      setStep((current) => (current === 1 ? 2 : current));
+    }
+  }, [createOnly, imageUrls]);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
@@ -294,6 +298,16 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         creditsRefreshedRef.current = true;
         refreshCreditBalances(queryClient);
       }
+      if (createOnly) {
+        queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
+        setSelectedImageTypes([]);
+        setImageTypePromptConfigs({});
+        startTimeRef.current = 0;
+        toast({
+          title: "Graphics generated",
+          description: "New graphics appear in Existing Graphics on the left.",
+        });
+      }
       return;
     }
     if (project.status === "failed") {
@@ -309,7 +323,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     const remaining = totalImages - project.generatedCount;
     const eta = Math.ceil((remaining / MAX_CONCURRENT) * IMAGE_GENERATION_SEC);
     setEtaSeconds(eta);
-  }, [project, totalImages, queryClient]);
+  }, [auditId, createOnly, project, totalImages, queryClient]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -600,10 +614,14 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const featureRecords = records.filter((r) => r.type === "feature");
 
   // If there's a completed project (either existing or just created), show results
-  const showResults = (existingProject?.status === "completed" && !projectId) || (project?.status === "completed" && !isGenerating);
+  const showResults = !createOnly
+    && ((existingProject?.status === "completed" && !projectId) || (project?.status === "completed" && !isGenerating));
 
   // If there's a failed project, show error
-  const showFailed = (existingProject?.status === "failed" && !projectId) || (project?.status === "failed" && !isGenerating);
+  const showFailed = !createOnly
+    && ((existingProject?.status === "failed" && !projectId) || (project?.status === "failed" && !isGenerating));
+  const showFailedBanner = createOnly
+    && ((existingProject?.status === "failed" && !projectId) || (project?.status === "failed" && !isGenerating));
 
   // If generating, show centered loader
   if (isGenerating) {
@@ -988,6 +1006,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   return (
     <div className="w-full min-w-0 max-w-full space-y-6">
+      {showFailedBanner && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {displayProject?.errorMessage || "Graphics generation failed. Try again or contact support."}
+        </div>
+      )}
+
       {isTeamMember && (
         <div className={`rounded-xl border px-4 py-3 text-sm ${memberBlockedFromNewImages ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
           <p className="font-medium">
@@ -1007,6 +1031,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       )}
 
       {/* Step indicator — compact on mobile */}
+      {!createOnly && (
       <div className="mb-6 sm:mb-8 w-full min-w-0">
         <div className="sm:hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
@@ -1043,9 +1068,16 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           ))}
         </div>
       </div>
+      )}
+
+      {createOnly && uploadedImages.length === 0 && (
+        <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+          Add product images in Build Your Brand or upload them to the audit before generating graphics.
+        </p>
+      )}
 
       {/* Step 1: Upload Product */}
-      {step === 1 && (
+      {step === 1 && !createOnly && (
         <div className="space-y-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
@@ -1145,7 +1177,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       )}
 
       {/* Step 2: Select Graphics */}
-      {step === 2 && (
+      {step === 2 && (!createOnly || uploadedImages.length > 0) && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
