@@ -416,6 +416,52 @@ function LiveBadge({ label }: { label?: string | null }) {
   );
 }
 
+type MarketplaceListingStatus = "live" | "pending" | "not_listed";
+
+const OVERVIEW_MARKETPLACES = ["Amazon", "Shopify", "WooCommerce"] as const;
+
+function formatOverviewPrice(price: number | null | undefined, currency: string | null | undefined): string {
+  if (price == null || !Number.isFinite(price) || price <= 0) return "—";
+  if (currency === "INR") return `₹${price.toFixed(2)}`;
+  if (currency?.trim()) return `${currency.trim()} ${price.toFixed(2)}`;
+  return `$${price.toFixed(2)}`;
+}
+
+function MarketplaceStatusBadge({ status, label }: { status: MarketplaceListingStatus; label: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
+        status === "live" && "bg-emerald-50 text-emerald-700 border-emerald-200",
+        status === "pending" && "bg-amber-50 text-amber-700 border-amber-200",
+        status === "not_listed" && "bg-slate-50 text-slate-500 border-slate-200",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function OverviewMarketplaceStatus({
+  listings,
+}: {
+  listings: Array<{ marketplace: string; status: MarketplaceListingStatus; statusLabel: string }>;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Marketplaces</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-1.5">
+        {listings.map((listing) => (
+          <div key={listing.marketplace} className="inline-flex items-center gap-1.5">
+            <MarketplaceLogo marketplace={listing.marketplace} className="h-3 w-14" />
+            <MarketplaceStatusBadge status={listing.status} label={listing.statusLabel} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PriorityBadge({ label, level }: { label?: string | null; level?: string | null }) {
   const text = label?.trim() || "Medium";
   const lvl = level ?? "medium";
@@ -929,6 +975,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
       activeCount: number;
       listings?: Array<{
         marketplace: string;
+        status: MarketplaceListingStatus;
+        statusLabel: string;
         price: number | null;
         currency: string;
         sku: string | null;
@@ -939,6 +987,20 @@ export default function ProductDetailPage({ id }: { id: number }) {
   });
 
   const liveMarketplaces = marketplaceData?.liveMarketplaces ?? [];
+
+  const overviewMarketplaceListings = useMemo(() => {
+    const byMarketplace = new Map(
+      (marketplaceData?.listings ?? []).map((listing) => [listing.marketplace, listing]),
+    );
+    return OVERVIEW_MARKETPLACES.map((marketplace) => {
+      const existing = byMarketplace.get(marketplace);
+      return {
+        marketplace,
+        status: existing?.status ?? "not_listed",
+        statusLabel: existing?.statusLabel ?? "Not Listed",
+      };
+    });
+  }, [marketplaceData?.listings]);
 
   const workflowStepCompleted = useMemo(
     () => productExplorerStepCompletedFromData({
@@ -973,6 +1035,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!product) return null;
 
     const shopifyListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Shopify");
+    const amazonListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Amazon");
+    const wooListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "WooCommerce");
     const auditBullets = normalizeStringList(effectiveAudit?.bulletPoints);
     const generatedBullets = normalizeStringList(effectiveAudit?.generatedContent?.bulletPoints);
     const auditTags = normalizeStringList(effectiveAudit?.targetKeywords);
@@ -980,8 +1044,17 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const productBullets = normalizeStringList(product.bulletPoints);
     const productTags = normalizeStringList(product.targetKeywords);
 
-    const listingPrice = resolvePositivePrice(product.listingPrice, shopifyListing?.price);
-    const listingCurrency = product.listingCurrency ?? shopifyListing?.currency ?? null;
+    const listingPrice = resolvePositivePrice(
+      product.listingPrice,
+      shopifyListing?.price,
+      amazonListing?.price,
+      wooListing?.price,
+    );
+    const listingCurrency = product.listingCurrency
+      ?? shopifyListing?.currency
+      ?? amazonListing?.currency
+      ?? wooListing?.currency
+      ?? null;
 
     return {
       ...product,
@@ -1842,14 +1915,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   <CompactSummaryField label="Category" value={product.category || "—"} />
                   <CompactSummaryField
                     label="Price"
-                    value={
-                      listingProduct?.listingPrice != null && listingProduct.listingPrice > 0
-                        ? `${listingProduct.listingCurrency ?? ""} ${listingProduct.listingPrice.toFixed(2)}`.trim()
-                        : "—"
-                    }
+                    value={formatOverviewPrice(listingProduct?.listingPrice, listingProduct?.listingCurrency)}
                   />
                   <div className="col-span-2 sm:col-span-4">
-                    <CompactSummaryField label="Stage" value={<LiveBadge label={product.stageLabel} />} />
+                    <OverviewMarketplaceStatus listings={overviewMarketplaceListings} />
                   </div>
                 </div>
               ) : (
@@ -1858,7 +1927,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   <CompactSummaryField label="Brand" value={product.brandName || "—"} />
                   <CompactSummaryField label="Category" value={product.category || "—"} />
                   <CompactSummaryField label="Manager" value={product.manager?.name ?? "—"} />
-                  <CompactSummaryField label="Stage" value={<LiveBadge label={product.stageLabel} />} />
+                  <CompactSummaryField
+                    label="Price"
+                    value={formatOverviewPrice(listingProduct?.listingPrice, listingProduct?.listingCurrency)}
+                  />
                   <CompactSummaryField
                     label="Priority"
                     value={
@@ -1881,6 +1953,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     }
                   />
                   <CompactSummaryField label="Created" value={createdDate} />
+                  <div className="col-span-2 sm:col-span-4">
+                    <OverviewMarketplaceStatus listings={overviewMarketplaceListings} />
+                  </div>
                 </div>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-slate-100 pt-3">
@@ -2076,11 +2151,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         <option value="medium">Medium</option>
                         <option value="low">Low</option>
                       </select>
-                    </EditDetailField>
-                    <EditDetailField label="Current Stage">
-                      <div className="py-1">
-                        <LiveBadge label={product.stageLabel} />
-                      </div>
                     </EditDetailField>
                   </div>
                 )}
