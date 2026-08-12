@@ -2208,51 +2208,6 @@ export default function AuditWorkflow() {
                   onLightbox={setLightboxImage}
                 />
               )}
-
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-                <p className="text-sm font-semibold text-amber-900">✦ A+ Content requires Brand Registry</p>
-                <p className="text-sm text-amber-700 mt-1">Ensure your brand is enrolled in Amazon Brand Registry before publishing A+ Content modules.</p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
-                    <Package className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Continue in Product Explorer</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Save this product and publish to Amazon, Shopify, or WooCommerce from the Marketplaces step.
-                    </p>
-                    {productExplorerSaveBlocker && (
-                      <p className="text-xs text-amber-700 mt-2">{productExplorerSaveBlocker}</p>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant={canSaveToProductExplorer ? "default" : "outline"}
-                  className={cn(
-                    "rounded-xl shrink-0 w-full sm:w-auto",
-                    canSaveToProductExplorer
-                      ? "bg-orange-500 hover:bg-orange-600 text-white"
-                      : "border-orange-200 text-orange-400",
-                  )}
-                  disabled={!canSaveToProductExplorer}
-                  onClick={handleOpenProductExplorer}
-                >
-                  {patchAudit.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      <Package className="w-4 h-4 mr-2" />
-                      Save to Product Explorer
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
           )}
 
@@ -2271,34 +2226,27 @@ export default function AuditWorkflow() {
           Back
         </Button>
 
-        <div className="flex items-center gap-3">
-          {activeStep === 5 && currentAuditId !== null && (
-            <>
-              <Button
-                variant="outline"
-                className="rounded-xl border-orange-300 text-orange-600 hover:bg-orange-50 gap-2"
-                onClick={handleSave}
-                disabled={patchAudit.isPending || !isDirty}
-              >
-                {patchAudit.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                Save Project
-              </Button>
+        <div className="flex flex-col items-end gap-1">
+          {activeStep === 5 && productExplorerSaveBlocker && (
+            <p className="text-xs text-amber-700">{productExplorerSaveBlocker}</p>
+          )}
+          <div className="flex items-center gap-3">
+            {activeStep === 5 && (
               <Button
                 className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
                 onClick={handleOpenProductExplorer}
                 disabled={!canSaveToProductExplorer}
               >
-                <Package className="w-4 h-4" />
+                {patchAudit.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Package className="w-4 h-4" />
+                )}
                 Save to Product Explorer
               </Button>
-            </>
-          )}
+            )}
 
-          {activeStep < 5 && (
+            {activeStep < 5 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={handleNextStep}
@@ -2317,6 +2265,7 @@ export default function AuditWorkflow() {
               )}
             </Button>
           )}
+          </div>
         </div>
       </div>
 
