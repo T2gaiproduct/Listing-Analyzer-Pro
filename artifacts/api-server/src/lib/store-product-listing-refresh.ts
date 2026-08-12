@@ -5,14 +5,12 @@ import { getWooCommerceConnection } from "./marketplace-connections.js";
 import { isWooCommerceImportAsin, woocommerceSlugFromAsin } from "./woocommerce-import-utils.js";
 import { refreshWooCommerceProduct } from "./woocommerce-product-sync.js";
 
-/** Refresh WooCommerce listing fields (tags, description, category, bullets) on product/audit load. */
+/** Refresh WooCommerce listing fields on every product/audit load (live store data for Existing Content). */
 export async function maybeRefreshStoreProductListing(input: {
   auditId: number;
   workspaceId: number | null;
   asin: string | null | undefined;
-  sourceListingContent?: unknown | null;
 }): Promise<boolean> {
-  if (input.sourceListingContent) return false;
   if (!input.workspaceId || !input.asin?.trim() || !isWooCommerceImportAsin(input.asin)) {
     return false;
   }

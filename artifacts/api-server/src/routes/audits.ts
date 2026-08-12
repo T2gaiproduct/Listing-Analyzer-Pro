@@ -576,7 +576,6 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
     auditId: audit.id,
     workspaceId,
     asin: audit.asin,
-    sourceListingContent: audit.sourceListingContent,
   });
   if (listingRefreshed) {
     const refreshedAudit = await reloadAuditRow(audit.id);

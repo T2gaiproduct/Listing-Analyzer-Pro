@@ -28,6 +28,7 @@ import { useGetAudit, getGetAuditQueryKey, useGenerateContent, type GetAuditQuer
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import { formatAiErrorMessage } from "@/lib/ai-error-message";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
+import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
@@ -260,8 +261,9 @@ function toListingContentView(content: {
   const bulletPoints = normalizeStringList(content.bulletPoints);
   const keywords = normalizeStringList(content.keywords);
   const title = content.title?.trim() ?? "";
-  const htmlDescription = content.htmlDescription?.trim()
-    || bulletsToHtmlDescription(bulletPoints);
+  const htmlDescription = content.htmlDescription != null
+    ? content.htmlDescription.trim()
+    : bulletsToHtmlDescription(bulletPoints);
   const category = content.category?.trim() || null;
 
   if (!title && bulletPoints.length === 0 && keywords.length === 0 && !htmlDescription && !category) {
@@ -285,17 +287,18 @@ function resolveExistingListingContent(
     sourceListingContent?: GeneratedContent | null;
   } | null,
 ): ListingContentView | null {
-  const isWooImport = Boolean(product?.isWooCommerceImport);
-  const snapshot = toListingContentView(audit?.sourceListingContent
-    ? {
-        title: audit.sourceListingContent.title,
-        bulletPoints: audit.sourceListingContent.bulletPoints,
-        keywords: audit.sourceListingContent.keywords,
-        htmlDescription: audit.sourceListingContent.htmlDescription,
-        category: product?.category ?? audit?.category ?? null,
-      }
-    : null);
-  if (snapshot) return snapshot;
+  const isWooImport = Boolean(product?.isWooCommerceImport) || isWooCommerceImportAsin(audit?.asin);
+
+  if (!isWooImport && audit?.sourceListingContent) {
+    const snapshot = toListingContentView({
+      title: audit.sourceListingContent.title,
+      bulletPoints: audit.sourceListingContent.bulletPoints,
+      keywords: audit.sourceListingContent.keywords,
+      htmlDescription: audit.sourceListingContent.htmlDescription,
+      category: product?.category ?? audit?.category ?? null,
+    });
+    if (snapshot) return snapshot;
+  }
 
   const overwritten = listingFieldsMatchGenerated(audit);
   const productBullets = normalizeStringList(product?.bulletPoints);
@@ -305,32 +308,39 @@ function resolveExistingListingContent(
     : (productBullets.length > 0 ? productBullets : auditBullets);
 
   const productTags = normalizeStringList(product?.targetKeywords);
-  const auditTags = overwritten ? [] : normalizeStringList(audit?.targetKeywords);
-  const keywords = isWooImport
-    ? auditTags
-    : (productTags.length > 0 ? productTags : auditTags);
+  const auditTags = normalizeStringList(audit?.targetKeywords);
+  const keywords = isWooImport ? auditTags : (productTags.length > 0 ? productTags : auditTags);
 
-  const title = overwritten
-    ? (product?.listingTitle?.trim()
+  const title = isWooImport
+    ? (audit?.title?.trim()
+      || product?.listingTitle?.trim()
       || product?.title?.trim()
       || audit?.productName?.trim()
       || product?.name?.trim()
       || "")
-    : (product?.listingTitle?.trim()
-      || product?.title?.trim()
-      || audit?.title?.trim()
-      || audit?.productName?.trim()
-      || product?.name?.trim()
-      || "");
+    : overwritten
+      ? (product?.listingTitle?.trim()
+        || product?.title?.trim()
+        || audit?.productName?.trim()
+        || product?.name?.trim()
+        || "")
+      : (product?.listingTitle?.trim()
+        || product?.title?.trim()
+        || audit?.title?.trim()
+        || audit?.productName?.trim()
+        || product?.name?.trim()
+        || "");
 
+  const storeDesc = audit?.storeDescriptionHtml?.trim() || product?.descriptionHtml?.trim() || "";
   const generatedDesc = audit?.generatedContent?.htmlDescription?.trim();
-  const storeDesc = audit?.storeDescriptionHtml?.trim() || product?.descriptionHtml?.trim();
-  const htmlDescription = overwritten
-    ? bulletsToHtmlDescription(bulletPoints)
-    : (storeDesc
-      || (generatedDesc && !isBulletDerivedDescription(generatedDesc, bulletPoints)
-        ? generatedDesc
-        : bulletsToHtmlDescription(bulletPoints)));
+  const htmlDescription = isWooImport
+    ? storeDesc
+    : overwritten
+      ? bulletsToHtmlDescription(bulletPoints)
+      : (storeDesc
+        || (generatedDesc && !isBulletDerivedDescription(generatedDesc, bulletPoints)
+          ? generatedDesc
+          : bulletsToHtmlDescription(bulletPoints)));
 
   const category = product?.category?.trim() || audit?.category?.trim() || null;
 
@@ -452,35 +462,43 @@ function buildListingEditForm(
     targetKeywords?: string[];
     brandName?: string | null;
     category?: string | null;
+    storeDescriptionHtml?: string | null;
     generatedContent?: GeneratedContent | null;
   } | null,
 ): ProductEditForm {
+  const isWoo = Boolean(product.isWooCommerceImport);
   const generatedBullets = audit?.generatedContent?.bulletPoints?.filter(Boolean) ?? [];
   const auditBullets = audit?.bulletPoints?.filter(Boolean) ?? [];
   const productBullets = product.bulletPoints?.filter(Boolean) ?? [];
-  const bullets = generatedBullets.length > 0
-    ? generatedBullets
-    : productBullets.length > 0
-      ? productBullets
-      : auditBullets;
+  const bullets = isWoo
+    ? []
+    : generatedBullets.length > 0
+      ? generatedBullets
+      : productBullets.length > 0
+        ? productBullets
+        : auditBullets;
 
   const generatedTags = audit?.generatedContent?.keywords?.filter(Boolean) ?? [];
   const auditTags = audit?.targetKeywords?.filter(Boolean) ?? [];
   const productTags = product.targetKeywords?.filter(Boolean) ?? [];
-  const tags = generatedTags.length > 0
-    ? generatedTags
-    : productTags.length > 0
-      ? productTags
-      : auditTags;
+  const tags = isWoo
+    ? auditTags
+    : generatedTags.length > 0
+      ? generatedTags
+      : productTags.length > 0
+        ? productTags
+        : auditTags;
 
   const title = audit?.generatedContent?.title?.trim()
     || product.listingTitle?.trim()
     || product.title?.trim()
     || audit?.title?.trim()
     || product.name;
-  const description = audit?.generatedContent?.htmlDescription?.trim()
-    || product.descriptionHtml?.trim()
-    || bulletsToTextarea(bullets);
+  const description = isWoo
+    ? (audit?.storeDescriptionHtml?.trim() || product.descriptionHtml?.trim() || "")
+    : (audit?.generatedContent?.htmlDescription?.trim()
+      || product.descriptionHtml?.trim()
+      || bulletsToTextarea(bullets));
 
   return {
     productName: product.name,
@@ -1348,7 +1366,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const shopifyListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Shopify");
     const amazonListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Amazon");
     const wooListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "WooCommerce");
-    const isWooImport = Boolean(product.isWooCommerceImport);
+    const isWooImport = Boolean(product.isWooCommerceImport)
+      || isWooCommerceImportAsin(effectiveAudit?.asin);
     const auditBullets = normalizeStringList(effectiveAudit?.bulletPoints);
     const generatedBullets = normalizeStringList(effectiveAudit?.generatedContent?.bulletPoints);
     const auditTags = normalizeStringList(effectiveAudit?.targetKeywords);

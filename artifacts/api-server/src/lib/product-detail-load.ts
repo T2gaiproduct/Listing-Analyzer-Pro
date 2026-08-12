@@ -309,7 +309,6 @@ async function loadAuditDetail(
       auditId: id,
       workspaceId,
       asin: row.asin,
-      sourceListingContent: row.sourceListingContent,
     });
     if (listingRefreshed) {
       const refreshedRow = await reloadAuditRow(id);

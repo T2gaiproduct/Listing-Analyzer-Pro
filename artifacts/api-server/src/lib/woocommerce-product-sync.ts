@@ -121,9 +121,11 @@ export async function refreshWooCommerceProduct(input: {
     .from(auditsTable)
     .where(eq(auditsTable.id, input.auditId))
     .limit(1);
-  const generatedContent = storeDescriptionHtml && !existing?.sourceListingContent
-    ? { title: "", bulletPoints: [], keywords: [], htmlDescription: storeDescriptionHtml } satisfies GeneratedContent
-    : (existing?.generatedContent as GeneratedContent | null | undefined) ?? null;
+  const generatedContent = existing?.sourceListingContent
+    ? (existing.generatedContent as GeneratedContent | null | undefined) ?? null
+    : (storeDescriptionHtml
+      ? { title: "", bulletPoints: [], keywords: [], htmlDescription: storeDescriptionHtml } satisfies GeneratedContent
+      : null);
 
   await db
     .update(auditsTable)
