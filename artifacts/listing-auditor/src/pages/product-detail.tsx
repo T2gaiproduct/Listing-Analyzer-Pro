@@ -177,29 +177,38 @@ type ListingContentView = {
   htmlDescription: string;
 };
 
-function resolveExistingListingContent(
-  product: ProductDetailView | null | undefined,
+function listingFieldsMatchGenerated(
   audit?: {
     title?: string | null;
     bulletPoints?: string[] | null;
     targetKeywords?: string[] | null;
+    generatedContent?: GeneratedContent | null;
   } | null,
-): ListingContentView | null {
+): boolean {
+  const generated = audit?.generatedContent;
+  if (!generated?.title?.trim()) return false;
+
   const auditBullets = normalizeStringList(audit?.bulletPoints);
-  const productBullets = normalizeStringList(product?.bulletPoints);
-  const bulletPoints = productBullets.length > 0 ? productBullets : auditBullets;
-
+  const genBullets = normalizeStringList(generated.bulletPoints);
   const auditTags = normalizeStringList(audit?.targetKeywords);
-  const productTags = normalizeStringList(product?.targetKeywords);
-  const keywords = productTags.length > 0 ? productTags : auditTags;
+  const genTags = normalizeStringList(generated.keywords);
 
-  const title = product?.listingTitle?.trim()
-    || product?.title?.trim()
-    || audit?.title?.trim()
-    || product?.name?.trim()
-    || "";
+  return audit?.title?.trim() === generated.title?.trim()
+    && JSON.stringify(auditBullets) === JSON.stringify(genBullets)
+    && JSON.stringify(auditTags) === JSON.stringify(genTags);
+}
 
-  const htmlDescription = product?.descriptionHtml?.trim()
+function toListingContentView(content: {
+  title?: string | null;
+  bulletPoints?: string[] | null;
+  keywords?: string[] | null;
+  htmlDescription?: string | null;
+} | null | undefined): ListingContentView | null {
+  if (!content) return null;
+  const bulletPoints = normalizeStringList(content.bulletPoints);
+  const keywords = normalizeStringList(content.keywords);
+  const title = content.title?.trim() ?? "";
+  const htmlDescription = content.htmlDescription?.trim()
     || bulletsToHtmlDescription(bulletPoints);
 
   if (!title && bulletPoints.length === 0 && keywords.length === 0 && !htmlDescription) {
@@ -207,6 +216,60 @@ function resolveExistingListingContent(
   }
 
   return { title, bulletPoints, keywords, htmlDescription };
+}
+
+function resolveExistingListingContent(
+  product: ProductDetailView | null | undefined,
+  audit?: {
+    productName?: string | null;
+    title?: string | null;
+    bulletPoints?: string[] | null;
+    targetKeywords?: string[] | null;
+    generatedContent?: GeneratedContent | null;
+    sourceListingContent?: GeneratedContent | null;
+  } | null,
+): ListingContentView | null {
+  const snapshot = toListingContentView(audit?.sourceListingContent
+    ? {
+        title: audit.sourceListingContent.title,
+        bulletPoints: audit.sourceListingContent.bulletPoints,
+        keywords: audit.sourceListingContent.keywords,
+        htmlDescription: audit.sourceListingContent.htmlDescription,
+      }
+    : null);
+  if (snapshot) return snapshot;
+
+  const overwritten = listingFieldsMatchGenerated(audit);
+  const productBullets = normalizeStringList(product?.bulletPoints);
+  const auditBullets = overwritten ? [] : normalizeStringList(audit?.bulletPoints);
+  const bulletPoints = productBullets.length > 0 ? productBullets : auditBullets;
+
+  const productTags = normalizeStringList(product?.targetKeywords);
+  const auditTags = overwritten ? [] : normalizeStringList(audit?.targetKeywords);
+  const keywords = productTags.length > 0 ? productTags : auditTags;
+
+  const title = overwritten
+    ? (product?.listingTitle?.trim()
+      || product?.title?.trim()
+      || audit?.productName?.trim()
+      || product?.name?.trim()
+      || "")
+    : (product?.listingTitle?.trim()
+      || product?.title?.trim()
+      || audit?.title?.trim()
+      || audit?.productName?.trim()
+      || product?.name?.trim()
+      || "");
+
+  const generatedDesc = audit?.generatedContent?.htmlDescription?.trim();
+  const productDesc = product?.descriptionHtml?.trim();
+  const htmlDescription = overwritten
+    ? bulletsToHtmlDescription(bulletPoints)
+    : (productDesc && productDesc !== generatedDesc
+      ? productDesc
+      : bulletsToHtmlDescription(bulletPoints));
+
+  return toListingContentView({ title, bulletPoints, keywords, htmlDescription });
 }
 
 function parseBulletTextarea(value: string): string[] {
@@ -1894,13 +1957,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
               ? {
                   ...current,
                   generatedContent,
-                  title: generatedContent.title?.trim() || current.title,
-                  bulletPoints: generatedContent.bulletPoints?.length
-                    ? generatedContent.bulletPoints
-                    : current.bulletPoints,
-                  targetKeywords: generatedContent.keywords?.length
-                    ? generatedContent.keywords
-                    : current.targetKeywords,
                 }
               : current),
           );
@@ -1911,13 +1967,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 ? {
                     ...current,
                     generatedContent,
-                    title: generatedContent.title?.trim() || current.title,
-                    bulletPoints: generatedContent.bulletPoints?.length
-                      ? generatedContent.bulletPoints
-                      : current.bulletPoints,
-                    targetKeywords: generatedContent.keywords?.length
-                      ? generatedContent.keywords
-                      : current.targetKeywords,
                   }
                 : current),
             );

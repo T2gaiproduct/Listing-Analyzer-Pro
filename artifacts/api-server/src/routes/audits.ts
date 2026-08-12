@@ -14,6 +14,7 @@ import { analyzeListingWithAI } from "../lib/analyzer";
 import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
+import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
   buildDefaultAplusPrompt,
@@ -637,7 +638,12 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
   }
   if (body.category !== undefined) updates.category = body.category;
   if (body.imageUrls !== undefined) updates.imageUrls = body.imageUrls;
-  if (body.generatedContent !== undefined) updates.generatedContent = body.generatedContent;
+  if (body.generatedContent !== undefined) {
+    updates.generatedContent = body.generatedContent;
+    if (!existing.sourceListingContent) {
+      updates.sourceListingContent = buildSourceListingSnapshot(existing);
+    }
+  }
   if (body.generatedImages !== undefined) updates.generatedImages = body.generatedImages;
   if (body.imageRecords !== undefined) updates.imageRecords = body.imageRecords;
   if (body.currentStep !== undefined) updates.currentStep = body.currentStep;
@@ -970,16 +976,12 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
 
     await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
 
+    const sourceListingContent = audit.sourceListingContent ?? buildSourceListingSnapshot(audit);
+
     await db.update(auditsTable)
       .set({
         generatedContent,
-        title: generatedContent.title?.trim() || audit.title,
-        bulletPoints: generatedContent.bulletPoints?.length
-          ? generatedContent.bulletPoints
-          : audit.bulletPoints,
-        targetKeywords: generatedContent.keywords?.length
-          ? generatedContent.keywords
-          : audit.targetKeywords,
+        sourceListingContent,
         updatedAt: new Date(),
       })
       .where(eq(auditsTable.id, id));

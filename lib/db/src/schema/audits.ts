@@ -82,6 +82,8 @@ export const auditsTable = pgTable("audits", {
   status: text("status").notNull().default("pending"),
   result: jsonb("result").$type<AuditResult>(),
   generatedContent: jsonb("generated_content").$type<GeneratedContent>(),
+  /** Snapshot of listing fields before first AI content generation (for before/after comparison). */
+  sourceListingContent: jsonb("source_listing_content").$type<GeneratedContent>(),
   generatedImages: jsonb("generated_images").$type<GeneratedImages>(),
   imageRecords: jsonb("image_records").$type<ImageRecords>(),
   currentStep: integer("current_step").default(1),
