@@ -36,6 +36,7 @@ import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 import { applyProductListingUpdates } from "../lib/product-listing-update.js";
 import { syncListingToConnectedMarketplaces } from "../lib/product-listing-sync.js";
 import { loadUnifiedProductList } from "../lib/unified-product-list.js";
+import { backfillWorkspaceScopeForOwner } from "../lib/backfill-workspace-scope.js";
 import {
   loadProductDetail,
   parseProductSourceFromRequest,
@@ -308,6 +309,10 @@ router.post("/products/import", requireAuth, resolveTeamAndWorkspace, requireWor
 });
 
 router.get("/products", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const ownerUserId = getEffectiveUserId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+  await backfillWorkspaceScopeForOwner(ownerUserId, workspaceId);
+
   const products = await loadUnifiedProductList(req as AuthedRequest);
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");

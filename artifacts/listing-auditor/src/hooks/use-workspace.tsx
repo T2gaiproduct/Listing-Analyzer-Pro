@@ -270,6 +270,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, String(id));
     if (!changed) return;
     void qc.invalidateQueries({ queryKey: ["workspace-permissions"] });
+    void qc.invalidateQueries({ queryKey: ["products"] });
+    void qc.invalidateQueries({ queryKey: ["product"] });
     void qc.invalidateQueries({ queryKey: ["audits"] });
     void qc.invalidateQueries({ queryKey: ["graphics-projects"] });
     void qc.invalidateQueries({ queryKey: ["recents"] });

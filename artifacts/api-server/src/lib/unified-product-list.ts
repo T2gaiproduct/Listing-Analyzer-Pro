@@ -1,7 +1,8 @@
 import type { Request } from "express";
 import { loadScopedRecents, pickProjectThumbnail } from "./scoped-recents-load";
-import { getAccountOwnerId, getActiveWorkspaceId } from "./workspace-route-helpers";
+import { getAccountOwnerId, getActiveWorkspaceId, getWorkspaceCtx } from "./workspace-route-helpers";
 import { resolveTeamContext } from "../middlewares/team-auth";
+import { requireWorkspacePerm } from "./workspace-context";
 import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
@@ -92,6 +93,12 @@ export async function loadUnifiedProductList(
   const ownerUserId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const team = await resolveTeamContext(userId);
+  const wsCtx = getWorkspaceCtx(req);
+
+  const restrictToWorkedProjects = team.isTeamMember
+    && !wsCtx.isAccountOwner
+    && !requireWorkspacePerm(wsCtx, "build_brand", "viewGlobal")
+    && !requireWorkspacePerm(wsCtx, "audits", "viewGlobal");
 
   const { audits, graphics, videos, ads } = await loadScopedRecents(
     ownerUserId,
@@ -99,6 +106,10 @@ export async function loadUnifiedProductList(
     team,
     workspaceId,
     limit,
+    {
+      restrictToWorkedProjects,
+      workspaceMemberId: wsCtx.workspaceMemberId,
+    },
   );
 
   const items: UnifiedProductListItem[] = [];
