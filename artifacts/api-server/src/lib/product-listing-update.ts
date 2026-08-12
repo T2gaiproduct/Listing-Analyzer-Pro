@@ -66,26 +66,28 @@ export async function applyProductListingUpdates(
     auditUpdates.targetKeywords = nextKeywords;
   }
 
-  const shouldSyncGeneratedContent = typeof body.listingTitle === "string"
-    || Array.isArray(body.bulletPoints)
-    || Array.isArray(body.targetKeywords)
-    || typeof body.descriptionHtml === "string";
-  if (shouldSyncGeneratedContent) {
-    const htmlDescription = typeof body.descriptionHtml === "string" && body.descriptionHtml.trim()
-      ? body.descriptionHtml.trim()
-      : bulletsToHtmlDescription(nextBullets);
-    const currentGenerated = (existing.generatedContent ?? null) as GeneratedContent | null;
-    const title = typeof body.listingTitle === "string"
-      ? body.listingTitle.trim()
-      : existing.title?.trim()
-        || currentGenerated?.title?.trim()
-        || "";
-    auditUpdates.generatedContent = {
-      title: title || currentGenerated?.title || "",
-      bulletPoints: nextBullets,
-      keywords: nextKeywords,
-      htmlDescription,
-    } satisfies GeneratedContent;
+  // Listing edits update audit.title / bulletPoints / targetKeywords only.
+  // AI optimized copy lives in generatedContent and is changed only via generate-content,
+  // except descriptionHtml which may update htmlDescription without clobbering title/bullets.
+  const currentGenerated = (existing.generatedContent ?? null) as GeneratedContent | null;
+  if (typeof body.descriptionHtml === "string") {
+    const htmlDescription = body.descriptionHtml.trim() || bulletsToHtmlDescription(nextBullets);
+    if (currentGenerated) {
+      auditUpdates.generatedContent = {
+        ...currentGenerated,
+        htmlDescription,
+      } satisfies GeneratedContent;
+    } else if (htmlDescription) {
+      const title = typeof body.listingTitle === "string"
+        ? body.listingTitle.trim()
+        : existing.title?.trim() || "";
+      auditUpdates.generatedContent = {
+        title,
+        bulletPoints: nextBullets,
+        keywords: nextKeywords,
+        htmlDescription,
+      } satisfies GeneratedContent;
+    }
   }
 
   if (Object.keys(auditUpdates).length > 1) {
