@@ -82,6 +82,7 @@ export function ProductWorkflowStepContent({
   productName,
   audit,
   generatedContent,
+  existingContent,
   isOptimizing,
   onOptimize,
   optimizeDisabled,
@@ -99,6 +100,12 @@ export function ProductWorkflowStepContent({
   productName: string;
   audit: AuditLike | null | undefined;
   generatedContent: GeneratedContent | null | undefined;
+  existingContent?: {
+    title: string;
+    bulletPoints: string[];
+    keywords: string[];
+    htmlDescription: string;
+  } | null;
   isOptimizing: boolean;
   onOptimize: () => void;
   optimizeDisabled?: boolean;
@@ -111,6 +118,12 @@ export function ProductWorkflowStepContent({
   isSavingContinue?: boolean;
   OptimizedContentPanel: React.ComponentType<{
     generatedContent: GeneratedContent | null | undefined;
+    existingContent?: {
+      title: string;
+      bulletPoints: string[];
+      keywords: string[];
+      htmlDescription: string;
+    } | null;
     isOptimizing: boolean;
     onOptimize: () => void;
     optimizeDisabled?: boolean;
@@ -159,6 +172,7 @@ export function ProductWorkflowStepContent({
         </div>
         <OptimizedContentPanel
           generatedContent={generatedContent}
+          existingContent={existingContent}
           isOptimizing={isOptimizing}
           onOptimize={onOptimize}
           optimizeDisabled={optimizeDisabled}

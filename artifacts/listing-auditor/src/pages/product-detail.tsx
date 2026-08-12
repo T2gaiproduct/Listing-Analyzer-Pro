@@ -13,6 +13,7 @@ import {
   Code2,
   Copy,
   Eye,
+  FileText,
   Image as ImageLucide,
   Lightbulb,
   Loader2,
@@ -161,6 +162,51 @@ function describeMarketplaceSyncResult(sync: MarketplaceSyncResult | null | unde
 
 function bulletsToTextarea(bullets: string[] | undefined): string {
   return (bullets ?? []).filter(Boolean).join("\n");
+}
+
+function bulletsToHtmlDescription(bullets: string[]): string {
+  const items = bullets.map((bullet) => bullet.trim()).filter(Boolean);
+  if (items.length === 0) return "";
+  return `<ul>\n${items.map((bullet) => `  <li>${bullet}</li>`).join("\n")}\n</ul>`;
+}
+
+type ListingContentView = {
+  title: string;
+  bulletPoints: string[];
+  keywords: string[];
+  htmlDescription: string;
+};
+
+function resolveExistingListingContent(
+  product: ProductDetailView | null | undefined,
+  audit?: {
+    title?: string | null;
+    bulletPoints?: string[] | null;
+    targetKeywords?: string[] | null;
+  } | null,
+): ListingContentView | null {
+  const auditBullets = normalizeStringList(audit?.bulletPoints);
+  const productBullets = normalizeStringList(product?.bulletPoints);
+  const bulletPoints = productBullets.length > 0 ? productBullets : auditBullets;
+
+  const auditTags = normalizeStringList(audit?.targetKeywords);
+  const productTags = normalizeStringList(product?.targetKeywords);
+  const keywords = productTags.length > 0 ? productTags : auditTags;
+
+  const title = product?.listingTitle?.trim()
+    || product?.title?.trim()
+    || audit?.title?.trim()
+    || product?.name?.trim()
+    || "";
+
+  const htmlDescription = product?.descriptionHtml?.trim()
+    || bulletsToHtmlDescription(bulletPoints);
+
+  if (!title && bulletPoints.length === 0 && keywords.length === 0 && !htmlDescription) {
+    return null;
+  }
+
+  return { title, bulletPoints, keywords, htmlDescription };
 }
 
 function parseBulletTextarea(value: string): string[] {
@@ -479,22 +525,24 @@ function PriorityBadge({ label, level }: { label?: string | null; level?: string
   );
 }
 
-function OptimizedContentPanel({
-  generatedContent,
-  isOptimizing,
-  onOptimize,
-  optimizeDisabled,
+function ListingContentCard({
+  content,
+  emptyMessage,
+  accent = "slate",
 }: {
-  generatedContent?: GeneratedContent | null;
-  isOptimizing: boolean;
-  onOptimize: () => void;
-  optimizeDisabled?: boolean;
+  content: ListingContentView | null | undefined;
+  emptyMessage: string;
+  accent?: "slate" | "orange";
 }) {
   const { toast } = useToast();
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
-  const contentBullets = generatedContent?.bulletPoints?.filter(Boolean) ?? [];
-  const keywords = generatedContent?.keywords?.filter(Boolean) ?? [];
-  const htmlDescription = generatedContent?.htmlDescription?.trim() ?? "";
+  const contentBullets = content?.bulletPoints?.filter(Boolean) ?? [];
+  const keywords = content?.keywords?.filter(Boolean) ?? [];
+  const htmlDescription = content?.htmlDescription?.trim() ?? "";
+  const hasContent = Boolean(content?.title?.trim())
+    || contentBullets.length > 0
+    || keywords.length > 0
+    || htmlDescription;
 
   function copyText(text: string, label: string) {
     void navigator.clipboard.writeText(text).then(() => {
@@ -502,182 +550,264 @@ function OptimizedContentPanel({
     });
   }
 
-  return (
-    <div className="border-t border-slate-100 pt-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-            Optimized Content
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-[11px]"
-          onClick={onOptimize}
-          disabled={optimizeDisabled || isOptimizing}
-        >
-          {isOptimizing ? (
-            <>
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              Optimizing…
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-              {generatedContent?.title ? "Regenerate" : "Optimize Content"}
-            </>
-          )}
-        </Button>
-      </div>
+  if (!hasContent) {
+    return (
+      <p className="text-[11px] text-slate-500 px-1 py-6 text-center">
+        {emptyMessage}
+      </p>
+    );
+  }
 
-      {isOptimizing && !generatedContent?.title ? (
-        <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/40 px-4 py-8 text-center">
-          <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
-          <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
-        </div>
-      ) : generatedContent?.title ? (
-        <div className="rounded-lg border border-orange-200/80 bg-white overflow-hidden shadow-sm">
-          <div className="bg-orange-50 border-b border-orange-100 px-4 py-2.5 flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-            <p className="text-[10px] font-semibold text-orange-900">Generated Content</p>
+  const borderClass = accent === "orange"
+    ? "border-orange-200/80"
+    : "border-slate-200";
+  const headerClass = accent === "orange"
+    ? "bg-orange-50 border-orange-100"
+    : "bg-slate-50 border-slate-100";
+  const headerTextClass = accent === "orange" ? "text-orange-900" : "text-slate-700";
+  const bulletBadgeClass = accent === "orange"
+    ? "bg-orange-100 text-orange-600"
+    : "bg-slate-100 text-slate-600";
+  const keywordClass = accent === "orange"
+    ? "bg-orange-50 text-orange-700 border-orange-100"
+    : "bg-slate-50 text-slate-700 border-slate-200";
+
+  return (
+    <div className={cn("rounded-lg border bg-white overflow-hidden shadow-sm", borderClass)}>
+      <div className={cn("border-b px-4 py-2.5 flex items-center gap-2", headerClass)}>
+        {accent === "orange" ? (
+          <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+        ) : (
+          <FileText className="w-3.5 h-3.5 text-slate-500" />
+        )}
+        <p className={cn("text-[10px] font-semibold", headerTextClass)}>
+          {accent === "orange" ? "Generated Content" : "Current Listing"}
+        </p>
+      </div>
+      <div className="px-4 py-4 space-y-4">
+        {content?.title?.trim() && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Product Title</p>
+              <button
+                type="button"
+                onClick={() => copyText(content.title, "Title")}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+            <p className="text-[11px] font-medium text-slate-900 leading-snug whitespace-pre-wrap break-words">
+              {content.title}
+            </p>
           </div>
-          <div className="px-4 py-4 space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Product Title</p>
+        )}
+
+        {contentBullets.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Bullet Points</p>
+              <button
+                type="button"
+                onClick={() => copyText(contentBullets.join("\n"), "Bullet points")}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+            <ul className="space-y-2">
+              {contentBullets.map((bullet, index) => (
+                <li key={`${index}-${bullet.slice(0, 24)}`} className="flex items-start gap-2">
+                  <span className={cn(
+                    "w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5",
+                    bulletBadgeClass,
+                  )}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                    {bullet}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {keywords.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Keywords</p>
+              <button
+                type="button"
+                onClick={() => copyText(keywords.join(", "), "Keywords")}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {keywords.map((keyword) => (
+                <span
+                  key={keyword}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                    keywordClass,
+                  )}
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {htmlDescription && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Description</p>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => copyText(generatedContent.title, "Title")}
+                  onClick={() => copyText(htmlDescription, "HTML description")}
                   className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                 >
                   <Copy className="w-3 h-3" />
                   Copy
                 </button>
+                <div className="flex items-center bg-slate-100 rounded-md p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setDescViewMode("preview")}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all",
+                      descViewMode === "preview"
+                        ? "bg-white text-slate-700 shadow-sm"
+                        : "text-slate-400 hover:text-slate-500",
+                    )}
+                  >
+                    <Eye className="w-3 h-3" />
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDescViewMode("code")}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all",
+                      descViewMode === "code"
+                        ? "bg-white text-slate-700 shadow-sm"
+                        : "text-slate-400 hover:text-slate-500",
+                    )}
+                  >
+                    <Code2 className="w-3 h-3" />
+                    Code
+                  </button>
+                </div>
               </div>
-              <p className="text-[11px] font-medium text-slate-900 leading-snug whitespace-pre-wrap break-words">
-                {generatedContent.title}
-              </p>
             </div>
-
-            {contentBullets.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Bullet Points</p>
-                  <button
-                    type="button"
-                    onClick={() => copyText(contentBullets.join("\n"), "Bullet points")}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-                  >
-                    <Copy className="w-3 h-3" />
-                    Copy
-                  </button>
-                </div>
-                <ul className="space-y-2">
-                  {contentBullets.map((bullet, index) => (
-                    <li key={`${index}-${bullet.slice(0, 24)}`} className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                        {index + 1}
-                      </span>
-                      <span className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
-                        {bullet}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {keywords.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Keywords</p>
-                  <button
-                    type="button"
-                    onClick={() => copyText(keywords.join(", "), "Keywords")}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-                  >
-                    <Copy className="w-3 h-3" />
-                    Copy
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {keywords.map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 text-[10px] font-medium border border-orange-100"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {htmlDescription && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Description</p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => copyText(htmlDescription, "HTML description")}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-                    >
-                      <Copy className="w-3 h-3" />
-                      Copy
-                    </button>
-                    <div className="flex items-center bg-slate-100 rounded-md p-0.5">
-                      <button
-                        type="button"
-                        onClick={() => setDescViewMode("preview")}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all",
-                          descViewMode === "preview"
-                            ? "bg-white text-slate-700 shadow-sm"
-                            : "text-slate-400 hover:text-slate-500",
-                        )}
-                      >
-                        <Eye className="w-3 h-3" />
-                        Preview
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDescViewMode("code")}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all",
-                          descViewMode === "code"
-                            ? "bg-white text-slate-700 shadow-sm"
-                            : "text-slate-400 hover:text-slate-500",
-                        )}
-                      >
-                        <Code2 className="w-3 h-3" />
-                        Code
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {descViewMode === "preview" ? (
-                  <div
-                    className="prose prose-sm max-w-none text-slate-800 border border-slate-200 rounded-md p-3 bg-slate-50/50"
-                    dangerouslySetInnerHTML={{ __html: htmlDescription }}
-                  />
-                ) : (
-                  <pre className="text-[10px] text-slate-100 leading-relaxed border border-slate-700 rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">
-                    {htmlDescription}
-                  </pre>
-                )}
-              </div>
+            {descViewMode === "preview" ? (
+              <div
+                className="prose prose-sm max-w-none text-slate-800 border border-slate-200 rounded-md p-3 bg-slate-50/50"
+                dangerouslySetInnerHTML={{ __html: htmlDescription }}
+              />
+            ) : (
+              <pre className="text-[10px] text-slate-100 leading-relaxed border border-slate-700 rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">
+                {htmlDescription}
+              </pre>
             )}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OptimizedContentPanel({
+  generatedContent,
+  existingContent,
+  isOptimizing,
+  onOptimize,
+  optimizeDisabled,
+}: {
+  generatedContent?: GeneratedContent | null;
+  existingContent?: ListingContentView | null;
+  isOptimizing: boolean;
+  onOptimize: () => void;
+  optimizeDisabled?: boolean;
+}) {
+  const optimizedContent: ListingContentView | null = generatedContent?.title
+    ? {
+        title: generatedContent.title,
+        bulletPoints: generatedContent.bulletPoints?.filter(Boolean) ?? [],
+        keywords: generatedContent.keywords?.filter(Boolean) ?? [],
+        htmlDescription: generatedContent.htmlDescription?.trim() ?? "",
+      }
+    : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className="space-y-2 min-w-0">
+          <div className="flex items-center gap-1.5 px-1">
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Existing Content
+            </p>
+          </div>
+          <ListingContentCard
+            content={existingContent}
+            emptyMessage="No existing listing content yet. Add details in Overview or import from your store."
+            accent="slate"
+          />
         </div>
-      ) : (
-        <p className="text-[11px] text-slate-500">
-          No optimized content yet. Click Optimize Content to generate listing copy (1 AI credit).
-        </p>
-      )}
+
+        <div className="space-y-2 min-w-0">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+                Optimized Content
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px]"
+              onClick={onOptimize}
+              disabled={optimizeDisabled || isOptimizing}
+            >
+              {isOptimizing ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Optimizing…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3 mr-1 opacity-70" />
+                  {generatedContent?.title ? "Regenerate" : "Optimize Content"}
+                </>
+              )}
+            </Button>
+          </div>
+
+          {isOptimizing && !generatedContent?.title ? (
+            <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/40 px-4 py-8 text-center">
+              <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
+              <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
+            </div>
+          ) : (
+            <ListingContentCard
+              content={optimizedContent}
+              emptyMessage="No optimized content yet. Click Optimize Content to generate listing copy (1 AI credit)."
+              accent="orange"
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1080,6 +1210,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
       listingCurrency,
     };
   }, [product, marketplaceData, effectiveAudit]);
+
+  const existingListingContent = useMemo(
+    () => resolveExistingListingContent(product, effectiveAudit),
+    [product, effectiveAudit],
+  );
 
   async function refreshProductData() {
     const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
@@ -1883,6 +2018,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           productName={product.name}
           audit={effectiveAudit}
           generatedContent={effectiveAudit?.generatedContent ?? null}
+          existingContent={existingListingContent}
           isOptimizing={isOptimizingContent}
           onOptimize={handleOptimizeContent}
           optimizeDisabled={!canOptimizeContent}
