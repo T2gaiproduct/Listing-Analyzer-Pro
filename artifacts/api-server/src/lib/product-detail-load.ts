@@ -361,6 +361,7 @@ async function loadAuditDetail(
       : null;
   const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
   const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
+  const amazonListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Amazon");
   const storeListing = shopifyListing ?? wooListing;
   const generated = readGeneratedContent(row);
   const listingBullets = (row.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
@@ -371,9 +372,10 @@ async function loadAuditDetail(
   const targetKeywords = listingKeywords.length > 0
     ? listingKeywords
     : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
-  const listingPrice = storeListing?.price != null && storeListing.price > 0
-    ? storeListing.price
-    : null;
+  const pricedListing = [shopifyListing, wooListing, amazonListing].find(
+    (listing) => listing?.price != null && listing.price > 0,
+  );
+  const listingPrice = pricedListing?.price ?? null;
 
   return {
     id: row.id,
@@ -412,7 +414,7 @@ async function loadAuditDetail(
     targetKeywords,
     descriptionHtml: resolveDescriptionHtml(row),
     listingPrice,
-    listingCurrency: storeListing?.currency ?? null,
+    listingCurrency: pricedListing?.currency ?? storeListing?.currency ?? null,
     statsAuditId: row.id,
     manager: {
       name: displayManagerName,

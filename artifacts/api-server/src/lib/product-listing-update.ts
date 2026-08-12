@@ -34,6 +34,7 @@ export async function applyProductListingUpdates(
   const [existing] = await db
     .select({
       title: auditsTable.title,
+      workspaceId: auditsTable.workspaceId,
       generatedContent: auditsTable.generatedContent,
       bulletPoints: auditsTable.bulletPoints,
       targetKeywords: auditsTable.targetKeywords,
@@ -110,9 +111,9 @@ export async function applyProductListingUpdates(
   if (body.price !== undefined || typeof body.sku === "string") {
     const priceCents = body.price !== undefined ? parsePriceCents(body.price) : undefined;
     const sku = typeof body.sku === "string" ? body.sku.trim() || null : undefined;
-    await upsertMarketplaceListingPriceSku(auditId, "Shopify", { priceCents, sku });
-    await upsertMarketplaceListingPriceSku(auditId, "WooCommerce", { priceCents, sku });
-    await upsertMarketplaceListingPriceSku(auditId, "Amazon", { priceCents, sku });
+    for (const marketplace of SYNC_MARKETPLACES) {
+      await upsertMarketplaceListingPriceSku(auditId, marketplace, { priceCents, sku }, existing.workspaceId);
+    }
   }
 }
 
@@ -123,6 +124,7 @@ async function upsertMarketplaceListingPriceSku(
   auditId: number,
   marketplace: SyncMarketplace,
   patch: { priceCents?: number | null; sku?: string | null | undefined },
+  workspaceId?: number | null,
 ): Promise<void> {
   const listingPatch: Record<string, unknown> = { updatedAt: new Date() };
   if (patch.priceCents != null && patch.priceCents > 0) {
@@ -144,4 +146,15 @@ async function upsertMarketplaceListingPriceSku(
     .returning({ id: productMarketplaceListingsTable.id });
 
   if (listingUpdate.length > 0) return;
+  if (!workspaceId) return;
+
+  await db.insert(productMarketplaceListingsTable).values({
+    auditId,
+    workspaceId,
+    marketplace,
+    status: "pending",
+    sku: patch.sku ?? null,
+    priceCents: patch.priceCents != null && patch.priceCents > 0 ? patch.priceCents : null,
+    currency: "USD",
+  });
 }

@@ -1277,9 +1277,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
         payload.targetKeywords = parseTagsTextarea(data.tagsText);
         payload.descriptionHtml = data.descriptionHtml.trim();
         payload.sku = data.sku.trim();
-        if (parsedPrice != null) {
-          payload.price = String(parsedPrice);
-        }
+      }
+
+      if (parsedPrice != null) {
+        payload.price = String(parsedPrice);
       }
 
       let response: unknown;
@@ -2110,6 +2111,23 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         onChange={(e) => updateEditField("sku", e.target.value)}
                         className="text-[11px] font-mono"
                       />
+                    </EditDetailField>
+                    <EditDetailField label="Price">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editForm.price}
+                          onChange={(e) => updateEditField("price", e.target.value)}
+                          onBlur={(e) => updateEditField("price", normalizePriceField(e.target.value))}
+                          className="text-[11px] font-mono"
+                          placeholder="Enter price"
+                          inputMode="decimal"
+                        />
+                        {(listingProduct?.listingCurrency ?? product.listingCurrency) && (
+                          <span className="text-[10px] text-slate-500 shrink-0">
+                            {listingProduct?.listingCurrency ?? product.listingCurrency}
+                          </span>
+                        )}
+                      </div>
                     </EditDetailField>
                     <EditDetailField label="Brand">
                       <Input
