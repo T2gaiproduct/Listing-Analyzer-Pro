@@ -4,12 +4,15 @@ import { db, productMarketplaceListingsTable, productProfilesTable } from "@work
 import {
   buildProductImageAssets,
   collectProductImages,
+  loadImageBuffer,
   slugify,
   type ExportImageAsset,
 } from "./listing-export-shared.js";
 import type { WooCommerceStoreConnectionWithSecret } from "./marketplace-connections.js";
+import { extractEmbeddedDataImageUrl, persistDataUrlAsAuditImage, repairCorruptedImageUrl } from "./image-storage.js";
 import {
   materializeAuditImagesForPublish,
+  resolvePublishImageCandidate,
   resolvePublishImageUrlsFromAudit,
   sanitizeMarketplacePublishImageUrl,
 } from "./materialize-audit-images-for-publish.js";
@@ -19,6 +22,7 @@ import {
   findWooCommerceProductBySku,
   findWooCommerceProductBySlug,
   updateWooCommerceProduct,
+  uploadWooCommerceMedia,
   type WooCommerceProductImage,
   type WooCommerceProductPayload,
   type WooCommerceRestProduct,
@@ -66,8 +70,20 @@ function filenameForAsset(asset: ExportImageAsset, index: number): string {
   return `product-image-${String(index + 1).padStart(2, "0")}.jpg`;
 }
 
+function contentTypeForImageSource(sourceUrl: string): { contentType: string; ext: string } {
+  const lower = sourceUrl.toLowerCase();
+  if (lower.includes(".png") || lower.startsWith("data:image/png")) {
+    return { contentType: "image/png", ext: "png" };
+  }
+  if (lower.includes(".webp") || lower.startsWith("data:image/webp")) {
+    return { contentType: "image/webp", ext: "webp" };
+  }
+  return { contentType: "image/jpeg", ext: "jpg" };
+}
+
 async function resolveWooCommerceProductImages(opts: {
   audit: Audit;
+  connection: WooCommerceStoreConnectionWithSecret;
   graphicsImageRecords?: ImageRecord[];
   graphicsProjectId?: number | null;
   publicBaseUrl?: string;
@@ -76,6 +92,74 @@ async function resolveWooCommerceProductImages(opts: {
 }): Promise<WooCommerceProductImage[]> {
   const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
   const imageAssets = buildProductImageAssets(productImages, opts.publicBaseUrl);
+  const resolved: WooCommerceProductImage[] = [];
+  const seen = new Set<string>();
+
+  for (const [index, img] of productImages.entries()) {
+    if (resolved.length >= 9) break;
+
+    let sourceUrl = repairCorruptedImageUrl(img.url);
+    const embedded = extractEmbeddedDataImageUrl(sourceUrl);
+    if (embedded) {
+      const persisted = persistDataUrlAsAuditImage(opts.audit.id, embedded, index);
+      if (persisted) sourceUrl = persisted;
+    }
+
+    const buffer = await loadImageBuffer({
+      auditId: opts.audit.id,
+      sourceUrl,
+      graphicsProjectId: opts.graphicsProjectId,
+    });
+
+    const asset = imageAssets[index] ?? imageAssets[0]!;
+    const filename = filenameForAsset(asset, index);
+    const { contentType } = contentTypeForImageSource(sourceUrl);
+
+    if (buffer) {
+      try {
+        const media = await uploadWooCommerceMedia({
+          storeUrl: opts.connection.storeUrl,
+          consumerKey: opts.connection.consumerKey,
+          consumerSecret: opts.connection.consumerSecret,
+          filename,
+          contentType,
+          data: buffer,
+        });
+        const key = `media:${media.id}`;
+        if (!seen.has(key)) {
+          resolved.push({
+            id: media.id,
+            alt: opts.altText,
+            name: filename,
+          });
+          seen.add(key);
+        }
+        continue;
+      } catch {
+        // Fall back to signed public URL when direct upload fails.
+      }
+    }
+
+    const publicUrl = resolvePublishImageCandidate({
+      auditId: opts.audit.id,
+      sourceUrl,
+      publicBaseUrl: opts.publicBaseUrl,
+      graphicsProjectId: opts.graphicsProjectId,
+      index,
+    });
+    const safe = sanitizeMarketplacePublishImageUrl(publicUrl);
+    if (safe && !seen.has(safe)) {
+      resolved.push({
+        src: safe,
+        alt: opts.altText,
+        name: filename,
+      });
+      seen.add(safe);
+    }
+  }
+
+  if (resolved.length > 0) return resolved;
+
   const publishUrls = resolvePublishImageUrlsFromAudit({
     audit: opts.audit,
     graphicsImageRecords: opts.graphicsImageRecords,
@@ -83,15 +167,19 @@ async function resolveWooCommerceProductImages(opts: {
     publicBaseUrl: opts.publicBaseUrl,
   });
 
-  const resolved: WooCommerceProductImage[] = publishUrls
-    .map((src, index) => ({
-      src: sanitizeMarketplacePublishImageUrl(src) ?? "",
+  for (const [index, src] of publishUrls.entries()) {
+    const safe = sanitizeMarketplacePublishImageUrl(src);
+    if (!safe || seen.has(safe)) continue;
+    resolved.push({
+      src: safe,
       alt: opts.altText,
       name: filenameForAsset(imageAssets[index] ?? imageAssets[0]!, index),
-    }))
-    .filter((image) => Boolean(image.src));
+    });
+    seen.add(safe);
+    if (resolved.length >= 9) break;
+  }
 
-  if (resolved.length > 0) return resolved.slice(0, 9);
+  if (resolved.length > 0) return resolved;
 
   const fallback = (opts.existingImages ?? [])
     .filter((image) => image.id || image.src?.trim())
@@ -248,6 +336,7 @@ export async function publishListingToWooCommerce(opts: {
 
   const images = await resolveWooCommerceProductImages({
     audit,
+    connection: opts.connection,
     graphicsImageRecords: opts.graphicsImageRecords,
     graphicsProjectId: opts.graphicsProjectId,
     publicBaseUrl: opts.publicBaseUrl,

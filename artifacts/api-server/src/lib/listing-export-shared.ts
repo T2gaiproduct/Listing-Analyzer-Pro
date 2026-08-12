@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Audit, GeneratedContent, ImageRecord } from "@workspace/db";
 import type { AplusModule, AplusStoredState } from "./aplus-generator.js";
-import { GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./image-storage.js";
+import { extractEmbeddedDataImageUrl, GRAPHICS_IMAGES_DIR, repairCorruptedImageUrl, resolveAuditImagePath } from "./image-storage.js";
 
 export interface ExportImageAsset {
   id: string;
@@ -96,7 +96,7 @@ export function collectAplusImages(audit: Audit): { url: string; moduleId: strin
 }
 
 export function toAbsoluteAssetUrl(url: string, publicBaseUrl?: string): string {
-  const trimmed = url.trim();
+  const trimmed = repairCorruptedImageUrl(url.trim());
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.startsWith("data:image/")) return trimmed;
   if (!publicBaseUrl) return trimmed;
@@ -155,7 +155,7 @@ export async function loadImageBuffer(opts: {
   sourceUrl: string;
   graphicsProjectId?: number | null;
 }): Promise<Buffer | null> {
-  const url = opts.sourceUrl.trim();
+  let url = extractEmbeddedDataImageUrl(opts.sourceUrl) ?? opts.sourceUrl.trim();
   if (!url) return null;
 
   if (url.startsWith("data:image/")) {

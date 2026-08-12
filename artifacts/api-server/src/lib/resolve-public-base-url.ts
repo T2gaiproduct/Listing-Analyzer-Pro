@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import type { Request } from "express";
-import { resolvePublicAppBaseUrl } from "./app-base-url.js";
+import { getConfiguredAppUrl, resolvePublicAppBaseUrl } from "./app-base-url.js";
 
 function isLocalhostOrigin(origin: string): boolean {
   try {
@@ -39,8 +39,21 @@ export function resolvePublicBaseUrl(req: Request): string {
   return fromRequest;
 }
 
+function resolveConfiguredHttpsBaseUrl(): string | undefined {
+  const explicit = process.env.MARKETPLACE_PUBLISH_BASE_URL?.trim().replace(/\/$/, "");
+  const configured = explicit || getConfiguredAppUrl();
+  if (!configured || isLocalhostOrigin(configured)) return undefined;
+  if (!configured.startsWith("https://")) return undefined;
+  return configured;
+}
+
 /** WooCommerce/Shopify must fetch images from a public HTTPS URL — never localhost. */
 export function resolveMarketplacePublishBaseUrl(req: Request): string {
+  const configuredBase = resolveConfiguredHttpsBaseUrl();
+  if (configuredBase) {
+    return configuredBase;
+  }
+
   const base = resolvePublicBaseUrl(req);
   if (isLocalhostOrigin(base)) {
     throw new Error(

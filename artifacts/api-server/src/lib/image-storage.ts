@@ -29,6 +29,21 @@ export function imageUrlPath(auditId: number, filename: string): string {
   return `/api/images/${auditId}/${filename}`;
 }
 
+/** Inline data URL, including values corrupted by prefixing a public base URL. */
+export function extractEmbeddedDataImageUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:image/")) return trimmed;
+  const match = trimmed.match(/data:image\/[\w+.-]+;base64,.+/);
+  return match?.[0] ?? null;
+}
+
+/** Strip a corrupted public-base prefix and return the embedded data URL when present. */
+export function repairCorruptedImageUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  return extractEmbeddedDataImageUrl(trimmed) ?? trimmed;
+}
+
 function isValidImageFile(filePath: string): boolean {
   return fs.existsSync(filePath) && fs.statSync(filePath).size >= MIN_FILE_SIZE;
 }

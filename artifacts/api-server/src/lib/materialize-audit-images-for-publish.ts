@@ -3,15 +3,9 @@ import type { Audit, ImageRecord } from "@workspace/db";
 import { db, auditsTable } from "@workspace/db";
 import { collectProductImages } from "./listing-export-shared.js";
 import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
-import { persistDataUrlAsAuditImage } from "./image-storage.js";
+import { extractEmbeddedDataImageUrl, persistDataUrlAsAuditImage, repairCorruptedImageUrl } from "./image-storage.js";
 
-/** Inline data URL, including values corrupted by prefixing a public base URL. */
-export function extractEmbeddedDataImageUrl(url: string): string | null {
-  const trimmed = url.trim();
-  if (trimmed.startsWith("data:image/")) return trimmed;
-  const match = trimmed.match(/data:image\/[\w+.-]+;base64,.+/);
-  return match?.[0] ?? null;
-}
+export { extractEmbeddedDataImageUrl, repairCorruptedImageUrl } from "./image-storage.js";
 
 export function isDataImageUrl(url: string): boolean {
   return extractEmbeddedDataImageUrl(url) !== null;
@@ -44,7 +38,7 @@ export function resolvePublishImageCandidate(opts: {
   graphicsProjectId?: number | null;
   index: number;
 }): string | null {
-  let source = opts.sourceUrl.trim();
+  let source = repairCorruptedImageUrl(opts.sourceUrl);
   if (!source) return null;
 
   const embeddedDataUrl = extractEmbeddedDataImageUrl(source);
@@ -54,7 +48,9 @@ export function resolvePublishImageCandidate(opts: {
     source = persisted;
   }
 
-  if (isPublicRemoteImageUrl(source)) return source;
+  if (isPublicRemoteImageUrl(source)) {
+    return sanitizeMarketplacePublishImageUrl(source);
+  }
 
   if ((isProtectedAppImageUrl(source) || source.startsWith("/api/images/")) && opts.publicBaseUrl?.trim()) {
     const signed = buildSignedPublishImageUrl({
@@ -63,7 +59,7 @@ export function resolvePublishImageCandidate(opts: {
       sourceUrl: source,
       graphicsProjectId: opts.graphicsProjectId,
     });
-    if (signed) return signed;
+    return sanitizeMarketplacePublishImageUrl(signed);
   }
 
   return null;
@@ -75,8 +71,9 @@ export async function materializeAuditImagesForPublish(audit: Audit): Promise<Au
   let changed = false;
 
   const persistInlineImage = (url: string, index: number): string => {
-    const embedded = extractEmbeddedDataImageUrl(url);
-    if (!embedded) return url;
+    const repaired = repairCorruptedImageUrl(url);
+    const embedded = extractEmbeddedDataImageUrl(repaired);
+    if (!embedded) return repaired;
     const persisted = persistDataUrlAsAuditImage(audit.id, embedded, index);
     if (!persisted) return url;
     changed = true;
