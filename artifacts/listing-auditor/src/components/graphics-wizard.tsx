@@ -179,6 +179,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       setStep((current) => (current === 1 ? 2 : current));
     }
   }, [createOnly, imageUrls]);
+
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
@@ -334,6 +335,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (createOnly && step === 1) {
+      setStep(2);
+    }
+  }, [createOnly, step]);
 
   const createProject = useMutation({
     mutationFn: async (input: {
@@ -987,7 +994,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           className="mt-2 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
           onClick={() => {
             setProjectId(null);
-            setStep(1);
+            setStep(createOnly ? 2 : 1);
             setUploadedImages(imageUrls ?? []);
             setWizardCategory(category ?? "");
             setCategorySearch(category ?? "");
@@ -1269,7 +1276,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {/* Actions */}
       <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 w-full">
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          {step > 1 && (
+          {step > 1 && !createOnly && (
             <Button variant="outline" className="w-full sm:w-auto text-slate-500 border-slate-200 rounded-lg min-h-11" onClick={() => setStep((s) => (s - 1) as Step)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
