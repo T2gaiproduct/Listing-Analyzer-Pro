@@ -197,19 +197,6 @@ function auditScoreBadgeClass(score: number | null | undefined, pending?: boolea
   return "bg-slate-50 text-slate-400 border-slate-200";
 }
 
-function statusBadgeClass(status: ProductStatus): string {
-  switch (status) {
-    case "active":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    case "in_progress":
-      return "bg-amber-50 text-amber-700 border-amber-200";
-    case "failed":
-      return "bg-red-50 text-red-600 border-red-200";
-    default:
-      return "bg-slate-50 text-slate-600 border-slate-200";
-  }
-}
-
 function ProductThumb({ imageUrl, name }: { imageUrl: string | null; name: string }) {
   const [failed, setFailed] = useState(false);
   const src = imageUrl && !failed ? resolveImageUrl(imageUrl) : null;
@@ -631,14 +618,13 @@ export default function ProductsPage() {
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Channels</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Price</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stock</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Status</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center">
+                  <td colSpan={9} className="px-4 py-12 text-center">
                     <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs font-medium text-slate-700">No products yet</p>
                     <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
@@ -722,16 +708,6 @@ export default function ProductsPage() {
                     <td className="px-3 py-2.5 align-middle">
                       <span className="text-xs text-slate-600 tabular-nums">
                         {formatStock(product.stock, product.inStock)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 align-middle">
-                      <span
-                        className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
-                          statusBadgeClass(product.status),
-                        )}
-                      >
-                        {product.statusLabel}
                       </span>
                     </td>
                     <td
