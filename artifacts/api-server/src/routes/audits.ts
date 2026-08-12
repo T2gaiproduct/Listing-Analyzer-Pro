@@ -973,7 +973,17 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
     });
 
     await db.update(auditsTable)
-      .set({ generatedContent, updatedAt: new Date() })
+      .set({
+        generatedContent,
+        title: generatedContent.title?.trim() || audit.title,
+        bulletPoints: generatedContent.bulletPoints?.length
+          ? generatedContent.bulletPoints
+          : audit.bulletPoints,
+        targetKeywords: generatedContent.keywords?.length
+          ? generatedContent.keywords
+          : audit.targetKeywords,
+        updatedAt: new Date(),
+      })
       .where(eq(auditsTable.id, id));
 
     res.json(generatedContent);

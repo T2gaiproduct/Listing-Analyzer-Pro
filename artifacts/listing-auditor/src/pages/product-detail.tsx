@@ -281,19 +281,31 @@ function buildListingEditForm(
     generatedContent?: GeneratedContent | null;
   } | null,
 ): ProductEditForm {
-  const bullets = (product.bulletPoints?.length ? product.bulletPoints : audit?.bulletPoints)
-    ?? audit?.generatedContent?.bulletPoints
-    ?? [];
-  const tags = (product.targetKeywords?.length ? product.targetKeywords : audit?.targetKeywords)
-    ?? audit?.generatedContent?.keywords
-    ?? [];
-  const title = product.listingTitle?.trim()
+  const generatedBullets = audit?.generatedContent?.bulletPoints?.filter(Boolean) ?? [];
+  const auditBullets = audit?.bulletPoints?.filter(Boolean) ?? [];
+  const productBullets = product.bulletPoints?.filter(Boolean) ?? [];
+  const bullets = generatedBullets.length > 0
+    ? generatedBullets
+    : productBullets.length > 0
+      ? productBullets
+      : auditBullets;
+
+  const generatedTags = audit?.generatedContent?.keywords?.filter(Boolean) ?? [];
+  const auditTags = audit?.targetKeywords?.filter(Boolean) ?? [];
+  const productTags = product.targetKeywords?.filter(Boolean) ?? [];
+  const tags = generatedTags.length > 0
+    ? generatedTags
+    : productTags.length > 0
+      ? productTags
+      : auditTags;
+
+  const title = audit?.generatedContent?.title?.trim()
+    || product.listingTitle?.trim()
     || product.title?.trim()
     || audit?.title?.trim()
-    || audit?.generatedContent?.title?.trim()
     || product.name;
-  const description = product.descriptionHtml?.trim()
-    || audit?.generatedContent?.htmlDescription?.trim()
+  const description = audit?.generatedContent?.htmlDescription?.trim()
+    || product.descriptionHtml?.trim()
     || bulletsToTextarea(bullets);
 
   return {
@@ -1653,7 +1665,41 @@ export default function ProductDetailPage({ id }: { id: number }) {
     generateContent.mutate(
       { id: optimizeAuditId },
       {
-        onSuccess: () => {
+        onSuccess: (generatedContent) => {
+          queryClient.setQueryData(
+            getGetAuditQueryKey(optimizeAuditId),
+            (current) => (current
+              ? {
+                  ...current,
+                  generatedContent,
+                  title: generatedContent.title?.trim() || current.title,
+                  bulletPoints: generatedContent.bulletPoints?.length
+                    ? generatedContent.bulletPoints
+                    : current.bulletPoints,
+                  targetKeywords: generatedContent.keywords?.length
+                    ? generatedContent.keywords
+                    : current.targetKeywords,
+                }
+              : current),
+          );
+          if (optimizeAuditId !== id) {
+            queryClient.setQueryData(
+              getGetAuditQueryKey(id),
+              (current) => (current
+                ? {
+                    ...current,
+                    generatedContent,
+                    title: generatedContent.title?.trim() || current.title,
+                    bulletPoints: generatedContent.bulletPoints?.length
+                      ? generatedContent.bulletPoints
+                      : current.bulletPoints,
+                    targetKeywords: generatedContent.keywords?.length
+                      ? generatedContent.keywords
+                      : current.targetKeywords,
+                  }
+                : current),
+            );
+          }
           void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
           void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(optimizeAuditId) });
           refreshCreditBalances(queryClient);

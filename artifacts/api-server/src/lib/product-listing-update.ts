@@ -66,25 +66,38 @@ export async function applyProductListingUpdates(
     auditUpdates.targetKeywords = nextKeywords;
   }
 
-  // Listing edits update audit.title / bulletPoints / targetKeywords only.
-  // AI optimized copy lives in generatedContent and is changed only via generate-content,
-  // except descriptionHtml which may update htmlDescription without clobbering title/bullets.
   const currentGenerated = (existing.generatedContent ?? null) as GeneratedContent | null;
-  if (typeof body.descriptionHtml === "string") {
-    const htmlDescription = body.descriptionHtml.trim() || bulletsToHtmlDescription(nextBullets);
-    if (currentGenerated) {
+  const listingFieldsChanged = typeof body.listingTitle === "string"
+    || Array.isArray(body.bulletPoints)
+    || Array.isArray(body.targetKeywords)
+    || typeof body.descriptionHtml === "string";
+
+  if (listingFieldsChanged) {
+    const resolvedTitle = typeof body.listingTitle === "string"
+      ? body.listingTitle.trim()
+      : currentGenerated?.title?.trim()
+        || existing.title?.trim()
+        || "";
+    const resolvedBullets = Array.isArray(body.bulletPoints)
+      ? nextBullets
+      : currentGenerated?.bulletPoints?.length
+        ? currentGenerated.bulletPoints
+        : nextBullets;
+    const resolvedKeywords = Array.isArray(body.targetKeywords)
+      ? nextKeywords
+      : currentGenerated?.keywords?.length
+        ? currentGenerated.keywords
+        : nextKeywords;
+    const htmlDescription = typeof body.descriptionHtml === "string"
+      ? body.descriptionHtml.trim() || bulletsToHtmlDescription(resolvedBullets)
+      : currentGenerated?.htmlDescription?.trim()
+        || bulletsToHtmlDescription(resolvedBullets);
+
+    if (resolvedTitle || resolvedBullets.length > 0 || resolvedKeywords.length > 0 || htmlDescription) {
       auditUpdates.generatedContent = {
-        ...currentGenerated,
-        htmlDescription,
-      } satisfies GeneratedContent;
-    } else if (htmlDescription) {
-      const title = typeof body.listingTitle === "string"
-        ? body.listingTitle.trim()
-        : existing.title?.trim() || "";
-      auditUpdates.generatedContent = {
-        title,
-        bulletPoints: nextBullets,
-        keywords: nextKeywords,
+        title: resolvedTitle || currentGenerated?.title?.trim() || existing.title?.trim() || "",
+        bulletPoints: resolvedBullets,
+        keywords: resolvedKeywords,
         htmlDescription,
       } satisfies GeneratedContent;
     }
