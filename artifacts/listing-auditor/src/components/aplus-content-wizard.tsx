@@ -41,7 +41,7 @@ function formatAplusApiError(status: number, apiError?: string): string {
   return `Failed (${status})`;
 }
 
-function readAplusFromAudit(generatedImages: unknown): {
+export function readAplusFromAudit(generatedImages: unknown): {
   status: "idle" | "generating" | "completed" | "failed";
   modules: AplusModuleItem[];
   progress: { done: number; total: number };
@@ -92,10 +92,13 @@ export function AplusContentWizard({
   auditId,
   productName,
   embedded = false,
+  createOnly = false,
 }: {
   auditId: number;
   productName: string;
   embedded?: boolean;
+  /** Product Explorer split view: create/optimize on the right; gallery on the left. */
+  createOnly?: boolean;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -288,11 +291,13 @@ export function AplusContentWizard({
   };
 
   const isGenerating = generateAplus.isPending || aplusStatus === "generating";
+  const hasExistingModules = aplusModules.length > 0;
   const headingClass = embedded ? "text-lg font-bold" : "text-2xl font-bold";
   const subClass = embedded ? "text-xs text-slate-500 mt-0.5" : "text-base text-slate-500 mt-0.5";
 
   return (
     <div className={embedded ? "space-y-5" : "space-y-8"}>
+      {!createOnly && (
       <div className="flex items-center gap-4">
         <div className={cn(
           "rounded-xl bg-orange-100 flex items-center justify-center shrink-0",
@@ -306,8 +311,12 @@ export function AplusContentWizard({
           <p className={subClass}>Choose the modules you want to generate. You can select multiple.</p>
         </div>
       </div>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className={cn(
+        "grid gap-4",
+        createOnly ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+      )}>
         {APLUS_MODULE_CARDS.map((module) => {
           const isSelected = selectedAplusModules.includes(module.id);
           const generated = aplusModules.find((m) => m.id === module.id);
@@ -415,8 +424,10 @@ export function AplusContentWizard({
           <>
             <Sparkles className="w-4 h-4" />
             {selectedAplusModules.length > 0
-              ? `Generate ${selectedAplusModules.length} A+ Module${selectedAplusModules.length > 1 ? "s" : ""}`
-              : "Generate A+ Content"}
+              ? (createOnly && hasExistingModules
+                ? `Regenerate ${selectedAplusModules.length} Module${selectedAplusModules.length > 1 ? "s" : ""}`
+                : `Generate ${selectedAplusModules.length} A+ Module${selectedAplusModules.length > 1 ? "s" : ""}`)
+              : (createOnly && hasExistingModules ? "Optimize A+ Content" : "Generate A+ Content")}
           </>
         )}
       </Button>
@@ -441,7 +452,7 @@ export function AplusContentWizard({
         </div>
       )}
 
-      {aplusModules.length > 0 && (
+      {aplusModules.length > 0 && !createOnly && (
         <AplusModuleGallery
           auditId={auditId}
           modules={aplusModules}

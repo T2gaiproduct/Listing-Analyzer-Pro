@@ -3,6 +3,7 @@ import { ArrowRight, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { AplusContentWizard } from "@/components/aplus-content-wizard";
+import { ExistingAplusPanel } from "@/components/existing-aplus-panel";
 import { ExistingGraphicsPanel } from "@/components/existing-graphics-panel";
 import { GraphicsWizard } from "@/components/graphics-wizard";
 import {
@@ -224,7 +225,18 @@ export function ProductWorkflowStepContent({
         onSaveAndContinue={onSaveAndContinue}
         isSaving={isSavingContinue}
       >
-        <AplusContentWizard embedded auditId={auditId} productName={productName} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <ExistingAplusPanel auditId={auditId} />
+          <div className="space-y-2 min-w-0">
+            <div className="flex items-center gap-1.5 px-1">
+              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+                Optimize A+ Content
+              </p>
+            </div>
+            <AplusContentWizard embedded createOnly auditId={auditId} productName={productName} />
+          </div>
+        </div>
       </WorkflowStepShell>
     );
   }
