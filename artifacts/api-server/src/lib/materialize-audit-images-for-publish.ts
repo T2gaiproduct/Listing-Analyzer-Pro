@@ -28,7 +28,13 @@ export function sanitizeMarketplacePublishImageUrl(url: string | null | undefine
   const trimmed = url?.trim();
   if (!trimmed) return null;
   if (trimmed.includes("data:image/")) return null;
+  if (/;base64,/i.test(trimmed)) return null;
+  if (!/^https?:\/\//i.test(trimmed)) return null;
   return trimmed;
+}
+
+export function isSafeMarketplacePublishImageUrl(url: string | null | undefined): url is string {
+  return sanitizeMarketplacePublishImageUrl(url) != null;
 }
 
 export function resolvePublishImageCandidate(opts: {

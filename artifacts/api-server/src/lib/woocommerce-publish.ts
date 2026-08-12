@@ -81,6 +81,28 @@ function contentTypeForImageSource(sourceUrl: string): { contentType: string; ex
   return { contentType: "image/jpeg", ext: "jpg" };
 }
 
+function finalizeWooCommerceImages(images: WooCommerceProductImage[]): WooCommerceProductImage[] {
+  return images
+    .map((image) => {
+      const safeSrc = sanitizeMarketplacePublishImageUrl(image.src);
+      if (image.id) {
+        return {
+          id: image.id,
+          ...(safeSrc ? { src: safeSrc } : {}),
+          alt: image.alt,
+          name: image.name,
+        };
+      }
+      if (!safeSrc) return null;
+      return {
+        src: safeSrc,
+        alt: image.alt,
+        name: image.name,
+      };
+    })
+    .filter((image): image is WooCommerceProductImage => image != null && Boolean(image.id || image.src));
+}
+
 async function resolveWooCommerceProductImages(opts: {
   audit: Audit;
   connection: WooCommerceStoreConnectionWithSecret;
@@ -116,28 +138,24 @@ async function resolveWooCommerceProductImages(opts: {
     const { contentType } = contentTypeForImageSource(sourceUrl);
 
     if (buffer) {
-      try {
-        const media = await uploadWooCommerceMedia({
-          storeUrl: opts.connection.storeUrl,
-          consumerKey: opts.connection.consumerKey,
-          consumerSecret: opts.connection.consumerSecret,
-          filename,
-          contentType,
-          data: buffer,
+      const media = await uploadWooCommerceMedia({
+        storeUrl: opts.connection.storeUrl,
+        consumerKey: opts.connection.consumerKey,
+        consumerSecret: opts.connection.consumerSecret,
+        filename,
+        contentType,
+        data: buffer,
+      });
+      const key = `media:${media.id}`;
+      if (!seen.has(key)) {
+        resolved.push({
+          id: media.id,
+          alt: opts.altText,
+          name: filename,
         });
-        const key = `media:${media.id}`;
-        if (!seen.has(key)) {
-          resolved.push({
-            id: media.id,
-            alt: opts.altText,
-            name: filename,
-          });
-          seen.add(key);
-        }
-        continue;
-      } catch {
-        // Fall back to signed public URL when direct upload fails.
+        seen.add(key);
       }
+      continue;
     }
 
     const publicUrl = resolvePublishImageCandidate({
@@ -158,7 +176,7 @@ async function resolveWooCommerceProductImages(opts: {
     }
   }
 
-  if (resolved.length > 0) return resolved;
+  if (resolved.length > 0) return finalizeWooCommerceImages(resolved);
 
   const publishUrls = resolvePublishImageUrlsFromAudit({
     audit: opts.audit,
@@ -179,7 +197,7 @@ async function resolveWooCommerceProductImages(opts: {
     if (resolved.length >= 9) break;
   }
 
-  if (resolved.length > 0) return resolved;
+  if (resolved.length > 0) return finalizeWooCommerceImages(resolved);
 
   const fallback = (opts.existingImages ?? [])
     .filter((image) => image.id || image.src?.trim())
@@ -195,7 +213,7 @@ async function resolveWooCommerceProductImages(opts: {
     })
     .filter((image) => image.id || image.src);
 
-  return fallback;
+  return finalizeWooCommerceImages(fallback);
 }
 
 async function resolvePublishSku(opts: {
@@ -260,6 +278,7 @@ function buildProductPayload(opts: {
     .filter(Boolean)
     .slice(0, 15)
     .map((name) => ({ name }));
+  const safeImages = finalizeWooCommerceImages(opts.images);
 
   return {
     name: content.title,
@@ -270,7 +289,7 @@ function buildProductPayload(opts: {
     short_description: buildShortDescription(content.bulletPoints) || undefined,
     ...(opts.sku ? { sku: opts.sku } : {}),
     regular_price: opts.price ?? undefined,
-    images: opts.images.length > 0 ? opts.images : undefined,
+    images: safeImages.length > 0 ? safeImages : undefined,
     categories: category ? [{ name: category }] : undefined,
     tags: tags.length > 0 ? tags : undefined,
   };
