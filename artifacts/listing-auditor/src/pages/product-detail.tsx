@@ -1882,7 +1882,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   <CompactSummaryField label="Created" value={createdDate} />
                 </div>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-100 pt-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-slate-100 pt-3">
                 <CompactStatChip label="Orders" value={String(product.stats.totalOrders)} />
                 <CompactStatChip
                   label="Revenue"
@@ -1899,7 +1899,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   label="Marketplaces"
                   value={liveMarketplaces.length > 0 ? String(liveMarketplaces.length) : String(product.stats.marketplacesActive)}
                 />
-                <CompactStatChip label="Images" value={String(product.stats.imageCount)} />
               </div>
             </div>
           }
