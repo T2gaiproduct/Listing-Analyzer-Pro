@@ -69,6 +69,18 @@ function saveBase64ImageData(base64Data: string, dir: string, filename: string):
   return filePath;
 }
 
+/** Persist an inline data-URL image to audit storage for marketplace publish. */
+export function persistDataUrlAsAuditImage(auditId: number, dataUrl: string, index: number): string | null {
+  const trimmed = dataUrl.trim();
+  if (!trimmed.startsWith("data:image/")) return null;
+  const ext = trimmed.startsWith("data:image/png") ? "png" : "jpg";
+  const dir = ensureAuditImageDir(auditId);
+  const filename = `publish_${Date.now()}_${index}.${ext}`;
+  const saved = saveBase64ImageData(trimmed, dir, filename);
+  if (!saved) return null;
+  return imageUrlPath(auditId, filename);
+}
+
 /** Save data-URL reference images to disk for AI edit/generate calls. */
 export function saveReferenceImageUrls(parentDir: string, urls: string[] | undefined, subdir = "edit_refs"): string[] {
   if (!urls?.length) return [];

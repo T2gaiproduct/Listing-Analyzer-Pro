@@ -8,7 +8,10 @@ import {
   type ExportImageAsset,
 } from "./listing-export-shared.js";
 import type { WooCommerceStoreConnectionWithSecret } from "./marketplace-connections.js";
-import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
+import {
+  materializeAuditImagesForPublish,
+  resolvePublishImageUrlsFromAudit,
+} from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 import {
   createWooCommerceProduct,
@@ -54,16 +57,6 @@ function buildShortDescription(bulletPoints: string[]): string {
     .join("\n");
 }
 
-function isProtectedAppImageUrl(url: string): boolean {
-  return /\/api\/images\/(?:\d+|graphics\/\d+)\//i.test(url);
-}
-
-function isPublicRemoteImageUrl(url: string): boolean {
-  if (!/^https?:\/\//i.test(url)) return false;
-  if (isProtectedAppImageUrl(url)) return false;
-  return true;
-}
-
 function filenameForAsset(asset: ExportImageAsset, index: number): string {
   const fromZip = asset.zipPath.split("/").pop();
   if (fromZip && fromZip !== ".") return fromZip;
@@ -82,49 +75,18 @@ async function resolveWooCommerceProductImages(opts: {
 }): Promise<WooCommerceProductImage[]> {
   const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
   const imageAssets = buildProductImageAssets(productImages, opts.publicBaseUrl);
-  const resolved: WooCommerceProductImage[] = [];
-  const seen = new Set<string>();
+  const publishUrls = resolvePublishImageUrlsFromAudit({
+    audit: opts.audit,
+    graphicsImageRecords: opts.graphicsImageRecords,
+    graphicsProjectId: opts.graphicsProjectId,
+    publicBaseUrl: opts.publicBaseUrl,
+  });
 
-  for (const [index, asset] of imageAssets.entries()) {
-    const candidates = [
-      asset.sourceUrl?.trim(),
-      asset.absoluteUrl?.trim(),
-    ].filter((url): url is string => Boolean(url));
-
-    for (const candidate of candidates) {
-      if (seen.has(candidate)) continue;
-
-      if (isPublicRemoteImageUrl(candidate)) {
-        resolved.push({
-          src: candidate,
-          alt: opts.altText,
-          name: filenameForAsset(asset, index),
-        });
-        seen.add(candidate);
-        break;
-      }
-
-      if (isProtectedAppImageUrl(candidate) && opts.publicBaseUrl?.trim()) {
-        const signedUrl = buildSignedPublishImageUrl({
-          publicBaseUrl: opts.publicBaseUrl,
-          auditId: opts.audit.id,
-          sourceUrl: asset.sourceUrl,
-          graphicsProjectId: opts.graphicsProjectId,
-        });
-        if (signedUrl && !seen.has(signedUrl)) {
-          resolved.push({
-            src: signedUrl,
-            alt: opts.altText,
-            name: filenameForAsset(asset, index),
-          });
-          seen.add(signedUrl);
-          break;
-        }
-      }
-    }
-
-    if (resolved.length >= 9) break;
-  }
+  const resolved: WooCommerceProductImage[] = publishUrls.map((src, index) => ({
+    src,
+    alt: opts.altText,
+    name: filenameForAsset(imageAssets[index] ?? imageAssets[0]!, index),
+  }));
 
   if (resolved.length > 0) return resolved.slice(0, 9);
 
@@ -228,11 +190,12 @@ export async function publishListingToWooCommerce(opts: {
   publishMode?: WooCommercePublishMode;
 }): Promise<WooCommercePublishResult> {
   const publishMode = opts.publishMode ?? "draft";
+  const audit = await materializeAuditImagesForPublish(opts.audit);
 
   const [profile] = await db
     .select({ sku: productProfilesTable.sku })
     .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, opts.audit.id))
+    .where(eq(productProfilesTable.auditId, audit.id))
     .limit(1);
 
   const [wooListing] = await db
@@ -243,14 +206,14 @@ export async function publishListingToWooCommerce(opts: {
     })
     .from(productMarketplaceListingsTable)
     .where(and(
-      eq(productMarketplaceListingsTable.auditId, opts.audit.id),
+      eq(productMarketplaceListingsTable.auditId, audit.id),
       eq(productMarketplaceListingsTable.marketplace, "WooCommerce"),
       eq(productMarketplaceListingsTable.isDeleted, 0),
     ))
     .limit(1);
 
-  const importedSlug = woocommerceSlugFromAsin(opts.audit.asin);
-  const content = resolveListingContentForExport(opts.audit);
+  const importedSlug = woocommerceSlugFromAsin(audit.asin);
+  const content = resolveListingContentForExport(audit);
   const slug = importedSlug ?? slugify(content.title);
   if (!slug) throw new Error("Could not resolve WooCommerce product slug");
 
@@ -272,12 +235,12 @@ export async function publishListingToWooCommerce(opts: {
     existing,
     profileSku: profile?.sku,
     listingSku: wooListing?.sku,
-    auditId: opts.audit.id,
+    auditId: audit.id,
     slug,
   });
 
   const images = await resolveWooCommerceProductImages({
-    audit: opts.audit,
+    audit,
     graphicsImageRecords: opts.graphicsImageRecords,
     graphicsProjectId: opts.graphicsProjectId,
     publicBaseUrl: opts.publicBaseUrl,
@@ -286,7 +249,7 @@ export async function publishListingToWooCommerce(opts: {
   });
 
   const payload = buildProductPayload({
-    audit: opts.audit,
+    audit,
     slug,
     sku,
     price,
@@ -323,7 +286,7 @@ export async function publishListingToWooCommerce(opts: {
         consumerSecret: opts.connection.consumerSecret,
         productId: existing.id,
         product: buildProductPayload({
-          audit: opts.audit,
+          audit,
           slug,
           sku: existing.sku.trim(),
           price,
@@ -337,7 +300,7 @@ export async function publishListingToWooCommerce(opts: {
     }
   }
 
-  const resolvedSku = product.sku?.trim() || sku || existing?.sku?.trim() || `SL-${opts.audit.id}`;
+  const resolvedSku = product.sku?.trim() || sku || existing?.sku?.trim() || `SL-${audit.id}`;
 
   const listingUrl = product.permalink?.trim() || wooCommerceProductUrl(opts.connection.storeUrl, product.slug || slug);
   const listingStatus = publishMode === "live" ? "live" as const : "pending" as const;
@@ -361,16 +324,16 @@ export async function publishListingToWooCommerce(opts: {
       updatedAt: new Date(),
     })
     .where(and(
-      eq(productMarketplaceListingsTable.auditId, opts.audit.id),
+      eq(productMarketplaceListingsTable.auditId, audit.id),
       eq(productMarketplaceListingsTable.marketplace, "WooCommerce"),
       eq(productMarketplaceListingsTable.isDeleted, 0),
     ))
     .returning({ id: productMarketplaceListingsTable.id });
 
-  if (listingUpdate.length === 0 && opts.audit.workspaceId) {
+  if (listingUpdate.length === 0 && audit.workspaceId) {
     await db.insert(productMarketplaceListingsTable).values({
-      auditId: opts.audit.id,
-      workspaceId: opts.audit.workspaceId,
+      auditId: audit.id,
+      workspaceId: audit.workspaceId,
       marketplace: "WooCommerce",
       status: listingStatus,
       sku: resolvedSku,

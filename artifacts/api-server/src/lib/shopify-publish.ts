@@ -5,6 +5,10 @@ import { buildShopifyExportBundle } from "./shopify-listing-export.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import type { ShopifyStoreConnectionWithSecret } from "./marketplace-connections.js";
 import {
+  materializeAuditImagesForPublish,
+  resolvePublishImageUrlsFromAudit,
+} from "./materialize-audit-images-for-publish.js";
+import {
   createShopifyProduct,
   clearShopifyAccessTokenCache,
   findShopifyProductByHandle,
@@ -149,6 +153,35 @@ function buildRestProductPayload(opts: {
   return payload;
 }
 
+function applyResolvedPublishImagesToBundle(
+  bundle: ReturnType<typeof buildShopifyExportBundle>,
+  opts: {
+    audit: Audit;
+    graphicsImageRecords?: ImageRecord[];
+    graphicsProjectId?: number | null;
+    publicBaseUrl?: string;
+  },
+): ReturnType<typeof buildShopifyExportBundle> {
+  const resolvedUrls = resolvePublishImageUrlsFromAudit({
+    audit: opts.audit,
+    graphicsImageRecords: opts.graphicsImageRecords,
+    graphicsProjectId: opts.graphicsProjectId,
+    publicBaseUrl: opts.publicBaseUrl,
+  });
+  if (resolvedUrls.length === 0) return bundle;
+
+  let imageIndex = 0;
+  const rows = bundle.rows.map((row) => {
+    if (!row["Image Src"]?.trim()) return row;
+    const resolved = resolvedUrls[imageIndex];
+    imageIndex += 1;
+    if (!resolved) return row;
+    return { ...row, "Image Src": resolved };
+  });
+
+  return { ...bundle, rows };
+}
+
 export async function publishListingToShopify(opts: {
   connection: ShopifyStoreConnectionWithSecret;
   audit: Audit;
@@ -157,6 +190,7 @@ export async function publishListingToShopify(opts: {
   publishMode?: ShopifyPublishMode;
 }): Promise<ShopifyPublishResult> {
   const publishMode = opts.publishMode ?? "draft";
+  const audit = await materializeAuditImagesForPublish(opts.audit);
   const shopHost = parseShopifyShopHost(opts.connection.storeUrl);
   const fetchAccessToken = async () => getShopifyAccessToken({
     shopHost,
@@ -176,7 +210,7 @@ export async function publishListingToShopify(opts: {
   const [profile] = await db
     .select({ sku: productProfilesTable.sku })
     .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, opts.audit.id))
+    .where(eq(productProfilesTable.auditId, audit.id))
     .limit(1);
 
   const [shopifyListing] = await db
@@ -187,7 +221,7 @@ export async function publishListingToShopify(opts: {
     })
     .from(productMarketplaceListingsTable)
     .where(and(
-      eq(productMarketplaceListingsTable.auditId, opts.audit.id),
+      eq(productMarketplaceListingsTable.auditId, audit.id),
       eq(productMarketplaceListingsTable.marketplace, "Shopify"),
       eq(productMarketplaceListingsTable.isDeleted, 0),
     ))
@@ -195,21 +229,28 @@ export async function publishListingToShopify(opts: {
 
   const variantSku = profile?.sku?.trim()
     || shopifyListing?.sku?.trim()
-    || `SL-${opts.audit.id}`;
+    || `SL-${audit.id}`;
   const variantPrice = shopifyListing?.priceCents != null && shopifyListing.priceCents > 0
     ? (shopifyListing.priceCents / 100).toFixed(2)
     : "";
   const listingCurrency = shopifyListing?.currency?.trim() || "USD";
 
-  const bundle = buildShopifyExportBundle({
-    audit: opts.audit,
-    graphicsImageRecords: opts.graphicsImageRecords,
-    publicBaseUrl: opts.publicBaseUrl,
-    variantSku,
-    variantPrice,
-  });
+  const bundle = applyResolvedPublishImagesToBundle(
+    buildShopifyExportBundle({
+      audit,
+      graphicsImageRecords: opts.graphicsImageRecords,
+      publicBaseUrl: opts.publicBaseUrl,
+      variantSku,
+      variantPrice,
+    }),
+    {
+      audit,
+      graphicsImageRecords: opts.graphicsImageRecords,
+      publicBaseUrl: opts.publicBaseUrl,
+    },
+  );
 
-  const importedHandle = shopifyHandleFromAsin(opts.audit.asin);
+  const importedHandle = shopifyHandleFromAsin(audit.asin);
   const handle = importedHandle ?? bundle.rows[0]?.Handle;
   if (!handle) throw new Error("Could not resolve Shopify product handle");
 
@@ -287,16 +328,16 @@ export async function publishListingToShopify(opts: {
       updatedAt: new Date(),
     })
     .where(and(
-      eq(productMarketplaceListingsTable.auditId, opts.audit.id),
+      eq(productMarketplaceListingsTable.auditId, audit.id),
       eq(productMarketplaceListingsTable.marketplace, "Shopify"),
       eq(productMarketplaceListingsTable.isDeleted, 0),
     ))
     .returning({ id: productMarketplaceListingsTable.id });
 
-  if (listingUpdate.length === 0 && opts.audit.workspaceId) {
+  if (listingUpdate.length === 0 && audit.workspaceId) {
     await db.insert(productMarketplaceListingsTable).values({
-      auditId: opts.audit.id,
-      workspaceId: opts.audit.workspaceId,
+      auditId: audit.id,
+      workspaceId: audit.workspaceId,
       marketplace: "Shopify",
       status: listingStatus,
       sku,

@@ -2,15 +2,16 @@ import { and, eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
 import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
 import {
-  buildProductImageAssets,
-  collectProductImages,
   stripHtml,
   truncate,
 } from "./listing-export-shared.js";
 import { resolveAmazonMarketplace } from "./amazon-marketplaces.js";
 import { publishListingToAmazon } from "./amazon-sp-api.js";
 import type { AmazonSpSettings } from "./amazon-sp-settings.js";
-import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
+import {
+  materializeAuditImagesForPublish,
+  resolvePublishImageUrlsFromAudit,
+} from "./materialize-audit-images-for-publish.js";
 import { resolveListingContentForExport } from "./resolve-listing-content.js";
 
 const BULLET_MAX = 500;
@@ -26,16 +27,6 @@ export type AmazonPublishResult = {
   warning?: string;
 };
 
-function isProtectedAppImageUrl(url: string): boolean {
-  return /\/api\/images\/(?:\d+|graphics\/\d+)\//i.test(url);
-}
-
-function isPublicRemoteImageUrl(url: string): boolean {
-  if (!/^https?:\/\//i.test(url)) return false;
-  if (isProtectedAppImageUrl(url)) return false;
-  return true;
-}
-
 function resolveAmazonListingUrl(marketplaceCode: string, asin: string | null | undefined): string | null {
   const trimmed = asin?.trim();
   if (!trimmed) return null;
@@ -49,45 +40,7 @@ function resolvePublishImageUrls(opts: {
   graphicsProjectId?: number | null;
   publicBaseUrl?: string;
 }): string[] {
-  const productImages = collectProductImages(opts.audit, opts.graphicsImageRecords);
-  const imageAssets = buildProductImageAssets(productImages, opts.publicBaseUrl);
-  const resolved: string[] = [];
-  const seen = new Set<string>();
-
-  for (const asset of imageAssets) {
-    const candidates = [
-      asset.sourceUrl?.trim(),
-      asset.absoluteUrl?.trim(),
-    ].filter((url): url is string => Boolean(url));
-
-    for (const candidate of candidates) {
-      if (seen.has(candidate)) continue;
-
-      if (isPublicRemoteImageUrl(candidate)) {
-        resolved.push(candidate);
-        seen.add(candidate);
-        break;
-      }
-
-      if (isProtectedAppImageUrl(candidate) && opts.publicBaseUrl?.trim()) {
-        const signedUrl = buildSignedPublishImageUrl({
-          publicBaseUrl: opts.publicBaseUrl,
-          auditId: opts.audit.id,
-          sourceUrl: asset.sourceUrl,
-          graphicsProjectId: opts.graphicsProjectId,
-        });
-        if (signedUrl && !seen.has(signedUrl)) {
-          resolved.push(signedUrl);
-          seen.add(signedUrl);
-          break;
-        }
-      }
-    }
-
-    if (resolved.length >= 9) break;
-  }
-
-  return resolved;
+  return resolvePublishImageUrlsFromAudit(opts);
 }
 
 function resolvePublishSku(opts: {
@@ -110,8 +63,9 @@ export async function publishListingToAmazonMarketplace(opts: {
   graphicsProjectId?: number | null;
   publicBaseUrl?: string;
 }): Promise<AmazonPublishResult> {
+  const audit = await materializeAuditImagesForPublish(opts.audit);
   const marketplace = resolveAmazonMarketplace(opts.marketplaceCode);
-  const content = resolveListingContentForExport(opts.audit);
+  const content = resolveListingContentForExport(audit);
   if (!content.title.trim()) {
     throw new Error("Listing title is required before publishing to Amazon.");
   }
@@ -119,7 +73,7 @@ export async function publishListingToAmazonMarketplace(opts: {
   const [profile] = await db
     .select({ sku: productProfilesTable.sku })
     .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, opts.audit.id))
+    .where(eq(productProfilesTable.auditId, audit.id))
     .limit(1);
 
   const [amazonListing] = await db
@@ -130,7 +84,7 @@ export async function publishListingToAmazonMarketplace(opts: {
     })
     .from(productMarketplaceListingsTable)
     .where(and(
-      eq(productMarketplaceListingsTable.auditId, opts.audit.id),
+      eq(productMarketplaceListingsTable.auditId, audit.id),
       eq(productMarketplaceListingsTable.marketplace, "Amazon"),
       eq(productMarketplaceListingsTable.isDeleted, 0),
     ))
@@ -139,15 +93,15 @@ export async function publishListingToAmazonMarketplace(opts: {
   const sku = resolvePublishSku({
     profileSku: profile?.sku,
     listingSku: amazonListing?.sku,
-    auditId: opts.audit.id,
+    auditId: audit.id,
   });
 
-  const brand = opts.audit.brandName?.trim() || opts.audit.productName?.trim() || "Brand";
+  const brand = audit.brandName?.trim() || audit.productName?.trim() || "Brand";
   const bullets = content.bulletPoints.map((bullet) => truncate(bullet, BULLET_MAX)).slice(0, 5);
   const keywords = truncate(content.keywords.join(" ").replace(/\s+/g, " "), KEYWORDS_MAX);
   const description = truncate(stripHtml(content.htmlDescription || ""), DESCRIPTION_MAX);
   const imageUrls = resolvePublishImageUrls({
-    audit: opts.audit,
+    audit,
     graphicsImageRecords: opts.graphicsImageRecords,
     graphicsProjectId: opts.graphicsProjectId,
     publicBaseUrl: opts.publicBaseUrl,
@@ -169,7 +123,7 @@ export async function publishListingToAmazonMarketplace(opts: {
     },
   });
 
-  const listingUrl = resolveAmazonListingUrl(marketplace.id, opts.audit.asin);
+  const listingUrl = resolveAmazonListingUrl(marketplace.id, audit.asin);
   const listingStatus = opts.settings.sandbox ? "pending" as const : "live" as const;
   const listingCurrency = amazonListing?.currency?.trim() || "USD";
 
@@ -185,16 +139,16 @@ export async function publishListingToAmazonMarketplace(opts: {
       updatedAt: new Date(),
     })
     .where(and(
-      eq(productMarketplaceListingsTable.auditId, opts.audit.id),
+      eq(productMarketplaceListingsTable.auditId, audit.id),
       eq(productMarketplaceListingsTable.marketplace, "Amazon"),
       eq(productMarketplaceListingsTable.isDeleted, 0),
     ))
     .returning({ id: productMarketplaceListingsTable.id });
 
-  if (listingUpdate.length === 0 && opts.audit.workspaceId) {
+  if (listingUpdate.length === 0 && audit.workspaceId) {
     await db.insert(productMarketplaceListingsTable).values({
-      auditId: opts.audit.id,
-      workspaceId: opts.audit.workspaceId,
+      auditId: audit.id,
+      workspaceId: audit.workspaceId,
       marketplace: "Amazon",
       status: listingStatus,
       sku,

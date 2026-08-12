@@ -96,10 +96,12 @@ export function collectAplusImages(audit: Audit): { url: string; moduleId: strin
 }
 
 export function toAbsoluteAssetUrl(url: string, publicBaseUrl?: string): string {
-  if (/^https?:\/\//i.test(url)) return url;
-  if (!publicBaseUrl) return url;
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("data:image/")) return trimmed;
+  if (!publicBaseUrl) return trimmed;
   const base = publicBaseUrl.replace(/\/$/, "");
-  return url.startsWith("/") ? `${base}${url}` : `${base}/${url}`;
+  return trimmed.startsWith("/") ? `${base}${trimmed}` : `${base}/${trimmed}`;
 }
 
 export function buildProductImageAssets(
