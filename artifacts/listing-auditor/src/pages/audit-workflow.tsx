@@ -17,6 +17,7 @@ import {
   Wand2,
   FileText,
   Image as ImageIcon,
+  Package,
   Trash2,
   X,
   Zap,
@@ -1328,6 +1329,25 @@ export default function AuditWorkflow() {
     autoSave(activeStep);
   }, [autoSave, activeStep]);
 
+  const handleOpenProductExplorer = useCallback(() => {
+    if (!currentAuditId) {
+      toast({ title: "Save project first", description: "Complete the Upload step before continuing.", variant: "destructive" });
+      return;
+    }
+    if (!generatedContent) {
+      toast({ title: "Listing content required", description: "Generate listing content before continuing to Product Explorer.", variant: "destructive" });
+      return;
+    }
+    autoSave(5);
+    persistWorkflowStep(5);
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    nav(`${basePath}/products/${currentAuditId}?source=listing`);
+    toast({
+      title: "Saved to Product Explorer",
+      description: "Publish to Amazon, Shopify, or WooCommerce from the Marketplaces step.",
+    });
+  }, [autoSave, currentAuditId, generatedContent, nav, persistWorkflowStep, queryClient, toast]);
+
   const handleStepClick = useCallback((step: StepId) => {
     setActiveStep(step);
     if (step > 1) persistWorkflowStep(step);
@@ -2184,6 +2204,38 @@ export default function AuditWorkflow() {
                 <p className="text-sm font-semibold text-amber-900">✦ A+ Content requires Brand Registry</p>
                 <p className="text-sm text-amber-700 mt-1">Ensure your brand is enrolled in Amazon Brand Registry before publishing A+ Content modules.</p>
               </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                    <Package className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Continue in Product Explorer</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Save this product and publish to Amazon, Shopify, or WooCommerce from the Marketplaces step.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 shrink-0 w-full sm:w-auto"
+                  disabled={!currentAuditId || !generatedContent || patchAudit.isPending}
+                  onClick={handleOpenProductExplorer}
+                >
+                  {patchAudit.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Package className="w-4 h-4 mr-2" />
+                      Save to Product Explorer
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -2204,19 +2256,29 @@ export default function AuditWorkflow() {
 
         <div className="flex items-center gap-3">
           {activeStep === 5 && currentAuditId !== null && (
-            <Button
-              variant="outline"
-              className="rounded-xl border-orange-300 text-orange-600 hover:bg-orange-50 gap-2"
-              onClick={handleSave}
-              disabled={patchAudit.isPending || !isDirty}
-            >
-              {patchAudit.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Save Project
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="rounded-xl border-orange-300 text-orange-600 hover:bg-orange-50 gap-2"
+                onClick={handleSave}
+                disabled={patchAudit.isPending || !isDirty}
+              >
+                {patchAudit.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Project
+              </Button>
+              <Button
+                className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
+                onClick={handleOpenProductExplorer}
+                disabled={!generatedContent || patchAudit.isPending}
+              >
+                <Package className="w-4 h-4" />
+                Save to Product Explorer
+              </Button>
+            </>
           )}
 
           {activeStep < 5 && (
