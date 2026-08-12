@@ -172,7 +172,30 @@ export async function findWooCommerceProductBySlug(input: WooCommerceAuth & {
 
   const data = await readWooCommerceJson<unknown>(response, storeUrl);
   if (!Array.isArray(data) || data.length === 0) return null;
-  return data[0] as WooCommerceRestProduct;
+  const summary = data[0] as WooCommerceRestProduct;
+  if (!summary.id) return summary;
+
+  try {
+    return await getWooCommerceProductById({
+      storeUrl: input.storeUrl,
+      consumerKey: input.consumerKey,
+      consumerSecret: input.consumerSecret,
+      productId: summary.id,
+    });
+  } catch {
+    return summary;
+  }
+}
+
+export async function getWooCommerceProductById(input: WooCommerceAuth & {
+  productId: number;
+}): Promise<WooCommerceRestProduct> {
+  return wooCommerceRequest<WooCommerceRestProduct>({
+    storeUrl: input.storeUrl,
+    consumerKey: input.consumerKey,
+    consumerSecret: input.consumerSecret,
+    path: `/wp-json/wc/v3/products/${input.productId}`,
+  });
 }
 
 export async function findWooCommerceProductBySku(input: WooCommerceAuth & {

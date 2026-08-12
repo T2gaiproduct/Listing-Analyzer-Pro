@@ -78,6 +78,8 @@ export const auditsTable = pgTable("audits", {
   bulletPoints: jsonb("bullet_points").notNull().$type<string[]>(),
   imageUrls: jsonb("image_urls").notNull().$type<string[]>(),
   targetKeywords: jsonb("target_keywords").notNull().$type<string[]>(),
+  /** Raw HTML description synced from WooCommerce/Shopify store API (not AI-generated). */
+  storeDescriptionHtml: text("store_description_html"),
   overallScore: integer("overall_score").notNull().default(0),
   status: text("status").notNull().default("pending"),
   result: jsonb("result").$type<AuditResult>(),

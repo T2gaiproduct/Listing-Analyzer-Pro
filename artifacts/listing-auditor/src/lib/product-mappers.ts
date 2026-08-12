@@ -279,6 +279,7 @@ interface AuditLike {
   };
   bulletPoints?: string[];
   targetKeywords?: string[];
+  storeDescriptionHtml?: string | null;
   result?: AuditResult | null;
   competitors?: Array<{ id?: number; productName?: string; asin?: string | null }>;
 }
@@ -374,8 +375,9 @@ export function mapAuditToProductDetail(
     listingTitle: audit.title?.trim() || name,
     bulletPoints: (audit.bulletPoints ?? []).filter((bullet) => typeof bullet === "string"),
     targetKeywords: (audit.targetKeywords ?? []).filter((keyword) => typeof keyword === "string"),
-    descriptionHtml: audit.generatedContent?.htmlDescription?.trim()
-      || (audit.bulletPoints ?? []).map((bullet) => `<li>${bullet}</li>`).join(""),
+    descriptionHtml: audit.storeDescriptionHtml?.trim()
+      || audit.generatedContent?.htmlDescription?.trim()
+      || "",
     manager: { name: managerName, initials: managerInitials(managerName) },
     referenceLinks,
     driveFolder: `${brand} / ${name}`,

@@ -26,31 +26,27 @@ export function parseWooCommerceTags(product: WooCommerceRestProduct): string[] 
     .slice(0, 30);
 }
 
+/** WooCommerce main Description field (`product.description`) — not short_description. */
+export function resolveWooCommerceStoreDescriptionHtml(product: WooCommerceRestProduct): string {
+  return product.description?.trim() ?? "";
+}
+
+/** @deprecated Use resolveWooCommerceStoreDescriptionHtml for store sync. */
 export function resolveWooCommerceDescriptionHtml(product: WooCommerceRestProduct): string {
-  const full = product.description?.trim();
+  const full = resolveWooCommerceStoreDescriptionHtml(product);
   if (full) return full;
-  const short = product.short_description?.trim();
-  if (short) return short;
-  return "";
+  return product.short_description?.trim() ?? "";
 }
 
 export function parseWooCommerceBulletPoints(product: WooCommerceRestProduct): string[] {
-  const bullets: string[] = [];
   const short = product.short_description ? stripHtml(product.short_description) : "";
-  if (short) {
-    bullets.push(...short.split(/\n+/).map((line) => line.trim()).filter((line) => line.length > 3).slice(0, 5));
-  }
-  if (bullets.length === 0 && product.description) {
-    const description = stripHtml(product.description);
-    bullets.push(
-      ...description
-        .split(/(?<=[.!?])\s+/)
-        .map((sentence) => sentence.trim())
-        .filter((sentence) => sentence.length > 20 && sentence.length < 300)
-        .slice(0, 5),
-    );
-  }
-  return bullets.slice(0, 7);
+  if (!short) return [];
+
+  return short
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 3)
+    .slice(0, 7);
 }
 
 function buildStoreDescriptionContent(htmlDescription: string): GeneratedContent | null {
@@ -135,6 +131,7 @@ export async function refreshWooCommerceProduct(input: {
     .slice(0, 9);
   const sku = input.product.sku?.trim() || input.product.slug.toUpperCase();
   const category = input.product.categories?.[0]?.name?.trim() || null;
+  const storeDescriptionHtml = resolveWooCommerceStoreDescriptionHtml(input.product) || null;
   const [existing] = await db
     .select({
       generatedContent: auditsTable.generatedContent,
@@ -143,11 +140,13 @@ export async function refreshWooCommerceProduct(input: {
     .from(auditsTable)
     .where(eq(auditsTable.id, input.auditId))
     .limit(1);
-  const generatedContent = mergeStoreDescriptionContent(
-    existing?.generatedContent as GeneratedContent | null | undefined,
-    resolveWooCommerceDescriptionHtml(input.product),
-    Boolean(existing?.sourceListingContent),
-  );
+  const generatedContent = storeDescriptionHtml && !existing?.sourceListingContent
+    ? mergeStoreDescriptionContent(
+      existing?.generatedContent as GeneratedContent | null | undefined,
+      storeDescriptionHtml,
+      false,
+    )
+    : (existing?.generatedContent as GeneratedContent | null | undefined) ?? null;
 
   await db
     .update(auditsTable)
@@ -159,6 +158,7 @@ export async function refreshWooCommerceProduct(input: {
       imageUrls,
       targetKeywords: parseWooCommerceTags(input.product),
       category,
+      storeDescriptionHtml,
       ...(generatedContent ? { generatedContent } : {}),
       updatedAt: new Date(),
     })
@@ -266,7 +266,10 @@ export async function syncWooCommerceProducts(input: {
       const sku = product.sku?.trim() || slug.toUpperCase();
       const listing = resolveListingFields(product);
       const category = product.categories?.[0]?.name?.trim() || null;
-      const generatedContent = buildStoreDescriptionContent(resolveWooCommerceDescriptionHtml(product));
+      const storeDescriptionHtml = resolveWooCommerceStoreDescriptionHtml(product) || null;
+      const generatedContent = storeDescriptionHtml
+        ? buildStoreDescriptionContent(storeDescriptionHtml)
+        : null;
 
       const [audit] = await db
         .insert(auditsTable)
@@ -283,6 +286,7 @@ export async function syncWooCommerceProducts(input: {
           bulletPoints,
           imageUrls,
           targetKeywords: parseWooCommerceTags(product),
+          storeDescriptionHtml,
           generatedContent,
           overallScore: 0,
           status: "pending",

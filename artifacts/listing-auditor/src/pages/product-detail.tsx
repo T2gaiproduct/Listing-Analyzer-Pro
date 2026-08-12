@@ -279,6 +279,7 @@ function resolveExistingListingContent(
     bulletPoints?: string[] | null;
     targetKeywords?: string[] | null;
     category?: string | null;
+    storeDescriptionHtml?: string | null;
     generatedContent?: GeneratedContent | null;
     sourceListingContent?: GeneratedContent | null;
   } | null,
@@ -317,14 +318,13 @@ function resolveExistingListingContent(
       || "");
 
   const generatedDesc = audit?.generatedContent?.htmlDescription?.trim();
-  const productDesc = product?.descriptionHtml?.trim();
+  const storeDesc = audit?.storeDescriptionHtml?.trim() || product?.descriptionHtml?.trim();
   const htmlDescription = overwritten
     ? bulletsToHtmlDescription(bulletPoints)
-    : (generatedDesc && (!productDesc || isBulletDerivedDescription(productDesc, bulletPoints))
-      ? generatedDesc
-      : (productDesc && !isBulletDerivedDescription(productDesc, bulletPoints)
-        ? productDesc
-        : (generatedDesc || bulletsToHtmlDescription(bulletPoints))));
+    : (storeDesc
+      || (generatedDesc && !isBulletDerivedDescription(generatedDesc, bulletPoints)
+        ? generatedDesc
+        : bulletsToHtmlDescription(bulletPoints)));
 
   const category = product?.category?.trim() || audit?.category?.trim() || null;
 
@@ -1379,6 +1379,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           ? auditTags
           : generatedTags,
       descriptionHtml: product.descriptionHtml?.trim()
+        || effectiveAudit?.storeDescriptionHtml?.trim()
         || effectiveAudit?.generatedContent?.htmlDescription?.trim()
         || "",
       listingPrice,

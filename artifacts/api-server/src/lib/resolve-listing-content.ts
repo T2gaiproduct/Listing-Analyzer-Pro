@@ -1,5 +1,6 @@
 import type { Audit, GeneratedContent } from "@workspace/db";
 import { readGeneratedContent } from "./listing-export-shared.js";
+import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -35,6 +36,10 @@ export function resolveListingContentForExport(audit: Audit): GeneratedContent {
 }
 
 export function resolveDescriptionHtml(audit: Audit): string {
+  if (isWooCommerceImportAsin(audit.asin) && audit.storeDescriptionHtml?.trim()) {
+    return audit.storeDescriptionHtml.trim();
+  }
+
   const generated = audit.generatedContent as GeneratedContent | null | undefined;
   if (generated?.htmlDescription?.trim()) {
     return generated.htmlDescription.trim();
