@@ -90,13 +90,15 @@ export function ExistingGraphicsPanel({
     [audit?.imageUrls],
   );
 
+  const uploadedUrlSet = useMemo(() => new Set(uploadedImages), [uploadedImages]);
+
   const generatedGraphics = useMemo(() => {
     const items: Array<{ url: string; label: string }> = [];
     const seen = new Set<string>();
 
     const add = (url: string | undefined, label: string) => {
       const trimmed = url?.trim();
-      if (!trimmed || seen.has(trimmed)) return;
+      if (!trimmed || seen.has(trimmed) || uploadedUrlSet.has(trimmed)) return;
       seen.add(trimmed);
       items.push({ url: trimmed, label });
     };
@@ -117,7 +119,7 @@ export function ExistingGraphicsPanel({
     }
 
     return items;
-  }, [audit?.generatedImages, audit?.imageRecords, graphicsProject?.imageRecords]);
+  }, [audit?.generatedImages, audit?.imageRecords, graphicsProject?.imageRecords, uploadedUrlSet]);
 
   const hasContent = uploadedImages.length > 0 || generatedGraphics.length > 0;
 
@@ -132,7 +134,7 @@ export function ExistingGraphicsPanel({
 
       <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
         <div className="border-b border-slate-100 bg-slate-50 px-4 py-2.5">
-          <p className="text-[10px] font-semibold text-slate-700">Current Listing</p>
+          <p className="text-[10px] font-semibold text-slate-700">Product images &amp; graphics</p>
         </div>
         <div className="px-4 py-4 space-y-4">
           {!hasContent ? (
