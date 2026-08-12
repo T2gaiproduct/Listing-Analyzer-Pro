@@ -70,6 +70,90 @@ export function nextProductExplorerWorkflowStep(
   if (step >= 8) return null;
   return (step + 1) as ProductExplorerWorkflowStepId;
 }
+
+export type ProductExplorerStepCompletionInput = {
+  imageUrls?: string[] | null;
+  imageRecords?: Array<{ currentUrl?: string | null }> | null;
+  productImageUrl?: string | null;
+  generatedContent?: {
+    title?: string | null;
+    bulletPoints?: string[] | null;
+    htmlDescription?: string | null;
+  } | null;
+  title?: string | null;
+  bulletPoints?: string[] | null;
+  generatedImages?: unknown;
+  liveMarketplaceCount?: number;
+  marketplaceActiveCount?: number;
+  totalOrders?: number;
+  totalRevenue?: number | null;
+};
+
+function countSourceImages(input: ProductExplorerStepCompletionInput): number {
+  let count = 0;
+  if (input.productImageUrl?.trim()) count += 1;
+  for (const url of input.imageUrls ?? []) {
+    if (url?.trim()) count += 1;
+  }
+  return count;
+}
+
+function hasListingContent(input: ProductExplorerStepCompletionInput): boolean {
+  const generated = input.generatedContent;
+  if (generated?.title?.trim()) {
+    return Boolean(
+      generated.bulletPoints?.some((b) => b.trim())
+      || generated.htmlDescription?.trim(),
+    );
+  }
+  return Boolean(input.title?.trim() && input.bulletPoints?.some((b) => b.trim()));
+}
+
+function hasGeneratedGraphics(input: ProductExplorerStepCompletionInput): boolean {
+  if (input.imageRecords?.some((rec) => rec.currentUrl?.trim())) return true;
+  const generated = input.generatedImages as {
+    main?: string[];
+    lifestyle?: string[];
+    infographic?: string[];
+  } | null | undefined;
+  if (!generated) return false;
+  return [...(generated.main ?? []), ...(generated.lifestyle ?? []), ...(generated.infographic ?? [])]
+    .some((url) => Boolean(url?.trim()));
+}
+
+function hasAplusContent(generatedImages: unknown): boolean {
+  const aplus = (generatedImages as { aplus?: { modules?: unknown[]; status?: string } } | null)?.aplus;
+  if (!aplus) return false;
+  if (aplus.status === "completed") return true;
+  return (aplus.modules?.length ?? 0) > 0;
+}
+
+/** Step completion from actual product/audit data (not API currentStep alone). */
+export function productExplorerStepCompletedFromData(
+  input: ProductExplorerStepCompletionInput,
+): Record<ProductExplorerWorkflowStepId, boolean> {
+  const uploadDone = countSourceImages(input) > 0;
+  const listingDone = hasListingContent(input);
+  const graphicsDone = hasGeneratedGraphics(input);
+  const aplusDone = hasAplusContent(input.generatedImages);
+  const marketplacesDone = (input.liveMarketplaceCount ?? 0) > 0
+    || (input.marketplaceActiveCount ?? 0) > 0;
+  const ordersDone = (input.totalOrders ?? 0) > 0;
+  const salesDone = (input.totalRevenue ?? 0) > 0;
+
+  return {
+    1: uploadDone,
+    2: uploadDone,
+    3: listingDone,
+    4: graphicsDone,
+    5: aplusDone,
+    6: marketplacesDone,
+    7: ordersDone,
+    8: salesDone,
+  };
+}
+
+/** @deprecated Use productExplorerStepCompletedFromData — currentStep alone over-marked steps complete. */
 export function productExplorerStepCompletedFromCurrentStep(
   currentStep: number | null | undefined,
   status?: string | null,

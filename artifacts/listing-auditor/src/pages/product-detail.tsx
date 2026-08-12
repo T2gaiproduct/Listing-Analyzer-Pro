@@ -52,7 +52,7 @@ import {
   apiStepToProductExplorerStep,
   nextProductExplorerWorkflowStep,
   productExplorerSaveContinueApiStep,
-  productExplorerStepCompletedFromCurrentStep,
+  productExplorerStepCompletedFromData,
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
@@ -1620,9 +1620,33 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
   const showBuildBrandWorkflow = resolvedSource === "listing" || resolvedSource === "audit";
-  const workflowStepCompleted = productExplorerStepCompletedFromCurrentStep(
-    product?.currentStep,
-    product?.status,
+  const workflowStepCompleted = useMemo(
+    () => productExplorerStepCompletedFromData({
+      imageUrls: effectiveAudit?.imageUrls,
+      imageRecords: effectiveAudit?.imageRecords,
+      productImageUrl: product?.imageUrl,
+      generatedContent: effectiveAudit?.generatedContent,
+      title: effectiveAudit?.title,
+      bulletPoints: effectiveAudit?.bulletPoints,
+      generatedImages: effectiveAudit?.generatedImages,
+      liveMarketplaceCount: liveMarketplaces.length,
+      marketplaceActiveCount: marketplaceData?.activeCount ?? 0,
+      totalOrders: product?.stats.totalOrders,
+      totalRevenue: product?.stats.revenue,
+    }),
+    [
+      effectiveAudit?.imageUrls,
+      effectiveAudit?.imageRecords,
+      effectiveAudit?.generatedContent,
+      effectiveAudit?.title,
+      effectiveAudit?.bulletPoints,
+      effectiveAudit?.generatedImages,
+      product?.imageUrl,
+      product?.stats.totalOrders,
+      product?.stats.revenue,
+      liveMarketplaces.length,
+      marketplaceData?.activeCount,
+    ],
   );
 
   const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
