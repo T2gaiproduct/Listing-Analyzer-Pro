@@ -170,6 +170,12 @@ function bulletsToHtmlDescription(bullets: string[]): string {
   return `<ul>\n${items.map((bullet) => `  <li>${bullet}</li>`).join("\n")}\n</ul>`;
 }
 
+function isBulletDerivedDescription(htmlDescription: string, bullets: string[]): boolean {
+  const trimmed = htmlDescription.trim();
+  if (!trimmed) return true;
+  return trimmed === bulletsToHtmlDescription(bullets).trim();
+}
+
 type ListingContentView = {
   title: string;
   bulletPoints: string[];
@@ -314,9 +320,11 @@ function resolveExistingListingContent(
   const productDesc = product?.descriptionHtml?.trim();
   const htmlDescription = overwritten
     ? bulletsToHtmlDescription(bulletPoints)
-    : (productDesc && (!generatedDesc || productDesc !== generatedDesc)
-      ? productDesc
-      : (generatedDesc || bulletsToHtmlDescription(bulletPoints)));
+    : (generatedDesc && (!productDesc || isBulletDerivedDescription(productDesc, bulletPoints))
+      ? generatedDesc
+      : (productDesc && !isBulletDerivedDescription(productDesc, bulletPoints)
+        ? productDesc
+        : (generatedDesc || bulletsToHtmlDescription(bulletPoints))));
 
   const category = product?.category?.trim() || audit?.category?.trim() || null;
 
@@ -1379,8 +1387,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }, [product, marketplaceData, effectiveAudit]);
 
   const existingListingContent = useMemo(
-    () => resolveExistingListingContent(product, effectiveAudit),
-    [product, effectiveAudit],
+    () => resolveExistingListingContent(listingProduct, effectiveAudit),
+    [listingProduct, effectiveAudit],
   );
 
   const listingSuggestions = useMemo(

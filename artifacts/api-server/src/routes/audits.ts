@@ -16,6 +16,7 @@ import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
 import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
+import { maybeRefreshStoreProductListing, reloadAuditRow } from "../lib/store-product-listing-refresh.js";
 import { listProductMarketplaces } from "../lib/product-marketplaces.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
@@ -569,6 +570,19 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
   });
   if (refreshedUrls) {
     audit.imageUrls = refreshedUrls;
+  }
+
+  const listingRefreshed = await maybeRefreshStoreProductListing({
+    auditId: audit.id,
+    workspaceId,
+    asin: audit.asin,
+    sourceListingContent: audit.sourceListingContent,
+  });
+  if (listingRefreshed) {
+    const refreshedAudit = await reloadAuditRow(audit.id);
+    if (refreshedAudit) {
+      Object.assign(audit, refreshedAudit);
+    }
   }
 
   const competitors = await db

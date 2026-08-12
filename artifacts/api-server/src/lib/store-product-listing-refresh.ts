@@ -1,14 +1,18 @@
+import { eq } from "drizzle-orm";
+import { auditsTable, db } from "@workspace/db";
 import { findWooCommerceProductBySlug } from "./woocommerce-admin-client.js";
 import { getWooCommerceConnection } from "./marketplace-connections.js";
 import { isWooCommerceImportAsin, woocommerceSlugFromAsin } from "./woocommerce-import-utils.js";
 import { refreshWooCommerceProduct } from "./woocommerce-product-sync.js";
 
-/** Refresh WooCommerce listing fields (tags, description, category, bullets) on product detail load. */
+/** Refresh WooCommerce listing fields (tags, description, category, bullets) on product/audit load. */
 export async function maybeRefreshStoreProductListing(input: {
   auditId: number;
   workspaceId: number | null;
   asin: string | null | undefined;
+  sourceListingContent?: unknown | null;
 }): Promise<boolean> {
+  if (input.sourceListingContent) return false;
   if (!input.workspaceId || !input.asin?.trim() || !isWooCommerceImportAsin(input.asin)) {
     return false;
   }
@@ -39,4 +43,13 @@ export async function maybeRefreshStoreProductListing(input: {
   } catch {
     return false;
   }
+}
+
+export async function reloadAuditRow(auditId: number) {
+  const [row] = await db
+    .select()
+    .from(auditsTable)
+    .where(eq(auditsTable.id, auditId))
+    .limit(1);
+  return row ?? null;
 }

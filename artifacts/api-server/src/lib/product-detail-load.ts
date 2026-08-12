@@ -38,7 +38,7 @@ import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 import { resolveDescriptionHtml } from "./resolve-listing-content.js";
 import { readGeneratedContent } from "./listing-export-shared.js";
 import { maybeRefreshStoreProductImages } from "./store-product-image-refresh.js";
-import { maybeRefreshStoreProductListing } from "./store-product-listing-refresh.js";
+import { maybeRefreshStoreProductListing, reloadAuditRow } from "./store-product-listing-refresh.js";
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -309,13 +309,10 @@ async function loadAuditDetail(
       auditId: id,
       workspaceId,
       asin: row.asin,
+      sourceListingContent: row.sourceListingContent,
     });
     if (listingRefreshed) {
-      const [refreshedRow] = await db
-        .select()
-        .from(auditsTable)
-        .where(eq(auditsTable.id, id))
-        .limit(1);
+      const refreshedRow = await reloadAuditRow(id);
       if (refreshedRow) {
         Object.assign(row, refreshedRow);
       }

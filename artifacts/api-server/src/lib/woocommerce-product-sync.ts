@@ -62,11 +62,20 @@ function buildStoreDescriptionContent(htmlDescription: string): GeneratedContent
 function mergeStoreDescriptionContent(
   existing: GeneratedContent | null | undefined,
   htmlDescription: string,
+  preserveListingFields: boolean,
 ): GeneratedContent | null {
-  const storeDescription = buildStoreDescriptionContent(htmlDescription);
-  if (!storeDescription) return existing ?? null;
-  if (existing?.title?.trim()) return existing;
-  return storeDescription;
+  const trimmed = htmlDescription.trim();
+  if (!trimmed) return existing ?? null;
+  if (preserveListingFields) return existing ?? null;
+
+  if (!existing) {
+    return { title: "", bulletPoints: [], keywords: [], htmlDescription: trimmed };
+  }
+
+  return {
+    ...existing,
+    htmlDescription: trimmed,
+  };
 }
 
 function resolveListingFields(product: WooCommerceRestProduct) {
@@ -127,13 +136,17 @@ export async function refreshWooCommerceProduct(input: {
   const sku = input.product.sku?.trim() || input.product.slug.toUpperCase();
   const category = input.product.categories?.[0]?.name?.trim() || null;
   const [existing] = await db
-    .select({ generatedContent: auditsTable.generatedContent })
+    .select({
+      generatedContent: auditsTable.generatedContent,
+      sourceListingContent: auditsTable.sourceListingContent,
+    })
     .from(auditsTable)
     .where(eq(auditsTable.id, input.auditId))
     .limit(1);
   const generatedContent = mergeStoreDescriptionContent(
     existing?.generatedContent as GeneratedContent | null | undefined,
     resolveWooCommerceDescriptionHtml(input.product),
+    Boolean(existing?.sourceListingContent),
   );
 
   await db
