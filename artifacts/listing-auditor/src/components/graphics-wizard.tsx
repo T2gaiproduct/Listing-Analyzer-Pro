@@ -182,12 +182,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     }
   }, [createOnly, imageUrls]);
 
-  useEffect(() => {
-    if (createOnly && step === 1) {
-      setStep(2);
-    }
-  }, [createOnly, step]);
-
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);
@@ -343,6 +337,12 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (createOnly && step === 1) {
+      setStep(2);
+    }
+  }, [createOnly, step]);
 
   const createProject = useMutation({
     mutationFn: async (input: {
