@@ -1,22 +1,15 @@
+import { fetchWooCommerceProducts } from "./woocommerce-admin-client.js";
+
 export type WooCommerceConnectionVerification = {
   ok: boolean;
   message: string;
 };
-
-function normalizeWooCommerceStoreUrl(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) throw new Error("Store URL is required");
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  const url = new URL(withProtocol);
-  return url.toString().replace(/\/$/, "");
-}
 
 export async function verifyWooCommerceConnection(input: {
   storeUrl: string;
   consumerKey: string;
   consumerSecret: string;
 }): Promise<WooCommerceConnectionVerification> {
-  const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
   const consumerKey = input.consumerKey.trim();
   const consumerSecret = input.consumerSecret.trim();
   if (!consumerKey || !consumerSecret) {
@@ -26,36 +19,26 @@ export async function verifyWooCommerceConnection(input: {
     };
   }
 
-  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
-  const endpoint = `${storeUrl}/wp-json/wc/v3/products?per_page=1`;
-  const response = await fetch(endpoint, {
-    method: "GET",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      Accept: "application/json",
-    },
-  });
-
-  if (response.status === 401 || response.status === 403) {
+  try {
+    await fetchWooCommerceProducts({
+      storeUrl: input.storeUrl,
+      consumerKey,
+      consumerSecret,
+      page: 1,
+      perPage: 1,
+    });
     return {
-      ok: false,
-      message: "WooCommerce rejected the credentials. Check the consumer key and secret, and ensure the API key has Read/Write permissions.",
+      ok: true,
+      message: "WooCommerce connection verified for product catalog access.",
     };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not verify WooCommerce credentials";
+    if (message.includes("401") || message.includes("403")) {
+      return {
+        ok: false,
+        message: "WooCommerce rejected the credentials. Check the consumer key and secret, and ensure the API key has Read/Write permissions.",
+      };
+    }
+    return { ok: false, message };
   }
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    const detail = text.slice(0, 200).trim();
-    return {
-      ok: false,
-      message: detail
-        ? `Could not reach WooCommerce API (${response.status}): ${detail}`
-        : `Could not reach WooCommerce API (${response.status}). Confirm the store URL and that WooCommerce REST API is enabled.`,
-    };
-  }
-
-  return {
-    ok: true,
-    message: "WooCommerce connection verified for product catalog access.",
-  };
 }

@@ -14,7 +14,7 @@ export type WooCommerceRestProduct = {
   images?: Array<{ id?: number; src?: string; name?: string; alt?: string }>;
 };
 
-function normalizeStoreUrl(raw: string): string {
+export function normalizeWooCommerceStoreUrl(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) throw new Error("Store URL is required");
   const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -22,8 +22,57 @@ function normalizeStoreUrl(raw: string): string {
   return url.toString().replace(/\/$/, "");
 }
 
+function storeHostname(storeUrl: string): string {
+  return new URL(normalizeWooCommerceStoreUrl(storeUrl)).hostname.toLowerCase();
+}
+
 function basicAuthHeader(consumerKey: string, consumerSecret: string): string {
   return `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64")}`;
+}
+
+function assertWooCommerceResponseUrl(storeUrl: string, response: Response): void {
+  const expected = storeHostname(storeUrl);
+  const actual = new URL(response.url).hostname.toLowerCase();
+  if (actual !== expected) {
+    throw new Error(
+      `WooCommerce store URL redirected to ${actual}. The site may be offline, expired, or the URL may be wrong. Update the store URL on Marketplaces and reconnect.`,
+    );
+  }
+}
+
+async function readWooCommerceJson<T>(response: Response, storeUrl: string): Promise<T> {
+  assertWooCommerceResponseUrl(storeUrl, response);
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error("WooCommerce returned an empty response. Check the store URL and REST API settings.");
+  }
+  if (text.trimStart().startsWith("<")) {
+    throw new Error(
+      "WooCommerce returned a web page instead of JSON. The store may be offline, password-protected, or the REST API may be disabled.",
+    );
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("WooCommerce returned invalid JSON. Check the store URL and REST API credentials.");
+  }
+}
+
+async function wooCommerceFetch(
+  storeUrl: string,
+  endpoint: string,
+  init: RequestInit,
+): Promise<Response> {
+  const response = await fetch(endpoint, init);
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location")?.trim();
+    throw new Error(
+      location
+        ? `WooCommerce store URL redirected to ${location}. The site may be offline or expired. Update the store URL on Marketplaces and reconnect.`
+        : "WooCommerce store URL redirected away. The site may be offline or expired. Update the store URL on Marketplaces and reconnect.",
+    );
+  }
+  return response;
 }
 
 type WooCommerceAuth = {
@@ -32,18 +81,30 @@ type WooCommerceAuth = {
   consumerSecret: string;
 };
 
+function wooCommerceAuthHeaders(
+  consumerKey: string,
+  consumerSecret: string,
+  extra?: Record<string, string>,
+): Record<string, string> {
+  return {
+    Authorization: basicAuthHeader(consumerKey, consumerSecret),
+    Accept: "application/json",
+    ...extra,
+  };
+}
+
 async function wooCommerceRequest<T>(
   input: WooCommerceAuth & { path: string; method?: string; body?: unknown },
 ): Promise<T> {
-  const storeUrl = normalizeStoreUrl(input.storeUrl);
+  const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
   const endpoint = `${storeUrl}${input.path.startsWith("/") ? input.path : `/${input.path}`}`;
-  const response = await fetch(endpoint, {
+  const response = await wooCommerceFetch(storeUrl, endpoint, {
     method: input.method ?? "GET",
-    headers: {
-      Authorization: basicAuthHeader(input.consumerKey, input.consumerSecret),
-      Accept: "application/json",
-      ...(input.body ? { "Content-Type": "application/json" } : {}),
-    },
+    headers: wooCommerceAuthHeaders(
+      input.consumerKey,
+      input.consumerSecret,
+      input.body ? { "Content-Type": "application/json" } : undefined,
+    ),
     ...(input.body ? { body: JSON.stringify(input.body) } : {}),
   });
 
@@ -56,7 +117,7 @@ async function wooCommerceRequest<T>(
     );
   }
 
-  return response.json() as Promise<T>;
+  return readWooCommerceJson<T>(response, storeUrl);
 }
 
 export async function fetchWooCommerceProducts(input: {
@@ -66,16 +127,13 @@ export async function fetchWooCommerceProducts(input: {
   page?: number;
   perPage?: number;
 }): Promise<WooCommerceRestProduct[]> {
-  const storeUrl = normalizeStoreUrl(input.storeUrl);
+  const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
   const page = input.page ?? 1;
   const perPage = input.perPage ?? 100;
   const endpoint = `${storeUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&status=any`;
-  const response = await fetch(endpoint, {
+  const response = await wooCommerceFetch(storeUrl, endpoint, {
     method: "GET",
-    headers: {
-      Authorization: basicAuthHeader(input.consumerKey, input.consumerSecret),
-      Accept: "application/json",
-    },
+    headers: wooCommerceAuthHeaders(input.consumerKey, input.consumerSecret),
   });
 
   if (!response.ok) {
@@ -87,7 +145,7 @@ export async function fetchWooCommerceProducts(input: {
     );
   }
 
-  const data = await response.json() as unknown;
+  const data = await readWooCommerceJson<unknown>(response, storeUrl);
   if (!Array.isArray(data)) return [];
   return data as WooCommerceRestProduct[];
 }
@@ -95,15 +153,12 @@ export async function fetchWooCommerceProducts(input: {
 export async function findWooCommerceProductBySlug(input: WooCommerceAuth & {
   slug: string;
 }): Promise<WooCommerceRestProduct | null> {
-  const storeUrl = normalizeStoreUrl(input.storeUrl);
+  const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
   const slug = encodeURIComponent(input.slug.trim());
   const endpoint = `${storeUrl}/wp-json/wc/v3/products?slug=${slug}&per_page=1`;
-  const response = await fetch(endpoint, {
+  const response = await wooCommerceFetch(storeUrl, endpoint, {
     method: "GET",
-    headers: {
-      Authorization: basicAuthHeader(input.consumerKey, input.consumerSecret),
-      Accept: "application/json",
-    },
+    headers: wooCommerceAuthHeaders(input.consumerKey, input.consumerSecret),
   });
 
   if (!response.ok) {
@@ -115,7 +170,7 @@ export async function findWooCommerceProductBySlug(input: WooCommerceAuth & {
     );
   }
 
-  const data = await response.json() as unknown;
+  const data = await readWooCommerceJson<unknown>(response, storeUrl);
   if (!Array.isArray(data) || data.length === 0) return null;
   return data[0] as WooCommerceRestProduct;
 }
@@ -126,14 +181,11 @@ export async function findWooCommerceProductBySku(input: WooCommerceAuth & {
   const sku = input.sku.trim();
   if (!sku) return null;
 
-  const storeUrl = normalizeStoreUrl(input.storeUrl);
+  const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
   const endpoint = `${storeUrl}/wp-json/wc/v3/products?sku=${encodeURIComponent(sku)}&per_page=1`;
-  const response = await fetch(endpoint, {
+  const response = await wooCommerceFetch(storeUrl, endpoint, {
     method: "GET",
-    headers: {
-      Authorization: basicAuthHeader(input.consumerKey, input.consumerSecret),
-      Accept: "application/json",
-    },
+    headers: wooCommerceAuthHeaders(input.consumerKey, input.consumerSecret),
   });
 
   if (!response.ok) {
@@ -145,7 +197,7 @@ export async function findWooCommerceProductBySku(input: WooCommerceAuth & {
     );
   }
 
-  const data = await response.json() as unknown;
+  const data = await readWooCommerceJson<unknown>(response, storeUrl);
   if (!Array.isArray(data) || data.length === 0) return null;
   return data[0] as WooCommerceRestProduct;
 }
@@ -198,12 +250,12 @@ export async function uploadWooCommerceMedia(input: WooCommerceAuth & {
   contentType: string;
   data: Buffer;
 }): Promise<{ id: number; source_url: string }> {
-  const storeUrl = normalizeStoreUrl(input.storeUrl);
+  const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
   const endpoint = `${storeUrl}/wp-json/wp/v2/media`;
-  const response = await fetch(endpoint, {
+  const response = await wooCommerceFetch(storeUrl, endpoint, {
     method: "POST",
     headers: {
-      Authorization: basicAuthHeader(input.consumerKey, input.consumerSecret),
+      ...wooCommerceAuthHeaders(input.consumerKey, input.consumerSecret),
       "Content-Disposition": `attachment; filename="${input.filename.replace(/"/g, "")}"`,
       "Content-Type": input.contentType,
     },
@@ -219,7 +271,7 @@ export async function uploadWooCommerceMedia(input: WooCommerceAuth & {
     );
   }
 
-  const media = await response.json() as { id?: number; source_url?: string };
+  const media = await readWooCommerceJson<{ id?: number; source_url?: string }>(response, storeUrl);
   if (!media.id) {
     throw new Error("WooCommerce media upload did not return a media id");
   }
