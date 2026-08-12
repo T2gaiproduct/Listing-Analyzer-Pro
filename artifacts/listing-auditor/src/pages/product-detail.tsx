@@ -1813,6 +1813,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           optimizeDisabled={!canOptimizeContent}
           productId={product.id}
           productSource={resolvedSource}
+          canPublishMarketplaces={canEditProduct}
           onSaveAndContinue={() => void saveAndContinueWorkflowStep()}
           isSavingContinue={isSavingWorkflowStep}
           OptimizedContentPanel={OptimizedContentPanel}

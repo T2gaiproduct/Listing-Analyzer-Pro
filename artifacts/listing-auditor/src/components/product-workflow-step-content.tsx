@@ -89,6 +89,7 @@ export function ProductWorkflowStepContent({
   listingEditorContent,
   productId,
   productSource,
+  canPublishMarketplaces,
   onSaveAndContinue,
   isSavingContinue,
   OptimizedContentPanel,
@@ -105,6 +106,7 @@ export function ProductWorkflowStepContent({
   listingEditorContent?: React.ReactNode;
   productId?: number;
   productSource?: string;
+  canPublishMarketplaces?: boolean;
   onSaveAndContinue?: () => void;
   isSavingContinue?: boolean;
   OptimizedContentPanel: React.ComponentType<{
@@ -231,7 +233,13 @@ export function ProductWorkflowStepContent({
         onSaveAndContinue={onSaveAndContinue}
         isSaving={isSavingContinue}
       >
-        <ProductMarketplacesTab productId={productId} source={productSource} enabled />
+        <ProductMarketplacesTab
+          productId={productId}
+          auditId={auditId}
+          source={productSource}
+          enabled
+          canPublish={canPublishMarketplaces}
+        />
       </WorkflowStepShell>
     );
   }

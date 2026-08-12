@@ -1,13 +1,22 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Check, Clock, ExternalLink } from "lucide-react";
+import { Check, Clock, ExternalLink, Loader2, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fetchJson } from "@/lib/api-fetch";
+import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
+import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
+import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
+import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
+import { useToast } from "@/hooks/use-toast";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const PUBLISH_PLATFORMS = ["Amazon", "Shopify", "WooCommerce"] as const;
+type PublishPlatform = (typeof PUBLISH_PLATFORMS)[number];
 
 type ListingStatus = "live" | "pending" | "not_listed";
 
@@ -68,10 +77,51 @@ function formatPrice(price: number | null, currency: string): string {
   return `$${price.toFixed(2)}`;
 }
 
-function MarketplaceCard({ listing }: { listing: MarketplaceListing }) {
+function buildPublishPlatformCards(listings: MarketplaceListing[]): MarketplaceListing[] {
+  const byMarketplace = new Map(listings.map((listing) => [listing.marketplace, listing]));
+  return PUBLISH_PLATFORMS.map((marketplace) => {
+    const existing = byMarketplace.get(marketplace);
+    if (existing && existing.id > 0) return existing;
+    return {
+      id: 0,
+      marketplace,
+      status: "not_listed" as const,
+      statusLabel: "Not Listed",
+      sku: null,
+      price: null,
+      currency: "USD",
+      inventory: null,
+      publishedAt: null,
+      listingUrl: null,
+    };
+  });
+}
+
+function MarketplaceCard({
+  listing,
+  canPublish,
+  isPublishing,
+  publishReady,
+  connected,
+  connectHint,
+  onPublishLive,
+  onPublishDraft,
+}: {
+  listing: MarketplaceListing;
+  canPublish: boolean;
+  isPublishing: boolean;
+  publishReady: boolean;
+  connected: boolean;
+  connectHint: string;
+  onPublishLive?: () => void;
+  onPublishDraft?: () => void;
+}) {
   const published = listing.publishedAt
     ? format(new Date(listing.publishedAt), "MMM d, yyyy")
     : "—";
+  const isAmazon = listing.marketplace === "Amazon";
+  const showPublishActions = canPublish && listing.status !== "live";
+  const publishDisabled = isPublishing || !publishReady || !connected;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
@@ -105,20 +155,109 @@ function MarketplaceCard({ listing }: { listing: MarketplaceListing }) {
       </div>
 
       {listing.status === "live" && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-4 space-y-2">
           <div className="flex items-center justify-center gap-1.5 h-8 rounded-lg border border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">
             <Check className="w-3.5 h-3.5" />
             Live
           </div>
+          {showPublishActions && onPublishLive && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-[11px] rounded-lg border-orange-200 text-orange-600 hover:bg-orange-50"
+              disabled={publishDisabled}
+              onClick={onPublishLive}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5 mr-1" />
+                  Update listing
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
 
       {listing.status === "pending" && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-4 space-y-2">
           <div className="flex items-center justify-center gap-1.5 h-8 rounded-lg border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-800 uppercase tracking-wide">
             <Clock className="w-3.5 h-3.5" />
             Pending
           </div>
+          {showPublishActions && onPublishLive && (
+            <Button
+              type="button"
+              size="sm"
+              className="w-full h-8 text-[11px] rounded-lg bg-orange-500 hover:bg-orange-600"
+              disabled={publishDisabled}
+              onClick={onPublishLive}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5 mr-1" />
+                  Publish live
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {listing.status === "not_listed" && showPublishActions && (
+        <div className="px-4 pb-4 space-y-2">
+          {!connected || !publishReady ? (
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              {connectHint}{" "}
+              <Link href="/marketplaces" className="text-orange-600 hover:underline font-medium">
+                Open Marketplaces
+              </Link>
+            </p>
+          ) : null}
+          {onPublishLive && (
+            <Button
+              type="button"
+              size="sm"
+              className="w-full h-8 text-[11px] rounded-lg bg-orange-500 hover:bg-orange-600"
+              disabled={publishDisabled}
+              onClick={onPublishLive}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5 mr-1" />
+                  {isAmazon ? "Publish to Amazon" : "Publish live"}
+                </>
+              )}
+            </Button>
+          )}
+          {!isAmazon && onPublishDraft && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-[11px] rounded-lg border-slate-200"
+              disabled={publishDisabled}
+              onClick={onPublishDraft}
+            >
+              Save as draft
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -136,7 +275,7 @@ function ListedMarketplacesSummary({
   const liveCount = liveMarketplaces.length;
   const totalListed = listedListings.length;
 
-  let headline = "Not listed on any marketplace yet";
+  let headline = "Publish to Amazon, Shopify, or WooCommerce";
   if (liveCount > 0) {
     headline = liveCount === 1
       ? `Live on ${liveMarketplaces[0]}`
@@ -153,12 +292,12 @@ function ListedMarketplacesSummary({
         <p className="text-xs font-semibold text-slate-900">{headline}</p>
         <p className="text-[11px] text-slate-500 mt-0.5">
           {totalListed === 0
-            ? "Connect a marketplace or import from a store to list this product."
+            ? "Connect your stores on the Marketplaces page, then publish this listing to each platform below."
             : liveCount > 0 && pendingCount > 0
-              ? `${liveCount} live · ${pendingCount} pending`
+              ? `${liveCount} live · ${pendingCount} pending · publish or update on any connected platform`
               : liveCount > 0
-                ? "This product is actively selling on the platforms below."
-                : "Listings are queued and not live yet."}
+                ? "This product is actively selling on the platforms below. Republish to push latest listing changes."
+                : "Listings are queued and not live yet. Use Publish live on each platform when ready."}
         </p>
       </div>
 
@@ -185,20 +324,124 @@ function ListedMarketplacesSummary({
 
 export function ProductMarketplacesTab({
   productId,
+  auditId,
   enabled,
   source,
+  canPublish = false,
 }: {
   productId: number;
+  auditId?: number;
   enabled: boolean;
   source?: string;
+  canPublish?: boolean;
 }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const sourceQuery = source ? `?source=${encodeURIComponent(source)}` : "";
+  const publishAuditId = auditId ?? productId;
 
   const { data, isLoading } = useQuery({
     queryKey: ["product-marketplaces", productId, source],
     queryFn: () => fetchJson<MarketplacesResponse>(`${basePath}/api/products/${productId}/marketplaces${sourceQuery}`),
     enabled: enabled && productId > 0,
     staleTime: 15_000,
+  });
+
+  const { data: shopifyStatus } = useQuery({
+    queryKey: ["shopify-status"],
+    queryFn: fetchShopifyStatus,
+    enabled: enabled,
+    staleTime: 60_000,
+  });
+
+  const { data: woocommerceStatus } = useQuery({
+    queryKey: ["woocommerce-status"],
+    queryFn: fetchWooCommerceStatus,
+    enabled: enabled,
+    staleTime: 60_000,
+  });
+
+  const { data: amazonStatus } = useQuery({
+    queryKey: ["amazon-status"],
+    queryFn: fetchAmazonStatus,
+    enabled: enabled,
+    staleTime: 60_000,
+  });
+
+  const invalidateAfterPublish = () => {
+    void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", productId, source] });
+    void queryClient.invalidateQueries({ queryKey: ["product", productId] });
+  };
+
+  const publishShopifyMutation = useMutation({
+    mutationFn: (publishMode: "draft" | "live") =>
+      publishAuditToShopify({ auditId: publishAuditId, publishMode }),
+    onSuccess: (result, publishMode) => {
+      invalidateAfterPublish();
+      if (result.warning) {
+        toast({ title: "Published with a warning", description: result.warning, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: publishMode === "live" ? "Published to Shopify" : "Saved to Shopify draft",
+        description: result.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Shopify publish failed",
+        description: error instanceof Error ? error.message : "Could not publish to Shopify.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const publishWooCommerceMutation = useMutation({
+    mutationFn: (publishMode: "draft" | "live") =>
+      publishAuditToWooCommerce({ auditId: publishAuditId, publishMode }),
+    onSuccess: (result, publishMode) => {
+      invalidateAfterPublish();
+      if (result.warning) {
+        toast({ title: "Published with a warning", description: result.warning, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: publishMode === "live" ? "Published to WooCommerce" : "Saved to WooCommerce draft",
+        description: result.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "WooCommerce publish failed",
+        description: error instanceof Error ? error.message : "Could not publish to WooCommerce.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const publishAmazonMutation = useMutation({
+    mutationFn: () => publishAuditToAmazon({
+      auditId: publishAuditId,
+      marketplace: amazonStatus?.defaultMarketplace,
+    }),
+    onSuccess: (result) => {
+      invalidateAfterPublish();
+      if (result.warning) {
+        toast({ title: "Published with a warning", description: result.warning, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: result.sandbox ? "Published to Amazon sandbox" : "Published to Amazon",
+        description: result.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Amazon publish failed",
+        description: error instanceof ApiFetchError ? error.message : error instanceof Error ? error.message : "Could not publish to Amazon.",
+        variant: "destructive",
+      });
+    },
   });
 
   const listedListings = useMemo(() => {
@@ -208,17 +451,57 @@ export function ProductMarketplacesTab({
       .sort((a, b) => STATUS_SORT[a.status] - STATUS_SORT[b.status]);
   }, [data?.listings]);
 
+  const publishPlatformCards = useMemo(
+    () => buildPublishPlatformCards(data?.listings ?? []),
+    [data?.listings],
+  );
+
   const liveMarketplaces = useMemo(
     () => data?.liveMarketplaces
       ?? listedListings.filter((listing) => listing.status === "live").map((listing) => listing.marketplace),
     [data?.liveMarketplaces, listedListings],
   );
 
+  const platformPublishState: Record<PublishPlatform, {
+    connected: boolean;
+    publishReady: boolean;
+    connectHint: string;
+    isPublishing: boolean;
+    onPublishLive: () => void;
+    onPublishDraft?: () => void;
+  }> = {
+    Amazon: {
+      connected: Boolean(amazonStatus?.connected),
+      publishReady: Boolean(amazonStatus?.publishReady && amazonStatus?.connected),
+      connectHint: "Connect Amazon seller credentials to publish.",
+      isPublishing: publishAmazonMutation.isPending,
+      onPublishLive: () => publishAmazonMutation.mutate(),
+    },
+    Shopify: {
+      connected: Boolean(shopifyStatus?.connected),
+      publishReady: Boolean(shopifyStatus?.publishReady),
+      connectHint: "Add Shopify Client ID and secret to publish.",
+      isPublishing: publishShopifyMutation.isPending,
+      onPublishLive: () => publishShopifyMutation.mutate("live"),
+      onPublishDraft: () => publishShopifyMutation.mutate("draft"),
+    },
+    WooCommerce: {
+      connected: Boolean(woocommerceStatus?.connected),
+      publishReady: Boolean(woocommerceStatus?.publishReady),
+      connectHint: "Add WooCommerce API keys to publish.",
+      isPublishing: publishWooCommerceMutation.isPending,
+      onPublishLive: () => publishWooCommerceMutation.mutate("live"),
+      onPublishDraft: () => publishWooCommerceMutation.mutate("draft"),
+    },
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-24 rounded-xl" />
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
           <Skeleton className="h-64 rounded-xl" />
         </div>
       </div>
@@ -232,13 +515,25 @@ export function ProductMarketplacesTab({
         listedListings={listedListings}
       />
 
-      {listedListings.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {listedListings.map((listing) => (
-            <MarketplaceCard key={listing.marketplace} listing={listing} />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {publishPlatformCards.map((listing) => {
+          const platform = listing.marketplace as PublishPlatform;
+          const state = platformPublishState[platform];
+          return (
+            <MarketplaceCard
+              key={listing.marketplace}
+              listing={listing}
+              canPublish={canPublish && publishAuditId > 0}
+              isPublishing={state.isPublishing}
+              publishReady={state.publishReady}
+              connected={state.connected}
+              connectHint={state.connectHint}
+              onPublishLive={state.onPublishLive}
+              onPublishDraft={state.onPublishDraft}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
