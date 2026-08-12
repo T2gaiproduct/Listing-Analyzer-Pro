@@ -12,6 +12,7 @@ import { generateChatCompletion } from "../lib/ai-provider";
 import type { ImageStyle, AspectRatio, ImageRecord } from "@workspace/db";
 import { analyzeListingWithAI } from "../lib/analyzer";
 import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
+import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
@@ -906,8 +907,6 @@ router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWo
     return;
   }
 
-  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "content", { userId: ownerId });
-
   try {
     const imageUrls = [
       ...(parsed.data.promptReferenceImageUrls ?? []),
@@ -923,10 +922,11 @@ router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWo
       currentKeywords: parsed.data.targetKeywords,
       customPrompt: parsed.data.customPrompt,
     });
+    await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "content", { userId: ownerId });
     res.json(generatedContent);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Content generation failed";
-    res.status(500).json({ error: message });
+    const { httpStatus, message } = mapAiProviderError(err);
+    res.status(httpStatus).json({ error: message });
   }
 });
 
@@ -952,8 +952,6 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
     promptReferenceImageUrls?: string[];
   };
 
-  await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
-
   try {
     const imageUrls = [
       ...(body.promptReferenceImageUrls ?? []),
@@ -972,6 +970,8 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
       customPrompt: body.customPrompt,
     });
 
+    await deductCreditsTeamAware(creditCtx2, cost.creditType, cost.creditsRequired, cost.activityName, "content", { auditId: id });
+
     await db.update(auditsTable)
       .set({
         generatedContent,
@@ -988,8 +988,8 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
 
     res.json(generatedContent);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Content generation failed";
-    res.status(500).json({ error: message });
+    const { httpStatus, message } = mapAiProviderError(err);
+    res.status(httpStatus).json({ error: message });
   }
 });
 

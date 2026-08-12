@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent, type GetAuditQueryResult } from "@workspace/api-client-react";
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
+import { formatAiErrorMessage } from "@/lib/ai-error-message";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
 import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
@@ -801,17 +802,7 @@ function isValidProductDetail(p: ProductDetailView | undefined | null): p is Pro
 }
 
 function formatOptimizeError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err);
-  if (raw.toLowerCase().includes("spend limit") || raw.includes("403")) {
-    return "OpenAI API usage limit reached. Check your OpenAI account billing or try again later.";
-  }
-  if (raw.includes("402") || raw.toLowerCase().includes("insufficient")) {
-    return "You don't have enough AI credits. Go to Billing to purchase more.";
-  }
-  if (raw.toLowerCase().includes("api key") || raw.includes("401") || raw.includes("authentication")) {
-    return "OpenAI API key is invalid or missing. Check AI Settings in the admin panel.";
-  }
-  return raw || "Something went wrong. Please try again.";
+  return formatAiErrorMessage(err);
 }
 
 function resolveOptimizeAuditId(
