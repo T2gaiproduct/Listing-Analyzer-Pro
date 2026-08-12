@@ -336,12 +336,6 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (createOnly && step === 1) {
-      setStep(2);
-    }
-  }, [createOnly, step]);
-
   const createProject = useMutation({
     mutationFn: async (input: {
       createBody: object;
@@ -531,7 +525,10 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const removeImage = (index: number) => setUploadedImages((prev) => prev.filter((_, i) => i !== index));
 
   const canContinue = () => {
-    if (step === 1) return productName.trim().length > 0;
+    if (step === 1) {
+      if (createOnly && uploadedImages.length === 0) return false;
+      return productName.trim().length > 0;
+    }
     if (step === 2) {
       if (selectedImageTypes.length === 0) return false;
       if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
@@ -994,7 +991,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
           className="mt-2 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
           onClick={() => {
             setProjectId(null);
-            setStep(createOnly ? 2 : 1);
+            setStep(1);
             setUploadedImages(imageUrls ?? []);
             setWizardCategory(category ?? "");
             setCategorySearch(category ?? "");
@@ -1077,22 +1074,28 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       </div>
       )}
 
-      {createOnly && uploadedImages.length === 0 && (
+      {createOnly && step === 2 && uploadedImages.length === 0 && (
         <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
           Add product images in Build Your Brand or upload them to the audit before generating graphics.
         </p>
       )}
 
       {/* Step 1: Upload Product */}
-      {step === 1 && !createOnly && (
+      {step === 1 && (
         <div className="space-y-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
               <Upload className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Upload Product</h2>
-              <p className="text-sm text-slate-500">Upload one or more images of your product. We&apos;ll use them to create stunning graphics.</p>
+              <h2 className="text-xl font-bold text-slate-900">
+                {createOnly ? "Upload Images" : "Upload Product"}
+              </h2>
+              <p className="text-sm text-slate-500">
+                {createOnly
+                  ? "Add or review product photos used as source images for graphics generation."
+                  : "Upload one or more images of your product. We'll use them to create stunning graphics."}
+              </p>
             </div>
           </div>
 
@@ -1276,7 +1279,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       {/* Actions */}
       <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 w-full">
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          {step > 1 && !createOnly && (
+          {step > 1 && (
             <Button variant="outline" className="w-full sm:w-auto text-slate-500 border-slate-200 rounded-lg min-h-11" onClick={() => setStep((s) => (s - 1) as Step)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
