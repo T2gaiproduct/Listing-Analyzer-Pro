@@ -105,7 +105,6 @@ function MarketplaceCard({
   connected,
   connectHint,
   onPublishLive,
-  onPublishDraft,
 }: {
   listing: MarketplaceListing;
   canPublish: boolean;
@@ -114,7 +113,6 @@ function MarketplaceCard({
   connected: boolean;
   connectHint: string;
   onPublishLive?: () => void;
-  onPublishDraft?: () => void;
 }) {
   const published = listing.publishedAt
     ? format(new Date(listing.publishedAt), "MMM d, yyyy")
@@ -244,18 +242,6 @@ function MarketplaceCard({
                   {isAmazon ? "Publish to Amazon" : "Publish live"}
                 </>
               )}
-            </Button>
-          )}
-          {!isAmazon && onPublishDraft && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full h-8 text-[11px] rounded-lg border-slate-200"
-              disabled={publishDisabled}
-              onClick={onPublishDraft}
-            >
-              Save as draft
             </Button>
           )}
         </div>
@@ -468,7 +454,6 @@ export function ProductMarketplacesTab({
     connectHint: string;
     isPublishing: boolean;
     onPublishLive: () => void;
-    onPublishDraft?: () => void;
   }> = {
     Amazon: {
       connected: Boolean(amazonStatus?.connected),
@@ -483,7 +468,6 @@ export function ProductMarketplacesTab({
       connectHint: "Add Shopify Client ID and secret to publish.",
       isPublishing: publishShopifyMutation.isPending,
       onPublishLive: () => publishShopifyMutation.mutate("live"),
-      onPublishDraft: () => publishShopifyMutation.mutate("draft"),
     },
     WooCommerce: {
       connected: Boolean(woocommerceStatus?.connected),
@@ -491,7 +475,6 @@ export function ProductMarketplacesTab({
       connectHint: "Add WooCommerce API keys to publish.",
       isPublishing: publishWooCommerceMutation.isPending,
       onPublishLive: () => publishWooCommerceMutation.mutate("live"),
-      onPublishDraft: () => publishWooCommerceMutation.mutate("draft"),
     },
   };
 
@@ -529,7 +512,6 @@ export function ProductMarketplacesTab({
               connected={state.connected}
               connectHint={state.connectHint}
               onPublishLive={state.onPublishLive}
-              onPublishDraft={state.onPublishDraft}
             />
           );
         })}
