@@ -6,6 +6,7 @@ import { findWooCommerceProductBySlug } from "./woocommerce-admin-client.js";
 import { getShopifyConnection, getWooCommerceConnection } from "./marketplace-connections.js";
 import { isShopifyImportAsin, shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import { isWooCommerceImportAsin, woocommerceSlugFromAsin } from "./woocommerce-import-utils.js";
+import { fetchListing } from "./listing-fetcher.js";
 
 function normalizeImageUrls(urls: Array<string | undefined | null>): string[] {
   const seen = new Set<string>();
@@ -84,29 +85,51 @@ async function refreshShopifyImages(input: {
   return persistAuditImageUrls(input.auditId, imageUrls);
 }
 
+async function refreshListingUrlImages(input: {
+  auditId: number;
+  listingUrl: string;
+}): Promise<string[] | null> {
+  const listing = await fetchListing({ url: input.listingUrl.trim() });
+  const imageUrls = normalizeImageUrls(listing.imageUrls);
+  if (imageUrls.length === 0) return null;
+  return persistAuditImageUrls(input.auditId, imageUrls);
+}
+
 /** Pull store product images into the audit when imageUrls is empty (WooCommerce/Shopify imports). */
 export async function maybeRefreshStoreProductImages(input: {
   auditId: number;
   workspaceId: number | null;
   asin: string | null | undefined;
   imageUrls: string[] | null | undefined;
+  listingUrl?: string | null;
 }): Promise<string[] | null> {
   const existing = normalizeImageUrls(input.imageUrls ?? []);
-  if (existing.length > 0 || !input.workspaceId || !input.asin?.trim()) return null;
+  if (existing.length > 0 || !input.workspaceId) return null;
 
   try {
-    if (isWooCommerceImportAsin(input.asin)) {
-      return await refreshWooCommerceImages({
-        auditId: input.auditId,
-        workspaceId: input.workspaceId,
-        asin: input.asin,
-      });
+    if (input.asin?.trim()) {
+      if (isWooCommerceImportAsin(input.asin)) {
+        const refreshed = await refreshWooCommerceImages({
+          auditId: input.auditId,
+          workspaceId: input.workspaceId,
+          asin: input.asin,
+        });
+        if (refreshed) return refreshed;
+      }
+      if (isShopifyImportAsin(input.asin)) {
+        const refreshed = await refreshShopifyImages({
+          auditId: input.auditId,
+          workspaceId: input.workspaceId,
+          asin: input.asin,
+        });
+        if (refreshed) return refreshed;
+      }
     }
-    if (isShopifyImportAsin(input.asin)) {
-      return await refreshShopifyImages({
+
+    if (input.listingUrl?.trim()) {
+      return await refreshListingUrlImages({
         auditId: input.auditId,
-        workspaceId: input.workspaceId,
-        asin: input.asin,
+        listingUrl: input.listingUrl,
       });
     }
   } catch {

@@ -16,6 +16,7 @@ import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
 import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
+import { listProductMarketplaces } from "../lib/product-marketplaces.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
   buildDefaultAplusPrompt,
@@ -544,11 +545,27 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
   }
 
   const workspaceId = getActiveWorkspaceId(req);
+
+  const [profile] = await db
+    .select({ referenceLinks: productProfilesTable.referenceLinks })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, audit.id))
+    .limit(1);
+
+  const marketplaceStats = await listProductMarketplaces(audit.id);
+  const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
+  const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
+  const listingUrl = profile?.referenceLinks?.trim()
+    || wooListing?.listingUrl?.trim()
+    || shopifyListing?.listingUrl?.trim()
+    || null;
+
   const refreshedUrls = await maybeRefreshStoreProductImages({
     auditId: audit.id,
     workspaceId,
     asin: audit.asin,
     imageUrls: audit.imageUrls as string[] | null,
+    listingUrl,
   });
   if (refreshedUrls) {
     audit.imageUrls = refreshedUrls;
@@ -558,12 +575,6 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
     .select()
     .from(competitorsTable)
     .where(and(eq(competitorsTable.auditId, audit.id), eq(competitorsTable.isDeleted, 0)));
-
-  const [profile] = await db
-    .select({ referenceLinks: productProfilesTable.referenceLinks })
-    .from(productProfilesTable)
-    .where(eq(productProfilesTable.auditId, audit.id))
-    .limit(1);
 
   res.json({
     ...audit,

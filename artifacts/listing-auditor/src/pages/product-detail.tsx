@@ -1376,6 +1376,22 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return urls;
   }, [product?.imageUrls, product?.imageUrl, effectiveAudit?.imageUrls]);
 
+  useEffect(() => {
+    if (productImageUrls.length === 0) return;
+    const auditId = optimizeAuditId ?? id;
+    queryClient.setQueryData<GetAuditQueryResult>(
+      getGetAuditQueryKey(auditId),
+      (current) => {
+        if (!current) return current;
+        const merged = [...(current.imageUrls ?? [])];
+        for (const url of productImageUrls) {
+          if (!merged.includes(url)) merged.push(url);
+        }
+        return { ...current, imageUrls: merged };
+      },
+    );
+  }, [productImageUrls, optimizeAuditId, id, queryClient]);
+
   async function refreshProductData() {
     const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
     await Promise.all([

@@ -235,15 +235,6 @@ async function loadAuditDetail(
   if (!row) return null;
 
   const workspaceId = getActiveWorkspaceId(req);
-  const refreshedUrls = await maybeRefreshStoreProductImages({
-    auditId: id,
-    workspaceId,
-    asin: row.asin,
-    imageUrls: row.imageUrls as string[] | null,
-  });
-  if (refreshedUrls) {
-    row.imageUrls = refreshedUrls;
-  }
 
   const competitors = await db
     .select({
@@ -294,9 +285,26 @@ async function loadAuditDetail(
 
   const marketplaceStats = await listProductMarketplaces(id);
 
+  const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
+  const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
+  const storeListingUrl = profile?.referenceLinks?.trim()
+    || wooListing?.listingUrl?.trim()
+    || shopifyListing?.listingUrl?.trim()
+    || null;
+
+  const refreshedUrls = await maybeRefreshStoreProductImages({
+    auditId: id,
+    workspaceId,
+    asin: row.asin,
+    imageUrls: row.imageUrls as string[] | null,
+    listingUrl: storeListingUrl,
+  });
+  if (refreshedUrls) {
+    row.imageUrls = refreshedUrls;
+  }
+
   const referenceLinks: Array<{ label: string; url: string }> = [];
   if (isShopifyImport) {
-    const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
     const shopifyUrl = profile?.referenceLinks?.trim() || shopifyListing?.listingUrl?.trim();
     if (shopifyUrl) {
       referenceLinks.push({
@@ -305,7 +313,6 @@ async function loadAuditDetail(
       });
     }
   } else if (isWooCommerceImport) {
-    const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
     const wooUrl = profile?.referenceLinks?.trim() || wooListing?.listingUrl?.trim();
     if (wooUrl) {
       referenceLinks.push({
@@ -372,8 +379,6 @@ async function loadAuditDetail(
         || marketplaceStats.listings.find((l) => l.marketplace === "WooCommerce")?.listingUrl?.trim()
         || null)
       : null;
-  const shopifyListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Shopify");
-  const wooListing = marketplaceStats.listings.find((listing) => listing.marketplace === "WooCommerce");
   const amazonListing = marketplaceStats.listings.find((listing) => listing.marketplace === "Amazon");
   const storeListing = shopifyListing ?? wooListing;
   const generated = readGeneratedContent(row);

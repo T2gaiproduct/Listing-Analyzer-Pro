@@ -168,6 +168,17 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [uploadedImages, setUploadedImages] = useState<string[]>(imageUrls ?? []);
   const [isUploading, setIsUploading] = useState(false);
 
+  const sourceImages = useMemo(() => {
+    const urls: string[] = [];
+    const add = (url: string | undefined | null) => {
+      const trimmed = url?.trim();
+      if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
+    };
+    for (const url of uploadedImages) add(url);
+    for (const url of imageUrls ?? []) add(url);
+    return urls;
+  }, [uploadedImages, imageUrls]);
+
   useEffect(() => {
     if (!imageUrls?.length) return;
     setUploadedImages((prev) => {
@@ -534,10 +545,11 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const canContinue = () => {
     if (step === 1) {
-      if (createOnly && uploadedImages.length === 0) return false;
+      if (createOnly && sourceImages.length === 0) return false;
       return productName.trim().length > 0;
     }
     if (step === 2) {
+      if (sourceImages.length === 0) return false;
       if (selectedImageTypes.length === 0) return false;
       if (selectedImageTypes.includes("custom") && !getImageTypeConfig("custom").customPrompt.trim()) return false;
       return true;
@@ -547,13 +559,21 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
 
   const handleContinue = () => {
     if (step === 2) {
+      if (sourceImages.length === 0) {
+        toast({
+          title: "Product images required",
+          description: "Add product images on the left or import them from your store before generating graphics.",
+          variant: "destructive",
+        });
+        return;
+      }
       if (!requireImageCredits(selectedImageTypes.length)) return;
       createProject.mutate({
         createBody: {
           name: `${productName} Project`,
           productName,
           category: wizardCategory,
-          sourceImageUrls: uploadedImages,
+          sourceImageUrls: sourceImages,
           imageTypes: selectedImageTypes,
           auditId,
         },
@@ -1082,9 +1102,9 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       </div>
       )}
 
-      {createOnly && step === 2 && uploadedImages.length === 0 && (
-        <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-          Add product images in Build Your Brand or upload them to the audit before generating graphics.
+      {createOnly && step === 2 && sourceImages.length === 0 && (
+        <p className="text-[11px] text-amber-700 rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3">
+          Product photos from your store will appear on the left once synced. You can still pick graphic types below — generation needs at least one source image.
         </p>
       )}
 
@@ -1189,7 +1209,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
       )}
 
       {/* Step 2: Select Graphics */}
-      {step === 2 && (!createOnly || uploadedImages.length > 0) && (
+      {step === 2 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
