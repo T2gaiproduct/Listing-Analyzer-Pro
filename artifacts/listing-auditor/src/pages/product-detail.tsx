@@ -1778,18 +1778,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
               )}
             </div>
           </div>
-          <div className="sm:w-44 shrink-0 sm:text-right">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 mb-1">
-              Overall Progress
-            </p>
-            <p className="text-xl font-semibold text-slate-900 tabular-nums">{product.progressPercent}%</p>
-            <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-amber-500 transition-all"
-                style={{ width: `${product.progressPercent}%` }}
-              />
-            </div>
-          </div>
         </div>
       </div>
 
