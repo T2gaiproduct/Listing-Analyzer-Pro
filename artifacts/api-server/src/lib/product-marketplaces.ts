@@ -42,6 +42,58 @@ function mapListingRow(row: typeof productMarketplaceListingsTable.$inferSelect)
   };
 }
 
+function isRealAmazonAsin(asin: string | null | undefined): boolean {
+  const trimmed = asin?.trim();
+  if (!trimmed) return false;
+  return !isShopifyImportAsin(trimmed) && !isWooCommerceImportAsin(trimmed);
+}
+
+/** Pending rows created only for SKU/price storage should not show as listed. */
+function resolveEffectiveListingStatus(opts: {
+  row: typeof productMarketplaceListingsTable.$inferSelect;
+  asin: string | null | undefined;
+  targetMarketplaces: string[];
+}): MarketplaceListingStatus {
+  const stored = opts.row.status as MarketplaceListingStatus;
+  if (stored === "not_listed") return stored;
+  if (stored === "live") return stored;
+
+  const marketplace = opts.row.marketplace;
+  const targets = new Set(opts.targetMarketplaces);
+  const hasPublishEvidence = Boolean(opts.row.listingUrl?.trim() || opts.row.publishedAt);
+
+  if (marketplace === "Shopify" && isShopifyImportAsin(opts.asin)) return stored;
+  if (marketplace === "WooCommerce" && isWooCommerceImportAsin(opts.asin)) return stored;
+  if (marketplace === "Amazon" && isRealAmazonAsin(opts.asin)) return stored;
+  if (targets.has(marketplace)) return stored;
+  if (hasPublishEvidence) return stored;
+
+  return "not_listed";
+}
+
+function normalizeListingRow(
+  row: typeof productMarketplaceListingsTable.$inferSelect,
+  asin: string | null | undefined,
+  targetMarketplaces: string[],
+): MarketplaceListingRow {
+  const effectiveStatus = resolveEffectiveListingStatus({ row, asin, targetMarketplaces });
+  if (effectiveStatus === "not_listed") {
+    return {
+      id: 0,
+      marketplace: row.marketplace,
+      status: "not_listed",
+      statusLabel: STATUS_LABELS.not_listed,
+      sku: null,
+      price: null,
+      currency: row.currency,
+      inventory: null,
+      publishedAt: null,
+      listingUrl: null,
+    };
+  }
+  return mapListingRow({ ...row, status: effectiveStatus });
+}
+
 export async function listProductMarketplaces(auditId: number): Promise<{
   listings: MarketplaceListingRow[];
   activeCount: number;
@@ -49,6 +101,22 @@ export async function listProductMarketplaces(auditId: number): Promise<{
   liveMarketplaces: string[];
   listedMarketplaces: string[];
 }> {
+  const [audit] = await db
+    .select({ asin: auditsTable.asin })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, auditId))
+    .limit(1);
+
+  const [profile] = await db
+    .select({ targetMarketplaces: productProfilesTable.targetMarketplaces })
+    .from(productProfilesTable)
+    .where(eq(productProfilesTable.auditId, auditId))
+    .limit(1);
+
+  const targetMarketplaces = (profile?.targetMarketplaces ?? []).filter(
+    (marketplace): marketplace is string => typeof marketplace === "string",
+  );
+
   const rows = await db
     .select()
     .from(productMarketplaceListingsTable)
@@ -60,7 +128,9 @@ export async function listProductMarketplaces(auditId: number): Promise<{
   const byMarketplace = new Map(rows.map((row) => [row.marketplace, row]));
   const listings = MARKETPLACE_ORDER.map((marketplace) => {
     const row = byMarketplace.get(marketplace);
-    if (row) return mapListingRow(row);
+    if (row) {
+      return normalizeListingRow(row, audit?.asin, targetMarketplaces);
+    }
     return {
       id: 0,
       marketplace,

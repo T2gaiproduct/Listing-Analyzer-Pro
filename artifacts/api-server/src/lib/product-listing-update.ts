@@ -143,23 +143,5 @@ async function upsertMarketplaceListingPriceSku(
     ))
     .returning({ id: productMarketplaceListingsTable.id });
 
-  if (listingUpdate.length > 0 || marketplace !== "Shopify") return;
-
-  const [auditRow] = await db
-    .select({ workspaceId: auditsTable.workspaceId })
-    .from(auditsTable)
-    .where(eq(auditsTable.id, auditId))
-    .limit(1);
-  if (!auditRow?.workspaceId) {
-    throw new Error("Could not save Shopify listing — workspace not found");
-  }
-  await db.insert(productMarketplaceListingsTable).values({
-    auditId,
-    workspaceId: auditRow.workspaceId,
-    marketplace: "Shopify",
-    status: "pending",
-    priceCents: patch.priceCents != null && patch.priceCents > 0 ? patch.priceCents : null,
-    sku: patch.sku ?? null,
-    currency: "USD",
-  });
+  if (listingUpdate.length > 0) return;
 }
