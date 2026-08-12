@@ -83,25 +83,27 @@ function contentTypeForImageSource(sourceUrl: string): { contentType: string; ex
 }
 
 function finalizeWooCommerceImages(images: WooCommerceProductImage[]): WooCommerceProductImage[] {
-  return images
-    .map((image) => {
-      const safeSrc = sanitizeMarketplacePublishImageUrl(image.src);
-      if (image.id) {
-        return {
-          id: image.id,
-          ...(safeSrc ? { src: safeSrc } : {}),
-          alt: image.alt,
-          name: image.name,
-        };
-      }
-      if (!safeSrc) return null;
-      return {
-        src: safeSrc,
+  const result: WooCommerceProductImage[] = [];
+  for (const image of images) {
+    const safeSrc = sanitizeMarketplacePublishImageUrl(image.src);
+    if (image.id) {
+      const entry: WooCommerceProductImage = {
+        id: image.id,
         alt: image.alt,
         name: image.name,
+        ...(safeSrc ? { src: safeSrc } : {}),
       };
-    })
-    .filter((image): image is WooCommerceProductImage => image != null && Boolean(image.id || image.src));
+      result.push(entry);
+      continue;
+    }
+    if (!safeSrc) continue;
+    result.push({
+      src: safeSrc,
+      alt: image.alt,
+      name: image.name,
+    });
+  }
+  return result;
 }
 
 function isMediaUploadPermissionError(err: unknown): boolean {
