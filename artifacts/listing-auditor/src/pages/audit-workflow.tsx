@@ -1324,11 +1324,6 @@ export default function AuditWorkflow() {
     setIsDirty(false);
   }, [currentAuditId, projectName, brandName, productName, category, uploadedImages, generatedContent, generatedImages, selectedImageTypes, patchAudit, queryClient]);
 
-  /* ── Explicit save (same step, no navigation) ── */
-  const handleSave = useCallback(() => {
-    autoSave(activeStep);
-  }, [autoSave, activeStep]);
-
   const handleOpenProductExplorer = useCallback(() => {
     if (!currentAuditId) {
       toast({ title: "Save project first", description: "Complete the Upload step before continuing.", variant: "destructive" });
