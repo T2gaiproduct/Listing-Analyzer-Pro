@@ -942,6 +942,35 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const liveMarketplaces = marketplaceData?.liveMarketplaces ?? [];
 
+  const workflowStepCompleted = useMemo(
+    () => productExplorerStepCompletedFromData({
+      imageUrls: effectiveAudit?.imageUrls,
+      imageRecords: effectiveAudit?.imageRecords,
+      productImageUrl: product?.imageUrl,
+      generatedContent: effectiveAudit?.generatedContent,
+      title: effectiveAudit?.title,
+      bulletPoints: effectiveAudit?.bulletPoints,
+      generatedImages: effectiveAudit?.generatedImages,
+      liveMarketplaceCount: liveMarketplaces.length,
+      marketplaceActiveCount: marketplaceData?.activeCount ?? 0,
+      totalOrders: product?.stats.totalOrders,
+      totalRevenue: product?.stats.revenue,
+    }),
+    [
+      effectiveAudit?.imageUrls,
+      effectiveAudit?.imageRecords,
+      effectiveAudit?.generatedContent,
+      effectiveAudit?.title,
+      effectiveAudit?.bulletPoints,
+      effectiveAudit?.generatedImages,
+      product?.imageUrl,
+      product?.stats.totalOrders,
+      product?.stats.revenue,
+      liveMarketplaces.length,
+      marketplaceData?.activeCount,
+    ],
+  );
+
   const listingProduct = useMemo((): ProductDetailView | null => {
     if (!product) return null;
 
@@ -1620,34 +1649,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const graphicsAuditId = optimizeAuditId ?? product?.statsAuditId ?? id;
   const showBuildBrandWorkflow = resolvedSource === "listing" || resolvedSource === "audit";
-  const workflowStepCompleted = useMemo(
-    () => productExplorerStepCompletedFromData({
-      imageUrls: effectiveAudit?.imageUrls,
-      imageRecords: effectiveAudit?.imageRecords,
-      productImageUrl: product?.imageUrl,
-      generatedContent: effectiveAudit?.generatedContent,
-      title: effectiveAudit?.title,
-      bulletPoints: effectiveAudit?.bulletPoints,
-      generatedImages: effectiveAudit?.generatedImages,
-      liveMarketplaceCount: liveMarketplaces.length,
-      marketplaceActiveCount: marketplaceData?.activeCount ?? 0,
-      totalOrders: product?.stats.totalOrders,
-      totalRevenue: product?.stats.revenue,
-    }),
-    [
-      effectiveAudit?.imageUrls,
-      effectiveAudit?.imageRecords,
-      effectiveAudit?.generatedContent,
-      effectiveAudit?.title,
-      effectiveAudit?.bulletPoints,
-      effectiveAudit?.generatedImages,
-      product?.imageUrl,
-      product?.stats.totalOrders,
-      product?.stats.revenue,
-      liveMarketplaces.length,
-      marketplaceData?.activeCount,
-    ],
-  );
 
   const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
   const isPublishingToStore = publishShopifyMutation.isPending || publishWooCommerceMutation.isPending;
