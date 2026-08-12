@@ -47,20 +47,26 @@ async function readApiError(res: Response, fallback: string): Promise<string> {
   }
 }
 
-async function syncClerkFullName(
+const CLERK_NAME_SYNC_TIMEOUT_MS = 5_000;
+
+/** Best-effort Clerk display name sync — must never block onboarding UI. */
+function syncClerkFullName(
   user: NonNullable<ReturnType<typeof useUser>["user"]>,
   fullName: string,
-) {
+): void {
   const trimmed = fullName.trim();
   if (!trimmed) return;
   const parts = trimmed.split(/\s+/);
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ");
-  try {
-    await user.update({ firstName, lastName });
-  } catch {
+  void Promise.race([
+    user.update({ firstName, lastName }),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Clerk name sync timed out")), CLERK_NAME_SYNC_TIMEOUT_MS);
+    }),
+  ]).catch(() => {
     // Non-fatal — profile is saved in Postgres
-  }
+  });
 }
 
 interface Plan {
@@ -406,9 +412,9 @@ export default function Onboarding() {
         }),
       });
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       if (user && profile.fullName.trim()) {
-        await syncClerkFullName(user, profile.fullName);
+        syncClerkFullName(user, profile.fullName);
       }
       queryClient.setQueryData(["user-profile-summary"], (prev: {
         profile?: { fullName?: string | null };
@@ -446,7 +452,7 @@ export default function Onboarding() {
     },
     onSuccess: async () => {
       if (user && profile.fullName.trim()) {
-        await syncClerkFullName(user, profile.fullName);
+        syncClerkFullName(user, profile.fullName);
       }
       queryClient.setQueryData(["user-profile-summary"], (prev: {
         onboardingCompleted?: boolean;
