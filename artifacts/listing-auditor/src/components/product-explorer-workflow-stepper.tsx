@@ -53,6 +53,23 @@ export function productExplorerStepToApiStep(
   return peStep - 1;
 }
 
+/** API step to persist when leaving a step via Save & Continue. */
+export function productExplorerSaveContinueApiStep(
+  fromStep: ProductExplorerWorkflowStepId,
+): number | null {
+  const nextStep = Math.min(8, fromStep + 1) as ProductExplorerWorkflowStepId;
+  const nextApi = productExplorerStepToApiStep(nextStep);
+  if (nextApi != null) return nextApi;
+  if (fromStep === 5) return 5;
+  return productExplorerStepToApiStep(fromStep);
+}
+
+export function nextProductExplorerWorkflowStep(
+  step: ProductExplorerWorkflowStepId,
+): ProductExplorerWorkflowStepId | null {
+  if (step >= 8) return null;
+  return (step + 1) as ProductExplorerWorkflowStepId;
+}
 export function productExplorerStepCompletedFromCurrentStep(
   currentStep: number | null | undefined,
   status?: string | null,

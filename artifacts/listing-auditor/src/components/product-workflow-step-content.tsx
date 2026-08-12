@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { ImageIcon, Sparkles, Upload } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowRight, ImageIcon, Loader2, Sparkles, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import { GraphicsWizard } from "@/components/graphics-wizard";
-import type { ProductExplorerWorkflowStepId } from "@/components/product-explorer-workflow-stepper";
+import {
+  nextProductExplorerWorkflowStep,
+  type ProductExplorerWorkflowStepId,
+} from "@/components/product-explorer-workflow-stepper";
 import { ProductMarketplacesTab } from "@/components/product-marketplaces-tab";
 import { ProductOrdersTab } from "@/components/product-orders-tab";
 import { ProductSalesTab } from "@/components/product-sales-tab";
@@ -36,6 +40,47 @@ function readAplusModules(generatedImages: unknown): AplusModuleItem[] {
   return Array.isArray(modules) ? modules : [];
 }
 
+function WorkflowStepShell({
+  children,
+  showSaveAndContinue,
+  onSaveAndContinue,
+  isSaving,
+}: {
+  children: ReactNode;
+  showSaveAndContinue: boolean;
+  onSaveAndContinue?: () => void;
+  isSaving?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      {children}
+      {showSaveAndContinue && onSaveAndContinue && (
+        <div className="flex justify-end border-t border-slate-100 pt-4">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[11px] rounded-xl bg-orange-500 hover:bg-orange-600 gap-1.5"
+            onClick={onSaveAndContinue}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              <>
+                Save &amp; Continue
+                <ArrowRight className="w-3.5 h-3.5" />
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProductWorkflowStepContent({
   step,
   auditId,
@@ -49,6 +94,8 @@ export function ProductWorkflowStepContent({
   listingEditorContent,
   productId,
   productSource,
+  onSaveAndContinue,
+  isSavingContinue,
   OptimizedContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
@@ -63,6 +110,8 @@ export function ProductWorkflowStepContent({
   listingEditorContent?: React.ReactNode;
   productId?: number;
   productSource?: string;
+  onSaveAndContinue?: () => void;
+  isSavingContinue?: boolean;
   OptimizedContentPanel: React.ComponentType<{
     generatedContent: GeneratedContent | null | undefined;
     isOptimizing: boolean;
@@ -72,6 +121,8 @@ export function ProductWorkflowStepContent({
 }) {
   const imageUrls = useMemo(() => collectImageUrls(audit), [audit]);
   const [aplusModules, setAplusModules] = useState<AplusModuleItem[]>([]);
+  const hasNextStep = nextProductExplorerWorkflowStep(step) != null;
+  const showFooter = hasNextStep && !listingEditorContent && Boolean(onSaveAndContinue);
 
   useEffect(() => {
     setAplusModules(readAplusModules(audit?.generatedImages));
@@ -79,7 +130,11 @@ export function ProductWorkflowStepContent({
 
   if (step === 1) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      <WorkflowStepShell
+        showSaveAndContinue={showFooter}
+        onSaveAndContinue={onSaveAndContinue}
+        isSaving={isSavingContinue}
+      >
         <div className="flex items-center gap-2">
           <Upload className="w-4 h-4 text-orange-500" />
           <h3 className="text-sm font-semibold text-slate-900">Upload product images</h3>
@@ -97,7 +152,7 @@ export function ProductWorkflowStepContent({
             ))}
           </div>
         )}
-      </div>
+      </WorkflowStepShell>
     );
   }
 
@@ -111,17 +166,25 @@ export function ProductWorkflowStepContent({
     }
 
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      <WorkflowStepShell
+        showSaveAndContinue={showFooter}
+        onSaveAndContinue={onSaveAndContinue}
+        isSaving={isSavingContinue}
+      >
         {overviewContent ?? (
           <p className="text-[11px] text-slate-500">Product summary and stats appear here.</p>
         )}
-      </div>
+      </WorkflowStepShell>
     );
   }
 
   if (step === 3) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      <WorkflowStepShell
+        showSaveAndContinue={showFooter}
+        onSaveAndContinue={onSaveAndContinue}
+        isSaving={isSavingContinue}
+      >
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-orange-500" />
           <h3 className="text-sm font-semibold text-slate-900">Listing content</h3>
@@ -132,13 +195,17 @@ export function ProductWorkflowStepContent({
           onOptimize={onOptimize}
           optimizeDisabled={optimizeDisabled}
         />
-      </div>
+      </WorkflowStepShell>
     );
   }
 
   if (step === 4) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      <WorkflowStepShell
+        showSaveAndContinue={showFooter}
+        onSaveAndContinue={onSaveAndContinue}
+        isSaving={isSavingContinue}
+      >
         <div className="flex items-center gap-2">
           <ImageIcon className="w-4 h-4 text-orange-500" />
           <h3 className="text-sm font-semibold text-slate-900">Product graphics</h3>
@@ -151,13 +218,17 @@ export function ProductWorkflowStepContent({
           category={audit?.category ?? null}
           targetKeywords={audit?.targetKeywords ?? null}
         />
-      </div>
+      </WorkflowStepShell>
     );
   }
 
   if (step === 5) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      <WorkflowStepShell
+        showSaveAndContinue={showFooter}
+        onSaveAndContinue={onSaveAndContinue}
+        isSaving={isSavingContinue}
+      >
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-orange-500" />
           <h3 className="text-sm font-semibold text-slate-900">A+ content</h3>
@@ -174,23 +245,31 @@ export function ProductWorkflowStepContent({
             Complete listing and graphics steps, then generate A+ modules here when available.
           </p>
         )}
-      </div>
+      </WorkflowStepShell>
     );
   }
 
   if (step === 6 && productId && productSource) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <WorkflowStepShell
+        showSaveAndContinue={showFooter}
+        onSaveAndContinue={onSaveAndContinue}
+        isSaving={isSavingContinue}
+      >
         <ProductMarketplacesTab productId={productId} source={productSource} enabled />
-      </div>
+      </WorkflowStepShell>
     );
   }
 
   if (step === 7 && productId && productSource) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <WorkflowStepShell
+        showSaveAndContinue={showFooter}
+        onSaveAndContinue={onSaveAndContinue}
+        isSaving={isSavingContinue}
+      >
         <ProductOrdersTab productId={productId} source={productSource} enabled />
-      </div>
+      </WorkflowStepShell>
     );
   }
 

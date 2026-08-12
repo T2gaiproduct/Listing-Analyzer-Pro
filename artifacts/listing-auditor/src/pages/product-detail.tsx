@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -49,8 +49,9 @@ import { MarketplaceLogo } from "@/components/marketplace-logos";
 import {
   ProductExplorerWorkflowStepper,
   apiStepToProductExplorerStep,
+  nextProductExplorerWorkflowStep,
+  productExplorerSaveContinueApiStep,
   productExplorerStepCompletedFromCurrentStep,
-  productExplorerStepToApiStep,
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
@@ -776,6 +777,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
   const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<ProductExplorerWorkflowStepId>(2);
+  const [isSavingWorkflowStep, setIsSavingWorkflowStep] = useState(false);
+  const workflowProductIdRef = useRef<number | null>(null);
 
   const source = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1209,7 +1212,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
   });
 
   useEffect(() => {
-    if (!product?.currentStep) return;
+    if (!product?.id || !product.currentStep) return;
+    if (workflowProductIdRef.current === product.id) return;
+    workflowProductIdRef.current = product.id;
     setSelectedWorkflowStep(apiStepToProductExplorerStep(product.currentStep));
   }, [product?.id, product?.currentStep]);
 
@@ -1336,29 +1341,45 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   async function goToGraphicsStep(auditId: number) {
-    await selectWorkflowStep(4, auditId);
+    await saveAndContinueWorkflowStep(3, auditId);
   }
 
-  async function selectWorkflowStep(
-    stepId: ProductExplorerWorkflowStepId,
-    auditIdOverride?: number,
-  ) {
+  function goToWorkflowStep(stepId: ProductExplorerWorkflowStepId) {
     setSelectedWorkflowStep(stepId);
-    const apiStep = productExplorerStepToApiStep(stepId);
-    if (apiStep == null) return;
+  }
+
+  async function persistWorkflowApiStep(apiStep: number, auditIdOverride?: number) {
     const auditId = auditIdOverride ?? optimizeAuditId ?? product?.statsAuditId ?? id;
     if (!auditId) return;
-    try {
-      await fetchJson(`${basePath}/api/audits/${auditId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentStep: apiStep }),
-      });
-      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
-      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
-    } catch {
-      // Local step selection still works if persistence fails.
+    await fetchJson(`${basePath}/api/audits/${auditId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentStep: apiStep }),
+    });
+    void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+    void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+  }
+
+  async function saveAndContinueWorkflowStep(
+    fromStep: ProductExplorerWorkflowStepId = selectedWorkflowStep,
+    auditIdOverride?: number,
+  ) {
+    const nextStep = nextProductExplorerWorkflowStep(fromStep);
+    if (!nextStep) return;
+
+    setIsSavingWorkflowStep(true);
+    setSelectedWorkflowStep(nextStep);
+
+    const apiStep = productExplorerSaveContinueApiStep(fromStep);
+    if (apiStep != null) {
+      try {
+        await persistWorkflowApiStep(apiStep, auditIdOverride);
+      } catch {
+        // Step navigation still works if persistence fails.
+      }
     }
+
+    setIsSavingWorkflowStep(false);
   }
 
   function resolvePendingListingForm(): ProductEditForm | null {
@@ -1615,7 +1636,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     <button
                       key={marketplace}
                       type="button"
-                      onClick={() => void selectWorkflowStep(6)}
+                      onClick={() => goToWorkflowStep(6)}
                       className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 hover:bg-emerald-50 transition-colors"
                       title={`View ${marketplace} listing`}
                     >
@@ -1645,7 +1666,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
         <ProductExplorerWorkflowStepper
           activeStep={selectedWorkflowStep}
           stepCompleted={workflowStepCompleted}
-          onStepClick={(stepId) => void selectWorkflowStep(stepId)}
+          onStepClick={goToWorkflowStep}
         />
       )}
 
@@ -1661,6 +1682,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
           optimizeDisabled={!canOptimizeContent}
           productId={product.id}
           productSource={resolvedSource}
+          onSaveAndContinue={() => void saveAndContinueWorkflowStep()}
+          isSavingContinue={isSavingWorkflowStep}
           OptimizedContentPanel={OptimizedContentPanel}
           overviewContent={
             <div className="space-y-4">
