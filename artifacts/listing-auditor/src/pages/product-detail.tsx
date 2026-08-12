@@ -175,6 +175,7 @@ type ListingContentView = {
   bulletPoints: string[];
   keywords: string[];
   htmlDescription: string;
+  category?: string | null;
 };
 
 function collectListingSuggestions(
@@ -224,8 +225,11 @@ function listingFieldsMatchGenerated(
     bulletPoints?: string[] | null;
     targetKeywords?: string[] | null;
     generatedContent?: GeneratedContent | null;
+    sourceListingContent?: GeneratedContent | null;
   } | null,
 ): boolean {
+  if (!audit?.sourceListingContent) return false;
+
   const generated = audit?.generatedContent;
   if (!generated?.title?.trim()) return false;
 
@@ -244,6 +248,7 @@ function toListingContentView(content: {
   bulletPoints?: string[] | null;
   keywords?: string[] | null;
   htmlDescription?: string | null;
+  category?: string | null;
 } | null | undefined): ListingContentView | null {
   if (!content) return null;
   const bulletPoints = normalizeStringList(content.bulletPoints);
@@ -251,12 +256,13 @@ function toListingContentView(content: {
   const title = content.title?.trim() ?? "";
   const htmlDescription = content.htmlDescription?.trim()
     || bulletsToHtmlDescription(bulletPoints);
+  const category = content.category?.trim() || null;
 
-  if (!title && bulletPoints.length === 0 && keywords.length === 0 && !htmlDescription) {
+  if (!title && bulletPoints.length === 0 && keywords.length === 0 && !htmlDescription && !category) {
     return null;
   }
 
-  return { title, bulletPoints, keywords, htmlDescription };
+  return { title, bulletPoints, keywords, htmlDescription, category };
 }
 
 function resolveExistingListingContent(
@@ -266,6 +272,7 @@ function resolveExistingListingContent(
     title?: string | null;
     bulletPoints?: string[] | null;
     targetKeywords?: string[] | null;
+    category?: string | null;
     generatedContent?: GeneratedContent | null;
     sourceListingContent?: GeneratedContent | null;
   } | null,
@@ -276,6 +283,7 @@ function resolveExistingListingContent(
         bulletPoints: audit.sourceListingContent.bulletPoints,
         keywords: audit.sourceListingContent.keywords,
         htmlDescription: audit.sourceListingContent.htmlDescription,
+        category: product?.category ?? audit?.category ?? null,
       }
     : null);
   if (snapshot) return snapshot;
@@ -306,11 +314,13 @@ function resolveExistingListingContent(
   const productDesc = product?.descriptionHtml?.trim();
   const htmlDescription = overwritten
     ? bulletsToHtmlDescription(bulletPoints)
-    : (productDesc && productDesc !== generatedDesc
+    : (productDesc && (!generatedDesc || productDesc !== generatedDesc)
       ? productDesc
-      : bulletsToHtmlDescription(bulletPoints));
+      : (generatedDesc || bulletsToHtmlDescription(bulletPoints)));
 
-  return toListingContentView({ title, bulletPoints, keywords, htmlDescription });
+  const category = product?.category?.trim() || audit?.category?.trim() || null;
+
+  return toListingContentView({ title, bulletPoints, keywords, htmlDescription, category });
 }
 
 function parseBulletTextarea(value: string): string[] {
@@ -643,10 +653,12 @@ function ListingContentCard({
   const contentBullets = content?.bulletPoints?.filter(Boolean) ?? [];
   const keywords = content?.keywords?.filter(Boolean) ?? [];
   const htmlDescription = content?.htmlDescription?.trim() ?? "";
+  const category = content?.category?.trim() ?? "";
   const hasContent = Boolean(content?.title?.trim())
     || contentBullets.length > 0
     || keywords.length > 0
-    || htmlDescription;
+    || htmlDescription
+    || category;
 
   function copyText(text: string, label: string) {
     void navigator.clipboard.writeText(text).then(() => {
@@ -708,6 +720,23 @@ function ListingContentCard({
           </div>
         )}
 
+        {category && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Category</p>
+              <button
+                type="button"
+                onClick={() => copyText(category, "Category")}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-700 leading-relaxed">{category}</p>
+          </div>
+        )}
+
         {contentBullets.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -743,10 +772,10 @@ function ListingContentCard({
         {keywords.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Keywords</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tags</p>
               <button
                 type="button"
-                onClick={() => copyText(keywords.join(", "), "Keywords")}
+                onClick={() => copyText(keywords.join(", "), "Tags")}
                 className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100"
               >
                 <Copy className="w-3 h-3" />

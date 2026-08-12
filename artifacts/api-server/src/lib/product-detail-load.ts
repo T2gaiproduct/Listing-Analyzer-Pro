@@ -38,6 +38,7 @@ import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 import { resolveDescriptionHtml } from "./resolve-listing-content.js";
 import { readGeneratedContent } from "./listing-export-shared.js";
 import { maybeRefreshStoreProductImages } from "./store-product-image-refresh.js";
+import { maybeRefreshStoreProductListing } from "./store-product-listing-refresh.js";
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -301,6 +302,24 @@ async function loadAuditDetail(
   });
   if (refreshedUrls) {
     row.imageUrls = refreshedUrls;
+  }
+
+  if (isWooCommerceImport) {
+    const listingRefreshed = await maybeRefreshStoreProductListing({
+      auditId: id,
+      workspaceId,
+      asin: row.asin,
+    });
+    if (listingRefreshed) {
+      const [refreshedRow] = await db
+        .select()
+        .from(auditsTable)
+        .where(eq(auditsTable.id, id))
+        .limit(1);
+      if (refreshedRow) {
+        Object.assign(row, refreshedRow);
+      }
+    }
   }
 
   const referenceLinks: Array<{ label: string; url: string }> = [];

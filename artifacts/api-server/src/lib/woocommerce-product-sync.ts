@@ -5,6 +5,7 @@ import {
   db,
   productMarketplaceListingsTable,
   productProfilesTable,
+  type GeneratedContent,
 } from "@workspace/db";
 import { TARGET_MARKETPLACES } from "./create-product.js";
 import { fetchWooCommerceCatalog, type WooCommerceRestProduct } from "./woocommerce-admin-client.js";
@@ -18,7 +19,22 @@ function stripHtml(html: string): string {
   return cheerio.load(html).text().replace(/\s+/g, " ").trim();
 }
 
-function parseBulletPoints(product: WooCommerceRestProduct): string[] {
+export function parseWooCommerceTags(product: WooCommerceRestProduct): string[] {
+  return (product.tags ?? [])
+    .map((entry) => entry.name?.trim())
+    .filter((tag): tag is string => Boolean(tag))
+    .slice(0, 30);
+}
+
+export function resolveWooCommerceDescriptionHtml(product: WooCommerceRestProduct): string {
+  const full = product.description?.trim();
+  if (full) return full;
+  const short = product.short_description?.trim();
+  if (short) return short;
+  return "";
+}
+
+export function parseWooCommerceBulletPoints(product: WooCommerceRestProduct): string[] {
   const bullets: string[] = [];
   const short = product.short_description ? stripHtml(product.short_description) : "";
   if (short) {
@@ -34,19 +50,23 @@ function parseBulletPoints(product: WooCommerceRestProduct): string[] {
         .slice(0, 5),
     );
   }
-  for (const tag of (product.tags ?? []).map((entry) => entry.name?.trim()).filter(Boolean).slice(0, 3)) {
-    if (tag && tag.length > 3) bullets.push(tag);
-  }
   return bullets.slice(0, 7);
 }
 
-function parseKeywords(title: string, bulletPoints: string[]): string[] {
-  const words = `${title} ${bulletPoints.join(" ")}`
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .split(/\s+/)
-    .filter((word) => word.length > 3);
-  return [...new Set(words)].slice(0, 15);
+function buildStoreDescriptionContent(htmlDescription: string): GeneratedContent | null {
+  const trimmed = htmlDescription.trim();
+  if (!trimmed) return null;
+  return { title: "", bulletPoints: [], keywords: [], htmlDescription: trimmed };
+}
+
+function mergeStoreDescriptionContent(
+  existing: GeneratedContent | null | undefined,
+  htmlDescription: string,
+): GeneratedContent | null {
+  const storeDescription = buildStoreDescriptionContent(htmlDescription);
+  if (!storeDescription) return existing ?? null;
+  if (existing?.title?.trim()) return existing;
+  return storeDescription;
 }
 
 function resolveListingFields(product: WooCommerceRestProduct) {
@@ -90,7 +110,7 @@ async function loadExistingWooCommerceAudits(
   return map;
 }
 
-async function refreshWooCommerceProduct(input: {
+export async function refreshWooCommerceProduct(input: {
   auditId: number;
   workspaceId: number;
   product: WooCommerceRestProduct;
@@ -99,13 +119,22 @@ async function refreshWooCommerceProduct(input: {
   if (!title) return;
 
   const listing = resolveListingFields(input.product);
-  const bulletPoints = parseBulletPoints(input.product);
+  const bulletPoints = parseWooCommerceBulletPoints(input.product);
   const imageUrls = (input.product.images ?? [])
     .map((image) => image.src?.trim())
     .filter((src): src is string => Boolean(src))
     .slice(0, 9);
   const sku = input.product.sku?.trim() || input.product.slug.toUpperCase();
   const category = input.product.categories?.[0]?.name?.trim() || null;
+  const [existing] = await db
+    .select({ generatedContent: auditsTable.generatedContent })
+    .from(auditsTable)
+    .where(eq(auditsTable.id, input.auditId))
+    .limit(1);
+  const generatedContent = mergeStoreDescriptionContent(
+    existing?.generatedContent as GeneratedContent | null | undefined,
+    resolveWooCommerceDescriptionHtml(input.product),
+  );
 
   await db
     .update(auditsTable)
@@ -115,8 +144,9 @@ async function refreshWooCommerceProduct(input: {
       title,
       bulletPoints,
       imageUrls,
-      targetKeywords: parseKeywords(title, bulletPoints),
+      targetKeywords: parseWooCommerceTags(input.product),
       category,
+      ...(generatedContent ? { generatedContent } : {}),
       updatedAt: new Date(),
     })
     .where(eq(auditsTable.id, input.auditId));
@@ -215,7 +245,7 @@ export async function syncWooCommerceProducts(input: {
     }
 
     try {
-      const bulletPoints = parseBulletPoints(product);
+      const bulletPoints = parseWooCommerceBulletPoints(product);
       const imageUrls = (product.images ?? [])
         .map((image) => image.src?.trim())
         .filter((src): src is string => Boolean(src))
@@ -223,6 +253,7 @@ export async function syncWooCommerceProducts(input: {
       const sku = product.sku?.trim() || slug.toUpperCase();
       const listing = resolveListingFields(product);
       const category = product.categories?.[0]?.name?.trim() || null;
+      const generatedContent = buildStoreDescriptionContent(resolveWooCommerceDescriptionHtml(product));
 
       const [audit] = await db
         .insert(auditsTable)
@@ -238,7 +269,8 @@ export async function syncWooCommerceProducts(input: {
           title,
           bulletPoints,
           imageUrls,
-          targetKeywords: parseKeywords(title, bulletPoints),
+          targetKeywords: parseWooCommerceTags(product),
+          generatedContent,
           overallScore: 0,
           status: "pending",
           currentStep: 1,
