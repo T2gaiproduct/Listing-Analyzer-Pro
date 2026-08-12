@@ -31,8 +31,11 @@ import {
 import {
   BUILD_BRAND_WORKFLOW_STEPS,
   BuildBrandWorkflowStepper,
+  apiStepToUiStep,
+  uiStepToApiStep,
   type BuildBrandWorkflowStepId,
 } from "@/components/build-brand-workflow-stepper";
+import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
 import { cn } from "@/lib/utils";
 import { AMAZON_MARKETPLACES, EXPORT_PLATFORMS, downloadAuditExport, type AmazonMarketplaceId, type ExportPlatform } from "@/lib/amazon-export";
 import { fetchAmazonStatus, startAmazonConnect, disconnectAmazon, publishAuditToAmazon } from "@/lib/amazon-publish";
@@ -222,13 +225,18 @@ function readAplusFromAudit(generatedImages: unknown): {
 /* ── Loading messages per step ──────────────────────────────────────────── */
 const LOADING_MESSAGES: Record<StepId, string[]> = {
   1: [
+    "Searching your workspace…",
+    "Loading product details…",
+    "Almost ready…",
+  ],
+  2: [
     "Reading your product images…",
     "Extracting product details…",
     "Optimizing image quality…",
     "Preparing for AI analysis…",
     "Almost ready…",
   ],
-  2: [
+  3: [
     "Crafting your product title…",
     "Writing bullet points…",
     "Researching backend keywords…",
@@ -236,21 +244,21 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
     "Polishing the listing copy…",
     "Finalizing your content…",
   ],
-  3: [
+  4: [
     "Processing product images…",
     "Selecting best composition…",
     "Applying style presets…",
     "Generating AI graphics…",
     "Rendering final images…",
   ],
-  4: [
+  5: [
     "Designing module layouts…",
     "Writing headline copy…",
     "Generating banner imagery…",
     "Assembling A+ modules…",
     "Applying brand guidelines…",
   ],
-  5: [
+  6: [
     "Compiling all assets…",
     "Packaging your files…",
     "Optimizing for download…",
@@ -498,23 +506,24 @@ export default function AuditWorkflow() {
   });
   const aplusImageCostPerModule = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
 
-  const [activeStep, setActiveStep] = useState<StepId>(1);
-  const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
-
-  /* ── Creating panel state ── */
-  const [isCreating, setIsCreating]         = useState(false);
-  const [creatingStep, setCreatingStep]     = useState<StepId>(1);
-
-  /* ── Resume from DB audit ID (sidebar server-side recents) ── */
   const [resumeAuditId] = useState(() => {
     const params = new URLSearchParams(search);
     const resume = params.get("resume");
     return resume ? parseInt(resume, 10) : null;
   });
 
+  const [activeStep, setActiveStep] = useState<StepId>(() => (resumeAuditId && !isNaN(resumeAuditId) ? 2 : 1));
+  const [projectId] = useState(() => `proj_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+
+  /* ── Creating panel state ── */
+  const [isCreating, setIsCreating]         = useState(false);
+  const [creatingStep, setCreatingStep]     = useState<StepId>(1);
+
   /* ── Guard: only restore from the newest data (stale → fresh still restores) ── */
   const lastRestoredAtRef = useRef<string | null>(null);
   const stepRestoredForAuditIdRef = useRef<number | null>(null);
+  const forceUploadStepRef = useRef(false);
 
   /* ── Upload step state ── */
   const fileRef    = useRef<HTMLInputElement>(null);
@@ -539,9 +548,9 @@ export default function AuditWorkflow() {
   const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
   const persistWorkflowStep = useCallback((step: StepId) => {
-    if (!currentAuditId) return;
+    if (!currentAuditId || step === 1) return;
     patchAudit.mutate(
-      { id: currentAuditId, data: { currentStep: step } },
+      { id: currentAuditId, data: { currentStep: uiStepToApiStep(step) } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
@@ -607,14 +616,19 @@ export default function AuditWorkflow() {
       setAplusStatus("generating");
       setAplusProgress(savedAplus.progress);
       setIsCreating(true);
-      setCreatingStep(4);
-      setActiveStep(4);
+      setCreatingStep(5);
+      setActiveStep(5);
     } else {
       setAplusStatus(savedAplus.status === "failed" ? "failed" : savedAplus.modules.length ? "completed" : "idle");
       setAplusProgress(savedAplus.progress);
       if (stepRestoredForAuditIdRef.current !== currentAuditId) {
-        const step = (auditData.currentStep || 1) as StepId;
-        if (step >= 1 && step <= 5) setActiveStep(step);
+        if (forceUploadStepRef.current) {
+          setActiveStep(2);
+          forceUploadStepRef.current = false;
+        } else {
+          const step = apiStepToUiStep(auditData.currentStep);
+          if (step >= 2 && step <= 6) setActiveStep(step);
+        }
         stepRestoredForAuditIdRef.current = currentAuditId;
       }
     }
@@ -710,8 +724,8 @@ export default function AuditWorkflow() {
         blockers.push("Add your Shopify Client ID and Client secret on the Marketplaces page.");
       }
     }
-    if (!currentAuditId) blockers.push("Save your project in Step 1.");
-    if (!generatedContent) blockers.push("Generate listing content in Step 2.");
+    if (!currentAuditId) blockers.push("Save your project in the Upload step.");
+    if (!generatedContent) blockers.push("Generate listing content in the Listing step.");
     return blockers;
   }, [
     exportPlatform,
@@ -1142,8 +1156,8 @@ export default function AuditWorkflow() {
     setCreatingStep(activeStep);
     setIsCreating(true);
 
-    if (activeStep === 1) {
-      // Step 1: Create audit immediately with all available info
+    if (activeStep === 2) {
+      // Upload: create audit immediately with all available info
       if (!productName.trim()) {
         setIsCreating(false);
         toast({ title: "Product name required", description: "Please enter a product name.", variant: "destructive" });
@@ -1193,7 +1207,7 @@ export default function AuditWorkflow() {
             setIsCreating(false);
             setCurrentAuditId(audit.id);
             toast({ title: "Project created!", description: `Saved as "${audit.projectName || audit.productName}"` });
-            setActiveStep(2);
+            setActiveStep(3);
             queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
             void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
             void queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -1205,16 +1219,16 @@ export default function AuditWorkflow() {
         }
       );
 
-    } else if (activeStep === 2) {
+    } else if (activeStep === 3) {
       // Listing: generate content directly (no audit)
       if (!productName.trim()) {
         setIsCreating(false);
-        toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
+        toast({ title: "Product name required", description: "Please enter a product name in the Upload step first.", variant: "destructive" });
         return;
       }
       if (!category) {
         setIsCreating(false);
-        toast({ title: "Category required", description: "Please select a category in Step 1 first.", variant: "destructive" });
+        toast({ title: "Category required", description: "Please select a category in the Upload step first.", variant: "destructive" });
         return;
       }
       const syntheticTitle = brandName.trim()
@@ -1264,7 +1278,7 @@ export default function AuditWorkflow() {
         }
       );
 
-    } else if (activeStep === 3) {
+    } else if (activeStep === 4) {
       // Graphics
       if (selectedImageTypes.length === 0) {
         setIsCreating(false);
@@ -1303,7 +1317,7 @@ export default function AuditWorkflow() {
 
   const handleExportDownload = useCallback(async (format: "excel" | "zip") => {
     if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete Step 1 to create your project before exporting.", variant: "destructive" });
+      toast({ title: "Save project first", description: "Complete the Upload step to create your project before exporting.", variant: "destructive" });
       return;
     }
     if (!generatedContent) {
@@ -1326,7 +1340,7 @@ export default function AuditWorkflow() {
           ? `Amazon ${exportMarketplace} listing export is ready. Image columns use public HTTPS URLs.`
           : "Shopify product CSV is ready. Image columns use public HTTPS URLs.",
       });
-      persistWorkflowStep(5);
+      persistWorkflowStep(6);
     } catch (err) {
       toast({
         title: "Export failed",
@@ -1340,7 +1354,7 @@ export default function AuditWorkflow() {
 
   const handlePublishAmazon = useCallback(async () => {
     if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete Step 1 before publishing.", variant: "destructive" });
+      toast({ title: "Save project first", description: "Complete the Upload step before publishing.", variant: "destructive" });
       return;
     }
     if (!generatedContent) {
@@ -1365,7 +1379,7 @@ export default function AuditWorkflow() {
         title: result.sandbox ? "Published to Amazon sandbox" : "Published to Amazon",
         description: result.message,
       });
-      persistWorkflowStep(5);
+      persistWorkflowStep(6);
     } catch (err) {
       toast({
         title: "Publish failed",
@@ -1379,7 +1393,7 @@ export default function AuditWorkflow() {
 
   const handlePublishShopify = useCallback(async () => {
     if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete Step 1 before publishing.", variant: "destructive" });
+      toast({ title: "Save project first", description: "Complete the Upload step before publishing.", variant: "destructive" });
       return;
     }
     if (!generatedContent) {
@@ -1401,7 +1415,7 @@ export default function AuditWorkflow() {
         title: "Published to Shopify",
         description: result.listingUrl ?? result.message,
       });
-      persistWorkflowStep(5);
+      persistWorkflowStep(6);
     } catch (err) {
       toast({
         title: "Publish failed",
@@ -1415,11 +1429,11 @@ export default function AuditWorkflow() {
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete Step 1 to create your project before generating A+ content.", variant: "destructive" });
+      toast({ title: "Save project first", description: "Complete the Upload step to create your project before generating A+ content.", variant: "destructive" });
       return;
     }
     if (!productName.trim()) {
-      toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
+      toast({ title: "Product name required", description: "Please enter a product name in the Upload step first.", variant: "destructive" });
       return;
     }
     if (selectedAplusModules.length === 0) {
@@ -1438,10 +1452,10 @@ export default function AuditWorkflow() {
         return;
       }
     }
-    setCreatingStep(4);
-    setActiveStep(4);
+    setCreatingStep(5);
+    setActiveStep(5);
     setIsCreating(true);
-    patchAudit.mutate({ id: currentAuditId, data: { currentStep: 4 } });
+    patchAudit.mutate({ id: currentAuditId, data: { currentStep: uiStepToApiStep(5) } });
     generateAplus.mutate({
       auditId: currentAuditId,
       moduleIds: selectedAplusModules,
@@ -1452,7 +1466,7 @@ export default function AuditWorkflow() {
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
     if (!currentAuditId) return;
-    const payload: Record<string, unknown> = { currentStep: step };
+    const payload: Record<string, unknown> = { currentStep: uiStepToApiStep(step) };
     if (projectName) payload.projectName = projectName;
     if (brandName) payload.brandName = brandName;
     if (productName) payload.productName = productName;
@@ -1492,7 +1506,7 @@ export default function AuditWorkflow() {
 
   const handleStepClick = useCallback((step: StepId) => {
     setActiveStep(step);
-    persistWorkflowStep(step);
+    if (step > 1) persistWorkflowStep(step);
   }, [persistWorkflowStep]);
 
   /* ── Bottom bar ── */
@@ -1504,10 +1518,35 @@ export default function AuditWorkflow() {
     }
   }
 
+  function handleSkipToUpload() {
+    setSelectedProductId(null);
+    setCurrentAuditId(null);
+    stepRestoredForAuditIdRef.current = null;
+    lastRestoredAtRef.current = null;
+    const params = new URLSearchParams(window.location.search);
+    params.delete("resume");
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    setActiveStep(2);
+  }
+
   /* ── Next step ── */
   function handleNextStep() {
     if (activeStep === 1) {
-      // Step 1: always requires product name + category
+      if (selectedProductId !== null) {
+        forceUploadStepRef.current = true;
+        setCurrentAuditId(selectedProductId);
+        setActiveStep(2);
+        return;
+      }
+      toast({
+        title: "Select a product or create new",
+        description: "Choose an existing product from the list, or use “Create new product instead”.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (activeStep === 2) {
       if (!productName.trim()) {
         toast({ title: "Product name required", description: "Please enter a product name before continuing.", variant: "destructive" });
         return;
@@ -1517,12 +1556,11 @@ export default function AuditWorkflow() {
         return;
       }
       if (currentAuditId === null) {
-        // No audit yet — create it (handleCreate advances to step 2 on success)
         handleCreate();
         return;
       }
     }
-    if (activeStep < 5) {
+    if (activeStep < 6) {
       autoSave((activeStep + 1) as StepId);
       setActiveStep((s) => (s + 1) as StepId);
     }
@@ -1533,12 +1571,13 @@ export default function AuditWorkflow() {
   );
 
   const stepCompleted = useMemo((): Record<StepId, boolean> => ({
-    1: uploadedImages.length > 0,
-    2: generatedContent !== null,
-    3: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
-    4: aplusModules.length > 0 || aplusStatus === "completed",
-    5: false,
-  }), [uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
+    1: activeStep > 1 || currentAuditId !== null,
+    2: uploadedImages.length > 0 || currentAuditId !== null,
+    3: generatedContent !== null,
+    4: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
+    5: aplusModules.length > 0 || aplusStatus === "completed",
+    6: false,
+  }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
 
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
@@ -1567,8 +1606,17 @@ export default function AuditWorkflow() {
 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-5 w-full min-w-0">
 
-          {/* STEP 1: Upload ── */}
+          {/* STEP 1: Select existing product ── */}
           {activeStep === 1 && (
+            <BuildBrandProductSearch
+              selectedProductId={selectedProductId}
+              onSelectProduct={setSelectedProductId}
+              onSkipToUpload={handleSkipToUpload}
+            />
+          )}
+
+          {/* STEP 2: Upload ── */}
+          {activeStep === 2 && (
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center gap-3">
@@ -1754,8 +1802,8 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {/* STEP 2: Listing ── */}
-          {activeStep === 2 && (
+          {/* STEP 3: Listing ── */}
+          {activeStep === 3 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
@@ -1795,14 +1843,14 @@ export default function AuditWorkflow() {
                 type="button"
                 onClick={() => {
                   if (!productName.trim()) {
-                    toast({ title: "Product name required", description: "Please enter a product name in Step 1 first.", variant: "destructive" });
+                    toast({ title: "Product name required", description: "Please enter a product name in the Upload step first.", variant: "destructive" });
                     return;
                   }
                   if (!category) {
-                    toast({ title: "Category required", description: "Please select a category in Step 1 first.", variant: "destructive" });
+                    toast({ title: "Category required", description: "Please select a category in the Upload step first.", variant: "destructive" });
                     return;
                   }
-                  setCreatingStep(2);
+                  setCreatingStep(3);
                   setIsCreating(true);
 
                   if (currentAuditId) {
@@ -1978,8 +2026,8 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {/* STEP 3: Graphics ── */}
-          {activeStep === 3 && (
+          {/* STEP 4: Graphics ── */}
+          {activeStep === 4 && (
             <div className="space-y-8">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -2143,8 +2191,8 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {/* STEP 4: A+ Content ── */}
-          {activeStep === 4 && (
+          {/* STEP 5: A+ Content ── */}
+          {activeStep === 5 && (
             <div className="space-y-8">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -2293,7 +2341,7 @@ export default function AuditWorkflow() {
 
               {!currentAuditId && (
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                  Complete Step 1 and save your project before generating A+ content.
+                  Complete the Upload step and save your project before generating A+ content.
                 </p>
               )}
 
@@ -2316,8 +2364,8 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {/* STEP 5: Export ── */}
-          {activeStep === 5 && (
+          {/* STEP 6: Export ── */}
+          {activeStep === 6 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
@@ -2430,7 +2478,7 @@ export default function AuditWorkflow() {
 
               {!currentAuditId && (
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                  Complete Step 1 and save your project before exporting.
+                  Complete the Upload step and save your project before exporting.
                 </p>
               )}
 
@@ -2567,7 +2615,7 @@ export default function AuditWorkflow() {
 
         <div className="flex items-center gap-3">
           {/* Step 5: Save only (no navigation) */}
-          {activeStep === 5 && currentAuditId !== null && (
+          {activeStep === 6 && currentAuditId !== null && (
             <Button
               variant="outline"
               className="rounded-xl border-orange-300 text-orange-600 hover:bg-orange-50 gap-2"
@@ -2584,13 +2632,13 @@ export default function AuditWorkflow() {
           )}
 
           {/* Steps 1-4: Save & Continue */}
-          {activeStep < 5 && (
+          {activeStep < 6 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={handleNextStep}
               disabled={isCreating}
             >
-              {isCreating && activeStep === 1 ? (
+              {isCreating && activeStep === 2 ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Saving…
