@@ -538,6 +538,17 @@ export default function AuditWorkflow() {
   const [isDirty, setIsDirty] = useState(false);
   const createAuditDraft = useCreateAuditDraft();
   const patchAudit   = usePatchAudit();
+  const persistWorkflowStep = useCallback((step: StepId) => {
+    if (!currentAuditId) return;
+    patchAudit.mutate(
+      { id: currentAuditId, data: { currentStep: step } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) });
+        },
+      },
+    );
+  }, [currentAuditId, patchAudit, queryClient]);
   const generateContentDirect = useGenerateContentDirect();
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
     query: { enabled: currentAuditId !== null, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
@@ -1044,7 +1055,7 @@ export default function AuditWorkflow() {
                 versions: [],
               }));
             patchAudit.mutate(
-              { id: currentAuditId, data: { currentStep: activeStep, imageRecords } },
+              { id: currentAuditId, data: { imageRecords } },
               { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(currentAuditId) }) }
             );
           }
@@ -1059,7 +1070,40 @@ export default function AuditWorkflow() {
     poll();
     const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
-  }, [graphicsProjectId, existingGraphicsProject, graphicsStatus, toast, queryClient, currentAuditId, activeStep, patchAudit]);
+  }, [graphicsProjectId, existingGraphicsProject, graphicsStatus, toast, queryClient, currentAuditId, patchAudit]);
+
+  /* ── Sync graphics status when resuming an existing project ── */
+  useEffect(() => {
+    if (!existingGraphicsProject) return;
+    const project = existingGraphicsProject as {
+      status?: string;
+      imageRecords?: Array<{ currentUrl?: string; type?: string; index?: number }>;
+    };
+    if (project.status === "completed" || project.status === "failed" || project.status === "generating") {
+      setGraphicsStatus(project.status);
+    }
+    if (project.status === "generating") {
+      hasSeenGeneratingRef.current = true;
+    }
+    if (project.imageRecords?.length) {
+      setGeneratedImages((prev) => {
+        const newImages = project.imageRecords!
+          .filter((r) => r.currentUrl)
+          .map((r) => ({ url: r.currentUrl!, type: r.type ?? "lifestyle", index: r.index ?? 0 }));
+        if (newImages.length === 0) return prev;
+        const existingKeys = new Set(prev.map((i) => `${i.url}|${i.type}|${i.index}`));
+        const merged = [...prev];
+        for (const img of newImages) {
+          const key = `${img.url}|${img.type}|${img.index}`;
+          if (!existingKeys.has(key)) {
+            merged.push(img);
+            existingKeys.add(key);
+          }
+        }
+        return merged;
+      });
+    }
+  }, [existingGraphicsProject]);
 
   /* ── File upload helpers ── */
   function handleFiles(files: FileList | null) {
@@ -1282,6 +1326,7 @@ export default function AuditWorkflow() {
           ? `Amazon ${exportMarketplace} listing export is ready. Image columns use public HTTPS URLs.`
           : "Shopify product CSV is ready. Image columns use public HTTPS URLs.",
       });
+      persistWorkflowStep(5);
     } catch (err) {
       toast({
         title: "Export failed",
@@ -1291,7 +1336,7 @@ export default function AuditWorkflow() {
     } finally {
       setExportLoading(null);
     }
-  }, [currentAuditId, generatedContent, exportPlatform, exportMarketplace, toast]);
+  }, [currentAuditId, generatedContent, exportPlatform, exportMarketplace, toast, persistWorkflowStep]);
 
   const handlePublishAmazon = useCallback(async () => {
     if (!currentAuditId) {
@@ -1320,6 +1365,7 @@ export default function AuditWorkflow() {
         title: result.sandbox ? "Published to Amazon sandbox" : "Published to Amazon",
         description: result.message,
       });
+      persistWorkflowStep(5);
     } catch (err) {
       toast({
         title: "Publish failed",
@@ -1329,7 +1375,7 @@ export default function AuditWorkflow() {
     } finally {
       setPublishLoading(false);
     }
-  }, [currentAuditId, generatedContent, amazonStatus, exportMarketplace, toast]);
+  }, [currentAuditId, generatedContent, amazonStatus, exportMarketplace, toast, persistWorkflowStep]);
 
   const handlePublishShopify = useCallback(async () => {
     if (!currentAuditId) {
@@ -1355,6 +1401,7 @@ export default function AuditWorkflow() {
         title: "Published to Shopify",
         description: result.listingUrl ?? result.message,
       });
+      persistWorkflowStep(5);
     } catch (err) {
       toast({
         title: "Publish failed",
@@ -1364,7 +1411,7 @@ export default function AuditWorkflow() {
     } finally {
       setPublishLoading(false);
     }
-  }, [currentAuditId, generatedContent, shopifyStatus, toast]);
+  }, [currentAuditId, generatedContent, shopifyStatus, toast, persistWorkflowStep]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
@@ -1443,6 +1490,11 @@ export default function AuditWorkflow() {
     autoSave(activeStep);
   }, [autoSave, activeStep]);
 
+  const handleStepClick = useCallback((step: StepId) => {
+    setActiveStep(step);
+    persistWorkflowStep(step);
+  }, [persistWorkflowStep]);
+
   /* ── Bottom bar ── */
   function handleBack() {
     if (activeStep === 1) nav("/audits/new");
@@ -1498,7 +1550,7 @@ export default function AuditWorkflow() {
           className="max-w-5xl mx-auto border-0 rounded-none"
           activeStep={activeStep}
           stepCompleted={stepCompleted}
-          onStepClick={setActiveStep}
+          onStepClick={handleStepClick}
         />
       </div>
 
