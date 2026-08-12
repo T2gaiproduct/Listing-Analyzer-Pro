@@ -49,6 +49,16 @@ function resolveConfiguredHttpsBaseUrl(): string | undefined {
 
 /** WooCommerce/Shopify must fetch images from a public HTTPS URL — never localhost. */
 export function resolveMarketplacePublishBaseUrl(req: Request): string {
+  const fromRequest = resolvePublicAppBaseUrl({ req });
+  try {
+    const { hostname } = new URL(fromRequest);
+    if (hostname.endsWith(".trycloudflare.com")) {
+      return fromRequest;
+    }
+  } catch {
+    /* ignore */
+  }
+
   const configuredBase = resolveConfiguredHttpsBaseUrl();
   if (configuredBase) {
     return configuredBase;

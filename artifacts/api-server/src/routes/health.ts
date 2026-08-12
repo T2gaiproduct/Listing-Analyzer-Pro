@@ -5,7 +5,7 @@ const router: IRouter = Router();
 router.get("/healthz", (_req, res) => {
   res.json({
     status: "ok",
-    publishImageFix: "marketplace-direct-upload-v4",
+    publishImageFix: "marketplace-signed-url-v5",
   });
 });
 

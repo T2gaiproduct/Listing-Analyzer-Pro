@@ -103,6 +103,11 @@ function finalizeWooCommerceImages(images: WooCommerceProductImage[]): WooCommer
     .filter((image): image is WooCommerceProductImage => image != null && Boolean(image.id || image.src));
 }
 
+function isMediaUploadPermissionError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /media upload failed \(401\)|media upload failed \(403\)|rest_cannot_create|not allowed to create posts/i.test(message);
+}
+
 async function resolveWooCommerceProductImages(opts: {
   audit: Audit;
   connection: WooCommerceStoreConnectionWithSecret;
@@ -137,27 +142,6 @@ async function resolveWooCommerceProductImages(opts: {
     const filename = filenameForAsset(asset, index);
     const { contentType } = contentTypeForImageSource(sourceUrl);
 
-    if (buffer) {
-      const media = await uploadWooCommerceMedia({
-        storeUrl: opts.connection.storeUrl,
-        consumerKey: opts.connection.consumerKey,
-        consumerSecret: opts.connection.consumerSecret,
-        filename,
-        contentType,
-        data: buffer,
-      });
-      const key = `media:${media.id}`;
-      if (!seen.has(key)) {
-        resolved.push({
-          id: media.id,
-          alt: opts.altText,
-          name: filename,
-        });
-        seen.add(key);
-      }
-      continue;
-    }
-
     const publicUrl = resolvePublishImageCandidate({
       auditId: opts.audit.id,
       sourceUrl,
@@ -173,6 +157,34 @@ async function resolveWooCommerceProductImages(opts: {
         name: filename,
       });
       seen.add(safe);
+      continue;
+    }
+
+    if (buffer) {
+      try {
+        const media = await uploadWooCommerceMedia({
+          storeUrl: opts.connection.storeUrl,
+          consumerKey: opts.connection.consumerKey,
+          consumerSecret: opts.connection.consumerSecret,
+          filename,
+          contentType,
+          data: buffer,
+        });
+        const key = `media:${media.id}`;
+        if (!seen.has(key)) {
+          resolved.push({
+            id: media.id,
+            alt: opts.altText,
+            name: filename,
+          });
+          seen.add(key);
+        }
+      } catch (err) {
+        if (!isMediaUploadPermissionError(err)) {
+          throw err;
+        }
+        // Standard WooCommerce API keys cannot create wp/v2/media — signed URL is preferred.
+      }
     }
   }
 
