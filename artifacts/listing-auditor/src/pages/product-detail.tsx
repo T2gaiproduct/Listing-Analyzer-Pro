@@ -177,6 +177,47 @@ type ListingContentView = {
   htmlDescription: string;
 };
 
+function collectListingSuggestions(
+  auditResult: AuditResult | null | undefined,
+  productSuggestions: string[] | undefined,
+): string[] {
+  const suggestions: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (text: string) => {
+    const normalized = text.trim();
+    if (!normalized || seen.has(normalized.toLowerCase())) return;
+    seen.add(normalized.toLowerCase());
+    suggestions.push(normalized);
+  };
+
+  if (auditResult) {
+    for (const section of [
+      auditResult.titleScore,
+      auditResult.bulletScore,
+      auditResult.imageScore,
+      auditResult.keywordScore,
+    ]) {
+      for (const suggestion of section?.suggestions ?? []) add(suggestion);
+      for (const issue of section?.issues ?? []) add(issue);
+    }
+  }
+
+  for (const suggestion of productSuggestions ?? []) add(suggestion);
+
+  if (suggestions.length === 0) {
+    add("Click Generate Content to create SEO-optimized title, bullets, and keywords.");
+  }
+
+  return suggestions.slice(0, 8);
+}
+
+function hasGeneratedListingContent(
+  audit?: { sourceListingContent?: GeneratedContent | null } | null,
+): boolean {
+  return Boolean(audit?.sourceListingContent);
+}
+
 function listingFieldsMatchGenerated(
   audit?: {
     title?: string | null;
@@ -788,20 +829,46 @@ function ListingContentCard({
   );
 }
 
+function ListingSuggestionsCard({ suggestions }: { suggestions: string[] }) {
+  return (
+    <div className="rounded-lg border border-orange-200/80 bg-orange-50/40 overflow-hidden shadow-sm">
+      <div className="border-b border-orange-100 bg-orange-50 px-4 py-2.5 flex items-center gap-2">
+        <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+        <p className="text-[10px] font-semibold text-orange-900">Improvement Suggestions</p>
+      </div>
+      <ul className="px-4 py-4 space-y-2.5">
+        {suggestions.map((suggestion) => (
+          <li
+            key={suggestion}
+            className="text-[11px] text-slate-700 leading-relaxed flex gap-1.5"
+          >
+            <CheckCircle2 className="w-3 h-3 text-orange-500 shrink-0 mt-0.5" />
+            <span>{suggestion}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function OptimizedContentPanel({
   generatedContent,
   existingContent,
+  suggestions,
+  hasGeneratedContent,
   isOptimizing,
   onOptimize,
   optimizeDisabled,
 }: {
   generatedContent?: GeneratedContent | null;
   existingContent?: ListingContentView | null;
+  suggestions: string[];
+  hasGeneratedContent: boolean;
   isOptimizing: boolean;
   onOptimize: () => void;
   optimizeDisabled?: boolean;
 }) {
-  const optimizedContent: ListingContentView | null = generatedContent?.title
+  const optimizedContent: ListingContentView | null = hasGeneratedContent && generatedContent?.title
     ? {
         title: generatedContent.title,
         bulletPoints: generatedContent.bulletPoints?.filter(Boolean) ?? [],
@@ -809,6 +876,8 @@ function OptimizedContentPanel({
         htmlDescription: generatedContent.htmlDescription?.trim() ?? "",
       }
     : null;
+
+  const showSuggestions = !hasGeneratedContent;
 
   return (
     <div className="space-y-4">
@@ -830,9 +899,13 @@ function OptimizedContentPanel({
         <div className="space-y-2 min-w-0">
           <div className="flex items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+              {showSuggestions ? (
+                <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+              )}
               <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                Optimized Content
+                {showSuggestions ? "Suggestions" : "Optimized Content"}
               </p>
             </div>
             <Button
@@ -846,26 +919,28 @@ function OptimizedContentPanel({
               {isOptimizing ? (
                 <>
                   <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  Optimizing…
+                  Generating…
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3 h-3 mr-1 opacity-70" />
-                  {generatedContent?.title ? "Regenerate" : "Optimize Content"}
+                  {hasGeneratedContent ? "Regenerate" : "Generate Content"}
                 </>
               )}
             </Button>
           </div>
 
-          {isOptimizing && !generatedContent?.title ? (
+          {isOptimizing && showSuggestions ? (
             <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/40 px-4 py-8 text-center">
               <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto mb-2" />
               <p className="text-[11px] text-slate-600">Generating optimized listing copy…</p>
             </div>
+          ) : showSuggestions ? (
+            <ListingSuggestionsCard suggestions={suggestions} />
           ) : (
             <ListingContentCard
               content={optimizedContent}
-              emptyMessage="No optimized content yet. Click Optimize Content to generate listing copy (1 AI credit)."
+              emptyMessage="No optimized content yet. Click Generate Content to create listing copy (1 AI credit)."
               accent="orange"
             />
           )}
@@ -1277,6 +1352,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const existingListingContent = useMemo(
     () => resolveExistingListingContent(product, effectiveAudit),
     [product, effectiveAudit],
+  );
+
+  const listingSuggestions = useMemo(
+    () => collectListingSuggestions(effectiveAudit?.result, product?.aiSuggestions),
+    [effectiveAudit?.result, product?.aiSuggestions],
+  );
+
+  const hasGeneratedListing = useMemo(
+    () => hasGeneratedListingContent(effectiveAudit),
+    [effectiveAudit],
   );
 
   async function refreshProductData() {
@@ -1951,12 +2036,22 @@ export default function ProductDetailPage({ id }: { id: number }) {
       { id: optimizeAuditId },
       {
         onSuccess: (generatedContent: GeneratedContent) => {
+          const sourceSnapshot = existingListingContent
+            ? {
+                title: existingListingContent.title,
+                bulletPoints: existingListingContent.bulletPoints,
+                keywords: existingListingContent.keywords,
+                htmlDescription: existingListingContent.htmlDescription,
+              }
+            : undefined;
+
           queryClient.setQueryData<GetAuditQueryResult>(
             getGetAuditQueryKey(optimizeAuditId),
             (current) => (current
               ? {
                   ...current,
                   generatedContent,
+                  sourceListingContent: current.sourceListingContent ?? sourceSnapshot ?? null,
                 }
               : current),
           );
@@ -1967,6 +2062,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 ? {
                     ...current,
                     generatedContent,
+                    sourceListingContent: current.sourceListingContent ?? sourceSnapshot ?? null,
                   }
                 : current),
             );
@@ -2068,6 +2164,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
           audit={effectiveAudit}
           generatedContent={effectiveAudit?.generatedContent ?? null}
           existingContent={existingListingContent}
+          suggestions={listingSuggestions}
+          hasGeneratedContent={hasGeneratedListing}
           isOptimizing={isOptimizingContent}
           onOptimize={handleOptimizeContent}
           optimizeDisabled={!canOptimizeContent}

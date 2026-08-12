@@ -85,6 +85,8 @@ export function ProductWorkflowStepContent({
   audit,
   generatedContent,
   existingContent,
+  suggestions,
+  hasGeneratedContent,
   isOptimizing,
   onOptimize,
   optimizeDisabled,
@@ -108,6 +110,8 @@ export function ProductWorkflowStepContent({
     keywords: string[];
     htmlDescription: string;
   } | null;
+  suggestions: string[];
+  hasGeneratedContent: boolean;
   isOptimizing: boolean;
   onOptimize: () => void;
   optimizeDisabled?: boolean;
@@ -126,6 +130,8 @@ export function ProductWorkflowStepContent({
       keywords: string[];
       htmlDescription: string;
     } | null;
+    suggestions: string[];
+    hasGeneratedContent: boolean;
     isOptimizing: boolean;
     onOptimize: () => void;
     optimizeDisabled?: boolean;
@@ -175,6 +181,8 @@ export function ProductWorkflowStepContent({
         <OptimizedContentPanel
           generatedContent={generatedContent}
           existingContent={existingContent}
+          suggestions={suggestions}
+          hasGeneratedContent={hasGeneratedContent}
           isOptimizing={isOptimizing}
           onOptimize={onOptimize}
           optimizeDisabled={optimizeDisabled}
