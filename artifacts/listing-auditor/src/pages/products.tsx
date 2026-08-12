@@ -137,6 +137,11 @@ function productDetailUrl(id: number, sourceType: ProductSourceType): string {
   return `/products/${id}?source=${sourceType}`;
 }
 
+function productOverviewEditUrl(detailUrl: string): string {
+  const separator = detailUrl.includes("?") ? "&" : "?";
+  return `${detailUrl}${separator}step=overview&edit=listing`;
+}
+
 function normalizeApiProduct(raw: ProductListItem & Partial<ProductListItem>): ProductListItem {
   const workflowUrl = raw.workflowUrl ?? `/audits/workflow?resume=${raw.id}`;
   const isShopifyImport = raw.isShopifyImport === true;
@@ -751,14 +756,14 @@ export default function ProductsPage() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => navigate(viewUrl)}
+                              onClick={() => navigate(productOverviewEditUrl(viewUrl))}
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-                              aria-label="Edit in Product Explorer"
+                              aria-label="Edit overview in Product Explorer"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">Edit in Product Explorer</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">Edit overview summary</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>

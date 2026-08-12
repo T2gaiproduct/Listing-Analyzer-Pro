@@ -785,6 +785,16 @@ export default function ProductDetailPage({ id }: { id: number }) {
     return parseProductSource(params.get("source"));
   }, [location, id]);
 
+  const urlWorkflowIntent = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      forceOverview: params.get("step") === "overview",
+      openListingEdit: params.get("edit") === "listing",
+    };
+  }, [location, id]);
+
+  const listingEditFromUrlRef = useRef(false);
+
   const canEditProduct = (source === null || source === "listing" || source === "audit")
     && (isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand"));
 
@@ -938,7 +948,13 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!product?.sourceType) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("source") === product.sourceType) return;
-    navigate(`/products/${id}?source=${product.sourceType}`, { replace: true });
+    const preserved = new URLSearchParams();
+    preserved.set("source", product.sourceType);
+    const step = params.get("step");
+    const edit = params.get("edit");
+    if (step) preserved.set("step", step);
+    if (edit) preserved.set("edit", edit);
+    navigate(`/products/${id}?${preserved.toString()}`, { replace: true });
   }, [product?.sourceType, id, navigate]);
 
   const isLoading = queryEnabled && apiLoading && !product && !(shouldFetchAudit && auditLoading);
@@ -1212,11 +1228,39 @@ export default function ProductDetailPage({ id }: { id: number }) {
   });
 
   useEffect(() => {
-    if (!product?.id || !product.currentStep) return;
+    if (!product?.id) return;
     if (workflowProductIdRef.current === product.id) return;
     workflowProductIdRef.current = product.id;
-    setSelectedWorkflowStep(apiStepToProductExplorerStep(product.currentStep));
-  }, [product?.id, product?.currentStep]);
+    if (urlWorkflowIntent.forceOverview) {
+      setSelectedWorkflowStep(2);
+      return;
+    }
+    if (product.currentStep) {
+      setSelectedWorkflowStep(apiStepToProductExplorerStep(product.currentStep));
+    }
+  }, [product?.id, product?.currentStep, urlWorkflowIntent.forceOverview]);
+
+  useEffect(() => {
+    listingEditFromUrlRef.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    if (!urlWorkflowIntent.forceOverview || !urlWorkflowIntent.openListingEdit) return;
+    if (!listingProduct || !canEditProduct || listingEditFromUrlRef.current) return;
+    listingEditFromUrlRef.current = true;
+    setSelectedWorkflowStep(2);
+    const baseForm = buildListingEditForm(listingProduct, effectiveAudit);
+    const savedDraft = readListingDraft(id);
+    setEditForm(mergeListingEditForm(baseForm, savedDraft));
+    setIsEditingListing(true);
+  }, [
+    urlWorkflowIntent.forceOverview,
+    urlWorkflowIntent.openListingEdit,
+    listingProduct,
+    effectiveAudit,
+    canEditProduct,
+    id,
+  ]);
 
   if (isLoading) {
     return (
