@@ -49,10 +49,10 @@ import { ProductDetailRibbon } from "@/components/product-detail-ribbon";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import {
   ProductExplorerWorkflowStepper,
-  apiStepToProductExplorerStep,
   nextProductExplorerWorkflowStep,
   productExplorerSaveContinueApiStep,
   productExplorerStepCompletedFromData,
+  resolveInitialProductExplorerStep,
   type ProductExplorerWorkflowStepId,
 } from "@/components/product-explorer-workflow-stepper";
 import { ProductWorkflowStepContent } from "@/components/product-workflow-step-content";
@@ -1375,14 +1375,14 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!product?.id) return;
     if (workflowProductIdRef.current === product.id) return;
     workflowProductIdRef.current = product.id;
-    if (urlWorkflowIntent.forceOverview) {
-      setSelectedWorkflowStep(2);
-      return;
-    }
-    if (product.currentStep) {
-      setSelectedWorkflowStep(apiStepToProductExplorerStep(product.currentStep));
-    }
-  }, [product?.id, product?.currentStep, urlWorkflowIntent.forceOverview]);
+    setSelectedWorkflowStep(
+      resolveInitialProductExplorerStep(
+        workflowStepCompleted,
+        product.currentStep,
+        { forceOverview: urlWorkflowIntent.forceOverview },
+      ),
+    );
+  }, [product?.id, product?.currentStep, urlWorkflowIntent.forceOverview, workflowStepCompleted]);
 
   useEffect(() => {
     listingEditFromUrlRef.current = false;
