@@ -1422,6 +1422,15 @@ export default function AuditWorkflow() {
     5: aplusModules.length > 0 || aplusStatus === "completed",
   }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
 
+  const productExplorerSaveBlocker = useMemo((): string | null => {
+    if (patchAudit.isPending) return "Saving your project…";
+    if (!currentAuditId) return "Complete the Upload step and save your project first.";
+    if (!generatedContent) return "Go to the Listing step and click Generate Listing Content.";
+    return null;
+  }, [currentAuditId, generatedContent, patchAudit.isPending]);
+
+  const canSaveToProductExplorer = productExplorerSaveBlocker === null;
+
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="flex flex-col h-full overflow-hidden bg-white">
@@ -2215,12 +2224,20 @@ export default function AuditWorkflow() {
                     <p className="text-xs text-slate-500 mt-1">
                       Save this product and publish to Amazon, Shopify, or WooCommerce from the Marketplaces step.
                     </p>
+                    {productExplorerSaveBlocker && (
+                      <p className="text-xs text-amber-700 mt-2">{productExplorerSaveBlocker}</p>
+                    )}
                   </div>
                 </div>
                 <Button
-                  variant="outline"
-                  className="rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 shrink-0 w-full sm:w-auto"
-                  disabled={!currentAuditId || !generatedContent || patchAudit.isPending}
+                  variant={canSaveToProductExplorer ? "default" : "outline"}
+                  className={cn(
+                    "rounded-xl shrink-0 w-full sm:w-auto",
+                    canSaveToProductExplorer
+                      ? "bg-orange-500 hover:bg-orange-600 text-white"
+                      : "border-orange-200 text-orange-400",
+                  )}
+                  disabled={!canSaveToProductExplorer}
                   onClick={handleOpenProductExplorer}
                 >
                   {patchAudit.isPending ? (
@@ -2273,7 +2290,7 @@ export default function AuditWorkflow() {
               <Button
                 className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
                 onClick={handleOpenProductExplorer}
-                disabled={!generatedContent || patchAudit.isPending}
+                disabled={!canSaveToProductExplorer}
               >
                 <Package className="w-4 h-4" />
                 Save to Product Explorer
