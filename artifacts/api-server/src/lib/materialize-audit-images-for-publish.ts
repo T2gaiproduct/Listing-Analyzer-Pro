@@ -5,8 +5,16 @@ import { collectProductImages } from "./listing-export-shared.js";
 import { buildSignedPublishImageUrl } from "./marketplace-publish-image-token.js";
 import { persistDataUrlAsAuditImage } from "./image-storage.js";
 
+/** Inline data URL, including values corrupted by prefixing a public base URL. */
+export function extractEmbeddedDataImageUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:image/")) return trimmed;
+  const match = trimmed.match(/data:image\/[\w+.-]+;base64,.+/);
+  return match?.[0] ?? null;
+}
+
 export function isDataImageUrl(url: string): boolean {
-  return url.trim().startsWith("data:image/");
+  return extractEmbeddedDataImageUrl(url) !== null;
 }
 
 export function isProtectedAppImageUrl(url: string): boolean {
@@ -31,8 +39,9 @@ export function resolvePublishImageCandidate(opts: {
   let source = opts.sourceUrl.trim();
   if (!source) return null;
 
-  if (isDataImageUrl(source)) {
-    const persisted = persistDataUrlAsAuditImage(opts.auditId, source, opts.index);
+  const embeddedDataUrl = extractEmbeddedDataImageUrl(source);
+  if (embeddedDataUrl) {
+    const persisted = persistDataUrlAsAuditImage(opts.auditId, embeddedDataUrl, opts.index);
     if (!persisted) return null;
     source = persisted;
   }
@@ -57,20 +66,22 @@ export async function materializeAuditImagesForPublish(audit: Audit): Promise<Au
   const imageRecords = [...((audit.imageRecords as ImageRecord[] | null) ?? [])];
   let changed = false;
 
-  const nextUrls = imageUrls.map((url, index) => {
-    if (!isDataImageUrl(url)) return url;
-    const persisted = persistDataUrlAsAuditImage(audit.id, url, index);
+  const persistInlineImage = (url: string, index: number): string => {
+    const embedded = extractEmbeddedDataImageUrl(url);
+    if (!embedded) return url;
+    const persisted = persistDataUrlAsAuditImage(audit.id, embedded, index);
     if (!persisted) return url;
     changed = true;
     return persisted;
-  });
+  };
+
+  const nextUrls = imageUrls.map((url, index) => persistInlineImage(url, index));
 
   const nextRecords = imageRecords.map((record, index) => {
     const currentUrl = record.currentUrl?.trim();
-    if (!currentUrl || !isDataImageUrl(currentUrl)) return record;
-    const persisted = persistDataUrlAsAuditImage(audit.id, currentUrl, 100 + index);
-    if (!persisted) return record;
-    changed = true;
+    if (!currentUrl) return record;
+    const persisted = persistInlineImage(currentUrl, 100 + index);
+    if (persisted === currentUrl) return record;
     return { ...record, currentUrl: persisted };
   });
 
