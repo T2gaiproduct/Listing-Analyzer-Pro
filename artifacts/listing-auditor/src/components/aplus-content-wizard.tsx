@@ -451,7 +451,6 @@ export function AplusContentWizard({
             setAplusModules(updated);
             void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
           }}
-          onLightbox={() => undefined}
         />
       )}
 

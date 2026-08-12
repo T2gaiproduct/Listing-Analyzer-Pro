@@ -1,5 +1,6 @@
 import { useState, useRef, useLayoutEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getGetAuditQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,10 +9,16 @@ import { ReferenceImageUploadField } from "@/components/reference-image-upload-f
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
-import { Check, Clock, Download, Maximize2, RefreshCw, Wand2 } from "lucide-react";
+import { Check, Clock, Download, Maximize2, RefreshCw, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function resolveImageUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  return `${basePath}${url.startsWith("/") ? url : `/${url}`}`;
+}
 
 export interface AplusModuleVersion {
   url: string;
@@ -121,7 +128,7 @@ function AplusImageCard({
     <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 hover:shadow-sm transition-all bg-white">
       <div className="group relative w-full aspect-[16/10] bg-slate-100">
         <img
-          src={normalized.imageUrl}
+          src={resolveImageUrl(normalized.imageUrl)}
           alt={normalized.title}
           className="w-full h-full object-cover"
           loading="lazy"
@@ -169,18 +176,28 @@ interface AplusModuleGalleryProps {
   auditId: number;
   modules: AplusModuleItem[];
   onModulesUpdate: (modules: AplusModuleItem[]) => void;
-  onLightbox: (url: string) => void;
+  /** When set, parent handles fullscreen preview (e.g. Build Your Brand page portal). */
+  onLightbox?: (url: string) => void;
 }
 
 export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightbox }: AplusModuleGalleryProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canEditAudits } = useTeam();
+  const { canEditAudits, isTeamMember, memberCredits } = useTeam();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [editModule, setEditModule] = useState<AplusModuleItem | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
   const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
   const [historyModule, setHistoryModule] = useState<AplusModuleItem | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
+    queryKey: ["credit-rules"],
+    queryFn: () => fetch(`${basePath}/api/credit-rules`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const regenerateCreditCost = creditRules.find((r) => r.featureType === "graphics")?.creditsRequired ?? 8;
+  const editCreditCost = creditRules.find((r) => r.featureType === "graphics_edit")?.creditsRequired ?? 4;
 
   const setLoading = (moduleId: string, loading: boolean) => {
     setLoadingIds((prev) => {
@@ -193,6 +210,28 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
 
   const updateModuleInList = (updated: AplusModuleItem) => {
     onModulesUpdate(modules.map((m) => (m.id === updated.id ? updated : m)));
+    void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
+  };
+
+  const openLightbox = (url: string) => {
+    const resolved = resolveImageUrl(url);
+    if (onLightbox) {
+      onLightbox(resolved);
+    } else {
+      setLightboxUrl(resolved);
+    }
+  };
+
+  const requireImageCredits = (amount: number, action: string): boolean => {
+    if (!isTeamMember) return true;
+    const available = memberCredits?.imageCredits ?? 0;
+    if (available >= amount) return true;
+    toast({
+      title: "Insufficient image credits",
+      description: `You need ${amount} image credits for ${action} but only have ${available}.`,
+      variant: "destructive",
+    });
+    return false;
   };
 
   const regenerateMutation = useMutation({
@@ -271,15 +310,26 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
     onSettled: (_data, _err, { moduleId }) => setLoading(moduleId, false),
   });
 
-  const handleDownload = (url: string, filename: string) => {
-    const a = document.createElement("a");
-    a.href = url.startsWith("http") ? url : `${basePath}${url}`;
-    a.download = filename;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = async (url: string, filename: string) => {
+    const fullUrl = resolveImageUrl(url);
+    try {
+      const response = await fetch(fullUrl, { credentials: "include" });
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      toast({
+        title: "Download failed",
+        description: err instanceof Error ? err.message : "Could not download this image.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -300,15 +350,18 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
               module={module}
               isLoading={loadingIds.has(module.id)}
               canEditAudits={canEditAudits}
-              onView={() => onLightbox(module.imageUrl)}
-              onRegenerate={() => regenerateMutation.mutate(module.id)}
+              onView={() => openLightbox(module.imageUrl)}
+              onRegenerate={() => {
+                if (!requireImageCredits(regenerateCreditCost, "regeneration")) return;
+                regenerateMutation.mutate(module.id);
+              }}
               onEdit={() => {
                 setEditModule(module);
                 setEditPrompt("");
                 setEditReferenceImages([]);
               }}
               onHistory={() => setHistoryModule(module)}
-              onDownload={() => handleDownload(module.imageUrl, `aplus-${module.id}.png`)}
+              onDownload={() => void handleDownload(module.imageUrl, `aplus-${module.id}.png`)}
             />
           ))}
         </div>
@@ -338,7 +391,7 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-2">Current</p>
                   <div className="rounded-lg border bg-slate-50 aspect-[16/10] overflow-hidden">
-                    <img src={editModule.imageUrl} alt="Current" className="w-full h-full object-cover" />
+                    <img src={resolveImageUrl(editModule.imageUrl)} alt="Current" className="w-full h-full object-cover" />
                   </div>
                 </div>
                 <div>
@@ -383,13 +436,14 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                   Cancel
                 </Button>
                 <Button
-                  onClick={() =>
+                  onClick={() => {
+                    if (!requireImageCredits(editCreditCost, "AI edit")) return;
                     editMutation.mutate({
                       moduleId: editModule.id,
                       prompt: editPrompt,
                       referenceImageUrls: editReferenceImages.length > 0 ? editReferenceImages : undefined,
-                    })
-                  }
+                    });
+                  }}
                   disabled={!editPrompt.trim() || loadingIds.has(editModule.id)}
                   className="gap-2"
                 >
@@ -440,9 +494,14 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                           isCurrent && "ring-2 ring-orange-500 border-orange-200",
                         )}
                       >
-                        <div className="w-20 h-14 rounded-lg border bg-slate-50 overflow-hidden flex-shrink-0">
-                          <img src={version.url} alt={`Version ${versionNum}`} className="w-full h-full object-cover" />
-                        </div>
+                        <button
+                          type="button"
+                          className="w-20 h-14 rounded-lg border bg-slate-50 overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-orange-300 transition-shadow"
+                          onClick={() => openLightbox(version.url)}
+                          title="Preview full screen"
+                        >
+                          <img src={resolveImageUrl(version.url)} alt={`Version ${versionNum}`} className="w-full h-full object-cover" />
+                        </button>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">
@@ -458,13 +517,24 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
                             <p className="text-xs text-slate-500 mt-1 truncate">{version.prompt}</p>
                           )}
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDownload(version.url, `aplus-${historyModule.id}-v${versionNum}.png`)}
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </Button>
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Preview"
+                            onClick={() => openLightbox(version.url)}
+                          >
+                            <Maximize2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Download"
+                            onClick={() => void handleDownload(version.url, `aplus-${historyModule.id}-v${versionNum}.png`)}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
@@ -475,6 +545,30 @@ export function AplusModuleGallery({ auditId, modules, onModulesUpdate, onLightb
           )}
         </DialogContent>
       </Dialog>
+
+      {!onLightbox && (
+        <Dialog open={lightboxUrl !== null} onOpenChange={(open) => { if (!open) setLightboxUrl(null); }}>
+          <DialogContent className="max-w-5xl p-2 sm:p-4 border-0 bg-transparent shadow-none">
+            {lightboxUrl && (
+              <div className="relative">
+                <img
+                  src={lightboxUrl}
+                  alt="A+ module full size"
+                  className="w-full max-h-[85vh] object-contain rounded-xl bg-black/20"
+                />
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center shadow-lg hover:bg-slate-100 transition-colors"
+                  onClick={() => setLightboxUrl(null)}
+                  aria-label="Close preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
