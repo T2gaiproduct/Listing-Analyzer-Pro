@@ -23,6 +23,13 @@ import { getProductSales, emptyProductSalesData } from "../lib/product-sales.js"
 import {
   listProductMarketplaces,
 } from "../lib/product-marketplaces.js";
+import {
+  ensureLiveWooCommerceListingPriceOnStore,
+} from "../lib/woocommerce-publish.js";
+import {
+  getWooCommerceConnection,
+  isWooCommercePublishReady,
+} from "../lib/marketplace-connections.js";
 import { createProductRecord, parseCreateProductBody } from "../lib/create-product.js";
 import { importProductRecords, parseImportProductsBody } from "../lib/import-products.js";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
@@ -378,6 +385,25 @@ router.get("/products/:id/marketplaces", requireAuth, resolveTeamAndWorkspace, a
   }
 
   const result = await listProductMarketplaces(statsAuditId);
+
+  const wooListing = result.listings.find((listing) => listing.marketplace === "WooCommerce");
+  if (wooListing?.status === "live" && wooListing.price != null && wooListing.price > 0) {
+    const workspaceId = getActiveWorkspaceId(req);
+    if (workspaceId) {
+      const connection = await getWooCommerceConnection(workspaceId);
+      if (connection && isWooCommercePublishReady(connection)) {
+        try {
+          await ensureLiveWooCommerceListingPriceOnStore({
+            connection,
+            auditId: statsAuditId,
+            listing: wooListing,
+          });
+        } catch {
+          // Non-fatal: SellerLens cards still show the stored price if the store sync fails.
+        }
+      }
+    }
+  }
 
   res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
   res.json(result);

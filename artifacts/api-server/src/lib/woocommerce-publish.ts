@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
-import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
+import { db, auditsTable, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
 import {
   buildProductImageAssets,
   collectProductImages,
@@ -301,11 +301,100 @@ function buildProductPayload(opts: {
     description: content.htmlDescription || undefined,
     short_description: buildShortDescription(content.bulletPoints) || undefined,
     ...(opts.sku ? { sku: opts.sku } : {}),
-    regular_price: opts.price ?? undefined,
+    ...(opts.price ? { regular_price: opts.price } : {}),
     images: safeImages.length > 0 ? safeImages : undefined,
     categories: category ? [{ name: category }] : undefined,
     tags: tags.length > 0 ? tags : undefined,
   };
+}
+
+function buildWooCommercePricePatch(opts: {
+  product: WooCommerceRestProduct;
+  slug: string;
+  price: string;
+  publishMode: WooCommercePublishMode;
+}): WooCommerceProductPayload {
+  return {
+    name: opts.product.name,
+    slug: opts.product.slug || opts.slug,
+    type: "simple",
+    status: opts.publishMode === "live"
+      ? "publish"
+      : (opts.product.status as WooCommerceProductPayload["status"]) ?? "draft",
+    regular_price: opts.price,
+  };
+}
+
+export async function syncWooCommerceStorePrice(opts: {
+  connection: WooCommerceStoreConnectionWithSecret;
+  audit: Audit;
+  priceCents: number;
+  sku?: string | null;
+  slug?: string | null;
+  publishMode?: WooCommercePublishMode;
+}): Promise<WooCommerceRestProduct | null> {
+  if (opts.priceCents <= 0) return null;
+
+  const price = (opts.priceCents / 100).toFixed(2);
+  const publishMode = opts.publishMode ?? "live";
+  const content = resolveListingContentForExport(opts.audit);
+  const slug = opts.slug?.trim()
+    || woocommerceSlugFromAsin(opts.audit.asin)
+    || slugify(content.title);
+
+  const existing = await findWooCommerceProductBySlug({
+    storeUrl: opts.connection.storeUrl,
+    consumerKey: opts.connection.consumerKey,
+    consumerSecret: opts.connection.consumerSecret,
+    slug,
+  }) ?? (opts.sku?.trim()
+    ? await findWooCommerceProductBySku({
+      storeUrl: opts.connection.storeUrl,
+      consumerKey: opts.connection.consumerKey,
+      consumerSecret: opts.connection.consumerSecret,
+      sku: opts.sku.trim(),
+    })
+    : null);
+
+  if (!existing?.id) return null;
+  if (parseProductPrice(existing) === opts.priceCents) return existing;
+
+  return updateWooCommerceProduct({
+    storeUrl: opts.connection.storeUrl,
+    consumerKey: opts.connection.consumerKey,
+    consumerSecret: opts.connection.consumerSecret,
+    productId: existing.id,
+    product: buildWooCommercePricePatch({
+      product: existing,
+      slug,
+      price,
+      publishMode,
+    }),
+  });
+}
+
+export async function ensureLiveWooCommerceListingPriceOnStore(opts: {
+  connection: WooCommerceStoreConnectionWithSecret;
+  auditId: number;
+  listing: { price: number | null; sku: string | null; status: string };
+}): Promise<void> {
+  if (opts.listing.status !== "live") return;
+  if (opts.listing.price == null || opts.listing.price <= 0) return;
+
+  const [audit] = await db
+    .select()
+    .from(auditsTable)
+    .where(eq(auditsTable.id, opts.auditId))
+    .limit(1);
+  if (!audit) return;
+
+  await syncWooCommerceStorePrice({
+    connection: opts.connection,
+    audit,
+    priceCents: Math.round(opts.listing.price * 100),
+    sku: opts.listing.sku,
+    publishMode: "live",
+  });
 }
 
 export async function publishListingToWooCommerce(opts: {
@@ -347,6 +436,10 @@ export async function publishListingToWooCommerce(opts: {
   const listingCurrency = wooListing?.currency?.trim()
     || resolvedListingPrice.currency
     || "USD";
+
+  if (publishMode === "live" && !price) {
+    throw new Error("Set a product price in Edit listing before publishing live to WooCommerce.");
+  }
 
   const importedSlug = woocommerceSlugFromAsin(audit.asin);
   const content = resolveListingContentForExport(audit);
@@ -438,6 +531,19 @@ export async function publishListingToWooCommerce(opts: {
     } else {
       throw err;
     }
+  }
+
+  if (price && parseProductPrice(product) == null) {
+    const resolvedSkuForSync = product.sku?.trim() || sku || existing?.sku?.trim() || profile?.sku?.trim() || null;
+    const repriced = await syncWooCommerceStorePrice({
+      connection: opts.connection,
+      audit,
+      priceCents: Math.round(Number(price) * 100),
+      sku: resolvedSkuForSync,
+      slug: product.slug || slug,
+      publishMode,
+    });
+    if (repriced) product = repriced;
   }
 
   const resolvedSku = product.sku?.trim() || sku || existing?.sku?.trim() || `SL-${audit.id}`;
