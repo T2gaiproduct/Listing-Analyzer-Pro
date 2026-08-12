@@ -400,12 +400,16 @@ async function loadAuditDetail(
   const generated = readGeneratedContent(row);
   const listingBullets = (row.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
   const listingKeywords = (row.targetKeywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
-  const bulletPoints = listingBullets.length > 0
-    ? listingBullets
-    : (generated?.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
-  const targetKeywords = listingKeywords.length > 0
+  const bulletPoints = isWooCommerceImport
+    ? []
+    : listingBullets.length > 0
+      ? listingBullets
+      : (generated?.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
+  const targetKeywords = isWooCommerceImport
     ? listingKeywords
-    : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
+    : listingKeywords.length > 0
+      ? listingKeywords
+      : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());
   const pricedListing = [shopifyListing, wooListing, amazonListing].find(
     (listing) => listing?.price != null && listing.price > 0,
   );

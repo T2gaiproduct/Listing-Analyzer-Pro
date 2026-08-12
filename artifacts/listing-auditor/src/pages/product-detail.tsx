@@ -274,6 +274,7 @@ function toListingContentView(content: {
 function resolveExistingListingContent(
   product: ProductDetailView | null | undefined,
   audit?: {
+    asin?: string | null;
     productName?: string | null;
     title?: string | null;
     bulletPoints?: string[] | null;
@@ -284,6 +285,7 @@ function resolveExistingListingContent(
     sourceListingContent?: GeneratedContent | null;
   } | null,
 ): ListingContentView | null {
+  const isWooImport = Boolean(product?.isWooCommerceImport);
   const snapshot = toListingContentView(audit?.sourceListingContent
     ? {
         title: audit.sourceListingContent.title,
@@ -298,11 +300,15 @@ function resolveExistingListingContent(
   const overwritten = listingFieldsMatchGenerated(audit);
   const productBullets = normalizeStringList(product?.bulletPoints);
   const auditBullets = overwritten ? [] : normalizeStringList(audit?.bulletPoints);
-  const bulletPoints = productBullets.length > 0 ? productBullets : auditBullets;
+  const bulletPoints = isWooImport
+    ? []
+    : (productBullets.length > 0 ? productBullets : auditBullets);
 
   const productTags = normalizeStringList(product?.targetKeywords);
   const auditTags = overwritten ? [] : normalizeStringList(audit?.targetKeywords);
-  const keywords = productTags.length > 0 ? productTags : auditTags;
+  const keywords = isWooImport
+    ? auditTags
+    : (productTags.length > 0 ? productTags : auditTags);
 
   const title = overwritten
     ? (product?.listingTitle?.trim()
@@ -1342,10 +1348,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
     const shopifyListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Shopify");
     const amazonListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "Amazon");
     const wooListing = marketplaceData?.listings?.find((listing) => listing.marketplace === "WooCommerce");
+    const isWooImport = Boolean(product.isWooCommerceImport);
     const auditBullets = normalizeStringList(effectiveAudit?.bulletPoints);
     const generatedBullets = normalizeStringList(effectiveAudit?.generatedContent?.bulletPoints);
     const auditTags = normalizeStringList(effectiveAudit?.targetKeywords);
-    const generatedTags = normalizeStringList(effectiveAudit?.generatedContent?.keywords);
     const productBullets = normalizeStringList(product.bulletPoints);
     const productTags = normalizeStringList(product.targetKeywords);
 
@@ -1368,16 +1374,18 @@ export default function ProductDetailPage({ id }: { id: number }) {
         || product.title?.trim()
         || effectiveAudit?.title?.trim()
         || product.name,
-      bulletPoints: productBullets.length > 0
-        ? productBullets
-        : auditBullets.length > 0
-          ? auditBullets
-          : generatedBullets,
-      targetKeywords: productTags.length > 0
-        ? productTags
-        : auditTags.length > 0
-          ? auditTags
-          : generatedTags,
+      bulletPoints: isWooImport
+        ? []
+        : productBullets.length > 0
+          ? productBullets
+          : auditBullets.length > 0
+            ? auditBullets
+            : generatedBullets,
+      targetKeywords: isWooImport
+        ? auditTags
+        : productTags.length > 0
+          ? productTags
+          : auditTags,
       descriptionHtml: product.descriptionHtml?.trim()
         || effectiveAudit?.storeDescriptionHtml?.trim()
         || effectiveAudit?.generatedContent?.htmlDescription?.trim()

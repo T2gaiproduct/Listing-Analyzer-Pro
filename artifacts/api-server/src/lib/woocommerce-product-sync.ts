@@ -55,25 +55,6 @@ function buildStoreDescriptionContent(htmlDescription: string): GeneratedContent
   return { title: "", bulletPoints: [], keywords: [], htmlDescription: trimmed };
 }
 
-function mergeStoreDescriptionContent(
-  existing: GeneratedContent | null | undefined,
-  htmlDescription: string,
-  preserveListingFields: boolean,
-): GeneratedContent | null {
-  const trimmed = htmlDescription.trim();
-  if (!trimmed) return existing ?? null;
-  if (preserveListingFields) return existing ?? null;
-
-  if (!existing) {
-    return { title: "", bulletPoints: [], keywords: [], htmlDescription: trimmed };
-  }
-
-  return {
-    ...existing,
-    htmlDescription: trimmed,
-  };
-}
-
 function resolveListingFields(product: WooCommerceRestProduct) {
   const priceRaw = product.price?.trim() || product.regular_price?.trim();
   const priceCents = priceRaw && Number.isFinite(Number.parseFloat(priceRaw))
@@ -124,7 +105,6 @@ export async function refreshWooCommerceProduct(input: {
   if (!title) return;
 
   const listing = resolveListingFields(input.product);
-  const bulletPoints = parseWooCommerceBulletPoints(input.product);
   const imageUrls = (input.product.images ?? [])
     .map((image) => image.src?.trim())
     .filter((src): src is string => Boolean(src))
@@ -132,6 +112,7 @@ export async function refreshWooCommerceProduct(input: {
   const sku = input.product.sku?.trim() || input.product.slug.toUpperCase();
   const category = input.product.categories?.[0]?.name?.trim() || null;
   const storeDescriptionHtml = resolveWooCommerceStoreDescriptionHtml(input.product) || null;
+  const wooTags = parseWooCommerceTags(input.product);
   const [existing] = await db
     .select({
       generatedContent: auditsTable.generatedContent,
@@ -141,11 +122,7 @@ export async function refreshWooCommerceProduct(input: {
     .where(eq(auditsTable.id, input.auditId))
     .limit(1);
   const generatedContent = storeDescriptionHtml && !existing?.sourceListingContent
-    ? mergeStoreDescriptionContent(
-      existing?.generatedContent as GeneratedContent | null | undefined,
-      storeDescriptionHtml,
-      false,
-    )
+    ? { title: "", bulletPoints: [], keywords: [], htmlDescription: storeDescriptionHtml } satisfies GeneratedContent
     : (existing?.generatedContent as GeneratedContent | null | undefined) ?? null;
 
   await db
@@ -154,9 +131,9 @@ export async function refreshWooCommerceProduct(input: {
       projectName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
       productName: title.split(/[|\-–—,]/)[0]?.trim() || title.slice(0, 60),
       title,
-      bulletPoints,
+      bulletPoints: [],
       imageUrls,
-      targetKeywords: parseWooCommerceTags(input.product),
+      targetKeywords: wooTags,
       category,
       storeDescriptionHtml,
       ...(generatedContent ? { generatedContent } : {}),
@@ -258,7 +235,7 @@ export async function syncWooCommerceProducts(input: {
     }
 
     try {
-      const bulletPoints = parseWooCommerceBulletPoints(product);
+      const bulletPoints: string[] = [];
       const imageUrls = (product.images ?? [])
         .map((image) => image.src?.trim())
         .filter((src): src is string => Boolean(src))
