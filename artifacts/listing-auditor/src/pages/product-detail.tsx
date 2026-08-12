@@ -1364,6 +1364,18 @@ export default function ProductDetailPage({ id }: { id: number }) {
     [effectiveAudit],
   );
 
+  const productImageUrls = useMemo(() => {
+    const urls: string[] = [];
+    const add = (url: string | undefined | null) => {
+      const trimmed = url?.trim();
+      if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
+    };
+    for (const url of product?.imageUrls ?? []) add(url);
+    for (const url of effectiveAudit?.imageUrls ?? []) add(url);
+    if (urls.length === 0) add(product?.imageUrl);
+    return urls;
+  }, [product?.imageUrls, product?.imageUrl, effectiveAudit?.imageUrls]);
+
   async function refreshProductData() {
     const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
     await Promise.all([
@@ -2166,6 +2178,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           existingContent={existingListingContent}
           suggestions={listingSuggestions}
           hasGeneratedContent={hasGeneratedListing}
+          productImageUrls={productImageUrls}
           isOptimizing={isOptimizingContent}
           onOptimize={handleOptimizeContent}
           optimizeDisabled={!canOptimizeContent}

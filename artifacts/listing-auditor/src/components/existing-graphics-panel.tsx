@@ -75,9 +75,11 @@ function GraphicsImageTile({
 export function ExistingGraphicsPanel({
   auditId,
   audit,
+  fallbackImageUrls,
 }: {
   auditId: number;
   audit: AuditGraphicsLike | null | undefined;
+  fallbackImageUrls?: string[] | null;
 }) {
   const { data: graphicsProject } = useQuery({
     queryKey: ["graphics-project-for-audit", auditId],
@@ -85,10 +87,16 @@ export function ExistingGraphicsPanel({
     staleTime: 10_000,
   });
 
-  const uploadedImages = useMemo(
-    () => (audit?.imageUrls ?? []).map((url) => url?.trim()).filter(Boolean) as string[],
-    [audit?.imageUrls],
-  );
+  const uploadedImages = useMemo(() => {
+    const urls: string[] = [];
+    const add = (url: string | undefined | null) => {
+      const trimmed = url?.trim();
+      if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
+    };
+    for (const url of audit?.imageUrls ?? []) add(url);
+    for (const url of fallbackImageUrls ?? []) add(url);
+    return urls;
+  }, [audit?.imageUrls, fallbackImageUrls]);
 
   const uploadedUrlSet = useMemo(() => new Set(uploadedImages), [uploadedImages]);
 
@@ -146,11 +154,11 @@ export function ExistingGraphicsPanel({
               {uploadedImages.length > 0 && (
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">
-                    Uploaded Images ({uploadedImages.length})
+                    Product Images ({uploadedImages.length})
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {uploadedImages.map((url) => (
-                      <GraphicsImageTile key={`upload-${url}`} url={url} label="Upload" />
+                      <GraphicsImageTile key={`upload-${url}`} url={url} label="Product" />
                     ))}
                   </div>
                 </div>

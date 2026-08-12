@@ -24,15 +24,24 @@ type AuditLike = {
   targetKeywords?: string[] | null;
 };
 
-function collectImageUrls(audit: AuditLike | null | undefined): string[] {
+function collectImageUrls(
+  audit: AuditLike | null | undefined,
+  fallbackImageUrls?: string[] | null,
+): string[] {
   const urls: string[] = [];
-  for (const rec of audit?.imageRecords ?? []) {
-    const url = rec.currentUrl?.trim();
-    if (url && !urls.includes(url)) urls.push(url);
-  }
-  for (const url of audit?.imageUrls ?? []) {
+  const add = (url: string | undefined | null) => {
     const trimmed = url?.trim();
     if (trimmed && !urls.includes(trimmed)) urls.push(trimmed);
+  };
+
+  for (const rec of audit?.imageRecords ?? []) {
+    add(rec.currentUrl);
+  }
+  for (const url of audit?.imageUrls ?? []) {
+    add(url);
+  }
+  for (const url of fallbackImageUrls ?? []) {
+    add(url);
   }
   return urls;
 }
@@ -87,6 +96,7 @@ export function ProductWorkflowStepContent({
   existingContent,
   suggestions,
   hasGeneratedContent,
+  productImageUrls,
   isOptimizing,
   onOptimize,
   optimizeDisabled,
@@ -112,6 +122,7 @@ export function ProductWorkflowStepContent({
   } | null;
   suggestions: string[];
   hasGeneratedContent: boolean;
+  productImageUrls?: string[] | null;
   isOptimizing: boolean;
   onOptimize: () => void;
   optimizeDisabled?: boolean;
@@ -137,7 +148,10 @@ export function ProductWorkflowStepContent({
     optimizeDisabled?: boolean;
   }>;
 }) {
-  const imageUrls = useMemo(() => collectImageUrls(audit), [audit]);
+  const imageUrls = useMemo(
+    () => collectImageUrls(audit, productImageUrls),
+    [audit, productImageUrls],
+  );
   const hasNextStep = nextProductExplorerWorkflowStep(step) != null;
   const showFooter = hasNextStep
     && !listingEditorContent
@@ -203,7 +217,11 @@ export function ProductWorkflowStepContent({
           <h3 className="text-sm font-semibold text-slate-900">Product graphics</h3>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <ExistingGraphicsPanel auditId={auditId} audit={audit} />
+          <ExistingGraphicsPanel
+            auditId={auditId}
+            audit={audit}
+            fallbackImageUrls={productImageUrls}
+          />
           <div className="space-y-2 min-w-0">
             <div className="flex items-center gap-1.5 px-1">
               <Sparkles className="w-3.5 h-3.5 text-orange-600" />

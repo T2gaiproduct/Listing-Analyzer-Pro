@@ -15,6 +15,7 @@ import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/lis
 import { mapAiProviderError } from "../lib/ai-error-utils";
 import { generateListingContent } from "../lib/content-generator";
 import { buildSourceListingSnapshot } from "../lib/source-listing-content.js";
+import { maybeRefreshStoreProductImages } from "../lib/store-product-image-refresh.js";
 import { generateEbcContent, type EbcContent } from "../lib/ebc-generator";
 import {
   buildDefaultAplusPrompt,
@@ -540,6 +541,17 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
     return;
+  }
+
+  const workspaceId = getActiveWorkspaceId(req);
+  const refreshedUrls = await maybeRefreshStoreProductImages({
+    auditId: audit.id,
+    workspaceId,
+    asin: audit.asin,
+    imageUrls: audit.imageUrls as string[] | null,
+  });
+  if (refreshedUrls) {
+    audit.imageUrls = refreshedUrls;
   }
 
   const competitors = await db

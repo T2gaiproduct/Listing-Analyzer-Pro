@@ -289,6 +289,20 @@ export type ShopifyAdminCatalogProduct = {
   }>;
 };
 
+export async function findShopifyAdminCatalogProductByHandle(opts: {
+  shopHost: string;
+  accessToken: string;
+  handle: string;
+}): Promise<ShopifyAdminCatalogProduct | null> {
+  const data = await shopifyAdminRequest<{ products: ShopifyAdminCatalogProduct[] }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    method: "GET",
+    path: `/products.json?handle=${encodeURIComponent(opts.handle.trim())}&limit=1`,
+  });
+  return data.products?.[0] ?? null;
+}
+
 export async function fetchShopifyCatalogViaAdmin(opts: {
   shopHost: string;
   accessToken: string;

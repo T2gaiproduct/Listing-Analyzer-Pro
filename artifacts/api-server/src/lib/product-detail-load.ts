@@ -37,6 +37,7 @@ import { isShopifyImportAsin } from "./shopify-import-utils.js";
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
 import { resolveDescriptionHtml } from "./resolve-listing-content.js";
 import { readGeneratedContent } from "./listing-export-shared.js";
+import { maybeRefreshStoreProductImages } from "./store-product-image-refresh.js";
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
 
@@ -46,6 +47,7 @@ export type ProductDetailPayload = {
   title: string;
   sku: string;
   imageUrl: string | null;
+  imageUrls?: string[];
   brandName: string | null;
   category: string | null;
   status: ProductStatus;
@@ -232,6 +234,17 @@ async function loadAuditDetail(
   const [row] = await db.select().from(auditsTable).where(and(where, eq(auditsTable.id, id))).limit(1);
   if (!row) return null;
 
+  const workspaceId = getActiveWorkspaceId(req);
+  const refreshedUrls = await maybeRefreshStoreProductImages({
+    auditId: id,
+    workspaceId,
+    asin: row.asin,
+    imageUrls: row.imageUrls as string[] | null,
+  });
+  if (refreshedUrls) {
+    row.imageUrls = refreshedUrls;
+  }
+
   const competitors = await db
     .select({
       id: competitorsTable.id,
@@ -376,6 +389,10 @@ async function loadAuditDetail(
     (listing) => listing?.price != null && listing.price > 0,
   );
   const listingPrice = pricedListing?.price ?? null;
+  const imageUrls = (row.imageUrls as string[] ?? [])
+    .map((url) => (typeof url === "string" ? url.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 9);
 
   return {
     id: row.id,
@@ -387,6 +404,7 @@ async function loadAuditDetail(
       imageRecords: row.imageRecords as Array<{ currentUrl?: string }> | null,
       generatedImages: row.generatedImages as ProductSuggestionInput["generatedImages"],
     }),
+    imageUrls,
     brandName: row.brandName ?? null,
     category: row.category ?? null,
     status: displayStatus,

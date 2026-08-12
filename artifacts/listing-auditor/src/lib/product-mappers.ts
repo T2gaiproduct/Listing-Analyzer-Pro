@@ -126,6 +126,7 @@ export interface ProductDetailView {
   title: string;
   sku: string;
   imageUrl: string | null;
+  imageUrls?: string[];
   brandName: string | null;
   category: string | null;
   status: ProductStatus;
@@ -348,6 +349,7 @@ export function mapAuditToProductDetail(
     title: name,
     sku: deriveSku(name, audit.id),
     imageUrl: pickThumbnail(audit),
+    imageUrls: (audit.imageUrls ?? []).map((url) => url?.trim()).filter(Boolean),
     brandName: audit.brandName ?? null,
     category: audit.category ?? null,
     status: mapped.status,
