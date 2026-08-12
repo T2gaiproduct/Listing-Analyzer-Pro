@@ -17,7 +17,6 @@ import {
   Wand2,
   FileText,
   Image as ImageIcon,
-  Download,
   Trash2,
   X,
   Zap,
@@ -37,9 +36,6 @@ import {
 } from "@/components/build-brand-workflow-stepper";
 import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
 import { cn } from "@/lib/utils";
-import { AMAZON_MARKETPLACES, EXPORT_PLATFORMS, downloadAuditExport, type AmazonMarketplaceId, type ExportPlatform } from "@/lib/amazon-export";
-import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
@@ -256,12 +252,6 @@ const LOADING_MESSAGES: Record<StepId, string[]> = {
     "Generating banner imagery…",
     "Assembling A+ modules…",
     "Applying brand guidelines…",
-  ],
-  6: [
-    "Compiling all assets…",
-    "Packaging your files…",
-    "Optimizing for download…",
-    "Almost ready…",
   ],
 };
 
@@ -626,7 +616,7 @@ export default function AuditWorkflow() {
           forceUploadStepRef.current = false;
         } else {
           const step = apiStepToUiStep(auditData.currentStep);
-          if (step >= 2 && step <= 6) setActiveStep(step);
+          if (step >= 2 && step <= 5) setActiveStep(step);
         }
         stepRestoredForAuditIdRef.current = currentAuditId;
       }
@@ -682,39 +672,6 @@ export default function AuditWorkflow() {
   const [aplusProgress, setAplusProgress] = useState({ done: 0, total: 4 });
   const [aplusCustomizeModuleId, setAplusCustomizeModuleId] = useState<string | null>(null);
   const aplusCompletionToastShownRef = useRef(false);
-
-  /* ── Export step state ── */
-  const [exportPlatform, setExportPlatform] = useState<ExportPlatform>("amazon");
-  const [exportMarketplace, setExportMarketplace] = useState<AmazonMarketplaceId>("US");
-  const [exportLoading, setExportLoading] = useState<"excel" | "zip" | null>(null);
-  const [publishLoading, setPublishLoading] = useState(false);
-
-  const { data: shopifyStatus, isError: shopifyStatusError } = useQuery({
-    queryKey: ["shopify-connection-status"],
-    queryFn: fetchShopifyStatus,
-    staleTime: 30_000,
-    retry: 2,
-  });
-
-  const exportReadinessBlockers = useMemo((): string[] => {
-    const blockers: string[] = [];
-    if (!currentAuditId) blockers.push("Save your project in the Upload step.");
-    if (!generatedContent) blockers.push("Generate listing content in the Listing step.");
-    return blockers;
-  }, [currentAuditId, generatedContent]);
-
-  const shopifyPublishBlockers = useMemo((): string[] => {
-    const blockers: string[] = [];
-    if (exportPlatform !== "shopify") return blockers;
-    if (shopifyStatusError) blockers.push("Shopify publishing is temporarily unavailable. Please try again later.");
-    if (!shopifyStatusError && !shopifyStatus?.connected) {
-      blockers.push("Connect your Shopify store on the Marketplaces page.");
-    }
-    if (shopifyStatus?.connected && !shopifyStatus.publishReady) {
-      blockers.push("Add your Shopify Client ID and Client secret on the Marketplaces page.");
-    }
-    return blockers;
-  }, [exportPlatform, shopifyStatus, shopifyStatusError]);
 
   const generateAplus = useMutation({
     mutationFn: async ({
@@ -1294,79 +1251,6 @@ export default function AuditWorkflow() {
     }
   }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
 
-  const handleExportDownload = useCallback(async (format: "excel" | "zip") => {
-    if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete the Upload step to create your project before exporting.", variant: "destructive" });
-      return;
-    }
-    if (!generatedContent) {
-      toast({ title: "Listing content required", description: "Complete the Listing step and generate content before exporting.", variant: "destructive" });
-      return;
-    }
-    setExportLoading(format);
-    try {
-      await downloadAuditExport({
-        auditId: currentAuditId,
-        format,
-        platform: exportPlatform,
-        marketplace: exportPlatform === "amazon" ? exportMarketplace : undefined,
-        basePath,
-      });
-      const fileLabel = exportPlatform === "shopify" && format === "excel" ? "CSV" : format === "excel" ? "Excel" : "ZIP";
-      toast({
-        title: `${fileLabel} downloaded`,
-        description: exportPlatform === "amazon"
-          ? `Amazon ${exportMarketplace} listing export is ready. Image columns use public HTTPS URLs.`
-          : "Shopify product CSV is ready. Image columns use public HTTPS URLs.",
-      });
-      persistWorkflowStep(6);
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setExportLoading(null);
-    }
-  }, [currentAuditId, generatedContent, exportPlatform, exportMarketplace, toast, persistWorkflowStep]);
-
-  const handlePublishShopify = useCallback(async () => {
-    if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete the Upload step before publishing.", variant: "destructive" });
-      return;
-    }
-    if (!generatedContent) {
-      toast({ title: "Listing content required", description: "Generate listing content before publishing.", variant: "destructive" });
-      return;
-    }
-    if (!shopifyStatus?.publishReady) {
-      toast({
-        title: "Connect Shopify",
-        description: "Add your Shopify store URL, Client ID, and Client secret on the Marketplaces page.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setPublishLoading(true);
-    try {
-      const result = await publishAuditToShopify({ auditId: currentAuditId, publishMode: "draft" });
-      toast({
-        title: "Published to Shopify",
-        description: result.listingUrl ?? result.message,
-      });
-      persistWorkflowStep(6);
-    } catch (err) {
-      toast({
-        title: "Publish failed",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPublishLoading(false);
-    }
-  }, [currentAuditId, generatedContent, shopifyStatus, toast, persistWorkflowStep]);
-
   const handleGenerateAplus = useCallback(() => {
     if (!currentAuditId) {
       toast({ title: "Save project first", description: "Complete the Upload step to create your project before generating A+ content.", variant: "destructive" });
@@ -1444,25 +1328,6 @@ export default function AuditWorkflow() {
     autoSave(activeStep);
   }, [autoSave, activeStep]);
 
-  const handleOpenProductExplorer = useCallback(() => {
-    if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete the Upload step before continuing.", variant: "destructive" });
-      return;
-    }
-    if (!generatedContent) {
-      toast({ title: "Listing content required", description: "Generate listing content before continuing.", variant: "destructive" });
-      return;
-    }
-    autoSave(6);
-    persistWorkflowStep(6);
-    void queryClient.invalidateQueries({ queryKey: ["products"] });
-    nav(`${basePath}/products/${currentAuditId}?source=listing`);
-    toast({
-      title: "Saved to Product Explorer",
-      description: "Publish to Amazon, Shopify, or WooCommerce from the Marketplaces step.",
-    });
-  }, [autoSave, currentAuditId, generatedContent, nav, persistWorkflowStep, queryClient, toast]);
-
   const handleStepClick = useCallback((step: StepId) => {
     setActiveStep(step);
     if (step > 1) persistWorkflowStep(step);
@@ -1519,7 +1384,7 @@ export default function AuditWorkflow() {
         return;
       }
     }
-    if (activeStep < 6) {
+    if (activeStep < 5) {
       autoSave((activeStep + 1) as StepId);
       setActiveStep((s) => (s + 1) as StepId);
     }
@@ -1535,7 +1400,6 @@ export default function AuditWorkflow() {
     3: generatedContent !== null,
     4: generatedImages.some((img) => Boolean(img.url)) || graphicsStatus === "completed",
     5: aplusModules.length > 0 || aplusStatus === "completed",
-    6: false,
   }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
 
   /* ════════════════════════════════════════════════════════════════════════ */
@@ -2323,190 +2187,6 @@ export default function AuditWorkflow() {
             </div>
           )}
 
-          {/* STEP 6: Export ── */}
-          {activeStep === 6 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <Download className="w-5 h-5 text-orange-500" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">Export & Publish</h2>
-                  <p className="text-xs text-slate-500">Download your assets or continue in Product Explorer to publish</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-700">Platform</label>
-                  <Select
-                    value={exportPlatform}
-                    onValueChange={(value) => setExportPlatform(value as ExportPlatform)}
-                  >
-                    <SelectTrigger className="rounded-xl border-slate-200">
-                      <SelectValue placeholder="Select platform" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EXPORT_PLATFORMS.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-400">
-                    {EXPORT_PLATFORMS.find((p) => p.id === exportPlatform)?.description}
-                  </p>
-                </div>
-
-                {exportPlatform === "amazon" && (
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-700">Amazon marketplace</label>
-                    <Select
-                      value={exportMarketplace}
-                      onValueChange={(value) => setExportMarketplace(value as AmazonMarketplaceId)}
-                    >
-                      <SelectTrigger className="rounded-xl border-slate-200">
-                        <SelectValue placeholder="Select marketplace" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        {AMAZON_MARKETPLACES.map((mp) => (
-                          <SelectItem key={mp.id} value={mp.id}>
-                            {mp.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-slate-400">
-                      Sets the marketplace column in the Amazon flat file.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                Upload files use <strong>public HTTPS image URLs</strong> (not local file paths). ZIP downloads also include image files as a backup. Add price and inventory in Seller Central or Shopify after import.
-              </p>
-
-              {exportReadinessBlockers.length > 0 && (
-                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
-                  <p className="font-semibold">Before you can continue:</p>
-                  <ul className="list-disc list-inside text-xs space-y-0.5">
-                    {exportReadinessBlockers.map((b) => (
-                      <li key={b}>{b}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {exportPlatform === "shopify" && shopifyPublishBlockers.length > 0 && (
-                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
-                  <p className="font-semibold">Before you can publish to Shopify:</p>
-                  <ul className="list-disc list-inside text-xs space-y-0.5">
-                    {shopifyPublishBlockers.map((b) => (
-                      <li key={b}>{b}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  {
-                    icon: "📊",
-                    title: exportPlatform === "shopify" ? "Export as CSV" : "Export as Excel",
-                    desc: exportPlatform === "shopify"
-                      ? "Shopify product import CSV with public image URLs"
-                      : "Amazon flat-file Excel with public image URLs",
-                    action: exportPlatform === "shopify" ? "Download CSV" : "Download Excel",
-                    format: "excel" as const,
-                    comingSoon: false,
-                    kind: "export" as const,
-                  },
-                  {
-                    icon: "🗂️",
-                    title: "Export as ZIP",
-                    desc: exportPlatform === "shopify"
-                      ? "CSV + all images bundled together"
-                      : "Excel + all images bundled together",
-                    action: "Download ZIP",
-                    format: "zip" as const,
-                    comingSoon: false,
-                    kind: "export" as const,
-                  },
-                  exportPlatform === "shopify"
-                    ? {
-                        icon: "🛒",
-                        title: "Publish to Shopify",
-                        desc: "Push listing to your connected Shopify store as a draft",
-                        action: "Publish to Shopify",
-                        format: null,
-                        comingSoon: !shopifyStatus?.publishReady,
-                        kind: "publish" as const,
-                      }
-                    : {
-                        icon: "📦",
-                        title: "Save to Product Explorer",
-                        desc: "Open this product in Product Explorer to publish to Amazon, Shopify, or WooCommerce",
-                        action: "Open in Product Explorer",
-                        format: null,
-                        comingSoon: false,
-                        kind: "explorer" as const,
-                      },
-                ].map((opt) => (
-                  <div key={opt.title} className={cn("border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-all", opt.comingSoon ? "opacity-60" : "hover:border-orange-300 hover:shadow-sm")}>
-                    <span className="text-3xl">{opt.icon}</span>
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{opt.title}</p>
-                      <p className="text-xs text-slate-400 mt-1">{opt.desc}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className={cn("rounded-xl w-full", opt.comingSoon
-                        ? "border-slate-200 text-slate-400 cursor-default hover:bg-transparent"
-                        : "border-orange-200 text-orange-600 hover:bg-orange-50"
-                      )}
-                      disabled={
-                        opt.comingSoon
-                        || (opt.kind === "export" && (!currentAuditId || !generatedContent || exportLoading !== null))
-                        || (opt.kind === "explorer" && (!currentAuditId || !generatedContent))
-                        || (opt.kind === "publish" && exportPlatform === "shopify" && (!currentAuditId || !generatedContent || publishLoading || !shopifyStatus?.publishReady))
-                      }
-                      onClick={() => {
-                        if (opt.comingSoon) return;
-                        if (opt.kind === "export" && opt.format) {
-                          void handleExportDownload(opt.format);
-                          return;
-                        }
-                        if (opt.kind === "explorer") {
-                          handleOpenProductExplorer();
-                          return;
-                        }
-                        if (opt.kind === "publish" && exportPlatform === "shopify") {
-                          void handlePublishShopify();
-                        }
-                      }}
-                    >
-                      {opt.kind === "export" && opt.format && exportLoading === opt.format ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Preparing…
-                        </>
-                      ) : opt.kind === "publish" && publishLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Publishing…
-                        </>
-                      ) : (
-                        opt.action
-                      )}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
         </div>
       </div>
 
@@ -2523,8 +2203,7 @@ export default function AuditWorkflow() {
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* Step 6: Save only (no navigation) */}
-          {activeStep === 6 && currentAuditId !== null && (
+          {activeStep === 5 && currentAuditId !== null && (
             <Button
               variant="outline"
               className="rounded-xl border-orange-300 text-orange-600 hover:bg-orange-50 gap-2"
@@ -2540,8 +2219,7 @@ export default function AuditWorkflow() {
             </Button>
           )}
 
-          {/* Steps 1-5: Save & Continue */}
-          {activeStep < 6 && (
+          {activeStep < 5 && (
             <Button
               className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={handleNextStep}
