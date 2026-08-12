@@ -126,7 +126,6 @@ async function refreshWooCommerceProduct(input: {
     .set({
       sku,
       referenceLinks: listing.productUrl,
-      notes: input.product.description ? stripHtml(input.product.description).slice(0, 2000) : null,
     })
     .where(eq(productProfilesTable.auditId, input.auditId));
 
@@ -251,7 +250,6 @@ export async function syncWooCommerceProducts(input: {
         sku,
         priority: "medium",
         referenceLinks: listing.productUrl,
-        notes: product.description ? stripHtml(product.description).slice(0, 2000) : null,
         workflowTemplate: DEFAULT_WORKFLOW_TEMPLATE,
         targetMarketplaces: ["WooCommerce"],
       });

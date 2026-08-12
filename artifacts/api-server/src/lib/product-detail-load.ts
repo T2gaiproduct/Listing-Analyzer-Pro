@@ -63,7 +63,6 @@ export type ProductDetailPayload = {
   sourceTypeLabel: string;
   statsAuditId: number | null;
   manager: { name: string; initials: string };
-  notes: string;
   referenceLinks: Array<{ label: string; url: string }>;
   driveFolder: string;
   driveFolderUrl: string;
@@ -131,11 +130,6 @@ function mapStageLabel(status: string, currentStep: number | null): string {
   return WORKFLOW_STEP_LABELS[step - 1] ?? "Upload";
 }
 
-function calcProgress(status: string, currentStep: number | null): number {
-  if (status === "complete" || status === "completed") return 100;
-  return Math.min(100, Math.round(((currentStep ?? 1) / 5) * 100));
-}
-
 function managerInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -143,16 +137,9 @@ function managerInitials(name: string): string {
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
-function buildNotes(audit: {
-  result?: { summary?: string } | null;
-  generatedContent?: { bulletPoints?: string[] } | null;
-  bulletPoints?: string[];
-}): string {
-  const summary = audit.result?.summary?.trim();
-  if (summary) return summary;
-  const bullets = audit.generatedContent?.bulletPoints ?? audit.bulletPoints ?? [];
-  if (bullets.length > 0) return bullets.slice(0, 2).join(" ");
-  return "No notes yet. Complete the listing step in Build Your Brand to generate product notes.";
+function calcProgress(status: string, currentStep: number | null): number {
+  if (status === "complete" || status === "completed") return 100;
+  return Math.min(100, Math.round(((currentStep ?? 1) / 5) * 100));
 }
 
 function countImages(row: {
@@ -431,7 +418,6 @@ async function loadAuditDetail(
       name: displayManagerName,
       initials: managerInitials(displayManagerName),
     },
-    notes: profile?.notes?.trim() || buildNotes(row),
     referenceLinks,
     driveFolder: `${brand} / ${name}`,
     driveFolderUrl: workflowUrl,
@@ -522,7 +508,6 @@ async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDeta
     sourceTypeLabel: SOURCE_TYPE_LABELS.graphics,
     statsAuditId,
     manager: { name: "Account Owner", initials: "AO" },
-    notes: `Graphics project for ${row.productName}. Open the workflow to generate lifestyle and feature images.`,
     referenceLinks: [],
     driveFolder: `${brand} / ${name}`,
     driveFolderUrl: workflowUrl,
@@ -576,7 +561,6 @@ async function loadVideoDetail(req: Request, id: number): Promise<ProductDetailP
     sourceTypeLabel: SOURCE_TYPE_LABELS.video,
     statsAuditId: row.auditId ?? null,
     manager: { name: "Account Owner", initials: "AO" },
-    notes: `Video project for ${row.productName}. Continue in Create Video to finish production.`,
     referenceLinks: [],
     driveFolder: `${brand} / ${name}`,
     driveFolderUrl: workflowUrl,
@@ -639,7 +623,6 @@ async function loadAdsDetail(req: Request, id: number): Promise<ProductDetailPay
     sourceTypeLabel: SOURCE_TYPE_LABELS.ads,
     statsAuditId: row.auditId ?? null,
     manager: { name: "Account Owner", initials: "AO" },
-    notes: `Ad campaign for ${row.productName} on ${row.platform ?? "Amazon"}.`,
     referenceLinks: row.platform
       ? [{ label: row.platform, url: "#" }]
       : [],

@@ -103,7 +103,6 @@ type ProductEditForm = {
   category: string;
   assignedManager: string;
   priority: "high" | "medium" | "low";
-  notes: string;
   listingTitle: string;
   bulletPointsText: string;
   tagsText: string;
@@ -316,7 +315,6 @@ function buildListingEditForm(
     category: product.category ?? audit?.category ?? "",
     assignedManager: product.manager?.name ?? "",
     priority: product.priorityLevel ?? "medium",
-    notes: product.notes ?? "",
     listingTitle: title,
     bulletPointsText: bulletsToTextarea(bullets),
     tagsText: tagsToTextarea(tags),
@@ -1190,7 +1188,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
         sku: data.sku.trim(),
         priority: data.priority,
         assignedManager: data.assignedManager.trim(),
-        notes: data.notes.trim(),
       };
 
       const isStoreListing = isStoreImportProduct(product) || Boolean(data.listingTitle.trim());
@@ -2085,15 +2082,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         <LiveBadge label={product.stageLabel} />
                       </div>
                     </EditDetailField>
-                    <div className="sm:col-span-2">
-                      <EditDetailField label="Notes">
-                        <Textarea
-                          value={editForm.notes}
-                          onChange={(e) => updateEditField("notes", e.target.value)}
-                          className="text-[11px] min-h-[72px]"
-                        />
-                      </EditDetailField>
-                    </div>
                   </div>
                 )}
                 {!isStoreImportProduct(product) && (

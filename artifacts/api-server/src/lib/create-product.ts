@@ -18,7 +18,6 @@ export interface CreateProductBody {
   assignedManager?: string;
   referenceLinks?: string;
   driveFolderUrl?: string;
-  notes?: string;
   targetMarketplaces: string[];
 }
 
@@ -49,7 +48,6 @@ export function parseCreateProductBody(body: unknown):
       assignedManager: typeof raw.assignedManager === "string" ? raw.assignedManager : undefined,
       referenceLinks: typeof raw.referenceLinks === "string" ? raw.referenceLinks : undefined,
       driveFolderUrl: typeof raw.driveFolderUrl === "string" ? raw.driveFolderUrl : undefined,
-      notes: typeof raw.notes === "string" ? raw.notes : undefined,
       targetMarketplaces,
     },
   };
@@ -92,7 +90,6 @@ export async function createProductRecord(input: {
     assignedManager: body.assignedManager?.trim() || null,
     referenceLinks: body.referenceLinks?.trim() || null,
     driveFolderUrl: body.driveFolderUrl?.trim() || null,
-    notes: body.notes?.trim() || null,
     workflowTemplate: DEFAULT_WORKFLOW_TEMPLATE,
     targetMarketplaces: body.targetMarketplaces,
   });

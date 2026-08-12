@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -62,7 +61,6 @@ const defaultForm = {
   assignedManager: "",
   referenceLinks: "",
   driveFolderUrl: "",
-  notes: "",
   targetMarketplaces: ["Amazon"] as string[],
 };
 
@@ -242,16 +240,6 @@ export function CreateProductDialog({
                 onChange={(e) => setForm((p) => ({ ...p, driveFolderUrl: e.target.value }))}
                 placeholder="https://drive.google.com/drive/folders/..."
                 className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-slate-600">Notes</Label>
-              <Textarea
-                value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                placeholder="Any special instructions or context..."
-                className="min-h-[72px] text-xs resize-none"
               />
             </div>
 

@@ -7,7 +7,6 @@ export const productProfilesTable = pgTable("product_profiles", {
   assignedManager: text("assigned_manager"),
   referenceLinks: text("reference_links"),
   driveFolderUrl: text("drive_folder_url"),
-  notes: text("notes"),
   workflowTemplate: text("workflow_template").notNull(),
   targetMarketplaces: jsonb("target_marketplaces").notNull().$type<string[]>().default([]),
 });

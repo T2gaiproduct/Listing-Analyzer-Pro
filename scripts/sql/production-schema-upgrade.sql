@@ -186,7 +186,6 @@ CREATE TABLE IF NOT EXISTS product_profiles (
   assigned_manager text,
   reference_links text,
   drive_folder_url text,
-  notes text,
   workflow_template text NOT NULL,
   target_marketplaces jsonb NOT NULL DEFAULT '[]'::jsonb
 );

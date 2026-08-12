@@ -321,7 +321,6 @@ async function refreshShopifyProductFromCatalog(input: {
     .set({
       sku,
       referenceLinks: listing.productUrl,
-      notes: input.product.body_html ? stripHtml(input.product.body_html).slice(0, 2000) : null,
     })
     .where(eq(productProfilesTable.auditId, input.auditId));
 
@@ -472,7 +471,6 @@ export async function syncShopifyProducts(input: {
         sku,
         priority: "medium",
         referenceLinks: listing.productUrl,
-        notes: product.body_html ? stripHtml(product.body_html).slice(0, 2000) : null,
         workflowTemplate: DEFAULT_WORKFLOW_TEMPLATE,
         targetMarketplaces: ["Shopify"],
       });

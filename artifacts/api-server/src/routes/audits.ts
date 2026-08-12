@@ -605,7 +605,6 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     sku: string;
     priority: string;
     assignedManager: string;
-    notes: string;
     listingTitle: string;
     bulletPoints: string[];
     targetKeywords: string[];
@@ -671,7 +670,6 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
         sku: body.sku,
         priority: body.priority,
         assignedManager: body.assignedManager,
-        notes: body.notes,
       },
       updated.projectName?.trim() || updated.productName?.trim() || "Untitled Product",
     );

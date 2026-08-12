@@ -5,7 +5,6 @@ export type ImportProductRow = {
   assignedManager?: string;
   referenceLinks?: string;
   driveFolderUrl?: string;
-  notes?: string;
   targetMarketplaces?: string;
 };
 
@@ -64,9 +63,6 @@ function normalizeHeader(header: string): keyof ImportProductRow | null {
     case "drive_folder_url":
     case "drive_folder":
       return "driveFolderUrl";
-    case "notes":
-    case "description":
-      return "notes";
     case "target_marketplaces":
     case "marketplaces":
     case "channels":
@@ -120,8 +116,8 @@ export function parseProductsCsv(text: string): ImportProductRow[] {
 }
 
 export const PRODUCT_IMPORT_CSV_TEMPLATE = [
-  "productName,sku,priority,assignedManager,referenceLinks,driveFolderUrl,notes,targetMarketplaces",
-  "Organic Honey 500g,OH-500G-001,high,Account Owner,https://amazon.in/example,,Premium honey,Amazon|Shopify|WooCommerce",
+  "productName,sku,priority,assignedManager,referenceLinks,driveFolderUrl,targetMarketplaces",
+  "Organic Honey 500g,OH-500G-001,high,Account Owner,https://amazon.in/example,,Amazon|Shopify|WooCommerce",
 ].join("\n");
 
 export function downloadProductImportTemplate(): void {

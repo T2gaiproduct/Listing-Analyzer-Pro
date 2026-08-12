@@ -119,13 +119,6 @@ function countImages(audit: AuditLike): number {
   return urls.size;
 }
 
-function buildNotes(audit: AuditLike): string {
-  const summary = audit.result?.summary?.trim();
-  if (summary) return summary;
-  const bullets = audit.generatedContent?.bulletPoints ?? audit.bulletPoints ?? [];
-  if (bullets.length > 0) return bullets.slice(0, 2).join(" ");
-  return "No notes yet. Complete the listing step in Build Your Brand to generate product notes.";
-}
 
 export interface ProductDetailView {
   id: number;
@@ -146,7 +139,6 @@ export interface ProductDetailView {
   updatedAt: string;
   workflowUrl: string;
   manager: { name: string; initials: string };
-  notes: string;
   referenceLinks: Array<{ label: string; url: string }>;
   driveFolder: string;
   driveFolderUrl: string;
@@ -234,7 +226,6 @@ export function mapGraphicsToProductDetail(project: GraphicsProjectLike): Produc
     sourceTypeLabel: "Create Graphics",
     statsAuditId: null,
     manager: { name: "Account Owner", initials: "AO" },
-    notes: `Graphics project for ${project.productName}. Open the workflow to generate lifestyle and feature images.`,
     referenceLinks: [],
     driveFolder: `${brand} / ${name}`,
     driveFolderUrl: workflowUrl,
@@ -384,7 +375,6 @@ export function mapAuditToProductDetail(
     descriptionHtml: audit.generatedContent?.htmlDescription?.trim()
       || (audit.bulletPoints ?? []).map((bullet) => `<li>${bullet}</li>`).join(""),
     manager: { name: managerName, initials: managerInitials(managerName) },
-    notes: buildNotes(audit),
     referenceLinks,
     driveFolder: `${brand} / ${name}`,
     driveFolderUrl: workflowUrl,

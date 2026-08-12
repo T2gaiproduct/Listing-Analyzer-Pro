@@ -25,7 +25,6 @@ function normalizeImportRow(raw: unknown, rowIndex: number):
   const assignedManager = pickString(row, ["assignedManager", "assigned_manager", "manager"]);
   const referenceLinks = pickString(row, ["referenceLinks", "reference_links", "references"]);
   const driveFolderUrl = pickString(row, ["driveFolderUrl", "drive_folder_url", "drive_folder"]);
-  const notes = pickString(row, ["notes", "description"]);
 
   let targetMarketplaces: string[] = [];
   const marketplacesRaw = row.targetMarketplaces ?? row.target_marketplaces ?? row.marketplaces ?? row.channels;
@@ -45,7 +44,6 @@ function normalizeImportRow(raw: unknown, rowIndex: number):
     assignedManager,
     referenceLinks,
     driveFolderUrl,
-    notes,
     targetMarketplaces: targetMarketplaces.length > 0 ? targetMarketplaces : ["Amazon"],
   });
 }

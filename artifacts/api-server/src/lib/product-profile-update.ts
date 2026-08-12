@@ -16,7 +16,6 @@ export interface ProductProfilePatchInput {
   sku?: string;
   priority?: string;
   assignedManager?: string;
-  notes?: string;
 }
 
 export async function applyProductProfileUpdates(
@@ -37,9 +36,6 @@ export async function applyProductProfileUpdates(
   }
   if (typeof body.assignedManager === "string") {
     profileUpdates.assignedManager = body.assignedManager.trim() || null;
-  }
-  if (typeof body.notes === "string") {
-    profileUpdates.notes = body.notes.trim() || null;
   }
 
   if (Object.keys(profileUpdates).length === 0) return;
@@ -63,7 +59,6 @@ export async function applyProductProfileUpdates(
     sku: (profileUpdates.sku as string | undefined) ?? deriveSku(fallbackProductName, auditId),
     priority: (profileUpdates.priority as string | undefined) ?? "medium",
     assignedManager: (profileUpdates.assignedManager as string | null | undefined) ?? null,
-    notes: (profileUpdates.notes as string | null | undefined) ?? null,
     workflowTemplate: "build-brand-standard",
     targetMarketplaces: [],
   });

@@ -157,20 +157,6 @@ function managerInitials(name: string): string {
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
-function buildNotes(audit: {
-  result?: { summary?: string } | null;
-  generatedContent?: { bulletPoints?: string[] } | null;
-  bulletPoints?: string[];
-}): string {
-  const summary = audit.result?.summary?.trim();
-  if (summary) return summary;
-  const bullets = audit.generatedContent?.bulletPoints ?? audit.bulletPoints ?? [];
-  if (bullets.length > 0) {
-    return bullets.slice(0, 2).join(" ");
-  }
-  return "No notes yet. Complete the listing step in Build Your Brand to generate product notes.";
-}
-
 function countImages(row: {
   imageUrls?: string[] | null;
   imageRecords?: unknown[] | null;
@@ -446,7 +432,6 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
     sku: string;
     priority: string;
     assignedManager: string;
-    notes: string;
     listingTitle: string;
     bulletPoints: string[];
     targetKeywords: string[];
@@ -512,7 +497,6 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
         sku: body.sku,
         priority: body.priority,
         assignedManager: body.assignedManager,
-        notes: body.notes,
       },
       row.projectName?.trim() || row.productName?.trim() || "Untitled Product",
     );
