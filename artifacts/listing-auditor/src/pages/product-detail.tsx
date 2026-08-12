@@ -872,7 +872,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
-  const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<ProductExplorerWorkflowStepId>(2);
+  const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<ProductExplorerWorkflowStepId>(1);
   const [isSavingWorkflowStep, setIsSavingWorkflowStep] = useState(false);
   const workflowProductIdRef = useRef<number | null>(null);
 
@@ -1392,7 +1392,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     if (!urlWorkflowIntent.forceOverview || !urlWorkflowIntent.openListingEdit) return;
     if (!listingProduct || !canEditProduct || listingEditFromUrlRef.current) return;
     listingEditFromUrlRef.current = true;
-    setSelectedWorkflowStep(2);
+    setSelectedWorkflowStep(1);
     const baseForm = buildListingEditForm(listingProduct, effectiveAudit);
     const savedDraft = readListingDraft(id);
     setEditForm(mergeListingEditForm(baseForm, savedDraft));
@@ -1460,7 +1460,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   function openListingEditor() {
     if (!canEditProduct || !listingProduct) return;
-    setSelectedWorkflowStep(2);
+    setSelectedWorkflowStep(1);
     const baseForm = buildListingEditForm(listingProduct, effectiveAudit);
     const savedDraft = readListingDraft(id);
     setEditForm(mergeListingEditForm(baseForm, savedDraft));
@@ -1529,7 +1529,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   }
 
   async function goToGraphicsStep(auditId: number) {
-    await saveAndContinueWorkflowStep(3, auditId);
+    await saveAndContinueWorkflowStep(2, auditId);
   }
 
   function goToWorkflowStep(stepId: ProductExplorerWorkflowStepId) {
@@ -1854,7 +1854,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     <button
                       key={marketplace}
                       type="button"
-                      onClick={() => goToWorkflowStep(6)}
+                      onClick={() => goToWorkflowStep(5)}
                       className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 hover:bg-emerald-50 transition-colors"
                       title={`View ${marketplace} listing`}
                     >

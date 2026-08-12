@@ -163,6 +163,18 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>(imageUrls ?? []);
   const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    if (!imageUrls?.length) return;
+    setUploadedImages((prev) => {
+      const merged = [...prev];
+      for (const url of imageUrls) {
+        if (url && !merged.includes(url)) merged.push(url);
+      }
+      return merged;
+    });
+    setStep((current) => (current === 1 ? 2 : current));
+  }, [imageUrls]);
   const [selectedImageTypes, setSelectedImageTypes] = useState<string[]>([]);
   const [imageTypePromptConfigs, setImageTypePromptConfigs] = useState<Record<string, ImageTypePromptConfig>>({});
   const [customizeTypeId, setCustomizeTypeId] = useState<string | null>(null);

@@ -8,11 +8,10 @@ import {
   Sparkles,
   Store,
   TrendingUp,
-  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type ProductExplorerWorkflowStepId = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   id: ProductExplorerWorkflowStepId;
@@ -21,53 +20,51 @@ export const PRODUCT_EXPLORER_WORKFLOW_STEPS: {
   sub: string;
   icon: ElementType;
 }[] = [
-  { id: 1, key: "upload", label: "UPLOAD", sub: "Upload product images", icon: Upload },
-  { id: 2, key: "overview", label: "OVERVIEW", sub: "Product summary", icon: LayoutDashboard },
-  { id: 3, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
-  { id: 4, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
-  { id: 5, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
-  { id: 6, key: "marketplaces", label: "MARKETPLACES", sub: "List & publish", icon: Store },
-  { id: 7, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
-  { id: 8, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
+  { id: 1, key: "overview", label: "OVERVIEW", sub: "Product summary", icon: LayoutDashboard },
+  { id: 2, key: "listing", label: "LISTING", sub: "Create listing content", icon: FileText },
+  { id: 3, key: "graphics", label: "GRAPHICS", sub: "Create product graphics", icon: ImageIcon },
+  { id: 4, key: "aplus", label: "A+ CONTENT", sub: "Create A+ content", icon: Sparkles },
+  { id: 5, key: "marketplaces", label: "MARKETPLACES", sub: "List & publish", icon: Store },
+  { id: 6, key: "orders", label: "ORDERS", sub: "Order history", icon: ShoppingCart },
+  { id: 7, key: "sales", label: "SALES", sub: "Sales performance", icon: TrendingUp },
 ];
 
-/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–8). Step 1 lands on Overview. */
+/** Map API audit `currentStep` (1–5) to Product Explorer UI step (1–7). */
 export function apiStepToProductExplorerStep(
   currentStep: number | null | undefined,
 ): ProductExplorerWorkflowStepId {
   const apiStep = Math.min(5, Math.max(1, currentStep ?? 1));
-  if (apiStep === 1) return 2;
-  if (apiStep === 2) return 3;
-  if (apiStep === 3) return 4;
-  if (apiStep === 4) return 5;
-  return 6;
+  if (apiStep === 1) return 1;
+  if (apiStep === 2) return 2;
+  if (apiStep === 3) return 3;
+  if (apiStep === 4) return 4;
+  return 5;
 }
 
 /** Returns API step to persist, or null for local-only steps (Overview, Marketplaces+). */
 export function productExplorerStepToApiStep(
   peStep: ProductExplorerWorkflowStepId,
 ): number | null {
-  if (peStep === 1) return 1;
-  if (peStep === 2) return null;
-  if (peStep >= 6) return null;
-  return peStep - 1;
+  if (peStep === 1) return null;
+  if (peStep >= 5) return null;
+  return peStep;
 }
 
 /** API step to persist when leaving a step via Save & Continue. */
 export function productExplorerSaveContinueApiStep(
   fromStep: ProductExplorerWorkflowStepId,
 ): number | null {
-  const nextStep = Math.min(8, fromStep + 1) as ProductExplorerWorkflowStepId;
+  const nextStep = Math.min(7, fromStep + 1) as ProductExplorerWorkflowStepId;
   const nextApi = productExplorerStepToApiStep(nextStep);
   if (nextApi != null) return nextApi;
-  if (fromStep === 5) return 5;
+  if (fromStep === 4) return 5;
   return productExplorerStepToApiStep(fromStep);
 }
 
 export function nextProductExplorerWorkflowStep(
   step: ProductExplorerWorkflowStepId,
 ): ProductExplorerWorkflowStepId | null {
-  if (step >= 8) return null;
+  if (step >= 7) return null;
   return (step + 1) as ProductExplorerWorkflowStepId;
 }
 
@@ -142,14 +139,13 @@ export function productExplorerStepCompletedFromData(
   const salesDone = (input.totalRevenue ?? 0) > 0;
 
   return {
-    1: uploadDone,
-    2: uploadDone && listingDone,
-    3: listingDone,
-    4: graphicsDone,
-    5: aplusDone,
-    6: marketplacesDone,
-    7: ordersDone,
-    8: salesDone,
+    1: uploadDone && listingDone,
+    2: listingDone,
+    3: graphicsDone,
+    4: aplusDone,
+    5: marketplacesDone,
+    6: ordersDone,
+    7: salesDone,
   };
 }
 
@@ -159,7 +155,7 @@ export function resolveInitialProductExplorerStep(
   currentStep: number | null | undefined,
   opts?: { forceOverview?: boolean },
 ): ProductExplorerWorkflowStepId {
-  if (opts?.forceOverview) return 2;
+  if (opts?.forceOverview) return 1;
   const firstIncomplete = PRODUCT_EXPLORER_WORKFLOW_STEPS.find((s) => !completed[s.id]);
   if (firstIncomplete) return firstIncomplete.id;
   return apiStepToProductExplorerStep(currentStep);
@@ -174,13 +170,12 @@ export function productExplorerStepCompletedFromCurrentStep(
   const complete = status === "complete";
   return {
     1: complete || apiStep > 1,
-    2: complete || apiStep > 1,
-    3: complete || apiStep > 2,
-    4: complete || apiStep > 3,
-    5: complete || apiStep > 4,
+    2: complete || apiStep > 2,
+    3: complete || apiStep > 3,
+    4: complete || apiStep > 4,
+    5: complete || apiStep >= 5,
     6: complete || apiStep >= 5,
-    7: complete || apiStep >= 5,
-    8: complete,
+    7: complete,
   };
 }
 
@@ -209,6 +204,7 @@ export function ProductExplorerWorkflowStepper({
           const isActive = activeStep === s.id;
           const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
           const clickable = Boolean(onStepClick);
+          const StepIcon = s.icon;
 
           return (
             <button
@@ -225,13 +221,13 @@ export function ProductExplorerWorkflowStepper({
             >
               <div
                 className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors",
+                  "w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors",
                   isCompleted || isActive
                     ? "bg-orange-500 border-orange-500 text-white"
                     : "bg-white border-slate-300 text-slate-400",
                 )}
               >
-                {isCompleted ? <Check className="w-4 h-4" /> : s.id}
+                {isCompleted ? <Check className="w-4 h-4" /> : <StepIcon className="w-3.5 h-3.5" />}
               </div>
               <p
                 className={cn(

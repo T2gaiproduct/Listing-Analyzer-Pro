@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { ArrowRight, ImageIcon, Loader2, Sparkles, Upload } from "lucide-react";
+import { ArrowRight, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeneratedContent } from "@workspace/api-client-react";
 import { AplusContentWizard } from "@/components/aplus-content-wizard";
@@ -121,38 +121,10 @@ export function ProductWorkflowStepContent({
   const showFooter = hasNextStep
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
-    && step !== 6
-    && step !== 7;
+    && step !== 5
+    && step !== 6;
 
   if (step === 1) {
-    return (
-      <WorkflowStepShell
-        showSaveAndContinue={showFooter}
-        onSaveAndContinue={onSaveAndContinue}
-        isSaving={isSavingContinue}
-      >
-        <div className="flex items-center gap-2">
-          <Upload className="w-4 h-4 text-orange-500" />
-          <h3 className="text-sm font-semibold text-slate-900">Upload product images</h3>
-        </div>
-        {imageUrls.length === 0 ? (
-          <p className="text-[11px] text-slate-500 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
-            No images uploaded yet. Add product images to continue with listing and graphics.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
-            {imageUrls.map((url) => (
-              <div key={url} className="aspect-square rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
-                <img src={url} alt="" className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
-        )}
-      </WorkflowStepShell>
-    );
-  }
-
-  if (step === 2) {
     if (listingEditorContent) {
       return (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
@@ -174,7 +146,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 3) {
+  if (step === 2) {
     return (
       <WorkflowStepShell
         showSaveAndContinue={showFooter}
@@ -195,7 +167,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 4) {
+  if (step === 3) {
     return (
       <WorkflowStepShell
         showSaveAndContinue={showFooter}
@@ -210,7 +182,7 @@ export function ProductWorkflowStepContent({
           embedded
           auditId={auditId}
           productName={productName}
-          imageUrls={audit?.imageUrls ?? null}
+          imageUrls={imageUrls}
           category={audit?.category ?? null}
           targetKeywords={audit?.targetKeywords ?? null}
         />
@@ -218,7 +190,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 5) {
+  if (step === 4) {
     return (
       <WorkflowStepShell
         showSaveAndContinue={showFooter}
@@ -230,7 +202,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 6 && productId && productSource) {
+  if (step === 5 && productId && productSource) {
     return (
       <WorkflowStepShell
         showSaveAndContinue={showFooter}
@@ -248,7 +220,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 7 && productId && productSource) {
+  if (step === 6 && productId && productSource) {
     return (
       <WorkflowStepShell
         showSaveAndContinue={showFooter}
@@ -260,7 +232,7 @@ export function ProductWorkflowStepContent({
     );
   }
 
-  if (step === 8 && productId && productSource) {
+  if (step === 7 && productId && productSource) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <ProductSalesTab productId={productId} source={productSource} enabled />
