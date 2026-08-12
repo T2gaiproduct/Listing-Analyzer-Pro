@@ -92,12 +92,6 @@ export default function AuditNew() {
           Start Generating
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
-
-        <p className="text-xs text-slate-400 mt-4">
-          Works with{" "}
-          <span className="text-orange-500 font-medium">Amazon</span> and{" "}
-          <span className="text-orange-500 font-medium">Shopify</span> product pages
-        </p>
       </div>
 
       {/* How It Works */}
