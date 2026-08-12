@@ -89,9 +89,9 @@ export type ProductExplorerStepCompletionInput = {
   totalRevenue?: number | null;
 };
 
+/** User-uploaded source images only — not generated graphics / listing thumbnails. */
 function countSourceImages(input: ProductExplorerStepCompletionInput): number {
   let count = 0;
-  if (input.productImageUrl?.trim()) count += 1;
   for (const url of input.imageUrls ?? []) {
     if (url?.trim()) count += 1;
   }
@@ -143,7 +143,7 @@ export function productExplorerStepCompletedFromData(
 
   return {
     1: uploadDone,
-    2: uploadDone,
+    2: uploadDone && listingDone,
     3: listingDone,
     4: graphicsDone,
     5: aplusDone,
@@ -151,6 +151,18 @@ export function productExplorerStepCompletedFromData(
     7: ordersDone,
     8: salesDone,
   };
+}
+
+/** Open on the first step that still needs work — not the furthest API currentStep. */
+export function resolveInitialProductExplorerStep(
+  completed: Record<ProductExplorerWorkflowStepId, boolean>,
+  currentStep: number | null | undefined,
+  opts?: { forceOverview?: boolean },
+): ProductExplorerWorkflowStepId {
+  if (opts?.forceOverview) return 2;
+  const firstIncomplete = PRODUCT_EXPLORER_WORKFLOW_STEPS.find((s) => !completed[s.id]);
+  if (firstIncomplete) return firstIncomplete.id;
+  return apiStepToProductExplorerStep(currentStep);
 }
 
 /** @deprecated Use productExplorerStepCompletedFromData — currentStep alone over-marked steps complete. */
