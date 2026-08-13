@@ -90,23 +90,23 @@ function CategoryPortalDropdown({
     <div
       data-cat-portal
       style={{ position: "fixed", top: catPos.top, left: catPos.left, width: catPos.width, zIndex: 9999 }}
-      className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[60vh] overflow-y-auto"
+      className="bg-card border border-border rounded-xl shadow-2xl max-h-[60vh] overflow-y-auto"
     >
-      <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2">
+      <div className="sticky top-0 bg-card border-b border-border px-3 py-2">
         <input
           ref={searchRef}
           value={catSearch}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCatSearch(e.target.value)}
           placeholder="Search categories…"
-          className="w-full text-sm focus:outline-none text-slate-700 placeholder-slate-400"
+          className="w-full text-sm focus:outline-none text-foreground placeholder:text-muted-foreground"
         />
       </div>
       {filteredCats.length === 0
-        ? <div className="px-3 py-2 text-xs text-slate-400">No categories found</div>
+        ? <div className="px-3 py-2 text-xs text-muted-foreground">No categories found</div>
         : filteredCats.map((c) => (
           <div
             key={c}
-            className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-50", category === c ? "bg-orange-50 text-orange-600 font-medium" : "text-slate-700")}
+            className={cn("px-3 py-2 text-sm cursor-pointer hover:bg-orange-500/10", category === c ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 font-medium" : "text-foreground")}
             onClick={() => { setCategory(c); setCatSearch(""); setCatOpen(false); }}
           >
             {c}
@@ -361,27 +361,27 @@ function CreatingPanel({
     <>
       {/* Dim overlay over the rest of the content */}
       <div
-        className="absolute inset-0 bg-slate-900/10 z-10"
+        className="absolute inset-0 bg-black/10 dark:bg-black/30 z-10"
         style={{ left: 320 }}
         onClick={onCancel}
       />
 
       {/* Sliding panel */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-80 bg-white border-r border-slate-200 shadow-2xl z-20 flex flex-col"
+        className="absolute left-0 top-0 bottom-0 w-80 bg-card border-r border-border shadow-2xl z-20 flex flex-col"
         style={{ animation: "slideInLeft 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-orange-500" />
             </div>
-            <span className="text-xs font-semibold text-slate-800">Creating {stepLabel}</span>
+            <span className="text-xs font-semibold text-foreground">Creating {stepLabel}</span>
           </div>
           <button
             onClick={onCancel}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -410,7 +410,7 @@ function CreatingPanel({
           {/* Status message */}
           <div className="text-center min-h-[3rem] flex items-center justify-center">
             <p
-              className="text-xs font-medium text-slate-700 transition-opacity duration-300 text-center leading-relaxed"
+              className="text-xs font-medium text-foreground transition-opacity duration-300 text-center leading-relaxed"
               style={{ opacity: visible ? 1 : 0 }}
             >
               {messages[msgIdx]}
@@ -419,13 +419,13 @@ function CreatingPanel({
 
           {/* Progress bar */}
           <div className="w-full space-y-2">
-            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-orange-400 to-amber-500 rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-center text-xs text-slate-400">{Math.round(progress)}%</p>
+            <p className="text-center text-xs text-muted-foreground">{Math.round(progress)}%</p>
           </div>
 
           {/* Step dots */}
@@ -437,22 +437,22 @@ function CreatingPanel({
                   "rounded-full transition-all duration-300",
                   i === msgIdx
                     ? "w-4 h-1.5 bg-orange-500"
-                    : "w-1.5 h-1.5 bg-slate-200"
+                    : "w-1.5 h-1.5 bg-muted"
                 )}
               />
             ))}
           </div>
 
-          <p className="text-xs text-slate-400 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             This may take a few moments.<br />You can cancel at any time.
           </p>
         </div>
 
         {/* Cancel button */}
-        <div className="px-5 py-4 border-t border-slate-100">
+        <div className="px-5 py-4 border-t border-border">
           <Button
             variant="outline"
-            className="w-full rounded-xl border-slate-200 text-slate-500 hover:text-slate-700 text-sm"
+            className="w-full rounded-xl border-border text-muted-foreground hover:text-foreground text-sm"
             onClick={onCancel}
           >
             Cancel
@@ -1471,25 +1471,25 @@ export default function AuditWorkflow() {
                   <Upload className="w-4 h-4 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-slate-900">Upload Product Images</h2>
-                  <p className="text-xs text-slate-500">Add high-quality images to showcase your product in the best way</p>
+                  <h2 className="text-base font-semibold text-foreground">Upload Product Images</h2>
+                  <p className="text-xs text-muted-foreground">Add high-quality images to showcase your product in the best way</p>
                 </div>
               </div>
 
               {/* Two-column: upload zone + preview */}
-              <div className="border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border border-border rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Left: upload zone */}
                 <div
-                  className="border-2 border-dashed border-orange-200 rounded-xl bg-orange-50/20 p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-orange-50/40 transition-colors"
+                  className="border-2 border-dashed border-orange-200 rounded-xl bg-orange-500/5 p-6 flex flex-col items-center gap-3 cursor-pointer hover:bg-orange-500/10 transition-colors"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
                 >
-                  <div className="w-14 h-14 rounded-full bg-orange-50 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center">
                     <Upload className="w-7 h-7 text-orange-400" />
                   </div>
                   <div className="text-center">
-                    <p className="text-xs font-semibold text-slate-800">Drag or upload product images</p>
-                    <p className="text-xs text-slate-400 mt-0.5">PNG, JPG up to 20MB each</p>
+                    <p className="text-xs font-semibold text-foreground">Drag or upload product images</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG up to 20MB each</p>
                   </div>
                   <button
                     type="button"
@@ -1499,16 +1499,16 @@ export default function AuditWorkflow() {
                     <Monitor className="w-4 h-4" />
                     Upload from device
                   </button>
-                  <span className="text-xs text-slate-400">or</span>
+                  <span className="text-xs text-muted-foreground">or</span>
                   <button
                     type="button"
                     onClick={() => cameraRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors w-full justify-center"
+                    className="flex items-center gap-2 px-4 py-2 border border-border text-foreground hover:bg-muted text-sm font-medium rounded-xl transition-colors w-full justify-center"
                   >
                     <Camera className="w-4 h-4 text-orange-400" />
                     Use camera
                   </button>
-                  <div className="flex items-start gap-2 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 w-full">
+                  <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-100 rounded-lg px-3 py-2 w-full">
                     <Lightbulb className="w-3.5 h-3.5 text-orange-400 mt-0.5 flex-shrink-0" />
                     <p className="text-xs text-orange-600">Tip: Use high-quality images with good lighting for better results.</p>
                   </div>
@@ -1519,7 +1519,7 @@ export default function AuditWorkflow() {
                 {/* Right: uploaded images preview */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-700">
+                    <span className="text-xs font-medium text-foreground">
                       Uploaded Images ({uploadedImages.length}/10)
                     </span>
                     {uploadedImages.length > 0 && (
@@ -1533,17 +1533,17 @@ export default function AuditWorkflow() {
                   </div>
 
                   {uploadedImages.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center text-slate-300 text-sm border-2 border-dashed border-slate-100 rounded-xl py-10">
+                    <div className="flex-1 flex items-center justify-center text-muted-foreground/50 text-sm border-2 border-dashed border-border rounded-xl py-10">
                       No images yet
                     </div>
                   ) : (
                     <>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {uploadedImages.slice(0, 8).map((img, idx) => (
-                          <div key={idx} className="relative aspect-square rounded-xl border border-slate-200 overflow-hidden bg-white">
+                          <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden bg-card">
                             <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
                             <button
-                              className="absolute top-1 right-1 w-5 h-5 bg-white/90 rounded-full shadow flex items-center justify-center text-slate-500 hover:text-red-500 transition-colors"
+                              className="absolute top-1 right-1 w-5 h-5 bg-card/90 rounded-full shadow flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors"
                               onClick={() => setUploadedImages((p) => p.filter((_, i) => i !== idx))}
                             >
                               <X className="w-3 h-3" />
@@ -1554,7 +1554,7 @@ export default function AuditWorkflow() {
                       <button
                         type="button"
                         onClick={() => fileRef.current?.click()}
-                        className="mt-auto w-full flex items-center justify-center gap-2 border border-slate-200 rounded-xl py-2.5 text-xs text-orange-500 hover:bg-orange-50 font-medium transition-colors"
+                        className="mt-auto w-full flex items-center justify-center gap-2 border border-border rounded-xl py-2.5 text-xs text-orange-500 hover:bg-orange-500/10 font-medium transition-colors"
                       >
                         <Plus className="w-4 h-4" />
                         Add more images
@@ -1571,41 +1571,41 @@ export default function AuditWorkflow() {
                     <FileText className="w-4 h-4 text-orange-500" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-900">Product Details</p>
-                    <p className="text-xs text-slate-400">Provide basic information about your product</p>
+                    <p className="text-xs font-semibold text-foreground">Product Details</p>
+                    <p className="text-xs text-muted-foreground">Provide basic information about your product</p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-700">Project Name</label>
+                  <label className="text-xs font-medium text-foreground">Project Name</label>
                   <Input
                     value={projectName}
                     onChange={(e) => { setProjectName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                     placeholder="e.g. Summer Launch 2025"
-                    className="border-slate-200 rounded-xl h-11"
+                    className="border-border rounded-xl h-11"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-700">Brand Name</label>
+                    <label className="text-xs font-medium text-foreground">Brand Name</label>
                     <Input
                       value={brandName}
                       onChange={(e) => { setBrandName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                       placeholder="e.g. Acme Co."
-                      className="border-slate-200 rounded-xl h-11"
+                      className="border-border rounded-xl h-11"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-700">Product Name <span className="text-red-500">*</span></label>
+                    <label className="text-xs font-medium text-foreground">Product Name <span className="text-red-500">*</span></label>
                     <Input
                       value={productName}
                       onChange={(e) => { setProductName(e.target.value); if (currentAuditId) setIsDirty(true); }}
                       placeholder="Enter product name"
-                      className="border-slate-200 rounded-xl h-11"
+                      className="border-border rounded-xl h-11"
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5" ref={catRef}>
-                  <label className="text-xs font-medium text-slate-700">Select Category</label>
+                  <label className="text-xs font-medium text-foreground">Select Category</label>
                   <div className="relative">
                     <button
                       ref={catBtnRef}
@@ -1624,12 +1624,12 @@ export default function AuditWorkflow() {
                         }
                         setCatOpen((o) => !o);
                       }}
-                      className="w-full h-9 pl-3 pr-9 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
+                      className="w-full h-9 pl-3 pr-9 rounded-xl border border-border text-sm bg-card focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-left flex items-center"
                     >
-                      <span className={category ? "text-slate-900" : "text-slate-400"}>
+                      <span className={category ? "text-foreground" : "text-muted-foreground"}>
                         {category || "Search or select category"}
                       </span>
-                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     {catOpen && createPortal(
                       <CategoryPortalDropdown
@@ -1657,17 +1657,17 @@ export default function AuditWorkflow() {
                   <FileText className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-slate-900">Create Listing Content</h2>
-                  <p className="text-xs text-slate-500">AI will generate optimized content based on your product images and details</p>
+                  <h2 className="text-base font-semibold text-foreground">Create Listing Content</h2>
+                  <p className="text-xs text-muted-foreground">AI will generate optimized content based on your product images and details</p>
                 </div>
               </div>
 
               {/* What gets generated */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                <p className="text-xs font-medium text-slate-700">What will be generated</p>
+              <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                <p className="text-xs font-medium text-foreground">What will be generated</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {["Product Title", "Bullet Points", "Keywords", "Description"].map((item) => (
-                    <div key={item} className="flex items-center gap-2 text-xs text-slate-600">
+                    <div key={item} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
                         <Check className="w-3 h-3 text-orange-500" />
                       </div>
@@ -1677,7 +1677,7 @@ export default function AuditWorkflow() {
                 </div>
               </div>
 
-              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-5 flex items-start gap-3">
+              <div className="bg-orange-500/10 border border-orange-100 rounded-2xl p-5 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-xs font-semibold text-orange-900">AI-Powered Optimization</p>
@@ -1789,23 +1789,23 @@ export default function AuditWorkflow() {
 
               {/* Display generated content */}
               {generatedContent && (
-                <div className="bg-white border border-orange-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="bg-orange-50 border-b border-orange-100 px-6 py-3 flex items-center gap-2">
+                <div className="bg-card border border-orange-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-orange-500/10 border-b border-orange-100 px-6 py-3 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-orange-500" />
                     <p className="text-xs font-semibold text-orange-900">Generated Content</p>
                   </div>
                   <div className="p-6 space-y-5">
                     {/* Title */}
                     <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Product Title</p>
-                      <p className="text-xs text-slate-900 font-medium">{generatedContent.title}</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Product Title</p>
+                      <p className="text-xs text-foreground font-medium">{generatedContent.title}</p>
                     </div>
                     {/* Bullet Points */}
                     <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Bullet Points</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Bullet Points</p>
                       <ul className="space-y-1.5">
                         {generatedContent.bulletPoints.map((b, i) => (
-                          <li key={i} className="text-xs text-slate-700 flex items-start gap-2">
+                          <li key={i} className="text-xs text-foreground flex items-start gap-2">
                             <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
                             {b}
                           </li>
@@ -1814,34 +1814,34 @@ export default function AuditWorkflow() {
                     </div>
                     {/* Keywords */}
                     <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Keywords</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Keywords</p>
                       <div className="flex flex-wrap gap-1.5">
                         {generatedContent.keywords.map((k, i) => (
-                          <span key={i} className="px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium border border-orange-100">{k}</span>
+                          <span key={i} className="px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-700 text-xs font-medium border border-orange-100">{k}</span>
                         ))}
                       </div>
                     </div>
                     {/* Description */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Description</p>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(generatedContent.htmlDescription);
                               toast({ title: "Copied", description: "HTML description copied to clipboard." });
                             }}
-                            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                             title="Copy HTML"
                           >
                             <Copy className="w-3 h-3" /> Copy
                           </button>
-                          <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+                          <div className="flex items-center bg-muted rounded-lg p-0.5">
                             <button
                               onClick={() => setDescViewMode("preview")}
                               className={cn(
                                 "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
-                                descViewMode === "preview" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
+                                descViewMode === "preview" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-muted-foreground"
                               )}
                             >
                               <Eye className="w-3 h-3" /> Preview
@@ -1850,7 +1850,7 @@ export default function AuditWorkflow() {
                               onClick={() => setDescViewMode("code")}
                               className={cn(
                                 "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all",
-                                descViewMode === "code" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-500"
+                                descViewMode === "code" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-muted-foreground"
                               )}
                             >
                               <Code2 className="w-3 h-3" /> Code
@@ -1864,7 +1864,7 @@ export default function AuditWorkflow() {
                           dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }}
                         />
                       ) : (
-                        <pre className="text-xs text-slate-700 leading-relaxed border rounded-md p-3 bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap font-mono">{generatedContent.htmlDescription}</pre>
+                        <pre className="text-xs text-slate-100 leading-relaxed border rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">{generatedContent.htmlDescription}</pre>
                       )}
                     </div>
                   </div>
@@ -1881,8 +1881,8 @@ export default function AuditWorkflow() {
                   <Wand2 className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Create Product Graphics</h2>
-                  <p className="text-base text-slate-500 mt-0.5">Choose the image types you want to generate</p>
+                  <h2 className="text-2xl font-bold text-foreground">Create Product Graphics</h2>
+                  <p className="text-base text-muted-foreground mt-0.5">Choose the image types you want to generate</p>
                 </div>
               </div>
 
@@ -1901,14 +1901,14 @@ export default function AuditWorkflow() {
                       }}
                       className={cn(
                         "relative rounded-2xl border-2 p-5 text-left transition-all",
-                        isSelected ? "border-orange-500 bg-orange-50/40 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+                        isSelected ? "border-orange-500 bg-orange-500/10 shadow-sm" : "border-border bg-card hover:border-border hover:shadow-sm"
                       )}
                     >
                       <span className="text-3xl leading-none block mb-3">{type.icon}</span>
-                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-foreground")}>
                         {type.label}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1 leading-snug">{type.desc}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-snug">{type.desc}</p>
                       {isSelected && (
                         <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
                           <Check className="w-3.5 h-3.5 text-white" />
@@ -1924,7 +1924,7 @@ export default function AuditWorkflow() {
                   <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm">
                     {selectedImageTypes.length} selected
                   </span>
-                  <span className="text-base text-slate-400">~{selectedImageTypes.length * 30}s total</span>
+                  <span className="text-base text-muted-foreground">~{selectedImageTypes.length * 30}s total</span>
                 </div>
               )}
 
@@ -1979,14 +1979,14 @@ export default function AuditWorkflow() {
               {graphicsStatus === "generating" && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600 font-medium">
+                    <span className="text-muted-foreground font-medium">
                       Generating {graphicsProgress.total} image{graphicsProgress.total > 1 ? "s" : ""}…
                     </span>
                     <span className="text-orange-600 font-semibold">
                       {graphicsProgress.generated} / {graphicsProgress.total}
                     </span>
                   </div>
-                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500"
                       style={{ width: `${graphicsProgress.total > 0 ? (graphicsProgress.generated / graphicsProgress.total) * 100 : 0}%` }}
@@ -1999,7 +1999,7 @@ export default function AuditWorkflow() {
               {generatedImages.length > 0 && (
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-slate-800">
+                    <h3 className="text-base font-semibold text-foreground">
                       Generated Images ({generatedImages.length})
                     </h3>
                     {graphicsStatus === "completed" && (
@@ -2012,7 +2012,7 @@ export default function AuditWorkflow() {
                     {generatedImages.map((img, i) => (
                       <button
                         key={`${img.url}-${i}`}
-                        className="relative aspect-square rounded-xl border border-slate-200 overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group"
+                        className="relative aspect-square rounded-xl border border-border overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group"
                         onClick={() => setLightboxImage(img.url)}
                       >
                         <img
@@ -2026,8 +2026,8 @@ export default function AuditWorkflow() {
                           {img.type}
                         </div>
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                            <Eye className="w-4 h-4 text-slate-700" />
+                          <div className="w-8 h-8 rounded-full bg-card/90 flex items-center justify-center shadow-lg">
+                            <Eye className="w-4 h-4 text-foreground" />
                           </div>
                         </div>
                       </button>
@@ -2046,8 +2046,8 @@ export default function AuditWorkflow() {
                   <Sparkles className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Create A+ Content</h2>
-                  <p className="text-base text-slate-500 mt-0.5">Choose the modules you want to generate. You can select multiple.</p>
+                  <h2 className="text-2xl font-bold text-foreground">Create A+ Content</h2>
+                  <p className="text-base text-muted-foreground mt-0.5">Choose the modules you want to generate. You can select multiple.</p>
                 </div>
               </div>
 
@@ -2071,16 +2071,16 @@ export default function AuditWorkflow() {
                       className={cn(
                         "relative rounded-2xl border-2 p-5 text-left transition-all",
                         isSelected
-                          ? "border-orange-500 bg-orange-50/40 shadow-sm"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                          ? "border-orange-500 bg-orange-500/10 shadow-sm"
+                          : "border-border bg-card hover:border-border hover:shadow-sm",
                         (aplusStatus === "generating" || generateAplus.isPending) && "opacity-60 cursor-not-allowed",
                       )}
                     >
                       <span className="text-3xl leading-none block mb-3">{module.icon}</span>
-                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-slate-900")}>
+                      <p className={cn("text-base font-semibold", isSelected ? "text-orange-900" : "text-foreground")}>
                         {module.label}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1 leading-snug">{module.desc}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-snug">{module.desc}</p>
                       {isSelected && (
                         <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-sm">
                           <Check className="w-3.5 h-3.5 text-white" />
@@ -2101,7 +2101,7 @@ export default function AuditWorkflow() {
                   <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm">
                     {selectedAplusModules.length} selected
                   </span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     {selectedAplusModules.length === ALL_APLUS_MODULE_IDS.length
                       ? "All modules will be generated"
                       : `${selectedAplusModules.length} module${selectedAplusModules.length > 1 ? "s" : ""} will be generated`}
@@ -2169,20 +2169,20 @@ export default function AuditWorkflow() {
               {aplusStatus === "generating" && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600 font-medium">
+                    <span className="text-muted-foreground font-medium">
                       Generating {aplusProgress.total} A+ module image{aplusProgress.total > 1 ? "s" : ""}…
                     </span>
                     <span className="text-orange-600 font-semibold">
                       {aplusProgress.done} / {aplusProgress.total}
                     </span>
                   </div>
-                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500"
                       style={{ width: `${aplusProgress.total > 0 ? (aplusProgress.done / aplusProgress.total) * 100 : 0}%` }}
                     />
                   </div>
-                  <p className="text-xs text-slate-500">This can take a few minutes. Keep this page open while images finish.</p>
+                  <p className="text-xs text-muted-foreground">This can take a few minutes. Keep this page open while images finish.</p>
                 </div>
               )}
 
@@ -2213,7 +2213,7 @@ export default function AuditWorkflow() {
       <div className="border-t border-border bg-card px-4 sm:px-5 py-4 flex items-center justify-between flex-shrink-0">
         <Button
           variant="outline"
-          className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
+          className="rounded-xl border-border text-muted-foreground hover:bg-muted gap-2"
           onClick={handleBack}
           disabled={isCreating}
         >
@@ -2278,7 +2278,7 @@ export default function AuditWorkflow() {
               onClick={(e) => e.stopPropagation()}
             />
             <button
-              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center shadow-lg hover:bg-slate-100 transition-colors"
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-card text-foreground flex items-center justify-center shadow-lg hover:bg-muted transition-colors"
               onClick={() => setLightboxImage(null)}
             >
               <X className="w-4 h-4" />

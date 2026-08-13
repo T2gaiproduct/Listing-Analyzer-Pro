@@ -194,7 +194,7 @@ export function ProductExplorerWorkflowStepper({
   return (
     <div
       className={cn(
-        "border border-slate-200 bg-white rounded-lg overflow-x-auto flex-shrink-0",
+        "border border-border bg-card rounded-lg overflow-x-auto flex-shrink-0",
         className,
       )}
     >
@@ -213,7 +213,7 @@ export function ProductExplorerWorkflowStepper({
               className={cn(
                 "flex-1 min-w-[2.5rem] flex flex-col items-center py-2 gap-0.5 border-b-2 transition-all text-center px-0.5",
                 isActive ? "border-orange-500" : "border-transparent",
-                clickable && !isActive && "hover:border-slate-200 cursor-pointer",
+                clickable && !isActive && "hover:border-border cursor-pointer",
                 !clickable && "cursor-default",
               )}
             >
@@ -222,7 +222,7 @@ export function ProductExplorerWorkflowStepper({
                   "w-6 h-6 rounded-full flex items-center justify-center border transition-colors",
                   isActive
                     ? "bg-orange-500 border-orange-500 text-white"
-                    : "bg-white border-slate-300 text-slate-400",
+                    : "bg-card border-border text-muted-foreground",
                 )}
               >
                 <StepIcon className="w-3 h-3" strokeWidth={2.25} />
@@ -230,7 +230,7 @@ export function ProductExplorerWorkflowStepper({
               <p
                 className={cn(
                   "text-[9px] font-semibold uppercase tracking-wide leading-none whitespace-nowrap",
-                  isActive ? "text-orange-500" : "text-slate-400",
+                  isActive ? "text-orange-500" : "text-muted-foreground",
                 )}
               >
                 {s.label}
@@ -238,7 +238,7 @@ export function ProductExplorerWorkflowStepper({
               <p
                 className={cn(
                   "text-[9px] leading-tight hidden lg:block",
-                  isActive ? "text-slate-500" : "text-slate-400",
+                  isActive ? "text-muted-foreground" : "text-muted-foreground/70",
                 )}
               >
                 {s.sub}

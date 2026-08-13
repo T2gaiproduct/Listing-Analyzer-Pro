@@ -96,7 +96,7 @@ function ConnectCard({
   setupHref?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-5">
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col gap-5">
       <div className="flex items-start justify-between gap-3">
         <MarketplaceLogo marketplace={marketplace} className="h-7 w-32" />
         {connected && (
@@ -107,10 +107,10 @@ function ConnectCard({
         )}
       </div>
 
-      <p className="text-xs text-slate-600 leading-relaxed flex-1">{description}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed flex-1">{description}</p>
 
       {connected && detail ? (
-        <p className="text-[11px] text-slate-500 break-all rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+        <p className="text-[11px] text-muted-foreground break-all rounded-lg bg-muted border border-border px-3 py-2">
           {detail}
         </p>
       ) : null}
@@ -181,7 +181,7 @@ function ConnectCard({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-xs bg-slate-900 hover:bg-slate-800 text-white"
+            className="h-8 text-xs bg-foreground hover:bg-foreground/90 text-background"
             disabled={loading}
             onClick={onConnect}
           >
@@ -530,9 +530,9 @@ export default function MarketplacesPage() {
   if (!featureWorkspaceId || needsWorkspaceSelection) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-        <Store className="w-10 h-10 text-slate-300 mb-3" />
-        <h2 className="text-base font-semibold text-slate-900">Select a workspace</h2>
-        <p className="text-xs text-slate-500 mt-2 max-w-md">
+        <Store className="w-10 h-10 text-muted-foreground/40 mb-3" />
+        <h2 className="text-base font-semibold text-foreground">Select a workspace</h2>
+        <p className="text-xs text-muted-foreground mt-2 max-w-md">
           Marketplace connections are scoped to a workspace. Choose one in the top bar, or create a workspace from {WORKSPACES_HUB_LABEL}.
         </p>
         <Button asChild size="sm" className="mt-5 bg-orange-500 hover:bg-orange-600 text-xs h-8">
@@ -550,15 +550,15 @@ export default function MarketplacesPage() {
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300 w-full min-w-0">
-      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
         <span>{platformName}</span>
         <ChevronRight className="w-3 h-3" />
-        <span className="text-slate-600">Marketplaces</span>
+        <span className="text-foreground">Marketplaces</span>
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-lg font-semibold text-slate-900 tracking-tight">Marketplaces</h1>
-        <p className="text-xs text-slate-500 max-w-2xl">
+        <h1 className="text-lg font-semibold text-foreground tracking-tight">Marketplaces</h1>
+        <p className="text-xs text-muted-foreground max-w-2xl">
           Connect the sales channels you use in this workspace. Once connected, you can publish and export listings to Amazon, Shopify, and WooCommerce.
         </p>
       </div>
@@ -644,7 +644,7 @@ export default function MarketplacesPage() {
             {dialogTarget === "amazon" ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-redirect-uri" className="text-xs text-slate-600">
+                  <Label htmlFor="amazon-redirect-uri" className="text-xs text-muted-foreground">
                     OAuth redirect URI
                   </Label>
                   <Input
@@ -655,7 +655,7 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-application-id" className="text-xs text-slate-600">
+                  <Label htmlFor="amazon-application-id" className="text-xs text-muted-foreground">
                     Application ID
                   </Label>
                   <Input
@@ -668,7 +668,7 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-client-id" className="text-xs text-slate-600">
+                  <Label htmlFor="amazon-client-id" className="text-xs text-muted-foreground">
                     LWA Client ID
                   </Label>
                   <Input
@@ -681,7 +681,7 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-client-secret" className="text-xs text-slate-600">
+                  <Label htmlFor="amazon-client-secret" className="text-xs text-muted-foreground">
                     LWA Client secret
                   </Label>
                   <Input
@@ -694,12 +694,12 @@ export default function MarketplacesPage() {
                     autoComplete="off"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground leading-relaxed rounded-lg bg-muted border border-border px-3 py-2">
                   Optional — only needed if you want to publish listings to Amazon. You can connect your seller account now and add AWS IAM keys later.
                 </p>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-aws-access-key" className="text-xs text-slate-600">
-                    AWS Access Key ID <span className="text-slate-400">(optional)</span>
+                  <Label htmlFor="amazon-aws-access-key" className="text-xs text-muted-foreground">
+                    AWS Access Key ID <span className="text-muted-foreground">(optional)</span>
                   </Label>
                   <Input
                     id="amazon-aws-access-key"
@@ -711,8 +711,8 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-aws-secret-key" className="text-xs text-slate-600">
-                    AWS Secret Access Key <span className="text-slate-400">(optional)</span>
+                  <Label htmlFor="amazon-aws-secret-key" className="text-xs text-muted-foreground">
+                    AWS Secret Access Key <span className="text-muted-foreground">(optional)</span>
                   </Label>
                   <Input
                     id="amazon-aws-secret-key"
@@ -724,7 +724,7 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-aws-role-arn" className="text-xs text-slate-600">
+                  <Label htmlFor="amazon-aws-role-arn" className="text-xs text-muted-foreground">
                     AWS Role ARN (optional)
                   </Label>
                   <Input
@@ -737,14 +737,14 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amazon-marketplace" className="text-xs text-slate-600">
+                  <Label htmlFor="amazon-marketplace" className="text-xs text-muted-foreground">
                     Default marketplace
                   </Label>
                   <select
                     id="amazon-marketplace"
                     value={amazonDefaultMarketplace}
                     onChange={(e) => setAmazonDefaultMarketplace(e.target.value)}
-                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"
+                    className="h-9 w-full rounded-md border border-border bg-card px-3 text-xs"
                   >
                     {AMAZON_MARKETPLACES.map((marketplace) => (
                       <option key={marketplace.id} value={marketplace.id}>
@@ -753,7 +753,7 @@ export default function MarketplacesPage() {
                     ))}
                   </select>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-slate-600">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={amazonSandbox}
@@ -765,7 +765,7 @@ export default function MarketplacesPage() {
             ) : (
               <>
             <div className="space-y-2">
-              <Label htmlFor="store-url" className="text-xs text-slate-600">
+              <Label htmlFor="store-url" className="text-xs text-muted-foreground">
                 Store URL
               </Label>
               <Input
@@ -783,7 +783,7 @@ export default function MarketplacesPage() {
             {dialogTarget === "shopify" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="client-id" className="text-xs text-slate-600">
+                  <Label htmlFor="client-id" className="text-xs text-muted-foreground">
                     Client ID
                   </Label>
                   <Input
@@ -796,7 +796,7 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="client-secret" className="text-xs text-slate-600">
+                  <Label htmlFor="client-secret" className="text-xs text-muted-foreground">
                     Client secret
                   </Label>
                   <Input
@@ -814,7 +814,7 @@ export default function MarketplacesPage() {
             {dialogTarget === "woocommerce" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="consumer-key" className="text-xs text-slate-600">
+                  <Label htmlFor="consumer-key" className="text-xs text-muted-foreground">
                     Consumer key
                   </Label>
                   <Input
@@ -827,7 +827,7 @@ export default function MarketplacesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="consumer-secret" className="text-xs text-slate-600">
+                  <Label htmlFor="consumer-secret" className="text-xs text-muted-foreground">
                     Consumer secret
                   </Label>
                   <Input
@@ -857,7 +857,7 @@ export default function MarketplacesPage() {
             </Button>
             <Button
               type="button"
-              className={cn("h-9 text-xs bg-slate-900 hover:bg-slate-800 text-white")}
+              className={cn("h-9 text-xs bg-foreground hover:bg-foreground/90 text-background")}
               onClick={dialogTarget === "amazon" ? submitAmazonConnection : submitStoreConnection}
               disabled={connectStoreMutation.isPending || connectAmazonMutation.isPending}
             >

@@ -62,7 +62,7 @@ export function BuildBrandWorkflowStepper({
   return (
     <div
       className={cn(
-        "border border-slate-200 bg-white rounded-xl overflow-x-auto flex-shrink-0",
+        "border border-border bg-card rounded-xl overflow-x-auto flex-shrink-0",
         className,
       )}
     >
@@ -81,7 +81,7 @@ export function BuildBrandWorkflowStepper({
               className={cn(
                 "flex-1 min-w-[3.5rem] flex flex-col items-center py-3 gap-0.5 border-b-2 transition-all text-center px-1",
                 isActive ? "border-orange-500" : "border-transparent",
-                clickable && !isActive && "hover:border-slate-200 cursor-pointer",
+                clickable && !isActive && "hover:border-border cursor-pointer",
                 !clickable && "cursor-default",
               )}
             >
@@ -90,7 +90,7 @@ export function BuildBrandWorkflowStepper({
                   "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors",
                   isCompleted || isActive
                     ? "bg-orange-500 border-orange-500 text-white"
-                    : "bg-white border-slate-300 text-slate-400",
+                    : "bg-card border-border text-muted-foreground",
                 )}
               >
                 {isCompleted ? <Check className="w-4 h-4" /> : s.id}
@@ -98,7 +98,7 @@ export function BuildBrandWorkflowStepper({
               <p
                 className={cn(
                   "text-[10px] font-bold uppercase tracking-wide leading-none whitespace-nowrap",
-                  isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-slate-400",
+                  isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-muted-foreground",
                 )}
               >
                 {s.label}
@@ -106,7 +106,7 @@ export function BuildBrandWorkflowStepper({
               <p
                 className={cn(
                   "text-[10px] leading-tight hidden sm:block",
-                  isActive || isCompleted ? "text-slate-600" : "text-slate-400",
+                  isActive || isCompleted ? "text-muted-foreground" : "text-muted-foreground/70",
                 )}
               >
                 {s.sub}
