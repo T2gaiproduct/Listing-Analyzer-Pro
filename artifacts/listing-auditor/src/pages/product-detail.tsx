@@ -1406,7 +1406,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           ? productTags
           : auditTags,
       descriptionHtml: product.descriptionHtml?.trim()
-        || effectiveAudit?.storeDescriptionHtml?.trim()
+        || (effectiveAudit as { storeDescriptionHtml?: string | null } | undefined)?.storeDescriptionHtml?.trim()
         || effectiveAudit?.generatedContent?.htmlDescription?.trim()
         || "",
       listingPrice,
@@ -2144,7 +2144,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
               ? {
                   ...current,
                   generatedContent,
-                  sourceListingContent: current.sourceListingContent ?? sourceSnapshot ?? null,
+                  sourceListingContent: current.sourceListingContent ?? sourceSnapshot,
                 }
               : current),
           );
@@ -2155,7 +2155,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 ? {
                     ...current,
                     generatedContent,
-                    sourceListingContent: current.sourceListingContent ?? sourceSnapshot ?? null,
+                    sourceListingContent: current.sourceListingContent ?? sourceSnapshot,
                   }
                 : current),
             );

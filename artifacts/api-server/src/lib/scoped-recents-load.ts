@@ -26,7 +26,7 @@ function workspaceScopeFilter(
     eq(ownerColumn.userId as never, ownerId),
     or(
       eq(workspaceColumn.workspaceId as never, workspaceId),
-      isNull(workspaceColumn.workspaceId),
+      isNull(workspaceColumn.workspaceId as never),
     ),
   )!;
 }

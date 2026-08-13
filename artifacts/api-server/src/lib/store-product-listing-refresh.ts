@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { auditsTable, db } from "@workspace/db";
-import { findWooCommerceProductBySlug } from "./woocommerce-admin-client.js";
+import { findWooCommerceProductBySlug, fetchWooCommerceStoreCurrency } from "./woocommerce-admin-client.js";
 import { getWooCommerceConnection } from "./marketplace-connections.js";
 import { isWooCommerceImportAsin, woocommerceSlugFromAsin } from "./woocommerce-import-utils.js";
 import { refreshWooCommerceProduct } from "./woocommerce-product-sync.js";
@@ -32,10 +32,17 @@ export async function maybeRefreshStoreProductListing(input: {
     });
     if (!product) return false;
 
+    const storeCurrency = await fetchWooCommerceStoreCurrency({
+      storeUrl: connection.storeUrl,
+      consumerKey: connection.consumerKey,
+      consumerSecret: connection.consumerSecret,
+    });
+
     await refreshWooCommerceProduct({
       auditId: input.auditId,
       workspaceId: input.workspaceId,
       product,
+      storeCurrency,
     });
     return true;
   } catch {

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type GraphicsImageRecord = {
-  id: string;
+  id?: string;
   type?: string;
   currentUrl?: string;
 };
@@ -14,11 +14,7 @@ type GraphicsImageRecord = {
 type AuditGraphicsLike = {
   imageUrls?: string[] | null;
   imageRecords?: GraphicsImageRecord[] | null;
-  generatedImages?: {
-    main?: string[];
-    lifestyle?: string[];
-    infographic?: string[];
-  } | null;
+  generatedImages?: unknown;
 };
 
 function resolveImageUrl(url: string): string {
@@ -30,15 +26,20 @@ function resolveImageUrl(url: string): string {
 }
 
 function legacyGeneratedUrls(generatedImages: AuditGraphicsLike["generatedImages"]): string[] {
-  if (!generatedImages) return [];
+  if (!generatedImages || typeof generatedImages !== "object") return [];
+  const generated = generatedImages as {
+    main?: string[];
+    lifestyle?: string[];
+    infographic?: string[];
+  };
   const urls: string[] = [];
-  for (const url of generatedImages.main ?? []) {
+  for (const url of generated.main ?? []) {
     if (url?.trim() && !urls.includes(url)) urls.push(url);
   }
-  for (const url of generatedImages.lifestyle ?? []) {
+  for (const url of generated.lifestyle ?? []) {
     if (url?.trim() && !urls.includes(url)) urls.push(url);
   }
-  for (const url of generatedImages.infographic ?? []) {
+  for (const url of generated.infographic ?? []) {
     if (url?.trim() && !urls.includes(url)) urls.push(url);
   }
   return urls;
