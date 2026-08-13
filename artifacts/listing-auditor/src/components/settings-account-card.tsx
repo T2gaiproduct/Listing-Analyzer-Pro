@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { settingsPanelClassName } from "@/components/settings-panel";
 
 const STORAGE_KEY = "la_default_workspace_id";
 
@@ -54,25 +55,25 @@ export function SettingsAccountCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 space-y-1">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <div className={settingsPanelClassName("space-y-1")}>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <Mail className="w-3.5 h-3.5" />
             Login email
           </div>
-          <p className="text-sm font-medium text-slate-900 break-all">{loginEmail}</p>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm font-medium text-foreground break-all">{loginEmail}</p>
+          <p className="text-xs text-muted-foreground">
             Email is managed through your sign-in provider. Notification emails are sent to this address.
           </p>
         </div>
 
         {workspaces.length > 0 ? (
           <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <Building2 className="w-4 h-4 text-slate-500" />
+            <Label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Building2 className="w-4 h-4 text-muted-foreground" />
               Default workspace
             </Label>
             <Select value={defaultWorkspaceValue} onValueChange={onDefaultWorkspaceChange}>
-              <SelectTrigger className="bg-white">
+              <SelectTrigger>
                 <SelectValue placeholder="Select workspace" />
               </SelectTrigger>
               <SelectContent>
@@ -84,7 +85,7 @@ export function SettingsAccountCard() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Used when you sign in on this device. You can still switch workspaces from the top bar.
             </p>
           </div>

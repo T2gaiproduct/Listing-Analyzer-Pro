@@ -13,6 +13,7 @@ import {
   type NotificationPreferenceCategory,
   type NotificationPreferences,
 } from "@/lib/notification-preferences";
+import { settingsPanelClassName } from "@/components/settings-panel";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -148,7 +149,7 @@ export function NotificationPreferencesCard({
     : CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES;
 
   return (
-    <Card className={compact ? "border-slate-200" : undefined}>
+    <Card className={compact ? "border-border" : undefined}>
       <CardHeader className={compact ? "pb-3" : undefined}>
         <CardTitle className="flex items-center gap-2 text-base">
           <Bell className="w-4 h-4 text-orange-500" />
@@ -164,19 +165,19 @@ export function NotificationPreferencesCard({
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500" />
           </div>
         ) : prefsUnavailable ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 space-y-2">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive space-y-2">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">Could not load notification preferences</p>
-                <p className="text-xs mt-1 text-red-700/90">
+                <p className="text-xs mt-1 opacity-90">
                   {error instanceof Error ? error.message : "Restart the API server after pulling the latest code."}
                 </p>
               </div>
             </div>
             <button
               type="button"
-              className="text-xs font-medium text-red-800 underline hover:no-underline"
+              className="text-xs font-medium underline hover:no-underline"
               onClick={() => void refetch()}
             >
               Try again
@@ -184,7 +185,7 @@ export function NotificationPreferencesCard({
           </div>
         ) : (
           <>
-            <div className="hidden sm:grid sm:grid-cols-[1fr_4.5rem_4.5rem] gap-3 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="hidden sm:grid sm:grid-cols-[1fr_4.5rem_4.5rem] gap-3 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               <span>Category</span>
               <span className="text-center">In-app</span>
               <span className="text-center flex items-center justify-center gap-1">
@@ -199,16 +200,16 @@ export function NotificationPreferencesCard({
               return (
                 <div
                   key={category}
-                  className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 space-y-3"
+                  className={settingsPanelClassName("space-y-3")}
                 >
                   <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
-                    <p className="text-xs text-slate-500 leading-relaxed">{meta.description}</p>
-                    <p className="text-[11px] text-slate-400">e.g. {meta.examples}</p>
+                    <p className="text-sm font-semibold text-foreground">{meta.label}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
+                    <p className="text-[11px] text-muted-foreground/80">e.g. {meta.examples}</p>
                   </div>
                   <div className="flex items-center justify-end gap-6 sm:gap-8">
                     <div className="flex items-center gap-2">
-                      <Label htmlFor={`notif-app-${category}`} className="text-xs text-slate-600 sm:hidden">
+                      <Label htmlFor={`notif-app-${category}`} className="text-xs text-muted-foreground sm:hidden">
                         In-app
                       </Label>
                       <Switch
@@ -219,7 +220,7 @@ export function NotificationPreferencesCard({
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Label htmlFor={`notif-email-${category}`} className="text-xs text-slate-600 sm:hidden">
+                      <Label htmlFor={`notif-email-${category}`} className="text-xs text-muted-foreground sm:hidden">
                         Email
                       </Label>
                       <Switch
@@ -234,7 +235,7 @@ export function NotificationPreferencesCard({
               );
             })}
 
-            <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50/80 px-3 py-2.5 text-xs text-blue-800">
+            <div className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2.5 text-xs text-foreground">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <p>
                 System announcements and account-critical messages are always delivered in-app and cannot be turned off.

@@ -8,6 +8,7 @@ import { fetchShopifyStatus } from "@/lib/shopify-publish";
 import { fetchWooCommerceStatus } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus } from "@/lib/amazon-publish";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
+import { settingsPanelClassName } from "@/components/settings-panel";
 
 function ConnectionRow({
   name,
@@ -21,15 +22,15 @@ function ConnectionRow({
   detail?: string | null;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+    <div className={settingsPanelClassName("flex items-center justify-between gap-3")}>
       <div className="flex items-center gap-3 min-w-0">
         <MarketplaceLogo marketplace={marketplace} className="w-8 h-8 shrink-0" />
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900">{name}</p>
+          <p className="text-sm font-semibold text-foreground">{name}</p>
           {detail ? (
-            <p className="text-xs text-slate-500 truncate">{detail}</p>
+            <p className="text-xs text-muted-foreground truncate">{detail}</p>
           ) : (
-            <p className="text-xs text-slate-500">Not connected in this workspace</p>
+            <p className="text-xs text-muted-foreground">Not connected in this workspace</p>
           )}
         </div>
       </div>

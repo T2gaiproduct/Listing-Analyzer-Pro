@@ -672,7 +672,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <TooltipProvider>
         <aside
           className={cn(
-            "hidden lg:flex flex-shrink-0 bg-white text-slate-800 border-r border-slate-200 flex-col shadow-2xl z-10 transition-all duration-200 overflow-y-auto overflow-x-visible",
+            "hidden lg:flex flex-shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex-col shadow-2xl z-10 transition-all duration-200 overflow-y-auto overflow-x-visible",
             collapsed ? "w-16" : "w-64"
           )}
           onClick={(e) => e.stopPropagation()}
@@ -708,7 +708,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 {canViewArchive && (
                 <SidebarTooltip label="Archive" side="bottom">
                   <Link href="/archive">
-                    <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">
+                    <button className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
                       <Archive className="w-4 h-4" />
                     </button>
                   </Link>
@@ -716,14 +716,14 @@ export function Layout({ children }: { children: ReactNode }) {
                 )}
 
                 {/* Divider */}
-                <div className="w-px h-5 bg-slate-200 mx-1.5" />
+                <div className="w-px h-5 bg-sidebar-border mx-1.5" />
 
                 {/* Collapse */}
                 <SidebarTooltip label="Collapse Sidebar" side="bottom">
                   <button
                     type="button"
                     onClick={() => setCollapsed(true)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
                   >
                     <PanelLeftClose className="w-4 h-4" />
                   </button>
@@ -943,10 +943,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Top ribbon (project context) ── */}
         {isRibbonVisible(location) && (
-          <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[44px] py-1.5 sm:py-0 px-5 sm:px-6 lg:px-8 bg-white border-b border-slate-200 flex-shrink-0">
+          <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[44px] py-1.5 sm:py-0 px-5 sm:px-6 lg:px-8 bg-card border-b border-border flex-shrink-0">
             <button
               onClick={() => window.history.back()}
-              className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-2 transition-colors z-10 min-h-11"
+              className="flex items-center gap-2 text-sm font-semibold text-foreground/80 hover:text-foreground hover:bg-muted rounded-lg px-2 py-2 transition-colors z-10 min-h-11"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Back</span>
@@ -954,7 +954,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
             {projectCtx && ribbonTitle && (
               <div className="flex-1 min-w-0 sm:ml-4 lg:ml-6 flex items-center order-3 sm:order-none w-full sm:w-auto basis-full sm:basis-auto">
-                <span className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                <span className="text-base sm:text-lg font-bold text-foreground truncate">
                   {ribbonTitle}
                 </span>
               </div>
@@ -975,8 +975,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 className={cn(
                   "w-8 h-8 flex items-center justify-center rounded-lg transition-colors",
                   dotsOpen
-                    ? "text-slate-700 bg-slate-100"
-                    : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                    ? "text-foreground bg-muted"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
                 <MoreHorizontal className="w-4 h-4" />
