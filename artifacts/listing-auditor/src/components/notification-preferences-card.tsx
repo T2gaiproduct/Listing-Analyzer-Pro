@@ -59,14 +59,14 @@ async function fetchNotificationPreferences(): Promise<NotificationPreferences> 
 async function saveNotificationPreferences(
   patch: Partial<NotificationPreferences>,
 ): Promise<NotificationPreferences> {
-  const res = await fetch(`${basePath}/api/profile/notification-preferences`, {
+  const res = await fetch(`${basePath}/api/profile`, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch),
+    body: JSON.stringify({ notificationPreferences: patch }),
   });
-  const data = await readApiJson<{ preferences?: NotificationPreferences }>(res);
-  return mergeNotificationPreferences(data.preferences);
+  const data = await readApiJson<{ notificationPreferences?: NotificationPreferences }>(res);
+  return mergeNotificationPreferences(data.notificationPreferences);
 }
 
 function applyNotificationPreferencesPatch(
