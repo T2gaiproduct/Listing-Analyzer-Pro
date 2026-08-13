@@ -20,19 +20,21 @@ export type NotificationPreferences = Record<NotificationPreferenceCategory, boo
   email?: Partial<NotificationEmailPreferences>;
 };
 
+const DEFAULT_EMAIL_NOTIFICATION_PREFERENCES: NotificationEmailPreferences = {
+  projects: true,
+  team: true,
+  billing: true,
+  audits: true,
+  admin: true,
+};
+
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   projects: true,
   team: true,
   billing: true,
   audits: true,
   admin: true,
-  email: {
-    projects: true,
-    team: true,
-    billing: true,
-    audits: true,
-    admin: true,
-  },
+  email: DEFAULT_EMAIL_NOTIFICATION_PREFERENCES,
 };
 
 const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> = {
@@ -87,7 +89,7 @@ export const NOTIFICATION_PREFS_MIGRATION_HINT =
 function mergeEmailNotificationPreferences(
   raw: Partial<NotificationEmailPreferences> | null | undefined,
 ): NotificationEmailPreferences {
-  const defaults = DEFAULT_NOTIFICATION_PREFERENCES.email!;
+  const defaults = DEFAULT_EMAIL_NOTIFICATION_PREFERENCES;
   return {
     projects: raw?.projects ?? defaults.projects,
     team: raw?.team ?? defaults.team,
@@ -212,7 +214,7 @@ export function isNotificationEmailTypeEnabled(
   if (!category) return true;
   const emailPref = preferences.email?.[category];
   if (emailPref !== undefined) return emailPref;
-  return DEFAULT_NOTIFICATION_PREFERENCES.email![category];
+  return DEFAULT_EMAIL_NOTIFICATION_PREFERENCES[category];
 }
 
 export async function isNotificationEmailDeliveryEnabled(

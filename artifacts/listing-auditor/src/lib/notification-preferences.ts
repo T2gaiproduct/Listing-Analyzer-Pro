@@ -53,25 +53,27 @@ export const CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES = [
   "audits",
 ] as const;
 
+const DEFAULT_EMAIL_NOTIFICATION_PREFERENCES: NotificationEmailPreferences = {
+  projects: true,
+  team: true,
+  billing: true,
+  audits: true,
+  admin: true,
+};
+
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   projects: true,
   team: true,
   billing: true,
   audits: true,
   admin: true,
-  email: {
-    projects: true,
-    team: true,
-    billing: true,
-    audits: true,
-    admin: true,
-  },
+  email: DEFAULT_EMAIL_NOTIFICATION_PREFERENCES,
 };
 
 function mergeEmailNotificationPreferences(
   raw: Partial<NotificationEmailPreferences> | null | undefined,
 ): NotificationEmailPreferences {
-  const defaults = DEFAULT_NOTIFICATION_PREFERENCES.email!;
+  const defaults = DEFAULT_EMAIL_NOTIFICATION_PREFERENCES;
   return {
     projects: raw?.projects ?? defaults.projects,
     team: raw?.team ?? defaults.team,
