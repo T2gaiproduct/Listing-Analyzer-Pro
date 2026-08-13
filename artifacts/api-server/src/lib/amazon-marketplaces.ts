@@ -31,3 +31,31 @@ export function resolveAmazonMarketplace(input: string | undefined | null): (typ
   );
   return found ?? AMAZON_MARKETPLACES[0];
 }
+
+const AMAZON_MARKETPLACE_CURRENCIES: Record<AmazonMarketplaceId, string> = {
+  US: "USD",
+  CA: "CAD",
+  MX: "MXN",
+  UK: "GBP",
+  DE: "EUR",
+  FR: "EUR",
+  IT: "EUR",
+  ES: "EUR",
+  NL: "EUR",
+  SE: "SEK",
+  PL: "PLN",
+  BE: "EUR",
+  IN: "INR",
+  JP: "JPY",
+  AU: "AUD",
+  SG: "SGD",
+  AE: "AED",
+  SA: "SAR",
+  TR: "TRY",
+  BR: "BRL",
+};
+
+export function amazonMarketplaceCurrency(marketplaceId: string): string {
+  const code = marketplaceId.trim().toUpperCase() as AmazonMarketplaceId;
+  return AMAZON_MARKETPLACE_CURRENCIES[code] ?? "USD";
+}

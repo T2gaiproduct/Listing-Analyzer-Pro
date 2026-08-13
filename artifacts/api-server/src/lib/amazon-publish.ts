@@ -5,7 +5,7 @@ import {
   stripHtml,
   truncate,
 } from "./listing-export-shared.js";
-import { resolveAmazonMarketplace } from "./amazon-marketplaces.js";
+import { resolveAmazonMarketplace, amazonMarketplaceCurrency } from "./amazon-marketplaces.js";
 import { publishListingToAmazon } from "./amazon-sp-api.js";
 import type { AmazonSpSettings } from "./amazon-sp-settings.js";
 import {
@@ -125,7 +125,8 @@ export async function publishListingToAmazonMarketplace(opts: {
 
   const listingUrl = resolveAmazonListingUrl(marketplace.id, audit.asin);
   const listingStatus = opts.settings.sandbox ? "pending" as const : "live" as const;
-  const listingCurrency = amazonListing?.currency?.trim() || "USD";
+  const listingCurrency = amazonListing?.currency?.trim()
+    || amazonMarketplaceCurrency(marketplace.id);
 
   const listingUpdate = await db
     .update(productMarketplaceListingsTable)

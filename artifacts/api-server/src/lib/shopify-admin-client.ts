@@ -471,6 +471,20 @@ export function shopifyProductGid(productId: number): string {
   return `gid://shopify/Product/${productId}`;
 }
 
+export async function fetchShopifyShopCurrency(opts: {
+  shopHost: string;
+  accessToken: string;
+}): Promise<string> {
+  const data = await shopifyAdminRequest<{ shop?: { currency?: string } }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    method: "GET",
+    path: "/shop.json",
+  });
+  const currency = data.shop?.currency?.trim().toUpperCase();
+  return currency && /^[A-Z]{3}$/.test(currency) ? currency : "USD";
+}
+
 export type ShopifyRestOrderLineItem = {
   id: number;
   product_id: number | null;

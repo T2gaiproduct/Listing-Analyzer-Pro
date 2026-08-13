@@ -1,3 +1,5 @@
+import { storeCurrencyFromHostname } from "./store-currency.js";
+
 export type WooCommerceRestProduct = {
   id: number;
   name: string;
@@ -383,4 +385,38 @@ export async function fetchWooCommerceCatalog(input: {
   }
 
   return products.slice(0, maxProducts);
+}
+
+export async function fetchWooCommerceStoreCurrency(input: WooCommerceAuth): Promise<string> {
+  try {
+    const current = await wooCommerceRequest<{ code?: string }>({
+      ...input,
+      path: "/wp-json/wc/v3/data/currencies/current",
+    });
+    if (current.code?.trim()) {
+      return current.code.trim().toUpperCase();
+    }
+  } catch {
+    // Fall through to settings lookup.
+  }
+
+  try {
+    const settings = await wooCommerceRequest<Array<{ id?: string; value?: string }>>({
+      ...input,
+      path: "/wp-json/wc/v3/settings/general",
+    });
+    const currencySetting = settings.find((entry) => entry.id === "woocommerce_currency");
+    if (currencySetting?.value?.trim()) {
+      return currencySetting.value.trim().toUpperCase();
+    }
+  } catch {
+    // Fall through to hostname heuristic.
+  }
+
+  try {
+    const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
+    return storeCurrencyFromHostname(new URL(storeUrl).hostname);
+  } catch {
+    return "USD";
+  }
 }

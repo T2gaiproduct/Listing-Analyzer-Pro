@@ -22,6 +22,7 @@ import { buildProductSuggestions, type ProductSuggestionInput } from "./product-
 import { mapProductPriority, priorityFromStoredLevel } from "./product-priority.js";
 import {
   getProductOrderStats,
+  resolveRevenueCurrency,
 } from "./product-orders.js";
 import {
   listProductMarketplaces,
@@ -378,6 +379,10 @@ async function loadAuditDetail(
     });
 
   const orderStats = await getProductOrderStats(id);
+  const revenueCurrency = resolveRevenueCurrency({
+    orderCurrency: orderStats.currency,
+    listingCurrencies: marketplaceStats.listings.map((listing) => listing.currency),
+  });
   const storeLive = marketplaceStats.listings.some(
     (listing) => (listing.marketplace === "Shopify" || listing.marketplace === "WooCommerce")
       && listing.status === "live",
@@ -474,7 +479,7 @@ async function loadAuditDetail(
     stats: {
       totalOrders: orderStats.totalOrders,
       revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
-      revenueCurrency: "USD",
+      revenueCurrency,
       marketplacesActive: marketplaceStats.activeCount,
       listingScore: (row.overallScore ?? 0) > 0 ? row.overallScore! : 0,
       competitorCount: competitors.length,
@@ -514,10 +519,14 @@ async function loadGraphicsDetail(req: Request, id: number): Promise<ProductDeta
   if (statsAuditId) {
     const orderStats = await getProductOrderStats(statsAuditId);
     const marketplaceStats = await listProductMarketplaces(statsAuditId);
+    const revenueCurrency = resolveRevenueCurrency({
+      orderCurrency: orderStats.currency,
+      listingCurrencies: marketplaceStats.listings.map((listing) => listing.currency),
+    });
     stats = {
       totalOrders: orderStats.totalOrders,
       revenue: orderStats.revenue > 0 ? orderStats.revenue : null,
-      revenueCurrency: "USD",
+      revenueCurrency,
       marketplacesActive: marketplaceStats.activeCount,
       listingScore: 0,
       competitorCount: 0,

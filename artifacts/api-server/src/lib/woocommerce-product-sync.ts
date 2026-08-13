@@ -8,8 +8,9 @@ import {
   type GeneratedContent,
 } from "@workspace/db";
 import { TARGET_MARKETPLACES } from "./create-product.js";
-import { fetchWooCommerceCatalog, type WooCommerceRestProduct } from "./woocommerce-admin-client.js";
+import { fetchWooCommerceCatalog, fetchWooCommerceStoreCurrency, type WooCommerceRestProduct } from "./woocommerce-admin-client.js";
 import { woocommerceAsin } from "./woocommerce-import-utils.js";
+import { normalizeStoreCurrency } from "./store-currency.js";
 import type { ShopifySyncResult } from "./shopify-product-sync.js";
 
 const DEFAULT_WORKFLOW_TEMPLATE = "build-brand-standard";
@@ -55,7 +56,7 @@ function buildStoreDescriptionContent(htmlDescription: string): GeneratedContent
   return { title: "", bulletPoints: [], keywords: [], htmlDescription: trimmed };
 }
 
-function resolveListingFields(product: WooCommerceRestProduct) {
+function resolveListingFields(product: WooCommerceRestProduct, storeCurrency: string) {
   const priceRaw = product.price?.trim() || product.regular_price?.trim();
   const priceCents = priceRaw && Number.isFinite(Number.parseFloat(priceRaw))
     ? Math.round(Number.parseFloat(priceRaw) * 100)
@@ -63,7 +64,7 @@ function resolveListingFields(product: WooCommerceRestProduct) {
   const published = product.status === "publish";
   return {
     priceCents,
-    currency: "USD",
+    currency: normalizeStoreCurrency(storeCurrency),
     listingStatus: published ? "live" as const : "pending" as const,
     auditStatus: published ? "complete" as const : "draft" as const,
     productUrl: product.permalink?.trim() || null,
@@ -100,11 +101,12 @@ export async function refreshWooCommerceProduct(input: {
   auditId: number;
   workspaceId: number;
   product: WooCommerceRestProduct;
+  storeCurrency: string;
 }): Promise<void> {
   const title = input.product.name?.trim();
   if (!title) return;
 
-  const listing = resolveListingFields(input.product);
+  const listing = resolveListingFields(input.product, input.storeCurrency);
   const imageUrls = (input.product.images ?? [])
     .map((image) => image.src?.trim())
     .filter((src): src is string => Boolean(src))
@@ -184,6 +186,12 @@ export async function syncWooCommerceProducts(input: {
     maxProducts: MAX_IMPORT,
   });
 
+  const storeCurrency = await fetchWooCommerceStoreCurrency({
+    storeUrl: input.storeUrl,
+    consumerKey: input.consumerKey,
+    consumerSecret: input.consumerSecret,
+  });
+
   if (catalog.length === 0) {
     return {
       imported: 0,
@@ -224,7 +232,12 @@ export async function syncWooCommerceProducts(input: {
     if (existingAudits.has(slug)) {
       const auditId = existingAudits.get(slug)!;
       try {
-        await refreshWooCommerceProduct({ auditId, workspaceId: input.workspaceId, product });
+        await refreshWooCommerceProduct({
+          auditId,
+          workspaceId: input.workspaceId,
+          product,
+          storeCurrency,
+        });
         result.updated += 1;
       } catch (err) {
         result.errors.push({
@@ -243,7 +256,7 @@ export async function syncWooCommerceProducts(input: {
         .filter((src): src is string => Boolean(src))
         .slice(0, 9);
       const sku = product.sku?.trim() || slug.toUpperCase();
-      const listing = resolveListingFields(product);
+      const listing = resolveListingFields(product, storeCurrency);
       const category = product.categories?.[0]?.name?.trim() || null;
       const storeDescriptionHtml = resolveWooCommerceStoreDescriptionHtml(product) || null;
       const generatedContent = storeDescriptionHtml

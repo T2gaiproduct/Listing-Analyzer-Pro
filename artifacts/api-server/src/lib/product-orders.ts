@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
 import { db, productOrdersTable } from "@workspace/db";
+import { normalizeStoreCurrency } from "./store-currency.js";
 
 export type ProductOrderStatus = "delivered" | "shipped" | "processing" | "returned";
 
@@ -105,7 +106,11 @@ export async function listProductOrders(
   return { orders, total: orders.length, revenue };
 }
 
-export async function getProductOrderStats(auditId: number): Promise<{ totalOrders: number; revenue: number }> {
+export async function getProductOrderStats(auditId: number): Promise<{
+  totalOrders: number;
+  revenue: number;
+  currency: string;
+}> {
   const [stats] = await db
     .select({
       totalOrders: sql<number>`count(*)::int`,
@@ -114,8 +119,31 @@ export async function getProductOrderStats(auditId: number): Promise<{ totalOrde
     .from(productOrdersTable)
     .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)));
 
+  const [latestOrder] = await db
+    .select({ currency: productOrdersTable.currency })
+    .from(productOrdersTable)
+    .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)))
+    .orderBy(desc(productOrdersTable.orderedAt))
+    .limit(1);
+
   return {
     totalOrders: stats?.totalOrders ?? 0,
     revenue: (stats?.revenue ?? 0) / 100,
+    currency: normalizeStoreCurrency(latestOrder?.currency),
   };
+}
+
+export function resolveRevenueCurrency(opts: {
+  orderCurrency?: string | null;
+  listingCurrencies?: Array<string | null | undefined>;
+}): string {
+  const orderCurrency = opts.orderCurrency?.trim();
+  if (orderCurrency) return normalizeStoreCurrency(orderCurrency);
+
+  for (const raw of opts.listingCurrencies ?? []) {
+    const currency = raw?.trim();
+    if (currency) return normalizeStoreCurrency(currency);
+  }
+
+  return "USD";
 }

@@ -15,10 +15,12 @@ import {
 } from "./shopify-import-utils.js";
 import {
   fetchShopifyCatalogViaAdmin,
+  fetchShopifyShopCurrency,
   getShopifyAccessToken,
   parseShopifyShopHost,
   type ShopifyAdminCatalogProduct,
 } from "./shopify-admin-client.js";
+import { normalizeStoreCurrency, storeCurrencyFromHostname } from "./store-currency.js";
 import { auditNeedsAnalysis } from "./listing-audit-runner.js";
 
 const FETCH_HEADERS = {
@@ -218,10 +220,18 @@ export async function fetchShopifyCatalogProductsWithCredentials(opts: {
 }
 
 function storeCurrencyForOrigin(origin: string): string {
-  return /\.co\.in\b/i.test(origin) || /\.in$/i.test(new URL(origin).hostname) ? "INR" : "USD";
+  try {
+    return storeCurrencyFromHostname(new URL(origin).hostname);
+  } catch {
+    return "USD";
+  }
 }
 
-function resolveShopifyListingFields(product: ShopifyCatalogProduct, origin: string) {
+function resolveShopifyListingFields(
+  product: ShopifyCatalogProduct,
+  storeCurrency: string,
+  origin: string,
+) {
   const { inventory, inStock } = summarizeShopifyVariants(product.variants);
   const priceRaw = product.variants?.find((variant) => variant.price?.trim())?.price?.trim()
     ?? product.variants?.[0]?.price?.trim();
@@ -236,7 +246,7 @@ function resolveShopifyListingFields(product: ShopifyCatalogProduct, origin: str
     inventory,
     inStock,
     priceCents,
-    currency: storeCurrencyForOrigin(origin),
+    currency: normalizeStoreCurrency(storeCurrency, storeCurrencyForOrigin(origin)),
     published,
     publishedAt,
     productUrl,
@@ -271,13 +281,39 @@ async function loadExistingShopifyAudits(
   return map;
 }
 
+async function resolveShopifyStoreCurrency(input: {
+  storeUrl: string;
+  clientId?: string;
+  clientSecret?: string;
+  origin: string;
+}): Promise<string> {
+  if (input.clientId?.trim() && input.clientSecret?.trim()) {
+    try {
+      const shopHost = parseShopifyShopHost(input.storeUrl);
+      const accessToken = await getShopifyAccessToken({
+        shopHost,
+        clientId: input.clientId.trim(),
+        clientSecret: input.clientSecret.trim(),
+      });
+      return normalizeStoreCurrency(
+        await fetchShopifyShopCurrency({ shopHost, accessToken }),
+        storeCurrencyForOrigin(input.origin),
+      );
+    } catch {
+      // Fall back to hostname heuristic.
+    }
+  }
+  return storeCurrencyForOrigin(input.origin);
+}
+
 async function refreshShopifyProductFromCatalog(input: {
   auditId: number;
   workspaceId: number;
   product: ShopifyCatalogProduct;
   origin: string;
+  storeCurrency: string;
 }): Promise<{ needsAudit: boolean }> {
-  const listing = resolveShopifyListingFields(input.product, input.origin);
+  const listing = resolveShopifyListingFields(input.product, input.storeCurrency, input.origin);
   const title = input.product.title?.trim();
   if (!title) return { needsAudit: false };
 
@@ -394,6 +430,12 @@ export async function syncShopifyProducts(input: {
   );
 
   const origin = normalizeStoreOrigin(input.storeUrl);
+  const storeCurrency = await resolveShopifyStoreCurrency({
+    storeUrl: input.storeUrl,
+    clientId: input.clientId,
+    clientSecret: input.clientSecret,
+    origin,
+  });
   const result: ShopifySyncResult = {
     imported: 0,
     skipped: 0,
@@ -421,6 +463,7 @@ export async function syncShopifyProducts(input: {
           workspaceId: input.workspaceId,
           product,
           origin,
+          storeCurrency,
         });
         if (refresh.needsAudit && !result.pendingAuditIds.includes(auditId)) {
           result.pendingAuditIds.push(auditId);
@@ -443,7 +486,7 @@ export async function syncShopifyProducts(input: {
         .filter((src): src is string => Boolean(src))
         .slice(0, 9);
       const sku = product.variants?.find((v) => v.sku?.trim())?.sku?.trim() || handle.toUpperCase();
-      const listing = resolveShopifyListingFields(product, origin);
+      const listing = resolveShopifyListingFields(product, storeCurrency, origin);
 
       const [audit] = await db
         .insert(auditsTable)
