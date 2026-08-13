@@ -450,7 +450,16 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
           patch[key] = notificationPreferences[key];
         }
       }
-      if (Object.keys(patch).length > 0) {
+      const emailPatch = notificationPreferences.email;
+      if (emailPatch && typeof emailPatch === "object") {
+        patch.email = {};
+        for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+          if (typeof emailPatch[key] === "boolean") {
+            patch.email[key] = emailPatch[key];
+          }
+        }
+      }
+      if (Object.keys(patch).length > 0 || patch.email) {
         await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
       }
     }

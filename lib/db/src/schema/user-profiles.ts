@@ -1,11 +1,20 @@
 import { pgTable, text, serial, boolean, timestamp, varchar, integer, jsonb } from "drizzle-orm/pg-core";
 
+export type NotificationEmailPreferencesJson = {
+  projects?: boolean;
+  team?: boolean;
+  billing?: boolean;
+  audits?: boolean;
+  admin?: boolean;
+};
+
 export type NotificationPreferencesJson = {
   projects: boolean;
   team: boolean;
   billing: boolean;
   audits: boolean;
   admin?: boolean;
+  email?: NotificationEmailPreferencesJson;
 };
 
 export const userProfilesTable = pgTable("user_profiles", {

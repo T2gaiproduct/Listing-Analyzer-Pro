@@ -71,9 +71,14 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 function readStoredWorkspaceId(): number | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const n = Number(raw);
-    return Number.isFinite(n) && n > 0 ? n : null;
+    if (raw) {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    const defaultRaw = localStorage.getItem("la_default_workspace_id");
+    if (!defaultRaw) return null;
+    const defaultId = Number(defaultRaw);
+    return Number.isFinite(defaultId) && defaultId > 0 ? defaultId : null;
   } catch {
     return null;
   }

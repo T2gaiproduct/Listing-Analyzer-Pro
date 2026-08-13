@@ -14,7 +14,11 @@ export const NOTIFICATION_PREFERENCE_CATEGORIES = [
 
 export type NotificationPreferenceCategory = (typeof NOTIFICATION_PREFERENCE_CATEGORIES)[number];
 
-export type NotificationPreferences = Record<NotificationPreferenceCategory, boolean>;
+export type NotificationEmailPreferences = Record<NotificationPreferenceCategory, boolean>;
+
+export type NotificationPreferences = Record<NotificationPreferenceCategory, boolean> & {
+  email?: Partial<NotificationEmailPreferences>;
+};
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   projects: true,
@@ -22,6 +26,13 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   billing: true,
   audits: true,
   admin: true,
+  email: {
+    projects: true,
+    team: true,
+    billing: true,
+    audits: true,
+    admin: true,
+  },
 };
 
 const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> = {
@@ -73,15 +84,32 @@ export function isNotificationPreferencesColumnMissingError(err: unknown): boole
 export const NOTIFICATION_PREFS_MIGRATION_HINT =
   "Database is missing notification_preferences column. Run: pnpm --filter @workspace/db run push";
 
+function mergeEmailNotificationPreferences(
+  raw: Partial<NotificationEmailPreferences> | null | undefined,
+  channelDefaults: NotificationPreferences,
+): NotificationEmailPreferences {
+  return {
+    projects: raw?.projects ?? channelDefaults.projects,
+    team: raw?.team ?? channelDefaults.team,
+    billing: raw?.billing ?? channelDefaults.billing,
+    audits: raw?.audits ?? channelDefaults.audits,
+    admin: raw?.admin ?? channelDefaults.admin,
+  };
+}
+
 export function mergeNotificationPreferences(
   raw: Partial<NotificationPreferences> | null | undefined,
 ): NotificationPreferences {
-  return {
+  const channels = {
     projects: raw?.projects ?? DEFAULT_NOTIFICATION_PREFERENCES.projects,
     team: raw?.team ?? DEFAULT_NOTIFICATION_PREFERENCES.team,
     billing: raw?.billing ?? DEFAULT_NOTIFICATION_PREFERENCES.billing,
     audits: raw?.audits ?? DEFAULT_NOTIFICATION_PREFERENCES.audits,
     admin: raw?.admin ?? DEFAULT_NOTIFICATION_PREFERENCES.admin,
+  };
+  return {
+    ...channels,
+    email: mergeEmailNotificationPreferences(raw?.email, channels),
   };
 }
 
@@ -143,6 +171,26 @@ export function isNotificationTypeEnabled(
   const category = notificationCategoryForType(type);
   if (!category) return true;
   return preferences[category];
+}
+
+export function isNotificationEmailTypeEnabled(
+  preferences: NotificationPreferences,
+  type: string,
+): boolean {
+  if (ALWAYS_ON_TYPES.has(type)) return true;
+  const category = notificationCategoryForType(type);
+  if (!category) return true;
+  const emailPref = preferences.email?.[category];
+  if (emailPref !== undefined) return emailPref;
+  return preferences[category];
+}
+
+export async function isNotificationEmailDeliveryEnabled(
+  userId: string,
+  type: string,
+): Promise<boolean> {
+  const preferences = await getUserNotificationPreferences(userId);
+  return isNotificationEmailTypeEnabled(preferences, type);
 }
 
 export async function getUserNotificationPreferences(userId: string): Promise<NotificationPreferences> {
@@ -223,12 +271,12 @@ export async function shouldSendTeamInviteEmailToAddress(email: string): Promise
 
   const prefsByLoginEmail = await findProfilePrefsByLoginEmail(normalized);
   if (prefsByLoginEmail) {
-    return isNotificationTypeEnabled(prefsByLoginEmail, "team_invite");
+    return isNotificationEmailTypeEnabled(prefsByLoginEmail, "team_invite");
   }
 
   const userId = await resolveUserIdForEmail(normalized);
   if (userId) {
-    return await isNotificationDeliveryEnabled(userId, "team_invite");
+    return await isNotificationEmailDeliveryEnabled(userId, "team_invite");
   }
 
   // No mapped user id — only email brand-new addresses that do not already have a Clerk account.
@@ -236,7 +284,7 @@ export async function shouldSendTeamInviteEmailToAddress(email: string): Promise
 }
 
 export async function shouldSendTeamWelcomeEmailToUser(userId: string): Promise<boolean> {
-  return await isNotificationDeliveryEnabled(userId, "team_invite_accepted");
+  return await isNotificationEmailDeliveryEnabled(userId, "team_invite_accepted");
 }
 
 export async function updateUserNotificationPreferences(
@@ -248,9 +296,19 @@ export async function updateUserNotificationPreferences(
     await syncUserLoginEmail(userId, options.loginEmail);
   }
   const current = await getUserNotificationPreferences(userId);
+  const mergedChannels = mergeNotificationPreferences({
+    projects: patch.projects ?? current.projects,
+    team: patch.team ?? current.team,
+    billing: patch.billing ?? current.billing,
+    audits: patch.audits ?? current.audits,
+    admin: patch.admin ?? current.admin,
+  });
   const merged = mergeNotificationPreferences({
-    ...current,
-    ...patch,
+    ...mergedChannels,
+    email: {
+      ...mergedChannels.email,
+      ...patch.email,
+    },
   });
 
   const [existing] = await db

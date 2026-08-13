@@ -8,7 +8,11 @@ export const NOTIFICATION_PREFERENCE_CATEGORIES = [
 
 export type NotificationPreferenceCategory = (typeof NOTIFICATION_PREFERENCE_CATEGORIES)[number];
 
-export type NotificationPreferences = Record<NotificationPreferenceCategory, boolean>;
+export type NotificationEmailPreferences = Record<NotificationPreferenceCategory, boolean>;
+
+export type NotificationPreferences = Record<NotificationPreferenceCategory, boolean> & {
+  email?: Partial<NotificationEmailPreferences>;
+};
 
 export const NOTIFICATION_PREFERENCE_META: Record<
   NotificationPreferenceCategory,
@@ -21,7 +25,7 @@ export const NOTIFICATION_PREFERENCE_META: Record<
   },
   team: {
     label: "Team invites & updates",
-    description: "Invitations to join a workspace and team membership updates. If you already have an account, turning this off blocks team invite and welcome emails to your login email.",
+    description: "Invitations to join a workspace and team membership updates. If you already have an account, turning email off blocks team invite and welcome emails to your login email.",
     examples: "Team invite emails, invite accepted",
   },
   billing: {
@@ -55,7 +59,43 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   billing: true,
   audits: true,
   admin: true,
+  email: {
+    projects: true,
+    team: true,
+    billing: true,
+    audits: true,
+    admin: true,
+  },
 };
+
+function mergeEmailNotificationPreferences(
+  raw: Partial<NotificationEmailPreferences> | null | undefined,
+  channelDefaults: Record<NotificationPreferenceCategory, boolean>,
+): NotificationEmailPreferences {
+  return {
+    projects: raw?.projects ?? channelDefaults.projects,
+    team: raw?.team ?? channelDefaults.team,
+    billing: raw?.billing ?? channelDefaults.billing,
+    audits: raw?.audits ?? channelDefaults.audits,
+    admin: raw?.admin ?? channelDefaults.admin,
+  };
+}
+
+export function mergeNotificationPreferences(
+  raw: Partial<NotificationPreferences> | null | undefined,
+): NotificationPreferences {
+  const channels = {
+    projects: raw?.projects ?? DEFAULT_NOTIFICATION_PREFERENCES.projects,
+    team: raw?.team ?? DEFAULT_NOTIFICATION_PREFERENCES.team,
+    billing: raw?.billing ?? DEFAULT_NOTIFICATION_PREFERENCES.billing,
+    audits: raw?.audits ?? DEFAULT_NOTIFICATION_PREFERENCES.audits,
+    admin: raw?.admin ?? DEFAULT_NOTIFICATION_PREFERENCES.admin,
+  };
+  return {
+    ...channels,
+    email: mergeEmailNotificationPreferences(raw?.email, channels),
+  };
+}
 
 export const NOTIFICATION_CATEGORY_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All categories" },

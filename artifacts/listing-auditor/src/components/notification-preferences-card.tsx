@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Bell, Info } from "lucide-react";
+import { AlertCircle, Bell, Info, Mail } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,8 @@ import {
   CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES,
   NOTIFICATION_PREFERENCE_CATEGORIES,
   NOTIFICATION_PREFERENCE_META,
+  mergeNotificationPreferences,
+  type NotificationPreferenceCategory,
   type NotificationPreferences,
 } from "@/lib/notification-preferences";
 
@@ -52,12 +54,10 @@ function resolvePreferencesFromProfilePayload(data: {
   preferences?: NotificationPreferences;
   profile?: { notificationPreferences?: NotificationPreferences } | null;
 }): NotificationPreferences {
-  return (
-    data.notificationPreferences
+  const raw = data.notificationPreferences
     ?? data.preferences
-    ?? data.profile?.notificationPreferences
-    ?? DEFAULT_NOTIFICATION_PREFERENCES
-  );
+    ?? data.profile?.notificationPreferences;
+  return mergeNotificationPreferences(raw);
 }
 
 async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
@@ -119,7 +119,7 @@ export function NotificationPreferencesCard({
     },
   });
 
-  const onToggle = (category: keyof NotificationPreferences, enabled: boolean) => {
+  const onToggleApp = (category: NotificationPreferenceCategory, enabled: boolean) => {
     if (prefsUnavailable) {
       toast({
         title: "Preferences not available",
@@ -131,6 +131,18 @@ export function NotificationPreferencesCard({
     save.mutate({ [category]: enabled });
   };
 
+  const onToggleEmail = (category: NotificationPreferenceCategory, enabled: boolean) => {
+    if (prefsUnavailable) {
+      toast({
+        title: "Preferences not available",
+        description: error instanceof Error ? error.message : "Restart the API server and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    save.mutate({ email: { [category]: enabled } });
+  };
+
   const categories = showAdminAlerts
     ? NOTIFICATION_PREFERENCE_CATEGORIES
     : CUSTOMER_NOTIFICATION_PREFERENCE_CATEGORIES;
@@ -140,10 +152,10 @@ export function NotificationPreferencesCard({
       <CardHeader className={compact ? "pb-3" : undefined}>
         <CardTitle className="flex items-center gap-2 text-base">
           <Bell className="w-4 h-4 text-orange-500" />
-          Notification preferences
+          Notifications & email
         </CardTitle>
         <CardDescription>
-          Choose which types of alerts you receive in the app, live toast notifications, and email.
+          Control in-app alerts and email delivery separately for each category.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -172,27 +184,52 @@ export function NotificationPreferencesCard({
           </div>
         ) : (
           <>
+            <div className="hidden sm:grid sm:grid-cols-[1fr_4.5rem_4.5rem] gap-3 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span>Category</span>
+              <span className="text-center">In-app</span>
+              <span className="text-center flex items-center justify-center gap-1">
+                <Mail className="w-3 h-3" />
+                Email
+              </span>
+            </div>
+
             {categories.map((category) => {
               const meta = NOTIFICATION_PREFERENCE_META[category];
+              const emailEnabled = resolvedPreferences.email?.[category] ?? resolvedPreferences[category];
               return (
                 <div
                   key={category}
-                  className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3"
+                  className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 space-y-3"
                 >
                   <div className="min-w-0 space-y-1">
-                    <Label htmlFor={`notif-pref-${category}`} className="text-sm font-semibold text-slate-900">
-                      {meta.label}
-                    </Label>
+                    <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
                     <p className="text-xs text-slate-500 leading-relaxed">{meta.description}</p>
                     <p className="text-[11px] text-slate-400">e.g. {meta.examples}</p>
                   </div>
-                  <Switch
-                    id={`notif-pref-${category}`}
-                    checked={resolvedPreferences[category]}
-                    disabled={save.isPending}
-                    onCheckedChange={(checked) => onToggle(category, checked)}
-                    className="mt-1 shrink-0"
-                  />
+                  <div className="flex items-center justify-end gap-6 sm:gap-8">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`notif-app-${category}`} className="text-xs text-slate-600 sm:hidden">
+                        In-app
+                      </Label>
+                      <Switch
+                        id={`notif-app-${category}`}
+                        checked={resolvedPreferences[category]}
+                        disabled={save.isPending}
+                        onCheckedChange={(checked) => onToggleApp(category, checked)}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`notif-email-${category}`} className="text-xs text-slate-600 sm:hidden">
+                        Email
+                      </Label>
+                      <Switch
+                        id={`notif-email-${category}`}
+                        checked={emailEnabled}
+                        disabled={save.isPending}
+                        onCheckedChange={(checked) => onToggleEmail(category, checked)}
+                      />
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -200,7 +237,8 @@ export function NotificationPreferencesCard({
             <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50/80 px-3 py-2.5 text-xs text-blue-800">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <p>
-                System announcements and account-critical messages are always delivered and cannot be turned off.
+                System announcements and account-critical messages are always delivered in-app and cannot be turned off.
+                Email for those messages still follows your SMTP configuration in Admin.
               </p>
             </div>
           </>

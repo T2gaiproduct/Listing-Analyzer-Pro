@@ -1,5 +1,9 @@
 import { Settings } from "lucide-react";
 import { NotificationPreferencesCard } from "@/components/notification-preferences-card";
+import { SettingsAppearanceCard } from "@/components/settings-appearance-card";
+import { SettingsAccountCard } from "@/components/settings-account-card";
+import { SettingsSecurityCard } from "@/components/settings-security-card";
+import { SettingsIntegrationsCard } from "@/components/settings-integrations-card";
 
 export default function SettingsPage() {
   return (
@@ -10,15 +14,15 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage how SellerLens contacts you and keep your account preferences up to date.
+          Manage notifications, email alerts, appearance, account preferences, security, and integrations.
         </p>
       </div>
 
+      <SettingsAccountCard />
       <NotificationPreferencesCard />
-
-      <p className="text-xs text-muted-foreground">
-        More settings — account, appearance, security, and integrations — are coming soon.
-      </p>
+      <SettingsAppearanceCard />
+      <SettingsSecurityCard />
+      <SettingsIntegrationsCard />
     </div>
   );
 }

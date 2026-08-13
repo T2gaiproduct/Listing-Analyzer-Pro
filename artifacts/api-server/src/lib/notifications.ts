@@ -3,7 +3,7 @@ import type { Notification } from "@workspace/db";
 import { fetchClerkUserEmailAndName } from "./clerk-user.js";
 import { notificationEmailTemplate } from "./email-templates.js";
 import { isEmailNotificationsEnabled, sendEmail } from "./email.js";
-import { isNotificationDeliveryEnabled } from "./notification-preferences.js";
+import { isNotificationDeliveryEnabled, isNotificationEmailDeliveryEnabled } from "./notification-preferences.js";
 import { wsSend } from "./ws";
 
 export type NotificationType =
@@ -73,32 +73,38 @@ export async function createNotification(params: {
   link?: string;
   skipEmail?: boolean;
 }): Promise<Notification | null> {
-  if (!(await isNotificationDeliveryEnabled(params.userId, params.type))) {
+  const inAppEnabled = await isNotificationDeliveryEnabled(params.userId, params.type);
+  const emailEnabled = await isNotificationEmailDeliveryEnabled(params.userId, params.type);
+  if (!inAppEnabled && !emailEnabled) {
     return null;
   }
 
-  const [row] = await db
-    .insert(notificationsTable)
-    .values({
-      userId: params.userId,
-      type: params.type,
-      title: params.title,
-      message: params.message,
-      link: params.link ?? null,
-      read: false,
-      sentAt: new Date(),
-    })
-    .returning();
+  let row: Notification | null = null;
+  if (inAppEnabled) {
+    const [inserted] = await db
+      .insert(notificationsTable)
+      .values({
+        userId: params.userId,
+        type: params.type,
+        title: params.title,
+        message: params.message,
+        link: params.link ?? null,
+        read: false,
+        sentAt: new Date(),
+      })
+      .returning();
+    row = inserted;
 
-  wsSend(params.userId, "notification", {
-    id: row.id,
-    type: row.type,
-    title: row.title,
-    message: row.message,
-    sentAt: row.sentAt,
-  });
+    wsSend(params.userId, "notification", {
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      message: row.message,
+      sentAt: row.sentAt,
+    });
+  }
 
-  if (!params.skipEmail) {
+  if (!params.skipEmail && emailEnabled) {
     void sendNotificationEmail({
       userId: params.userId,
       title: params.title,
@@ -125,29 +131,37 @@ export async function createBulkNotifications(
   const enabled = await Promise.all(
     notifications.map(async (n) => ({
       notification: n,
-      enabled: await isNotificationDeliveryEnabled(userId, n.type),
+      inApp: await isNotificationDeliveryEnabled(userId, n.type),
+      email: await isNotificationEmailDeliveryEnabled(userId, n.type),
     })),
   );
-  const toDeliver = enabled.filter((e) => e.enabled).map((e) => e.notification);
+  const toDeliver = enabled.filter((e) => e.inApp || e.email).map((e) => ({
+    ...e.notification,
+    inApp: e.inApp,
+    email: e.email,
+  }));
   if (toDeliver.length === 0) return [];
 
-  const rows = await db
-    .insert(notificationsTable)
-    .values(
-      toDeliver.map((n) => ({
-        userId,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        link: n.link ?? null,
-        read: false,
-        sentAt: new Date(),
-      })),
-    )
-    .returning();
+  const inAppRows = toDeliver.filter((n) => n.inApp);
+  const rows = inAppRows.length > 0
+    ? await db
+      .insert(notificationsTable)
+      .values(
+        inAppRows.map((n) => ({
+          userId,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          link: n.link ?? null,
+          read: false,
+          sentAt: new Date(),
+        })),
+      )
+      .returning()
+    : [];
 
   if (!options?.skipEmail) {
-    for (const n of toDeliver) {
+    for (const n of toDeliver.filter((item) => item.email)) {
       void sendNotificationEmail({
         userId,
         title: n.title,
