@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, Check, CheckCheck, AlertCircle, ArrowRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-import { NotificationPreferencesCard } from "@/components/notification-preferences-card";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -95,8 +93,6 @@ export default function NotificationsPage() {
           </Button>
         )}
       </div>
-
-      <NotificationPreferencesCard compact />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
