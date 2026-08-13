@@ -187,7 +187,8 @@ export function NotificationPreferencesCard({
           <>
             {categories.map((category) => {
               const meta = NOTIFICATION_PREFERENCE_META[category];
-              const emailEnabled = resolvedPreferences.email?.[category] ?? resolvedPreferences[category];
+              const emailEnabled = resolvedPreferences.email?.[category]
+                ?? DEFAULT_NOTIFICATION_PREFERENCES.email![category];
               return (
                 <div
                   key={category}

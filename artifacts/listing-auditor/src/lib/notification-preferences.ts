@@ -70,14 +70,14 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 
 function mergeEmailNotificationPreferences(
   raw: Partial<NotificationEmailPreferences> | null | undefined,
-  channelDefaults: Record<NotificationPreferenceCategory, boolean>,
 ): NotificationEmailPreferences {
+  const defaults = DEFAULT_NOTIFICATION_PREFERENCES.email!;
   return {
-    projects: raw?.projects ?? channelDefaults.projects,
-    team: raw?.team ?? channelDefaults.team,
-    billing: raw?.billing ?? channelDefaults.billing,
-    audits: raw?.audits ?? channelDefaults.audits,
-    admin: raw?.admin ?? channelDefaults.admin,
+    projects: raw?.projects ?? defaults.projects,
+    team: raw?.team ?? defaults.team,
+    billing: raw?.billing ?? defaults.billing,
+    audits: raw?.audits ?? defaults.audits,
+    admin: raw?.admin ?? defaults.admin,
   };
 }
 
@@ -93,7 +93,7 @@ export function mergeNotificationPreferences(
   };
   return {
     ...channels,
-    email: mergeEmailNotificationPreferences(raw?.email, channels),
+    email: mergeEmailNotificationPreferences(raw?.email),
   };
 }
 

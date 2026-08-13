@@ -86,14 +86,14 @@ export const NOTIFICATION_PREFS_MIGRATION_HINT =
 
 function mergeEmailNotificationPreferences(
   raw: Partial<NotificationEmailPreferences> | null | undefined,
-  channelDefaults: NotificationPreferences,
 ): NotificationEmailPreferences {
+  const defaults = DEFAULT_NOTIFICATION_PREFERENCES.email!;
   return {
-    projects: raw?.projects ?? channelDefaults.projects,
-    team: raw?.team ?? channelDefaults.team,
-    billing: raw?.billing ?? channelDefaults.billing,
-    audits: raw?.audits ?? channelDefaults.audits,
-    admin: raw?.admin ?? channelDefaults.admin,
+    projects: raw?.projects ?? defaults.projects,
+    team: raw?.team ?? defaults.team,
+    billing: raw?.billing ?? defaults.billing,
+    audits: raw?.audits ?? defaults.audits,
+    admin: raw?.admin ?? defaults.admin,
   };
 }
 
@@ -109,7 +109,7 @@ export function mergeNotificationPreferences(
   };
   return {
     ...channels,
-    email: mergeEmailNotificationPreferences(raw?.email, channels),
+    email: mergeEmailNotificationPreferences(raw?.email),
   };
 }
 
@@ -182,7 +182,7 @@ export function isNotificationEmailTypeEnabled(
   if (!category) return true;
   const emailPref = preferences.email?.[category];
   if (emailPref !== undefined) return emailPref;
-  return preferences[category];
+  return DEFAULT_NOTIFICATION_PREFERENCES.email![category];
 }
 
 export async function isNotificationEmailDeliveryEnabled(
@@ -295,21 +295,26 @@ export async function updateUserNotificationPreferences(
   if (options?.loginEmail) {
     await syncUserLoginEmail(userId, options.loginEmail);
   }
-  const current = await getUserNotificationPreferences(userId);
-  const mergedChannels = mergeNotificationPreferences({
+
+  const [profile] = await db
+    .select({ notificationPreferences: userProfilesTable.notificationPreferences })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, userId))
+    .limit(1);
+
+  const raw = profile?.notificationPreferences as Partial<NotificationPreferences> | null | undefined;
+  const current = mergeNotificationPreferences(raw);
+  const merged: NotificationPreferences = {
     projects: patch.projects ?? current.projects,
     team: patch.team ?? current.team,
     billing: patch.billing ?? current.billing,
     audits: patch.audits ?? current.audits,
     admin: patch.admin ?? current.admin,
-  });
-  const merged = mergeNotificationPreferences({
-    ...mergedChannels,
     email: {
-      ...mergedChannels.email,
-      ...patch.email,
+      ...mergeEmailNotificationPreferences(raw?.email),
+      ...(patch.email ?? {}),
     },
-  });
+  };
 
   const [existing] = await db
     .select({ id: userProfilesTable.id })
