@@ -223,10 +223,10 @@ export function TopbarWorkspaceSwitcher() {
       <div ref={rootRef} className="relative flex-shrink-0 hidden sm:flex items-center">
         <div
           className={cn(
-            "flex items-center h-10 rounded-lg border bg-white transition-colors",
+            "flex items-center h-10 rounded-lg border bg-card transition-colors",
             open
               ? "border-orange-500 ring-2 ring-orange-200 bg-orange-50/30"
-              : "border-slate-200 hover:border-orange-400 hover:bg-orange-50/40 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-200",
+              : "border-border hover:border-orange-400 hover:bg-orange-50/40 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-200",
           )}
         >
           <button
@@ -298,11 +298,11 @@ export function TopbarWorkspaceSwitcher() {
         </div>
 
         {open && (
-          <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
-            <div className="absolute -top-1.5 left-6 w-3 h-3 bg-white border-l border-t border-slate-200 rotate-45" />
-            <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/80">
+          <div className="absolute left-0 top-full mt-2 w-72 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+            <div className="absolute -top-1.5 left-6 w-3 h-3 bg-card border-l border-t border-border rotate-45" />
+            <div className="px-3 py-2 border-b border-border bg-muted/80">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
-              <p className="text-xs text-slate-600 mt-0.5">Projects and data are scoped to the selected workspace.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Projects and data are scoped to the selected workspace.</p>
             </div>
             <div className="relative max-h-80 overflow-y-auto py-1">
               {isLoading && workspaces.length === 0 ? (
@@ -326,7 +326,7 @@ export function TopbarWorkspaceSwitcher() {
               )}
             </div>
             {hasMore && (
-              <div className="border-t border-slate-100 py-2 text-center">
+              <div className="border-t border-border py-2 text-center">
                 <button
                   type="button"
                   className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
@@ -337,7 +337,7 @@ export function TopbarWorkspaceSwitcher() {
               </div>
             )}
             {!hasMore && workspaces.length > 0 && (
-              <div className="border-t border-slate-100 py-2 text-center">
+              <div className="border-t border-border py-2 text-center">
                 <button
                   type="button"
                   className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
@@ -354,7 +354,7 @@ export function TopbarWorkspaceSwitcher() {
       {/* Mobile: compact with label */}
       <button
         type="button"
-        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 flex-shrink-0 hover:border-orange-400 hover:bg-orange-50/40 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
+        className="sm:hidden flex flex-col items-center justify-center min-w-[3.25rem] h-10 px-1.5 rounded-lg border border-border bg-card text-muted-foreground flex-shrink-0 hover:border-orange-400 hover:bg-orange-50/40 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
         onClick={() => {
           if (isAccountOwner && onWorkspaceDashboard) {
             navigate(WORKSPACES_HUB_PATH);
@@ -375,20 +375,20 @@ export function TopbarWorkspaceSwitcher() {
       </button>
 
       <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] flex flex-col gap-0 p-0 border border-slate-200 shadow-xl sm:rounded-lg overflow-hidden bg-white">
-          <div className="px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col gap-0 p-0 border border-border shadow-xl sm:rounded-lg overflow-hidden bg-card">
+          <div className="px-3 py-2.5 border-b border-border bg-muted/80">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Switch workspace</p>
-            <p className="text-xs text-slate-600 mt-0.5">Projects and data are scoped to the selected workspace.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Projects and data are scoped to the selected workspace.</p>
           </div>
 
-          <div className="px-3 py-2 border-b border-slate-100">
+          <div className="px-3 py-2 border-b border-border">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search workspaces…"
-                className="h-9 pl-9 text-sm border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
+                className="h-9 pl-9 text-sm border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:border-orange-400"
               />
             </div>
           </div>
@@ -397,7 +397,7 @@ export function TopbarWorkspaceSwitcher() {
             <button
               type="button"
               className={cn(
-                "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors border-b border-slate-100",
+                "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors border-b border-border",
                 onWorkspaceDashboard && "bg-orange-50 text-orange-800",
               )}
               onClick={() => {
@@ -438,7 +438,7 @@ export function TopbarWorkspaceSwitcher() {
             )}
           </div>
 
-          <div className="border-t border-slate-100 py-2.5 text-center shrink-0 bg-white">
+          <div className="border-t border-border py-2.5 text-center shrink-0 bg-card">
             {isAccountOwner ? (
               <button
                 type="button"
@@ -462,7 +462,7 @@ export function TopbarWorkspaceSwitcher() {
             {canCreate && (
               <button
                 type="button"
-                className="text-sm font-medium text-slate-600 hover:text-orange-600 ml-4 hover:underline"
+                className="text-sm font-medium text-muted-foreground hover:text-orange-600 ml-4 hover:underline"
                 onClick={() => {
                   setSeeAllOpen(false);
                   setForm({ name: "", description: "", clientLabel: "" });

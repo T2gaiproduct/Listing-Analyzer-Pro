@@ -174,7 +174,7 @@ export function DashboardTopbar({
   const searchInput = (
     <>
       <div className="relative flex items-center">
-        <Search className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+        <Search className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
         <input
           ref={searchRef}
           type="text"
@@ -182,22 +182,22 @@ export function DashboardTopbar({
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
           placeholder={searchPlaceholder}
-          className="w-full h-9 pl-9 pr-3 sm:pr-20 rounded-lg text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
+          className="w-full h-9 pl-9 pr-3 sm:pr-20 rounded-lg text-xs bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-2 focus-visible:ring-2 focus:ring-orange-200 focus-visible:ring-orange-200 focus:border-orange-400 focus-visible:border-orange-400"
         />
-        <kbd className="absolute right-3 hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-medium text-slate-400 bg-white border border-slate-200 rounded-md">
+        <kbd className="absolute right-3 hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-card border border-border rounded-md">
           Ctrl + K
         </kbd>
       </div>
       {showSearchResults && (
-        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 max-h-72 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1.5 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 max-h-72 overflow-y-auto">
           {searchResults.length === 0 ? (
-            <p className="px-4 py-2.5 text-xs text-slate-400">No matches found</p>
+            <p className="px-4 py-2.5 text-xs text-muted-foreground">No matches found</p>
           ) : (
             searchResults.map((item) => (
               <button
                 key={item.url}
                 type="button"
-                className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors truncate min-h-9"
+                className="w-full px-3 py-2 text-left text-xs text-foreground/90 hover:bg-muted transition-colors truncate min-h-9"
                 onClick={() => {
                   onSearchQueryChange("");
                   setSearchFocused(false);
@@ -215,12 +215,12 @@ export function DashboardTopbar({
   );
 
   return (
-    <header className="flex items-center gap-2.5 sm:gap-3 h-11 px-5 sm:px-6 lg:px-8 bg-white border-b border-slate-200 flex-shrink-0 z-20 min-w-0">
+    <header className="flex items-center gap-2.5 sm:gap-3 h-11 px-5 sm:px-6 lg:px-8 bg-card border-b border-border flex-shrink-0 z-20 min-w-0">
       {onMenuClick && (
         <button
           type="button"
           onClick={onMenuClick}
-          className="lg:hidden touch-target flex items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 transition-colors flex-shrink-0"
+          className="lg:hidden touch-target flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted transition-colors flex-shrink-0"
           aria-label="Open navigation menu"
         >
           <Menu className="w-5 h-5" />
@@ -231,7 +231,7 @@ export function DashboardTopbar({
       <div ref={searchContainerRef} className="flex-1 min-w-0 max-w-md lg:max-w-lg relative">
         <button
           type="button"
-          className="sm:hidden touch-target flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+          className="sm:hidden touch-target flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted"
           aria-label="Search"
           onClick={() => {
             setMobileSearchOpen(true);
@@ -241,7 +241,7 @@ export function DashboardTopbar({
           <Search className="w-5 h-5" />
         </button>
         {mobileSearchOpen && (
-          <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-white border-b border-slate-200 p-4 shadow-md">
+          <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-card border-b border-border p-4 shadow-md">
             {searchInput}
           </div>
         )}
@@ -256,31 +256,31 @@ export function DashboardTopbar({
           <button
             type="button"
             onClick={() => { setCreditsOpen((o) => !o); setProfileOpen(false); }}
-            className="flex items-center gap-2 h-9 pl-2 sm:pl-2.5 pr-2 rounded-lg bg-orange-50 border border-orange-100 hover:bg-orange-100/80 transition-colors touch-target"
+            className="flex items-center gap-2 h-9 pl-2 sm:pl-2.5 pr-2 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/15 transition-colors touch-target"
             aria-label={`${creditBalanceHeadline} credits`}
           >
             <Coins className="w-4 h-4 text-amber-500 flex-shrink-0" />
             <div className="text-left hidden sm:block">
-              <p className="text-[10px] font-medium text-slate-500 leading-none">
+              <p className="text-[10px] font-medium text-muted-foreground leading-none">
                 {creditBalanceLabel}
               </p>
-              <p className="text-xs font-semibold text-slate-900 leading-tight">{creditBalanceHeadline.toLocaleString()} Credits</p>
+              <p className="text-xs font-semibold text-foreground leading-tight">{creditBalanceHeadline.toLocaleString()} Credits</p>
             </div>
-            <span className="sm:hidden text-xs font-semibold text-slate-900 tabular-nums">{creditBalanceHeadline.toLocaleString()}</span>
-            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform hidden sm:block", creditsOpen && "rotate-180")} />
+            <span className="sm:hidden text-xs font-semibold text-foreground tabular-nums">{creditBalanceHeadline.toLocaleString()}</span>
+            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform hidden sm:block", creditsOpen && "rotate-180")} />
           </button>
 
           {creditsOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,14rem)] sm:w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2">
-              <div className="px-4 py-2 border-b border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,14rem)] sm:w-56 bg-card border border-border rounded-xl shadow-xl z-50 py-2">
+              <div className="px-4 py-2 border-b border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   {creditsScopeLabel === "account_hub"
                     ? "Unallocated (account)"
                     : creditsScopeLabel === "account_total"
                       ? "Total credits"
                       : "Credit balance"}
                 </p>
-                <p className="text-lg font-bold text-slate-900 mt-0.5">
+                <p className="text-lg font-bold text-foreground mt-0.5">
                   {creditBalanceHeadline.toLocaleString()}
                   {creditsScopeLabel === "account_hub"
                     ? " unallocated"
@@ -288,7 +288,7 @@ export function DashboardTopbar({
                       ? " total"
                       : " total"}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
                   {creditsScopeLabel === "workspace"
                     ? "Credits funded to this workspace pool (switch workspace to see others)."
                     : creditsScopeLabel === "member"
@@ -300,16 +300,16 @@ export function DashboardTopbar({
                           : "Your available credits across all types. Unused credits roll over; purchases add to one pool below."}
                 </p>
                 {accountCreditSummary && (creditsScopeLabel === "account_hub" || creditsScopeLabel === "account" || creditsScopeLabel === "account_total") && (
-                  <div className="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px] text-slate-600">
+                  <div className="mt-2 pt-2 border-t border-border space-y-1 text-[11px] text-muted-foreground">
                     <div className="flex justify-between gap-2">
                       <span>In workspace pools</span>
-                      <span className="font-semibold text-slate-800 tabular-nums">
+                      <span className="font-semibold text-foreground tabular-nums">
                         {accountCreditSummary.inPoolsTotal.toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between gap-2">
                       <span>Total in account</span>
-                      <span className="font-semibold text-slate-800 tabular-nums">
+                      <span className="font-semibold text-foreground tabular-nums">
                         {accountCreditSummary.accountTotal.toLocaleString()}
                       </span>
                     </div>
@@ -317,21 +317,21 @@ export function DashboardTopbar({
                 )}
               </div>
               <div className="px-4 py-2 space-y-1.5 text-sm">
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Audit</span>
-                  <span className="font-semibold text-slate-900">{breakdownCredits?.auditCredits ?? 0}</span>
+                  <span className="font-semibold text-foreground">{breakdownCredits?.auditCredits ?? 0}</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Text Content</span>
-                  <span className="font-semibold text-slate-900">{breakdownCredits?.aiCredits ?? 0}</span>
+                  <span className="font-semibold text-foreground">{breakdownCredits?.aiCredits ?? 0}</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Images</span>
-                  <span className="font-semibold text-slate-900">{breakdownCredits?.imageCredits ?? 0}</span>
+                  <span className="font-semibold text-foreground">{breakdownCredits?.imageCredits ?? 0}</span>
                 </div>
                 {accountCreditSummary?.accountTotalBuckets && (creditsScopeLabel === "account_hub" || creditsScopeLabel === "account" || creditsScopeLabel === "account_total") && (
-                  <div className="pt-2 mt-1 border-t border-slate-100 space-y-1 text-[11px] text-slate-500">
-                    <p className="font-medium text-slate-600">Total in account (all types)</p>
+                  <div className="pt-2 mt-1 border-t border-border space-y-1 text-[11px] text-muted-foreground">
+                    <p className="font-medium text-muted-foreground">Total in account (all types)</p>
                     <div className="flex justify-between gap-2">
                       <span>Audit</span>
                       <span className="tabular-nums">{accountCreditSummary.accountTotalBuckets.auditCredits.toLocaleString()}</span>
@@ -347,7 +347,7 @@ export function DashboardTopbar({
                   </div>
                 )}
               </div>
-              <div className="px-2 pt-1 border-t border-slate-100">
+              <div className="px-2 pt-1 border-t border-border">
                 <button
                   type="button"
                   className="w-full px-3 py-2.5 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg text-left transition-colors min-h-11"
@@ -376,7 +376,7 @@ export function DashboardTopbar({
             onClick={() => { setProfileOpen((o) => !o); setCreditsOpen(false); }}
             className={cn(
               "flex items-center gap-2 h-9 pl-1.5 pr-2 rounded-lg transition-colors touch-target",
-              profileOpen ? "bg-slate-100" : "hover:bg-slate-50"
+              profileOpen ? "bg-muted" : "hover:bg-muted"
             )}
             aria-label="Account menu"
           >
@@ -384,30 +384,30 @@ export function DashboardTopbar({
               {initials}
             </div>
             <div className="text-left hidden md:block min-w-0">
-              <p className="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{displayName}</p>
-              <p className="text-[11px] text-slate-500 leading-tight truncate max-w-[7.5rem] lg:max-w-[140px]">{profileSubtitle}</p>
+              <p className="text-xs font-semibold text-foreground leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{displayName}</p>
+              <p className="text-[11px] text-muted-foreground leading-tight truncate max-w-[7.5rem] lg:max-w-[140px]">{profileSubtitle}</p>
             </div>
-            <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform hidden sm:block", profileOpen && "rotate-180")} />
+            <ChevronDown className={cn("w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform hidden sm:block", profileOpen && "rotate-180")} />
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,14rem)] sm:w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="px-4 pt-4 pb-3 border-b border-slate-100 flex items-center gap-3">
+            <div className="absolute right-0 top-full mt-1.5 w-[min(100vw-2rem,14rem)] sm:w-56 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden">
+              <div className="px-4 pt-4 pb-3 border-b border-border flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                   {initials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
-                  <p className="text-xs text-slate-500 truncate">{email}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{email}</p>
                   <p className="text-xs text-orange-600 font-medium mt-0.5">{roleLabel}</p>
                   {variant !== "admin" && planLabel && planLabel !== "No plan" && (
-                    <p className="text-xs text-slate-400 mt-0.5">{planLabel}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{planLabel}</p>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => setProfileOpen(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 touch-target"
+                  className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground touch-target"
                   aria-label="Close menu"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -418,10 +418,10 @@ export function DashboardTopbar({
                   locked ? (
                     <div
                       key={label}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-400 cursor-not-allowed min-h-11"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted-foreground cursor-not-allowed min-h-11"
                       title={lockedHint ?? "Upgrade your plan to unlock"}
                     >
-                      <Icon className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                      <Icon className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" />
                       <span className="flex-1 min-w-0">
                         {label}
                         {lockedHint && (
@@ -434,17 +434,17 @@ export function DashboardTopbar({
                     <Link key={label} href={href}>
                       <button
                         type="button"
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left min-h-11"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground/90 hover:bg-muted transition-colors text-left min-h-11"
                         onClick={() => setProfileOpen(false)}
                       >
-                        <Icon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         {label}
                       </button>
                     </Link>
                   )
                 ))}
               </div>
-              <div className="border-t border-slate-100 py-1.5">
+              <div className="border-t border-border py-1.5">
                 <button
                   type="button"
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors text-left min-h-11"

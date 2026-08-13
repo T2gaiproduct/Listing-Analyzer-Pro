@@ -63,14 +63,16 @@ export default function AuditNew() {
   return (
     <div className="min-h-full animate-in fade-in duration-500">
       {/* Hero */}
-      <div
-        className="text-center pt-12 pb-10 px-6 relative overflow-hidden"
-        style={{
-          background:
-            "radial-gradient(ellipse at 10% 0%, rgba(251,191,100,0.18) 0%, transparent 55%), radial-gradient(ellipse at 90% 5%, rgba(255,237,213,0.3) 0%, transparent 50%), #fff",
-        }}
-      >
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
+      <div className="text-center pt-12 pb-10 px-6 relative overflow-hidden bg-card border-b border-border">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-100 dark:opacity-60"
+          style={{
+            background:
+              "radial-gradient(ellipse at 10% 0%, rgba(251,191,100,0.18) 0%, transparent 55%), radial-gradient(ellipse at 90% 5%, rgba(255,237,213,0.3) 0%, transparent 50%)",
+          }}
+        />
+        <div className="relative">
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
           Build Your Brand Content
         </h1>
         <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight mt-1">
@@ -79,7 +81,7 @@ export default function AuditNew() {
           </span>{" "}
           <Sparkles className="inline w-8 h-8 text-orange-400 align-middle -mt-1" />
         </h2>
-        <p className="text-base text-slate-500 mt-4 max-w-md mx-auto">
+        <p className="text-base text-muted-foreground mt-4 max-w-md mx-auto">
           Turn product information into high-converting listings in minutes.
         </p>
 
@@ -92,6 +94,7 @@ export default function AuditNew() {
           Start Generating
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
+        </div>
       </div>
 
       {/* How It Works */}
@@ -119,11 +122,11 @@ export default function AuditNew() {
               <div key={step.number} className="relative flex items-stretch">
                 {/* Card */}
                 <div
-                  className={`flex-1 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col items-center text-center gap-4 shadow-sm hover:shadow-md transition-shadow border-b-4 ${step.border}`}
+                  className={`flex-1 bg-card border border-border rounded-2xl p-5 flex flex-col items-center text-center gap-4 shadow-sm hover:shadow-md transition-shadow border-b-4 ${step.border}`}
                 >
                   {/* Step number badge */}
                   <div className="self-start">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
                       {step.number}
                     </span>
                   </div>
@@ -137,10 +140,10 @@ export default function AuditNew() {
 
                   {/* Text */}
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-slate-800 leading-snug">
+                    <p className="text-sm font-bold text-foreground leading-snug">
                       {step.title}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                       {step.desc}
                     </p>
                   </div>

@@ -193,8 +193,8 @@ function auditScoreBadgeClass(score: number | null | undefined, pending?: boolea
     if (score >= 50) return "bg-amber-50 text-amber-700 border-amber-200";
     return "bg-red-50 text-red-600 border-red-200";
   }
-  if (pending) return "bg-slate-50 text-slate-500 border-slate-200";
-  return "bg-slate-50 text-slate-400 border-slate-200";
+  if (pending) return "bg-muted text-muted-foreground border-border";
+  return "bg-muted text-muted-foreground border-border";
 }
 
 function ProductThumb({ imageUrl, name }: { imageUrl: string | null; name: string }) {
@@ -203,7 +203,7 @@ function ProductThumb({ imageUrl, name }: { imageUrl: string | null; name: strin
 
   if (src) {
     return (
-      <div className="w-7 h-7 rounded-md overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-100">
+      <div className="w-7 h-7 rounded-md overflow-hidden bg-slate-100 flex-shrink-0 border border-border">
         <img
           src={src}
           alt={name}
@@ -215,15 +215,15 @@ function ProductThumb({ imageUrl, name }: { imageUrl: string | null; name: strin
   }
 
   return (
-    <div className="w-7 h-7 rounded-md bg-slate-50 border border-slate-200 flex items-center justify-center flex-shrink-0">
-      <Package className="w-3.5 h-3.5 text-slate-400" />
+    <div className="w-7 h-7 rounded-md bg-muted border border-border flex items-center justify-center flex-shrink-0">
+      <Package className="w-3.5 h-3.5 text-muted-foreground" />
     </div>
   );
 }
 
 function ChannelTags({ channels }: { channels: string[] }) {
   if (channels.length === 0) {
-    return <span className="text-[11px] text-slate-400">—</span>;
+    return <span className="text-[11px] text-muted-foreground">—</span>;
   }
 
   return (
@@ -231,7 +231,7 @@ function ChannelTags({ channels }: { channels: string[] }) {
       {channels.map((ch) => (
         <span
           key={ch}
-          className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-medium text-slate-600"
+          className="inline-flex items-center px-1.5 py-0.5 rounded border border-border bg-card text-[10px] font-medium text-muted-foreground"
         >
           {ch}
         </span>
@@ -441,9 +441,9 @@ export default function ProductsPage() {
   if (!featureWorkspaceId || needsWorkspaceSelection) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-        <Package className="w-10 h-10 text-slate-300 mb-3" />
-        <h2 className="text-base font-semibold text-slate-900">Select a workspace</h2>
-        <p className="text-xs text-slate-500 mt-2 max-w-md">
+        <Package className="w-10 h-10 text-muted-foreground/60 mb-3" />
+        <h2 className="text-base font-semibold text-foreground">Select a workspace</h2>
+        <p className="text-xs text-muted-foreground mt-2 max-w-md">
           Products are scoped to a workspace. Choose one in the top bar, or create a workspace from {WORKSPACES_HUB_LABEL}.
         </p>
         <Button asChild size="sm" className="mt-5 bg-orange-500 hover:bg-orange-600 text-xs h-8">
@@ -456,30 +456,30 @@ export default function ProductsPage() {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
         <span>{platformName}</span>
         <ChevronRight className="w-3 h-3" />
-        <span className="text-slate-600">Product Explorer</span>
+        <span className="text-muted-foreground">Product Explorer</span>
       </div>
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-lg font-semibold text-slate-900 tracking-tight">Product Explorer</h1>
+        <h1 className="text-lg font-semibold text-foreground tracking-tight">Product Explorer</h1>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
           <div className="relative flex-1 sm:max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search products, orders..."
-              className="h-8 pl-8 text-xs border-slate-200 bg-white rounded-lg"
+              className="h-8 pl-8 text-xs border-border bg-card rounded-lg"
             />
           </div>
           <Button
             asChild
             variant="outline"
             size="sm"
-            className="h-8 text-xs font-medium border-slate-300 text-slate-800 shrink-0 rounded-lg px-3"
+            className="h-8 text-xs font-medium border-border text-foreground/90 shrink-0 rounded-lg px-3"
           >
             <Link href="/audits/new">
               <Plus className="w-3.5 h-3.5 mr-1" />
@@ -501,7 +501,7 @@ export default function ProductsPage() {
                 "h-7 px-3 rounded-full text-[11px] font-medium border transition-colors",
                 channelFilter === id
                   ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50",
+                  : "bg-card text-muted-foreground border-border hover:border-orange-400/40 hover:bg-muted",
               )}
             >
               {label}
@@ -527,7 +527,7 @@ export default function ProductsPage() {
                 variant="outline"
                 size="sm"
                 disabled={!canImportProducts || importProductsMutation.isPending}
-                className="h-7 text-[11px] font-medium border-slate-200 text-slate-600 rounded-lg px-2.5 gap-1.5"
+                className="h-7 text-[11px] font-medium border-border text-muted-foreground rounded-lg px-2.5 gap-1.5"
                 onClick={() => importInputRef.current?.click()}
               >
                 {importProductsMutation.isPending ? (
@@ -566,7 +566,7 @@ export default function ProductsPage() {
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 text-[11px] border-orange-200 bg-white text-slate-700"
+              className="h-7 text-[11px] border-orange-200 bg-card text-foreground/90"
               onClick={() => setSelected(new Set())}
             >
               Clear selection
@@ -591,11 +591,11 @@ export default function ProductsPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80">
+              <tr className="border-b border-border bg-muted/80">
                 <th className="w-10 px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -611,23 +611,23 @@ export default function ProductsPage() {
                     )}
                   </div>
                 </th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Product</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Type</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Audit Score</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">SKU</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Channels</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Price</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stock</th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 text-right">Actions</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Product</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Type</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Audit Score</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">SKU</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Channels</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Price</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Stock</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center">
-                    <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs font-medium text-slate-700">No products yet</p>
-                    <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+                    <Package className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+                    <p className="text-xs font-medium text-foreground/90">No products yet</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
                       Projects from Build Your Brand, Audit Listing, Create Graphics, Create Video, and Manage Ads appear here automatically.
                     </p>
                     <Button
@@ -658,7 +658,7 @@ export default function ProductsPage() {
                         navigate(viewUrl);
                       }
                     }}
-                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
+                    className="border-b border-border/60 last:border-0 hover:bg-muted/60 transition-colors cursor-pointer"
                   >
                     <td
                       className="px-3 py-2.5 align-middle"
@@ -674,13 +674,13 @@ export default function ProductsPage() {
                     <td className="px-3 py-2.5 align-middle">
                       <div className="flex items-center gap-2 min-w-0">
                         <ProductThumb imageUrl={product.imageUrl} name={product.name} />
-                        <span className="text-xs font-medium text-slate-900 truncate max-w-[200px]">
+                        <span className="text-xs font-medium text-foreground truncate max-w-[200px]">
                           {product.name}
                         </span>
                       </div>
                     </td>
                     <td className="px-3 py-2.5 align-middle">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200 bg-slate-50 text-slate-600 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-muted text-muted-foreground whitespace-nowrap">
                         {product.sourceTypeLabel || SOURCE_TYPE_LABELS[product.sourceType] || "Project"}
                       </span>
                     </td>
@@ -695,18 +695,18 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">
-                      <span className="text-[11px] font-mono text-slate-500">{product.sku}</span>
+                      <span className="text-[11px] font-mono text-muted-foreground">{product.sku}</span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">
                       <ChannelTags channels={product.channels} />
                     </td>
                     <td className="px-3 py-2.5 align-middle">
-                      <span className="text-xs font-semibold text-slate-900 tabular-nums">
+                      <span className="text-xs font-semibold text-foreground tabular-nums">
                         {formatPrice(product.price, product.currency)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 align-middle">
-                      <span className="text-xs text-slate-600 tabular-nums">
+                      <span className="text-xs text-muted-foreground tabular-nums">
                         {formatStock(product.stock, product.inStock)}
                       </span>
                     </td>
@@ -720,7 +720,7 @@ export default function ProductsPage() {
                             <button
                               type="button"
                               onClick={() => navigate(viewUrl)}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors"
                               aria-label="View in Product Explorer"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -733,7 +733,7 @@ export default function ProductsPage() {
                             <button
                               type="button"
                               onClick={() => navigate(productOverviewEditUrl(viewUrl))}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors"
                               aria-label="Edit overview in Product Explorer"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -746,7 +746,7 @@ export default function ProductsPage() {
                             <button
                               type="button"
                               onClick={() => navigate(viewUrl)}
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                              className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground/90 hover:bg-muted transition-colors"
                               aria-label="Open in Product Explorer"
                             >
                               <Upload className="w-3.5 h-3.5" />
@@ -763,7 +763,7 @@ export default function ProductsPage() {
                                 type="button"
                                 disabled={deleteProductsMutation.isPending}
                                 onClick={() => requestDeleteProducts([product])}
-                                className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
                                 aria-label="Delete product"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -784,7 +784,7 @@ export default function ProductsPage() {
       </div>
 
       {filtered.length > 0 && (
-        <p className="text-[10px] text-slate-400 text-right">
+        <p className="text-[10px] text-muted-foreground text-right">
           {filtered.length} product{filtered.length === 1 ? "" : "s"}
           {selectedCount > 0 ? ` · ${selectedCount} selected` : ""}
           {channelFilter !== "all" ? ` · filtered by ${CHANNEL_FILTER_LABELS[channelFilter]}` : ""}
