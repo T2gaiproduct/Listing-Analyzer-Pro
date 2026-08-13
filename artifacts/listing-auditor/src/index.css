@@ -251,11 +251,11 @@
 
 @layer utilities {
   .app-shell-padding {
-    @apply px-3 py-3 sm:px-4 sm:py-4 lg:px-4 lg:py-4;
+    @apply px-5 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-5;
   }
 
   .app-content-max {
-    @apply w-full min-w-0 max-w-none;
+    @apply w-full min-w-0 max-w-[1440px] mx-auto;
   }
 
   .table-responsive {

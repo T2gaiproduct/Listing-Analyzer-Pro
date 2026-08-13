@@ -8,7 +8,7 @@ export default function ProjectsPage() {
   return (
     <div className="w-full min-w-0 space-y-6 sm:space-y-8">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 rounded-2xl sm:rounded-3xl p-4 sm:p-8 md:p-12 border border-amber-100 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-8 border border-amber-100 overflow-hidden">
         {/* Background decorative elements */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-orange-100/50 rounded-full -translate-y-1/2 translate-x-1/3" />
         <div className="absolute top-20 right-40 text-amber-300">

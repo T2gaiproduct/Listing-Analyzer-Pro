@@ -223,7 +223,7 @@ export function TopbarWorkspaceSwitcher() {
       <div ref={rootRef} className="relative flex-shrink-0 hidden sm:flex items-center">
         <div
           className={cn(
-            "flex items-center h-11 rounded-lg border bg-white transition-colors",
+            "flex items-center h-10 rounded-lg border bg-white transition-colors",
             open
               ? "border-orange-500 ring-2 ring-orange-200 bg-orange-50/30"
               : "border-slate-200 hover:border-orange-400 hover:bg-orange-50/40 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-200",

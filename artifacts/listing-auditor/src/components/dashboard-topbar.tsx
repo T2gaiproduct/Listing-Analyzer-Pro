@@ -215,7 +215,7 @@ export function DashboardTopbar({
   );
 
   return (
-    <header className="flex items-center gap-2 sm:gap-2.5 h-10 px-3 sm:px-4 bg-white border-b border-slate-200 flex-shrink-0 z-20 min-w-0">
+    <header className="flex items-center gap-2.5 sm:gap-3 h-11 px-5 sm:px-6 lg:px-8 bg-white border-b border-slate-200 flex-shrink-0 z-20 min-w-0">
       {onMenuClick && (
         <button
           type="button"
@@ -375,17 +375,17 @@ export function DashboardTopbar({
             type="button"
             onClick={() => { setProfileOpen((o) => !o); setCreditsOpen(false); }}
             className={cn(
-              "flex items-center gap-2 h-11 pl-1.5 pr-2 rounded-xl transition-colors touch-target",
+              "flex items-center gap-2 h-9 pl-1.5 pr-2 rounded-lg transition-colors touch-target",
               profileOpen ? "bg-slate-100" : "hover:bg-slate-50"
             )}
             aria-label="Account menu"
           >
-            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
               {initials}
             </div>
             <div className="text-left hidden md:block min-w-0">
-              <p className="text-sm font-semibold text-slate-900 leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{displayName}</p>
-              <p className="text-xs text-slate-500 leading-tight truncate max-w-[7.5rem] lg:max-w-[140px]">{profileSubtitle}</p>
+              <p className="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[7.5rem] lg:max-w-[120px]">{displayName}</p>
+              <p className="text-[11px] text-slate-500 leading-tight truncate max-w-[7.5rem] lg:max-w-[140px]">{profileSubtitle}</p>
             </div>
             <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform hidden sm:block", profileOpen && "rotate-180")} />
           </button>

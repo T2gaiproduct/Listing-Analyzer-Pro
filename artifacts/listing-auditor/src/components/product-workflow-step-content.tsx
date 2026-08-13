@@ -58,7 +58,7 @@ function WorkflowStepShell({
   isSaving?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm space-y-2.5">
+    <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm space-y-3">
       {children}
       {showSaveAndContinue && onSaveAndContinue && (
         <div className="flex justify-end border-t border-slate-100 pt-3">
@@ -162,7 +162,7 @@ export function ProductWorkflowStepContent({
   if (step === 1) {
     if (listingEditorContent) {
       return (
-        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm space-y-2.5">
+        <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm space-y-3">
           {listingEditorContent}
         </div>
       );
