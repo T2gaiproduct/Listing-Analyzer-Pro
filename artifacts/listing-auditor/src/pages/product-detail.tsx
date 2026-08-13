@@ -28,6 +28,7 @@ import { useGetAudit, getGetAuditQueryKey, useGenerateContent, type GetAuditQuer
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import { formatAiErrorMessage } from "@/lib/ai-error-message";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
+import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
@@ -96,6 +97,16 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function isStoreImportProduct(product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport"> | null): boolean {
   return Boolean(product?.isShopifyImport || product?.isWooCommerceImport);
+}
+
+/** Show the left "Existing Content" column for store imports and Amazon audit listings only. */
+function shouldShowExistingListingContent(
+  product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport" | "asin"> | null,
+  audit?: { asin?: string | null } | null,
+): boolean {
+  if (isStoreImportProduct(product)) return true;
+  const asin = audit?.asin?.trim() || product?.asin?.trim();
+  return Boolean(asin && !isShopifyImportAsin(asin) && !isWooCommerceImportAsin(asin));
 }
 
 /** Detect keywords that were tokenized from description/bullet text instead of real store tags. */
@@ -948,6 +959,7 @@ function OptimizedContentPanel({
   onOptimize,
   optimizeDisabled,
   hideBulletPoints = false,
+  showExistingContent = true,
 }: {
   generatedContent?: GeneratedContent | null;
   existingContent?: ListingContentView | null;
@@ -957,6 +969,7 @@ function OptimizedContentPanel({
   onOptimize: () => void;
   optimizeDisabled?: boolean;
   hideBulletPoints?: boolean;
+  showExistingContent?: boolean;
 }) {
   const optimizedContent: ListingContentView | null = hasGeneratedContent && generatedContent?.title
     ? {
@@ -971,21 +984,28 @@ function OptimizedContentPanel({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-1.5 px-1">
-            <FileText className="w-3.5 h-3.5 text-slate-500" />
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-              Existing Content
-            </p>
+      <div
+        className={cn(
+          "grid gap-4 items-start",
+          showExistingContent ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1",
+        )}
+      >
+        {showExistingContent ? (
+          <div className="space-y-2 min-w-0">
+            <div className="flex items-center gap-1.5 px-1">
+              <FileText className="w-3.5 h-3.5 text-slate-500" />
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Existing Content
+              </p>
+            </div>
+            <ListingContentCard
+              content={existingContent}
+              emptyMessage="No existing listing content yet. Add details in Overview or import from your store."
+              accent="slate"
+              hideBulletPoints={hideBulletPoints}
+            />
           </div>
-          <ListingContentCard
-            content={existingContent}
-            emptyMessage="No existing listing content yet. Add details in Overview or import from your store."
-            accent="slate"
-            hideBulletPoints={hideBulletPoints}
-          />
-        </div>
+        ) : null}
 
         <div className="space-y-2 min-w-0">
           <div className="flex items-center justify-between gap-2 px-1">
@@ -2303,6 +2323,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
             <OptimizedContentPanel
               {...panelProps}
               hideBulletPoints={isStoreImportProduct(product)}
+              showExistingContent={shouldShowExistingListingContent(product, effectiveAudit)}
             />
           )}
           overviewContent={
