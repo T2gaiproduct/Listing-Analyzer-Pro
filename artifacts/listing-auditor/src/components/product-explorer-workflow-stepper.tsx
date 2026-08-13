@@ -148,16 +148,13 @@ export function productExplorerStepCompletedFromData(
   };
 }
 
-/** Open on the first step that still needs work — not the furthest API currentStep. */
+/** Open on Overview when entering Product Explorer; users pick the next step from the tab bar. */
 export function resolveInitialProductExplorerStep(
-  completed: Record<ProductExplorerWorkflowStepId, boolean>,
-  currentStep: number | null | undefined,
-  opts?: { forceOverview?: boolean },
+  _completed: Record<ProductExplorerWorkflowStepId, boolean>,
+  _currentStep: number | null | undefined,
+  _opts?: { forceOverview?: boolean },
 ): ProductExplorerWorkflowStepId {
-  if (opts?.forceOverview) return 1;
-  const firstIncomplete = PRODUCT_EXPLORER_WORKFLOW_STEPS.find((s) => !completed[s.id]);
-  if (firstIncomplete) return firstIncomplete.id;
-  return apiStepToProductExplorerStep(currentStep);
+  return 1;
 }
 
 /** @deprecated Use productExplorerStepCompletedFromData — currentStep alone over-marked steps complete. */

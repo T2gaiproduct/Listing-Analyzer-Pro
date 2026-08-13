@@ -134,7 +134,7 @@ function inferSourceType(workflowUrl: string): ProductSourceType {
 }
 
 function productDetailUrl(id: number, sourceType: ProductSourceType): string {
-  return `/products/${id}?source=${sourceType}`;
+  return `/products/${id}?source=${sourceType}&step=overview`;
 }
 
 function productOverviewEditUrl(detailUrl: string): string {
