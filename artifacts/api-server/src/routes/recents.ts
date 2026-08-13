@@ -25,6 +25,7 @@ import {
   type WorkedProjectType,
 } from "../lib/member-projects";
 import { isShopifyImportAsin } from "../lib/shopify-import-utils.js";
+import { isWooCommerceImportAsin } from "../lib/woocommerce-import-utils.js";
 
 const router: IRouter = Router();
 
@@ -91,12 +92,17 @@ function classifyAuditRecentsItem(a: {
   asin?: string | null;
 }): { type: "audit" | "listing"; url: string; typeLabel: string } {
   const isShopifyImport = isShopifyImportAsin(a.asin);
-  const isAuditListing = !!a.asin?.trim() && !isShopifyImport;
+  const isWooCommerceImport = isWooCommerceImportAsin(a.asin);
+  const isAuditListing = !!a.asin?.trim() && !isShopifyImport && !isWooCommerceImport;
   const type = isAuditListing ? "audit" as const : "listing" as const;
   return {
     type,
     url: isAuditListing ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
-    typeLabel: isShopifyImport ? "Shopify Import" : recentsTypeLabel(type),
+    typeLabel: isShopifyImport
+      ? "Shopify Import"
+      : isWooCommerceImport
+        ? "WooCommerce Import"
+        : recentsTypeLabel(type),
   };
 }
 

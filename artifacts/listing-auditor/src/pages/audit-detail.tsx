@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   useGetAudit, useDeleteAudit, useDeleteCompetitor,
@@ -30,6 +30,8 @@ import {
 import { downloadAuditReportPdf } from "@/lib/audit-report-pdf";
 import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
+import { isShopifyImportAsin } from "@/lib/shopify-import";
+import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -123,6 +125,15 @@ export default function AuditDetail({ id }: { id: number }) {
     query: { enabled: !!id, queryKey: getGetAuditQueryKey(id) },
   });
 
+  useEffect(() => {
+    if (!audit) return;
+    const isStoreImport = isShopifyImportAsin(audit.asin) || isWooCommerceImportAsin(audit.asin);
+    const hasAuditRun = (audit.overallScore ?? 0) > 0;
+    if (isStoreImport && !hasAuditRun) {
+      setLocation(`/audits/workflow?resume=${id}`);
+    }
+  }, [audit, id, setLocation]);
+
   const deleteAudit = useDeleteAudit();
   const deleteCompetitor = useDeleteCompetitor();
   const generateContent = useGenerateContent();
@@ -153,6 +164,18 @@ export default function AuditDetail({ id }: { id: number }) {
       <div className="text-center py-16">
         <p className="text-muted-foreground">Audit not found.</p>
         <Button asChild className="mt-4"><Link href={returnTo}>Go Back</Link></Button>
+      </div>
+    );
+  }
+
+  const isStoreImportWithoutAudit =
+    (isShopifyImportAsin(audit.asin) || isWooCommerceImportAsin(audit.asin))
+    && (audit.overallScore ?? 0) <= 0;
+  if (isStoreImportWithoutAudit) {
+    return (
+      <div className="space-y-8 animate-in fade-in">
+        <Skeleton className="h-10 w-80" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}</div>
       </div>
     );
   }
