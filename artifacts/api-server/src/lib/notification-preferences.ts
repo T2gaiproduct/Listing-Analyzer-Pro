@@ -113,6 +113,36 @@ export function mergeNotificationPreferences(
   };
 }
 
+export function buildNotificationPreferencesPatch(
+  notificationPreferences: Partial<NotificationPreferences>,
+): Partial<NotificationPreferences> | null {
+  const patch: Partial<NotificationPreferences> = {};
+  for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+    if (typeof notificationPreferences[key] === "boolean") {
+      patch[key] = notificationPreferences[key];
+    }
+  }
+
+  const emailPatch = notificationPreferences.email;
+  if (emailPatch && typeof emailPatch === "object") {
+    patch.email = {};
+    for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
+      if (typeof emailPatch[key] === "boolean") {
+        patch.email[key] = emailPatch[key];
+      }
+    }
+    if (Object.keys(patch.email).length === 0) {
+      delete patch.email;
+    }
+  }
+
+  const hasChannelPatch = NOTIFICATION_PREFERENCE_CATEGORIES.some(
+    (key) => typeof patch[key] === "boolean",
+  );
+  const hasEmailPatch = Boolean(patch.email && Object.keys(patch.email).length > 0);
+  return hasChannelPatch || hasEmailPatch ? patch : null;
+}
+
 export function notificationCategoryForType(type: string): NotificationPreferenceCategory | null {
   return typeToCategory.get(type) ?? null;
 }
@@ -311,7 +341,7 @@ export async function updateUserNotificationPreferences(
     audits: patch.audits ?? current.audits,
     admin: patch.admin ?? current.admin,
     email: {
-      ...mergeEmailNotificationPreferences(raw?.email),
+      ...current.email!,
       ...(patch.email ?? {}),
     },
   };

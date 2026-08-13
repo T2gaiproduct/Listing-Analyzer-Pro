@@ -38,6 +38,7 @@ import { rateLimit } from "../lib/rate-limit";
 import { recordPendingGatewayPayment } from "../lib/gateway-payment";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  buildNotificationPreferencesPatch,
   filterNotificationsByPreferences,
   getUserNotificationPreferences,
   isNotificationPreferencesColumnMissingError,
@@ -444,22 +445,8 @@ router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
     }
 
     if (notificationPreferences && typeof notificationPreferences === "object") {
-      const patch: Partial<NotificationPreferences> = {};
-      for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
-        if (typeof notificationPreferences[key] === "boolean") {
-          patch[key] = notificationPreferences[key];
-        }
-      }
-      const emailPatch = notificationPreferences.email;
-      if (emailPatch && typeof emailPatch === "object") {
-        patch.email = {};
-        for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
-          if (typeof emailPatch[key] === "boolean") {
-            patch.email[key] = emailPatch[key];
-          }
-        }
-      }
-      if (Object.keys(patch).length > 0 || patch.email) {
+      const patch = buildNotificationPreferencesPatch(notificationPreferences);
+      if (patch) {
         await updateUserNotificationPreferences(userId, patch, { loginEmail: sessionEmail });
       }
     }
@@ -1246,15 +1233,9 @@ router.patch("/profile/notification-preferences", requireAuth, async (req, res):
     const auth = getAuth(req);
     const sessionEmail = auth?.sessionClaims?.email as string | undefined;
     const body = req.body as Partial<NotificationPreferences>;
-    const patch: Partial<NotificationPreferences> = {};
+    const patch = buildNotificationPreferencesPatch(body);
 
-    for (const key of NOTIFICATION_PREFERENCE_CATEGORIES) {
-      if (typeof body[key] === "boolean") {
-        patch[key] = body[key];
-      }
-    }
-
-    if (Object.keys(patch).length === 0) {
+    if (!patch) {
       res.status(400).json({ error: "No valid preference fields provided" });
       return;
     }

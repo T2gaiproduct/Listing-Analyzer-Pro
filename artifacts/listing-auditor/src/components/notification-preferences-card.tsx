@@ -50,42 +50,36 @@ async function readApiJson<T>(res: Response): Promise<T> {
   }
 }
 
-function resolvePreferencesFromProfilePayload(data: {
-  notificationPreferences?: NotificationPreferences;
-  preferences?: NotificationPreferences;
-  profile?: { notificationPreferences?: NotificationPreferences } | null;
-}): NotificationPreferences {
-  const raw = data.notificationPreferences
-    ?? data.preferences
-    ?? data.profile?.notificationPreferences;
-  return mergeNotificationPreferences(raw);
-}
-
 async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
-  const res = await fetch(`${basePath}/api/profile`, { credentials: "include" });
-  const data = await readApiJson<{
-    notificationPreferences?: NotificationPreferences;
-    preferences?: NotificationPreferences;
-    profile?: { notificationPreferences?: NotificationPreferences } | null;
-  }>(res);
-  return resolvePreferencesFromProfilePayload(data);
+  const res = await fetch(`${basePath}/api/profile/notification-preferences`, { credentials: "include" });
+  const data = await readApiJson<{ preferences?: NotificationPreferences }>(res);
+  return mergeNotificationPreferences(data.preferences);
 }
 
 async function saveNotificationPreferences(
   patch: Partial<NotificationPreferences>,
 ): Promise<NotificationPreferences> {
-  const res = await fetch(`${basePath}/api/profile`, {
+  const res = await fetch(`${basePath}/api/profile/notification-preferences`, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ notificationPreferences: patch }),
+    body: JSON.stringify(patch),
   });
-  const data = await readApiJson<{
-    notificationPreferences?: NotificationPreferences;
-    preferences?: NotificationPreferences;
-    profile?: { notificationPreferences?: NotificationPreferences } | null;
-  }>(res);
-  return resolvePreferencesFromProfilePayload(data);
+  const data = await readApiJson<{ preferences?: NotificationPreferences }>(res);
+  return mergeNotificationPreferences(data.preferences);
+}
+
+function applyNotificationPreferencesPatch(
+  current: NotificationPreferences,
+  patch: Partial<NotificationPreferences>,
+): NotificationPreferences {
+  return mergeNotificationPreferences({
+    ...current,
+    ...patch,
+    email: patch.email
+      ? { ...current.email, ...patch.email }
+      : current.email,
+  });
 }
 
 export function NotificationPreferencesCard({
@@ -110,12 +104,26 @@ export function NotificationPreferencesCard({
 
   const save = useMutation({
     mutationFn: saveNotificationPreferences,
+    onMutate: async (patch) => {
+      await qc.cancelQueries({ queryKey: ["notification-preferences"] });
+      const previous = qc.getQueryData<NotificationPreferences>(["notification-preferences"]);
+      if (previous) {
+        qc.setQueryData(
+          ["notification-preferences"],
+          applyNotificationPreferencesPatch(previous, patch),
+        );
+      }
+      return { previous };
+    },
     onSuccess: (updated) => {
       qc.setQueryData(["notification-preferences"], updated);
       qc.invalidateQueries({ queryKey: ["notifications"] });
       toast({ title: "Notification preferences updated" });
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _patch, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["notification-preferences"], context.previous);
+      }
       toast({ title: "Could not update preferences", description: err.message, variant: "destructive" });
     },
   });
@@ -141,7 +149,12 @@ export function NotificationPreferencesCard({
       });
       return;
     }
-    save.mutate({ email: { [category]: enabled } });
+    save.mutate({
+      email: {
+        ...(resolvedPreferences.email ?? DEFAULT_NOTIFICATION_PREFERENCES.email!),
+        [category]: enabled,
+      },
+    });
   };
 
   const categories = showAdminAlerts
@@ -187,8 +200,7 @@ export function NotificationPreferencesCard({
           <>
             {categories.map((category) => {
               const meta = NOTIFICATION_PREFERENCE_META[category];
-              const emailEnabled = resolvedPreferences.email?.[category]
-                ?? DEFAULT_NOTIFICATION_PREFERENCES.email![category];
+              const emailEnabled = resolvedPreferences.email![category];
               return (
                 <div
                   key={category}
