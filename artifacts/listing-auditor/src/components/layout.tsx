@@ -943,7 +943,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Top ribbon (project context) ── */}
         {isRibbonVisible(location) && (
-          <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[44px] py-1.5 sm:py-0 px-4 sm:px-5 lg:px-6 bg-white border-b border-slate-200 flex-shrink-0">
+          <div className="relative flex flex-wrap items-center gap-2 sm:gap-0 min-h-[44px] py-1.5 sm:py-0 px-4 sm:px-5 bg-white border-b border-slate-200 flex-shrink-0">
             <button
               onClick={() => window.history.back()}
               className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-2 py-2 transition-colors z-10 min-h-11"

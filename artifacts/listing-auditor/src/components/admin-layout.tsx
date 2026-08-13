@@ -498,7 +498,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           onMenuClick={() => setMobileNavOpen(true)}
         />
         <div className="flex-1 overflow-y-auto overflow-x-hidden app-shell-padding bg-slate-50">
-          <div className="app-content-max max-w-7xl w-full min-w-0">
+          <div className="app-content-max w-full min-w-0">
             {children}
           </div>
         </div>

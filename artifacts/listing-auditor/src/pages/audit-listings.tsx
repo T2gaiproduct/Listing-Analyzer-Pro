@@ -123,7 +123,7 @@ export default function AuditListings() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-12 space-y-16 animate-in fade-in duration-500">
+    <div className="w-full min-w-0 py-12 space-y-16 animate-in fade-in duration-500">
       {/* Full-screen loading overlay */}
       {isLoading && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">

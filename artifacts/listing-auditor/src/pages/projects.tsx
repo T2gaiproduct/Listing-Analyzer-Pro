@@ -6,7 +6,7 @@ export default function ProjectsPage() {
   const [, nav] = useLocation();
 
   return (
-    <div className="w-full min-w-0 max-w-5xl space-y-6 sm:space-y-8">
+    <div className="w-full min-w-0 space-y-6 sm:space-y-8">
       {/* Hero Section */}
       <div className="relative bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 rounded-2xl sm:rounded-3xl p-4 sm:p-8 md:p-12 border border-amber-100 overflow-hidden">
         {/* Background decorative elements */}

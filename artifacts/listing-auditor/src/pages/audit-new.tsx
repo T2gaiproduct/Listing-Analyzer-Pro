@@ -95,7 +95,7 @@ export default function AuditNew() {
       </div>
 
       {/* How It Works */}
-      <div className="px-4 sm:px-6 pb-10 max-w-5xl mx-auto">
+      <div className="pb-10 w-full min-w-0">
         {/* Section header */}
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="flex items-center gap-1">

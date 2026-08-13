@@ -515,7 +515,7 @@ export default function MarketplacesPage() {
 
   if (wsLoading || (isLoading && featureWorkspaceId)) {
     return (
-      <div className="space-y-4 animate-in fade-in max-w-5xl">
+      <div className="space-y-4 animate-in fade-in w-full min-w-0">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -549,7 +549,7 @@ export default function MarketplacesPage() {
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-300 max-w-5xl">
+    <div className="space-y-5 animate-in fade-in duration-300 w-full min-w-0">
       <div className="flex items-center gap-1 text-[11px] text-slate-400">
         <span>{platformName}</span>
         <ChevronRight className="w-3 h-3" />

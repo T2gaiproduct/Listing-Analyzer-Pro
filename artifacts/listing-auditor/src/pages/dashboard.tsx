@@ -186,7 +186,7 @@ function MemberHomePanel({
   const creditTotal = credits.auditCredits + credits.aiCredits + credits.imageCredits;
 
   return (
-    <div className="space-y-6 max-w-3xl animate-in fade-in duration-500">
+    <div className="space-y-6 w-full min-w-0 animate-in fade-in duration-500">
       <div>
         <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">
           Welcome, {name}! 👋

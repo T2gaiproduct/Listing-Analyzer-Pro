@@ -1431,9 +1431,9 @@ export default function AuditWorkflow() {
     <div className="flex flex-col h-full overflow-hidden bg-white">
 
       {/* ── Top Progress Stepper ─────────────────────────────────────────── */}
-      <div className="border-b border-slate-200 bg-white px-4 sm:px-6 py-0 flex-shrink-0">
+      <div className="border-b border-slate-200 bg-white py-0 flex-shrink-0">
         <BuildBrandWorkflowStepper
-          className="max-w-5xl mx-auto border-0 rounded-none"
+          className="border-0 rounded-none"
           activeStep={activeStep}
           stepCompleted={stepCompleted}
           onStepClick={handleStepClick}
@@ -1451,7 +1451,7 @@ export default function AuditWorkflow() {
           />
         )}
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-5 w-full min-w-0">
+        <div className="py-4 sm:py-5 w-full min-w-0">
 
           {/* STEP 1: Select existing product ── */}
           {activeStep === 1 && (
@@ -2210,7 +2210,7 @@ export default function AuditWorkflow() {
       </div>
 
       {/* ── Bottom Bar ───────────────────────────────────────────────────── */}
-      <div className="border-t border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+      <div className="border-t border-slate-200 bg-white px-4 sm:px-5 py-4 flex items-center justify-between flex-shrink-0">
         <Button
           variant="outline"
           className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"

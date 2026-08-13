@@ -156,7 +156,7 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="w-full min-w-0 mx-auto p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
