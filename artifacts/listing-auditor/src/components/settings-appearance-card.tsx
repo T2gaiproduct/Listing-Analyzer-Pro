@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 const THEME_OPTIONS = [
   { value: "light" as const, label: "Light", icon: Sun },
   { value: "dark" as const, label: "Dark", icon: Moon },
-  { value: "system" as const, label: "System", icon: Monitor },
 ];
 
 export function SettingsAppearanceCard() {
@@ -25,7 +24,7 @@ export function SettingsAppearanceCard() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 max-w-xs">
           {THEME_OPTIONS.map((option) => {
             const Icon = option.icon;
             const active = theme === option.value;

@@ -185,51 +185,47 @@ export function NotificationPreferencesCard({
           </div>
         ) : (
           <>
-            <div className="hidden sm:grid sm:grid-cols-[1fr_4.5rem_4.5rem] gap-3 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <span>Category</span>
-              <span className="text-center">In-app</span>
-              <span className="text-center flex items-center justify-center gap-1">
-                <Mail className="w-3 h-3" />
-                Email
-              </span>
-            </div>
-
             {categories.map((category) => {
               const meta = NOTIFICATION_PREFERENCE_META[category];
               const emailEnabled = resolvedPreferences.email?.[category] ?? resolvedPreferences[category];
               return (
                 <div
                   key={category}
-                  className={settingsPanelClassName("space-y-3")}
+                  className={settingsPanelClassName("grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4 items-start")}
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-semibold text-foreground">{meta.label}</p>
                     <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
                     <p className="text-[11px] text-muted-foreground/80">e.g. {meta.examples}</p>
                   </div>
-                  <div className="flex items-center justify-end gap-6 sm:gap-8">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`notif-app-${category}`} className="text-xs text-muted-foreground sm:hidden">
-                        In-app
-                      </Label>
-                      <Switch
-                        id={`notif-app-${category}`}
-                        checked={resolvedPreferences[category]}
-                        disabled={save.isPending}
-                        onCheckedChange={(checked) => onToggleApp(category, checked)}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`notif-email-${category}`} className="text-xs text-muted-foreground sm:hidden">
-                        Email
-                      </Label>
-                      <Switch
-                        id={`notif-email-${category}`}
-                        checked={emailEnabled}
-                        disabled={save.isPending}
-                        onCheckedChange={(checked) => onToggleEmail(category, checked)}
-                      />
-                    </div>
+                  <div className="flex sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-1.5 sm:pt-1">
+                    <Label
+                      htmlFor={`notif-app-${category}`}
+                      className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      In-app
+                    </Label>
+                    <Switch
+                      id={`notif-app-${category}`}
+                      checked={resolvedPreferences[category]}
+                      disabled={save.isPending}
+                      onCheckedChange={(checked) => onToggleApp(category, checked)}
+                    />
+                  </div>
+                  <div className="flex sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-1.5 sm:pt-1">
+                    <Label
+                      htmlFor={`notif-email-${category}`}
+                      className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1"
+                    >
+                      <Mail className="w-3 h-3" />
+                      Email
+                    </Label>
+                    <Switch
+                      id={`notif-email-${category}`}
+                      checked={emailEnabled}
+                      disabled={save.isPending}
+                      onCheckedChange={(checked) => onToggleEmail(category, checked)}
+                    />
                   </div>
                 </div>
               );
