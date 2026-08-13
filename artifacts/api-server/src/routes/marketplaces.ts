@@ -37,6 +37,7 @@ import { normalizeLwaClientSecret, testAmazonSpConnection } from "../lib/amazon-
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
 import { syncWooCommerceProducts } from "../lib/woocommerce-product-sync.js";
+import { syncWooCommerceOrders } from "../lib/woocommerce-order-sync.js";
 import { verifyShopifyConnection } from "../lib/shopify-connection-verify.js";
 
 const router: IRouter = Router();
@@ -459,11 +460,21 @@ router.post(
         workspaceId,
       });
 
+      void syncWooCommerceOrders({
+        workspaceId,
+        storeUrl: connection.storeUrl,
+        consumerKey: connection.consumerKey,
+        consumerSecret: connection.consumerSecret,
+      }).catch((err) => {
+        req.log?.error?.({ err }, "WooCommerce order sync failed");
+      });
+
       res.status(201).json({
         ...result,
         auditsCompleted: 0,
         auditsFailed: 0,
         auditsRemaining: 0,
+        ordersSyncQueued: true,
       });
     } catch (err) {
       req.log?.error?.({ err }, "WooCommerce product sync failed");

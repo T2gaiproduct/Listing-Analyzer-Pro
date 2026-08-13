@@ -394,3 +394,87 @@ export async function publishListingToAmazon(opts: {
     body,
   });
 }
+
+export type AmazonSpOrder = {
+  AmazonOrderId: string;
+  PurchaseDate: string;
+  OrderStatus: string;
+  OrderTotal?: { Amount?: string; CurrencyCode?: string };
+  BuyerInfo?: { BuyerName?: string };
+};
+
+export type AmazonSpOrderItem = {
+  OrderItemId: string;
+  ASIN?: string;
+  SellerSKU?: string;
+  Title?: string;
+  QuantityOrdered?: number;
+  ItemPrice?: { Amount?: string; CurrencyCode?: string };
+};
+
+export async function listAmazonOrders(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  marketplaceId: string;
+  createdAfter: string;
+  maxOrders?: number;
+}): Promise<AmazonSpOrder[]> {
+  const orders: AmazonSpOrder[] = [];
+  const maxOrders = opts.maxOrders ?? 100;
+  let nextToken: string | undefined;
+
+  for (let page = 0; page < 20 && orders.length < maxOrders; page += 1) {
+    const tokenPart = nextToken ? `&NextToken=${encodeURIComponent(nextToken)}` : "";
+    const path = `/orders/v0/orders?MarketplaceIds=${encodeURIComponent(opts.marketplaceId)}&CreatedAfter=${encodeURIComponent(opts.createdAfter)}&MaxResultsPerPage=100${tokenPart}`;
+    const data = await spApiRequest<{
+      payload?: { Orders?: AmazonSpOrder[]; NextToken?: string };
+      Orders?: AmazonSpOrder[];
+      NextToken?: string;
+    }>({
+      settings: opts.settings,
+      refreshToken: opts.refreshToken,
+      method: "GET",
+      path,
+    });
+
+    const payload = data.payload ?? data;
+    const batch = payload.Orders ?? [];
+    orders.push(...batch);
+    nextToken = payload.NextToken;
+    if (!nextToken || batch.length === 0) break;
+  }
+
+  return orders.slice(0, maxOrders);
+}
+
+export async function listAmazonOrderItems(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  orderId: string;
+}): Promise<AmazonSpOrderItem[]> {
+  const items: AmazonSpOrderItem[] = [];
+  let nextToken: string | undefined;
+
+  for (let page = 0; page < 10; page += 1) {
+    const tokenPart = nextToken ? `&NextToken=${encodeURIComponent(nextToken)}` : "";
+    const path = `/orders/v0/orders/${encodeURIComponent(opts.orderId)}/orderItems?MaxResultsPerPage=100${tokenPart}`;
+    const data = await spApiRequest<{
+      payload?: { OrderItems?: AmazonSpOrderItem[]; NextToken?: string };
+      OrderItems?: AmazonSpOrderItem[];
+      NextToken?: string;
+    }>({
+      settings: opts.settings,
+      refreshToken: opts.refreshToken,
+      method: "GET",
+      path,
+    });
+
+    const payload = data.payload ?? data;
+    const batch = payload.OrderItems ?? [];
+    items.push(...batch);
+    nextToken = payload.NextToken;
+    if (!nextToken || batch.length === 0) break;
+  }
+
+  return items;
+}

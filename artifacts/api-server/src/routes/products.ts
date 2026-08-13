@@ -43,12 +43,7 @@ import {
   resolveStatsAuditId,
 } from "../lib/product-detail-load.js";
 import { runListingAuditForAuditId, sendRunListingAuditResult } from "../lib/listing-audit-runner.js";
-import {
-  getShopifyConnection,
-  getShopifyConnectionPublic,
-} from "../lib/marketplace-connections.js";
-import { maybeSyncShopifyOrdersForWorkspace } from "../lib/shopify-order-sync.js";
-import { isShopifyImportAsin } from "../lib/shopify-import-utils.js";
+import { maybeRefreshMarketplaceOrders } from "../lib/marketplace-order-refresh.js";
 
 const router: IRouter = Router();
 
@@ -109,26 +104,8 @@ function deriveSku(productName: string, id: number): string {
   return `${prefix}-${String(id).padStart(4, "0")}`;
 }
 
-async function maybeRefreshShopifyOrders(req: Request, auditId: number): Promise<void> {
-  const workspaceId = getActiveWorkspaceId(req);
-  const [audit] = await db
-    .select({ asin: auditsTable.asin })
-    .from(auditsTable)
-    .where(eq(auditsTable.id, auditId))
-    .limit(1);
-
-  if (!isShopifyImportAsin(audit?.asin)) return;
-
-  const connection = await getShopifyConnectionPublic(workspaceId);
-  if (!connection?.storeUrl) return;
-
-  const credentials = await getShopifyConnection(workspaceId);
-  await maybeSyncShopifyOrdersForWorkspace({
-    workspaceId,
-    storeUrl: connection.storeUrl,
-    clientId: credentials?.clientId,
-    clientSecret: credentials?.clientSecret,
-  });
+async function maybeRefreshShopifyOrders(req: Request, _auditId: number): Promise<void> {
+  await maybeRefreshMarketplaceOrders(req);
 }
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";

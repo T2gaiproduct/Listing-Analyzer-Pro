@@ -2,10 +2,10 @@ import { and, eq, like } from "drizzle-orm";
 import {
   auditsTable,
   db,
-  productOrdersTable,
   productProfilesTable,
 } from "@workspace/db";
 import type { ProductOrderStatus } from "./product-orders.js";
+import { upsertProductOrderRow } from "./product-order-upsert.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import {
   getShopifyAccessToken,
@@ -151,11 +151,12 @@ async function upsertShopifyOrderRow(input: {
   const amountCents = lineItemAmountCents(input.lineItem);
   const orderedAt = new Date(input.order.created_at);
   const status = mapShopifyOrderStatus(input.order);
-  const values = {
+
+  const outcome = await upsertProductOrderRow({
     auditId: input.auditId,
     workspaceId: input.workspaceId,
-    orderNumber,
     marketplace: "Shopify",
+    orderNumber,
     customerName: customerName(input.order),
     quantity: input.lineItem.quantity,
     amountCents,
@@ -163,37 +164,9 @@ async function upsertShopifyOrderRow(input: {
     status,
     orderedAt,
     trackingNumber: trackingNumber(input.order),
-  };
+  });
 
-  const [existing] = await db
-    .select({ id: productOrdersTable.id })
-    .from(productOrdersTable)
-    .where(and(
-      eq(productOrdersTable.auditId, input.auditId),
-      eq(productOrdersTable.marketplace, "Shopify"),
-      eq(productOrdersTable.orderNumber, orderNumber),
-      eq(productOrdersTable.isDeleted, 0),
-    ))
-    .limit(1);
-
-  if (existing) {
-    await db
-      .update(productOrdersTable)
-      .set({
-        customerName: values.customerName,
-        quantity: values.quantity,
-        amountCents: values.amountCents,
-        currency: values.currency,
-        status: values.status,
-        orderedAt: values.orderedAt,
-        trackingNumber: values.trackingNumber,
-      })
-      .where(eq(productOrdersTable.id, existing.id));
-    return "updated";
-  }
-
-  await db.insert(productOrdersTable).values(values);
-  return "imported";
+  return outcome;
 }
 
 export async function syncShopifyOrders(input: {

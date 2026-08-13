@@ -301,6 +301,64 @@ export async function uploadWooCommerceMedia(input: WooCommerceAuth & {
   return { id: media.id, source_url: media.source_url?.trim() || "" };
 }
 
+export type WooCommerceRestOrderLineItem = {
+  id: number;
+  name: string;
+  product_id: number;
+  variation_id?: number;
+  quantity: number;
+  sku?: string;
+  price?: number;
+  total?: string;
+  subtotal?: string;
+};
+
+export type WooCommerceRestOrder = {
+  id: number;
+  number: string;
+  status: string;
+  currency: string;
+  date_created: string;
+  billing?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+  line_items?: WooCommerceRestOrderLineItem[];
+  meta_data?: Array<{ key?: string; value?: unknown }>;
+};
+
+export async function listWooCommerceOrders(input: {
+  storeUrl: string;
+  consumerKey: string;
+  consumerSecret: string;
+  createdAfter?: string;
+  maxOrders?: number;
+}): Promise<WooCommerceRestOrder[]> {
+  const maxOrders = input.maxOrders ?? 500;
+  const orders: WooCommerceRestOrder[] = [];
+  let page = 1;
+  const after = input.createdAfter
+    ? `&after=${encodeURIComponent(input.createdAfter)}`
+    : "";
+
+  while (orders.length < maxOrders) {
+    const batch = await wooCommerceRequest<WooCommerceRestOrder[]>({
+      storeUrl: input.storeUrl,
+      consumerKey: input.consumerKey,
+      consumerSecret: input.consumerSecret,
+      path: `/wp-json/wc/v3/orders?status=any&per_page=100&page=${page}${after}`,
+    });
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    orders.push(...batch);
+    if (batch.length < 100) break;
+    page += 1;
+    if (page > 40) break;
+  }
+
+  return orders.slice(0, maxOrders);
+}
+
 export async function fetchWooCommerceCatalog(input: {
   storeUrl: string;
   consumerKey: string;
