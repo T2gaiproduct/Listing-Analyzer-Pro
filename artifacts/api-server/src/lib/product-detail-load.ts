@@ -35,7 +35,7 @@ import {
   auditAsinScopeFilter,
 } from "./product-source.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
-import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
+import { isWooCommerceImportAsin, filterTokenizedWooCommerceKeywords } from "./woocommerce-import-utils.js";
 import { resolveDescriptionHtml } from "./resolve-listing-content.js";
 import { readGeneratedContent } from "./listing-export-shared.js";
 import { maybeRefreshStoreProductImages } from "./store-product-image-refresh.js";
@@ -410,7 +410,10 @@ async function loadAuditDetail(
       ? listingBullets
       : (generated?.bulletPoints ?? []).filter((bullet) => typeof bullet === "string" && bullet.trim());
   const targetKeywords = isWooCommerceImport
-    ? listingKeywords
+    ? filterTokenizedWooCommerceKeywords(
+      listingKeywords,
+      row.storeDescriptionHtml?.trim() || resolveDescriptionHtml(row),
+    )
     : listingKeywords.length > 0
       ? listingKeywords
       : (generated?.keywords ?? []).filter((keyword) => typeof keyword === "string" && keyword.trim());

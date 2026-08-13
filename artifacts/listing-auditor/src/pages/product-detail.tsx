@@ -98,6 +98,27 @@ function isStoreImportProduct(product?: Pick<ProductDetailView, "isShopifyImport
   return Boolean(product?.isShopifyImport || product?.isWooCommerceImport);
 }
 
+/** Detect keywords that were tokenized from description/bullet text instead of real store tags. */
+function looksLikeTokenizedDescriptionKeywords(
+  keywords: string[],
+  description: string,
+): boolean {
+  if (keywords.length < 6) return false;
+  const haystack = description.toLowerCase();
+  if (!haystack.trim()) return false;
+  const matched = keywords.filter((keyword) => haystack.includes(keyword.toLowerCase()));
+  return matched.length / keywords.length >= 0.7;
+}
+
+function resolveStoreImportKeywords(
+  keywords: string[],
+  description: string,
+): string[] {
+  if (keywords.length === 0) return [];
+  if (looksLikeTokenizedDescriptionKeywords(keywords, description)) return [];
+  return keywords;
+}
+
 type ProductEditForm = {
   productName: string;
   sku: string;
@@ -309,7 +330,11 @@ function resolveExistingListingContent(
 
   const productTags = normalizeStringList(product?.targetKeywords);
   const auditTags = normalizeStringList(audit?.targetKeywords);
-  const keywords = isWooImport ? auditTags : (productTags.length > 0 ? productTags : auditTags);
+  const rawKeywords = isWooImport ? auditTags : (productTags.length > 0 ? productTags : auditTags);
+  const storeDescForTags = audit?.storeDescriptionHtml?.trim() || product?.descriptionHtml?.trim() || "";
+  const keywords = isWooImport
+    ? resolveStoreImportKeywords(rawKeywords, storeDescForTags)
+    : rawKeywords;
 
   const title = isWooImport
     ? (audit?.title?.trim()
@@ -675,14 +700,16 @@ function ListingContentCard({
   content,
   emptyMessage,
   accent = "slate",
+  hideBulletPoints = false,
 }: {
   content: ListingContentView | null | undefined;
   emptyMessage: string;
   accent?: "slate" | "orange";
+  hideBulletPoints?: boolean;
 }) {
   const { toast } = useToast();
   const [descViewMode, setDescViewMode] = useState<"preview" | "code">("preview");
-  const contentBullets = content?.bulletPoints?.filter(Boolean) ?? [];
+  const contentBullets = hideBulletPoints ? [] : (content?.bulletPoints?.filter(Boolean) ?? []);
   const keywords = content?.keywords?.filter(Boolean) ?? [];
   const htmlDescription = content?.htmlDescription?.trim() ?? "";
   const category = content?.category?.trim() ?? "";
@@ -920,6 +947,7 @@ function OptimizedContentPanel({
   isOptimizing,
   onOptimize,
   optimizeDisabled,
+  hideBulletPoints = false,
 }: {
   generatedContent?: GeneratedContent | null;
   existingContent?: ListingContentView | null;
@@ -928,6 +956,7 @@ function OptimizedContentPanel({
   isOptimizing: boolean;
   onOptimize: () => void;
   optimizeDisabled?: boolean;
+  hideBulletPoints?: boolean;
 }) {
   const optimizedContent: ListingContentView | null = hasGeneratedContent && generatedContent?.title
     ? {
@@ -954,6 +983,7 @@ function OptimizedContentPanel({
             content={existingContent}
             emptyMessage="No existing listing content yet. Add details in Overview or import from your store."
             accent="slate"
+            hideBulletPoints={hideBulletPoints}
           />
         </div>
 
@@ -1414,10 +1444,11 @@ export default function ProductDetailPage({ id }: { id: number }) {
     };
   }, [product, marketplaceData, effectiveAudit]);
 
-  const existingListingContent = useMemo(
-    () => resolveExistingListingContent(listingProduct, effectiveAudit),
-    [listingProduct, effectiveAudit],
-  );
+  const existingListingContent = useMemo(() => {
+    const content = resolveExistingListingContent(listingProduct, effectiveAudit);
+    if (!content || !isStoreImportProduct(listingProduct)) return content;
+    return { ...content, bulletPoints: [] };
+  }, [listingProduct, effectiveAudit]);
 
   const listingSuggestions = useMemo(
     () => collectListingSuggestions(effectiveAudit?.result, product?.aiSuggestions),
@@ -2268,7 +2299,12 @@ export default function ProductDetailPage({ id }: { id: number }) {
           canPublishMarketplaces={canEditProduct}
           onSaveAndContinue={() => void saveAndContinueWorkflowStep()}
           isSavingContinue={isSavingWorkflowStep}
-          OptimizedContentPanel={OptimizedContentPanel}
+          OptimizedContentPanel={(panelProps) => (
+            <OptimizedContentPanel
+              {...panelProps}
+              hideBulletPoints={isStoreImportProduct(product)}
+            />
+          )}
           overviewContent={
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-2">
@@ -2449,16 +2485,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                           onChange={(e) => updateEditField("tagsText", e.target.value)}
                           className="text-[11px]"
                           placeholder="comma, separated, tags"
-                        />
-                      </EditDetailField>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <EditDetailField label="Bullet points">
-                        <Textarea
-                          value={editForm.bulletPointsText}
-                          onChange={(e) => updateEditField("bulletPointsText", e.target.value)}
-                          className="text-[11px] min-h-[96px] font-mono"
-                          placeholder="One bullet per line"
                         />
                       </EditDetailField>
                     </div>
