@@ -212,10 +212,10 @@ export function ProductOrdersTab({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] text-left border-collapse">
+        <table className="w-full min-w-[760px] text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/80">
-              {["Order ID", "Marketplace", "Customer", "Qty", "Amount", "Status", "Date", "Tracking"].map((header) => (
+              {["Order ID", "Marketplace", "Customer", "Qty", "Amount", "Status", "Date"].map((header) => (
                 <th
                   key={header}
                   className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
@@ -229,7 +229,7 @@ export function ProductOrdersTab({
             {isLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b border-slate-50">
-                  {Array.from({ length: 8 }).map((__, j) => (
+                  {Array.from({ length: 7 }).map((__, j) => (
                     <td key={j} className="px-4 py-3">
                       <Skeleton className="h-4 w-full max-w-[88px]" />
                     </td>
@@ -238,7 +238,7 @@ export function ProductOrdersTab({
               ))
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-[11px] text-slate-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-[11px] text-slate-500">
                   No orders match your filters yet.
                   <span className="block mt-1 text-[10px] text-slate-400">
                     Orders sync from connected Shopify, WooCommerce, and Amazon stores when you open this tab or run a marketplace sync.
@@ -266,9 +266,6 @@ export function ProductOrdersTab({
                   </td>
                   <td className="px-4 py-3 text-[11px] text-slate-600 tabular-nums">
                     {format(new Date(order.date), "MMM d, yyyy")}
-                  </td>
-                  <td className="px-4 py-3 text-[11px] text-slate-600 font-mono">
-                    {order.tracking ?? "—"}
                   </td>
                 </tr>
               ))

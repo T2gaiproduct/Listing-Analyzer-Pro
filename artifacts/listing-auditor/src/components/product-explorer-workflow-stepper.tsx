@@ -1,6 +1,5 @@
 import type { ElementType } from "react";
 import {
-  Check,
   FileText,
   Image as ImageIcon,
   LayoutDashboard,
@@ -202,7 +201,6 @@ export function ProductExplorerWorkflowStepper({
       <div className="flex items-stretch min-w-[32rem] w-full">
         {PRODUCT_EXPLORER_WORKFLOW_STEPS.map((s) => {
           const isActive = activeStep === s.id;
-          const isCompleted = !isActive && Boolean(stepCompleted[s.id]);
           const clickable = Boolean(onStepClick);
           const StepIcon = s.icon;
 
@@ -222,17 +220,17 @@ export function ProductExplorerWorkflowStepper({
               <div
                 className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors",
-                  isCompleted || isActive
+                  isActive
                     ? "bg-orange-500 border-orange-500 text-white"
                     : "bg-white border-slate-300 text-slate-400",
                 )}
               >
-                {isCompleted ? <Check className="w-4 h-4" /> : <StepIcon className="w-3.5 h-3.5" />}
+                <StepIcon className="w-3.5 h-3.5" />
               </div>
               <p
                 className={cn(
                   "text-[10px] font-bold uppercase tracking-wide leading-none whitespace-nowrap",
-                  isActive ? "text-orange-500" : isCompleted ? "text-orange-400" : "text-slate-400",
+                  isActive ? "text-orange-500" : "text-slate-400",
                 )}
               >
                 {s.label}
@@ -240,7 +238,7 @@ export function ProductExplorerWorkflowStepper({
               <p
                 className={cn(
                   "text-[10px] leading-tight hidden sm:block",
-                  isActive || isCompleted ? "text-slate-600" : "text-slate-400",
+                  isActive ? "text-slate-600" : "text-slate-400",
                 )}
               >
                 {s.sub}
