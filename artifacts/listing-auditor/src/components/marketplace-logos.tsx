@@ -12,19 +12,33 @@ const LOGO_FILES: Record<string, string> = {
   Shopsy: "shopsy.svg",
 };
 
+function normalizeMarketplaceName(marketplace: string): string {
+  const key = marketplace.trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    amazon: "Amazon",
+    shopify: "Shopify",
+    woocommerce: "WooCommerce",
+    flipkart: "Flipkart",
+    meesho: "Meesho",
+    shopsy: "Shopsy",
+  };
+  return aliases[key] ?? marketplace.trim();
+}
+
 function MarketplaceImage({ marketplace, className }: { marketplace: string; className?: string }) {
-  const file = LOGO_FILES[marketplace];
+  const displayName = normalizeMarketplaceName(marketplace);
+  const file = LOGO_FILES[displayName];
   if (!file) {
     return (
       <span className={cn("text-[11px] font-semibold text-slate-700", className)}>
-        {marketplace}
+        {displayName}
       </span>
     );
   }
   return (
     <img
       src={`${basePath}/marketplace/${file}`}
-      alt={marketplace}
+      alt={displayName}
       className={cn("h-full w-auto max-w-full object-contain object-left", className)}
     />
   );
@@ -90,11 +104,12 @@ export function MarketplaceLogo({
   marketplace: string;
   className?: string;
 }) {
+  const displayName = normalizeMarketplaceName(marketplace);
   return (
     <div className={cn("h-5 w-28 flex items-center", className)}>
       <MarketplaceImage
-        marketplace={marketplace}
-        className={cn("max-h-5", LOGO_IMAGE_CLASS[marketplace])}
+        marketplace={displayName}
+        className={cn("max-h-5", LOGO_IMAGE_CLASS[displayName])}
       />
     </div>
   );
