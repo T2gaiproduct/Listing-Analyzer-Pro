@@ -215,7 +215,7 @@ export function DashboardTopbar({
   );
 
   return (
-    <header className="flex items-center gap-2 sm:gap-3 h-12 px-4 sm:px-5 bg-white border-b border-slate-200 flex-shrink-0 z-20 min-w-0">
+    <header className="flex items-center gap-2 sm:gap-2.5 h-10 px-3 sm:px-4 bg-white border-b border-slate-200 flex-shrink-0 z-20 min-w-0">
       {onMenuClick && (
         <button
           type="button"

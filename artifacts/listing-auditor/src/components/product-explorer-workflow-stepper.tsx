@@ -194,11 +194,11 @@ export function ProductExplorerWorkflowStepper({
   return (
     <div
       className={cn(
-        "border border-slate-200 bg-white rounded-xl overflow-x-auto flex-shrink-0",
+        "border border-slate-200 bg-white rounded-lg overflow-x-auto flex-shrink-0",
         className,
       )}
     >
-      <div className="flex items-stretch min-w-[32rem] w-full">
+      <div className="flex items-stretch min-w-[28rem] w-full">
         {PRODUCT_EXPLORER_WORKFLOW_STEPS.map((s) => {
           const isActive = activeStep === s.id;
           const clickable = Boolean(onStepClick);
@@ -211,7 +211,7 @@ export function ProductExplorerWorkflowStepper({
               disabled={!clickable}
               onClick={() => onStepClick?.(s.id)}
               className={cn(
-                "flex-1 min-w-[3.25rem] flex flex-col items-center py-3 gap-0.5 border-b-2 transition-all text-center px-1",
+                "flex-1 min-w-[2.5rem] flex flex-col items-center py-2 gap-0.5 border-b-2 transition-all text-center px-0.5",
                 isActive ? "border-orange-500" : "border-transparent",
                 clickable && !isActive && "hover:border-slate-200 cursor-pointer",
                 !clickable && "cursor-default",
@@ -219,17 +219,17 @@ export function ProductExplorerWorkflowStepper({
             >
               <div
                 className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors",
+                  "w-6 h-6 rounded-full flex items-center justify-center border transition-colors",
                   isActive
                     ? "bg-orange-500 border-orange-500 text-white"
                     : "bg-white border-slate-300 text-slate-400",
                 )}
               >
-                <StepIcon className="w-3.5 h-3.5" />
+                <StepIcon className="w-3 h-3" strokeWidth={2.25} />
               </div>
               <p
                 className={cn(
-                  "text-[10px] font-bold uppercase tracking-wide leading-none whitespace-nowrap",
+                  "text-[9px] font-semibold uppercase tracking-wide leading-none whitespace-nowrap",
                   isActive ? "text-orange-500" : "text-slate-400",
                 )}
               >
@@ -237,8 +237,8 @@ export function ProductExplorerWorkflowStepper({
               </p>
               <p
                 className={cn(
-                  "text-[10px] leading-tight hidden sm:block",
-                  isActive ? "text-slate-600" : "text-slate-400",
+                  "text-[9px] leading-tight hidden lg:block",
+                  isActive ? "text-slate-500" : "text-slate-400",
                 )}
               >
                 {s.sub}

@@ -251,7 +251,7 @@
 
 @layer utilities {
   .app-shell-padding {
-    @apply px-4 py-4 sm:px-5 sm:py-5 lg:px-4 lg:py-5;
+    @apply px-3 py-3 sm:px-4 sm:py-4 lg:px-4 lg:py-4;
   }
 
   .app-content-max {

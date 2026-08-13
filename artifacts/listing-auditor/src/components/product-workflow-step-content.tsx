@@ -58,26 +58,26 @@ function WorkflowStepShell({
   isSaving?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm space-y-2.5">
       {children}
       {showSaveAndContinue && onSaveAndContinue && (
-        <div className="flex justify-end border-t border-slate-100 pt-4">
+        <div className="flex justify-end border-t border-slate-100 pt-3">
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[11px] rounded-xl bg-orange-500 hover:bg-orange-600 gap-1.5"
+            className="h-7 text-[10px] rounded-lg bg-orange-500 hover:bg-orange-600 gap-1"
             onClick={onSaveAndContinue}
             disabled={isSaving}
           >
             {isSaving ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="w-3 h-3 animate-spin" />
                 Saving…
               </>
             ) : (
               <>
                 Save &amp; Continue
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3 h-3" />
               </>
             )}
           </Button>
@@ -162,7 +162,7 @@ export function ProductWorkflowStepContent({
   if (step === 1) {
     if (listingEditorContent) {
       return (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm space-y-2.5">
           {listingEditorContent}
         </div>
       );
@@ -188,9 +188,9 @@ export function ProductWorkflowStepContent({
         onSaveAndContinue={onSaveAndContinue}
         isSaving={isSavingContinue}
       >
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-orange-500" />
-          <h3 className="text-sm font-semibold text-slate-900">Listing content</h3>
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+          <h3 className="text-xs font-semibold text-slate-900">Listing content</h3>
         </div>
         <OptimizedContentPanel
           generatedContent={generatedContent}
@@ -212,9 +212,9 @@ export function ProductWorkflowStepContent({
         onSaveAndContinue={onSaveAndContinue}
         isSaving={isSavingContinue}
       >
-        <div className="flex items-center gap-2">
-          <ImageIcon className="w-4 h-4 text-orange-500" />
-          <h3 className="text-sm font-semibold text-slate-900">Product graphics</h3>
+        <div className="flex items-center gap-1.5">
+          <ImageIcon className="w-3.5 h-3.5 text-orange-500" />
+          <h3 className="text-xs font-semibold text-slate-900">Product graphics</h3>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <ExistingGraphicsPanel
