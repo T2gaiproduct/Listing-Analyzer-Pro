@@ -101,11 +101,11 @@ function isStoreImportProduct(product?: Pick<ProductDetailView, "isShopifyImport
 
 /** Show the left "Existing Content" column for store imports and Amazon audit listings only. */
 function shouldShowExistingListingContent(
-  product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport" | "asin"> | null,
+  product?: Pick<ProductDetailView, "isShopifyImport" | "isWooCommerceImport"> | null,
   audit?: { asin?: string | null } | null,
 ): boolean {
   if (isStoreImportProduct(product)) return true;
-  const asin = audit?.asin?.trim() || product?.asin?.trim();
+  const asin = audit?.asin?.trim();
   return Boolean(asin && !isShopifyImportAsin(asin) && !isWooCommerceImportAsin(asin));
 }
 
