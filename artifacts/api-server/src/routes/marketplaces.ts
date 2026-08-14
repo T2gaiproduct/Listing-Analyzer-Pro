@@ -28,12 +28,9 @@ import {
 import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verify.js";
 import {
   buildAmazonOAuthRedirectUri,
-  disconnectAmazonWorkspaceConnection,
-  getAmazonWorkspaceConnection,
-  saveAmazonWorkspaceConnection,
+  disconnectAmazonWorkspaceSellerConnection,
 } from "../lib/amazon-workspace-connection.js";
 import { loadAmazonConnectionStatusForWorkspace } from "../lib/resolve-amazon-settings.js";
-import { normalizeLwaClientSecret, testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
 import { syncWooCommerceProducts } from "../lib/woocommerce-product-sync.js";
@@ -121,8 +118,8 @@ function parseConnectionPlatform(raw: string): StoreMarketplace | "amazon" | nul
   return parseStorePlatform(raw);
 }
 
-async function loadAmazonConnectionStatus(userId: string, workspaceId: number) {
-  return loadAmazonConnectionStatusForWorkspace({ userId, workspaceId });
+async function loadAmazonConnectionStatus(userId: string, workspaceId: number, req: Request) {
+  return loadAmazonConnectionStatusForWorkspace({ userId, workspaceId, req });
 }
 
 function getEffectiveUserId(req: Request): string {
@@ -161,7 +158,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
   const workspaceId = getActiveWorkspaceId(req);
 
   const [amazon, shopify, woocommerce] = await Promise.all([
-    loadAmazonConnectionStatus(userId, workspaceId),
+    loadAmazonConnectionStatus(userId, workspaceId, req),
     getShopifyConnectionPublic(workspaceId),
     getWooCommerceConnectionPublic(workspaceId),
   ]);
@@ -198,74 +195,9 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
   const workspaceId = getActiveWorkspaceId(req);
 
   if (platform === "amazon") {
-    const body = req.body as {
-      applicationId?: string;
-      clientId?: string;
-      clientSecret?: string;
-      awsAccessKeyId?: string;
-      awsSecretAccessKey?: string;
-      awsRoleArn?: string;
-      defaultMarketplace?: string;
-      sandbox?: boolean;
-    };
-
-    const applicationId = String(body.applicationId ?? "").trim();
-    const clientId = String(body.clientId ?? "").trim();
-    const clientSecret = normalizeLwaClientSecret(String(body.clientSecret ?? ""));
-    const awsAccessKeyId = String(body.awsAccessKeyId ?? "").trim();
-    const awsSecretAccessKey = String(body.awsSecretAccessKey ?? "").trim();
-    const redirectUri = buildAmazonOAuthRedirectUri(req);
-
-    if (!applicationId || !clientId || !clientSecret) {
-      res.status(400).json({ error: "Amazon Application ID, LWA Client ID, and Client secret are required." });
-      return;
-    }
-
-    const existingConnection = await getAmazonWorkspaceConnection(workspaceId);
-    const resolvedAwsAccessKeyId = awsAccessKeyId || existingConnection?.awsAccessKeyId || "";
-    const resolvedAwsSecretAccessKey = awsSecretAccessKey || existingConnection?.awsSecretAccessKey || "";
-    const resolvedAwsRoleArn = String(body.awsRoleArn ?? "").trim() || existingConnection?.awsRoleArn || "";
-
-    const verification = await testAmazonSpConnection({
-      enabled: true,
-      sandbox: body.sandbox !== false,
-      applicationId,
-      clientId,
-      clientSecret,
-      redirectUri,
-      defaultMarketplace: body.defaultMarketplace?.trim().toUpperCase() || "US",
-      awsAccessKeyId: resolvedAwsAccessKeyId,
-      awsSecretAccessKey: resolvedAwsSecretAccessKey,
-      awsRoleArn: resolvedAwsRoleArn,
-    });
-    if (!verification.ok) {
-      res.status(400).json({ error: verification.message });
-      return;
-    }
-
-    const connection = await saveAmazonWorkspaceConnection(workspaceId, {
-      applicationId,
-      clientId,
-      clientSecret,
-      awsAccessKeyId: resolvedAwsAccessKeyId,
-      awsSecretAccessKey: resolvedAwsSecretAccessKey,
-      awsRoleArn: resolvedAwsRoleArn,
-      defaultMarketplace: body.defaultMarketplace,
-      sandbox: body.sandbox,
-      redirectUri,
-    });
-
-    const publishReady = Boolean(resolvedAwsAccessKeyId && resolvedAwsSecretAccessKey);
-    res.status(201).json({
-      connected: false,
-      credentialsReady: true,
-      publishReady,
-      redirectUri,
-      defaultMarketplace: connection.defaultMarketplace,
-      sandbox: connection.sandbox,
-      message: publishReady
-        ? "Amazon SP-API credentials saved. Authorize your seller account to finish connecting."
-        : "Amazon credentials saved. Authorize your seller account now. Add AWS IAM keys later if you want to publish listings.",
+    res.status(410).json({
+      error: "Amazon is connected with SellerLens OAuth. Use Connect with Amazon on the Marketplaces page — sellers do not enter SP-API credentials.",
+      redirectUri: buildAmazonOAuthRedirectUri(req),
     });
     return;
   }
@@ -376,7 +308,7 @@ router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAnd
   const workspaceId = getActiveWorkspaceId(req);
 
   if (platform === "amazon") {
-    await disconnectAmazonWorkspaceConnection(workspaceId);
+    await disconnectAmazonWorkspaceSellerConnection(workspaceId);
     res.status(204).end();
     return;
   }

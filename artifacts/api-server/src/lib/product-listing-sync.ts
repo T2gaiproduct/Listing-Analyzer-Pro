@@ -194,7 +194,7 @@ export async function syncListingToConnectedMarketplaces(opts: {
     if (!resolved || !isAmazonPublishReady(resolved.settings)) {
       result.amazon = {
         ok: false,
-        error: "Connect Amazon credentials on Marketplaces to sync listing changes.",
+        error: "Connect your Amazon seller account on Marketplaces to sync listing changes.",
       };
     } else {
       try {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,12 +18,10 @@ import {
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { AMAZON_MARKETPLACES } from "@/lib/amazon-export";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { useToast } from "@/hooks/use-toast";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
 import {
-  connectAmazonMarketplace,
   connectStoreMarketplace,
   disconnectAmazon,
   disconnectStoreMarketplace,
@@ -34,26 +32,14 @@ import {
   type StoreMarketplace,
 } from "@/lib/marketplace-connections";
 
-type DialogTarget = StoreMarketplace | "amazon";
-
-function buildAmazonRedirectUri(): string {
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const path = `${basePath}/api/amazon/oauth/callback`.replace(/^\/\//, "/").replace(/([^:]\/)\/+/g, "$1");
-  return `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
-}
+type DialogTarget = StoreMarketplace;
 
 const CONNECT_CARDS: Array<{
-  id: DialogTarget;
+  id: StoreMarketplace;
   marketplace: string;
   description: string;
   placeholder: string;
 }> = [
-  {
-    id: "amazon",
-    marketplace: "Amazon",
-    description: "Link your Amazon Seller Central account to publish listings directly from SellerLens.",
-    placeholder: "",
-  },
   {
     id: "shopify",
     marketplace: "Shopify",
@@ -225,18 +211,7 @@ export default function MarketplacesPage() {
   const [clientSecret, setClientSecret] = useState("");
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
-  const [amazonApplicationId, setAmazonApplicationId] = useState("");
-  const [amazonClientId, setAmazonClientId] = useState("");
-  const [amazonClientSecret, setAmazonClientSecret] = useState("");
-  const [amazonAwsAccessKeyId, setAmazonAwsAccessKeyId] = useState("");
-  const [amazonAwsSecretAccessKey, setAmazonAwsSecretAccessKey] = useState("");
-  const [amazonAwsRoleArn, setAmazonAwsRoleArn] = useState("");
-  const [amazonDefaultMarketplace, setAmazonDefaultMarketplace] = useState("US");
-  const [amazonSandbox, setAmazonSandbox] = useState(true);
-  const [pendingAction, setPendingAction] = useState<DialogTarget | null>(null);
-  const amazonRedirectUri = useMemo(() => (
-    typeof window === "undefined" ? "" : buildAmazonRedirectUri()
-  ), []);
+  const [pendingAction, setPendingAction] = useState<DialogTarget | "amazon" | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-connections", featureWorkspaceId],
@@ -355,34 +330,29 @@ export default function MarketplacesPage() {
     },
   });
 
-  const connectAmazonMutation = useMutation({
-    mutationFn: connectAmazonMarketplace,
-    onSuccess: async (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
-      setDialogTarget(null);
+  async function handleAmazonConnect() {
+    if (!data?.amazon.configured) {
       toast({
-        title: "Amazon credentials saved",
-        description: result.message ?? "Authorize your seller account to finish connecting.",
-      });
-      try {
-        await startAmazonConnect();
-      } catch (error) {
-        toast({
-          title: "Authorize your seller account",
-          description: error instanceof Error ? error.message : "Open Marketplaces and click Connect with Amazon again to authorize.",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Amazon connection failed",
-        description: error instanceof Error ? error.message : "Could not save Amazon credentials.",
+        title: "Amazon not available yet",
+        description: "SellerLens hasn't finished SP-API setup. Contact your administrator.",
         variant: "destructive",
       });
-    },
-    onSettled: () => setPendingAction(null),
-  });
+      return;
+    }
+
+    setPendingAction("amazon");
+    try {
+      await startAmazonConnect();
+    } catch (error) {
+      toast({
+        title: "Amazon authorization failed",
+        description: error instanceof Error ? error.message : "Could not start Amazon authorization.",
+        variant: "destructive",
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -391,57 +361,6 @@ export default function MarketplacesPage() {
     toast({ title: "Amazon connected", description: "Your seller account is linked to this workspace." });
     window.history.replaceState({}, "", window.location.pathname);
   }, [queryClient, toast]);
-
-  async function handleAmazonConnect() {
-    if (data?.amazon.configured && !data.amazon.connected) {
-      setPendingAction("amazon");
-      try {
-        await startAmazonConnect();
-      } catch (error) {
-        toast({
-          title: "Amazon authorization failed",
-          description: error instanceof Error ? error.message : "Could not start Amazon authorization.",
-          variant: "destructive",
-        });
-      } finally {
-        setPendingAction(null);
-      }
-      return;
-    }
-
-    setAmazonApplicationId("");
-    setAmazonClientId("");
-    setAmazonClientSecret("");
-    setAmazonAwsAccessKeyId("");
-    setAmazonAwsSecretAccessKey("");
-    setAmazonAwsRoleArn("");
-    setAmazonDefaultMarketplace(data?.amazon.defaultMarketplace ?? "US");
-    setAmazonSandbox(data?.amazon.sandbox ?? true);
-    setDialogTarget("amazon");
-  }
-
-  function submitAmazonConnection() {
-    if (!amazonApplicationId.trim() || !amazonClientId.trim() || !amazonClientSecret.trim()) {
-      toast({
-        title: "Amazon credentials required",
-        description: "Enter your Application ID, LWA Client ID, and Client secret.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setPendingAction("amazon");
-    connectAmazonMutation.mutate({
-      applicationId: amazonApplicationId.trim(),
-      clientId: amazonClientId.trim(),
-      clientSecret: amazonClientSecret.trim(),
-      awsAccessKeyId: amazonAwsAccessKeyId.trim() || undefined,
-      awsSecretAccessKey: amazonAwsSecretAccessKey.trim() || undefined,
-      awsRoleArn: amazonAwsRoleArn.trim() || undefined,
-      defaultMarketplace: amazonDefaultMarketplace,
-      sandbox: amazonSandbox,
-    });
-  }
 
   async function handleAmazonDisconnect() {
     setPendingAction("amazon");
@@ -470,7 +389,7 @@ export default function MarketplacesPage() {
   }
 
   function submitStoreConnection() {
-    if (!dialogTarget || dialogTarget === "amazon") return;
+    if (!dialogTarget) return;
     const url = storeUrl.trim();
     if (!url) {
       toast({
@@ -558,8 +477,7 @@ export default function MarketplacesPage() {
   }
 
   const amazonConnected = Boolean(data?.amazon.connected || data?.amazon.sellerId);
-  const amazonConfigured = Boolean(data?.amazon.configured || data?.amazon.credentialsReady);
-  const amazonAwaitingSellerAuth = amazonConfigured && !amazonConnected;
+  const amazonConfigured = Boolean(data?.amazon.configured);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
 
@@ -581,21 +499,19 @@ export default function MarketplacesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ConnectCard
           marketplace="Amazon"
-          description={CONNECT_CARDS[0]!.description}
+          description="Connect your Amazon Seller Central account with one click. SellerLens uses secure Amazon OAuth — you never enter SP-API credentials."
           connected={amazonConnected}
-          pending={amazonAwaitingSellerAuth}
-          connectLabel={amazonAwaitingSellerAuth ? "Authorize seller account" : undefined}
+          setupRequired={!amazonConfigured}
+          setupMessage="Amazon integration is being set up by your SellerLens administrator."
           detail={
             amazonConnected
               ? [
                   data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
                   data?.amazon.publishReady
                     ? "Direct publish enabled"
-                    : "Add AWS IAM keys to publish listings",
+                    : "Publishing pending platform SP-API setup",
                 ].filter(Boolean).join(" · ")
-              : amazonAwaitingSellerAuth
-                ? "SP-API credentials saved · click Authorize seller account to finish linking Seller Central"
-                : null
+              : null
           }
           loading={pendingAction === "amazon"}
           onConnect={handleAmazonConnect}
@@ -603,7 +519,7 @@ export default function MarketplacesPage() {
         />
         <ConnectCard
           marketplace="Shopify"
-          description={CONNECT_CARDS[1]!.description}
+          description={CONNECT_CARDS[0]!.description}
           connected={shopifyConnected}
           detail={
             shopifyConnected
@@ -621,7 +537,7 @@ export default function MarketplacesPage() {
         />
         <ConnectCard
           marketplace="WooCommerce"
-          description={CONNECT_CARDS[2]!.description}
+          description={CONNECT_CARDS[1]!.description}
           connected={woocommerceConnected}
           detail={
             woocommerceConnected
@@ -647,140 +563,15 @@ export default function MarketplacesPage() {
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Connect with {dialogTarget === "amazon" ? "Amazon" : dialogTarget === "shopify" ? "Shopify" : "WooCommerce"}
+              Connect with {dialogTarget === "shopify" ? "Shopify" : "WooCommerce"}
             </DialogTitle>
             <DialogDescription>
-              {dialogTarget === "amazon"
-                ? "Enter your Amazon SP-API app credentials from Seller Central → Apps & Services → Develop Apps. Add the redirect URI below to your LWA app before authorizing. AWS keys are optional now — add them only if you want to publish listings from SellerLens."
-                : dialogTarget === "shopify"
-                  ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). Required API scopes: read_products, write_products, read_publications, write_publications."
-                  : "Enter your WooCommerce store URL and REST API credentials from WordPress → WooCommerce → Settings → Advanced → REST API. Create a key with Read/Write permissions."}
+              {dialogTarget === "shopify"
+                ? "Enter your Shopify store URL and Admin API credentials from the Dev Dashboard (Settings → Client ID & secret). Required API scopes: read_products, write_products, read_publications, write_publications."
+                : "Enter your WooCommerce store URL and REST API credentials from WordPress → WooCommerce → Settings → Advanced → REST API. Create a key with Read/Write permissions."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            {dialogTarget === "amazon" ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-redirect-uri" className="text-xs text-muted-foreground">
-                    OAuth redirect URI
-                  </Label>
-                  <Input
-                    id="amazon-redirect-uri"
-                    value={amazonRedirectUri}
-                    readOnly
-                    className="h-9 text-[10px] font-mono"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-application-id" className="text-xs text-muted-foreground">
-                    Application ID
-                  </Label>
-                  <Input
-                    id="amazon-application-id"
-                    value={amazonApplicationId}
-                    onChange={(e) => setAmazonApplicationId(e.target.value)}
-                    placeholder="amzn1.sp.solution...."
-                    className="h-9 text-xs font-mono"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-client-id" className="text-xs text-muted-foreground">
-                    LWA Client ID
-                  </Label>
-                  <Input
-                    id="amazon-client-id"
-                    value={amazonClientId}
-                    onChange={(e) => setAmazonClientId(e.target.value)}
-                    placeholder="amzn1.application-oa2-client...."
-                    className="h-9 text-xs font-mono"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-client-secret" className="text-xs text-muted-foreground">
-                    LWA Client secret
-                  </Label>
-                  <Input
-                    id="amazon-client-secret"
-                    type="password"
-                    value={amazonClientSecret}
-                    onChange={(e) => setAmazonClientSecret(e.target.value)}
-                    placeholder="amzn1.oa2-cs.v1...."
-                    className="h-9 text-xs font-mono"
-                    autoComplete="off"
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed rounded-lg bg-muted border border-border px-3 py-2">
-                  Optional — only needed if you want to publish listings to Amazon. You can connect your seller account now and add AWS IAM keys later.
-                </p>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-aws-access-key" className="text-xs text-muted-foreground">
-                    AWS Access Key ID <span className="text-muted-foreground">(optional)</span>
-                  </Label>
-                  <Input
-                    id="amazon-aws-access-key"
-                    value={amazonAwsAccessKeyId}
-                    onChange={(e) => setAmazonAwsAccessKeyId(e.target.value)}
-                    placeholder="AKIA..."
-                    className="h-9 text-xs font-mono"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-aws-secret-key" className="text-xs text-muted-foreground">
-                    AWS Secret Access Key <span className="text-muted-foreground">(optional)</span>
-                  </Label>
-                  <Input
-                    id="amazon-aws-secret-key"
-                    type="password"
-                    value={amazonAwsSecretAccessKey}
-                    onChange={(e) => setAmazonAwsSecretAccessKey(e.target.value)}
-                    className="h-9 text-xs font-mono"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-aws-role-arn" className="text-xs text-muted-foreground">
-                    AWS Role ARN (optional)
-                  </Label>
-                  <Input
-                    id="amazon-aws-role-arn"
-                    value={amazonAwsRoleArn}
-                    onChange={(e) => setAmazonAwsRoleArn(e.target.value)}
-                    placeholder="arn:aws:iam::..."
-                    className="h-9 text-xs font-mono"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amazon-marketplace" className="text-xs text-muted-foreground">
-                    Default marketplace
-                  </Label>
-                  <select
-                    id="amazon-marketplace"
-                    value={amazonDefaultMarketplace}
-                    onChange={(e) => setAmazonDefaultMarketplace(e.target.value)}
-                    className="h-9 w-full rounded-md border border-border bg-card px-3 text-xs"
-                  >
-                    {AMAZON_MARKETPLACES.map((marketplace) => (
-                      <option key={marketplace.id} value={marketplace.id}>
-                        {marketplace.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={amazonSandbox}
-                    onChange={(e) => setAmazonSandbox(e.target.checked)}
-                  />
-                  Use Amazon SP-API sandbox
-                </label>
-              </>
-            ) : (
-              <>
             <div className="space-y-2">
               <Label htmlFor="store-url" className="text-xs text-muted-foreground">
                 Store URL
@@ -859,8 +650,6 @@ export default function MarketplacesPage() {
                 </div>
               </>
             )}
-              </>
-            )}
           </div>
           <DialogFooter>
             <Button
@@ -868,23 +657,23 @@ export default function MarketplacesPage() {
               variant="outline"
               className="h-9 text-xs"
               onClick={() => setDialogTarget(null)}
-              disabled={connectStoreMutation.isPending || connectAmazonMutation.isPending}
+              disabled={connectStoreMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               type="button"
               className={cn("h-9 text-xs bg-foreground hover:bg-foreground/90 text-background")}
-              onClick={dialogTarget === "amazon" ? submitAmazonConnection : submitStoreConnection}
-              disabled={connectStoreMutation.isPending || connectAmazonMutation.isPending}
+              onClick={submitStoreConnection}
+              disabled={connectStoreMutation.isPending}
             >
-              {(connectStoreMutation.isPending || connectAmazonMutation.isPending) ? (
+              {connectStoreMutation.isPending ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                   Connecting…
                 </>
               ) : (
-                dialogTarget === "amazon" ? "Save & authorize" : "Connect store"
+                "Connect store"
               )}
             </Button>
           </DialogFooter>

@@ -1,123 +1,59 @@
 import { eq } from "drizzle-orm";
 import type { Request } from "express";
 import { db, settingsTable } from "@workspace/db";
-import type { AmazonSpSettings } from "./amazon-sp-settings.js";
-import { validateAmazonAwsCredentials } from "./amazon-sp-settings.js";
 import { resolvePublicBaseUrl } from "./resolve-public-base-url.js";
 
-export type AmazonWorkspaceConnectionWithSecret = {
-  applicationId: string;
-  clientId: string;
-  clientSecret: string;
-  awsAccessKeyId: string;
-  awsSecretAccessKey: string;
-  awsRoleArn: string;
-  defaultMarketplace: string;
-  sandbox: boolean;
-  redirectUri: string;
-  connectedAt: string;
+/** Per-workspace seller authorization from Amazon OAuth (no app credentials). */
+export type AmazonWorkspaceSellerConnection = {
   sellerId?: string;
   refreshToken?: string;
   marketplaceIds: string[];
   sellerConnectedAt?: string;
+  defaultMarketplace?: string;
 };
 
-export type AmazonWorkspaceConnectionPublic = {
-  applicationId: string;
-  clientId: string;
-  awsAccessKeyId: string;
-  defaultMarketplace: string;
-  sandbox: boolean;
-  redirectUri: string;
-  connectedAt: string;
-  sellerId?: string;
-  marketplaceIds: string[];
-  sellerConnectedAt?: string;
+/** @deprecated Legacy shape that stored per-workspace SP-API app credentials. */
+export type AmazonWorkspaceConnectionWithSecret = AmazonWorkspaceSellerConnection & {
+  applicationId?: string;
+  clientId?: string;
+  clientSecret?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsRoleArn?: string;
+  sandbox?: boolean;
+  redirectUri?: string;
+  connectedAt?: string;
 };
 
 function amazonConnectionKey(workspaceId: number): string {
   return `marketplace_connection_${workspaceId}_amazon`;
 }
 
-function parseAmazonConnection(raw: string | null | undefined): AmazonWorkspaceConnectionWithSecret | null {
+function parseAmazonWorkspaceSellerConnection(
+  raw: string | null | undefined,
+): AmazonWorkspaceSellerConnection | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as AmazonWorkspaceConnectionWithSecret;
-    if (!parsed.clientId?.trim() || !parsed.clientSecret?.trim()) return null;
+    const parsed = JSON.parse(raw) as AmazonWorkspaceSellerConnection & AmazonWorkspaceConnectionWithSecret;
+    const sellerId = parsed.sellerId?.trim() || undefined;
+    const refreshToken = parsed.refreshToken?.trim() || undefined;
+    if (!sellerId && !refreshToken) return null;
     return {
-      applicationId: parsed.applicationId?.trim() ?? "",
-      clientId: parsed.clientId.trim(),
-      clientSecret: parsed.clientSecret.trim(),
-      awsAccessKeyId: parsed.awsAccessKeyId?.trim() ?? "",
-      awsSecretAccessKey: parsed.awsSecretAccessKey?.trim() ?? "",
-      awsRoleArn: parsed.awsRoleArn?.trim() ?? "",
-      defaultMarketplace: parsed.defaultMarketplace?.trim() || "US",
-      sandbox: parsed.sandbox !== false,
-      redirectUri: parsed.redirectUri?.trim() ?? "",
-      connectedAt: parsed.connectedAt ?? new Date().toISOString(),
-      sellerId: parsed.sellerId?.trim() || undefined,
-      refreshToken: parsed.refreshToken?.trim() || undefined,
+      sellerId,
+      refreshToken,
       marketplaceIds: Array.isArray(parsed.marketplaceIds) ? parsed.marketplaceIds : [],
       sellerConnectedAt: parsed.sellerConnectedAt,
+      defaultMarketplace: parsed.defaultMarketplace?.trim().toUpperCase() || undefined,
     };
   } catch {
     return null;
   }
 }
 
-export function toAmazonWorkspaceConnectionPublic(
-  connection: AmazonWorkspaceConnectionWithSecret,
-): AmazonWorkspaceConnectionPublic {
-  return {
-    applicationId: connection.applicationId,
-    clientId: connection.clientId,
-    awsAccessKeyId: connection.awsAccessKeyId,
-    defaultMarketplace: connection.defaultMarketplace,
-    sandbox: connection.sandbox,
-    redirectUri: connection.redirectUri,
-    connectedAt: connection.connectedAt,
-    sellerId: connection.sellerId,
-    marketplaceIds: connection.marketplaceIds,
-    sellerConnectedAt: connection.sellerConnectedAt,
-  };
-}
-
-export function isAmazonWorkspaceCredentialsReady(
-  connection: AmazonWorkspaceConnectionWithSecret | null,
+export function isAmazonWorkspaceSellerConnected(
+  connection: AmazonWorkspaceSellerConnection | null,
 ): boolean {
-  if (!connection) return false;
-  return Boolean(
-    connection.applicationId
-    && connection.clientId
-    && connection.clientSecret
-    && connection.redirectUri,
-  );
-}
-
-export function isAmazonWorkspacePublishReady(
-  connection: AmazonWorkspaceConnectionWithSecret | null,
-): boolean {
-  if (!isAmazonWorkspaceCredentialsReady(connection) || !connection) return false;
-  const awsOk = Boolean(connection.awsAccessKeyId && connection.awsSecretAccessKey);
-  const sellerOk = Boolean(connection.sellerId && connection.refreshToken);
-  return awsOk && sellerOk;
-}
-
-export function workspaceConnectionToSpSettings(
-  connection: AmazonWorkspaceConnectionWithSecret,
-): AmazonSpSettings {
-  return {
-    enabled: true,
-    sandbox: connection.sandbox,
-    applicationId: connection.applicationId,
-    clientId: connection.clientId,
-    clientSecret: connection.clientSecret,
-    redirectUri: connection.redirectUri,
-    defaultMarketplace: connection.defaultMarketplace,
-    awsAccessKeyId: connection.awsAccessKeyId,
-    awsSecretAccessKey: connection.awsSecretAccessKey,
-    awsRoleArn: connection.awsRoleArn,
-  };
+  return Boolean(connection?.sellerId && connection.refreshToken);
 }
 
 export function buildAmazonOAuthRedirectUri(req: Request): string {
@@ -125,75 +61,29 @@ export function buildAmazonOAuthRedirectUri(req: Request): string {
   return `${base}/api/amazon/oauth/callback`;
 }
 
-export async function getAmazonWorkspaceConnection(
+export async function getAmazonWorkspaceSellerConnection(
   workspaceId: number,
-): Promise<AmazonWorkspaceConnectionWithSecret | null> {
+): Promise<AmazonWorkspaceSellerConnection | null> {
   const key = amazonConnectionKey(workspaceId);
   const [row] = await db
     .select()
     .from(settingsTable)
     .where(eq(settingsTable.key, key))
     .limit(1);
-  return parseAmazonConnection(row?.value);
+  return parseAmazonWorkspaceSellerConnection(row?.value);
 }
 
-export async function getAmazonWorkspaceConnectionPublic(
+/** @deprecated Use getAmazonWorkspaceSellerConnection */
+export async function getAmazonWorkspaceConnection(
   workspaceId: number,
-): Promise<AmazonWorkspaceConnectionPublic | null> {
-  const connection = await getAmazonWorkspaceConnection(workspaceId);
-  return connection ? toAmazonWorkspaceConnectionPublic(connection) : null;
+): Promise<AmazonWorkspaceConnectionWithSecret | null> {
+  return getAmazonWorkspaceSellerConnection(workspaceId);
 }
 
-export async function saveAmazonWorkspaceConnection(
+async function upsertAmazonWorkspaceSellerConnection(
   workspaceId: number,
-  input: {
-    applicationId: string;
-    clientId: string;
-    clientSecret: string;
-    awsAccessKeyId?: string;
-    awsSecretAccessKey?: string;
-    awsRoleArn?: string;
-    defaultMarketplace?: string;
-    sandbox?: boolean;
-    redirectUri: string;
-  },
-): Promise<AmazonWorkspaceConnectionPublic> {
-  const awsAccessKeyId = input.awsAccessKeyId?.trim() ?? "";
-  const awsSecretAccessKey = input.awsSecretAccessKey?.trim() ?? "";
-  const awsError = validateAmazonAwsCredentials({
-    enabled: true,
-    sandbox: input.sandbox !== false,
-    applicationId: input.applicationId,
-    clientId: input.clientId,
-    clientSecret: input.clientSecret,
-    redirectUri: input.redirectUri,
-    defaultMarketplace: input.defaultMarketplace ?? "US",
-    awsAccessKeyId,
-    awsSecretAccessKey,
-    awsRoleArn: input.awsRoleArn ?? "",
-  });
-  if (awsError) {
-    throw new Error(awsError);
-  }
-
-  const existing = await getAmazonWorkspaceConnection(workspaceId);
-  const connection: AmazonWorkspaceConnectionWithSecret = {
-    applicationId: input.applicationId.trim(),
-    clientId: input.clientId.trim(),
-    clientSecret: input.clientSecret.trim(),
-    awsAccessKeyId,
-    awsSecretAccessKey,
-    awsRoleArn: input.awsRoleArn?.trim() ?? "",
-    defaultMarketplace: input.defaultMarketplace?.trim().toUpperCase() || "US",
-    sandbox: input.sandbox !== false,
-    redirectUri: input.redirectUri.trim(),
-    connectedAt: existing?.connectedAt ?? new Date().toISOString(),
-    sellerId: existing?.sellerId,
-    refreshToken: existing?.refreshToken,
-    marketplaceIds: existing?.marketplaceIds ?? [],
-    sellerConnectedAt: existing?.sellerConnectedAt,
-  };
-
+  connection: AmazonWorkspaceSellerConnection,
+): Promise<AmazonWorkspaceSellerConnection> {
   const key = amazonConnectionKey(workspaceId);
   const payload = JSON.stringify(connection);
   const [row] = await db
@@ -216,36 +106,31 @@ export async function saveAmazonWorkspaceConnection(
     });
   }
 
-  return toAmazonWorkspaceConnectionPublic(connection);
+  return connection;
 }
 
 export async function saveAmazonWorkspaceSellerConnection(
   workspaceId: number,
   input: { sellerId: string; refreshToken: string; marketplaceIds?: string[] },
-): Promise<AmazonWorkspaceConnectionPublic> {
-  const existing = await getAmazonWorkspaceConnection(workspaceId);
-  if (!existing) {
-    throw new Error("Save Amazon SP-API credentials for this workspace before authorizing your seller account.");
-  }
-
-  const connection: AmazonWorkspaceConnectionWithSecret = {
-    ...existing,
+): Promise<AmazonWorkspaceSellerConnection> {
+  const existing = await getAmazonWorkspaceSellerConnection(workspaceId);
+  const connection: AmazonWorkspaceSellerConnection = {
     sellerId: input.sellerId.trim(),
     refreshToken: input.refreshToken.trim(),
-    marketplaceIds: input.marketplaceIds ?? existing.marketplaceIds,
+    marketplaceIds: input.marketplaceIds ?? existing?.marketplaceIds ?? [],
     sellerConnectedAt: new Date().toISOString(),
+    defaultMarketplace: existing?.defaultMarketplace,
   };
 
-  const key = amazonConnectionKey(workspaceId);
-  await db
-    .update(settingsTable)
-    .set({ value: JSON.stringify(connection), updatedAt: new Date(), isSecret: true })
-    .where(eq(settingsTable.key, key));
-
-  return toAmazonWorkspaceConnectionPublic(connection);
+  return upsertAmazonWorkspaceSellerConnection(workspaceId, connection);
 }
 
-export async function disconnectAmazonWorkspaceConnection(workspaceId: number): Promise<void> {
+export async function disconnectAmazonWorkspaceSellerConnection(workspaceId: number): Promise<void> {
   const key = amazonConnectionKey(workspaceId);
   await db.delete(settingsTable).where(eq(settingsTable.key, key));
+}
+
+/** @deprecated Alias for disconnectAmazonWorkspaceSellerConnection */
+export async function disconnectAmazonWorkspaceConnection(workspaceId: number): Promise<void> {
+  await disconnectAmazonWorkspaceSellerConnection(workspaceId);
 }
