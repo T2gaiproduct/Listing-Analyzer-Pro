@@ -157,6 +157,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Record<string, AdminPermission | AdminPerm
   "/admin/settings/api": "manage_settings",
   "/admin/settings/email": "manage_settings",
   "/admin/settings/payment-gateway": "manage_settings",
+  "/admin/settings/amazon-sp-api": "manage_settings",
   "/admin/settings/security": "manage_settings",
   "/admin/team-activity": "manage_team_activity",
   "/admin/archive": "manage_settings",

@@ -107,6 +107,7 @@ import {
   AdminSettingsSecurity,
   AdminSettingsPaymentGateway,
   AdminSettingsEmail,
+  AdminSettingsAmazonSpApi,
   AdminMarketingHomepage,
   AdminMarketingPages,
   AdminMarketingBlog,
@@ -550,6 +551,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/email">
         <AdminRoute><AdminSettingsEmail /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/amazon-sp-api">
+        <AdminRoute><AdminSettingsAmazonSpApi /></AdminRoute>
       </Route>
 
       {/* Marketing */}

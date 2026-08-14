@@ -45,6 +45,8 @@ import {
   upsertAdminRoleInvite,
 } from "../lib/admin-invites.js";
 import { buildAdminInviteUrl } from "../lib/admin-invite-token.js";
+import { loadAmazonSpSettings } from "../lib/amazon-sp-settings.js";
+import { testAmazonSpConnection } from "../lib/amazon-sp-api.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 import {
@@ -505,6 +507,22 @@ router.post("/admin/settings/test-paypal", requireAdmin, async (_req, res): Prom
     });
   } catch (err) {
     res.status(400).json({ ok: false, error: (err as Error).message });
+  }
+});
+
+router.post("/admin/settings/test-amazon-sp", requireAdmin, async (_req, res): Promise<void> => {
+  try {
+    const settings = await loadAmazonSpSettings();
+    const result = await testAmazonSpConnection({
+      ...settings,
+      enabled: true,
+    });
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      message: err instanceof Error ? err.message : "Amazon SP-API test failed",
+    });
   }
 });
 

@@ -93,6 +93,7 @@ export const AdminSettingsAPI = lazy(() => import("@/pages/admin/settings/api"))
 export const AdminSettingsSecurity = lazy(() => import("@/pages/admin/settings/security"));
 export const AdminSettingsPaymentGateway = lazy(() => import("@/pages/admin/settings/payment-gateway"));
 export const AdminSettingsEmail = lazy(() => import("@/pages/admin/settings/email"));
+export const AdminSettingsAmazonSpApi = lazy(() => import("@/pages/admin/settings/amazon-sp-api"));
 export const AdminMarketingHomepage = lazy(() => import("@/pages/admin/marketing/homepage"));
 export const AdminMarketingPages = lazy(() => import("@/pages/admin/marketing/pages"));
 export const AdminMarketingBlog = lazy(() => import("@/pages/admin/marketing/blog"));

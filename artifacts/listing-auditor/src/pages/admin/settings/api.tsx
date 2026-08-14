@@ -19,7 +19,6 @@ export default function AdminSettingsAPI() {
   const [form, setForm] = useState({
     api_rate_limit_per_minute: "60", api_rate_limit_per_day: "1000",
     api_webhook_url: "", api_webhook_secret: "",
-    amazon_api_key: "", amazon_api_secret: "",
   });
 
   const { data } = useQuery({ queryKey: ["admin-settings-api"], queryFn: () => fetchSettings("api") });
@@ -70,13 +69,6 @@ export default function AdminSettingsAPI() {
               <Input type="url" value={form.api_webhook_url} onChange={(e) => setForm({ ...form, api_webhook_url: e.target.value })} placeholder="https://your-app.com/webhooks" />
             </div>
             {secretField("api_webhook_secret", "Webhook Secret")}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Amazon API Credentials</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {secretField("amazon_api_key", "Amazon API Key")}
-            {secretField("amazon_api_secret", "Amazon API Secret")}
           </CardContent>
         </Card>
         <Button onClick={() => save.mutate()} disabled={save.isPending}><Save className="h-4 w-4 mr-2" />{save.isPending ? "Saving…" : "Save API Settings"}</Button>
