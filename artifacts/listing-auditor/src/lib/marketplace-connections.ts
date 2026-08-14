@@ -96,29 +96,6 @@ export async function syncWooCommerceProducts(): Promise<ShopifySyncResult> {
   });
 }
 
-export async function connectAmazonMarketplace(input: {
-  applicationId: string;
-  clientId: string;
-  clientSecret: string;
-  awsAccessKeyId?: string;
-  awsSecretAccessKey?: string;
-  awsRoleArn?: string;
-  defaultMarketplace?: string;
-  sandbox?: boolean;
-}): Promise<{
-  connected: boolean;
-  credentialsReady: boolean;
-  publishReady: boolean;
-  redirectUri: string;
-  message?: string;
-}> {
-  return fetchJson(`${basePath}/api/marketplaces/connections/amazon`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-}
-
 export async function disconnectAmazon(): Promise<void> {
   await fetchJson(`${basePath}/api/marketplaces/connections/amazon`, {
     method: "DELETE",

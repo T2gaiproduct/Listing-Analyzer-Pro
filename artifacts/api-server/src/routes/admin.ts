@@ -1507,13 +1507,6 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
     return;
   }
 
-  if (category === "amazon") {
-    res.status(410).json({ error: "Amazon SP-API settings are configured per workspace on the Marketplaces page." });
-    return;
-  }
-
-  try {
-
   const SECRET_KEYS = new Set([
     "stripe_secret_key", "stripe_webhook_secret",
     "razorpay_key_secret", "razorpay_webhook_secret",
@@ -1521,7 +1514,11 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
     "openai_api_key",
     "gemini_api_key",
     "smtp_password",
+    "amazon_sp_client_secret",
+    "amazon_aws_secret_access_key",
   ]);
+
+  try {
 
   // Enforce mutual exclusivity for payment gateway enabled flags
   if (category === "payment_gateway") {

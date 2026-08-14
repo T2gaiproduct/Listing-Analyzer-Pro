@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and } from "drizzle-orm";
-import { db, amazonSellerConnectionsTable, amazonPublishJobsTable, settingsTable } from "@workspace/db";
+import { db, amazonSellerConnectionsTable, amazonPublishJobsTable } from "@workspace/db";
 import type { ImageRecord } from "@workspace/db";
 import {
   isAmazonSpConfigured,
@@ -29,8 +29,7 @@ import {
   loadAmazonConnectionStatusForWorkspace,
 } from "../lib/resolve-amazon-settings.js";
 import {
-  disconnectAmazonWorkspaceConnection,
-  getAmazonWorkspaceConnection,
+  disconnectAmazonWorkspaceSellerConnection,
   saveAmazonWorkspaceSellerConnection,
 } from "../lib/amazon-workspace-connection.js";
 
@@ -54,20 +53,18 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 router.get("/amazon/status", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const workspaceId = getActiveWorkspaceId(req);
-  const status = await loadAmazonConnectionStatusForWorkspace({ workspaceId, userId });
+  const status = await loadAmazonConnectionStatusForWorkspace({ workspaceId, userId, req });
   res.json(status);
 });
 
 router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const workspaceId = getActiveWorkspaceId(req);
-  const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId);
+  const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId, req);
 
   if (!isAmazonSpConfigured(settings)) {
     res.status(400).json({
-      error: workspaceId
-        ? "Add your Amazon SP-API credentials on the Marketplaces page before connecting your seller account."
-        : "Amazon publishing isn't set up yet. Contact your administrator.",
+      error: "Amazon integration is not configured yet. Ask your SellerLens administrator to set up the SP-API application.",
     });
     return;
   }
@@ -102,9 +99,9 @@ router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
   }
 
   try {
-    const { settings } = await resolveAmazonSettingsForWorkspace(parsed.workspaceId);
+    const { settings } = await resolveAmazonSettingsForWorkspace(parsed.workspaceId, req);
     if (!isAmazonSpConfigured(settings)) {
-      res.status(400).send("Amazon SP-API credentials are missing. Reconnect from the Marketplaces page.");
+      res.status(400).send("Amazon SP-API is not configured on this SellerLens instance.");
       return;
     }
 
@@ -152,27 +149,9 @@ router.delete("/amazon/connection", requireAuth, resolveTeamAndWorkspace, async 
   const workspaceId = getActiveWorkspaceId(req);
 
   if (workspaceId) {
-    const existing = await getAmazonWorkspaceConnection(workspaceId);
-    if (existing?.sellerId && existing.refreshToken) {
-      const key = `marketplace_connection_${workspaceId}_amazon`;
-      const updated = {
-        ...existing,
-        sellerId: undefined,
-        refreshToken: undefined,
-        marketplaceIds: [],
-        sellerConnectedAt: undefined,
-      };
-      await db.update(settingsTable)
-        .set({ value: JSON.stringify(updated), updatedAt: new Date() })
-        .where(eq(settingsTable.key, key));
-      res.json({ ok: true });
-      return;
-    }
-    if (existing) {
-      await disconnectAmazonWorkspaceConnection(workspaceId);
-      res.json({ ok: true });
-      return;
-    }
+    await disconnectAmazonWorkspaceSellerConnection(workspaceId);
+    res.json({ ok: true });
+    return;
   }
 
   await db.update(amazonSellerConnectionsTable)
@@ -202,7 +181,7 @@ router.post(
       return;
     }
 
-    const resolved = await resolveAmazonConnectionForWorkspace({ workspaceId, userId });
+    const resolved = await resolveAmazonConnectionForWorkspace({ workspaceId, userId, req });
     if (!resolved) {
       res.status(400).json({
         error: workspaceId
@@ -213,7 +192,7 @@ router.post(
     }
     if (!isAmazonPublishReady(resolved.settings)) {
       res.status(400).json({
-        error: "Add your AWS Access Key ID and Secret Access Key on the Marketplaces page to publish listings to Amazon.",
+        error: "Amazon publishing isn't fully configured. Ask your administrator to complete SP-API setup.",
       });
       return;
     }
