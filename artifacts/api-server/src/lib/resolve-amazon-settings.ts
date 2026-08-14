@@ -4,6 +4,7 @@ import {
   getAmazonWorkspaceConnection,
   isAmazonWorkspaceCredentialsReady,
   isAmazonWorkspacePublishReady,
+  saveAmazonWorkspaceSellerConnection,
   workspaceConnectionToSpSettings,
   type AmazonWorkspaceConnectionWithSecret,
 } from "./amazon-workspace-connection.js";
@@ -96,24 +97,53 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
   const workspaceConnection = opts.workspaceId
     ? await getAmazonWorkspaceConnection(opts.workspaceId)
     : null;
-  const workspaceCredentialsReady = isAmazonWorkspaceCredentialsReady(workspaceConnection);
-  const workspacePublishReady = isAmazonWorkspacePublishReady(workspaceConnection);
-  const workspaceSellerConnected = Boolean(workspaceConnection?.sellerId && workspaceConnection.refreshToken);
+  let workspaceConnectionState = workspaceConnection;
+  const workspaceCredentialsReady = isAmazonWorkspaceCredentialsReady(workspaceConnectionState);
+  const workspacePublishReady = isAmazonWorkspacePublishReady(workspaceConnectionState);
+  let workspaceSellerConnected = Boolean(workspaceConnectionState?.sellerId && workspaceConnectionState.refreshToken);
 
-  if (workspaceCredentialsReady && workspaceConnection) {
+  if (workspaceCredentialsReady && workspaceConnectionState && opts.workspaceId && !workspaceSellerConnected) {
+    const [legacyConnection] = await db
+      .select()
+      .from(amazonSellerConnectionsTable)
+      .where(and(
+        eq(amazonSellerConnectionsTable.userId, opts.userId),
+        eq(amazonSellerConnectionsTable.isDeleted, 0),
+      ))
+      .limit(1);
+
+    if (legacyConnection?.sellerId && legacyConnection.refreshToken) {
+      try {
+        await saveAmazonWorkspaceSellerConnection(opts.workspaceId, {
+          sellerId: legacyConnection.sellerId,
+          refreshToken: legacyConnection.refreshToken,
+          marketplaceIds: legacyConnection.marketplaceIds ?? [],
+        });
+        const refreshed = await getAmazonWorkspaceConnection(opts.workspaceId);
+        if (refreshed?.sellerId && refreshed.refreshToken) {
+          workspaceConnectionState = refreshed;
+          workspaceSellerConnected = true;
+        }
+      } catch {
+        // Keep awaiting seller auth if legacy tokens cannot be attached to this workspace.
+      }
+    }
+  }
+
+  if (workspaceCredentialsReady && workspaceConnectionState) {
     return {
       configured: true,
       publishReady: workspacePublishReady,
       enabled: true,
-      sandbox: workspaceConnection.sandbox,
-      canSignRequests: canSignSpApiRequests(workspaceConnectionToSpSettings(workspaceConnection)),
+      sandbox: workspaceConnectionState.sandbox,
+      canSignRequests: canSignSpApiRequests(workspaceConnectionToSpSettings(workspaceConnectionState)),
       connected: workspaceSellerConnected,
-      sellerId: workspaceConnection.sellerId ?? null,
-      marketplaceIds: workspaceConnection.marketplaceIds ?? [],
-      defaultMarketplace: workspaceConnection.defaultMarketplace,
+      sellerId: workspaceConnectionState.sellerId ?? null,
+      marketplaceIds: workspaceConnectionState.marketplaceIds ?? [],
+      defaultMarketplace: workspaceConnectionState.defaultMarketplace,
       source: "workspace" as const,
       credentialsReady: true,
-      redirectUri: workspaceConnection.redirectUri,
+      redirectUri: workspaceConnectionState.redirectUri,
     };
   }
 

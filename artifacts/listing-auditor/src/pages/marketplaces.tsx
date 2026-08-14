@@ -72,7 +72,9 @@ function ConnectCard({
   marketplace,
   description,
   connected,
+  pending,
   detail,
+  connectLabel,
   loading,
   onConnect,
   onDisconnect,
@@ -85,7 +87,9 @@ function ConnectCard({
   marketplace: string;
   description: string;
   connected: boolean;
+  pending?: boolean;
   detail?: string | null;
+  connectLabel?: string;
   loading?: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -99,18 +103,29 @@ function ConnectCard({
     <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col gap-5">
       <div className="flex items-start justify-between gap-3">
         <MarketplaceLogo marketplace={marketplace} className="h-7 w-32" />
-        {connected && (
+        {connected ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
             <Check className="w-3 h-3" />
             Connected
           </span>
-        )}
+        ) : pending ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+            Pending
+          </span>
+        ) : null}
       </div>
 
       <p className="text-xs text-muted-foreground leading-relaxed flex-1">{description}</p>
 
-      {connected && detail ? (
-        <p className="text-[11px] text-muted-foreground break-all rounded-lg bg-muted border border-border px-3 py-2">
+      {detail ? (
+        <p
+          className={cn(
+            "text-[11px] break-all rounded-lg border px-3 py-2",
+            connected
+              ? "text-muted-foreground bg-muted border-border"
+              : "text-amber-900 bg-amber-50 border-amber-200",
+          )}
+        >
           {detail}
         </p>
       ) : null}
@@ -190,7 +205,7 @@ function ConnectCard({
             ) : (
               <Plug className="w-3.5 h-3.5 mr-1.5" />
             )}
-            Connect with {marketplace}
+            {connectLabel ?? `Connect with ${marketplace}`}
           </Button>
         )}
       </div>
@@ -542,8 +557,8 @@ export default function MarketplacesPage() {
     );
   }
 
-  const amazonConnected = Boolean(data?.amazon.connected);
-  const amazonConfigured = Boolean(data?.amazon.configured);
+  const amazonConnected = Boolean(data?.amazon.connected || data?.amazon.sellerId);
+  const amazonConfigured = Boolean(data?.amazon.configured || data?.amazon.credentialsReady);
   const amazonAwaitingSellerAuth = amazonConfigured && !amazonConnected;
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
@@ -568,16 +583,18 @@ export default function MarketplacesPage() {
           marketplace="Amazon"
           description={CONNECT_CARDS[0]!.description}
           connected={amazonConnected}
+          pending={amazonAwaitingSellerAuth}
+          connectLabel={amazonAwaitingSellerAuth ? "Authorize seller account" : undefined}
           detail={
             amazonConnected
               ? [
-                  data?.amazon.sellerId ?? "Seller account linked",
+                  data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
                   data?.amazon.publishReady
                     ? "Direct publish enabled"
                     : "Add AWS IAM keys to publish listings",
                 ].filter(Boolean).join(" · ")
               : amazonAwaitingSellerAuth
-                ? "SP-API credentials saved · authorize your seller account to finish"
+                ? "SP-API credentials saved · click Authorize seller account to finish linking Seller Central"
                 : null
           }
           loading={pendingAction === "amazon"}
