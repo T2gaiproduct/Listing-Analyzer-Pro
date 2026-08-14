@@ -478,6 +478,7 @@ export default function MarketplacesPage() {
 
   const amazonConnected = Boolean(data?.amazon.connected || data?.amazon.sellerId);
   const amazonConfigured = Boolean(data?.amazon.configured);
+  const amazonAwaitingSellerAuth = Boolean(data?.amazon.awaitingSellerAuth);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
 
@@ -501,6 +502,8 @@ export default function MarketplacesPage() {
           marketplace="Amazon"
           description="Connect your Amazon Seller Central account with one click. SellerLens uses secure Amazon OAuth — you never enter SP-API credentials."
           connected={amazonConnected}
+          pending={amazonAwaitingSellerAuth}
+          connectLabel={amazonAwaitingSellerAuth ? "Authorize seller account" : undefined}
           setupRequired={!amazonConfigured}
           setupMessage="Amazon integration is being set up by your SellerLens administrator."
           detail={
@@ -511,7 +514,9 @@ export default function MarketplacesPage() {
                     ? "Direct publish enabled"
                     : "Publishing pending platform SP-API setup",
                 ].filter(Boolean).join(" · ")
-              : null
+              : amazonAwaitingSellerAuth
+                ? "Click Authorize seller account to finish linking Seller Central"
+                : null
           }
           loading={pendingAction === "amazon"}
           onConnect={handleAmazonConnect}
