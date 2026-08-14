@@ -10,9 +10,10 @@ export interface AmazonConnectionStatus {
   sellerId: string | null;
   marketplaceIds: string[];
   defaultMarketplace: string;
-  source?: "workspace" | "global";
+  source?: "platform" | "workspace" | "global";
   credentialsReady?: boolean;
   redirectUri?: string | null;
+  awaitingSellerAuth?: boolean;
 }
 
 export async function fetchAmazonStatus(): Promise<AmazonConnectionStatus> {

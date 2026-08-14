@@ -3,9 +3,13 @@ import { and, eq } from "drizzle-orm";
 import { db, amazonSellerConnectionsTable } from "@workspace/db";
 import {
   buildAmazonOAuthRedirectUri,
+  getAmazonWorkspaceConnection,
+  getAmazonWorkspaceLegacyAppSettings,
   getAmazonWorkspaceSellerConnection,
+  isAmazonWorkspaceLegacyAppConfigured,
   isAmazonWorkspaceSellerConnected,
   saveAmazonWorkspaceSellerConnection,
+  workspaceLegacyRecordToSpSettings,
 } from "./amazon-workspace-connection.js";
 import {
   canSignSpApiRequests,
@@ -22,7 +26,7 @@ export type ResolvedAmazonConnection = {
   sellerId: string;
   refreshToken: string;
   marketplaceIds: string[];
-  source: "workspace" | "global";
+  source: "workspace" | "global" | "platform";
 };
 
 function withRequestRedirectUri(settings: AmazonSpSettings, req?: Request): AmazonSpSettings {
@@ -33,14 +37,37 @@ function withRequestRedirectUri(settings: AmazonSpSettings, req?: Request): Amaz
   };
 }
 
+async function resolveWorkspaceAmazonSettings(
+  workspaceId: number | null | undefined,
+  req?: Request,
+): Promise<{ settings: AmazonSpSettings; source: "platform" | "workspace" } | null> {
+  const platformSettings = withRequestRedirectUri(await ensureAmazonAutoEnabled(), req);
+  if (isAmazonLwaConfigured(platformSettings)) {
+    return { settings: platformSettings, source: "platform" };
+  }
+
+  if (workspaceId) {
+    const legacySettings = await getAmazonWorkspaceLegacyAppSettings(workspaceId);
+    if (legacySettings) {
+      return {
+        settings: withRequestRedirectUri(legacySettings, req),
+        source: "workspace",
+      };
+    }
+  }
+
+  return null;
+}
+
 export async function resolveAmazonSettingsForWorkspace(
   workspaceId: number | null | undefined,
   req?: Request,
-): Promise<{ settings: AmazonSpSettings; source: "platform" }> {
-  void workspaceId;
-  const settings = await ensureAmazonAutoEnabled();
+): Promise<{ settings: AmazonSpSettings; source: "platform" | "workspace" }> {
+  const resolved = await resolveWorkspaceAmazonSettings(workspaceId, req);
+  if (resolved) return resolved;
+
   return {
-    settings: withRequestRedirectUri(settings, req),
+    settings: withRequestRedirectUri(await ensureAmazonAutoEnabled(), req),
     source: "platform",
   };
 }
@@ -50,24 +77,24 @@ export async function resolveAmazonConnectionForWorkspace(opts: {
   userId: string;
   req?: Request;
 }): Promise<ResolvedAmazonConnection | null> {
-  const { settings } = await resolveAmazonSettingsForWorkspace(opts.workspaceId, opts.req);
-  if (!canSignSpApiRequests(settings)) return null;
+  const resolved = await resolveWorkspaceAmazonSettings(opts.workspaceId, opts.req);
+  if (!resolved || !canSignSpApiRequests(resolved.settings)) return null;
 
   if (opts.workspaceId) {
     const seller = await getAmazonWorkspaceSellerConnection(opts.workspaceId);
     if (isAmazonWorkspaceSellerConnected(seller)) {
       return {
-        settings,
+        settings: resolved.settings,
         sellerId: seller!.sellerId!,
         refreshToken: seller!.refreshToken!,
         marketplaceIds: seller!.marketplaceIds ?? [],
-        source: "workspace",
+        source: resolved.source,
       };
     }
   }
 
-  const settingsReady = await ensureAmazonAutoEnabled();
-  if (!isAmazonPublishReady(settingsReady)) return null;
+  const platformSettings = await ensureAmazonAutoEnabled();
+  if (!isAmazonPublishReady(platformSettings)) return null;
 
   const [connection] = await db
     .select()
@@ -81,7 +108,7 @@ export async function resolveAmazonConnectionForWorkspace(opts: {
   if (!connection) return null;
 
   return {
-    settings: withRequestRedirectUri(settingsReady, opts.req),
+    settings: withRequestRedirectUri(platformSettings, opts.req),
     sellerId: connection.sellerId,
     refreshToken: connection.refreshToken,
     marketplaceIds: connection.marketplaceIds ?? [],
@@ -94,9 +121,21 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
   userId: string;
   req?: Request;
 }) {
-  const settings = await ensureAmazonAutoEnabled();
-  const platformConfigured = isAmazonLwaConfigured(settings);
-  const platformPublishReady = isAmazonPublishReady(settings);
+  const platformSettings = await ensureAmazonAutoEnabled();
+  const platformConfigured = isAmazonLwaConfigured(platformSettings);
+  const workspaceRecord = opts.workspaceId
+    ? await getAmazonWorkspaceConnection(opts.workspaceId)
+    : null;
+  const workspaceLegacyConfigured = isAmazonWorkspaceLegacyAppConfigured(workspaceRecord);
+  const workspaceLegacySettings = workspaceLegacyConfigured && workspaceRecord
+    ? workspaceLegacyRecordToSpSettings(workspaceRecord)
+    : null;
+
+  const activeSettings = platformConfigured
+    ? platformSettings
+    : workspaceLegacySettings ?? platformSettings;
+
+  const oauthReady = platformConfigured || workspaceLegacyConfigured;
 
   let seller = opts.workspaceId
     ? await getAmazonWorkspaceSellerConnection(opts.workspaceId)
@@ -127,49 +166,32 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
     }
   }
 
-  if (platformConfigured) {
-    const redirectUri = opts.req
-      ? buildAmazonOAuthRedirectUri(opts.req)
-      : settings.redirectUri || null;
+  const publishReady = Boolean(
+    canSignSpApiRequests(activeSettings)
+    && sellerConnected
+    && (isAmazonPublishReady(platformSettings) || Boolean(
+      workspaceLegacySettings?.awsAccessKeyId && workspaceLegacySettings.awsSecretAccessKey,
+    )),
+  );
 
-    return {
-      configured: true,
-      publishReady: platformPublishReady && sellerConnected,
-      enabled: settings.enabled,
-      sandbox: settings.sandbox,
-      canSignRequests: canSignSpApiRequests(settings),
-      connected: sellerConnected,
-      sellerId: seller?.sellerId ?? null,
-      marketplaceIds: seller?.marketplaceIds ?? [],
-      defaultMarketplace: seller?.defaultMarketplace ?? settings.defaultMarketplace,
-      source: "platform" as const,
-      credentialsReady: true,
-      redirectUri,
-    };
-  }
-
-  const [connection] = await db
-    .select()
-    .from(amazonSellerConnectionsTable)
-    .where(and(
-      eq(amazonSellerConnectionsTable.userId, opts.userId),
-      eq(amazonSellerConnectionsTable.isDeleted, 0),
-    ))
-    .limit(1);
+  const redirectUri = opts.req
+    ? buildAmazonOAuthRedirectUri(opts.req)
+    : activeSettings.redirectUri || null;
 
   return {
-    configured: isAmazonSpConfigured(settings),
-    publishReady: isAmazonPublishReady(settings),
-    enabled: settings.enabled,
-    sandbox: settings.sandbox,
-    canSignRequests: canSignSpApiRequests(settings),
-    connected: Boolean(connection),
-    sellerId: connection?.sellerId ?? null,
-    marketplaceIds: connection?.marketplaceIds ?? [],
-    defaultMarketplace: settings.defaultMarketplace,
-    source: "global" as const,
-    credentialsReady: isAmazonLwaConfigured(settings),
-    redirectUri: settings.redirectUri || null,
+    configured: oauthReady,
+    publishReady,
+    enabled: activeSettings.enabled,
+    sandbox: activeSettings.sandbox,
+    canSignRequests: canSignSpApiRequests(activeSettings),
+    connected: sellerConnected,
+    sellerId: seller?.sellerId ?? null,
+    marketplaceIds: seller?.marketplaceIds ?? [],
+    defaultMarketplace: seller?.defaultMarketplace ?? activeSettings.defaultMarketplace,
+    source: platformConfigured ? "platform" as const : workspaceLegacyConfigured ? "workspace" as const : "global" as const,
+    credentialsReady: oauthReady,
+    redirectUri,
+    awaitingSellerAuth: oauthReady && !sellerConnected,
   };
 }
 
