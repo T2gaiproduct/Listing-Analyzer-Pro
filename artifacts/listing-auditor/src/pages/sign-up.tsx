@@ -82,11 +82,10 @@ export default function SignUpPage() {
       </ClerkLoaded>
       {typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com") && (
         <p className="mt-4 max-w-[440px] text-center text-[11px] text-slate-500">
-          Cloudflare preview: if the form stays blank, ask your admin to set a matching{" "}
-          <code className="text-slate-600">CLERK_SECRET_KEY</code> for this Clerk app and restart the dev stack.
-          You can also try{" "}
+          Cloudflare preview: if sign-up stays on a blank screen, restart the dev stack so the
+          tunnel URL and Clerk proxy stay in sync. You can also{" "}
           <Link href={signInPath} className="text-orange-600 font-medium hover:underline">
-            Sign in
+            sign in
           </Link>{" "}
           if you already have an account.
         </p>

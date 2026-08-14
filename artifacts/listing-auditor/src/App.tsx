@@ -186,12 +186,12 @@ const clerkProxyUrlFromEnv = import.meta.env.VITE_CLERK_PROXY_URL as string | un
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function resolveClerkProxyUrl(): string | undefined {
-  if (typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com")) {
-    // Ephemeral trycloudflare.com hosts cannot be registered in Clerk proxy settings.
-    // Use the direct Frontend API so sign-in/sign-up work on Cloudflare preview links.
-    return undefined;
-  }
   if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
+  if (typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com")) {
+    // Dev stack configures Clerk proxy for the ephemeral tunnel host; same-origin FAPI
+    // is required for sign-up CAPTCHA/Turnstile on trycloudflare.com previews.
+    return `${window.location.origin}${basePath}/api/__clerk`;
+  }
   return undefined;
 }
 
