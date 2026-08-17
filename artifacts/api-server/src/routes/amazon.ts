@@ -12,8 +12,10 @@ import {
   createOAuthState,
   parseOAuthState,
   exchangeAuthorizationCode,
+  refreshAccessToken,
   testAmazonSpConnection,
 } from "../lib/amazon-sp-api.js";
+import { isAmazonLwaConfigured } from "../lib/amazon-sp-settings.js";
 import { publishListingToAmazonMarketplace } from "../lib/amazon-publish.js";
 import { resolveAmazonMarketplace } from "../lib/amazon-marketplaces.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
@@ -142,6 +144,58 @@ router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
     const message = err instanceof Error ? err.message : "Amazon authorization failed";
     res.status(400).send(message);
   }
+});
+
+/** Link a seller via Amazon Develop Apps self-authorization (refresh token + seller ID). */
+router.post("/amazon/connection/self-auth", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const workspaceId = getActiveWorkspaceId(req);
+  if (!workspaceId) {
+    res.status(400).json({ error: "Select a workspace before linking Amazon." });
+    return;
+  }
+
+  const body = req.body as { sellerId?: string; refreshToken?: string };
+  const sellerId = String(body.sellerId ?? "").trim();
+  const refreshToken = String(body.refreshToken ?? "").trim();
+
+  if (!sellerId || !refreshToken) {
+    res.status(400).json({
+      error: "Seller ID and refresh token are both required. Copy them from Seller Central → Develop Apps → Authorize (self-authorization).",
+    });
+    return;
+  }
+
+  if (!/^A[A-Z0-9]{8,}$/.test(sellerId)) {
+    res.status(400).json({
+      error: "Seller ID should look like A1PA6795UKMFR9 (Selling Partner ID from Amazon self-authorization).",
+    });
+    return;
+  }
+
+  const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId, req);
+  if (!isAmazonLwaConfigured(settings)) {
+    res.status(400).json({
+      error: "Amazon SP-API is not configured. Ask your administrator to set LWA credentials in Admin → Amazon SP-API.",
+    });
+    return;
+  }
+
+  try {
+    await refreshAccessToken(settings, refreshToken);
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Amazon rejected the refresh token.",
+    });
+    return;
+  }
+
+  await saveAmazonWorkspaceSellerConnection(workspaceId, {
+    sellerId,
+    refreshToken,
+    marketplaceIds: [],
+  });
+
+  res.json({ ok: true, connected: true, sellerId });
 });
 
 router.delete("/amazon/connection", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {

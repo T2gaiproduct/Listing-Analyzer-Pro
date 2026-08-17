@@ -102,4 +102,15 @@ export async function disconnectAmazon(): Promise<void> {
   });
 }
 
+export async function connectAmazonSelfAuth(input: {
+  sellerId: string;
+  refreshToken: string;
+}): Promise<{ ok: boolean; sellerId: string }> {
+  return fetchJson(`${basePath}/api/amazon/connection/self-auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export { fetchAmazonStatus, startAmazonConnect };

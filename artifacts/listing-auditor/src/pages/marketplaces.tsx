@@ -26,6 +26,7 @@ import {
   disconnectAmazon,
   disconnectStoreMarketplace,
   fetchMarketplaceConnections,
+  connectAmazonSelfAuth,
   startAmazonConnect,
   syncShopifyProducts,
   syncWooCommerceProducts,
@@ -212,6 +213,9 @@ export default function MarketplacesPage() {
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
   const [pendingAction, setPendingAction] = useState<DialogTarget | "amazon" | null>(null);
+  const [amazonSelfAuthOpen, setAmazonSelfAuthOpen] = useState(false);
+  const [amazonSellerId, setAmazonSellerId] = useState("");
+  const [amazonRefreshToken, setAmazonRefreshToken] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-connections", featureWorkspaceId],
@@ -379,6 +383,39 @@ export default function MarketplacesPage() {
     }
   }
 
+  async function submitAmazonSelfAuth() {
+    const sellerId = amazonSellerId.trim();
+    const refreshToken = amazonRefreshToken.trim();
+    if (!sellerId || !refreshToken) {
+      toast({
+        title: "Seller ID and token required",
+        description: "Copy both from Seller Central → Develop Apps → Authorize (self-authorization).",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPendingAction("amazon");
+    try {
+      const result = await connectAmazonSelfAuth({ sellerId, refreshToken });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      setAmazonSelfAuthOpen(false);
+      setAmazonSellerId("");
+      setAmazonRefreshToken("");
+      toast({
+        title: "Amazon connected",
+        description: `Seller ${result.sellerId} linked via self-authorization.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Could not link Amazon",
+        description: error instanceof Error ? error.message : "Self-authorization failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   function openStoreDialog(platform: StoreMarketplace) {
     setStoreUrl("");
     setClientId("");
@@ -498,30 +535,41 @@ export default function MarketplacesPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ConnectCard
-          marketplace="Amazon"
-          description="Connect your Amazon Seller Central account with one click. SellerLens uses secure Amazon OAuth — you never enter SP-API credentials."
-          connected={amazonConnected}
-          pending={amazonAwaitingSellerAuth}
-          connectLabel={amazonAwaitingSellerAuth ? "Authorize seller account" : undefined}
-          setupRequired={!amazonConfigured}
-          setupMessage="Amazon integration is being set up by your SellerLens administrator."
-          detail={
-            amazonConnected
-              ? [
-                  data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
-                  data?.amazon.publishReady
-                    ? "Direct publish enabled"
-                    : "Publishing pending platform SP-API setup",
-                ].filter(Boolean).join(" · ")
-              : amazonAwaitingSellerAuth
-                ? "Click Authorize seller account to finish linking Seller Central"
-                : null
-          }
-          loading={pendingAction === "amazon"}
-          onConnect={handleAmazonConnect}
-          onDisconnect={handleAmazonDisconnect}
-        />
+        <div className="space-y-2">
+          <ConnectCard
+            marketplace="Amazon"
+            description="Connect your Amazon Seller Central account with one click. SellerLens uses secure Amazon OAuth — you never enter SP-API credentials."
+            connected={amazonConnected}
+            pending={amazonAwaitingSellerAuth}
+            connectLabel={amazonAwaitingSellerAuth ? "Authorize seller account" : undefined}
+            setupRequired={!amazonConfigured}
+            setupMessage="Amazon integration is being set up by your SellerLens administrator."
+            detail={
+              amazonConnected
+                ? [
+                    data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
+                    data?.amazon.publishReady
+                      ? "Direct publish enabled"
+                      : "Publishing pending platform SP-API setup",
+                  ].filter(Boolean).join(" · ")
+                : amazonAwaitingSellerAuth
+                  ? "Click Authorize seller account to finish linking Seller Central"
+                  : null
+            }
+            loading={pendingAction === "amazon"}
+            onConnect={handleAmazonConnect}
+            onDisconnect={handleAmazonDisconnect}
+          />
+          {amazonConfigured && !amazonConnected ? (
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"
+              onClick={() => setAmazonSelfAuthOpen(true)}
+            >
+              Or paste self-authorization token from Develop Apps
+            </button>
+          ) : null}
+        </div>
         <ConnectCard
           marketplace="Shopify"
           description={CONNECT_CARDS[0]!.description}
@@ -679,6 +727,74 @@ export default function MarketplacesPage() {
                 </>
               ) : (
                 "Connect store"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={amazonSelfAuthOpen} onOpenChange={setAmazonSelfAuthOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link Amazon (self-authorization)</DialogTitle>
+            <DialogDescription>
+              For Draft apps without OAuth redirect URIs: in Seller Central → Develop Apps → your app →
+              <strong> Authorize</strong>, copy the <strong>Selling Partner ID</strong> and <strong>refresh token</strong>
+              (starts with Atzr|) and paste them here. No OAuth redirect URI is required for this path.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="amazon-seller-id" className="text-xs text-muted-foreground">
+                Selling Partner ID
+              </Label>
+              <Input
+                id="amazon-seller-id"
+                value={amazonSellerId}
+                onChange={(e) => setAmazonSellerId(e.target.value)}
+                placeholder="A1PA6795UKMFR9"
+                className="h-9 text-xs font-mono"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="amazon-refresh-token" className="text-xs text-muted-foreground">
+                LWA refresh token
+              </Label>
+              <Input
+                id="amazon-refresh-token"
+                type="password"
+                value={amazonRefreshToken}
+                onChange={(e) => setAmazonRefreshToken(e.target.value)}
+                placeholder="Atzr|…"
+                className="h-9 text-xs font-mono"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 text-xs"
+              onClick={() => setAmazonSelfAuthOpen(false)}
+              disabled={pendingAction === "amazon"}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="h-9 text-xs bg-foreground hover:bg-foreground/90 text-background"
+              onClick={() => void submitAmazonSelfAuth()}
+              disabled={pendingAction === "amazon"}
+            >
+              {pendingAction === "amazon" ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  Linking…
+                </>
+              ) : (
+                "Link seller account"
               )}
             </Button>
           </DialogFooter>
