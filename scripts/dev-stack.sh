@@ -211,6 +211,22 @@ print(primary, satellite)
   echo "WARNING: Could not set Clerk proxy_url for $host — sign-in may fail until configured in Clerk" >&2
 }
 
+configure_amazon_redirect_for_tunnel() {
+  local public_url="$1"
+  local redirect="${public_url}/api/amazon/oauth/callback"
+  echo "==> Updating Amazon OAuth redirect URI for Cloudflare tunnel"
+  if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+    INSERT INTO settings (key, value, category, is_secret, updated_at)
+    VALUES ('amazon_sp_redirect_uri', '$redirect', 'amazon', false, NOW())
+    ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value, category = EXCLUDED.category, updated_at = NOW();
+  " >/dev/null 2>&1; then
+    echo "Amazon redirect URI set to $redirect"
+  else
+    echo "WARNING: Could not update amazon_sp_redirect_uri in DB" >&2
+  fi
+}
+
 echo "==> Starting PostgreSQL"
 sudo pg_ctlcluster 16 main start 2>/dev/null || true
 
@@ -302,6 +318,7 @@ if [[ -n "$PUBLIC_URL" ]]; then
   echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
   configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
+  configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
   tmux_cmd kill-session -t api-server-live 2>/dev/null || true
   kill_port 8080
   kill_port 19145

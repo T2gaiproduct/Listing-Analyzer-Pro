@@ -45,8 +45,13 @@ import {
   upsertAdminRoleInvite,
 } from "../lib/admin-invites.js";
 import { buildAdminInviteUrl } from "../lib/admin-invite-token.js";
-import { loadAmazonSpSettings } from "../lib/amazon-sp-settings.js";
+import { buildAmazonOAuthRedirectUri } from "../lib/amazon-workspace-connection.js";
 import { testAmazonSpConnection } from "../lib/amazon-sp-api.js";
+import {
+  AMAZON_SETTINGS_CATEGORY,
+  loadAmazonSpSettings,
+  validateAmazonAwsCredentials,
+} from "../lib/amazon-sp-settings.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { computePlanPoolsFromAllocations, planRowToGrantCredits } from "../lib/plan-credits.js";
 import {
@@ -510,12 +515,13 @@ router.post("/admin/settings/test-paypal", requireAdmin, async (_req, res): Prom
   }
 });
 
-router.post("/admin/settings/test-amazon-sp", requireAdmin, async (_req, res): Promise<void> => {
+router.post("/admin/settings/test-amazon-sp", requireAdmin, async (req, res): Promise<void> => {
   try {
     const settings = await loadAmazonSpSettings();
     const result = await testAmazonSpConnection({
       ...settings,
       enabled: true,
+      redirectUri: buildAmazonOAuthRedirectUri(req),
     });
     // Always 200 — { ok: false } is a failed credential check, not a server error.
     res.json(result);
@@ -1516,7 +1522,9 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
   const all = await db.select().from(settingsTable);
   const filtered = category ? all.filter((s) => s.category === category) : all;
   const map: Record<string, string> = {};
-  for (const s of filtered) map[s.key] = s.isSecret ? "***" : s.value;
+  for (const s of filtered) {
+    map[s.key] = s.isSecret && s.value.trim() ? "***" : s.value;
+  }
   res.json(map);
 });
 
@@ -1564,6 +1572,22 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
       }
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : "Invalid branding image" });
+      return;
+    }
+  }
+
+  if (category === AMAZON_SETTINGS_CATEGORY) {
+    const existing = await loadAmazonSpSettings();
+    const incoming = settings as Record<string, string>;
+    const mergedAws = {
+      ...existing,
+      awsAccessKeyId: incoming.amazon_aws_access_key_id?.trim() || existing.awsAccessKeyId,
+      awsSecretAccessKey: incoming.amazon_aws_secret_access_key?.trim() || existing.awsSecretAccessKey,
+      awsRoleArn: incoming.amazon_aws_role_arn?.trim() || existing.awsRoleArn,
+    };
+    const awsError = validateAmazonAwsCredentials(mergedAws);
+    if (awsError) {
+      res.status(400).json({ error: awsError });
       return;
     }
   }

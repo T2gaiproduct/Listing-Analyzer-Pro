@@ -17,7 +17,7 @@ import {
 import { publishListingToAmazonMarketplace } from "../lib/amazon-publish.js";
 import { resolveAmazonMarketplace } from "../lib/amazon-marketplaces.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
-import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
+import { resolveMarketplacePublishBaseUrl, resolvePublicBaseUrl } from "../lib/resolve-public-base-url.js";
 import {
   getActiveWorkspaceId,
   resolveTeamAndWorkspace,
@@ -136,7 +136,7 @@ router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
         });
     }
 
-    const base = settings.redirectUri.replace(/\/api\/amazon\/oauth\/callback.*$/, "");
+    const base = resolvePublicBaseUrl(req).replace(/\/$/, "");
     res.redirect(`${base}/marketplaces?amazon=connected`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Amazon authorization failed";
