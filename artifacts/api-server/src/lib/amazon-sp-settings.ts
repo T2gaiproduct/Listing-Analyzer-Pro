@@ -188,6 +188,23 @@ export function resolveSpMarketplaceId(marketplaceCode: string): string {
   return AMAZON_MARKETPLACE_SP_IDS[code] ?? AMAZON_MARKETPLACE_SP_IDS.US!;
 }
 
+export function resolveMarketplaceCodeFromSpId(spMarketplaceId: string): string {
+  const id = spMarketplaceId.trim();
+  for (const [code, spId] of Object.entries(AMAZON_MARKETPLACE_SP_IDS)) {
+    if (spId === id) return code;
+  }
+  return "US";
+}
+
+export function spApiRegionForMarketplaceCode(marketplaceCode: string): "na" | "eu" | "fe" {
+  const code = marketplaceCode.trim().toUpperCase();
+  const eu = new Set(["UK", "DE", "FR", "IT", "ES", "NL", "SE", "PL", "BE", "TR"]);
+  const fe = new Set(["JP", "AU", "SG", "IN"]);
+  if (eu.has(code)) return "eu";
+  if (fe.has(code)) return "fe";
+  return "na";
+}
+
 export function spApiHost(settings: AmazonSpSettings, region: "na" | "eu" | "fe" = "na"): string {
   const prefix = settings.sandbox ? "sandbox." : "";
   return `https://${prefix}sellingpartnerapi-${region}.amazon.com`;

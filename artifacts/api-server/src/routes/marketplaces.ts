@@ -35,6 +35,9 @@ import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
 import { syncWooCommerceProducts } from "../lib/woocommerce-product-sync.js";
 import { syncWooCommerceOrders } from "../lib/woocommerce-order-sync.js";
+import { syncAmazonProducts } from "../lib/amazon-product-sync.js";
+import { maybeSyncAmazonOrdersForWorkspace } from "../lib/amazon-order-sync.js";
+import { resolveAmazonConnectionForWorkspace } from "../lib/resolve-amazon-settings.js";
 import { verifyShopifyConnection } from "../lib/shopify-connection-verify.js";
 
 const router: IRouter = Router();
@@ -316,6 +319,61 @@ router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAnd
   await disconnectStoreConnection(workspaceId, platform);
   res.status(204).end();
 });
+
+router.post(
+  "/marketplaces/amazon/sync",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceActionAny(["build_brand", "audits"], "create"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const userId = (req as AuthedRequest).userId;
+    const connection = await resolveAmazonConnectionForWorkspace({
+      workspaceId,
+      userId,
+      req,
+    });
+
+    if (!connection) {
+      res.status(400).json({
+        error: "Amazon catalog import requires a connected seller account and platform SP-API setup (AWS signing keys in Admin → Amazon SP-API).",
+      });
+      return;
+    }
+
+    const body = req.body as { marketplace?: string } | undefined;
+    const marketplaceCode = typeof body?.marketplace === "string" ? body.marketplace.trim() : undefined;
+
+    try {
+      const result = await syncAmazonProducts({
+        connection,
+        ownerId: getEffectiveUserId(req),
+        createdByUserId: auditCreatedByUserId(req),
+        workspaceId,
+        marketplaceCode,
+      });
+
+      void maybeSyncAmazonOrdersForWorkspace({
+        workspaceId,
+        connection,
+      }).catch((err) => {
+        req.log?.error?.({ err }, "Amazon order sync failed");
+      });
+
+      res.status(201).json({
+        ...result,
+        auditsCompleted: 0,
+        auditsFailed: 0,
+        auditsRemaining: 0,
+        ordersSyncQueued: true,
+      });
+    } catch (err) {
+      req.log?.error?.({ err }, "Amazon product sync failed");
+      const message = err instanceof Error ? err.message : "Failed to import Amazon products";
+      res.status(500).json({ error: message });
+    }
+  },
+);
 
 router.post(
   "/marketplaces/shopify/sync",

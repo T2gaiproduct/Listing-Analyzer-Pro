@@ -30,6 +30,7 @@ import {
   startAmazonConnect,
   syncShopifyProducts,
   syncWooCommerceProducts,
+  syncAmazonProducts,
   type StoreMarketplace,
 } from "@/lib/marketplace-connections";
 
@@ -306,6 +307,39 @@ export default function MarketplacesPage() {
     },
   });
 
+  const amazonSyncMutation = useMutation({
+    mutationFn: syncAmazonProducts,
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+      const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Amazon.` : "";
+      const ordersNote = (result.ordersImported ?? 0) > 0 || (result.ordersUpdated ?? 0) > 0
+        ? ` Synced ${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0)} Amazon order${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0) === 1 ? "" : "s"}.`
+        : result.ordersSyncQueued
+          ? " Syncing Amazon orders in the background."
+          : "";
+      toast({
+        title: "Amazon listings imported",
+        description: `Imported ${result.imported} of ${result.total} listings from Seller Central.${updatedNote}${skippedNote}${ordersNote}`,
+      });
+      if (result.errors.length > 0) {
+        toast({
+          title: "Some listings could not be imported",
+          description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "Could not import Amazon listings.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const woocommerceSyncMutation = useMutation({
     mutationFn: syncWooCommerceProducts,
     onSuccess: (result) => {
@@ -557,8 +591,14 @@ export default function MarketplacesPage() {
                   : null
             }
             loading={pendingAction === "amazon"}
+            importLoading={amazonSyncMutation.isPending}
             onConnect={handleAmazonConnect}
             onDisconnect={handleAmazonDisconnect}
+            onImport={
+              amazonConnected && data?.amazon.canSignRequests
+                ? () => amazonSyncMutation.mutate()
+                : undefined
+            }
           />
           {amazonConfigured && !amazonConnected ? (
             <button

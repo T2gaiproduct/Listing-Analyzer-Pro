@@ -96,6 +96,14 @@ export async function syncWooCommerceProducts(): Promise<ShopifySyncResult> {
   });
 }
 
+export async function syncAmazonProducts(marketplace?: string): Promise<ShopifySyncResult> {
+  return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/amazon/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(marketplace ? { marketplace } : {}),
+  });
+}
+
 export async function disconnectAmazon(): Promise<void> {
   await fetchJson(`${basePath}/api/marketplaces/connections/amazon`, {
     method: "DELETE",

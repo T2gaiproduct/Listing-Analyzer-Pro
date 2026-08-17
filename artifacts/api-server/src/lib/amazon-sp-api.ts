@@ -1,6 +1,11 @@
 import crypto from "node:crypto";
-import type { AmazonSpSettings } from "./amazon-sp-settings.js";
-import { resolveSpMarketplaceId, spApiHost } from "./amazon-sp-settings.js";
+import zlib from "node:zlib";
+import {
+  resolveSpMarketplaceId,
+  spApiHost,
+  spApiRegionForMarketplaceCode,
+  type AmazonSpSettings,
+} from "./amazon-sp-settings.js";
 
 const LWA_TOKEN_URL = "https://api.amazon.com/auth/o2/token";
 
@@ -304,13 +309,14 @@ export async function spApiRequest<T>(opts: {
   path: string;
   body?: unknown;
   accessToken?: string;
+  region?: "na" | "eu" | "fe";
 }): Promise<T> {
   if (!opts.settings.awsAccessKeyId.trim() || !opts.settings.awsSecretAccessKey.trim()) {
     throw new Error("AWS access credentials are required for SP-API. Add them on the Marketplaces page.");
   }
   const token = opts.accessToken
     ?? (await refreshAccessToken(opts.settings, opts.refreshToken)).access_token;
-  const host = spApiHost(opts.settings).replace("https://", "");
+  const host = spApiHost(opts.settings, opts.region ?? "na").replace("https://", "");
   const bodyStr = opts.body ? JSON.stringify(opts.body) : "";
   const creds = await assumeRoleIfNeeded(opts.settings);
   const signed = signAwsRequest({
@@ -477,4 +483,174 @@ export async function listAmazonOrderItems(opts: {
   }
 
   return items;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export type MerchantListingsReportRow = {
+  sku: string;
+  title: string;
+  asin: string | null;
+  priceCents: number | null;
+  quantity: number | null;
+  imageUrl: string | null;
+  status: string | null;
+};
+
+export async function fetchMerchantListingsAllDataReport(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  marketplaceCode: string;
+  pollIntervalMs?: number;
+  maxWaitMs?: number;
+}): Promise<MerchantListingsReportRow[]> {
+  const marketplaceId = resolveSpMarketplaceId(opts.marketplaceCode);
+  const region = spApiRegionForMarketplaceCode(opts.marketplaceCode);
+
+  const created = await spApiRequest<{ reportId?: string }>({
+    settings: opts.settings,
+    refreshToken: opts.refreshToken,
+    method: "POST",
+    path: "/reports/2021-06-30/reports",
+    region,
+    body: {
+      reportType: "GET_MERCHANT_LISTINGS_ALL_DATA",
+      marketplaceIds: [marketplaceId],
+    },
+  });
+
+  const reportId = created.reportId?.trim();
+  if (!reportId) {
+    throw new Error("Amazon did not return a report id for catalog export.");
+  }
+
+  const pollIntervalMs = opts.pollIntervalMs ?? 15_000;
+  const maxWaitMs = opts.maxWaitMs ?? 10 * 60 * 1000;
+  const deadline = Date.now() + maxWaitMs;
+  let reportDocumentId: string | null = null;
+
+  while (Date.now() < deadline) {
+    const status = await spApiRequest<{
+      processingStatus?: string;
+      reportDocumentId?: string;
+    }>({
+      settings: opts.settings,
+      refreshToken: opts.refreshToken,
+      method: "GET",
+      path: `/reports/2021-06-30/reports/${encodeURIComponent(reportId)}`,
+      region,
+    });
+
+    const processingStatus = status.processingStatus?.trim().toUpperCase() ?? "";
+    if (processingStatus === "DONE") {
+      reportDocumentId = status.reportDocumentId?.trim() ?? null;
+      break;
+    }
+    if (processingStatus === "FATAL" || processingStatus === "CANCELLED") {
+      throw new Error(`Amazon catalog report failed (${processingStatus}). Try again in Seller Central or contact support.`);
+    }
+
+    await sleep(pollIntervalMs);
+  }
+
+  if (!reportDocumentId) {
+    throw new Error("Amazon catalog report timed out. Try again — large catalogs can take several minutes.");
+  }
+
+  const document = await spApiRequest<{
+    url?: string;
+    compressionAlgorithm?: string;
+  }>({
+    settings: opts.settings,
+    refreshToken: opts.refreshToken,
+    method: "GET",
+    path: `/reports/2021-06-30/documents/${encodeURIComponent(reportDocumentId)}`,
+    region,
+  });
+
+  const downloadUrl = document.url?.trim();
+  if (!downloadUrl) {
+    throw new Error("Amazon did not return a download URL for the catalog report.");
+  }
+
+  const downloadRes = await fetch(downloadUrl);
+  if (!downloadRes.ok) {
+    throw new Error(`Failed to download Amazon catalog report (${downloadRes.status}).`);
+  }
+
+  const rawBytes = Buffer.from(await downloadRes.arrayBuffer());
+  const decompressed = document.compressionAlgorithm?.trim().toUpperCase() === "GZIP"
+    ? zlib.gunzipSync(rawBytes)
+    : rawBytes;
+  const text = decompressed.toString("utf8");
+
+  return parseMerchantListingsReport(text);
+}
+
+function parseMerchantListingsReport(text: string): MerchantListingsReportRow[] {
+  const normalized = text.replace(/^\uFEFF/, "");
+  const lines = normalized.split(/\r?\n/).map((line) => line.trimEnd()).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+
+  const headers = lines[0]!.split("\t").map((header) => header.trim().toLowerCase());
+  const indexFor = (names: string[]): number => {
+    for (const name of names) {
+      const idx = headers.indexOf(name);
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  const skuIdx = indexFor(["seller-sku", "sku"]);
+  const titleIdx = indexFor(["item-name", "title", "product-name"]);
+  const asinIdx = indexFor(["asin1", "asin"]);
+  const priceIdx = indexFor(["price", "your-price"]);
+  const quantityIdx = indexFor(["quantity", "afn-fulfillable-quantity", "mfn-fulfillable-quantity"]);
+  const imageIdx = indexFor(["image-url", "main-image-url"]);
+  const statusIdx = indexFor(["status", "listing-status"]);
+
+  const rows: MerchantListingsReportRow[] = [];
+
+  for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
+    const columns = lines[lineIndex]!.split("\t");
+    const sku = skuIdx >= 0 ? columns[skuIdx]?.trim() : "";
+    const title = titleIdx >= 0 ? columns[titleIdx]?.trim() : "";
+    if (!sku && !title) continue;
+
+    const asinRaw = asinIdx >= 0 ? columns[asinIdx]?.trim() : "";
+    const asin = asinRaw && /^[A-Z0-9]{10}$/i.test(asinRaw) ? asinRaw.toUpperCase() : null;
+
+    let priceCents: number | null = null;
+    if (priceIdx >= 0) {
+      const priceRaw = columns[priceIdx]?.trim().replace(/[^\d.,-]/g, "").replace(",", "");
+      const price = Number.parseFloat(priceRaw);
+      if (Number.isFinite(price) && price > 0) {
+        priceCents = Math.round(price * 100);
+      }
+    }
+
+    let quantity: number | null = null;
+    if (quantityIdx >= 0) {
+      const qtyRaw = columns[quantityIdx]?.trim();
+      const qty = Number.parseInt(qtyRaw ?? "", 10);
+      if (Number.isFinite(qty)) quantity = qty;
+    }
+
+    const imageUrl = imageIdx >= 0 ? columns[imageIdx]?.trim() || null : null;
+    const status = statusIdx >= 0 ? columns[statusIdx]?.trim() || null : null;
+
+    rows.push({
+      sku: sku || asin || `ROW-${lineIndex}`,
+      title: title || sku || asin || "Amazon listing",
+      asin,
+      priceCents,
+      quantity,
+      imageUrl,
+      status,
+    });
+  }
+
+  return rows;
 }
