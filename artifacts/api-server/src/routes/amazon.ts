@@ -164,7 +164,7 @@ router.post("/amazon/test-connection", requireAuth, resolveTeamAndWorkspace, asy
   const workspaceId = getActiveWorkspaceId(req);
   const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId);
   const result = await testAmazonSpConnection(settings);
-  res.status(result.ok ? 200 : 400).json(result);
+  res.json(result);
 });
 
 router.post(
