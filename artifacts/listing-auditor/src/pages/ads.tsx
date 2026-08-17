@@ -1,12 +1,92 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Loader2, Plus, Target, Sparkles } from "lucide-react";
+import {
+  Sparkles,
+  Target,
+  BarChart2,
+  SlidersHorizontal,
+  Wallet,
+  ArrowRight,
+  TrendingUp,
+  Clock,
+  Crown,
+  Shield,
+  Zap,
+  Loader2,
+  Megaphone,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fetchAdsProjects } from "@/lib/ads-api";
 
+function HeroIllustration() {
+  return (
+    <div className="relative w-full max-w-sm mx-auto">
+      <div className="rounded-2xl bg-gradient-to-br from-slate-50 via-white to-orange-50/60 border border-slate-100 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.12)] p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#232F3E] flex items-center justify-center">
+              <span className="text-[#FF9900] font-bold text-sm leading-none">a</span>
+            </div>
+            <div className="space-y-1">
+              <div className="h-2 w-16 rounded-full bg-slate-200" />
+              <div className="h-1.5 w-10 rounded-full bg-slate-100" />
+            </div>
+          </div>
+          <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center">
+            <Target className="w-3.5 h-3.5 text-primary" />
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white border border-slate-100 p-4 mb-3 shadow-sm">
+          <div className="flex items-end justify-between gap-1 h-20 mb-2">
+            {[35, 50, 42, 65, 58, 78, 92].map((h, i) => (
+              <div
+                key={i}
+                className="flex-1 rounded-t-sm bg-gradient-to-t from-primary/80 to-primary/40"
+                style={{ height: `${h}%` }}
+              />
+            ))}
+          </div>
+          <svg viewBox="0 0 200 40" className="w-full h-8" aria-hidden="true">
+            <polyline
+              fill="none"
+              stroke="hsl(28 100% 50%)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points="0,32 30,28 60,22 90,18 120,12 150,8 180,4 200,2"
+            />
+            <circle cx="200" cy="2" r="3" fill="hsl(28 100% 50%)" />
+          </svg>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "ROAS", value: "4.2x" },
+            { label: "ACOS", value: "18%" },
+            { label: "Spend", value: "$2.4k" },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-lg bg-slate-50 border border-slate-100 px-2 py-2 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{stat.label}</p>
+              <p className="text-sm font-bold text-foreground">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="absolute -top-3 -right-3 w-14 h-14 rounded-full bg-orange-100/80 border-4 border-white shadow-sm flex items-center justify-center">
+          <TrendingUp className="w-5 h-5 text-primary" />
+        </div>
+        <div className="absolute -bottom-2 -left-2 w-10 h-10 rounded-full bg-white border border-orange-100 shadow-sm flex items-center justify-center">
+          <BarChart2 className="w-4 h-4 text-primary/70" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdsPage() {
-  const [, setLocation] = useLocation();
+  const [, nav] = useLocation();
   const projectsQuery = useQuery({
     queryKey: ["ads-projects"],
     queryFn: fetchAdsProjects,
@@ -15,79 +95,193 @@ export default function AdsPage() {
   const projects = projectsQuery.data?.projects ?? [];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-      <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 flex items-center gap-2 text-sm text-sky-900">
-        <Sparkles className="w-4 h-4 text-sky-600 shrink-0" />
-        <span>
-          <span className="font-semibold">Work in progress</span>
-          — Manage Ads is available for early use. Campaign tools are still being refined.
-        </span>
-      </div>
+    <div className="w-full min-w-0 space-y-6 sm:space-y-8">
+      {/* Hero — same layout as Create Graphics (`/projects`) */}
+      <div className="relative bg-card rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-8 border border-border overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-100 dark:opacity-60"
+          style={{
+            background:
+              "radial-gradient(ellipse at 10% 0%, rgba(251,191,100,0.18) 0%, transparent 55%), radial-gradient(ellipse at 90% 5%, rgba(255,237,213,0.3) 0%, transparent 50%)",
+          }}
+        />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/10 rounded-full -translate-y-1/2 translate-x-1/3" />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold tracking-tight">Manage Ads</h1>
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-sky-700 border-sky-200 bg-sky-50">
-              Work in Progress
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Build Sponsored Products campaigns from ASIN, Amazon keyword data, and SellerLens AI scoring.
-          </p>
-        </div>
-        <Button onClick={() => setLocation("/ads/new")} className="gap-2 shrink-0">
-          <Plus className="w-4 h-4" />
-          New campaign
-        </Button>
-      </div>
-
-      {projectsQuery.isLoading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : projects.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center space-y-4">
-          <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center mx-auto">
-            <Target className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="font-semibold">No ad campaigns yet</h2>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              Start with a product ASIN. We pull Amazon Ads recommendations, your campaign history, search term reports, and listing keywords — then score and launch Exact / Phrase / Broad targets.
-            </p>
-          </div>
-          <Button onClick={() => setLocation("/ads/new")} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Create first campaign
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              onClick={() => setLocation(`/ads/${project.id}`)}
-              className="w-full rounded-xl border bg-card p-4 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors text-left"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="font-medium truncate">{project.name}</span>
-                  <Badge variant="outline" className="font-mono text-[10px]">{project.asin}</Badge>
-                  <Badge variant={project.status === "active" ? "default" : "secondary"} className="text-[10px]">
-                    {project.status}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Step {project.currentStep} · {project.keywordData?.length ?? 0} keywords scored
-                </p>
+        <div className="relative flex flex-col md:flex-row items-start justify-between gap-6 md:gap-8 w-full min-w-0">
+          <div className="w-full min-w-0 max-w-lg">
+            <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6">
+              <div className="inline-flex items-center gap-1.5 bg-card/80 backdrop-blur-sm border border-amber-200/60 dark:border-amber-500/30 rounded-full px-3 py-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+                <span className="text-xs font-medium text-orange-600 dark:text-orange-400">AI-Powered</span>
               </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </button>
-          ))}
+              <span className="inline-flex items-center gap-1.5 bg-sky-50 border border-sky-200 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700">
+                Work in Progress
+              </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-foreground leading-tight mb-3 sm:mb-4 break-words">
+              Run Smarter{" "}
+              <span className="text-orange-500">Amazon PPC Campaigns</span>{" "}
+              Using AI
+            </h1>
+
+            <p className="text-muted-foreground text-sm md:text-base mb-6 sm:mb-8 max-w-full">
+              Build Sponsored Products campaigns from your ASIN, Amazon keyword data, search terms, and listing context — scored and launched with Exact, Phrase, and Broad targets.
+            </p>
+
+            <div className="space-y-3 mb-6 sm:mb-8">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-card border border-amber-200/60 dark:border-amber-500/30 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <Target className="w-4 h-4 text-orange-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Keyword recommendations</p>
+                  <p className="text-xs text-muted-foreground">Amazon Ads API suggestions plus your search term reports</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-card border border-amber-200/60 dark:border-amber-500/30 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <SlidersHorizontal className="w-4 h-4 text-orange-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">AI keyword expansion & scoring</p>
+                  <p className="text-xs text-muted-foreground">SellerLens ranks keywords and assigns match types</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-card border border-amber-200/60 dark:border-amber-500/30 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <Wallet className="w-4 h-4 text-orange-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Launch on Amazon</p>
+                  <p className="text-xs text-muted-foreground">Create campaigns, ad groups, and keyword targets in Seller Central</p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-7 py-3 h-auto min-h-11 text-sm font-semibold shadow-lg shadow-orange-500/20 transition-all hover:shadow-orange-500/30"
+              onClick={() => nav("/ads/new")}
+            >
+              <Megaphone className="w-4 h-4 mr-2" />
+              Create Campaign
+            </Button>
+
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 mt-4 sm:mt-5">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center">
+                  <Shield className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                </div>
+                Connect Amazon on Marketplaces
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center">
+                  <Zap className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                </div>
+                Campaigns in minutes
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center">
+                  <Shield className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                </div>
+                Your data is secure
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden md:block flex-shrink-0 relative w-80">
+            <div className="absolute top-2 right-2 z-10 inline-flex items-center gap-1.5 bg-card/90 backdrop-blur-sm border border-amber-200/60 dark:border-amber-500/30 rounded-full px-3 py-1.5 shadow-sm">
+              <BarChart2 className="w-3.5 h-3.5 text-orange-500" />
+              <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Ad Performance</span>
+            </div>
+            <HeroIllustration />
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Stats — matches Create Graphics bottom banner */}
+      <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-orange-500/10 border border-orange-200/60 dark:border-orange-500/30 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground">Designed for Amazon sellers</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Turn ASINs into structured PPC campaigns with less wasted spend and better keyword coverage.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 sm:flex sm:items-center sm:gap-6 md:gap-8 lg:gap-12">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-center sm:text-left">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-500/10 border border-orange-200/60 dark:border-orange-500/30 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-base sm:text-lg font-bold text-foreground">4.2x</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Target ROAS</p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-center sm:text-left">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-500/10 border border-orange-200/60 dark:border-orange-500/30 flex items-center justify-center">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-base sm:text-lg font-bold text-foreground">10x</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Faster setup</p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-center sm:text-left">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-500/10 border border-orange-200/60 dark:border-orange-500/30 flex items-center justify-center">
+                <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-base sm:text-lg font-bold text-foreground">3</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Match types</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Your campaigns */}
+      {projectsQuery.isLoading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : projects.length > 0 ? (
+        <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-sm font-bold text-foreground">Your campaigns</h2>
+            <Button variant="outline" size="sm" onClick={() => nav("/ads/new")}>
+              New campaign
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {projects.map((project) => (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => nav(`/ads/${project.id}`)}
+                className="w-full rounded-lg border p-3 flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors text-left"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium truncate">{project.name}</span>
+                    <Badge variant="outline" className="font-mono text-[10px]">{project.asin}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {project.status} · step {project.currentStep}
+                  </p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
