@@ -49,6 +49,8 @@ export interface WorkspaceFeatureMeta {
   actions: WorkspaceAction[];
   /** Product feature not launched yet — shown with Coming Soon badge in role UI. */
   comingSoon?: boolean;
+  /** Early access feature — navigable but shown with Work in Progress badge. */
+  workInProgress?: boolean;
 }
 
 /** Primary sidebar product features shown first in the role permissions matrix. */
@@ -76,7 +78,7 @@ export const WORKSPACE_FEATURE_META: WorkspaceFeatureMeta[] = [
   { id: "audits", label: "Audit Listing", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
   { id: "graphics", label: "Create Graphics", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
   { id: "videos", label: "Create Video", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"], comingSoon: true },
-  { id: "ads", label: "Manage Ads", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
+  { id: "ads", label: "Manage Ads", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"], workInProgress: true },
 
   // ── Overview ───────────────────────────────────────────────────────────────
   { id: "dashboard", label: "Dashboard", group: "Overview", actions: ["viewGlobal", "viewOwn"] },

@@ -64,13 +64,14 @@ const mainNavItems: Array<{
   href: string;
   feature: WorkspaceFeature;
   comingSoon?: boolean;
+  workInProgress?: boolean;
 }> = [
   { icon: FilePlus2, label: "Build Your Brand", href: "/audits/new", feature: "build_brand" },
   { icon: Package, label: "Product Explorer", href: "/products", feature: "build_brand" },
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
-  { icon: Video, label: "Create Video", href: "/videos", feature: "videos" },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads", feature: "ads" },
+  { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
+  { icon: Megaphone, label: "Manage Ads", href: "/ads", feature: "ads", workInProgress: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
 ];
@@ -151,7 +152,7 @@ function getPageTitle(location: string): string {
   if (location.startsWith("/projects/")) return "Project Details";
   if (location === "/projects") return "Create Graphics";
   if (location === "/videos") return "Create Videos";
-  if (location === "/ads") return "Manage Ads";
+  if (location === "/ads" || location.startsWith("/ads/")) return "Manage Ads";
   if (location === "/billing") return "Billing";
   if (location === "/profile") return "Profile";
   if (location === "/settings") return "Settings";
@@ -174,7 +175,7 @@ function isRibbonVisible(location: string): boolean {
   if (location === "/audits/new") return false;
   if (location === "/projects") return false;
   if (location === "/videos") return false;
-  if (location === "/ads") return false;
+  if (location === "/ads" || location.startsWith("/ads/")) return false;
   if (location === "/audit-listings") return false;
   if (location === "/billing") return false;
   if (location === "/profile") return false;
@@ -749,7 +750,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto overflow-x-visible py-3 flex flex-col">
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3.5")}>
-            {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
+            {visibleNavItems.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
               const isActive =
                 location === href ||
                 (href === "/marketplaces" && location === "/marketplaces") ||
@@ -758,7 +759,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
                 (href === "/videos" && location === "/videos") ||
-                (href === "/ads" && location === "/ads");
+                (href === "/ads" && (location === "/ads" || location.startsWith("/ads/")));
               if (collapsed) {
                 return (
                   <SidebarTooltip key={href} label={label} side="right">
@@ -794,6 +795,11 @@ export function Layout({ children }: { children: ReactNode }) {
                   {comingSoon && !isActive && (
                     <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 flex-shrink-0">
                       Soon
+                    </span>
+                  )}
+                  {workInProgress && !isActive && !comingSoon && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-sky-700 bg-sky-50 border border-sky-200 rounded px-1 py-0.5 flex-shrink-0">
+                      WIP
                     </span>
                   )}
                 </button>
@@ -867,13 +873,14 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              {visibleNavItems.map(({ icon: Icon, label, href, comingSoon }) => {
+              {visibleNavItems.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
                 const isActive =
                   location === href ||
                   (href === "/marketplaces" && location === "/marketplaces") ||
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/recent-projects" && location === "/recent-projects") ||
-                  (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search)));
+                  (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
+                  (href === "/ads" && (location === "/ads" || location.startsWith("/ads/")));
                 return (
                   <button
                     key={href}
@@ -890,6 +897,9 @@ export function Layout({ children }: { children: ReactNode }) {
                     <span className="flex-1">{label}</span>
                     {comingSoon && (
                       <span className="text-[9px] font-semibold uppercase text-amber-700">Soon</span>
+                    )}
+                    {workInProgress && !comingSoon && (
+                      <span className="text-[9px] font-semibold uppercase text-sky-700">WIP</span>
                     )}
                   </button>
                 );

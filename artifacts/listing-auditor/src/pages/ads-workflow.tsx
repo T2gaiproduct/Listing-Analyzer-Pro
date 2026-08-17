@@ -45,7 +45,7 @@ const STEPS = [
   { id: 4, label: "Launch campaign" },
 ];
 
-({ projectId }: { projectId?: number }) {
+export default function AdsWorkflowPage({ projectId }: { projectId?: number }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -216,7 +216,12 @@ const STEPS = [
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Manage Ads</h1>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold tracking-tight">Manage Ads</h1>
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-sky-700 border-sky-200 bg-sky-50">
+              Work in Progress
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             ASIN → Amazon Ads API → recommendations → campaigns → search terms → AI expansion → scoring → launch
           </p>

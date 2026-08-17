@@ -272,6 +272,11 @@ export default function RolesPage() {
                               Coming Soon
                             </span>
                           )}
+                          {meta.workInProgress && !meta.comingSoon && (
+                            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5">
+                              Work in Progress
+                            </span>
+                          )}
                         </td>
                         {WORKSPACE_ACTIONS.map((action) => {
                           const enabled = meta.actions.includes(action);
