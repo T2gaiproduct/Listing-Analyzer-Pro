@@ -696,9 +696,6 @@ export default function MarketplacesPage() {
   const amazonWorkspaceCredentialsSaved = Boolean(
     data?.amazon.workspaceCredentialsSaved ?? data?.amazon.configured,
   );
-  const amazonAwaitingSellerAuth = Boolean(
-    amazonWorkspaceCredentialsSaved && data?.amazon.awaitingSellerAuth,
-  );
   const amazonCanSignRequests = Boolean(data?.amazon.canSignRequests);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
@@ -722,18 +719,18 @@ export default function MarketplacesPage() {
         <div className="space-y-2">
           <ConnectCard
             marketplace="Amazon"
-            description="Enter your SP-API app credentials from Seller Central Develop Apps, connect your seller account, then import your catalog into Product Explorer."
+            description="Step 1: Add your Develop Apps credentials. Step 2: Connect your seller account. Then import your catalog."
             connected={amazonConnected}
-            pending={amazonAwaitingSellerAuth}
+            pending={false}
             connectLabel={
               !amazonWorkspaceCredentialsSaved
                 ? "Add SP-API credentials"
-                : amazonAwaitingSellerAuth
-                  ? "Authorize seller account"
+                : !amazonConnected
+                  ? "Connect with Amazon"
                   : undefined
             }
             setupRequired={!amazonWorkspaceCredentialsSaved}
-            setupMessage="Start by adding LWA and AWS credentials from your Develop Apps registration."
+            setupMessage="Add LWA Client ID, Client Secret, and AWS keys from Seller Central → Develop Apps."
             detail={
               amazonConnected
                 ? [
@@ -741,11 +738,11 @@ export default function MarketplacesPage() {
                     data?.amazon.publishReady
                       ? "Import, publish & sync enabled"
                       : data?.amazon.canSignRequests
-                        ? "Connect seller account to import"
-                        : "Add AWS keys in SP-API credentials to import & publish",
+                        ? "Ready to import after seller connect"
+                        : "Add AWS keys in credentials to import & publish",
                   ].filter(Boolean).join(" · ")
-                : amazonAwaitingSellerAuth
-                  ? "SP-API credentials saved — click Authorize seller account"
+                : amazonWorkspaceCredentialsSaved && !amazonConnected
+                  ? "Credentials saved — connect your Seller Central account to finish"
                   : null
             }
             loading={pendingAction === "amazon"}
@@ -757,22 +754,28 @@ export default function MarketplacesPage() {
             importDisabledReason="Add AWS Access Key and Secret in Amazon SP-API credentials, then click Import products."
           />
           {amazonWorkspaceCredentialsSaved ? (
-            <button
-              type="button"
-              className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"
-              onClick={openAmazonCredentialsDialog}
-            >
-              Edit SP-API credentials
-            </button>
-          ) : null}
-          {amazonWorkspaceCredentialsSaved && !amazonConnected ? (
-            <button
-              type="button"
-              className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"
-              onClick={() => setAmazonSelfAuthOpen(true)}
-            >
-              Or paste self-authorization token from Develop Apps
-            </button>
+            <p className="text-[11px] text-muted-foreground px-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <button
+                type="button"
+                className="hover:text-foreground underline"
+                onClick={openAmazonCredentialsDialog}
+              >
+                Edit credentials
+              </button>
+              {!amazonConnected ? (
+                <>
+                  <span className="text-border">·</span>
+                  <button
+                    type="button"
+                    className="hover:text-foreground underline"
+                    onClick={() => setAmazonSelfAuthOpen(true)}
+                  >
+                    Connect with token instead
+                  </button>
+                  <span className="text-muted-foreground/80">(Draft apps without OAuth)</span>
+                </>
+              ) : null}
+            </p>
           ) : null}
         </div>
         <ConnectCard
@@ -1098,11 +1101,10 @@ export default function MarketplacesPage() {
       <Dialog open={amazonSelfAuthOpen} onOpenChange={setAmazonSelfAuthOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Link Amazon (self-authorization)</DialogTitle>
+            <DialogTitle>Connect with token</DialogTitle>
             <DialogDescription>
-              For Draft apps without OAuth redirect URIs: in Seller Central → Develop Apps → your app →
-              <strong> Authorize</strong>, copy the <strong>Selling Partner ID</strong> and <strong>refresh token</strong>
-              (starts with Atzr|) and paste them here. No OAuth redirect URI is required for this path.
+              Only if your Draft app has no OAuth redirect URI. In Develop Apps → Authorize, copy the
+              Selling Partner ID and refresh token (starts with Atzr|).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
