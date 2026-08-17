@@ -53,10 +53,15 @@ export function getClerkProxyHost(req: {
 }
 
 export function clerkProxyMiddleware(): RequestHandler {
-  // Production deploys and Cloudflare previews (ENABLE_CLERK_PROXY) need same-origin Clerk FAPI.
+  // Production, explicit ENABLE_CLERK_PROXY=true, or any dev session with a secret key
+  // (Cloudflare preview / trycloudflare.com needs same-origin FAPI for sign-up CAPTCHA).
   const enableProxy =
-    process.env.NODE_ENV === "production"
-    || process.env.ENABLE_CLERK_PROXY === "true";
+    process.env.ENABLE_CLERK_PROXY !== "false"
+    && (
+      process.env.NODE_ENV === "production"
+      || process.env.ENABLE_CLERK_PROXY === "true"
+      || Boolean(process.env.CLERK_SECRET_KEY?.trim())
+    );
 
   if (!enableProxy) {
     return (_req, _res, next) => next();
