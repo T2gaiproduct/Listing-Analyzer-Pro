@@ -17,6 +17,15 @@ export function getAllowedOrigins(): string[] {
     }
   }
 
+  const tunnelPublicUrl = process.env.CLOUDFLARE_TUNNEL_PUBLIC_URL?.trim();
+  if (tunnelPublicUrl) {
+    try {
+      origins.add(new URL(tunnelPublicUrl).origin);
+    } catch {
+      /* ignore invalid CLOUDFLARE_TUNNEL_PUBLIC_URL */
+    }
+  }
+
   for (const domain of process.env.REPLIT_DOMAINS?.split(",") ?? []) {
     const trimmed = domain.trim();
     if (!trimmed) continue;

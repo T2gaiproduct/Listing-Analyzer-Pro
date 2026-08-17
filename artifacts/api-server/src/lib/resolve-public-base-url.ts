@@ -11,7 +11,16 @@ function isLocalhostOrigin(origin: string): boolean {
   }
 }
 
+function readStableTunnelPublicUrl(): string | undefined {
+  const raw = process.env.CLOUDFLARE_TUNNEL_PUBLIC_URL?.trim().replace(/\/$/, "");
+  if (raw?.startsWith("https://")) return raw;
+  return undefined;
+}
+
 function readDevTunnelPublicUrl(): string | undefined {
+  const stable = readStableTunnelPublicUrl();
+  if (stable) return stable;
+
   try {
     const raw = fs.readFileSync("/tmp/public-url.txt", "utf8");
     const line = raw

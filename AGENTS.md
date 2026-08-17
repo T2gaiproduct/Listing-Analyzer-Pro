@@ -34,6 +34,12 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
 
 ### Full UI E2E — same-origin proxy + auth testing (important gotchas)
 - The frontend has no Vite `/api` proxy, so for a working UI run a reverse proxy that serves the SPA and forwards `/api` to the API. A minimal Node proxy (route `/api*` → `127.0.0.1:8080`, everything else + websocket upgrades → `127.0.0.1:19145`) on a spare port works; then browse to the proxy port so `/api` calls resolve.
+- **Cloudflare preview URL:** `scripts/dev-stack.sh` starts a tunnel to port 3000. Quick tunnels (`*.trycloudflare.com`) **always get a new random hostname** when the tunnel restarts — they cannot be made permanent.
+- **Stable preview URL (recommended):** Create a **named Cloudflare Tunnel** on your zone (e.g. `https://dev-preview.sellerlens.io` → `http://127.0.0.1:3000` in the Cloud Agent VM). Add environment secrets:
+  - `CLOUDFLARE_TUNNEL_TOKEN` — tunnel run token from Cloudflare Zero Trust → Networks → Tunnels
+  - `CLOUDFLARE_TUNNEL_PUBLIC_URL` — exact public URL, e.g. `https://dev-preview.sellerlens.io`
+  Then `bash scripts/dev-stack.sh` uses the named tunnel and the URL stays the same across restarts. Register the same hostname in Amazon OAuth (redirect + login URI) and Clerk if needed.
+- **Production-stable URL:** Use `https://sellerlens.io` (no Cloudflare quick tunnel).
 - Clerk **sign-up** is blocked in this VM: the instance has bot-protection CAPTCHA (Smart CAPTCHA/Turnstile) that can't load headlessly ("The CAPTCHA failed to load"). Do NOT try to demo account creation through the UI.
 - To test authenticated flows, create the user via the **Clerk Backend API** (bypasses CAPTCHA), then **sign in** through the UI (sign-in has no CAPTCHA):
   - `curl -X POST https://api.clerk.com/v1/users -H "Authorization: Bearer $CLERK_SECRET_KEY" -H 'Content-Type: application/json' -d '{"email_address":["demo+clerk_test@example.com"],"password":"DemoAudit!2026","skip_password_checks":true}'`

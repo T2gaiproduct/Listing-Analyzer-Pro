@@ -7,6 +7,10 @@ DATABASE_URL="${DATABASE_URL:-postgresql://lauser:lapass@127.0.0.1:5432/listinga
 CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-$HOME/.local/bin/cloudflared}"
 PUBLIC_URL_FILE="/tmp/public-url.txt"
 TUNNEL_LOG="/tmp/cloudflared-url.log"
+# Stable hostname for a named Cloudflare Tunnel (e.g. https://dev-preview.sellerlens.io).
+# Quick trycloudflare.com URLs always change when the tunnel restarts — use token + public URL instead.
+CLOUDFLARE_TUNNEL_PUBLIC_URL="${CLOUDFLARE_TUNNEL_PUBLIC_URL:-${CLOUDFLARE_STABLE_PUBLIC_URL:-}}"
+CLOUDFLARE_TUNNEL_TOKEN="${CLOUDFLARE_TUNNEL_TOKEN:-}"
 
 # Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
@@ -137,7 +141,67 @@ normalize_public_url() {
   rg -o 'https://[a-z0-9-]+\.trycloudflare\.com' <<<"$raw" | tail -1 || true
 }
 
+normalize_stable_public_url() {
+  local raw="${1:-}"
+  raw="${raw%/}"
+  if [[ "$raw" =~ ^https:// ]]; then
+    echo "$raw"
+  fi
+}
+
+using_named_cloudflare_tunnel() {
+  [[ -n "$CLOUDFLARE_TUNNEL_TOKEN" && -n "$CLOUDFLARE_TUNNEL_PUBLIC_URL" ]]
+}
+
+start_named_cloudflare_tunnel() {
+  ensure_cloudflared
+  local public_url
+  public_url=$(normalize_stable_public_url "$CLOUDFLARE_TUNNEL_PUBLIC_URL")
+
+  echo "==> Starting named Cloudflare tunnel (stable URL: $public_url)" >&2
+  tmux_cmd kill-session -t cloudflare-tunnel 2>/dev/null || true
+  tmux_cmd kill-session -t cf-tunnel 2>/dev/null || true
+  sleep 1
+  : >"$TUNNEL_LOG"
+
+  tmux_cmd new-session -d -s cloudflare-tunnel -c "$ROOT" -- bash -lc "
+    exec '$CLOUDFLARED_BIN' tunnel run --token '$CLOUDFLARE_TUNNEL_TOKEN' 2>&1 | tee '$TUNNEL_LOG'
+  "
+}
+
+wait_for_named_public_url() {
+  local public_url
+  public_url=$(normalize_stable_public_url "$CLOUDFLARE_TUNNEL_PUBLIC_URL")
+  [[ -n "$public_url" ]] || return 1
+
+  for _ in {1..60}; do
+    if public_url_is_healthy "$public_url"; then
+      echo "$public_url"
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
 ensure_cloudflare_tunnel() {
+  if using_named_cloudflare_tunnel; then
+    local stable_url
+    stable_url=$(normalize_stable_public_url "$CLOUDFLARE_TUNNEL_PUBLIC_URL")
+    if tmux_cmd has-session -t cloudflare-tunnel 2>/dev/null; then
+      if public_url_is_healthy "$stable_url"; then
+        echo "$stable_url"
+        return 0
+      fi
+      echo "==> Named Cloudflare tunnel is unhealthy; restarting" >&2
+    fi
+    start_named_cloudflare_tunnel
+    if wait_for_named_public_url; then
+      return 0
+    fi
+    return 1
+  fi
+
   local existing_url=""
   if [[ -f "$PUBLIC_URL_FILE" ]]; then
     existing_url=$(normalize_public_url "$(cat "$PUBLIC_URL_FILE")")
@@ -314,6 +378,11 @@ echo "  Local:    http://127.0.0.1:3000/admin/dashboard"
 if [[ -n "$PUBLIC_URL" ]]; then
   echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
   echo "  Sign in:    $PUBLIC_URL/sign-in"
+  if using_named_cloudflare_tunnel; then
+    echo "  (stable named tunnel — URL does not change on restart)"
+  else
+    echo "  (quick tunnel — URL changes when dev-stack restarts; set CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_PUBLIC_URL for a stable hostname)"
+  fi
   echo ""
   echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
