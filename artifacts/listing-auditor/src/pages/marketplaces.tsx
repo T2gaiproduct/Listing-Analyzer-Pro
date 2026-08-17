@@ -131,7 +131,7 @@ function ConnectCard({
         </p>
       ) : null}
 
-      {setupMessage && !connected ? (
+      {setupRequired && setupMessage && !connected ? (
         <p className="text-[11px] text-amber-800 leading-relaxed rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
           {setupMessage}
         </p>

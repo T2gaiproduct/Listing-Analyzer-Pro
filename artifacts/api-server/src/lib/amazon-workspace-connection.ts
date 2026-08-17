@@ -134,10 +134,6 @@ export async function saveAmazonWorkspaceAppCredentials(
     || existing?.redirectUri?.trim()
     || (req ? buildAmazonOAuthRedirectUri(req) : "");
 
-  if (!redirectUri) {
-    throw new Error("OAuth redirect URI is required. Use your public app URL + /api/amazon/oauth/callback.");
-  }
-
   const record: AmazonWorkspaceConnectionWithSecret = {
     applicationId: input.applicationId?.trim() || existing?.applicationId,
     clientId,
