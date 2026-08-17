@@ -517,10 +517,12 @@ router.post("/admin/settings/test-amazon-sp", requireAdmin, async (_req, res): P
       ...settings,
       enabled: true,
     });
-    res.status(result.ok ? 200 : 400).json(result);
+    // Always 200 — { ok: false } is a failed credential check, not a server error.
+    res.json(result);
   } catch (err) {
     res.status(400).json({
       ok: false,
+      error: err instanceof Error ? err.message : "Amazon SP-API test failed",
       message: err instanceof Error ? err.message : "Amazon SP-API test failed",
     });
   }

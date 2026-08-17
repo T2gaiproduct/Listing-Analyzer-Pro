@@ -132,9 +132,12 @@ export async function readApiJson<T>(res: Response): Promise<T> {
   }
 
   try {
-    const data = JSON.parse(text) as T & { error?: string };
+    const data = JSON.parse(text) as T & { error?: string; message?: string };
     if (!res.ok) {
-      throw new ApiFetchError(data.error ?? `Server error (${res.status})`, res.status);
+      throw new ApiFetchError(
+        data.error ?? data.message ?? `Server error (${res.status})`,
+        res.status,
+      );
     }
     return data;
   } catch (error) {
