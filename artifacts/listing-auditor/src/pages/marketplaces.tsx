@@ -344,7 +344,7 @@ export default function MarketplacesPage() {
   });
 
   const amazonSyncMutation = useMutation({
-    mutationFn: syncAmazonProducts,
+    mutationFn: () => syncAmazonProducts(),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });

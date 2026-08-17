@@ -79,6 +79,8 @@ export async function getCreditCost(featureType: string): Promise<{ creditType: 
     ebc: { creditType: "ai", creditsRequired: 1, activityName: "A+ / EBC Content" },
     images: { creditType: "image", creditsRequired: 6, activityName: "Images" },
     graphics: { creditType: "image", creditsRequired: 8, activityName: "Graphics" },
+    ads: { creditType: "ai", creditsRequired: 2, activityName: "Manage Ads" },
+    manage_ads: { creditType: "ai", creditsRequired: 2, activityName: "Manage Ads" },
     graphics_edit: { creditType: "image", creditsRequired: 1, activityName: "Graphics Edit" },
     image_regenerate: { creditType: "image", creditsRequired: 1, activityName: "Image Regenerate" },
     image_edit: { creditType: "image", creditsRequired: 1, activityName: "Image Edit" },

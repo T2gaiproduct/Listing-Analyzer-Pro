@@ -653,7 +653,7 @@ async function loadAdsDetail(req: Request, id: number): Promise<ProductDetailPay
 
   const name = row.name?.trim() || row.productName?.trim() || "Untitled Campaign";
   const mapped = mapProductStatus(row.status, null);
-  const workflowUrl = `/ads`;
+  const workflowUrl = `/ads/${row.id}`;
   const brand = row.productName?.trim() || "Brand";
 
   return {
@@ -670,7 +670,7 @@ async function loadAdsDetail(req: Request, id: number): Promise<ProductDetailPay
     priorityLabel: "High Priority",
     priorityLevel: "high",
     progressPercent: genericProgress(row.status),
-    currentStep: null,
+    currentStep: row.currentStep ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: (row.updatedAt ?? row.createdAt).toISOString(),
     workflowUrl,

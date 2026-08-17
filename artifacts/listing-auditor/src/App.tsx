@@ -65,6 +65,7 @@ import {
   NotificationsPage,
   VideosPage,
   AdsPage,
+  AdsWorkflowPage,
   SettingsPage,
   WorkspacesPage,
   WorkspaceDetailPage,
@@ -718,6 +719,18 @@ function Router() {
       </Route>
       <Route path="/videos">
         <WorkspaceProtectedRoute><VideosPage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/new">
+        <WorkspaceProtectedRoute requireCreate>
+          <AdsWorkflowPage />
+        </WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/:id">
+        {params => (
+          <WorkspaceProtectedRoute requireCreate>
+            <AdsWorkflowPage projectId={parseInt(params.id, 10)} />
+          </WorkspaceProtectedRoute>
+        )}
       </Route>
       <Route path="/ads">
         <WorkspaceProtectedRoute><AdsPage /></WorkspaceProtectedRoute>

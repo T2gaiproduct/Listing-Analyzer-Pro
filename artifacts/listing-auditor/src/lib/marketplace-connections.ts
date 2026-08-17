@@ -93,11 +93,15 @@ export async function saveAmazonMarketplaceCredentials(
   });
 }
 
-export async function testAmazonMarketplaceCredentials(
-  input?: Pick<
+export type TestAmazonMarketplaceCredentialsInput = Partial<
+  Pick<
     SaveAmazonMarketplaceCredentialsInput,
     "applicationId" | "clientId" | "clientSecret" | "redirectUri" | "defaultMarketplace" | "sandbox"
-  >,
+  >
+>;
+
+export async function testAmazonMarketplaceCredentials(
+  input?: TestAmazonMarketplaceCredentialsInput,
 ): Promise<{ ok: boolean; message: string }> {
   return fetchJson(`${basePath}/api/marketplaces/amazon/test-credentials`, {
     method: "POST",

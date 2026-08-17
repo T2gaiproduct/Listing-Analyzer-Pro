@@ -49,6 +49,7 @@ export const ArchivePage = lazy(() => import("@/pages/archive"));
 export const NotificationsPage = lazy(() => import("@/pages/notifications"));
 export const VideosPage = lazy(() => import("@/pages/videos"));
 export const AdsPage = lazy(() => import("@/pages/ads"));
+export const AdsWorkflowPage = lazy(() => import("@/pages/ads-workflow"));
 export const SettingsPage = lazy(() => import("@/pages/settings"));
 export const WorkspacesPage = lazy(() => import("@/pages/workspaces"));
 export const WorkspaceDetailPage = lazy(() => import("@/pages/workspace-detail"));

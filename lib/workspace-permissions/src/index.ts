@@ -76,7 +76,7 @@ export const WORKSPACE_FEATURE_META: WorkspaceFeatureMeta[] = [
   { id: "audits", label: "Audit Listing", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
   { id: "graphics", label: "Create Graphics", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
   { id: "videos", label: "Create Video", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"], comingSoon: true },
-  { id: "ads", label: "Manage Ads", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"], comingSoon: true },
+  { id: "ads", label: "Manage Ads", group: "Features", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
 
   // ── Overview ───────────────────────────────────────────────────────────────
   { id: "dashboard", label: "Dashboard", group: "Overview", actions: ["viewGlobal", "viewOwn"] },
