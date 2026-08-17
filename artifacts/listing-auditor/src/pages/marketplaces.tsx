@@ -32,12 +32,17 @@ import {
   disconnectStoreMarketplace,
   fetchMarketplaceConnections,
   connectAmazonSelfAuth,
+  saveAmazonMarketplaceCredentials,
+  testAmazonMarketplaceCredentials,
   startAmazonConnect,
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
   type StoreMarketplace,
 } from "@/lib/marketplace-connections";
+import { AMAZON_MARKETPLACES } from "@/lib/amazon-export";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type DialogTarget = StoreMarketplace;
 
@@ -250,8 +255,23 @@ export default function MarketplacesPage() {
   const [consumerSecret, setConsumerSecret] = useState("");
   const [pendingAction, setPendingAction] = useState<DialogTarget | "amazon" | null>(null);
   const [amazonSelfAuthOpen, setAmazonSelfAuthOpen] = useState(false);
+  const [amazonCredentialsOpen, setAmazonCredentialsOpen] = useState(false);
   const [amazonSellerId, setAmazonSellerId] = useState("");
   const [amazonRefreshToken, setAmazonRefreshToken] = useState("");
+  const [amazonApplicationId, setAmazonApplicationId] = useState("");
+  const [amazonClientId, setAmazonClientId] = useState("");
+  const [amazonClientSecret, setAmazonClientSecret] = useState("");
+  const [amazonRedirectUri, setAmazonRedirectUri] = useState("");
+  const [amazonDefaultMarketplace, setAmazonDefaultMarketplace] = useState("US");
+  const [amazonSandbox, setAmazonSandbox] = useState(true);
+  const [amazonAwsAccessKeyId, setAmazonAwsAccessKeyId] = useState("");
+  const [amazonAwsSecretAccessKey, setAmazonAwsSecretAccessKey] = useState("");
+  const [amazonAwsRoleArn, setAmazonAwsRoleArn] = useState("");
+
+  const oauthCallbackExample =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${basePath}/api/amazon/oauth/callback`
+      : `${basePath}/api/amazon/oauth/callback`;
 
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-connections", featureWorkspaceId],
@@ -405,11 +425,7 @@ export default function MarketplacesPage() {
 
   async function handleAmazonConnect() {
     if (!data?.amazon.configured) {
-      toast({
-        title: "Amazon not available yet",
-        description: "SellerLens hasn't finished SP-API setup. Contact your administrator.",
-        variant: "destructive",
-      });
+      openAmazonCredentialsDialog();
       return;
     }
 
@@ -452,12 +468,93 @@ export default function MarketplacesPage() {
     }
   }
 
+  function openAmazonCredentialsDialog() {
+    setAmazonApplicationId(data?.amazon.applicationId ?? "");
+    setAmazonClientId(data?.amazon.clientId ?? "");
+    setAmazonClientSecret("");
+    setAmazonRedirectUri(data?.amazon.redirectUri ?? oauthCallbackExample);
+    setAmazonDefaultMarketplace(data?.amazon.defaultMarketplace ?? "US");
+    setAmazonSandbox(data?.amazon.sandbox ?? true);
+    setAmazonAwsAccessKeyId("");
+    setAmazonAwsSecretAccessKey("");
+    setAmazonAwsRoleArn(data?.amazon.awsRoleArn ?? "");
+    setAmazonCredentialsOpen(true);
+  }
+
+  const saveAmazonCredentialsMutation = useMutation({
+    mutationFn: () =>
+      saveAmazonMarketplaceCredentials({
+        applicationId: amazonApplicationId.trim() || undefined,
+        clientId: amazonClientId.trim(),
+        clientSecret: amazonClientSecret.trim() || undefined,
+        redirectUri: amazonRedirectUri.trim(),
+        defaultMarketplace: amazonDefaultMarketplace,
+        sandbox: amazonSandbox,
+        awsAccessKeyId: amazonAwsAccessKeyId.trim() || undefined,
+        awsSecretAccessKey: amazonAwsSecretAccessKey.trim() || undefined,
+        awsRoleArn: amazonAwsRoleArn.trim() || undefined,
+      }),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+      setAmazonCredentialsOpen(false);
+      toast({
+        title: "Amazon SP-API credentials saved",
+        description: result.message ?? "You can now connect your seller account.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not save credentials",
+        description: error instanceof Error ? error.message : "Save failed.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const testAmazonCredentialsMutation = useMutation({
+    mutationFn: testAmazonMarketplaceCredentials,
+    onSuccess: (result) => {
+      toast({
+        title: result.ok ? "LWA credentials valid" : "Connection test failed",
+        description: result.message,
+        variant: result.ok ? "default" : "destructive",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Connection test failed",
+        description: error instanceof Error ? error.message : "Test failed.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function submitAmazonCredentials() {
+    if (!amazonClientId.trim()) {
+      toast({
+        title: "LWA Client ID required",
+        description: "Enter the Client identifier from Develop Apps → LWA credentials.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!amazonClientSecret.trim() && !data?.amazon.hasClientSecret) {
+      toast({
+        title: "LWA Client Secret required",
+        description: "Enter the Client secret from Develop Apps → LWA credentials.",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveAmazonCredentialsMutation.mutate();
+  }
+
   function handleAmazonImport() {
     if (!data?.amazon.canSignRequests) {
       toast({
-        title: "SP-API setup required",
+        title: "AWS credentials required",
         description:
-          "Catalog import needs AWS signing keys. Ask your SellerLens administrator to add AWS Access Key and Secret under Admin → Amazon SP-API, then try again.",
+          "Add AWS Access Key and Secret in Amazon SP-API credentials (Edit SP-API credentials), then try Import products again.",
         variant: "destructive",
       });
       return;
@@ -621,32 +718,51 @@ export default function MarketplacesPage() {
         <div className="space-y-2">
           <ConnectCard
             marketplace="Amazon"
-            description="Connect your Amazon Seller Central account with one click. SellerLens uses secure Amazon OAuth — you never enter SP-API credentials."
+            description="Enter your SP-API app credentials from Seller Central Develop Apps, connect your seller account, then import your catalog into Product Explorer."
             connected={amazonConnected}
             pending={amazonAwaitingSellerAuth}
-            connectLabel={amazonAwaitingSellerAuth ? "Authorize seller account" : undefined}
+            connectLabel={
+              !amazonConfigured
+                ? "Add SP-API credentials"
+                : amazonAwaitingSellerAuth
+                  ? "Authorize seller account"
+                  : undefined
+            }
             setupRequired={!amazonConfigured}
-            setupMessage="Amazon integration is being set up by your SellerLens administrator."
+            setupMessage="Start by adding LWA and AWS credentials from your Develop Apps registration."
             detail={
               amazonConnected
                 ? [
                     data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
                     data?.amazon.publishReady
-                      ? "Direct publish enabled"
-                      : "Import & publish pending platform SP-API setup (AWS keys)",
+                      ? "Import, publish & sync enabled"
+                      : data?.amazon.canSignRequests
+                        ? "Connect seller account to import"
+                        : "Add AWS keys in SP-API credentials to import & publish",
                   ].filter(Boolean).join(" · ")
                 : amazonAwaitingSellerAuth
                   ? "Click Authorize seller account to finish linking Seller Central"
-                  : null
+                  : amazonConfigured
+                    ? "SP-API credentials saved — connect your seller account"
+                    : null
             }
             loading={pendingAction === "amazon"}
             importLoading={amazonSyncMutation.isPending}
-            onConnect={handleAmazonConnect}
+            onConnect={() => void handleAmazonConnect()}
             onDisconnect={handleAmazonDisconnect}
             onImport={amazonConnected ? handleAmazonImport : undefined}
             importDisabled={amazonConnected && !amazonCanSignRequests}
-            importDisabledReason="Finish platform SP-API setup: add AWS Access Key and Secret in Admin → Amazon SP-API, then click Import products."
+            importDisabledReason="Add AWS Access Key and Secret in Amazon SP-API credentials, then click Import products."
           />
+          {amazonConfigured ? (
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"
+              onClick={openAmazonCredentialsDialog}
+            >
+              Edit SP-API credentials
+            </button>
+          ) : null}
           {amazonConfigured && !amazonConnected ? (
             <button
               type="button"
@@ -816,6 +932,163 @@ export default function MarketplacesPage() {
                 "Connect store"
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={amazonCredentialsOpen} onOpenChange={setAmazonCredentialsOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Amazon SP-API credentials</DialogTitle>
+            <DialogDescription>
+              From Seller Central → Apps &amp; Services → Develop Apps → your app. Register the OAuth redirect URI
+              in Amazon before using Connect with Amazon.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Application ID (optional)</Label>
+              <Input
+                value={amazonApplicationId}
+                onChange={(e) => setAmazonApplicationId(e.target.value)}
+                placeholder="amzn1.sp.solution...."
+                className="h-9 text-xs font-mono"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">LWA Client ID</Label>
+              <Input
+                value={amazonClientId}
+                onChange={(e) => setAmazonClientId(e.target.value)}
+                placeholder="amzn1.application-oa2-client...."
+                className="h-9 text-xs font-mono"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">LWA Client Secret</Label>
+              <Input
+                type="password"
+                value={amazonClientSecret}
+                onChange={(e) => setAmazonClientSecret(e.target.value)}
+                placeholder={
+                  data?.amazon.hasClientSecret ? "Saved — re-enter to replace" : "amzn1.oa2-cs.v1...."
+                }
+                className="h-9 text-xs font-mono"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">OAuth redirect URI</Label>
+              <Input
+                value={amazonRedirectUri}
+                onChange={(e) => setAmazonRedirectUri(e.target.value)}
+                placeholder={oauthCallbackExample}
+                className="h-9 text-xs font-mono"
+                autoComplete="off"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Register this exact URL in Develop Apps:{" "}
+                <code className="text-[10px]">{oauthCallbackExample}</code>
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Default marketplace</Label>
+              <select
+                value={amazonDefaultMarketplace}
+                onChange={(e) => setAmazonDefaultMarketplace(e.target.value)}
+                className="h-9 w-full rounded-md border border-border bg-card px-3 text-xs"
+              >
+                {AMAZON_MARKETPLACES.map((marketplace) => (
+                  <option key={marketplace.id} value={marketplace.id}>
+                    {marketplace.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={amazonSandbox}
+                onChange={(e) => setAmazonSandbox(e.target.checked)}
+              />
+              Use SP-API sandbox
+            </label>
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 space-y-3">
+              <p className="text-[11px] font-medium text-foreground">AWS IAM (import, publish &amp; sync)</p>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">AWS Access Key ID</Label>
+                <Input
+                  value={amazonAwsAccessKeyId}
+                  onChange={(e) => setAmazonAwsAccessKeyId(e.target.value)}
+                  placeholder={data?.amazon.hasAwsAccessKey ? "Saved — re-enter to replace" : "AKIA..."}
+                  className="h-9 text-xs font-mono"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">AWS Secret Access Key</Label>
+                <Input
+                  type="password"
+                  value={amazonAwsSecretAccessKey}
+                  onChange={(e) => setAmazonAwsSecretAccessKey(e.target.value)}
+                  placeholder={data?.amazon.hasAwsSecretKey ? "Saved — re-enter to replace" : "40-character secret"}
+                  className="h-9 text-xs font-mono"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">AWS Role ARN (optional)</Label>
+                <Input
+                  value={amazonAwsRoleArn}
+                  onChange={(e) => setAmazonAwsRoleArn(e.target.value)}
+                  placeholder="arn:aws:iam::...:role/..."
+                  className="h-9 text-xs font-mono"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 text-xs"
+              disabled={testAmazonCredentialsMutation.isPending || saveAmazonCredentialsMutation.isPending}
+              onClick={() => testAmazonCredentialsMutation.mutate()}
+            >
+              {testAmazonCredentialsMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : null}
+              Test LWA
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 text-xs"
+                onClick={() => setAmazonCredentialsOpen(false)}
+                disabled={saveAmazonCredentialsMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-9 text-xs bg-foreground hover:bg-foreground/90 text-background"
+                onClick={submitAmazonCredentials}
+                disabled={saveAmazonCredentialsMutation.isPending}
+              >
+                {saveAmazonCredentialsMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save credentials"
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

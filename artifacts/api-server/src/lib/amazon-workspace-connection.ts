@@ -74,12 +74,61 @@ export function isAmazonWorkspaceLegacyAppConfigured(
   record: AmazonWorkspaceConnectionWithSecret | null,
 ): boolean {
   if (!record) return false;
-  return Boolean(
-    record.applicationId
-    && record.clientId
-    && record.clientSecret
-    && record.redirectUri,
-  );
+  return Boolean(record.clientId?.trim() && record.clientSecret?.trim());
+}
+
+export type SaveAmazonWorkspaceAppInput = {
+  applicationId?: string;
+  clientId: string;
+  clientSecret?: string;
+  redirectUri?: string;
+  defaultMarketplace?: string;
+  sandbox?: boolean;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsRoleArn?: string;
+};
+
+export async function saveAmazonWorkspaceAppCredentials(
+  workspaceId: number,
+  input: SaveAmazonWorkspaceAppInput,
+  req?: Request,
+): Promise<AmazonWorkspaceConnectionWithSecret> {
+  const existing = await readAmazonWorkspaceRecord(workspaceId);
+  const clientId = input.clientId.trim();
+  const clientSecret = input.clientSecret?.trim() || existing?.clientSecret?.trim();
+  if (!clientId) {
+    throw new Error("LWA Client ID is required.");
+  }
+  if (!clientSecret) {
+    throw new Error("LWA Client Secret is required.");
+  }
+
+  const redirectUri = input.redirectUri?.trim()
+    || existing?.redirectUri?.trim()
+    || (req ? buildAmazonOAuthRedirectUri(req) : "");
+
+  const record: AmazonWorkspaceConnectionWithSecret = {
+    applicationId: input.applicationId?.trim() || existing?.applicationId,
+    clientId,
+    clientSecret,
+    redirectUri,
+    defaultMarketplace: input.defaultMarketplace?.trim().toUpperCase()
+      || existing?.defaultMarketplace
+      || "US",
+    sandbox: input.sandbox ?? existing?.sandbox ?? true,
+    awsAccessKeyId: input.awsAccessKeyId?.trim() || existing?.awsAccessKeyId,
+    awsSecretAccessKey: input.awsSecretAccessKey?.trim() || existing?.awsSecretAccessKey,
+    awsRoleArn: input.awsRoleArn?.trim() || existing?.awsRoleArn,
+    connectedAt: existing?.connectedAt ?? new Date().toISOString(),
+    marketplaceIds: existing?.marketplaceIds ?? [],
+    sellerId: existing?.sellerId,
+    refreshToken: existing?.refreshToken,
+    sellerConnectedAt: existing?.sellerConnectedAt,
+  };
+
+  await upsertAmazonWorkspaceRecord(workspaceId, record);
+  return record;
 }
 
 export function workspaceLegacyRecordToSpSettings(
@@ -192,8 +241,30 @@ export async function saveAmazonWorkspaceSellerConnection(
 }
 
 export async function disconnectAmazonWorkspaceSellerConnection(workspaceId: number): Promise<void> {
-  const key = amazonConnectionKey(workspaceId);
-  await db.delete(settingsTable).where(eq(settingsTable.key, key));
+  const existing = await readAmazonWorkspaceRecord(workspaceId);
+  if (!existing) return;
+
+  const record: AmazonWorkspaceConnectionWithSecret = {
+    applicationId: existing.applicationId,
+    clientId: existing.clientId,
+    clientSecret: existing.clientSecret,
+    awsAccessKeyId: existing.awsAccessKeyId,
+    awsSecretAccessKey: existing.awsSecretAccessKey,
+    awsRoleArn: existing.awsRoleArn,
+    defaultMarketplace: existing.defaultMarketplace,
+    sandbox: existing.sandbox,
+    redirectUri: existing.redirectUri,
+    connectedAt: existing.connectedAt,
+    marketplaceIds: [],
+  };
+
+  if (!isAmazonWorkspaceLegacyAppConfigured(record)) {
+    const key = amazonConnectionKey(workspaceId);
+    await db.delete(settingsTable).where(eq(settingsTable.key, key));
+    return;
+  }
+
+  await upsertAmazonWorkspaceRecord(workspaceId, record);
 }
 
 /** @deprecated Alias for disconnectAmazonWorkspaceSellerConnection */

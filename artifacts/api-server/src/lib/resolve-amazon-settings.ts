@@ -41,11 +41,6 @@ async function resolveWorkspaceAmazonSettings(
   workspaceId: number | null | undefined,
   req?: Request,
 ): Promise<{ settings: AmazonSpSettings; source: "platform" | "workspace" } | null> {
-  const platformSettings = withRequestRedirectUri(await ensureAmazonAutoEnabled(), req);
-  if (isAmazonLwaConfigured(platformSettings)) {
-    return { settings: platformSettings, source: "platform" };
-  }
-
   if (workspaceId) {
     const legacySettings = await getAmazonWorkspaceLegacyAppSettings(workspaceId);
     if (legacySettings) {
@@ -54,6 +49,11 @@ async function resolveWorkspaceAmazonSettings(
         source: "workspace",
       };
     }
+  }
+
+  const platformSettings = withRequestRedirectUri(await ensureAmazonAutoEnabled(), req);
+  if (isAmazonLwaConfigured(platformSettings)) {
+    return { settings: platformSettings, source: "platform" };
   }
 
   return null;
@@ -131,9 +131,7 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
     ? workspaceLegacyRecordToSpSettings(workspaceRecord)
     : null;
 
-  const activeSettings = platformConfigured
-    ? platformSettings
-    : workspaceLegacySettings ?? platformSettings;
+  const activeSettings = workspaceLegacySettings ?? platformSettings;
 
   const oauthReady = platformConfigured || workspaceLegacyConfigured;
 
@@ -188,7 +186,7 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
     sellerId: seller?.sellerId ?? null,
     marketplaceIds: seller?.marketplaceIds ?? [],
     defaultMarketplace: seller?.defaultMarketplace ?? activeSettings.defaultMarketplace,
-    source: platformConfigured ? "platform" as const : workspaceLegacyConfigured ? "workspace" as const : "global" as const,
+    source: workspaceLegacyConfigured ? "workspace" as const : platformConfigured ? "platform" as const : "global" as const,
     credentialsReady: oauthReady,
     redirectUri,
     awaitingSellerAuth: oauthReady && !sellerConnected,

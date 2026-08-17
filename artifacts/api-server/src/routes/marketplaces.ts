@@ -29,8 +29,13 @@ import { verifyWooCommerceConnection } from "../lib/woocommerce-connection-verif
 import {
   buildAmazonOAuthRedirectUri,
   disconnectAmazonWorkspaceSellerConnection,
+  getAmazonWorkspaceConnection,
+  saveAmazonWorkspaceAppCredentials,
+  workspaceLegacyRecordToSpSettings,
 } from "../lib/amazon-workspace-connection.js";
 import { loadAmazonConnectionStatusForWorkspace } from "../lib/resolve-amazon-settings.js";
+import { testAmazonSpConnection } from "../lib/amazon-sp-api.js";
+import { validateAmazonAwsCredentials } from "../lib/amazon-sp-settings.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
 import { syncWooCommerceProducts } from "../lib/woocommerce-product-sync.js";
@@ -168,9 +173,18 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
 
   const shopifyWithSecret = await getShopifyConnection(workspaceId);
   const woocommerceWithSecret = await getWooCommerceConnection(workspaceId);
+  const amazonWorkspace = await getAmazonWorkspaceConnection(workspaceId);
 
   res.json({
-    amazon,
+    amazon: {
+      ...amazon,
+      applicationId: amazonWorkspace?.applicationId ?? null,
+      clientId: amazonWorkspace?.clientId ?? null,
+      hasClientSecret: Boolean(amazonWorkspace?.clientSecret),
+      hasAwsAccessKey: Boolean(amazonWorkspace?.awsAccessKeyId),
+      hasAwsSecretKey: Boolean(amazonWorkspace?.awsSecretAccessKey),
+      awsRoleArn: amazonWorkspace?.awsRoleArn ?? null,
+    },
     shopify: {
       connected: Boolean(shopify),
       publishReady: isShopifyPublishReady(shopifyWithSecret),
@@ -198,10 +212,76 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
   const workspaceId = getActiveWorkspaceId(req);
 
   if (platform === "amazon") {
-    res.status(410).json({
-      error: "Amazon is connected with SellerLens OAuth. Use Connect with Amazon on the Marketplaces page — sellers do not enter SP-API credentials.",
-      redirectUri: buildAmazonOAuthRedirectUri(req),
+    const body = req.body as {
+      applicationId?: string;
+      clientId?: string;
+      clientSecret?: string;
+      redirectUri?: string;
+      defaultMarketplace?: string;
+      sandbox?: boolean;
+      awsAccessKeyId?: string;
+      awsSecretAccessKey?: string;
+      awsRoleArn?: string;
+    };
+
+    const clientId = String(body.clientId ?? "").trim();
+    if (!clientId) {
+      res.status(400).json({ error: "LWA Client ID is required." });
+      return;
+    }
+
+    const existing = await getAmazonWorkspaceConnection(workspaceId);
+    const previewSettings = workspaceLegacyRecordToSpSettings({
+      applicationId: String(body.applicationId ?? "").trim() || existing?.applicationId,
+      clientId,
+      clientSecret: String(body.clientSecret ?? "").trim() || existing?.clientSecret || "",
+      redirectUri: String(body.redirectUri ?? "").trim() || existing?.redirectUri || buildAmazonOAuthRedirectUri(req),
+      defaultMarketplace: String(body.defaultMarketplace ?? "").trim() || existing?.defaultMarketplace || "US",
+      sandbox: body.sandbox ?? existing?.sandbox ?? true,
+      awsAccessKeyId: String(body.awsAccessKeyId ?? "").trim() || existing?.awsAccessKeyId || "",
+      awsSecretAccessKey: String(body.awsSecretAccessKey ?? "").trim() || existing?.awsSecretAccessKey || "",
+      awsRoleArn: String(body.awsRoleArn ?? "").trim() || existing?.awsRoleArn || "",
+      marketplaceIds: existing?.marketplaceIds ?? [],
     });
+
+    const awsError = validateAmazonAwsCredentials(previewSettings);
+    if (awsError) {
+      res.status(400).json({ error: awsError });
+      return;
+    }
+
+    try {
+      const record = await saveAmazonWorkspaceAppCredentials(workspaceId, {
+        applicationId: body.applicationId,
+        clientId,
+        clientSecret: body.clientSecret,
+        redirectUri: body.redirectUri,
+        defaultMarketplace: body.defaultMarketplace,
+        sandbox: body.sandbox,
+        awsAccessKeyId: body.awsAccessKeyId,
+        awsSecretAccessKey: body.awsSecretAccessKey,
+        awsRoleArn: body.awsRoleArn,
+      }, req);
+
+      const status = await loadAmazonConnectionStatusForWorkspace({
+        workspaceId,
+        userId: (req as AuthedRequest).userId,
+        req,
+      });
+
+      res.status(201).json({
+        credentialsSaved: true,
+        configured: status.configured,
+        publishReady: status.publishReady,
+        canSignRequests: status.canSignRequests,
+        redirectUri: buildAmazonOAuthRedirectUri(req),
+        defaultMarketplace: record.defaultMarketplace ?? "US",
+        message: "Amazon SP-API credentials saved. Register the OAuth redirect URI in Seller Central, then connect your seller account.",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save Amazon credentials";
+      res.status(400).json({ error: message });
+    }
     return;
   }
 
@@ -319,6 +399,38 @@ router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAnd
   await disconnectStoreConnection(workspaceId, platform);
   res.status(204).end();
 });
+
+router.post(
+  "/marketplaces/amazon/test-credentials",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const workspaceRecord = await getAmazonWorkspaceConnection(workspaceId);
+    if (!workspaceRecord?.clientId || !workspaceRecord.clientSecret) {
+      res.status(400).json({
+        ok: false,
+        message: "Save LWA Client ID and Client Secret on the Marketplaces page first.",
+      });
+      return;
+    }
+
+    const settings = workspaceLegacyRecordToSpSettings(workspaceRecord);
+    try {
+      const result = await testAmazonSpConnection({
+        ...settings,
+        enabled: true,
+        redirectUri: buildAmazonOAuthRedirectUri(req),
+      });
+      res.json(result);
+    } catch (err) {
+      res.json({
+        ok: false,
+        message: err instanceof Error ? err.message : "Amazon SP-API test failed",
+      });
+    }
+  },
+);
 
 router.post(
   "/marketplaces/amazon/sync",

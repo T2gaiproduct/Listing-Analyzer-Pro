@@ -10,8 +10,17 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 export type StoreMarketplace = "shopify" | "woocommerce";
 export type MarketplacePlatform = StoreMarketplace | "amazon";
 
+export type MarketplaceAmazonStatus = AmazonConnectionStatus & {
+  applicationId?: string | null;
+  clientId?: string | null;
+  hasClientSecret?: boolean;
+  hasAwsAccessKey?: boolean;
+  hasAwsSecretKey?: boolean;
+  awsRoleArn?: string | null;
+};
+
 export type MarketplaceConnectionsResponse = {
-  amazon: AmazonConnectionStatus;
+  amazon: MarketplaceAmazonStatus;
   shopify: {
     connected: boolean;
     publishReady: boolean;
@@ -26,6 +35,18 @@ export type MarketplaceConnectionsResponse = {
     consumerKey: string | null;
     connectedAt: string | null;
   };
+};
+
+export type SaveAmazonMarketplaceCredentialsInput = {
+  applicationId?: string;
+  clientId: string;
+  clientSecret?: string;
+  redirectUri?: string;
+  defaultMarketplace?: string;
+  sandbox?: boolean;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsRoleArn?: string;
 };
 
 export async function fetchMarketplaceConnections(): Promise<MarketplaceConnectionsResponse> {
@@ -52,6 +73,29 @@ export async function connectStoreMarketplace(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+  });
+}
+
+export async function saveAmazonMarketplaceCredentials(
+  input: SaveAmazonMarketplaceCredentialsInput,
+): Promise<{
+  credentialsSaved: boolean;
+  configured: boolean;
+  publishReady: boolean;
+  canSignRequests: boolean;
+  redirectUri: string;
+  message?: string;
+}> {
+  return fetchJson(`${basePath}/api/marketplaces/connections/amazon`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function testAmazonMarketplaceCredentials(): Promise<{ ok: boolean; message: string }> {
+  return fetchJson(`${basePath}/api/marketplaces/amazon/test-credentials`, {
+    method: "POST",
   });
 }
 
