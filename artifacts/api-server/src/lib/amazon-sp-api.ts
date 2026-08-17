@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 import {
   resolveSpMarketplaceId,
+  sellerCentralOAuthConsentUrl,
   spApiHost,
   spApiRegionForMarketplaceCode,
   type AmazonSpSettings,
@@ -65,9 +66,7 @@ export function buildAmazonAuthorizeUrl(settings: AmazonSpSettings, state: strin
     redirect_uri: settings.redirectUri,
     version: "beta",
   });
-  const base = settings.sandbox
-    ? "https://sellercentral.amazon.com/apps/authorize/consent"
-    : "https://sellercentral.amazon.com/apps/authorize/consent";
+  const base = sellerCentralOAuthConsentUrl(settings.defaultMarketplace);
   return `${base}?${params.toString()}`;
 }
 

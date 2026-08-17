@@ -261,6 +261,11 @@ export default function MarketplacesPage() {
       ? `${window.location.origin}${basePath}/api/amazon/oauth/callback`
       : `${basePath}/api/amazon/oauth/callback`;
 
+  const amazonLoginUriExample =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${basePath}/marketplaces`
+      : `${basePath}/marketplaces`;
+
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-connections", featureWorkspaceId],
     queryFn: fetchMarketplaceConnections,
@@ -471,7 +476,11 @@ export default function MarketplacesPage() {
     setAmazonApplicationId(data?.amazon.applicationId ?? "");
     setAmazonClientId(data?.amazon.clientId ?? "");
     setAmazonClientSecret("");
-    setAmazonRedirectUri(data?.amazon.redirectUri ?? oauthCallbackExample);
+    setAmazonRedirectUri(
+      data?.amazon.redirectUri?.trim().endsWith("/api/amazon/oauth/callback")
+        ? data.amazon.redirectUri!.trim()
+        : oauthCallbackExample,
+    );
     setAmazonDefaultMarketplace(data?.amazon.defaultMarketplace ?? "US");
     setAmazonSandbox(data?.amazon.sandbox ?? true);
     setAmazonAwsAccessKeyId("");
@@ -557,6 +566,15 @@ export default function MarketplacesPage() {
       toast({
         title: "LWA Client Secret required",
         description: "Enter the Client secret from Develop Apps → LWA credentials.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const redirect = amazonRedirectUri.trim() || oauthCallbackExample;
+    if (!redirect.endsWith("/api/amazon/oauth/callback")) {
+      toast({
+        title: "OAuth redirect URI incomplete",
+        description: "Must end with /api/amazon/oauth/callback (not just /api/amazon/).",
         variant: "destructive",
       });
       return;
@@ -1000,6 +1018,21 @@ export default function MarketplacesPage() {
                 autoComplete="off"
               />
             </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 space-y-1">
+              <p className="text-[11px] font-medium text-amber-900">Register in Seller Central → Develop Apps → Edit App</p>
+              <p className="text-[10px] text-amber-800">
+                <span className="font-medium">OAuth Login URI:</span>{" "}
+                <code className="break-all">{amazonLoginUriExample}</code>
+              </p>
+              <p className="text-[10px] text-amber-800">
+                <span className="font-medium">OAuth Redirect URI:</span>{" "}
+                <code className="break-all">{oauthCallbackExample}</code>
+              </p>
+              <p className="text-[10px] text-amber-800/90">
+                Error MD9100 means these URIs are missing in Amazon (not wrong LWA keys). Draft apps without
+                OAuth URIs must use Connect with token instead.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">OAuth redirect URI</Label>
               <Input
@@ -1010,8 +1043,7 @@ export default function MarketplacesPage() {
                 autoComplete="off"
               />
               <p className="text-[10px] text-muted-foreground">
-                Register this exact URL in Develop Apps:{" "}
-                <code className="text-[10px]">{oauthCallbackExample}</code>
+                Must end with <code>/api/amazon/oauth/callback</code> — register the same value in Develop Apps.
               </p>
             </div>
             <div className="space-y-2">
@@ -1027,6 +1059,9 @@ export default function MarketplacesPage() {
                   </option>
                 ))}
               </select>
+              <p className="text-[10px] text-muted-foreground">
+                Match your Seller Central account (e.g. India → sellercentral.amazon.in for Connect with Amazon).
+              </p>
             </div>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <input

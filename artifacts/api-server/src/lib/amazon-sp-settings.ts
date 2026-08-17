@@ -231,6 +231,36 @@ export function spApiRegionForMarketplaceCode(marketplaceCode: string): "na" | "
   return "na";
 }
 
+/** Seller Central host for OAuth consent — must match the seller's marketplace region. */
+export const SELLER_CENTRAL_OAUTH_BASE: Record<string, string> = {
+  US: "https://sellercentral.amazon.com",
+  CA: "https://sellercentral.amazon.ca",
+  MX: "https://sellercentral.amazon.com.mx",
+  UK: "https://sellercentral.amazon.co.uk",
+  DE: "https://sellercentral.amazon.de",
+  FR: "https://sellercentral.amazon.fr",
+  IT: "https://sellercentral.amazon.it",
+  ES: "https://sellercentral.amazon.es",
+  NL: "https://sellercentral.amazon.nl",
+  SE: "https://sellercentral.amazon.se",
+  PL: "https://sellercentral.amazon.pl",
+  BE: "https://sellercentral.amazon.com.be",
+  IN: "https://sellercentral.amazon.in",
+  JP: "https://sellercentral.amazon.co.jp",
+  AU: "https://sellercentral.amazon.com.au",
+  SG: "https://sellercentral.amazon.sg",
+  AE: "https://sellercentral.amazon.ae",
+  SA: "https://sellercentral.amazon.sa",
+  TR: "https://sellercentral.amazon.com.tr",
+  BR: "https://sellercentral.amazon.com.br",
+};
+
+export function sellerCentralOAuthConsentUrl(marketplaceCode: string): string {
+  const code = marketplaceCode.trim().toUpperCase();
+  const base = SELLER_CENTRAL_OAUTH_BASE[code] ?? SELLER_CENTRAL_OAUTH_BASE.US!;
+  return `${base}/apps/authorize/consent`;
+}
+
 export function spApiHost(settings: AmazonSpSettings, region: "na" | "eu" | "fe" = "na"): string {
   const prefix = settings.sandbox ? "sandbox." : "";
   return `https://${prefix}sellingpartnerapi-${region}.amazon.com`;
