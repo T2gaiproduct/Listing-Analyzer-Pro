@@ -330,15 +330,62 @@ export default function AdsWorkflowPage({ projectId }: { projectId?: number }) {
             )}
           </div>
 
+          <p className="text-sm text-muted-foreground">
+            Step 1 complete — campaign <strong className="text-foreground">{project.name}</strong> created for ASIN{" "}
+            <span className="font-mono">{project.asin}</span>. Next, pull Amazon Ads + listing data, then run AI keyword scoring.
+          </p>
+
+          {!statusQuery.data?.profileSelected && profilesQuery.data?.profiles?.length ? (
+            <div className="space-y-2 rounded-lg border border-sky-200 bg-sky-50/80 p-4">
+              <Label className="text-sky-900">Amazon Ads profile (required)</Label>
+              <p className="text-xs text-sky-800">
+                Select the advertising profile for this workspace before gathering Amazon keyword and search term data.
+              </p>
+              <Select
+                value={selectedProfileId}
+                onValueChange={(value) => {
+                  setSelectedProfileId(value);
+                  const profile = profilesQuery.data!.profiles.find((p) => p.profileId === value);
+                  if (profile) saveProfileMutation.mutate(profile);
+                }}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select advertising profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profilesQuery.data.profiles.map((p) => (
+                    <SelectItem key={p.profileId} value={p.profileId}>
+                      {p.name ?? p.profileId} ({p.countryCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {!statusQuery.data?.profileSelected && statusQuery.data?.sellerConnected && !profilesQuery.data?.profiles?.length && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              No Amazon Ads profiles returned. Confirm your SP-API app has <strong>Advertising API</strong> access in Amazon Developer Console, then reconnect on Marketplaces.
+            </div>
+          )}
+
           {step < 2 && (
             <Button
               onClick={() => gatherMutation.mutate()}
-              disabled={gatherMutation.isPending || !statusQuery.data?.canGatherData}
+              disabled={gatherMutation.isPending || (!statusQuery.data?.canGatherData && !statusQuery.data?.sellerConnected)}
               className="gap-2"
             >
               {gatherMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
               Gather Amazon & listing data
             </Button>
+          )}
+
+          {step < 2 && !statusQuery.data?.canGatherData && statusQuery.data?.sellerConnected && (
+            <p className="text-xs text-muted-foreground">
+              {statusQuery.data?.profileSelected
+                ? "Gather pulls keyword recommendations, existing campaigns, search terms, and listing keywords."
+                : "Select an Amazon Ads profile above to enable full Amazon Ads API data (listing keywords still load without it)."}
+            </p>
           )}
         </div>
       )}
