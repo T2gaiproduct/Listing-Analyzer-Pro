@@ -93,9 +93,16 @@ export async function saveAmazonMarketplaceCredentials(
   });
 }
 
-export async function testAmazonMarketplaceCredentials(): Promise<{ ok: boolean; message: string }> {
+export async function testAmazonMarketplaceCredentials(
+  input?: Pick<
+    SaveAmazonMarketplaceCredentialsInput,
+    "applicationId" | "clientId" | "clientSecret" | "redirectUri" | "defaultMarketplace" | "sandbox"
+  >,
+): Promise<{ ok: boolean; message: string }> {
   return fetchJson(`${basePath}/api/marketplaces/amazon/test-credentials`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input ?? {}),
   });
 }
 

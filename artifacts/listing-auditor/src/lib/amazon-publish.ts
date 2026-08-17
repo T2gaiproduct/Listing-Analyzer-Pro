@@ -11,7 +11,7 @@ export interface AmazonConnectionStatus {
   sellerId: string | null;
   marketplaceIds: string[];
   defaultMarketplace: string;
-  source?: "platform" | "workspace" | "global";
+  source?: "workspace" | "global";
   credentialsReady?: boolean;
   redirectUri?: string | null;
   awaitingSellerAuth?: boolean;

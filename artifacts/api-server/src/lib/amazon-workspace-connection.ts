@@ -24,6 +24,8 @@ export type AmazonWorkspaceConnectionWithSecret = AmazonWorkspaceSellerConnectio
   sandbox?: boolean;
   redirectUri?: string;
   connectedAt?: string;
+  /** Set only when the user explicitly saves SP-API app credentials on Marketplaces. */
+  appCredentialsSavedAt?: string;
 };
 
 function amazonConnectionKey(workspaceId: number): string {
@@ -51,10 +53,26 @@ function parseRawAmazonWorkspaceRecord(
       refreshToken: parsed.refreshToken?.trim() || undefined,
       marketplaceIds: Array.isArray(parsed.marketplaceIds) ? parsed.marketplaceIds : [],
       sellerConnectedAt: parsed.sellerConnectedAt,
+      appCredentialsSavedAt: parsed.appCredentialsSavedAt,
     };
   } catch {
     return null;
   }
+}
+
+/** Strip legacy/static credentials that were never saved via Marketplaces. */
+function normalizeAmazonWorkspaceRecord(
+  record: AmazonWorkspaceConnectionWithSecret | null,
+): AmazonWorkspaceConnectionWithSecret | null {
+  if (!record) return null;
+  if (record.appCredentialsSavedAt?.trim()) return record;
+  return {
+    sellerId: record.sellerId,
+    refreshToken: record.refreshToken,
+    marketplaceIds: record.marketplaceIds ?? [],
+    sellerConnectedAt: record.sellerConnectedAt,
+    defaultMarketplace: record.defaultMarketplace,
+  };
 }
 
 function toSellerConnection(
@@ -77,6 +95,14 @@ export function isAmazonWorkspaceLegacyAppConfigured(
   return Boolean(record.clientId?.trim() && record.clientSecret?.trim());
 }
 
+/** True only after explicit Save credentials on Marketplaces (not admin/platform leftovers). */
+export function isAmazonWorkspaceAppCredentialsSaved(
+  record: AmazonWorkspaceConnectionWithSecret | null,
+): boolean {
+  if (!record?.appCredentialsSavedAt?.trim()) return false;
+  return isAmazonWorkspaceLegacyAppConfigured(record);
+}
+
 export type SaveAmazonWorkspaceAppInput = {
   applicationId?: string;
   clientId: string;
@@ -94,7 +120,7 @@ export async function saveAmazonWorkspaceAppCredentials(
   input: SaveAmazonWorkspaceAppInput,
   req?: Request,
 ): Promise<AmazonWorkspaceConnectionWithSecret> {
-  const existing = await readAmazonWorkspaceRecord(workspaceId);
+  const existing = await readRawAmazonWorkspaceRecord(workspaceId);
   const clientId = input.clientId.trim();
   const clientSecret = input.clientSecret?.trim() || existing?.clientSecret?.trim();
   if (!clientId) {
@@ -121,6 +147,7 @@ export async function saveAmazonWorkspaceAppCredentials(
     awsSecretAccessKey: input.awsSecretAccessKey?.trim() || existing?.awsSecretAccessKey,
     awsRoleArn: input.awsRoleArn?.trim() || existing?.awsRoleArn,
     connectedAt: existing?.connectedAt ?? new Date().toISOString(),
+    appCredentialsSavedAt: new Date().toISOString(),
     marketplaceIds: existing?.marketplaceIds ?? [],
     sellerId: existing?.sellerId,
     refreshToken: existing?.refreshToken,
@@ -159,7 +186,7 @@ export function buildAmazonOAuthRedirectUri(req: Request): string {
   return `${base}/api/amazon/oauth/callback`;
 }
 
-async function readAmazonWorkspaceRecord(
+async function readRawAmazonWorkspaceRecord(
   workspaceId: number,
 ): Promise<AmazonWorkspaceConnectionWithSecret | null> {
   const key = amazonConnectionKey(workspaceId);
@@ -169,6 +196,23 @@ async function readAmazonWorkspaceRecord(
     .where(eq(settingsTable.key, key))
     .limit(1);
   return parseRawAmazonWorkspaceRecord(row?.value);
+}
+
+/** Returns workspace record without legacy/static credentials unless explicitly saved on Marketplaces. */
+async function readAmazonWorkspaceRecord(
+  workspaceId: number,
+): Promise<AmazonWorkspaceConnectionWithSecret | null> {
+  const raw = await readRawAmazonWorkspaceRecord(workspaceId);
+  const normalized = normalizeAmazonWorkspaceRecord(raw);
+  if (
+    raw
+    && normalized
+    && !raw.appCredentialsSavedAt?.trim()
+    && isAmazonWorkspaceLegacyAppConfigured(raw)
+  ) {
+    await upsertAmazonWorkspaceRecord(workspaceId, normalized);
+  }
+  return normalized;
 }
 
 export async function getAmazonWorkspaceSellerConnection(
@@ -182,7 +226,7 @@ export async function getAmazonWorkspaceLegacyAppSettings(
   workspaceId: number,
 ): Promise<AmazonSpSettings | null> {
   const record = await readAmazonWorkspaceRecord(workspaceId);
-  if (!isAmazonWorkspaceLegacyAppConfigured(record)) return null;
+  if (!isAmazonWorkspaceAppCredentialsSaved(record)) return null;
   return workspaceLegacyRecordToSpSettings(record!);
 }
 
@@ -228,12 +272,11 @@ export async function saveAmazonWorkspaceSellerConnection(
 ): Promise<AmazonWorkspaceSellerConnection> {
   const existing = await readAmazonWorkspaceRecord(workspaceId);
   const record: AmazonWorkspaceConnectionWithSecret = {
-    ...existing,
+    ...(existing ?? { marketplaceIds: [] }),
     sellerId: input.sellerId.trim(),
     refreshToken: input.refreshToken.trim(),
     marketplaceIds: input.marketplaceIds ?? existing?.marketplaceIds ?? [],
     sellerConnectedAt: new Date().toISOString(),
-    defaultMarketplace: existing?.defaultMarketplace,
   };
 
   await upsertAmazonWorkspaceRecord(workspaceId, record);
@@ -243,6 +286,12 @@ export async function saveAmazonWorkspaceSellerConnection(
 export async function disconnectAmazonWorkspaceSellerConnection(workspaceId: number): Promise<void> {
   const existing = await readAmazonWorkspaceRecord(workspaceId);
   if (!existing) return;
+
+  if (!isAmazonWorkspaceAppCredentialsSaved(existing)) {
+    const key = amazonConnectionKey(workspaceId);
+    await db.delete(settingsTable).where(eq(settingsTable.key, key));
+    return;
+  }
 
   const record: AmazonWorkspaceConnectionWithSecret = {
     applicationId: existing.applicationId,
@@ -255,14 +304,9 @@ export async function disconnectAmazonWorkspaceSellerConnection(workspaceId: num
     sandbox: existing.sandbox,
     redirectUri: existing.redirectUri,
     connectedAt: existing.connectedAt,
+    appCredentialsSavedAt: existing.appCredentialsSavedAt,
     marketplaceIds: [],
   };
-
-  if (!isAmazonWorkspaceLegacyAppConfigured(record)) {
-    const key = amazonConnectionKey(workspaceId);
-    await db.delete(settingsTable).where(eq(settingsTable.key, key));
-    return;
-  }
 
   await upsertAmazonWorkspaceRecord(workspaceId, record);
 }

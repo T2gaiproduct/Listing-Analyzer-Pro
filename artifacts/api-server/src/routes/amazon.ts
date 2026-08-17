@@ -66,7 +66,7 @@ router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, asyn
 
   if (!isAmazonSpConfigured(settings)) {
     res.status(400).json({
-      error: "Amazon integration is not configured yet. Ask your SellerLens administrator to set up the SP-API application.",
+      error: "Add your SP-API credentials on the Marketplaces page before connecting Amazon.",
     });
     return;
   }
@@ -103,7 +103,7 @@ router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
   try {
     const { settings } = await resolveAmazonSettingsForWorkspace(parsed.workspaceId, req);
     if (!isAmazonSpConfigured(settings)) {
-      res.status(400).send("Amazon SP-API is not configured on this SellerLens instance.");
+      res.status(400).send("Amazon SP-API credentials are not saved for this workspace. Add them on the Marketplaces page.");
       return;
     }
 
@@ -238,15 +238,13 @@ router.post(
     const resolved = await resolveAmazonConnectionForWorkspace({ workspaceId, userId, req });
     if (!resolved) {
       res.status(400).json({
-        error: workspaceId
-          ? "Connect your Amazon seller account on the Marketplaces page before publishing."
-          : "Amazon publishing isn't set up yet. Contact your administrator.",
+        error: "Connect your Amazon seller account on the Marketplaces page before publishing.",
       });
       return;
     }
     if (!isAmazonPublishReady(resolved.settings)) {
       res.status(400).json({
-        error: "Amazon publishing isn't fully configured. Ask your administrator to complete SP-API setup.",
+        error: "Amazon publishing requires SP-API credentials and AWS keys on the Marketplaces page.",
       });
       return;
     }

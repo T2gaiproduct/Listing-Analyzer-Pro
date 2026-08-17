@@ -132,7 +132,7 @@ function ConnectCard({
         </p>
       ) : null}
 
-      {setupRequired && setupMessage ? (
+      {setupMessage && !connected ? (
         <p className="text-[11px] text-amber-800 leading-relaxed rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
           {setupMessage}
         </p>
@@ -199,27 +199,15 @@ function ConnectCard({
               Disconnect
             </Button>
           </>
-        ) : setupRequired ? (
-          setupHref ? (
-            <Button
-              asChild
-              type="button"
-              size="sm"
-              className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              <Link href={setupHref}>Configure Amazon SP-API</Link>
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 text-xs"
-              variant="outline"
-              disabled
-            >
-              Setup required
-            </Button>
-          )
+        ) : setupRequired && setupHref ? (
+          <Button
+            asChild
+            type="button"
+            size="sm"
+            className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+          >
+            <Link href={setupHref}>Configure Amazon SP-API</Link>
+          </Button>
         ) : (
           <Button
             type="button"
@@ -424,7 +412,7 @@ export default function MarketplacesPage() {
   });
 
   async function handleAmazonConnect() {
-    if (!data?.amazon.workspaceCredentialsSaved && !data?.amazon.configured) {
+    if (!data?.amazon.workspaceCredentialsSaved) {
       openAmazonCredentialsDialog();
       return;
     }
@@ -512,7 +500,15 @@ export default function MarketplacesPage() {
   });
 
   const testAmazonCredentialsMutation = useMutation({
-    mutationFn: testAmazonMarketplaceCredentials,
+    mutationFn: () =>
+      testAmazonMarketplaceCredentials({
+        applicationId: amazonApplicationId.trim() || undefined,
+        clientId: amazonClientId.trim() || undefined,
+        clientSecret: amazonClientSecret.trim() || undefined,
+        redirectUri: amazonRedirectUri.trim() || undefined,
+        defaultMarketplace: amazonDefaultMarketplace,
+        sandbox: amazonSandbox,
+      }),
     onSuccess: (result) => {
       toast({
         title: result.ok ? "LWA credentials valid" : "Connection test failed",
@@ -693,9 +689,7 @@ export default function MarketplacesPage() {
   }
 
   const amazonConnected = Boolean(data?.amazon.connected || data?.amazon.sellerId);
-  const amazonWorkspaceCredentialsSaved = Boolean(
-    data?.amazon.workspaceCredentialsSaved ?? data?.amazon.configured,
-  );
+  const amazonWorkspaceCredentialsSaved = Boolean(data?.amazon.workspaceCredentialsSaved);
   const amazonCanSignRequests = Boolean(data?.amazon.canSignRequests);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);

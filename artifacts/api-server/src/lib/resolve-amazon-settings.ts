@@ -6,17 +6,13 @@ import {
   getAmazonWorkspaceConnection,
   getAmazonWorkspaceLegacyAppSettings,
   getAmazonWorkspaceSellerConnection,
-  isAmazonWorkspaceLegacyAppConfigured,
+  isAmazonWorkspaceAppCredentialsSaved,
   isAmazonWorkspaceSellerConnected,
   saveAmazonWorkspaceSellerConnection,
   workspaceLegacyRecordToSpSettings,
 } from "./amazon-workspace-connection.js";
 import {
   canSignSpApiRequests,
-  ensureAmazonAutoEnabled,
-  isAmazonLwaConfigured,
-  isAmazonPublishReady,
-  isAmazonSpConfigured,
   loadAmazonSpSettings,
   type AmazonSpSettings,
 } from "./amazon-sp-settings.js";
@@ -26,7 +22,20 @@ export type ResolvedAmazonConnection = {
   sellerId: string;
   refreshToken: string;
   marketplaceIds: string[];
-  source: "workspace" | "global" | "platform";
+  source: "workspace";
+};
+
+const EMPTY_AMAZON_SETTINGS: AmazonSpSettings = {
+  enabled: false,
+  sandbox: true,
+  applicationId: "",
+  clientId: "",
+  clientSecret: "",
+  redirectUri: "",
+  defaultMarketplace: "US",
+  awsAccessKeyId: "",
+  awsSecretAccessKey: "",
+  awsRoleArn: "",
 };
 
 function withRequestRedirectUri(settings: AmazonSpSettings, req?: Request): AmazonSpSettings {
@@ -40,35 +49,28 @@ function withRequestRedirectUri(settings: AmazonSpSettings, req?: Request): Amaz
 async function resolveWorkspaceAmazonSettings(
   workspaceId: number | null | undefined,
   req?: Request,
-): Promise<{ settings: AmazonSpSettings; source: "platform" | "workspace" } | null> {
-  if (workspaceId) {
-    const legacySettings = await getAmazonWorkspaceLegacyAppSettings(workspaceId);
-    if (legacySettings) {
-      return {
-        settings: withRequestRedirectUri(legacySettings, req),
-        source: "workspace",
-      };
-    }
-  }
+): Promise<{ settings: AmazonSpSettings; source: "workspace" } | null> {
+  if (!workspaceId) return null;
 
-  const platformSettings = withRequestRedirectUri(await ensureAmazonAutoEnabled(), req);
-  if (isAmazonLwaConfigured(platformSettings)) {
-    return { settings: platformSettings, source: "platform" };
-  }
+  const legacySettings = await getAmazonWorkspaceLegacyAppSettings(workspaceId);
+  if (!legacySettings) return null;
 
-  return null;
+  return {
+    settings: withRequestRedirectUri(legacySettings, req),
+    source: "workspace",
+  };
 }
 
 export async function resolveAmazonSettingsForWorkspace(
   workspaceId: number | null | undefined,
   req?: Request,
-): Promise<{ settings: AmazonSpSettings; source: "platform" | "workspace" }> {
+): Promise<{ settings: AmazonSpSettings; source: "workspace" }> {
   const resolved = await resolveWorkspaceAmazonSettings(workspaceId, req);
   if (resolved) return resolved;
 
   return {
-    settings: withRequestRedirectUri(await ensureAmazonAutoEnabled(), req),
-    source: "platform",
+    settings: withRequestRedirectUri(EMPTY_AMAZON_SETTINGS, req),
+    source: "workspace",
   };
 }
 
@@ -77,42 +79,20 @@ export async function resolveAmazonConnectionForWorkspace(opts: {
   userId: string;
   req?: Request;
 }): Promise<ResolvedAmazonConnection | null> {
+  if (!opts.workspaceId) return null;
+
   const resolved = await resolveWorkspaceAmazonSettings(opts.workspaceId, opts.req);
   if (!resolved || !canSignSpApiRequests(resolved.settings)) return null;
 
-  if (opts.workspaceId) {
-    const seller = await getAmazonWorkspaceSellerConnection(opts.workspaceId);
-    if (isAmazonWorkspaceSellerConnected(seller)) {
-      return {
-        settings: resolved.settings,
-        sellerId: seller!.sellerId!,
-        refreshToken: seller!.refreshToken!,
-        marketplaceIds: seller!.marketplaceIds ?? [],
-        source: resolved.source,
-      };
-    }
-  }
-
-  const platformSettings = await ensureAmazonAutoEnabled();
-  if (!isAmazonPublishReady(platformSettings)) return null;
-
-  const [connection] = await db
-    .select()
-    .from(amazonSellerConnectionsTable)
-    .where(and(
-      eq(amazonSellerConnectionsTable.userId, opts.userId),
-      eq(amazonSellerConnectionsTable.isDeleted, 0),
-    ))
-    .limit(1);
-
-  if (!connection) return null;
+  const seller = await getAmazonWorkspaceSellerConnection(opts.workspaceId);
+  if (!isAmazonWorkspaceSellerConnected(seller)) return null;
 
   return {
-    settings: withRequestRedirectUri(platformSettings, opts.req),
-    sellerId: connection.sellerId,
-    refreshToken: connection.refreshToken,
-    marketplaceIds: connection.marketplaceIds ?? [],
-    source: "global",
+    settings: resolved.settings,
+    sellerId: seller!.sellerId!,
+    refreshToken: seller!.refreshToken!,
+    marketplaceIds: seller!.marketplaceIds ?? [],
+    source: "workspace",
   };
 }
 
@@ -121,17 +101,13 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
   userId: string;
   req?: Request;
 }) {
-  const platformSettings = await ensureAmazonAutoEnabled();
-  const platformConfigured = isAmazonLwaConfigured(platformSettings);
   const workspaceRecord = opts.workspaceId
     ? await getAmazonWorkspaceConnection(opts.workspaceId)
     : null;
-  const workspaceLegacyConfigured = isAmazonWorkspaceLegacyAppConfigured(workspaceRecord);
-  const workspaceLegacySettings = workspaceLegacyConfigured && workspaceRecord
+  const workspaceCredentialsSaved = isAmazonWorkspaceAppCredentialsSaved(workspaceRecord);
+  const workspaceLegacySettings = workspaceCredentialsSaved && workspaceRecord
     ? workspaceLegacyRecordToSpSettings(workspaceRecord)
     : null;
-
-  const activeSettings = workspaceLegacySettings ?? platformSettings;
 
   let seller = opts.workspaceId
     ? await getAmazonWorkspaceSellerConnection(opts.workspaceId)
@@ -163,7 +139,7 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
   }
 
   const publishReady = Boolean(
-    workspaceLegacyConfigured
+    workspaceCredentialsSaved
     && workspaceLegacySettings
     && canSignSpApiRequests(workspaceLegacySettings)
     && sellerConnected,
@@ -171,31 +147,31 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
 
   const redirectUri = opts.req
     ? buildAmazonOAuthRedirectUri(opts.req)
-    : workspaceLegacySettings?.redirectUri || activeSettings.redirectUri || null;
+    : workspaceLegacySettings?.redirectUri || null;
 
   const workspaceCanSign = Boolean(
-    workspaceLegacyConfigured
+    workspaceCredentialsSaved
     && workspaceLegacySettings
     && canSignSpApiRequests(workspaceLegacySettings),
   );
 
   return {
-    configured: workspaceLegacyConfigured,
-    workspaceCredentialsSaved: workspaceLegacyConfigured,
+    configured: workspaceCredentialsSaved,
+    workspaceCredentialsSaved,
     publishReady,
-    enabled: workspaceLegacySettings?.enabled ?? activeSettings.enabled,
-    sandbox: workspaceLegacySettings?.sandbox ?? activeSettings.sandbox,
+    enabled: workspaceLegacySettings?.enabled ?? false,
+    sandbox: workspaceLegacySettings?.sandbox ?? true,
     canSignRequests: workspaceCanSign,
     connected: sellerConnected,
     sellerId: seller?.sellerId ?? null,
     marketplaceIds: seller?.marketplaceIds ?? [],
     defaultMarketplace: seller?.defaultMarketplace
       ?? workspaceLegacySettings?.defaultMarketplace
-      ?? activeSettings.defaultMarketplace,
-    source: workspaceLegacyConfigured ? "workspace" as const : platformConfigured ? "platform" as const : "global" as const,
-    credentialsReady: workspaceLegacyConfigured,
+      ?? "US",
+    source: workspaceCredentialsSaved ? "workspace" as const : "global" as const,
+    credentialsReady: workspaceCredentialsSaved,
     redirectUri,
-    awaitingSellerAuth: workspaceLegacyConfigured && !sellerConnected,
+    awaitingSellerAuth: workspaceCredentialsSaved && !sellerConnected,
   };
 }
 

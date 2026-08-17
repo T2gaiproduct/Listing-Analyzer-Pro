@@ -407,15 +407,42 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const workspaceRecord = await getAmazonWorkspaceConnection(workspaceId);
-    if (!workspaceRecord?.clientId || !workspaceRecord.clientSecret) {
+    const body = req.body as {
+      applicationId?: string;
+      clientId?: string;
+      clientSecret?: string;
+      redirectUri?: string;
+      defaultMarketplace?: string;
+      sandbox?: boolean;
+    };
+
+    const clientId = String(body.clientId ?? workspaceRecord?.clientId ?? "").trim();
+    const clientSecret = String(body.clientSecret ?? workspaceRecord?.clientSecret ?? "").trim();
+    if (!clientId || !clientSecret) {
       res.status(400).json({
         ok: false,
-        message: "Save LWA Client ID and Client Secret on the Marketplaces page first.",
+        message: "Enter LWA Client ID and Client Secret in the form (or save credentials first).",
       });
       return;
     }
 
-    const settings = workspaceLegacyRecordToSpSettings(workspaceRecord);
+    const settings = workspaceLegacyRecordToSpSettings({
+      applicationId: String(body.applicationId ?? "").trim() || workspaceRecord?.applicationId,
+      clientId,
+      clientSecret,
+      redirectUri: String(body.redirectUri ?? "").trim()
+        || workspaceRecord?.redirectUri
+        || buildAmazonOAuthRedirectUri(req),
+      defaultMarketplace: String(body.defaultMarketplace ?? "").trim()
+        || workspaceRecord?.defaultMarketplace
+        || "US",
+      sandbox: body.sandbox ?? workspaceRecord?.sandbox ?? true,
+      awsAccessKeyId: workspaceRecord?.awsAccessKeyId ?? "",
+      awsSecretAccessKey: workspaceRecord?.awsSecretAccessKey ?? "",
+      awsRoleArn: workspaceRecord?.awsRoleArn ?? "",
+      marketplaceIds: workspaceRecord?.marketplaceIds ?? [],
+    });
+
     try {
       const result = await testAmazonSpConnection({
         ...settings,
