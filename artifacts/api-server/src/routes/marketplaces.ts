@@ -276,7 +276,7 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
         canSignRequests: status.canSignRequests,
         redirectUri: buildAmazonOAuthRedirectUri(req),
         defaultMarketplace: record.defaultMarketplace ?? "US",
-        message: "Amazon SP-API credentials saved. Register the OAuth redirect URI in Seller Central, then connect your seller account.",
+        message: "Amazon SP-API credentials saved. Use Connect with Amazon to paste your Seller ID and refresh token.",
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save Amazon credentials";

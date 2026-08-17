@@ -34,7 +34,6 @@ import {
   connectAmazonSelfAuth,
   saveAmazonMarketplaceCredentials,
   testAmazonMarketplaceCredentials,
-  startAmazonConnect,
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
@@ -249,22 +248,11 @@ export default function MarketplacesPage() {
   const [amazonApplicationId, setAmazonApplicationId] = useState("");
   const [amazonClientId, setAmazonClientId] = useState("");
   const [amazonClientSecret, setAmazonClientSecret] = useState("");
-  const [amazonRedirectUri, setAmazonRedirectUri] = useState("");
   const [amazonDefaultMarketplace, setAmazonDefaultMarketplace] = useState("US");
   const [amazonSandbox, setAmazonSandbox] = useState(true);
   const [amazonAwsAccessKeyId, setAmazonAwsAccessKeyId] = useState("");
   const [amazonAwsSecretAccessKey, setAmazonAwsSecretAccessKey] = useState("");
   const [amazonAwsRoleArn, setAmazonAwsRoleArn] = useState("");
-
-  const oauthCallbackExample =
-    typeof window !== "undefined"
-      ? `${window.location.origin}${basePath}/api/amazon/oauth/callback`
-      : `${basePath}/api/amazon/oauth/callback`;
-
-  const amazonLoginUriExample =
-    typeof window !== "undefined"
-      ? `${window.location.origin}${basePath}/marketplaces`
-      : `${basePath}/marketplaces`;
 
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-connections", featureWorkspaceId],
@@ -416,35 +404,12 @@ export default function MarketplacesPage() {
     },
   });
 
-  async function handleAmazonConnect() {
+  function handleAmazonConnect() {
     if (!data?.amazon.workspaceCredentialsSaved) {
       openAmazonCredentialsDialog();
       return;
     }
-
-    if (!data?.amazon.applicationId?.trim()?.startsWith("amzn1.sp.solution.")) {
-      toast({
-        title: "Application ID required for OAuth",
-        description:
-          "Add your SP-API Application ID (amzn1.sp.solution…) in Edit credentials, or use Connect with token instead for Draft apps.",
-        variant: "destructive",
-      });
-      openAmazonCredentialsDialog();
-      return;
-    }
-
-    setPendingAction("amazon");
-    try {
-      await startAmazonConnect();
-    } catch (error) {
-      toast({
-        title: "Amazon authorization failed",
-        description: error instanceof Error ? error.message : "Could not start Amazon authorization.",
-        variant: "destructive",
-      });
-    } finally {
-      setPendingAction(null);
-    }
+    setAmazonSelfAuthOpen(true);
   }
 
   useEffect(() => {
@@ -476,11 +441,6 @@ export default function MarketplacesPage() {
     setAmazonApplicationId(data?.amazon.applicationId ?? "");
     setAmazonClientId(data?.amazon.clientId ?? "");
     setAmazonClientSecret("");
-    setAmazonRedirectUri(
-      data?.amazon.redirectUri?.trim().endsWith("/api/amazon/oauth/callback")
-        ? data.amazon.redirectUri!.trim()
-        : oauthCallbackExample,
-    );
     setAmazonDefaultMarketplace(data?.amazon.defaultMarketplace ?? "US");
     setAmazonSandbox(data?.amazon.sandbox ?? true);
     setAmazonAwsAccessKeyId("");
@@ -495,7 +455,6 @@ export default function MarketplacesPage() {
         applicationId: amazonApplicationId.trim() || undefined,
         clientId: amazonClientId.trim(),
         clientSecret: amazonClientSecret.trim() || undefined,
-        redirectUri: amazonRedirectUri.trim(),
         defaultMarketplace: amazonDefaultMarketplace,
         sandbox: amazonSandbox,
         awsAccessKeyId: amazonAwsAccessKeyId.trim() || undefined,
@@ -525,7 +484,6 @@ export default function MarketplacesPage() {
         applicationId: amazonApplicationId.trim() || undefined,
         clientId: amazonClientId.trim() || undefined,
         clientSecret: amazonClientSecret.trim() || undefined,
-        redirectUri: amazonRedirectUri.trim() || undefined,
         defaultMarketplace: amazonDefaultMarketplace,
         sandbox: amazonSandbox,
       }),
@@ -546,14 +504,6 @@ export default function MarketplacesPage() {
   });
 
   function submitAmazonCredentials() {
-    if (!amazonApplicationId.trim() || !amazonApplicationId.trim().startsWith("amzn1.sp.solution.")) {
-      toast({
-        title: "SP-API Application ID required",
-        description: "Enter the Application ID (amzn1.sp.solution…) from Develop Apps. It is not the LWA Client ID.",
-        variant: "destructive",
-      });
-      return;
-    }
     if (!amazonClientId.trim()) {
       toast({
         title: "LWA Client ID required",
@@ -566,15 +516,6 @@ export default function MarketplacesPage() {
       toast({
         title: "LWA Client Secret required",
         description: "Enter the Client secret from Develop Apps → LWA credentials.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const redirect = amazonRedirectUri.trim() || oauthCallbackExample;
-    if (!redirect.endsWith("/api/amazon/oauth/callback")) {
-      toast({
-        title: "OAuth redirect URI incomplete",
-        description: "Must end with /api/amazon/oauth/callback (not just /api/amazon/).",
         variant: "destructive",
       });
       return;
@@ -615,7 +556,7 @@ export default function MarketplacesPage() {
       setAmazonRefreshToken("");
       toast({
         title: "Amazon connected",
-        description: `Seller ${result.sellerId} linked via self-authorization.`,
+        description: `Seller ${result.sellerId} linked.`,
       });
     } catch (error) {
       toast({
@@ -750,7 +691,7 @@ export default function MarketplacesPage() {
         <div className="space-y-2">
           <ConnectCard
             marketplace="Amazon"
-            description="Step 1: Add your Develop Apps credentials. Step 2: Connect your seller account. Then import your catalog."
+            description="Step 1: Add Develop Apps credentials. Step 2: Connect with Amazon using your refresh token. Then import your catalog."
             connected={amazonConnected}
             pending={false}
             connectLabel={
@@ -773,19 +714,19 @@ export default function MarketplacesPage() {
                         : "Add AWS keys in credentials to import & publish",
                   ].filter(Boolean).join(" · ")
                 : amazonWorkspaceCredentialsSaved && !amazonConnected
-                  ? "Credentials saved — connect your Seller Central account to finish (OAuth needs redirect URI registered in Develop Apps)"
+                  ? "Credentials saved — click Connect with Amazon and paste Seller ID + refresh token from Develop Apps"
                   : null
             }
             loading={pendingAction === "amazon"}
             importLoading={amazonSyncMutation.isPending}
-            onConnect={() => void handleAmazonConnect()}
+            onConnect={handleAmazonConnect}
             onDisconnect={handleAmazonDisconnect}
             onImport={amazonConnected ? handleAmazonImport : undefined}
             importDisabled={amazonConnected && !amazonCanSignRequests}
             importDisabledReason="Add AWS Access Key and Secret in Amazon SP-API credentials, then click Import products."
           />
           {amazonWorkspaceCredentialsSaved ? (
-            <p className="text-[11px] text-muted-foreground px-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-[11px] text-muted-foreground px-1">
               <button
                 type="button"
                 className="hover:text-foreground underline"
@@ -793,19 +734,6 @@ export default function MarketplacesPage() {
               >
                 Edit credentials
               </button>
-              {!amazonConnected ? (
-                <>
-                  <span className="text-border">·</span>
-                  <button
-                    type="button"
-                    className="hover:text-foreground underline"
-                    onClick={() => setAmazonSelfAuthOpen(true)}
-                  >
-                    Connect with token instead
-                  </button>
-                  <span className="text-muted-foreground/80">(Draft apps without OAuth)</span>
-                </>
-              ) : null}
             </p>
           ) : null}
         </div>
@@ -977,13 +905,12 @@ export default function MarketplacesPage() {
           <DialogHeader>
             <DialogTitle>Amazon SP-API credentials</DialogTitle>
             <DialogDescription>
-              From Seller Central → Apps &amp; Services → Develop Apps → your app. Register the OAuth redirect URI
-              in Amazon before using Connect with Amazon.
+              LWA credentials and AWS keys from Seller Central → Apps &amp; Services → Develop Apps.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Application ID (SP-API app id)</Label>
+              <Label className="text-xs text-muted-foreground">Application ID (optional)</Label>
               <Input
                 value={amazonApplicationId}
                 onChange={(e) => setAmazonApplicationId(e.target.value)}
@@ -991,9 +918,6 @@ export default function MarketplacesPage() {
                 className="h-9 text-xs font-mono"
                 autoComplete="off"
               />
-              <p className="text-[10px] text-muted-foreground">
-                Required for Connect with Amazon — not the same as LWA Client ID.
-              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">LWA Client ID</Label>
@@ -1018,34 +942,6 @@ export default function MarketplacesPage() {
                 autoComplete="off"
               />
             </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 space-y-1">
-              <p className="text-[11px] font-medium text-amber-900">Register in Seller Central → Develop Apps → Edit App</p>
-              <p className="text-[10px] text-amber-800">
-                <span className="font-medium">OAuth Login URI:</span>{" "}
-                <code className="break-all">{amazonLoginUriExample}</code>
-              </p>
-              <p className="text-[10px] text-amber-800">
-                <span className="font-medium">OAuth Redirect URI:</span>{" "}
-                <code className="break-all">{oauthCallbackExample}</code>
-              </p>
-              <p className="text-[10px] text-amber-800/90">
-                Error MD9100 means these URIs are missing in Amazon (not wrong LWA keys). Draft apps without
-                OAuth URIs must use Connect with token instead.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">OAuth redirect URI</Label>
-              <Input
-                value={amazonRedirectUri}
-                onChange={(e) => setAmazonRedirectUri(e.target.value)}
-                placeholder={oauthCallbackExample}
-                className="h-9 text-xs font-mono"
-                autoComplete="off"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Must end with <code>/api/amazon/oauth/callback</code> — register the same value in Develop Apps.
-              </p>
-            </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Default marketplace</Label>
               <select
@@ -1060,7 +956,7 @@ export default function MarketplacesPage() {
                 ))}
               </select>
               <p className="text-[10px] text-muted-foreground">
-                Match your Seller Central account (e.g. India → sellercentral.amazon.in for Connect with Amazon).
+                Match your Seller Central account (e.g. India for amazon.in sellers).
               </p>
             </div>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1152,10 +1048,10 @@ export default function MarketplacesPage() {
       <Dialog open={amazonSelfAuthOpen} onOpenChange={setAmazonSelfAuthOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect with token</DialogTitle>
+            <DialogTitle>Connect with Amazon</DialogTitle>
             <DialogDescription>
-              Only if your Draft app has no OAuth redirect URI. In Develop Apps → Authorize, copy the
-              Selling Partner ID and refresh token (starts with Atzr|).
+              In Seller Central → Develop Apps → your app → Authorize (self-authorization), copy the
+              Selling Partner ID and LWA refresh token (starts with Atzr|).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -1209,7 +1105,7 @@ export default function MarketplacesPage() {
                   Linking…
                 </>
               ) : (
-                "Link seller account"
+                "Connect with Amazon"
               )}
             </Button>
           </DialogFooter>
