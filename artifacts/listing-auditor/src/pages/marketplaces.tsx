@@ -15,6 +15,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -68,6 +73,8 @@ function ConnectCard({
   onDisconnect,
   onImport,
   importLoading,
+  importDisabled,
+  importDisabledReason,
   setupRequired,
   setupMessage,
   setupHref,
@@ -83,6 +90,8 @@ function ConnectCard({
   onDisconnect: () => void;
   onImport?: () => void;
   importLoading?: boolean;
+  importDisabled?: boolean;
+  importDisabledReason?: string;
   setupRequired?: boolean;
   setupMessage?: string;
   setupHref?: string;
@@ -127,21 +136,47 @@ function ConnectCard({
       <div className="flex flex-wrap gap-2">
         {connected ? (
           <>
-            {onImport ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={loading || importLoading}
-                onClick={onImport}
-              >
-                {importLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5 mr-1.5" />
-                )}
-                Import products
-              </Button>
+            {(onImport || importDisabled) ? (
+              importDisabled && importDisabledReason ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60"
+                        disabled={loading || importLoading || importDisabled}
+                        onClick={onImport}
+                      >
+                        {importLoading ? (
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
+                        )}
+                        Import products
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-xs">
+                    {importDisabledReason}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                  disabled={loading || importLoading || importDisabled}
+                  onClick={onImport}
+                >
+                  {importLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  Import products
+                </Button>
+              )
             ) : null}
             <Button
               type="button"
@@ -417,6 +452,19 @@ export default function MarketplacesPage() {
     }
   }
 
+  function handleAmazonImport() {
+    if (!data?.amazon.canSignRequests) {
+      toast({
+        title: "SP-API setup required",
+        description:
+          "Catalog import needs AWS signing keys. Ask your SellerLens administrator to add AWS Access Key and Secret under Admin → Amazon SP-API, then try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    amazonSyncMutation.mutate();
+  }
+
   async function submitAmazonSelfAuth() {
     const sellerId = amazonSellerId.trim();
     const refreshToken = amazonRefreshToken.trim();
@@ -550,6 +598,7 @@ export default function MarketplacesPage() {
   const amazonConnected = Boolean(data?.amazon.connected || data?.amazon.sellerId);
   const amazonConfigured = Boolean(data?.amazon.configured);
   const amazonAwaitingSellerAuth = Boolean(data?.amazon.awaitingSellerAuth);
+  const amazonCanSignRequests = Boolean(data?.amazon.canSignRequests);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
 
@@ -584,7 +633,7 @@ export default function MarketplacesPage() {
                     data?.amazon.sellerId ? `Seller ${data.amazon.sellerId}` : "Seller account linked",
                     data?.amazon.publishReady
                       ? "Direct publish enabled"
-                      : "Publishing pending platform SP-API setup",
+                      : "Import & publish pending platform SP-API setup (AWS keys)",
                   ].filter(Boolean).join(" · ")
                 : amazonAwaitingSellerAuth
                   ? "Click Authorize seller account to finish linking Seller Central"
@@ -594,11 +643,9 @@ export default function MarketplacesPage() {
             importLoading={amazonSyncMutation.isPending}
             onConnect={handleAmazonConnect}
             onDisconnect={handleAmazonDisconnect}
-            onImport={
-              amazonConnected && data?.amazon.canSignRequests
-                ? () => amazonSyncMutation.mutate()
-                : undefined
-            }
+            onImport={amazonConnected ? handleAmazonImport : undefined}
+            importDisabled={amazonConnected && !amazonCanSignRequests}
+            importDisabledReason="Finish platform SP-API setup: add AWS Access Key and Secret in Admin → Amazon SP-API, then click Import products."
           />
           {amazonConfigured && !amazonConnected ? (
             <button
