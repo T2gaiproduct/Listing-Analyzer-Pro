@@ -39,7 +39,7 @@ This is a pnpm workspace monorepo (Node.js, TypeScript) for the **Amazon Listing
   - `CLOUDFLARE_TUNNEL_TOKEN` — tunnel run token from Cloudflare Zero Trust → Networks → Tunnels
   - `CLOUDFLARE_TUNNEL_PUBLIC_URL` — exact public URL, e.g. `https://dev-preview.sellerlens.io`
   Then `bash scripts/dev-stack.sh` uses the named tunnel and the URL stays the same across restarts. Register the same hostname in Amazon OAuth (redirect + login URI) and Clerk if needed.
-- **Production-stable URL:** Use `https://sellerlens.io` (no Cloudflare quick tunnel).
+- **Stable local Amazon testing:** `SKIP_CLOUDFLARE_TUNNEL=true bash scripts/dev-stack.sh` uses `http://127.0.0.1:3000` (never changes). Register `http://127.0.0.1:3000/api/amazon/oauth/callback` and Login URI `http://127.0.0.1:3000/marketplaces` in your Amazon app. Browse the same host you register (`127.0.0.1`, not `localhost` — Amazon treats them as different).
 - Clerk **sign-up** is blocked in this VM: the instance has bot-protection CAPTCHA (Smart CAPTCHA/Turnstile) that can't load headlessly ("The CAPTCHA failed to load"). Do NOT try to demo account creation through the UI.
 - To test authenticated flows, create the user via the **Clerk Backend API** (bypasses CAPTCHA), then **sign in** through the UI (sign-in has no CAPTCHA):
   - `curl -X POST https://api.clerk.com/v1/users -H "Authorization: Bearer $CLERK_SECRET_KEY" -H 'Content-Type: application/json' -d '{"email_address":["demo+clerk_test@example.com"],"password":"DemoAudit!2026","skip_password_checks":true}'`

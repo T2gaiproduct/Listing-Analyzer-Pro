@@ -11,6 +11,9 @@ TUNNEL_LOG="/tmp/cloudflared-url.log"
 # Quick trycloudflare.com URLs always change when the tunnel restarts — use token + public URL instead.
 CLOUDFLARE_TUNNEL_PUBLIC_URL="${CLOUDFLARE_TUNNEL_PUBLIC_URL:-${CLOUDFLARE_STABLE_PUBLIC_URL:-}}"
 CLOUDFLARE_TUNNEL_TOKEN="${CLOUDFLARE_TUNNEL_TOKEN:-}"
+# Stable local testing (no random Cloudflare hostname). Amazon OAuth redirect stays fixed.
+SKIP_CLOUDFLARE_TUNNEL="${SKIP_CLOUDFLARE_TUNNEL:-}"
+LOCAL_DEV_PUBLIC_URL="${LOCAL_DEV_PUBLIC_URL:-http://127.0.0.1:3000}"
 
 # Keep API and frontend on the same Clerk instance (required for PATCH /api/profile, onboarding, etc.)
 CLERK_PUB_FOR_STACK="${VITE_CLERK_PUBLISHABLE_KEY:-${CLERK_PUBLISHABLE_KEY:-}}"
@@ -144,9 +147,13 @@ normalize_public_url() {
 normalize_stable_public_url() {
   local raw="${1:-}"
   raw="${raw%/}"
-  if [[ "$raw" =~ ^https:// ]]; then
+  if [[ "$raw" =~ ^https?:// ]]; then
     echo "$raw"
   fi
+}
+
+should_skip_cloudflare_tunnel() {
+  [[ "$SKIP_CLOUDFLARE_TUNNEL" == "true" || "$SKIP_CLOUDFLARE_TUNNEL" == "1" ]]
 }
 
 using_named_cloudflare_tunnel() {
@@ -278,7 +285,7 @@ print(primary, satellite)
 configure_amazon_redirect_for_tunnel() {
   local public_url="$1"
   local redirect="${public_url}/api/amazon/oauth/callback"
-  echo "==> Updating Amazon OAuth redirect URI for Cloudflare tunnel"
+  echo "==> Updating Amazon OAuth redirect URI ($redirect)"
   if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "
     INSERT INTO settings (key, value, category, is_secret, updated_at)
     VALUES ('amazon_sp_redirect_uri', '$redirect', 'amazon', false, NOW())
@@ -367,7 +374,12 @@ wait_for_url "http://127.0.0.1:3000/__devproxy/health" "Dev proxy" 15
 wait_for_url "http://127.0.0.1:3000/admin/dashboard" "Admin page via proxy" 15
 
 PUBLIC_URL=""
-if public_url=$(ensure_cloudflare_tunnel); then
+if should_skip_cloudflare_tunnel; then
+  PUBLIC_URL=$(normalize_stable_public_url "$LOCAL_DEV_PUBLIC_URL")
+  [[ -n "$PUBLIC_URL" ]] || PUBLIC_URL="http://127.0.0.1:3000"
+  printf '%s\n' "$PUBLIC_URL" >"$PUBLIC_URL_FILE"
+  echo "==> Skipping Cloudflare tunnel — stable local URL: $PUBLIC_URL" >&2
+elif public_url=$(ensure_cloudflare_tunnel); then
   PUBLIC_URL="$public_url"
   printf '%s\n' "$PUBLIC_URL" >"$PUBLIC_URL_FILE"
 fi
@@ -376,18 +388,33 @@ echo ""
 echo "Stack ready"
 echo "  Local:    http://127.0.0.1:3000/admin/dashboard"
 if [[ -n "$PUBLIC_URL" ]]; then
-  echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
-  echo "  Sign in:    $PUBLIC_URL/sign-in"
-  if using_named_cloudflare_tunnel; then
-    echo "  (stable named tunnel — URL does not change on restart)"
+  if should_skip_cloudflare_tunnel; then
+    echo "  Stable:   $PUBLIC_URL/admin/dashboard  (localhost — URL never changes)"
+    echo "  Sign in:  $PUBLIC_URL/sign-in"
+    echo "  Amazon OAuth redirect: $PUBLIC_URL/api/amazon/oauth/callback"
   else
-    echo "  (quick tunnel — URL changes when dev-stack restarts; set CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_PUBLIC_URL for a stable hostname)"
+    echo "  Cloudflare: $PUBLIC_URL/admin/dashboard"
+    echo "  Sign in:    $PUBLIC_URL/sign-in"
+    if using_named_cloudflare_tunnel; then
+      echo "  (stable named tunnel — URL does not change on restart)"
+    else
+      echo "  (quick tunnel — URL changes when dev-stack restarts; set SKIP_CLOUDFLARE_TUNNEL=true for localhost, or CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_PUBLIC_URL)"
+    fi
   fi
   echo ""
-  echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
+  if should_skip_cloudflare_tunnel; then
+    echo "==> Configuring Amazon OAuth redirect for local dev"
+    configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
+  else
+    echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
+  fi
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
-  configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
-  configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
+  if ! should_skip_cloudflare_tunnel; then
+    configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
+  fi
+  if ! should_skip_cloudflare_tunnel; then
+    configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
+  fi
   tmux_cmd kill-session -t api-server-live 2>/dev/null || true
   kill_port 8080
   kill_port 19145

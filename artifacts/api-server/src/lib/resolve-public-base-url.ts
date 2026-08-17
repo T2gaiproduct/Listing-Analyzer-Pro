@@ -12,8 +12,13 @@ function isLocalhostOrigin(origin: string): boolean {
 }
 
 function readStableTunnelPublicUrl(): string | undefined {
-  const raw = process.env.CLOUDFLARE_TUNNEL_PUBLIC_URL?.trim().replace(/\/$/, "");
-  if (raw?.startsWith("https://")) return raw;
+  for (const candidate of [
+    process.env.CLOUDFLARE_TUNNEL_PUBLIC_URL,
+    process.env.LOCAL_DEV_PUBLIC_URL,
+  ]) {
+    const raw = candidate?.trim().replace(/\/$/, "");
+    if (raw?.startsWith("https://") || raw?.startsWith("http://")) return raw;
+  }
   return undefined;
 }
 
@@ -26,7 +31,7 @@ function readDevTunnelPublicUrl(): string | undefined {
     const line = raw
       .split("\n")
       .map((entry) => entry.trim())
-      .find((entry) => entry.startsWith("https://") && entry.includes("trycloudflare.com"));
+      .find((entry) => entry.startsWith("https://") || entry.startsWith("http://"));
     return line?.replace(/\/$/, "");
   } catch {
     return undefined;
