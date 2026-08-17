@@ -39,6 +39,10 @@ const EMPTY_AMAZON_SETTINGS: AmazonSpSettings = {
 };
 
 function withRequestRedirectUri(settings: AmazonSpSettings, req?: Request): AmazonSpSettings {
+  const saved = settings.redirectUri.trim();
+  // OAuth authorize + token exchange must use the same redirect_uri that is
+  // registered in Seller Central — prefer the saved workspace value.
+  if (saved) return settings;
   if (!req) return settings;
   return {
     ...settings,

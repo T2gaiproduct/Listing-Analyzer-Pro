@@ -755,7 +755,7 @@ export default function MarketplacesPage() {
                         : "Add AWS keys in credentials to import & publish",
                   ].filter(Boolean).join(" · ")
                 : amazonWorkspaceCredentialsSaved && !amazonConnected
-                  ? "Credentials saved — connect your Seller Central account to finish"
+                  ? "Credentials saved — connect your Seller Central account to finish (OAuth needs redirect URI registered in Develop Apps)"
                   : null
             }
             loading={pendingAction === "amazon"}
