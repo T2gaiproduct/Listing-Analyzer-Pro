@@ -91,9 +91,35 @@ export function isAmazonLwaConfigured(settings: AmazonSpSettings): boolean {
   return Boolean(
     settings.clientId.trim()
     && settings.clientSecret.trim()
-    && settings.redirectUri.trim()
-    && settings.applicationId.trim(),
+    && settings.redirectUri.trim(),
   );
+}
+
+/** OAuth authorize URL needs the SP-API Application ID (amzn1.sp.solution…), not only LWA client id. */
+export function isAmazonOAuthReady(settings: AmazonSpSettings): boolean {
+  if (!isAmazonLwaConfigured(settings)) return false;
+  const appId = settings.applicationId.trim();
+  return appId.startsWith("amzn1.sp.solution.");
+}
+
+export function describeAmazonOAuthReadiness(settings: AmazonSpSettings): string | null {
+  if (!settings.clientId.trim()) {
+    return "LWA Client ID is missing. Add it in SP-API credentials and save.";
+  }
+  if (!settings.clientSecret.trim()) {
+    return "LWA Client Secret is missing. Re-enter it in SP-API credentials and save.";
+  }
+  if (!settings.redirectUri.trim()) {
+    return "OAuth redirect URI is missing. Save credentials with your tunnel callback URL.";
+  }
+  const appId = settings.applicationId.trim();
+  if (!appId) {
+    return "Application ID is required for Connect with Amazon. Copy amzn1.sp.solution… from Develop Apps and save credentials.";
+  }
+  if (!appId.startsWith("amzn1.sp.solution.")) {
+    return "Application ID must be your SP-API app id (amzn1.sp.solution…), not the LWA Client ID. Update SP-API credentials and save.";
+  }
+  return null;
 }
 
 export function validateAmazonAwsCredentials(settings: AmazonSpSettings): string | null {

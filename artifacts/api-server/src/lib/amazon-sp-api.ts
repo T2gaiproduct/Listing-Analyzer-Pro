@@ -55,7 +55,10 @@ export function parseOAuthState(state: string): { userId: string; workspaceId: n
 }
 
 export function buildAmazonAuthorizeUrl(settings: AmazonSpSettings, state: string): string {
-  const applicationId = settings.applicationId.trim() || settings.clientId.trim();
+  const applicationId = settings.applicationId.trim();
+  if (!applicationId.startsWith("amzn1.sp.solution.")) {
+    throw new Error("SP-API Application ID (amzn1.sp.solution…) is required for OAuth.");
+  }
   const params = new URLSearchParams({
     application_id: applicationId,
     state,

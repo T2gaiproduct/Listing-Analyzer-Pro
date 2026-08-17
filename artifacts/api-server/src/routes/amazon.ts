@@ -6,6 +6,8 @@ import type { ImageRecord } from "@workspace/db";
 import {
   isAmazonSpConfigured,
   isAmazonPublishReady,
+  isAmazonOAuthReady,
+  describeAmazonOAuthReadiness,
 } from "../lib/amazon-sp-settings.js";
 import {
   buildAmazonAuthorizeUrl,
@@ -64,7 +66,12 @@ router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, asyn
   const workspaceId = getActiveWorkspaceId(req);
   const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId, req);
 
-  if (!isAmazonSpConfigured(settings)) {
+  const oauthIssue = describeAmazonOAuthReadiness(settings);
+  if (oauthIssue) {
+    res.status(400).json({ error: oauthIssue });
+    return;
+  }
+  if (!isAmazonOAuthReady(settings)) {
     res.status(400).json({
       error: "Add your SP-API credentials on the Marketplaces page before connecting Amazon.",
     });
@@ -73,10 +80,21 @@ router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, asyn
 
   const state = createOAuthState({ userId, workspaceId });
   const url = buildAmazonAuthorizeUrl(settings, state);
-  res.json({ url });
+  res.json({ url, redirectUri: settings.redirectUri });
 });
 
 router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
+  const amazonError = typeof req.query.error === "string" ? req.query.error : "";
+  if (amazonError) {
+    const detail = typeof req.query.error_description === "string"
+      ? req.query.error_description
+      : amazonError;
+    res.status(400).send(
+      `Amazon declined authorization: ${detail}. If your app is a Draft without OAuth, use Connect with token instead.`,
+    );
+    return;
+  }
+
   const stateRaw = typeof req.query.state === "string" ? req.query.state : "";
   const parsed = parseOAuthState(stateRaw);
   if (!parsed) {

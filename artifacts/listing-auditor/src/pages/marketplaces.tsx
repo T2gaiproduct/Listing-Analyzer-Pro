@@ -417,6 +417,17 @@ export default function MarketplacesPage() {
       return;
     }
 
+    if (!data?.amazon.applicationId?.trim()?.startsWith("amzn1.sp.solution.")) {
+      toast({
+        title: "Application ID required for OAuth",
+        description:
+          "Add your SP-API Application ID (amzn1.sp.solution…) in Edit credentials, or use Connect with token instead for Draft apps.",
+        variant: "destructive",
+      });
+      openAmazonCredentialsDialog();
+      return;
+    }
+
     setPendingAction("amazon");
     try {
       await startAmazonConnect();
@@ -526,6 +537,14 @@ export default function MarketplacesPage() {
   });
 
   function submitAmazonCredentials() {
+    if (!amazonApplicationId.trim() || !amazonApplicationId.trim().startsWith("amzn1.sp.solution.")) {
+      toast({
+        title: "SP-API Application ID required",
+        description: "Enter the Application ID (amzn1.sp.solution…) from Develop Apps. It is not the LWA Client ID.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!amazonClientId.trim()) {
       toast({
         title: "LWA Client ID required",
@@ -946,7 +965,7 @@ export default function MarketplacesPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Application ID (optional)</Label>
+              <Label className="text-xs text-muted-foreground">Application ID (SP-API app id)</Label>
               <Input
                 value={amazonApplicationId}
                 onChange={(e) => setAmazonApplicationId(e.target.value)}
@@ -954,6 +973,9 @@ export default function MarketplacesPage() {
                 className="h-9 text-xs font-mono"
                 autoComplete="off"
               />
+              <p className="text-[10px] text-muted-foreground">
+                Required for Connect with Amazon — not the same as LWA Client ID.
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">LWA Client ID</Label>
