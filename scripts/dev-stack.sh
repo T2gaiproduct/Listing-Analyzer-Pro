@@ -323,11 +323,11 @@ for port in 8080 19145 3000; do
   fi
 done
 
-echo "==> Applying database schema"
+echo "==> Applying database schema (local sync)"
 tmux_cmd kill-session -t db-push 2>/dev/null || true
 tmux_cmd new-session -d -s db-push -c "$ROOT" -- bash -lc "
   export DATABASE_URL='$DATABASE_URL'
-  pnpm --filter @workspace/db run push
+  bash scripts/sync-local-db.sh
 "
 
 echo "==> Starting API server (port 8080)"

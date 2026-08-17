@@ -24,6 +24,12 @@ audits:created_by_user_id
 graphics_projects:workspace_id
 videos_projects:workspace_id
 ads_projects:workspace_id
+ads_projects:asin
+ads_projects:current_step
+ads_projects:keyword_data
+ads_projects:sources_snapshot
+product_profiles:audit_id
+product_marketplace_listings:audit_id
 pinned_projects:workspace_id
 member_credits:workspace_id
 member_credits:workspace_member_id

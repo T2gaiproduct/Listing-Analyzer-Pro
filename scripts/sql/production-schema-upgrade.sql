@@ -282,6 +282,16 @@ CREATE TABLE IF NOT EXISTS videos_projects (
 ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
 ALTER TABLE videos_projects ADD COLUMN IF NOT EXISTS workspace_id integer;
 
+-- Manage Ads workflow columns (align with lib/db/src/schema/ads.ts)
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS asin text;
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS current_step integer NOT NULL DEFAULT 1;
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS amazon_profile_id text;
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS amazon_campaign_id text;
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS amazon_ad_group_id text;
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS daily_budget_cents integer;
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS keyword_data jsonb;
+ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS sources_snapshot jsonb;
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');
