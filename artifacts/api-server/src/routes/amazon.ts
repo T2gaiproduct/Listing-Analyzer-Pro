@@ -175,7 +175,7 @@ router.post("/amazon/connection/self-auth", requireAuth, resolveTeamAndWorkspace
   const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId, req);
   if (!isAmazonLwaConfigured(settings)) {
     res.status(400).json({
-      error: "Amazon SP-API is not configured. Ask your administrator to set LWA credentials in Admin → Amazon SP-API.",
+      error: "Amazon SP-API is not configured. Add LWA credentials on the Marketplaces page first.",
     });
     return;
   }

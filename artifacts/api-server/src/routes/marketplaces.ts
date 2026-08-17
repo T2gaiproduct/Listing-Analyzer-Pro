@@ -448,7 +448,7 @@ router.post(
 
     if (!connection) {
       res.status(400).json({
-        error: "Amazon catalog import requires a connected seller account and platform SP-API setup (AWS signing keys in Admin → Amazon SP-API).",
+        error: "Amazon catalog import requires a connected seller account and SP-API credentials (AWS keys on the Marketplaces page).",
       });
       return;
     }
