@@ -424,7 +424,7 @@ export default function MarketplacesPage() {
   });
 
   async function handleAmazonConnect() {
-    if (!data?.amazon.configured) {
+    if (!data?.amazon.workspaceCredentialsSaved && !data?.amazon.configured) {
       openAmazonCredentialsDialog();
       return;
     }
@@ -693,8 +693,12 @@ export default function MarketplacesPage() {
   }
 
   const amazonConnected = Boolean(data?.amazon.connected || data?.amazon.sellerId);
-  const amazonConfigured = Boolean(data?.amazon.configured);
-  const amazonAwaitingSellerAuth = Boolean(data?.amazon.awaitingSellerAuth);
+  const amazonWorkspaceCredentialsSaved = Boolean(
+    data?.amazon.workspaceCredentialsSaved ?? data?.amazon.configured,
+  );
+  const amazonAwaitingSellerAuth = Boolean(
+    amazonWorkspaceCredentialsSaved && data?.amazon.awaitingSellerAuth,
+  );
   const amazonCanSignRequests = Boolean(data?.amazon.canSignRequests);
   const shopifyConnected = Boolean(data?.shopify.connected);
   const woocommerceConnected = Boolean(data?.woocommerce.connected);
@@ -722,13 +726,13 @@ export default function MarketplacesPage() {
             connected={amazonConnected}
             pending={amazonAwaitingSellerAuth}
             connectLabel={
-              !amazonConfigured
+              !amazonWorkspaceCredentialsSaved
                 ? "Add SP-API credentials"
                 : amazonAwaitingSellerAuth
                   ? "Authorize seller account"
                   : undefined
             }
-            setupRequired={!amazonConfigured}
+            setupRequired={!amazonWorkspaceCredentialsSaved}
             setupMessage="Start by adding LWA and AWS credentials from your Develop Apps registration."
             detail={
               amazonConnected
@@ -741,10 +745,8 @@ export default function MarketplacesPage() {
                         : "Add AWS keys in SP-API credentials to import & publish",
                   ].filter(Boolean).join(" · ")
                 : amazonAwaitingSellerAuth
-                  ? "Click Authorize seller account to finish linking Seller Central"
-                  : amazonConfigured
-                    ? "SP-API credentials saved — connect your seller account"
-                    : null
+                  ? "SP-API credentials saved — click Authorize seller account"
+                  : null
             }
             loading={pendingAction === "amazon"}
             importLoading={amazonSyncMutation.isPending}
@@ -754,7 +756,7 @@ export default function MarketplacesPage() {
             importDisabled={amazonConnected && !amazonCanSignRequests}
             importDisabledReason="Add AWS Access Key and Secret in Amazon SP-API credentials, then click Import products."
           />
-          {amazonConfigured ? (
+          {amazonWorkspaceCredentialsSaved ? (
             <button
               type="button"
               className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"
@@ -763,7 +765,7 @@ export default function MarketplacesPage() {
               Edit SP-API credentials
             </button>
           ) : null}
-          {amazonConfigured && !amazonConnected ? (
+          {amazonWorkspaceCredentialsSaved && !amazonConnected ? (
             <button
               type="button"
               className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"

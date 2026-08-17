@@ -133,8 +133,6 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
 
   const activeSettings = workspaceLegacySettings ?? platformSettings;
 
-  const oauthReady = platformConfigured || workspaceLegacyConfigured;
-
   let seller = opts.workspaceId
     ? await getAmazonWorkspaceSellerConnection(opts.workspaceId)
     : null;
@@ -165,31 +163,39 @@ export async function loadAmazonConnectionStatusForWorkspace(opts: {
   }
 
   const publishReady = Boolean(
-    canSignSpApiRequests(activeSettings)
-    && sellerConnected
-    && (isAmazonPublishReady(platformSettings) || Boolean(
-      workspaceLegacySettings?.awsAccessKeyId && workspaceLegacySettings.awsSecretAccessKey,
-    )),
+    workspaceLegacyConfigured
+    && workspaceLegacySettings
+    && canSignSpApiRequests(workspaceLegacySettings)
+    && sellerConnected,
   );
 
   const redirectUri = opts.req
     ? buildAmazonOAuthRedirectUri(opts.req)
-    : activeSettings.redirectUri || null;
+    : workspaceLegacySettings?.redirectUri || activeSettings.redirectUri || null;
+
+  const workspaceCanSign = Boolean(
+    workspaceLegacyConfigured
+    && workspaceLegacySettings
+    && canSignSpApiRequests(workspaceLegacySettings),
+  );
 
   return {
-    configured: oauthReady,
+    configured: workspaceLegacyConfigured,
+    workspaceCredentialsSaved: workspaceLegacyConfigured,
     publishReady,
-    enabled: activeSettings.enabled,
-    sandbox: activeSettings.sandbox,
-    canSignRequests: canSignSpApiRequests(activeSettings),
+    enabled: workspaceLegacySettings?.enabled ?? activeSettings.enabled,
+    sandbox: workspaceLegacySettings?.sandbox ?? activeSettings.sandbox,
+    canSignRequests: workspaceCanSign,
     connected: sellerConnected,
     sellerId: seller?.sellerId ?? null,
     marketplaceIds: seller?.marketplaceIds ?? [],
-    defaultMarketplace: seller?.defaultMarketplace ?? activeSettings.defaultMarketplace,
+    defaultMarketplace: seller?.defaultMarketplace
+      ?? workspaceLegacySettings?.defaultMarketplace
+      ?? activeSettings.defaultMarketplace,
     source: workspaceLegacyConfigured ? "workspace" as const : platformConfigured ? "platform" as const : "global" as const,
-    credentialsReady: oauthReady,
+    credentialsReady: workspaceLegacyConfigured,
     redirectUri,
-    awaitingSellerAuth: oauthReady && !sellerConnected,
+    awaitingSellerAuth: workspaceLegacyConfigured && !sellerConnected,
   };
 }
 
