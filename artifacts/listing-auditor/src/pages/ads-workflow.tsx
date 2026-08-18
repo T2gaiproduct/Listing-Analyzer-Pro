@@ -61,7 +61,13 @@ export default function AdsWorkflowPage({ projectId }: { projectId?: number }) {
     queryKey: ["ads-profiles"],
     queryFn: fetchAdsProfiles,
     enabled: statusQuery.data?.sellerConnected && statusQuery.data?.spApiReady,
+    retry: false,
   });
+
+  const profilesLoadError =
+    profilesQuery.isError && profilesQuery.error instanceof Error
+      ? profilesQuery.error.message
+      : null;
 
   const projectQuery = useQuery({
     queryKey: ["ads-project", projectId],
@@ -363,9 +369,21 @@ export default function AdsWorkflowPage({ projectId }: { projectId?: number }) {
             </div>
           ) : null}
 
-          {!statusQuery.data?.profileSelected && statusQuery.data?.sellerConnected && !profilesQuery.data?.profiles?.length && (
+          {!statusQuery.data?.profileSelected && profilesLoadError && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+              <p className="font-semibold">Amazon Advertising API not authorized</p>
+              <p>{profilesLoadError}</p>
+              <p>
+                After enabling Advertising API in Amazon Developer Console, go to{" "}
+                <a href="/marketplaces" className="underline font-medium">Marketplaces</a> and reconnect your seller account.
+              </p>
+            </div>
+          )}
+
+          {!statusQuery.data?.profileSelected && !profilesLoadError && statusQuery.data?.sellerConnected && !profilesQuery.isLoading && !profilesQuery.data?.profiles?.length && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-              No Amazon Ads profiles returned. Confirm your SP-API app has <strong>Advertising API</strong> access in Amazon Developer Console, then reconnect on Marketplaces.
+              No Amazon Ads profiles returned. Confirm your SP-API app has <strong>Advertising API</strong> access in Amazon Developer Console, then reconnect on{" "}
+              <a href="/marketplaces" className="underline font-medium">Marketplaces</a>.
             </div>
           )}
 
@@ -393,6 +411,46 @@ export default function AdsWorkflowPage({ projectId }: { projectId?: number }) {
       {projectId && project && step >= 2 && (
         <div className="rounded-xl border bg-card p-6 space-y-4">
           <h2 className="text-lg font-semibold">Data sources</h2>
+
+          {!statusQuery.data?.profileSelected && profilesLoadError && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+              <p className="font-semibold">Amazon Advertising API not authorized</p>
+              <p>{profilesLoadError}</p>
+              <p>
+                Enable Advertising API on your SP-API app, then reconnect on{" "}
+                <a href="/marketplaces" className="underline font-medium">Marketplaces</a> and re-run gather.
+              </p>
+            </div>
+          )}
+
+          {!statusQuery.data?.profileSelected && profilesQuery.data?.profiles?.length ? (
+            <div className="space-y-2 rounded-lg border border-sky-200 bg-sky-50/80 p-4">
+              <Label className="text-sky-900">Amazon Ads profile (required)</Label>
+              <p className="text-xs text-sky-800">
+                Select your advertising profile, then re-gather data to pull Amazon keyword and search term reports.
+              </p>
+              <Select
+                value={selectedProfileId}
+                onValueChange={(value) => {
+                  setSelectedProfileId(value);
+                  const profile = profilesQuery.data!.profiles.find((p) => p.profileId === value);
+                  if (profile) saveProfileMutation.mutate(profile);
+                }}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select advertising profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profilesQuery.data.profiles.map((p) => (
+                    <SelectItem key={p.profileId} value={p.profileId}>
+                      {p.name ?? p.profileId} ({p.countryCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
           {project.sourcesSnapshot?.warnings?.map((w) => (
             <p key={w} className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded px-3 py-2">{w}</p>
           ))}
@@ -410,6 +468,18 @@ export default function AdsWorkflowPage({ projectId }: { projectId?: number }) {
               <p className="text-xl font-semibold">{project.sourcesSnapshot?.searchTermReport?.length ?? 0}</p>
             </div>
           </div>
+
+          {step === 2 && statusQuery.data?.profileSelected && (
+            <Button
+              variant="outline"
+              onClick={() => gatherMutation.mutate()}
+              disabled={gatherMutation.isPending}
+              className="gap-2"
+            >
+              {gatherMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
+              Re-gather Amazon data
+            </Button>
+          )}
 
           {step === 2 && (
             <Button

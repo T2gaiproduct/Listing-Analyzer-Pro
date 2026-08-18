@@ -120,9 +120,17 @@ export async function listAmazonAdsProfiles(opts: {
     },
   });
 
-  const json = await res.json().catch(() => []) as AmazonAdsProfile[];
+  const json = await res.json().catch(() => ({})) as AmazonAdsProfile[] | { code?: string; details?: string; message?: string };
   if (!res.ok) {
-    throw new Error(`Could not list Amazon Ads profiles (${res.status})`);
+    const errBody = json as { code?: string; details?: string; message?: string };
+    if (res.status === 401 || errBody.code === "UNAUTHORIZED") {
+      throw new Error(
+        "Amazon Advertising API access denied (401). In Amazon Developer Console, enable Advertising API on your SP-API app, then disconnect and reconnect your seller on Marketplaces.",
+      );
+    }
+    throw new Error(
+      errBody.details ?? errBody.message ?? `Could not list Amazon Ads profiles (${res.status})`,
+    );
   }
   return Array.isArray(json) ? json : [];
 }
