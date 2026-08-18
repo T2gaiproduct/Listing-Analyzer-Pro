@@ -13,13 +13,33 @@ function targetFor(req) {
   return path.startsWith("/api") ? API_TARGET : WEB_TARGET;
 }
 
+function resolveForwardedProto(req) {
+  const raw = req.headers["x-forwarded-proto"];
+  if (raw) {
+    const first = Array.isArray(raw) ? raw[0] : raw.split(",")[0];
+    return first?.trim() || "http";
+  }
+
+  const host = String(req.headers.host ?? "");
+  // Cloudflare quick tunnels terminate TLS at the edge; local dev-proxy is HTTP-only.
+  if (
+    host.endsWith(".trycloudflare.com") ||
+    host.endsWith(".sellerlens.io") ||
+    host === "sellerlens.io"
+  ) {
+    return "https";
+  }
+
+  return "http";
+}
+
 function buildForwardHeaders(req, target) {
   const clientHost = req.headers.host;
   return {
     ...req.headers,
     host: target.host,
     "x-forwarded-host": clientHost ?? req.headers["x-forwarded-host"],
-    "x-forwarded-proto": req.headers["x-forwarded-proto"] ?? "http",
+    "x-forwarded-proto": resolveForwardedProto(req),
     "x-forwarded-for": req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "",
   };
 }

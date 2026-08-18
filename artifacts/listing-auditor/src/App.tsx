@@ -189,9 +189,9 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 function resolveClerkProxyUrl(): string | undefined {
   if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
   if (typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com")) {
-    // Dev stack configures Clerk proxy for the ephemeral tunnel host; same-origin FAPI
-    // is required for sign-up CAPTCHA/Turnstile on trycloudflare.com previews.
-    return `${window.location.origin}${basePath}/api/__clerk`;
+    // Relative proxy URL keeps Clerk JS + FAPI on the tunnel origin (required for sign-up CAPTCHA).
+    const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
+    return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
   }
   return undefined;
 }
