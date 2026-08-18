@@ -111,35 +111,40 @@ router.post("/audits/:id/competitors", requireAuth, resolveTeamAndWorkspace, req
 
   const { productName, asin, title, bulletPoints, imageCount, targetKeywords } = parsed.data;
 
-  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "competitors", { auditId: params.data.id });
-
-  const analysis = await analyzeCompetitorWithAI({
-    productName,
-    title,
-    bulletPoints,
-    imageCount,
-    targetKeywords,
-    ourTitle: audit.title,
-    ourBullets: audit.bulletPoints,
-  });
-
-  const [competitor] = await db
-    .insert(competitorsTable)
-    .values({
-      auditId: params.data.id,
+  try {
+    const analysis = await analyzeCompetitorWithAI({
       productName,
-      asin: asin ?? null,
       title,
       bulletPoints,
       imageCount,
       targetKeywords,
-      overallScore: analysis.overallScore,
-      strengths: analysis.strengths,
-      weaknesses: analysis.weaknesses,
-    })
-    .returning();
+      ourTitle: audit.title,
+      ourBullets: audit.bulletPoints,
+    });
 
-  res.status(201).json({ ...competitor, weaknesses: competitor.weaknesses ?? [] });
+    const [competitor] = await db
+      .insert(competitorsTable)
+      .values({
+        auditId: params.data.id,
+        productName,
+        asin: asin ?? null,
+        title,
+        bulletPoints,
+        imageCount,
+        targetKeywords,
+        overallScore: analysis.overallScore,
+        strengths: analysis.strengths,
+        weaknesses: analysis.weaknesses,
+      })
+      .returning();
+
+    await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "competitors", { auditId: params.data.id });
+
+    res.status(201).json({ ...competitor, weaknesses: competitor.weaknesses ?? [] });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Competitor analysis failed";
+    res.status(500).json({ error: message });
+  }
 });
 
 router.delete("/competitors/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("competitors", "delete"), async (req, res): Promise<void> => {

@@ -886,8 +886,6 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
       const newFeatureCount = existingRecords.filter(r => r.type === "feature").length + newRecords.filter(r => r.type === "feature").length;
       const generatedCount = mergedRecords.length;
 
-      await deductCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded, `Graphics for ${project.name}`, "graphics", { projectId: id });
-
       await db.update(graphicsProjectsTable)
         .set({
           status: "completed",
@@ -898,6 +896,8 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
           updatedAt: new Date(),
         })
         .where(eq(graphicsProjectsTable.id, id));
+
+      await deductCreditsTeamAware(creditCtx, cost.creditType, creditsNeeded, `Graphics for ${project.name}`, "graphics", { projectId: id });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Generation failed";
       const errorText = message.length > 500 ? message.slice(0, 500) + "..." : message;

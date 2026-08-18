@@ -38,20 +38,13 @@ export async function runListingAuditForAuditId(
   const title = audit.title?.trim() || audit.productName?.trim();
   if (!title) return { status: "skipped", reason: "Missing listing title" };
 
+  let auditCost: Awaited<ReturnType<typeof getCreditCost>> | null = null;
   if (creditCtx) {
-    const cost = await getCreditCost("audit");
-    const hasCredits = await hasCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired);
+    auditCost = await getCreditCost("audit");
+    const hasCredits = await hasCreditsTeamAware(creditCtx, auditCost.creditType, auditCost.creditsRequired);
     if (!hasCredits) {
       return { status: "skipped", reason: "Insufficient audit credits" };
     }
-    await deductCreditsTeamAware(
-      creditCtx,
-      cost.creditType,
-      cost.creditsRequired,
-      cost.activityName,
-      "audit",
-      { auditId },
-    );
   }
 
   try {
@@ -77,6 +70,17 @@ export async function runListingAuditForAuditId(
         updatedAt: new Date(),
       })
       .where(eq(auditsTable.id, auditId));
+
+    if (creditCtx && auditCost) {
+      await deductCreditsTeamAware(
+        creditCtx,
+        auditCost.creditType,
+        auditCost.creditsRequired,
+        auditCost.activityName,
+        "audit",
+        { auditId },
+      );
+    }
 
     return { status: "completed", overallScore: result.overallScore };
   } catch (err) {

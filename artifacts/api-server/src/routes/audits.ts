@@ -235,8 +235,6 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
     })
     .returning();
 
-  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "audit", { auditId: audit.id });
-
   try {
     const result = await analyzeListingWithAI({
       title,
@@ -256,6 +254,8 @@ router.post("/audits", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAct
       })
       .where(eq(auditsTable.id, audit.id))
       .returning();
+
+    await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "audit", { auditId: audit.id });
 
     const competitors = await db
       .select()
@@ -750,8 +750,6 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
   const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
-  await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
-
   try {
     const content = await generateEbcContent({
       prompt: prompt.trim(),
@@ -760,6 +758,7 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
       targetKeywords: audit.targetKeywords as string[],
       summary: (audit.result as { summary?: string } | null)?.summary ?? "",
     });
+    await deductCreditsTeamAware(creditCtx, cost.creditType, cost.creditsRequired, cost.activityName, "ebc", { auditId: id });
     res.json(content);
   } catch (err) {
     const message = err instanceof Error ? err.message : "EBC generation failed";
@@ -868,15 +867,6 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
         throw new Error("A+ copy is required before generating module images");
       }
 
-      await deductCreditsTeamAware(
-        creditCtx,
-        imageCost.creditType,
-        imageCreditsNeeded,
-        `A+ modules (${moduleIds.length})`,
-        "graphics",
-        { auditId: id, feature: "aplus", moduleIds },
-      );
-
       const newlyGenerated: AplusGenerationResult["modules"] = [];
       await generateAplusModuleImages({
         auditId: id,
@@ -913,6 +903,15 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
         content,
         modules: finalModules,
       });
+
+      await deductCreditsTeamAware(
+        creditCtx,
+        imageCost.creditType,
+        imageCreditsNeeded,
+        `A+ modules (${moduleIds.length})`,
+        "graphics",
+        { auditId: id, feature: "aplus", moduleIds },
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "A+ generation failed";
       const [auditFailed] = await db.select().from(auditsTable).where(eq(auditsTable.id, id));
@@ -1048,8 +1047,6 @@ router.post("/audits/:id/generate-images", requireAuth, resolveTeamAndWorkspace,
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
 
-  await deductCreditsTeamAware(creditCtx3, cost.creditType, cost.creditsRequired, cost.activityName, "images", { auditId: id });
-
   try {
     const imageRecords = await generateProductImages({
       auditId: id,
@@ -1070,6 +1067,8 @@ router.post("/audits/:id/generate-images", requireAuth, resolveTeamAndWorkspace,
     await db.update(auditsTable)
       .set({ generatedImages: legacyImages, imageRecords, updatedAt: new Date() })
       .where(eq(auditsTable.id, id));
+
+    await deductCreditsTeamAware(creditCtx3, cost.creditType, cost.creditsRequired, cost.activityName, "images", { auditId: id });
 
     res.json(imageRecords);
   } catch (err) {
@@ -1135,8 +1134,6 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
 
-  await deductCreditsTeamAware(creditCtx4, cost.creditType, cost.creditsRequired, cost.activityName, "image_regenerate", { auditId: id, imageType: type, index });
-
   try {
     const updatedRecord = await regenerateSingleImage({
       auditId: id,
@@ -1151,6 +1148,8 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
     await db.update(auditsTable)
       .set({ imageRecords: newRecords, updatedAt: new Date() })
       .where(eq(auditsTable.id, id));
+
+    await deductCreditsTeamAware(creditCtx4, cost.creditType, cost.creditsRequired, cost.activityName, "image_regenerate", { auditId: id, imageType: type, index });
 
     res.json(updatedRecord);
   } catch (err) {
@@ -1197,8 +1196,6 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndW
     return;
   }
 
-  await deductCreditsTeamAware(creditCtx5, cost.creditType, cost.creditsRequired, cost.activityName, "image_edit", { auditId: id, imageType: type, index });
-
   try {
     const updatedRecord = await editSingleImage({
       auditId: id,
@@ -1215,6 +1212,8 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndW
     await db.update(auditsTable)
       .set({ imageRecords: newRecords, updatedAt: new Date() })
       .where(eq(auditsTable.id, id));
+
+    await deductCreditsTeamAware(creditCtx5, cost.creditType, cost.creditsRequired, cost.activityName, "image_edit", { auditId: id, imageType: type, index });
 
     res.json(updatedRecord);
   } catch (err) {
