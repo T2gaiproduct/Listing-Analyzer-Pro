@@ -15,6 +15,36 @@ export type AdsConsoleCampaign = {
   budgetType: string;
   startDate?: string;
   todaySpend?: number;
+  biddingStrategy?: string;
+  impressions?: number;
+  clicks?: number;
+  spend?: number;
+  ctr?: number;
+  cpc?: number;
+  cvr?: number;
+  adSales?: number;
+  roas?: number;
+  acos?: number;
+  purchases?: number;
+};
+
+export type AdsConsoleCampaignsQuery = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string;
+  name?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type AdsConsoleCampaignsResponse = {
+  campaigns: AdsConsoleCampaign[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+  profileId?: string;
 };
 
 export type AdsConsoleTarget = {
@@ -63,8 +93,23 @@ export type AdsConsoleSearchTerm = {
   costCents?: number;
 };
 
-export async function fetchAdsConsoleCampaigns(): Promise<{ campaigns: AdsConsoleCampaign[] }> {
-  return fetchJson(`${basePath}/api/ads/console/campaigns`);
+function buildCampaignsQueryString(query: AdsConsoleCampaignsQuery): string {
+  const params = new URLSearchParams();
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.state) params.set("state", query.state);
+  if (query.name) params.set("name", query.name);
+  if (query.page != null) params.set("page", String(query.page));
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  if (query.sort) params.set("sort", query.sort);
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export async function fetchAdsConsoleCampaigns(
+  query: AdsConsoleCampaignsQuery = {},
+): Promise<AdsConsoleCampaignsResponse> {
+  return fetchJson(`${basePath}/api/ads/console/campaigns${buildCampaignsQueryString(query)}`);
 }
 
 export async function fetchAdsConsoleTargets(): Promise<{ targets: AdsConsoleTarget[] }> {
@@ -97,4 +142,12 @@ export async function bulkUpdateAdsCampaigns(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+export function defaultCampaignDateRange(): { dateFrom: string; dateTo: string } {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - 6);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { dateFrom: fmt(start), dateTo: fmt(end) };
 }

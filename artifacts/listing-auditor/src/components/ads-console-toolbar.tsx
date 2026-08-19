@@ -66,7 +66,7 @@ export function AdsConsoleToolbar({
   return (
     <div className="mb-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-slate-800">{title}</h1>
+        {title ? <h1 className="text-lg font-semibold text-slate-800">{title}</h1> : <div />}
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="h-9 gap-1.5 text-slate-600 bg-white">
             <Filter className="w-4 h-4" />

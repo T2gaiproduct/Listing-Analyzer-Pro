@@ -1,7 +1,9 @@
 import {
   adsApiRequest,
   fetchSearchTermReportRows,
+  fetchSpCampaignReportMetricsMap,
   type AmazonSearchTermRow,
+  type SpCampaignReportMetrics,
 } from "./amazon-ads-api.js";
 import type { AmazonSpSettings } from "./amazon-sp-settings.js";
 
@@ -26,6 +28,17 @@ export type AdsConsoleCampaignRow = {
   startDate?: string;
   todaySpend?: number;
   currencyCode?: string;
+  biddingStrategy?: string;
+  impressions?: number;
+  clicks?: number;
+  spend?: number;
+  ctr?: number;
+  cpc?: number;
+  cvr?: number;
+  adSales?: number;
+  roas?: number;
+  acos?: number;
+  purchases?: number;
 };
 
 export type AdsConsoleTargetRow = {
@@ -165,6 +178,217 @@ export async function listSpCampaignsForConsole(ctx: AdsConsoleApiContext): Prom
       currencyCode: ctx.settings.defaultMarketplace,
     };
   }).filter((c) => c.campaignId);
+}
+
+export type CampaignConsoleListOptions = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string[];
+  name?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type CampaignConsoleListResult = {
+  campaigns: AdsConsoleCampaignRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+};
+
+function sortCampaignRows(rows: AdsConsoleCampaignRow[], sort?: string): AdsConsoleCampaignRow[] {
+  const key = sort?.trim() || "-spend";
+  const desc = key.startsWith("-");
+  const field = desc ? key.slice(1) : key;
+  const mul = desc ? -1 : 1;
+
+  const getValue = (row: AdsConsoleCampaignRow): number | string => {
+    switch (field) {
+      case "spend":
+        return row.spend ?? 0;
+      case "clicks":
+        return row.clicks ?? 0;
+      case "impressions":
+        return row.impressions ?? 0;
+      case "name":
+        return row.name.toLowerCase();
+      case "roas":
+        return row.roas ?? 0;
+      case "acos":
+        return row.acos ?? 0;
+      default:
+        return row.spend ?? 0;
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+}
+
+function mapSpCampaignToRow(
+  c: {
+    campaignId?: string;
+    name?: string;
+    state?: string;
+    targetingType?: string;
+    budget?: { budget?: number; budgetType?: string };
+    startDate?: string;
+    portfolioId?: string;
+    dynamicBidding?: { strategy?: string };
+  },
+  portfolios: Map<string, string>,
+  metrics?: {
+    impressions?: number;
+    clicks?: number;
+    spend?: number;
+    purchases?: number;
+    sales?: number;
+    ctr?: number;
+    cpc?: number;
+    cvr?: number;
+    roas?: number;
+    acos?: number;
+  },
+  todaySpend?: number,
+): AdsConsoleCampaignRow {
+  const budget = c.budget?.budget ?? 0;
+  const portfolioId = c.portfolioId;
+  return {
+    campaignId: c.campaignId ?? "",
+    name: c.name ?? "—",
+    state: c.state ?? "UNKNOWN",
+    targetingType: c.targetingType ?? "—",
+    sponsoredType: "Sponsored Products",
+    portfolioId,
+    portfolioName: portfolioId ? portfolios.get(portfolioId) : undefined,
+    budget,
+    baseBudget: budget,
+    budgetType: c.budget?.budgetType ?? "DAILY",
+    startDate: formatAdsDate(c.startDate),
+    todaySpend,
+    currencyCode: undefined,
+    biddingStrategy: c.dynamicBidding?.strategy,
+    impressions: metrics?.impressions,
+    clicks: metrics?.clicks,
+    spend: metrics?.spend,
+    purchases: metrics?.purchases,
+    adSales: metrics?.sales,
+    ctr: metrics?.ctr,
+    cpc: metrics?.cpc,
+    cvr: metrics?.cvr,
+    roas: metrics?.roas,
+    acos: metrics?.acos,
+  };
+}
+
+export async function listSpCampaignsForConsoleFiltered(
+  ctx: AdsConsoleApiContext,
+  opts: CampaignConsoleListOptions,
+): Promise<CampaignConsoleListResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { campaigns: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  const dateFrom = opts.dateFrom.trim();
+  const dateTo = opts.dateTo.trim();
+  const stateInclude = opts.state?.length
+    ? opts.state
+    : ["ENABLED", "PAUSED", "ARCHIVED"];
+
+  const portfolios = await listPortfoliosMap(ctx);
+
+  const campaignsRaw = await listAllPages(async (nextToken) => {
+    const response = await adsApiRequest<{
+      campaigns?: Array<{
+        campaignId?: string;
+        name?: string;
+        state?: string;
+        targetingType?: string;
+        budget?: { budget?: number; budgetType?: string };
+        startDate?: string;
+        portfolioId?: string;
+        dynamicBidding?: { strategy?: string };
+      }>;
+      nextToken?: string;
+    }>({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      method: "POST",
+      path: "/sp/campaigns/list",
+      marketplaceCode: ctx.marketplaceCode,
+      contentType: "application/vnd.spCampaign.v3+json",
+      accept: "application/vnd.spCampaign.v3+json",
+      body: {
+        stateFilter: { include: stateInclude },
+        maxResults: 100,
+        nextToken,
+        includeExtendedDataFields: true,
+      },
+    });
+
+    return {
+      items: response.campaigns ?? [],
+      nextToken: response.nextToken,
+    };
+  }, 20);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const includeToday = dateFrom <= todayStr && todayStr <= dateTo;
+
+  const [metricsMap, todayMap] = await Promise.all([
+    fetchSpCampaignReportMetricsMap({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      marketplaceCode: ctx.marketplaceCode,
+      startDate: dateFrom,
+      endDate: dateTo,
+      timeoutMs: 90000,
+    }),
+    includeToday
+      ? fetchSpCampaignReportMetricsMap({
+          settings: ctx.settings,
+          refreshToken: ctx.refreshToken,
+          profileId: ctx.profileId,
+          marketplaceCode: ctx.marketplaceCode,
+          startDate: todayStr,
+          endDate: todayStr,
+          timeoutMs: 60000,
+        })
+      : Promise.resolve(new Map<string, SpCampaignReportMetrics>()),
+  ]);
+
+  let rows = campaignsRaw
+    .map((c) => {
+      const id = c.campaignId ?? "";
+      const metrics = metricsMap.get(id);
+      const todayMetrics = todayMap.get(id);
+      return mapSpCampaignToRow(c, portfolios, metrics, todayMetrics?.spend);
+    })
+    .filter((c) => c.campaignId);
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter((r) => r.name.toLowerCase().includes(nameQuery));
+  }
+
+  rows = sortCampaignRows(rows, opts.sort);
+
+  const total = rows.length;
+  const start = (page - 1) * pageSize;
+  const campaigns = rows.slice(start, start + pageSize);
+
+  return { campaigns, total, page, pageSize, requiresFilters: false };
 }
 
 function formatAdsDate(raw?: string): string | undefined {

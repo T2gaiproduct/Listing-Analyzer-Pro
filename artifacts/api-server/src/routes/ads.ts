@@ -34,7 +34,7 @@ import {
 import {
   bulkUpdateSpCampaigns,
   listSearchTermsForConsole,
-  listSpCampaignsForConsole,
+  listSpCampaignsForConsoleFiltered,
   listSpNegativeTargetsForConsole,
   listSpPlacementsForConsole,
   listSpProductAdsForConsole,
@@ -618,8 +618,27 @@ router.get("/ads/console/campaigns", requireAuth, resolveTeamAndWorkspace, async
     return;
   }
   try {
-    const campaigns = await listSpCampaignsForConsole(resolved.ctx);
-    res.json({ campaigns, profileId: resolved.ctx.profileId });
+    const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
+    const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
+    const name = typeof req.query.name === "string" ? req.query.name : undefined;
+    const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
+    const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+    const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
+    const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+    const state = stateRaw
+      ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+      : undefined;
+
+    const result = await listSpCampaignsForConsoleFiltered(resolved.ctx, {
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+    });
+    res.json({ ...result, profileId: resolved.ctx.profileId });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load campaigns" });
   }

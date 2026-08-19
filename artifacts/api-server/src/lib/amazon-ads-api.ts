@@ -235,18 +235,27 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function fetchSearchTermReportRows(opts: {
+type AsyncReportConfiguration = {
+  adProduct: string;
+  groupBy: string[];
+  columns: string[];
+  reportTypeId: string;
+  timeUnit: "SUMMARY" | "DAILY";
+  format: "GZIP_JSON";
+  filters?: Array<{ field: string; values: string[] }>;
+};
+
+async function fetchAsyncReportJsonLines(opts: {
   settings: AmazonSpSettings;
   refreshToken: string;
   profileId: string;
   marketplaceCode?: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  configuration: AsyncReportConfiguration;
   timeoutMs?: number;
-}): Promise<AmazonSearchTermRow[]> {
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(start.getDate() - 30);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-
+}): Promise<Record<string, unknown>[]> {
   const create = await adsApiRequest<{ reportId?: string }>({
     settings: opts.settings,
     refreshToken: opts.refreshToken,
@@ -257,17 +266,10 @@ export async function fetchSearchTermReportRows(opts: {
     contentType: "application/vnd.createasyncreportrequest.v3+json",
     accept: "application/vnd.createasyncreportrequest.v3+json",
     body: {
-      name: `SellerLens search terms ${Date.now()}`,
-      startDate: fmt(start),
-      endDate: fmt(end),
-      configuration: {
-        adProduct: "SPONSORED_PRODUCTS",
-        groupBy: ["searchTerm"],
-        columns: ["searchTerm", "impressions", "clicks", "cost", "purchases30d"],
-        reportTypeId: "spSearchTerm",
-        timeUnit: "SUMMARY",
-        format: "GZIP_JSON",
-      },
+      name: opts.name,
+      startDate: opts.startDate,
+      endDate: opts.endDate,
+      configuration: opts.configuration,
     },
   });
 
@@ -297,7 +299,7 @@ export async function fetchSearchTermReportRows(opts: {
       break;
     }
     if (status.status === "FAILED") {
-      throw new Error(status.failureReason ?? "Search term report failed");
+      throw new Error(status.failureReason ?? "Amazon Ads report failed");
     }
     await sleep(3000);
   }
@@ -317,24 +319,135 @@ export async function fetchSearchTermReportRows(opts: {
   }
 
   const lines = text.split("\n").filter(Boolean);
-  const rows: AmazonSearchTermRow[] = [];
+  const rows: Record<string, unknown>[] = [];
   for (const line of lines) {
     try {
-      const row = JSON.parse(line) as Record<string, unknown>;
-      const searchTerm = String(row.searchTerm ?? row.search_term ?? "").trim();
-      if (!searchTerm) continue;
-      rows.push({
-        searchTerm,
-        impressions: Number(row.impressions ?? 0) || undefined,
-        clicks: Number(row.clicks ?? 0) || undefined,
-        orders: Number(row.purchases30d ?? row.purchases ?? 0) || undefined,
-        costCents: typeof row.cost === "number" ? Math.round(row.cost * 100) : undefined,
-      });
+      rows.push(JSON.parse(line) as Record<string, unknown>);
     } catch {
       // skip malformed lines
     }
   }
   return rows;
+}
+
+export type SpCampaignReportMetrics = {
+  impressions?: number;
+  clicks?: number;
+  spend?: number;
+  purchases?: number;
+  sales?: number;
+  ctr?: number;
+  cpc?: number;
+  cvr?: number;
+  roas?: number;
+  acos?: number;
+};
+
+function parseSpCampaignMetricsRow(row: Record<string, unknown>): SpCampaignReportMetrics | null {
+  const campaignId = String(row.campaignId ?? row.campaign_id ?? "").trim();
+  if (!campaignId) return null;
+
+  const cost = Number(row.cost ?? row.spend ?? 0) || 0;
+  const sales = Number(row.sales14d ?? row.sales7d ?? row.sales30d ?? row.sales ?? 0) || 0;
+  const clicks = Number(row.clicks ?? 0) || 0;
+  const impressions = Number(row.impressions ?? 0) || 0;
+  const purchases = Number(row.purchases14d ?? row.purchases7d ?? row.purchases30d ?? row.purchases ?? 0) || 0;
+
+  return {
+    impressions: impressions || undefined,
+    clicks: clicks || undefined,
+    spend: cost || undefined,
+    purchases: purchases || undefined,
+    sales: sales || undefined,
+    ctr: impressions > 0 ? clicks / impressions : undefined,
+    cpc: clicks > 0 ? cost / clicks : undefined,
+    cvr: clicks > 0 ? purchases / clicks : undefined,
+    roas: cost > 0 ? sales / cost : undefined,
+    acos: sales > 0 ? cost / sales : undefined,
+  };
+}
+
+export async function fetchSpCampaignReportMetricsMap(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  profileId: string;
+  marketplaceCode?: string;
+  startDate: string;
+  endDate: string;
+  timeoutMs?: number;
+}): Promise<Map<string, SpCampaignReportMetrics>> {
+  const rows = await fetchAsyncReportJsonLines({
+    settings: opts.settings,
+    refreshToken: opts.refreshToken,
+    profileId: opts.profileId,
+    marketplaceCode: opts.marketplaceCode,
+    name: `SellerLens SP campaigns ${Date.now()}`,
+    startDate: opts.startDate,
+    endDate: opts.endDate,
+    timeoutMs: opts.timeoutMs,
+    configuration: {
+      adProduct: "SPONSORED_PRODUCTS",
+      groupBy: ["campaign"],
+      columns: ["campaignId", "impressions", "clicks", "cost", "purchases14d", "sales14d"],
+      reportTypeId: "spCampaigns",
+      timeUnit: "SUMMARY",
+      format: "GZIP_JSON",
+    },
+  });
+
+  const map = new Map<string, SpCampaignReportMetrics>();
+  for (const row of rows) {
+    const metrics = parseSpCampaignMetricsRow(row);
+    const id = String(row.campaignId ?? row.campaign_id ?? "").trim();
+    if (id && metrics) map.set(id, metrics);
+  }
+  return map;
+}
+
+export async function fetchSearchTermReportRows(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  profileId: string;
+  marketplaceCode?: string;
+  timeoutMs?: number;
+}): Promise<AmazonSearchTermRow[]> {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - 30);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+  const rows = await fetchAsyncReportJsonLines({
+    settings: opts.settings,
+    refreshToken: opts.refreshToken,
+    profileId: opts.profileId,
+    marketplaceCode: opts.marketplaceCode,
+    name: `SellerLens search terms ${Date.now()}`,
+    startDate: fmt(start),
+    endDate: fmt(end),
+    timeoutMs: opts.timeoutMs,
+    configuration: {
+      adProduct: "SPONSORED_PRODUCTS",
+      groupBy: ["searchTerm"],
+      columns: ["searchTerm", "impressions", "clicks", "cost", "purchases30d"],
+      reportTypeId: "spSearchTerm",
+      timeUnit: "SUMMARY",
+      format: "GZIP_JSON",
+    },
+  });
+
+  const result: AmazonSearchTermRow[] = [];
+  for (const row of rows) {
+    const searchTerm = String(row.searchTerm ?? row.search_term ?? "").trim();
+    if (!searchTerm) continue;
+    result.push({
+      searchTerm,
+      impressions: Number(row.impressions ?? 0) || undefined,
+      clicks: Number(row.clicks ?? 0) || undefined,
+      orders: Number(row.purchases30d ?? row.purchases ?? 0) || undefined,
+      costCents: typeof row.cost === "number" ? Math.round(row.cost * 100) : undefined,
+    });
+  }
+  return result;
 }
 
 export type CreateSpCampaignResult = {
