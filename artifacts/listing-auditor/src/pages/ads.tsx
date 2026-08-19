@@ -92,7 +92,7 @@ export default function AdsPage() {
   });
 
   const projects = projectsQuery.data?.projects ?? [];
-  const consoleItems = MANAGE_ADS_NAV_ITEMS.filter((item) => item.href !== "/ads");
+  const consoleItems = MANAGE_ADS_NAV_ITEMS;
 
   return (
     <div className="w-full min-w-0 space-y-6 sm:space-y-8">

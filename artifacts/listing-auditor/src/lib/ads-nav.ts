@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Ban,
-  Home,
   MapPin,
   Megaphone,
   Package,
@@ -21,7 +20,6 @@ export type ManageAdsNavItem = {
 export const MANAGE_ADS_HOME_HREF = "/ads";
 
 export const MANAGE_ADS_NAV_ITEMS: ManageAdsNavItem[] = [
-  { href: MANAGE_ADS_HOME_HREF, label: "Home", icon: Home },
   { href: "/ads/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/ads/targets", label: "Targets", icon: Target },
   { href: "/ads/search-terms", label: "Search Terms", icon: Search },
