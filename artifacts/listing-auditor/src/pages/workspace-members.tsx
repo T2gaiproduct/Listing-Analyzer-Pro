@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Copy, Mail, Trash2, UserPlus, Zap } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Copy, Mail, Pencil, Trash2, UserPlus, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -66,8 +67,15 @@ export default function WorkspaceMembersPage() {
   const [name, setName] = useState("");
   const [roleId, setRoleId] = useState<string>("");
   const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});
+  const [editingMember, setEditingMember] = useState<MemberRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editRoleId, setEditRoleId] = useState("");
+  const [editAuditCredits, setEditAuditCredits] = useState("0");
+  const [editAiCredits, setEditAiCredits] = useState("0");
+  const [editImageCredits, setEditImageCredits] = useState("0");
 
   const canInvite = isAccountOwner || can("team", "create");
+  const canEditMember = isAccountOwner || can("team", "edit");
   const canRemoveMember = isAccountOwner || can("team", "delete");
   const canAllocateCredits = isAccountOwner || can("credits", "edit");
   const canViewCredits = isAccountOwner || can("credits", "viewGlobal");
@@ -175,6 +183,48 @@ export default function WorkspaceMembersPage() {
       toast({ title: "Failed to invite member", description: err.message, variant: "destructive" }),
   });
 
+  const updateMember = useMutation({
+    mutationFn: async ({
+      memberId,
+      invitedName,
+      roleId: newRoleId,
+      aiCredits,
+      imageCredits,
+      auditCredits,
+      saveCredits,
+    }: {
+      memberId: number;
+      invitedName: string;
+      roleId: number;
+      aiCredits: number;
+      imageCredits: number;
+      auditCredits: number;
+      saveCredits: boolean;
+    }) => {
+      await fetchJson(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invitedName, roleId: newRoleId }),
+      });
+      if (saveCredits) {
+        await fetchJson(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}/credits`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
+        });
+      }
+    },
+    onSuccess: () => {
+      setEditingMember(null);
+      qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
+      qc.invalidateQueries({ queryKey: ["team"] });
+      qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
+      toast({ title: "Member updated" });
+    },
+    onError: (err: Error) =>
+      toast({ title: "Failed to update member", description: err.message, variant: "destructive" }),
+  });
+
   const removeMember = useMutation({
     mutationFn: async (memberId: number) => {
       const r = await fetch(`${basePath}/api/workspaces/${workspaceId}/members/${memberId}`, {
@@ -206,6 +256,34 @@ export default function WorkspaceMembersPage() {
         : `${verb} ${label} from "${ws?.name ?? "this workspace"}"? They will lose access to this workspace.`;
     if (confirm(message)) removeMember.mutate(m.id);
   }
+
+  function openEditMember(m: MemberRow) {
+    setEditingMember(m);
+    setEditName(m.invitedName?.trim() || m.invitedEmail);
+    setEditRoleId(m.roleId != null ? String(m.roleId) : roles[0] ? String(roles[0].id) : "");
+    setEditAuditCredits(String(m.allocatedCredits?.auditCredits ?? 0));
+    setEditAiCredits(String(m.allocatedCredits?.aiCredits ?? 0));
+    setEditImageCredits(String(m.allocatedCredits?.imageCredits ?? 0));
+  }
+
+  function saveEditedMember() {
+    if (!editingMember || !editRoleId) return;
+    const saveCredits =
+      canAllocateCredits
+      && editingMember.status === "active"
+      && canViewCredits;
+    updateMember.mutate({
+      memberId: editingMember.id,
+      invitedName: editName.trim(),
+      roleId: Number(editRoleId),
+      aiCredits: Math.max(0, parseInt(editAiCredits, 10) || 0),
+      imageCredits: Math.max(0, parseInt(editImageCredits, 10) || 0),
+      auditCredits: Math.max(0, parseInt(editAuditCredits, 10) || 0),
+      saveCredits,
+    });
+  }
+
+  const showActionsColumn = canEditMember || canRemoveMember;
 
   if (!ws) {
     return (
@@ -311,7 +389,7 @@ export default function WorkspaceMembersPage() {
                   <TableHead>Status</TableHead>
                   {canViewCredits && <TableHead className="min-w-[10rem]">Credits</TableHead>}
                   {canInvite && <TableHead className="w-[11rem]">Invite</TableHead>}
-                  {canRemoveMember && <TableHead className="w-[7rem]">Actions</TableHead>}
+                  {showActionsColumn && <TableHead className="w-[9rem]">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -326,7 +404,7 @@ export default function WorkspaceMembersPage() {
                     4
                     + (canViewCredits ? 1 : 0)
                     + (canInvite ? 1 : 0)
-                    + (canRemoveMember ? 1 : 0);
+                    + (showActionsColumn ? 1 : 0);
 
                   return (
                     <Fragment key={m.id}>
@@ -391,18 +469,34 @@ export default function WorkspaceMembersPage() {
                             )}
                           </TableCell>
                         )}
-                        {canRemoveMember && (
+                        {showActionsColumn && (
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => confirmRemoveMember(m)}
-                              disabled={removeMember.isPending}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              {m.status === "pending" ? "Revoke" : "Remove"}
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              {canEditMember && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 gap-1.5"
+                                  onClick={() => openEditMember(m)}
+                                  disabled={updateMember.isPending}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                  Edit
+                                </Button>
+                              )}
+                              {canRemoveMember && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => confirmRemoveMember(m)}
+                                  disabled={removeMember.isPending}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  {m.status === "pending" ? "Revoke" : "Remove"}
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -502,6 +596,76 @@ export default function WorkspaceMembersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={editingMember != null} onOpenChange={(open) => { if (!open) setEditingMember(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit member</DialogTitle>
+          </DialogHeader>
+          {editingMember && (
+            <div className="space-y-4 py-2">
+              <div>
+                <Label className="text-xs text-slate-500">Email</Label>
+                <p className="text-sm text-slate-700 mt-1">{editingMember.invitedEmail}</p>
+              </div>
+              <div>
+                <Label>Name</Label>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Select value={editRoleId} onValueChange={setEditRoleId}>
+                  <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                  <SelectContent>
+                    {roles.map((r) => (
+                      <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {canAllocateCredits && canViewCredits && editingMember.status === "active" && (
+                <div className="space-y-2 rounded-xl border border-slate-200 p-3 bg-slate-50/50">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                    <Zap className="w-4 h-4 text-blue-500" />
+                    Allocated credits
+                  </div>
+                  {membersData?.poolAvailableForMembers && (
+                    <p className="text-xs text-slate-500">
+                      Available to assign: {membersData.poolAvailableForMembers.auditCredits} audit · {membersData.poolAvailableForMembers.aiCredits} text · {membersData.poolAvailableForMembers.imageCredits} images
+                    </p>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs text-slate-500">Audit</Label>
+                      <Input type="number" min={0} className="h-9" value={editAuditCredits} onChange={(e) => setEditAuditCredits(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">Text</Label>
+                      <Input type="number" min={0} className="h-9" value={editAiCredits} onChange={(e) => setEditAiCredits(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">Images</Label>
+                      <Input type="number" min={0} className="h-9" value={editImageCredits} onChange={(e) => setEditImageCredits(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMember(null)} disabled={updateMember.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600"
+              onClick={saveEditedMember}
+              disabled={!editName.trim() || !editRoleId || updateMember.isPending}
+            >
+              {updateMember.isPending ? "Saving…" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

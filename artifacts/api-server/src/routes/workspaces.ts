@@ -820,10 +820,27 @@ router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireW
   }
 
   const memberId = Number(req.params.memberId);
-  const { roleId, status } = req.body as { roleId?: number; status?: string };
+  if (!memberId || Number.isNaN(memberId)) {
+    res.status(400).json({ error: "Invalid member id" });
+    return;
+  }
+
+  const { roleId, status, invitedName } = req.body as {
+    roleId?: number;
+    status?: string;
+    invitedName?: string;
+  };
 
   const updates: Partial<typeof workspaceMembersTable.$inferInsert> = {};
   if (status !== undefined) updates.status = status;
+  if (invitedName !== undefined) {
+    const trimmed = invitedName.trim();
+    if (!trimmed) {
+      res.status(400).json({ error: "Name is required" });
+      return;
+    }
+    updates.invitedName = trimmed;
+  }
   if (roleId !== undefined) {
     if (roleId == null || Number.isNaN(Number(roleId))) {
       res.status(400).json({ error: "Invalid role" });
@@ -838,19 +855,60 @@ router.patch("/workspaces/:workspaceId/members/:memberId", requireAuth, requireW
     updates.legacyRole = accountRole.legacyRoleKey ?? "editor";
   }
 
-  const [updated] = await db.update(workspaceMembersTable)
-    .set(updates)
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No updates provided" });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(workspaceMembersTable)
     .where(and(
       eq(workspaceMembersTable.id, memberId),
       eq(workspaceMembersTable.workspaceId, ctx.workspaceId),
+      eq(workspaceMembersTable.isDeleted, 0),
     ))
+    .limit(1);
+
+  if (!existing) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+
+  const [updated] = await db.update(workspaceMembersTable)
+    .set(updates)
+    .where(eq(workspaceMembersTable.id, memberId))
     .returning();
 
   if (!updated) {
     res.status(404).json({ error: "Member not found" });
     return;
   }
-  res.json(updated);
+
+  if (updates.invitedName) {
+    const emailLower = updated.invitedEmail.toLowerCase();
+    if (updated.userId) {
+      await db.update(teamMembersTable)
+        .set({ invitedName: updates.invitedName })
+        .where(and(
+          eq(teamMembersTable.ownerUserId, ctx.accountOwnerId),
+          eq(teamMembersTable.memberUserId, updated.userId),
+        ));
+    } else {
+      await db.update(teamMembersTable)
+        .set({ invitedName: updates.invitedName })
+        .where(and(
+          eq(teamMembersTable.ownerUserId, ctx.accountOwnerId),
+          sql`lower(${teamMembersTable.invitedEmail}) = ${emailLower}`,
+        ));
+    }
+  }
+
+  const roleName = updated.roleId
+    ? (await getAccountRole(ctx.accountOwnerId, updated.roleId))?.name ?? null
+    : null;
+
+  res.json({ ...updated, roleName });
 });
 
 router.post("/workspaces/:workspaceId/members/:memberId/resend", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
