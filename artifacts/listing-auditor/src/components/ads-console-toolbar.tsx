@@ -75,7 +75,7 @@ export function AdsConsoleToolbar({
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5 text-teal-700 border-teal-200 bg-white hover:bg-teal-50"
+            className="h-9 gap-1.5 text-orange-600 border-orange-200 bg-white hover:bg-orange-50"
             onClick={onAiClick}
           >
             <Sparkles className="w-4 h-4" />
@@ -103,7 +103,7 @@ export function AdsConsoleToolbar({
           <Button
             variant="outline"
             size="sm"
-            className="h-9 border-teal-600 text-teal-700 hover:bg-teal-50"
+            className="h-9 border-orange-500 text-orange-600 hover:bg-orange-50"
             asChild
           >
             <Link href={createHref}>{createLabel}</Link>
@@ -151,7 +151,7 @@ export function AdsConsoleToolbar({
           <DialogFooter>
             <Button variant="outline" onClick={() => setBudgetOpen(false)}>Cancel</Button>
             <Button
-              className="bg-teal-600 hover:bg-teal-700"
+              className="bg-orange-500 hover:bg-orange-600"
               onClick={() => {
                 const n = parseFloat(budgetValue);
                 if (n > 0) {

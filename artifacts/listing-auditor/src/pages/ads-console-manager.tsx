@@ -41,7 +41,7 @@ export default function AdsCampaignManagerPage() {
         ) : projects.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">
             No campaign projects yet.{" "}
-            <Link href="/ads/new" className="text-teal-700 underline font-medium">Create one</Link>
+            <Link href="/ads/new" className="text-orange-600 underline font-medium">Create one</Link>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">

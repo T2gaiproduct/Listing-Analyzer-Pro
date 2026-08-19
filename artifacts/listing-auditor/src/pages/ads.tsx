@@ -135,7 +135,7 @@ export default function AdsPage() {
               </Button>
               <Button
                 variant="outline"
-                className="w-full sm:w-auto rounded-xl border-teal-600 text-teal-700 hover:bg-teal-50"
+                className="w-full sm:w-auto rounded-xl border-orange-500 text-orange-600 hover:bg-orange-50"
                 onClick={() => nav("/ads/campaigns")}
               >
                 <LayoutGrid className="w-4 h-4 mr-2" />
@@ -190,7 +190,7 @@ export default function AdsPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-teal-50 hover:border-teal-200 hover:text-teal-800 transition-colors"
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-800 transition-colors"
             >
               {item.label}
             </Link>

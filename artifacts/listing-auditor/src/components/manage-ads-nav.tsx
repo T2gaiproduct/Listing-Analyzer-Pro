@@ -93,7 +93,7 @@ export function ManageAdsNavGroup({
                   "w-full flex items-center gap-2 rounded-lg text-left transition-colors",
                   isMobile ? "px-3 py-2 text-xs min-h-8" : "px-2.5 py-1.5 text-[11px]",
                   childActive
-                    ? "bg-teal-50 text-teal-800 font-medium"
+                    ? "bg-orange-50 text-orange-800 font-medium"
                     : isMobile
                       ? "text-slate-600 hover:bg-slate-100"
                       : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -102,12 +102,12 @@ export function ManageAdsNavGroup({
                 <Icon
                   className={cn(
                     "w-3.5 h-3.5 shrink-0",
-                    childActive ? "text-teal-600" : isMobile ? "text-slate-400" : "text-sidebar-foreground/40",
+                    childActive ? "text-orange-600" : isMobile ? "text-slate-400" : "text-sidebar-foreground/40",
                   )}
                 />
                 <span className="truncate flex-1">{label}</span>
                 {badge && (
-                  <span className="text-[9px] font-bold uppercase tracking-wide bg-teal-700 text-white px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wide bg-orange-600 text-white px-1.5 py-0.5 rounded shrink-0">
                     {badge}
                   </span>
                 )}
