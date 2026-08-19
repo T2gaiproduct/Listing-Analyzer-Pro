@@ -7,7 +7,6 @@ import {
   FileSearch,
   Palette,
   Video,
-  Megaphone,
   Bell,
   Archive,
   PanelLeftClose,
@@ -55,6 +54,8 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Building2, ChevronRight } from "lucide-react";
+import { ManageAdsNavCollapsed, ManageAdsNavGroup } from "@/components/manage-ads-nav";
+import { isManageAdsPath } from "@/lib/ads-nav";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -71,7 +72,6 @@ const mainNavItems: Array<{
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads/campaigns", feature: "ads" },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
 ];
@@ -236,14 +236,18 @@ export function Layout({ children }: { children: ReactNode }) {
   const canViewArchive = isAccountOwner || canView("archive");
   const canViewNotifications = isAccountOwner || canView("notifications");
   const canViewBilling = isAccountOwner || canView("billing");
+  const canViewAds = isAccountOwner || canView("ads");
 
   const navReady = isAccountOwner || (activeWorkspaceId != null && !wsNavLoading);
   const visibleNavItems = navReady
     ? mainNavItems.filter((item) => isAccountOwner || canView(item.feature))
     : [];
+  const navItemsBeforeManageAds = visibleNavItems.filter((item) => item.href !== "/recent-projects" && item.href !== "/marketplaces");
+  const navItemsAfterManageAds = visibleNavItems.filter((item) => item.href === "/recent-projects" || item.href === "/marketplaces");
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [manageAdsNavOpen, setManageAdsNavOpen] = useState(() => isManageAdsPath(location));
   const [searchQuery, setSearchQuery] = useState("");
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
@@ -265,6 +269,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMobileNavOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    if (isManageAdsPath(location)) setManageAdsNavOpen(true);
   }, [location]);
 
   /* ── Ribbon actions state ── */
@@ -750,16 +758,13 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto overflow-x-visible py-3 flex flex-col">
           {/* Main nav items */}
           <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3.5")}>
-            {visibleNavItems.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
+            {navItemsBeforeManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
               const isActive =
                 location === href ||
-                (href === "/marketplaces" && location === "/marketplaces") ||
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
-                (href === "/recent-projects" && location === "/recent-projects") ||
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
-                (href === "/videos" && location === "/videos") ||
-                (href === "/ads/campaigns" && (location === "/ads" || location.startsWith("/ads/")));
+                (href === "/videos" && location === "/videos");
               if (collapsed) {
                 return (
                   <SidebarTooltip key={href} label={label} side="right">
@@ -802,6 +807,61 @@ export function Layout({ children }: { children: ReactNode }) {
                       WIP
                     </span>
                   )}
+                </button>
+              );
+            })}
+            {canViewAds && !collapsed && (
+              <ManageAdsNavGroup
+                location={location}
+                expanded={manageAdsNavOpen}
+                onToggle={() => setManageAdsNavOpen((v) => !v)}
+                onNavigate={(href) => handleFeatureNav(href)}
+              />
+            )}
+            {canViewAds && collapsed && (
+              <SidebarTooltip label="Manage Ads" side="right">
+                <div>
+                  <ManageAdsNavCollapsed location={location} onNavigate={(href) => handleFeatureNav(href)} />
+                </div>
+              </SidebarTooltip>
+            )}
+            {navItemsAfterManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
+              const isActive =
+                location === href ||
+                (href === "/marketplaces" && location === "/marketplaces") ||
+                (href === "/recent-projects" && location === "/recent-projects");
+              if (collapsed) {
+                return (
+                  <SidebarTooltip key={href} label={label} side="right">
+                    <button
+                      type="button"
+                      onClick={() => handleFeatureNav(href, comingSoon)}
+                      className={cn(
+                        "w-full flex items-center justify-center w-10 h-10 rounded-xl transition-colors",
+                        isActive
+                          ? "bg-orange-500 text-white shadow-sm"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      <Icon className={cn("w-4 h-4", isActive ? "text-white" : "")} />
+                    </button>
+                  </SidebarTooltip>
+                );
+              }
+              return (
+                <button
+                  key={href}
+                  type="button"
+                  onClick={() => handleFeatureNav(href, comingSoon)}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[11px] transition-colors text-left",
+                    isActive
+                      ? "bg-orange-500 text-white font-medium shadow-sm"
+                      : "text-sidebar-foreground/60 font-normal hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  )}
+                >
+                  <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/40")} />
+                  <span className="flex-1 min-w-0 truncate">{label}</span>
                 </button>
               );
             })}
@@ -873,14 +933,13 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              {visibleNavItems.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
+              {navItemsBeforeManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
                 const isActive =
                   location === href ||
-                  (href === "/marketplaces" && location === "/marketplaces") ||
-                (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
-                  (href === "/recent-projects" && location === "/recent-projects") ||
+                  (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
-                  (href === "/ads/campaigns" && (location === "/ads" || location.startsWith("/ads/")));
+                  (href === "/projects" && location === "/projects") ||
+                  (href === "/videos" && location === "/videos");
                 return (
                   <button
                     key={href}
@@ -901,6 +960,37 @@ export function Layout({ children }: { children: ReactNode }) {
                     {workInProgress && !comingSoon && (
                       <span className="text-[9px] font-semibold uppercase text-sky-700">WIP</span>
                     )}
+                  </button>
+                );
+              })}
+              {canViewAds && (
+                <ManageAdsNavGroup
+                  location={location}
+                  expanded={manageAdsNavOpen}
+                  onToggle={() => setManageAdsNavOpen((v) => !v)}
+                  onNavigate={(href) => handleFeatureNav(href)}
+                  variant="mobile"
+                />
+              )}
+              {navItemsAfterManageAds.map(({ icon: Icon, label, href, comingSoon, workInProgress }) => {
+                const isActive =
+                  location === href ||
+                  (href === "/marketplaces" && location === "/marketplaces") ||
+                  (href === "/recent-projects" && location === "/recent-projects");
+                return (
+                  <button
+                    key={href}
+                    type="button"
+                    onClick={() => handleFeatureNav(href, comingSoon)}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-colors text-left min-h-9",
+                      isActive
+                        ? "bg-orange-500 text-white font-medium shadow-sm"
+                        : "text-slate-600 font-normal hover:bg-slate-100"
+                    )}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1">{label}</span>
                   </button>
                 );
               })}
