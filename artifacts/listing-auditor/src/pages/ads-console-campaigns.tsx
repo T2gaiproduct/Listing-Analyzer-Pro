@@ -144,7 +144,17 @@ export default function AdsCampaignsConsolePage() {
     return states.join(",");
   }
 
+  const adsConnected = statusQuery.data?.canGatherData === true;
+
   function applyFilters() {
+    if (!adsConnected) {
+      toast({
+        title: "Connect Amazon Ads first",
+        description: "Save SP-API credentials and select an Ads profile on Marketplaces.",
+        variant: "destructive",
+      });
+      return;
+    }
     const states = buildStateFilter(draftFilters);
     if (!states) {
       toast({ title: "Select at least one status", variant: "destructive" });
@@ -180,29 +190,22 @@ export default function AdsCampaignsConsolePage() {
   const canPrev = page > 1;
   const canNext = page * pageSize < total;
 
-  if (!statusQuery.data?.canGatherData) {
-    return (
-      <AdsConsoleLayout>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 max-w-xl">
-          <div className="flex gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-slate-900">Connect Amazon Ads</p>
-              <p className="text-sm text-slate-600 mt-1">
-                Save SP-API credentials, connect your seller on Marketplaces, and select an Amazon Ads profile to load campaigns.
-              </p>
-              <Button className="mt-4" variant="outline" asChild>
-                <Link href="/marketplaces">Go to Marketplaces</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </AdsConsoleLayout>
-    );
-  }
-
   return (
     <AdsConsoleLayout>
+      {!adsConnected && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-sm text-slate-700 flex-1 min-w-0">
+              Connect Amazon Ads on Marketplaces and select a profile to load live campaign data.
+            </p>
+            <Button size="sm" variant="outline" className="shrink-0" asChild>
+              <Link href="/marketplaces">Go to Marketplaces</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Bulk Actions</h1>
