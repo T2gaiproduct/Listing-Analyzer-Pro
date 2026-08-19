@@ -308,7 +308,7 @@ export default function Dashboard() {
     { href: "/audit-listings", label: "Audit Listings", feature: "audits" as const },
     { href: "/projects", label: "Create Graphics", feature: "graphics" as const },
     { href: "/videos", label: "Create Videos", feature: "videos" as const },
-    { href: "/ads", label: "Manage Ads", feature: "ads" as const },
+    { href: "/ads/campaigns", label: "Manage Ads", feature: "ads" as const },
     { href: "/recent-projects", label: "Recent Projects", feature: "recent_projects" as const },
   ].filter((item) => isAccountOwner || canView(item.feature));
 
@@ -317,7 +317,7 @@ export default function Dashboard() {
     { href: "/audit-listings", label: "Audit Listings", feature: "audits" as const },
     { href: "/projects/create", label: "Create Graphics", feature: "graphics" as const },
     { href: "/videos", label: "Create Videos", feature: "videos" as const },
-    { href: "/ads", label: "Manage Ads", feature: "ads" as const },
+    { href: "/ads/campaigns", label: "Manage Ads", feature: "ads" as const },
   ].filter((item) => isAccountOwner || canView(item.feature));
 
   const defaultOwnedWorkspaceId =

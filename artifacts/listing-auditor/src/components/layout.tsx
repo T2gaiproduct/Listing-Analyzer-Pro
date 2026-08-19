@@ -71,7 +71,7 @@ const mainNavItems: Array<{
   { icon: FileSearch, label: "Audit Listing", href: "/audit-listings", feature: "audits" },
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
-  { icon: Megaphone, label: "Manage Ads", href: "/ads", feature: "ads", workInProgress: true },
+  { icon: Megaphone, label: "Manage Ads", href: "/ads/campaigns", feature: "ads" },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
 ];
@@ -759,7 +759,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
                 (href === "/projects" && location === "/projects") ||
                 (href === "/videos" && location === "/videos") ||
-                (href === "/ads" && (location === "/ads" || location.startsWith("/ads/")));
+                (href === "/ads/campaigns" && (location === "/ads" || location.startsWith("/ads/")));
               if (collapsed) {
                 return (
                   <SidebarTooltip key={href} label={label} side="right">
@@ -880,7 +880,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 (href === "/products" && (location === "/products" || location.startsWith("/products/"))) ||
                   (href === "/recent-projects" && location === "/recent-projects") ||
                   (href === "/audits/new" && (location === "/audits/new" || (location === "/audits/workflow" && !window.location.search))) ||
-                  (href === "/ads" && (location === "/ads" || location.startsWith("/ads/")));
+                  (href === "/ads/campaigns" && (location === "/ads" || location.startsWith("/ads/")));
                 return (
                   <button
                     key={href}

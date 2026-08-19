@@ -49,6 +49,24 @@ export const ArchivePage = lazy(() => import("@/pages/archive"));
 export const NotificationsPage = lazy(() => import("@/pages/notifications"));
 export const VideosPage = lazy(() => import("@/pages/videos"));
 export const AdsPage = lazy(() => import("@/pages/ads"));
+export const AdsCampaignsConsolePage = lazy(() => import("@/pages/ads-console-campaigns"));
+export const AdsCampaignManagerPage = lazy(() => import("@/pages/ads-console-manager"));
+export const AdsAmcAudiencesPage = lazy(() => import("@/pages/ads-console-amc"));
+export const AdsTargetsConsolePage = lazy(() =>
+  import("@/pages/ads-console-views").then((m) => ({ default: m.AdsTargetsConsolePage })),
+);
+export const AdsSearchTermsConsolePage = lazy(() =>
+  import("@/pages/ads-console-views").then((m) => ({ default: m.AdsSearchTermsConsolePage })),
+);
+export const AdsProductsConsolePage = lazy(() =>
+  import("@/pages/ads-console-views").then((m) => ({ default: m.AdsProductsConsolePage })),
+);
+export const AdsPlacementsConsolePage = lazy(() =>
+  import("@/pages/ads-console-views").then((m) => ({ default: m.AdsPlacementsConsolePage })),
+);
+export const AdsNegativeTargetsConsolePage = lazy(() =>
+  import("@/pages/ads-console-views").then((m) => ({ default: m.AdsNegativeTargetsConsolePage })),
+);
 export const AdsWorkflowPage = lazy(() => import("@/pages/ads-workflow"));
 export const SettingsPage = lazy(() => import("@/pages/settings"));
 export const WorkspacesPage = lazy(() => import("@/pages/workspaces"));

@@ -65,6 +65,14 @@ import {
   NotificationsPage,
   VideosPage,
   AdsPage,
+  AdsCampaignsConsolePage,
+  AdsCampaignManagerPage,
+  AdsAmcAudiencesPage,
+  AdsTargetsConsolePage,
+  AdsSearchTermsConsolePage,
+  AdsProductsConsolePage,
+  AdsPlacementsConsolePage,
+  AdsNegativeTargetsConsolePage,
   AdsWorkflowPage,
   SettingsPage,
   WorkspacesPage,
@@ -725,12 +733,42 @@ function Router() {
           <AdsWorkflowPage />
         </WorkspaceProtectedRoute>
       </Route>
+      <Route path="/ads/campaigns">
+        <WorkspaceProtectedRoute><AdsCampaignsConsolePage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/targets">
+        <WorkspaceProtectedRoute><AdsTargetsConsolePage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/search-terms">
+        <WorkspaceProtectedRoute><AdsSearchTermsConsolePage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/products">
+        <WorkspaceProtectedRoute><AdsProductsConsolePage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/placements">
+        <WorkspaceProtectedRoute><AdsPlacementsConsolePage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/negative-targets">
+        <WorkspaceProtectedRoute><AdsNegativeTargetsConsolePage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/amc-audiences">
+        <WorkspaceProtectedRoute><AdsAmcAudiencesPage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ads/campaign-manager">
+        <WorkspaceProtectedRoute><AdsCampaignManagerPage /></WorkspaceProtectedRoute>
+      </Route>
       <Route path="/ads/:id">
-        {params => (
-          <WorkspaceProtectedRoute requireCreate>
-            <AdsWorkflowPage projectId={parseInt(params.id, 10)} />
-          </WorkspaceProtectedRoute>
-        )}
+        {params => {
+          const id = parseInt(params.id, 10);
+          if (!Number.isFinite(id) || String(id) !== params.id) {
+            return null;
+          }
+          return (
+            <WorkspaceProtectedRoute requireCreate>
+              <AdsWorkflowPage projectId={id} />
+            </WorkspaceProtectedRoute>
+          );
+        }}
       </Route>
       <Route path="/ads">
         <WorkspaceProtectedRoute><AdsPage /></WorkspaceProtectedRoute>

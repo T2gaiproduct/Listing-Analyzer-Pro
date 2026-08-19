@@ -56,7 +56,7 @@ const navSections: Array<{
       { href: "/admin/content/logs", label: "Audit Listing", icon: FileSearch, permission: "view_logs" },
       { href: "/admin/content/graphics-logs", label: "Graphics Creation", icon: Palette, permission: "view_logs" },
       { href: "/videos", label: "Create Videos", icon: Video, permission: "view_logs" },
-      { href: "/ads", label: "Manage Ads", icon: Megaphone, permission: "view_logs" },
+      { href: "/ads/campaigns", label: "Manage Ads", icon: Megaphone, permission: "view_logs" },
     ],
   },
   {

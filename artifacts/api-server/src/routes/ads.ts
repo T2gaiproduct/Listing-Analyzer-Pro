@@ -32,6 +32,16 @@ import {
   listExistingSpKeywords,
 } from "../lib/amazon-ads-api.js";
 import {
+  bulkUpdateSpCampaigns,
+  listSearchTermsForConsole,
+  listSpCampaignsForConsole,
+  listSpNegativeTargetsForConsole,
+  listSpPlacementsForConsole,
+  listSpProductAdsForConsole,
+  listSpTargetsForConsole,
+  type AdsConsoleApiContext,
+} from "../lib/amazon-ads-console.js";
+import {
   expandKeywordsWithAi,
   mergeKeywordSources,
   scoreAndRankKeywords,
@@ -562,5 +572,163 @@ router.post("/ads/projects/:id/create-campaign", requireAuth, resolveTeamAndWork
     res.status(400).json({ error: message });
   }
 });
+
+async function resolveAdsConsoleContext(req: Request): Promise<{
+  ctx: AdsConsoleApiContext;
+  workspaceId: number;
+} | { error: string; status: number }> {
+  const workspaceId = getActiveWorkspaceId(req);
+  const userId = (req as AuthedRequest).userId;
+  if (!workspaceId) return { error: "Workspace required", status: 400 };
+
+  const readiness = await canUseAmazonAds(workspaceId);
+  if (!readiness.spApiReady || !readiness.sellerConnected || !readiness.profileSelected) {
+    return {
+      error: "Connect Amazon on Marketplaces and select an Ads profile before using the ads console.",
+      status: 400,
+    };
+  }
+
+  const conn = await resolveAmazonConnectionForWorkspace({ workspaceId, userId, req });
+  if (!conn) {
+    return { error: "Amazon connection not found for this workspace.", status: 400 };
+  }
+
+  const adsSettings = await getAmazonAdsWorkspaceSettings(workspaceId);
+  const profileId = adsSettings?.profileId?.trim();
+  if (!profileId) {
+    return { error: "Select an Amazon Ads profile on Marketplaces.", status: 400 };
+  }
+
+  return {
+    workspaceId,
+    ctx: {
+      settings: conn.settings,
+      refreshToken: conn.refreshToken,
+      profileId,
+      marketplaceCode: conn.settings.defaultMarketplace,
+    },
+  };
+}
+
+router.get("/ads/console/campaigns", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const resolved = await resolveAdsConsoleContext(req);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  try {
+    const campaigns = await listSpCampaignsForConsole(resolved.ctx);
+    res.json({ campaigns, profileId: resolved.ctx.profileId });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load campaigns" });
+  }
+});
+
+router.get("/ads/console/targets", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const resolved = await resolveAdsConsoleContext(req);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  try {
+    const targets = await listSpTargetsForConsole(resolved.ctx);
+    res.json({ targets });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load targets" });
+  }
+});
+
+router.get("/ads/console/search-terms", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const resolved = await resolveAdsConsoleContext(req);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  try {
+    const searchTerms = await listSearchTermsForConsole(resolved.ctx);
+    res.json({ searchTerms });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load search terms" });
+  }
+});
+
+router.get("/ads/console/product-ads", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const resolved = await resolveAdsConsoleContext(req);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  try {
+    const productAds = await listSpProductAdsForConsole(resolved.ctx);
+    res.json({ productAds });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load product ads" });
+  }
+});
+
+router.get("/ads/console/placements", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const resolved = await resolveAdsConsoleContext(req);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  try {
+    const placements = await listSpPlacementsForConsole(resolved.ctx);
+    res.json({ placements });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load placements" });
+  }
+});
+
+router.get("/ads/console/negative-targets", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const resolved = await resolveAdsConsoleContext(req);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  try {
+    const negativeTargets = await listSpNegativeTargetsForConsole(resolved.ctx);
+    res.json({ negativeTargets });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load negative targets" });
+  }
+});
+
+router.post(
+  "/ads/console/campaigns/bulk",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceAction("ads", "edit"),
+  async (req, res): Promise<void> => {
+    const resolved = await resolveAdsConsoleContext(req);
+    if ("error" in resolved) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
+
+    const campaignIds = Array.isArray(req.body?.campaignIds)
+      ? req.body.campaignIds.map(String).filter(Boolean)
+      : [];
+    const action = req.body?.action as "enable" | "pause" | "archive" | "budget";
+    const dailyBudget = typeof req.body?.dailyBudget === "number" ? req.body.dailyBudget : undefined;
+
+    if (!action || !["enable", "pause", "archive", "budget"].includes(action)) {
+      res.status(400).json({ error: "Invalid bulk action" });
+      return;
+    }
+
+    try {
+      const result = await bulkUpdateSpCampaigns(resolved.ctx, {
+        campaignIds,
+        action,
+        dailyBudget,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Bulk update failed" });
+    }
+  },
+);
 
 export default router;

@@ -17,7 +17,7 @@ export function viewFeatureForPath(path: string): WorkspaceFeature | null {
   if (p === "/projects" || p === "/projects/create") return "graphics";
   if (p.startsWith("/projects/")) return "graphics";
   if (p === "/videos") return "videos";
-  if (p === "/ads") return "ads";
+  if (p === "/ads" || p.startsWith("/ads/")) return "ads";
   if (p === "/archive") return "archive";
   if (p === "/team") return "team";
   if (p === "/roles") return null;
