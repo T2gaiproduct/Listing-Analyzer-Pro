@@ -25,6 +25,11 @@ fi
 echo "==> Additive SQL schema (scripts/sql/production-schema-upgrade.sql)"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-schema-upgrade.sql
 
+if [[ -f scripts/sql/schema-from-local.sql ]]; then
+  echo "==> Additive SQL from local snapshot (scripts/sql/schema-from-local.sql)"
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/schema-from-local.sql
+fi
+
 if [[ "${SKIP_PUSH:-}" != "1" ]]; then
   echo "==> Drizzle push (align with lib/db/src/schema/)"
   DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run push

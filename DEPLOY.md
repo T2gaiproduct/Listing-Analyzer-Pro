@@ -123,10 +123,11 @@ bash scripts/sync-production-db.sh
 
 This runs:
 
-1. `pnpm --filter @workspace/db run push` (Drizzle schema from `lib/db/src/schema/`)
-2. On push failure, falls back to `scripts/sql/production-schema-upgrade.sql`
-3. `scripts/sql/production-data-migration.sql` — workspace credit pool rows + `member_credits` workspace scope backfill
-4. `scripts/verify-production-readiness.sh`
+1. `scripts/sql/production-schema-upgrade.sql` — reviewed additive upgrades
+2. `scripts/sql/schema-from-local.sql` — full additive snapshot of local tables/columns (regenerate with `bash scripts/generate-additive-schema-from-local.sh`)
+3. `pnpm --filter @workspace/db run push` (Drizzle schema from `lib/db/src/schema/`)
+4. `scripts/sql/production-data-migration.sql` — workspace credit pool rows + `member_credits` workspace scope backfill
+5. `scripts/verify-production-readiness.sh`
 
 Then restart the API (`pm2 restart listing-auditor-api`). Boot also runs `ensureWorkspaceCreditsMigrated`, but the SQL data step aligns production before restart.
 
@@ -143,6 +144,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-data-migration
 ```bash
 cd /opt/listingauditor
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-schema-upgrade.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/schema-from-local.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/sql/production-data-migration.sql
 ```
 
