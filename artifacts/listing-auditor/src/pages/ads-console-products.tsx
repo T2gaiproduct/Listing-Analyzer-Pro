@@ -52,7 +52,6 @@ export default function AdsProductsConsolePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
-  const [compare, setCompare] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -254,8 +253,6 @@ export default function AdsProductsConsolePage() {
 
       <AdsConsoleToolbar
         title=""
-        compare={compare}
-        onCompareChange={setCompare}
         selectedCount={selected.size}
         bulkPending={bulkMutation.isPending}
         onBulkEnable={() => runBulk("enable")}

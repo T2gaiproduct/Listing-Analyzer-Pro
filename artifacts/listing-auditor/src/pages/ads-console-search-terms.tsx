@@ -51,7 +51,6 @@ export default function AdsSearchTermsConsolePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
-  const [compare, setCompare] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -254,12 +253,9 @@ export default function AdsSearchTermsConsolePage() {
 
       <AdsConsoleToolbar
         title=""
-        compare={compare}
-        onCompareChange={setCompare}
         selectedCount={selected.size}
         showBulk={false}
         showCreate={false}
-        hideActivityLog
         onFiltersClick={openFilterDialog}
         exportData={exportData}
         onExportEmpty={() => toast({ title: "Nothing to export", description: "Load search term data first." })}
@@ -323,7 +319,6 @@ export default function AdsSearchTermsConsolePage() {
                 <TableHead className={COL}>CPC</TableHead>
                 <TableHead className={COL}>CTR</TableHead>
                 <TableHead className={COL}>Ad Spend</TableHead>
-                {compare && <TableHead className={COL}>Term Type</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -356,11 +351,6 @@ export default function AdsSearchTermsConsolePage() {
                     <TableCell className="font-medium">
                       {formatMoney(row.spend ?? (row.costCents != null ? row.costCents / 100 : undefined))}
                     </TableCell>
-                    {compare && (
-                      <TableCell className="capitalize">
-                        {row.termKind?.replace("_", " ") ?? "—"}
-                      </TableCell>
-                    )}
                   </TableRow>
                 );
               })}

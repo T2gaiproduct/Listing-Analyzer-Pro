@@ -75,7 +75,6 @@ function formatNum(n?: number): string {
 export default function AdsPlacementsConsolePage() {
   const { toast } = useToast();
   const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
-  const [compare, setCompare] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -292,11 +291,8 @@ export default function AdsPlacementsConsolePage() {
 
       <AdsConsoleToolbar
         title=""
-        compare={compare}
-        onCompareChange={setCompare}
         selectedCount={selected.size}
         showCreate={false}
-        hideActivityLog
         onFiltersClick={openFilterDialog}
         exportData={exportData}
         onExportEmpty={() => toast({ title: "Nothing to export", description: "Load placement data first." })}

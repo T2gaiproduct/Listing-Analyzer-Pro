@@ -1,8 +1,6 @@
 import { useState, type RefObject } from "react";
 import { Link } from "wouter";
 import {
-  Sparkles,
-  ExternalLink,
   Columns3,
   Download,
   List,
@@ -11,7 +9,6 @@ import {
   Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,8 +39,6 @@ export type AdsConsoleColumnOption = {
 
 type ToolbarProps = {
   title: string;
-  compare: boolean;
-  onCompareChange: (v: boolean) => void;
   selectedCount: number;
   onBulkEnable?: () => void;
   onBulkPause?: () => void;
@@ -55,9 +50,7 @@ type ToolbarProps = {
   createLabel?: string;
   showCreate?: boolean;
   onFiltersClick?: () => void;
-  hideActivityLog?: boolean;
   showBudgetBulk?: boolean;
-  onAiClick?: () => void;
   exportData?: AdsConsoleCsvExport | null;
   onExportEmpty?: () => void;
   columnOptions?: AdsConsoleColumnOption[];
@@ -69,8 +62,6 @@ type ToolbarProps = {
 
 export function AdsConsoleToolbar({
   title,
-  compare,
-  onCompareChange,
   selectedCount,
   onBulkEnable,
   onBulkPause,
@@ -82,9 +73,7 @@ export function AdsConsoleToolbar({
   createLabel = "Create",
   showCreate = true,
   onFiltersClick,
-  hideActivityLog = false,
   showBudgetBulk = true,
-  onAiClick,
   exportData,
   onExportEmpty,
   columnOptions,
@@ -130,37 +119,6 @@ export function AdsConsoleToolbar({
               Filters
             </Button>
           )}
-          {onAiClick ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5 text-orange-600 border-orange-200 bg-white hover:bg-orange-50"
-              onClick={onAiClick}
-            >
-              <Sparkles className="w-4 h-4" />
-              AI
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5 text-orange-600 border-orange-200 bg-white hover:bg-orange-50"
-              asChild
-            >
-              <Link href="/ads/new">
-                <Sparkles className="w-4 h-4" />
-                AI
-              </Link>
-            </Button>
-          )}
-          {!hideActivityLog && (
-            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-slate-500" asChild>
-              <a href="https://advertising.amazon.com/cm/campaigns" target="_blank" rel="noopener noreferrer">
-                Activity Log
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="icon"
@@ -185,10 +143,6 @@ export function AdsConsoleToolbar({
           >
             <Download className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-2 pl-1">
-            <Switch id="ads-compare" checked={compare} onCheckedChange={onCompareChange} />
-            <Label htmlFor="ads-compare" className="text-sm text-slate-600 font-normal">Compare</Label>
-          </div>
           {hasOptionalColumns && columnOptions && onColumnVisibilityChange ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

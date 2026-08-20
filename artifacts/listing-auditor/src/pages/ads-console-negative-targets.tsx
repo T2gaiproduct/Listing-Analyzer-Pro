@@ -60,7 +60,6 @@ function formatMatchType(matchType: string): string {
 export default function AdsNegativeTargetsConsolePage() {
   const { toast } = useToast();
   const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
-  const [compare, setCompare] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -279,8 +278,6 @@ export default function AdsNegativeTargetsConsolePage() {
 
       <AdsConsoleToolbar
         title=""
-        compare={compare}
-        onCompareChange={setCompare}
         selectedCount={selected.size}
         onFiltersClick={openFilterDialog}
         exportData={exportData}

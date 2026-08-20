@@ -57,8 +57,6 @@ export function AdsConsoleDataPage({ config }: { config: ViewConfig }) {
     <AdsConsoleLayout>
       <AdsConsoleToolbar
         title={config.title}
-        compare={false}
-        onCompareChange={() => {}}
         selectedCount={0}
         showBulk={config.showBulk ?? false}
         createHref={config.createHref ?? "/ads/new"}

@@ -85,7 +85,7 @@ const CAMPAIGN_COLUMN_DEFS = [
   { id: "biddingStrategy", label: "Bidding Strategy", defaultVisible: false },
 ];
 
-function campaignExportRow(row: AdsConsoleCampaign, compare: boolean): Record<string, string> {
+function campaignExportRow(row: AdsConsoleCampaign): Record<string, string> {
   return {
     status: row.state,
     campaign: row.name,
@@ -105,14 +105,13 @@ function campaignExportRow(row: AdsConsoleCampaign, compare: boolean): Record<st
     adSales: formatMoney(row.adSales),
     roas: formatRatio(row.roas),
     acos: formatPct(row.acos),
-    biddingStrategy: compare ? row.biddingStrategy ?? "—" : "",
+    biddingStrategy: row.biddingStrategy ?? "—",
   };
 }
 
 export default function AdsCampaignsConsolePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [compare, setCompare] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const tableRef = useRef<HTMLDivElement>(null);
@@ -253,7 +252,6 @@ export default function AdsCampaignsConsolePage() {
   const exportData = useMemo(() => {
     if (!campaigns.length) return null;
     const exportColumns = CAMPAIGN_COLUMN_DEFS.filter((col) => {
-      if (col.id === "biddingStrategy" && !compare) return false;
       const visible = columnOptions.find((c) => c.id === col.id)?.visible ?? true;
       return visible;
     });
@@ -261,10 +259,10 @@ export default function AdsCampaignsConsolePage() {
       filename: "campaigns",
       headers: exportColumns.map((col) => col.label),
       rows: campaigns.map((row) =>
-        exportColumns.map((col) => campaignExportRow(row, compare)[col.id] ?? ""),
+        exportColumns.map((col) => campaignExportRow(row)[col.id] ?? ""),
       ),
     };
-  }, [campaigns, compare, columnOptions]);
+  }, [campaigns, columnOptions]);
 
   return (
     <AdsConsoleLayout>
@@ -291,8 +289,6 @@ export default function AdsCampaignsConsolePage() {
 
       <AdsConsoleToolbar
         title=""
-        compare={compare}
-        onCompareChange={setCompare}
         selectedCount={selected.size}
         bulkPending={bulkMutation.isPending}
         onBulkEnable={() => runBulk("enable")}
@@ -365,7 +361,7 @@ export default function AdsCampaignsConsolePage() {
                 {isVisible("adSales") && <TableHead>Ad Sales</TableHead>}
                 {isVisible("roas") && <TableHead>ROAS</TableHead>}
                 {isVisible("acos") && <TableHead>ACOS</TableHead>}
-                {compare && isVisible("biddingStrategy") && <TableHead>Bidding Strategy</TableHead>}
+                {isVisible("biddingStrategy") && <TableHead>Bidding Strategy</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -402,7 +398,7 @@ export default function AdsCampaignsConsolePage() {
                   {isVisible("adSales") && <TableCell>{formatMoney(row.adSales)}</TableCell>}
                   {isVisible("roas") && <TableCell>{formatRatio(row.roas)}</TableCell>}
                   {isVisible("acos") && <TableCell>{formatPct(row.acos)}</TableCell>}
-                  {compare && isVisible("biddingStrategy") && (
+                  {isVisible("biddingStrategy") && (
                     <TableCell>{row.biddingStrategy ?? "—"}</TableCell>
                   )}
                 </TableRow>

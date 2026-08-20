@@ -76,7 +76,6 @@ function buildStateFilter(d: {
 export default function AdsTargetsConsolePage() {
   const { toast } = useToast();
   const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
-  const [compare, setCompare] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -292,8 +291,6 @@ export default function AdsTargetsConsolePage() {
 
       <AdsConsoleToolbar
         title=""
-        compare={compare}
-        onCompareChange={setCompare}
         selectedCount={selected.size}
         showBulk={false}
         createHref="/ads/new"
@@ -374,7 +371,6 @@ export default function AdsTargetsConsolePage() {
                 <TableHead className={COL}>ACOS</TableHead>
                 <TableHead className={COL}>RPC</TableHead>
                 <TableHead className={COL}>Old Tags</TableHead>
-                {compare && <TableHead className={COL}>Target Kind</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -418,7 +414,6 @@ export default function AdsTargetsConsolePage() {
                   <TableCell>{formatPct(row.acos)}</TableCell>
                   <TableCell>{formatRpc(row.adSales, row.clicks)}</TableCell>
                   <TableCell>{row.oldTags ?? "—"}</TableCell>
-                  {compare && <TableCell className="capitalize">{row.targetKind}</TableCell>}
                 </TableRow>
               ))}
             </TableBody>
