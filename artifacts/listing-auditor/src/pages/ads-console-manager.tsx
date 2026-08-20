@@ -331,7 +331,9 @@ export default function AdsCampaignManagerPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
             {kpiCards.map((card) => {
               const improved = card.lowerIsBetter ? card.changePct < 0 : card.changePct > 0;
-              const trendColor = improved ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200";
+              const trendColor = improved
+                ? "bg-orange-50 text-orange-700 border-orange-200"
+                : "bg-red-50 text-red-700 border-red-200";
               return (
                 <div key={card.key} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                   <div className="flex items-center justify-between gap-1 mb-2">
@@ -451,7 +453,7 @@ export default function AdsCampaignManagerPage() {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium"
                           >
-                            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                            <ExternalLink className="w-3.5 h-3.5 shrink-0 text-orange-500" />
                             <span className="truncate max-w-[18rem]">{row.name}</span>
                           </a>
                         </TableCell>
