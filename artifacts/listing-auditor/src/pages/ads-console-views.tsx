@@ -3,56 +3,7 @@ import {
   fetchAdsConsoleNegativeTargets,
   fetchAdsConsolePlacements,
   fetchAdsConsoleProductAds,
-  fetchAdsConsoleSearchTerms,
-  fetchAdsConsoleTargets,
 } from "@/lib/ads-console-api";
-
-export function AdsTargetsConsolePage() {
-  return (
-    <AdsConsoleDataPage
-      config={{
-        title: "Targets",
-        queryKey: "ads-console-targets",
-        fetcher: fetchAdsConsoleTargets,
-        dataKey: "targets",
-        columns: [
-          { key: "keywordText", label: "Keyword" },
-          { key: "matchType", label: "Match Type" },
-          { key: "bid", label: "Bid", format: (v) => v == null ? "—" : String(v) },
-          { key: "state", label: "State" },
-          { key: "campaignId", label: "Campaign ID" },
-          { key: "adGroupId", label: "Ad Group ID" },
-          { key: "impressions", label: "Impressions" },
-          { key: "clicks", label: "Clicks" },
-        ],
-      }}
-    />
-  );
-}
-
-export function AdsSearchTermsConsolePage() {
-  return (
-    <AdsConsoleDataPage
-      config={{
-        title: "Search Terms",
-        queryKey: "ads-console-search-terms",
-        fetcher: fetchAdsConsoleSearchTerms,
-        dataKey: "searchTerms",
-        columns: [
-          { key: "searchTerm", label: "Search Term" },
-          { key: "impressions", label: "Impressions" },
-          { key: "clicks", label: "Clicks" },
-          { key: "orders", label: "Orders" },
-          {
-            key: "costCents",
-            label: "Cost",
-            format: (v) => v == null ? "—" : (Number(v) / 100).toFixed(2),
-          },
-        ],
-      }}
-    />
-  );
-}
 
 export function AdsProductsConsolePage() {
   return (

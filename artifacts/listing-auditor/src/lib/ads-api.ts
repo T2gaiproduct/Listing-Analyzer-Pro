@@ -1,4 +1,5 @@
 import { fetchJson } from "./api-fetch";
+import { isAdsConsoleDemoMode, withDemoQuery } from "./ads-console-demo";
 
 const basePath = import.meta.env.BASE_PATH ?? "";
 
@@ -86,8 +87,10 @@ export type AdsProfile = {
   marketplaceId?: string;
 };
 
-export async function fetchAdsStatus(): Promise<AdsStatusResponse> {
-  return fetchJson(`${basePath}/api/ads/status`);
+export async function fetchAdsStatus(demo?: boolean): Promise<AdsStatusResponse> {
+  const params = withDemoQuery(new URLSearchParams(), demo);
+  const qs = params.toString();
+  return fetchJson(`${basePath}/api/ads/status${qs ? `?${qs}` : ""}`);
 }
 
 export async function fetchAdsProfiles(): Promise<{ profiles: AdsProfile[] }> {
