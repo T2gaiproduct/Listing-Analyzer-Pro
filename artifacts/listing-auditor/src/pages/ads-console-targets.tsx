@@ -204,15 +204,6 @@ export default function AdsTargetsConsolePage() {
   const canPrev = page > 1;
   const canNext = page * pageSize < total;
 
-  const tabLabel =
-    targetType === "all"
-      ? "All Targets"
-      : targetType === "keyword"
-        ? "Keyword Targets"
-        : targetType === "product"
-          ? "Product Targets"
-          : "Other Targets";
-
   return (
     <AdsConsoleLayout>
       {demoMode && (

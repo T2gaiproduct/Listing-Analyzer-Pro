@@ -195,13 +195,6 @@ export default function AdsNegativeTargetsConsolePage() {
   const canPrev = page > 1;
   const canNext = page * pageSize < total;
 
-  const tabLabel =
-    targetType === "all"
-      ? "All Negative Targets"
-      : targetType === "keyword"
-        ? "Negative Keywords"
-        : "Negative Products";
-
   return (
     <AdsConsoleLayout>
       {demoMode && (
