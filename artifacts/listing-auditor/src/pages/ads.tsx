@@ -181,7 +181,7 @@ export default function AdsPage() {
       </div>
 
       <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6">
-        <h2 className="text-sm font-bold text-foreground mb-3">Ads console</h2>
+        <h2 className="text-sm font-bold text-foreground mb-3">Manage Ads views</h2>
         <p className="text-xs text-muted-foreground mb-4">
           Use the Manage Ads menu in the left sidebar, or jump directly:
         </p>
