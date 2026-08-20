@@ -37,6 +37,7 @@ export type AdsConsoleCampaignsQuery = {
   page?: number;
   pageSize?: number;
   sort?: string;
+  demo?: boolean;
 };
 
 export type AdsConsoleCampaignsResponse = {
@@ -92,6 +93,7 @@ export type AdsConsoleTargetsQuery = {
   page?: number;
   pageSize?: number;
   sort?: string;
+  demo?: boolean;
 };
 
 export type AdsConsoleTargetsResponse = {
@@ -156,6 +158,7 @@ export type AdsConsoleSearchTermsQuery = {
   page?: number;
   pageSize?: number;
   sort?: string;
+  demo?: boolean;
 };
 
 export type AdsConsoleSearchTermsResponse = {
@@ -168,7 +171,7 @@ export type AdsConsoleSearchTermsResponse = {
 };
 
 function buildCampaignsQueryString(query: AdsConsoleCampaignsQuery): string {
-  const params = withDemoQuery(new URLSearchParams());
+  const params = withDemoQuery(new URLSearchParams(), query.demo);
   if (query.dateFrom) params.set("dateFrom", query.dateFrom);
   if (query.dateTo) params.set("dateTo", query.dateTo);
   if (query.state) params.set("state", query.state);
@@ -189,7 +192,7 @@ export async function fetchAdsConsoleCampaigns(
 export async function fetchAdsConsoleTargets(
   query: AdsConsoleTargetsQuery = {},
 ): Promise<AdsConsoleTargetsResponse> {
-  const params = withDemoQuery(new URLSearchParams());
+  const params = withDemoQuery(new URLSearchParams(), query.demo);
   if (query.dateFrom) params.set("dateFrom", query.dateFrom);
   if (query.dateTo) params.set("dateTo", query.dateTo);
   if (query.state) params.set("state", query.state);
@@ -205,7 +208,7 @@ export async function fetchAdsConsoleTargets(
 export async function fetchAdsConsoleSearchTerms(
   query: AdsConsoleSearchTermsQuery = {},
 ): Promise<AdsConsoleSearchTermsResponse> {
-  const params = withDemoQuery(new URLSearchParams());
+  const params = withDemoQuery(new URLSearchParams(), query.demo);
   if (query.dateFrom) params.set("dateFrom", query.dateFrom);
   if (query.dateTo) params.set("dateTo", query.dateTo);
   if (query.name) params.set("name", query.name);

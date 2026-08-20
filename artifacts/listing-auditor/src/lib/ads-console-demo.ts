@@ -8,8 +8,9 @@ export function isAdsConsoleDemoMode(): boolean {
   return params.get("demo") === "1" || params.get("demo") === "true";
 }
 
-export function withDemoQuery(params: URLSearchParams): URLSearchParams {
-  if (isAdsConsoleDemoMode()) params.set("demo", "1");
+export function withDemoQuery(params: URLSearchParams, forceDemo?: boolean): URLSearchParams {
+  const useDemo = forceDemo === true || (forceDemo !== false && isAdsConsoleDemoMode());
+  if (useDemo) params.set("demo", "1");
   return params;
 }
 

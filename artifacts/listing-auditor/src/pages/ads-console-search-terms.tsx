@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   AlertTriangle,
@@ -50,7 +50,8 @@ function formatPct(n?: number) {
 
 export default function AdsSearchTermsConsolePage() {
   const { toast } = useToast();
-  const [demoMode, setDemoMode] = useState(isAdsConsoleDemoMode);
+  const qc = useQueryClient();
+  const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
   const [compare, setCompare] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [termType, setTermType] = useState<TermTypeChip>("all");
@@ -67,19 +68,23 @@ export default function AdsSearchTermsConsolePage() {
   });
   const [activeFilters, setActiveFilters] = useState<AdsConsoleSearchTermsQuery | null>(null);
 
-  const statusQuery = useQuery({ queryKey: ["ads-status", demoMode], queryFn: fetchAdsStatus });
+  const statusQuery = useQuery({
+    queryKey: ["ads-status", demoMode],
+    queryFn: () => fetchAdsStatus(demoMode),
+  });
 
   useEffect(() => {
     if (!demoMode || filtersApplied) return;
     setActiveFilters({
       dateFrom: draftFilters.dateFrom,
       dateTo: draftFilters.dateTo,
+      demo: true,
     });
     setFiltersApplied(true);
   }, [demoMode, filtersApplied, draftFilters.dateFrom, draftFilters.dateTo]);
 
   const queryParams: AdsConsoleSearchTermsQuery | null = activeFilters
-    ? { ...activeFilters, termType, page, pageSize, sort: "-spend" }
+    ? { ...activeFilters, termType, page, pageSize, sort: "-spend", demo: demoMode }
     : null;
 
   const searchTermsQuery = useQuery({
@@ -121,10 +126,12 @@ export default function AdsSearchTermsConsolePage() {
     setActiveFilters({
       dateFrom: draftFilters.dateFrom,
       dateTo: draftFilters.dateTo,
+      demo: true,
     });
     setFiltersApplied(true);
     setPage(1);
     void statusQuery.refetch();
+    void qc.invalidateQueries({ queryKey: ["ads-console-search-terms"] });
     toast({ title: "Demo data loaded", description: "Showing sample search terms for UI preview." });
   }
 
@@ -279,7 +286,7 @@ export default function AdsSearchTermsConsolePage() {
         }
       />
 
-      {searchTermsQuery.isError && (
+      {searchTermsQuery.isError && !demoMode && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {searchTermsQuery.error instanceof Error ? searchTermsQuery.error.message : "Failed to load search terms"}
         </div>

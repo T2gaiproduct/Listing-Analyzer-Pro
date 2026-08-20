@@ -87,8 +87,8 @@ export type AdsProfile = {
   marketplaceId?: string;
 };
 
-export async function fetchAdsStatus(): Promise<AdsStatusResponse> {
-  const params = withDemoQuery(new URLSearchParams());
+export async function fetchAdsStatus(demo?: boolean): Promise<AdsStatusResponse> {
+  const params = withDemoQuery(new URLSearchParams(), demo);
   const qs = params.toString();
   return fetchJson(`${basePath}/api/ads/status${qs ? `?${qs}` : ""}`);
 }

@@ -76,7 +76,7 @@ function buildStateFilter(d: {
 
 export default function AdsTargetsConsolePage() {
   const { toast } = useToast();
-  const [demoMode, setDemoMode] = useState(isAdsConsoleDemoMode);
+  const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
   const [compare, setCompare] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [targetType, setTargetType] = useState<TargetTypeChip>("all");
@@ -96,7 +96,10 @@ export default function AdsTargetsConsolePage() {
   });
   const [activeFilters, setActiveFilters] = useState<AdsConsoleTargetsQuery | null>(null);
 
-  const statusQuery = useQuery({ queryKey: ["ads-status", demoMode], queryFn: fetchAdsStatus });
+  const statusQuery = useQuery({
+    queryKey: ["ads-status", demoMode],
+    queryFn: () => fetchAdsStatus(demoMode),
+  });
 
   useEffect(() => {
     if (!demoMode || filtersApplied) return;
@@ -110,7 +113,7 @@ export default function AdsTargetsConsolePage() {
   }, [demoMode]);
 
   const queryParams: AdsConsoleTargetsQuery | null = activeFilters
-    ? { ...activeFilters, targetType, page, pageSize, sort: "-spend" }
+    ? { ...activeFilters, targetType, page, pageSize, sort: "-spend", demo: demoMode }
     : null;
 
   const targetsQuery = useQuery({
