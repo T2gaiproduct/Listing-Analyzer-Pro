@@ -3,32 +3,7 @@ import {
   fetchAdsConsoleNegativeTargets,
   fetchAdsConsolePlacements,
   fetchAdsConsoleProductAds,
-  fetchAdsConsoleSearchTerms,
 } from "@/lib/ads-console-api";
-
-export function AdsSearchTermsConsolePage() {
-  return (
-    <AdsConsoleDataPage
-      config={{
-        title: "Search Terms",
-        queryKey: "ads-console-search-terms",
-        fetcher: fetchAdsConsoleSearchTerms,
-        dataKey: "searchTerms",
-        columns: [
-          { key: "searchTerm", label: "Search Term" },
-          { key: "impressions", label: "Impressions" },
-          { key: "clicks", label: "Clicks" },
-          { key: "orders", label: "Orders" },
-          {
-            key: "costCents",
-            label: "Cost",
-            format: (v) => v == null ? "—" : (Number(v) / 100).toFixed(2),
-          },
-        ],
-      }}
-    />
-  );
-}
 
 export function AdsProductsConsolePage() {
   return (

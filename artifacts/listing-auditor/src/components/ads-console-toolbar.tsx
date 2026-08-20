@@ -42,6 +42,10 @@ type ToolbarProps = {
   showBulk?: boolean;
   createHref?: string;
   createLabel?: string;
+  showCreate?: boolean;
+  showColumnsLabel?: boolean;
+  showAdvancedFilters?: boolean;
+  hideActivityLog?: boolean;
   onAiClick?: () => void;
 };
 
@@ -58,6 +62,10 @@ export function AdsConsoleToolbar({
   showBulk = true,
   createHref = "/ads/new",
   createLabel = "Create",
+  showCreate = true,
+  showColumnsLabel = false,
+  showAdvancedFilters = true,
+  hideActivityLog = false,
   onAiClick,
 }: ToolbarProps) {
   const [budgetOpen, setBudgetOpen] = useState(false);
@@ -68,10 +76,12 @@ export function AdsConsoleToolbar({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {title ? <h1 className="text-lg font-semibold text-slate-800">{title}</h1> : <div />}
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-slate-600 bg-white">
-            <Filter className="w-4 h-4" />
-            Advanced Filters
-          </Button>
+          {showAdvancedFilters && (
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-slate-600 bg-white">
+              <Filter className="w-4 h-4" />
+              Advanced Filters
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -81,17 +91,16 @@ export function AdsConsoleToolbar({
             <Sparkles className="w-4 h-4" />
             AI
           </Button>
-          <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-slate-500" asChild>
-            <a href="https://advertising.amazon.com/cm/campaigns" target="_blank" rel="noopener noreferrer">
-              Activity Log
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </Button>
+          {!hideActivityLog && (
+            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-slate-500" asChild>
+              <a href="https://advertising.amazon.com/cm/campaigns" target="_blank" rel="noopener noreferrer">
+                Activity Log
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500">
             <List className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500">
-            <Columns3 className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500">
             <Download className="w-4 h-4" />
@@ -100,14 +109,26 @@ export function AdsConsoleToolbar({
             <Switch id="ads-compare" checked={compare} onCheckedChange={onCompareChange} />
             <Label htmlFor="ads-compare" className="text-sm text-slate-600 font-normal">Compare</Label>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 border-orange-500 text-orange-600 hover:bg-orange-50"
-            asChild
-          >
-            <Link href={createHref}>{createLabel}</Link>
-          </Button>
+          {showColumnsLabel ? (
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-slate-600 bg-white">
+              <Columns3 className="w-4 h-4" />
+              Columns
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500">
+              <Columns3 className="w-4 h-4" />
+            </Button>
+          )}
+          {showCreate && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 border-orange-500 text-orange-600 hover:bg-orange-50"
+              asChild
+            >
+              <Link href={createHref}>{createLabel}</Link>
+            </Button>
+          )}
           {showBulk && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

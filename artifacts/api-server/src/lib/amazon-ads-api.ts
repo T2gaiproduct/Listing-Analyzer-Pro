@@ -41,10 +41,21 @@ export type AmazonExistingKeyword = {
 };
 
 export type AmazonSearchTermRow = {
+  searchTermId?: string;
   searchTerm: string;
+  termKind?: "auto" | "auto_product" | "manual";
+  sponsoredType?: string;
+  campaignId?: string;
+  campaignName?: string;
+  adGroupId?: string;
+  adGroupName?: string;
   impressions?: number;
   clicks?: number;
   orders?: number;
+  purchases?: number;
+  spend?: number;
+  cpc?: number;
+  ctr?: number;
   costCents?: number;
 };
 
@@ -490,11 +501,13 @@ export async function fetchSearchTermReportRows(opts: {
   refreshToken: string;
   profileId: string;
   marketplaceCode?: string;
+  startDate?: string;
+  endDate?: string;
   timeoutMs?: number;
 }): Promise<AmazonSearchTermRow[]> {
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(start.getDate() - 30);
+  const end = opts.endDate ? new Date(opts.endDate) : new Date();
+  const start = opts.startDate ? new Date(opts.startDate) : new Date(end);
+  if (!opts.startDate) start.setDate(start.getDate() - 30);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
   const rows = await fetchAsyncReportJsonLines({
@@ -509,7 +522,19 @@ export async function fetchSearchTermReportRows(opts: {
     configuration: {
       adProduct: "SPONSORED_PRODUCTS",
       groupBy: ["searchTerm"],
-      columns: ["searchTerm", "impressions", "clicks", "cost", "purchases30d"],
+      columns: [
+        "searchTerm",
+        "campaignName",
+        "adGroupName",
+        "campaignId",
+        "adGroupId",
+        "keywordType",
+        "matchType",
+        "impressions",
+        "clicks",
+        "cost",
+        "purchases14d",
+      ],
       reportTypeId: "spSearchTerm",
       timeUnit: "SUMMARY",
       format: "GZIP_JSON",
@@ -520,12 +545,45 @@ export async function fetchSearchTermReportRows(opts: {
   for (const row of rows) {
     const searchTerm = String(row.searchTerm ?? row.search_term ?? "").trim();
     if (!searchTerm) continue;
+    const cost = Number(row.cost ?? 0) || 0;
+    const clicks = Number(row.clicks ?? 0) || 0;
+    const impressions = Number(row.impressions ?? 0) || 0;
+    const purchases = Number(row.purchases14d ?? row.purchases ?? 0) || 0;
+    const campaignId = String(row.campaignId ?? row.campaign_id ?? "").trim() || undefined;
+    const adGroupId = String(row.adGroupId ?? row.ad_group_id ?? "").trim() || undefined;
+    const campaignName = String(row.campaignName ?? row.campaign_name ?? "").trim() || undefined;
+    const adGroupName = String(row.adGroupName ?? row.ad_group_name ?? "").trim() || undefined;
+    const matchType = String(row.matchType ?? row.match_type ?? "").toUpperCase();
+    const keywordType = String(row.keywordType ?? row.keyword_type ?? "").toUpperCase();
+
+    let termKind: AmazonSearchTermRow["termKind"] = "manual";
+    if (/^b0[a-z0-9]{8,10}$/i.test(searchTerm.replace(/\s/g, ""))) {
+      termKind = "auto_product";
+    } else if (matchType.includes("TARGETING") || keywordType.includes("AUTO") || matchType === "—") {
+      termKind = "auto";
+    }
+
+    const searchTermId = [searchTerm, campaignId ?? campaignName, adGroupId ?? adGroupName]
+      .filter(Boolean)
+      .join("|");
+
     result.push({
+      searchTermId,
       searchTerm,
-      impressions: Number(row.impressions ?? 0) || undefined,
-      clicks: Number(row.clicks ?? 0) || undefined,
-      orders: Number(row.purchases30d ?? row.purchases ?? 0) || undefined,
-      costCents: typeof row.cost === "number" ? Math.round(row.cost * 100) : undefined,
+      termKind,
+      sponsoredType: "Sponsored Products",
+      campaignId,
+      campaignName,
+      adGroupId,
+      adGroupName,
+      impressions: impressions || undefined,
+      clicks: clicks || undefined,
+      orders: purchases || undefined,
+      purchases: purchases || undefined,
+      spend: cost || undefined,
+      costCents: cost ? Math.round(cost * 100) : undefined,
+      cpc: clicks > 0 ? cost / clicks : undefined,
+      ctr: impressions > 0 ? clicks / impressions : undefined,
     });
   }
   return result;

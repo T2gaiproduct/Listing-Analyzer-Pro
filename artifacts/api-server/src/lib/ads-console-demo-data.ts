@@ -1,6 +1,13 @@
 import type { AdsConsoleCampaignRow, AdsConsoleTargetRow } from "./amazon-ads-console.js";
-import type { CampaignConsoleListOptions, CampaignConsoleListResult } from "./amazon-ads-console.js";
-import type { TargetConsoleListOptions, TargetConsoleListResult } from "./amazon-ads-console.js";
+import type {
+  CampaignConsoleListOptions,
+  CampaignConsoleListResult,
+  SearchTermConsoleListOptions,
+  SearchTermConsoleListResult,
+  TargetConsoleListOptions,
+  TargetConsoleListResult,
+} from "./amazon-ads-console.js";
+import type { AmazonSearchTermRow } from "./amazon-ads-api.js";
 
 export function isAdsConsoleDemoEnabled(): boolean {
   return process.env.ADS_CONSOLE_DEMO === "1" || process.env.ADS_CONSOLE_DEMO === "true";
@@ -592,4 +599,223 @@ export function listDemoTargetsFiltered(opts: TargetConsoleListOptions): TargetC
 
   const { items, total } = paginate(rows, page, pageSize);
   return { targets: items, total, page, pageSize, requiresFilters: false };
+}
+
+const DEMO_SEARCH_TERMS: AmazonSearchTermRow[] = [
+  {
+    searchTermId: "demo-st-001",
+    searchTerm: "wireless earbuds for running",
+    termKind: "auto",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Auto Discovery",
+    adGroupName: "Auto Close Match",
+    impressions: 4820,
+    clicks: 156,
+    purchases: 18,
+    spend: 142.5,
+    cpc: 142.5 / 156,
+    ctr: 156 / 4820,
+  },
+  {
+    searchTermId: "demo-st-002",
+    searchTerm: "bluetooth headphones",
+    termKind: "manual",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Category Conquest | Broad",
+    adGroupName: "Broad Discovery",
+    impressions: 6200,
+    clicks: 210,
+    purchases: 24,
+    spend: 186.2,
+    cpc: 186.2 / 210,
+    ctr: 210 / 6200,
+  },
+  {
+    searchTermId: "demo-st-003",
+    searchTerm: "b0competitor1",
+    termKind: "auto_product",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Competitor ASINs",
+    adGroupName: "Competitor Targets",
+    impressions: 1340,
+    clicks: 44,
+    purchases: 5,
+    spend: 41.2,
+    cpc: 41.2 / 44,
+    ctr: 44 / 1340,
+  },
+  {
+    searchTermId: "demo-st-004",
+    searchTerm: "noise cancelling earbuds",
+    termKind: "manual",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Brand Defense | Exact",
+    adGroupName: "Brand Exact Core",
+    impressions: 3100,
+    clicks: 98,
+    purchases: 11,
+    spend: 118.4,
+    cpc: 118.4 / 98,
+    ctr: 98 / 3100,
+  },
+  {
+    searchTermId: "demo-st-005",
+    searchTerm: "cheap wireless earbuds",
+    termKind: "auto",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Auto Discovery",
+    adGroupName: "Auto Substitutes",
+    impressions: 2890,
+    clicks: 72,
+    purchases: 6,
+    spend: 54.8,
+    cpc: 54.8 / 72,
+    ctr: 72 / 2890,
+  },
+  {
+    searchTermId: "demo-st-006",
+    searchTerm: "b0competitor2",
+    termKind: "auto_product",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Competitor ASINs",
+    adGroupName: "Competitor Targets",
+    impressions: 980,
+    clicks: 31,
+    purchases: 3,
+    spend: 28.6,
+    cpc: 28.6 / 31,
+    ctr: 31 / 980,
+  },
+  {
+    searchTermId: "demo-st-007",
+    searchTerm: "sport earbuds waterproof",
+    termKind: "manual",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Category Conquest | Broad",
+    adGroupName: "Category Phrase",
+    impressions: 1760,
+    clicks: 54,
+    purchases: 7,
+    spend: 46.2,
+    cpc: 46.2 / 54,
+    ctr: 54 / 1760,
+  },
+  {
+    searchTermId: "demo-st-008",
+    searchTerm: "earbuds with mic",
+    termKind: "auto",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Auto Discovery",
+    adGroupName: "Auto Close Match",
+    impressions: 2210,
+    clicks: 68,
+    purchases: 8,
+    spend: 59.4,
+    cpc: 59.4 / 68,
+    ctr: 68 / 2210,
+  },
+  {
+    searchTermId: "demo-st-009",
+    searchTerm: "brand name earbuds pro",
+    termKind: "manual",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Brand Defense | Exact",
+    adGroupName: "Brand Exact Core",
+    impressions: 1420,
+    clicks: 52,
+    purchases: 9,
+    spend: 64.8,
+    cpc: 64.8 / 52,
+    ctr: 52 / 1420,
+  },
+  {
+    searchTermId: "demo-st-010",
+    searchTerm: "b0competitor3",
+    termKind: "auto_product",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Competitor ASINs",
+    adGroupName: "Competitor Targets",
+    impressions: 720,
+    clicks: 22,
+    purchases: 2,
+    spend: 21.4,
+    cpc: 21.4 / 22,
+    ctr: 22 / 720,
+  },
+  {
+    searchTermId: "demo-st-011",
+    searchTerm: "best earbuds 2026",
+    termKind: "auto",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Auto Discovery",
+    adGroupName: "Auto Substitutes",
+    impressions: 3580,
+    clicks: 94,
+    purchases: 10,
+    spend: 78.2,
+    cpc: 78.2 / 94,
+    ctr: 94 / 3580,
+  },
+  {
+    searchTermId: "demo-st-012",
+    searchTerm: "usb c earbuds",
+    termKind: "manual",
+    sponsoredType: "Sponsored Products",
+    campaignName: "SP | Brand Defense | Exact",
+    adGroupName: "Accessory Keywords",
+    impressions: 990,
+    clicks: 28,
+    purchases: 4,
+    spend: 24.6,
+    cpc: 24.6 / 28,
+    ctr: 28 / 990,
+  },
+];
+
+export function listDemoSearchTermsFiltered(opts: SearchTermConsoleListOptions): SearchTermConsoleListResult {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { searchTerms: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  let rows = [...DEMO_SEARCH_TERMS];
+  const termType = opts.termType ?? "all";
+  if (termType !== "all") {
+    rows = rows.filter((r) => r.termKind === termType);
+  }
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.searchTerm.toLowerCase().includes(nameQuery) ||
+        (r.campaignName ?? "").toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sort = opts.sort?.trim() || "-spend";
+  const desc = sort.startsWith("-");
+  const field = desc ? sort.slice(1) : sort;
+  const mul = desc ? -1 : 1;
+  rows.sort((a, b) => {
+    let av: number | string;
+    let bv: number | string;
+    if (field === "searchTerm") {
+      av = a.searchTerm.toLowerCase();
+      bv = b.searchTerm.toLowerCase();
+    } else if (field === "cpc") {
+      av = a.cpc ?? 0;
+      bv = b.cpc ?? 0;
+    } else {
+      av = a.spend ?? 0;
+      bv = b.spend ?? 0;
+    }
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+
+  const { items, total } = paginate(rows, page, pageSize);
+  return { searchTerms: items, total, page, pageSize, requiresFilters: false };
 }

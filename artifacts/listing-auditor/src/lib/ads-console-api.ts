@@ -130,11 +130,41 @@ export type AdsConsolePlacement = {
 };
 
 export type AdsConsoleSearchTerm = {
+  searchTermId: string;
   searchTerm: string;
+  termKind?: "auto" | "auto_product" | "manual";
+  sponsoredType?: string;
+  campaignId?: string;
+  campaignName?: string;
+  adGroupId?: string;
+  adGroupName?: string;
   impressions?: number;
   clicks?: number;
+  purchases?: number;
+  spend?: number;
+  cpc?: number;
+  ctr?: number;
   orders?: number;
   costCents?: number;
+};
+
+export type AdsConsoleSearchTermsQuery = {
+  dateFrom?: string;
+  dateTo?: string;
+  name?: string;
+  termType?: "all" | "auto" | "auto_product" | "manual";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type AdsConsoleSearchTermsResponse = {
+  searchTerms: AdsConsoleSearchTerm[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+  profileId?: string;
 };
 
 function buildCampaignsQueryString(query: AdsConsoleCampaignsQuery): string {
@@ -172,8 +202,19 @@ export async function fetchAdsConsoleTargets(
   return fetchJson(`${basePath}/api/ads/console/targets${qs ? `?${qs}` : ""}`);
 }
 
-export async function fetchAdsConsoleSearchTerms(): Promise<{ searchTerms: AdsConsoleSearchTerm[] }> {
-  return fetchJson(`${basePath}/api/ads/console/search-terms`);
+export async function fetchAdsConsoleSearchTerms(
+  query: AdsConsoleSearchTermsQuery = {},
+): Promise<AdsConsoleSearchTermsResponse> {
+  const params = withDemoQuery(new URLSearchParams());
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.name) params.set("name", query.name);
+  if (query.termType) params.set("termType", query.termType);
+  if (query.page != null) params.set("page", String(query.page));
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  if (query.sort) params.set("sort", query.sort);
+  const qs = params.toString();
+  return fetchJson(`${basePath}/api/ads/console/search-terms${qs ? `?${qs}` : ""}`);
 }
 
 export async function fetchAdsConsoleProductAds(): Promise<{ productAds: AdsConsoleProductAd[] }> {

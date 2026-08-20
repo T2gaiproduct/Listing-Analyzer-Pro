@@ -52,9 +52,7 @@ export const AdsPage = lazy(() => import("@/pages/ads"));
 export const AdsCampaignsConsolePage = lazy(() => import("@/pages/ads-console-campaigns"));
 export const AdsCampaignManagerPage = lazy(() => import("@/pages/ads-console-manager"));
 export const AdsTargetsConsolePage = lazy(() => import("@/pages/ads-console-targets"));
-export const AdsSearchTermsConsolePage = lazy(() =>
-  import("@/pages/ads-console-views").then((m) => ({ default: m.AdsSearchTermsConsolePage })),
-);
+export const AdsSearchTermsConsolePage = lazy(() => import("@/pages/ads-console-search-terms"));
 export const AdsProductsConsolePage = lazy(() =>
   import("@/pages/ads-console-views").then((m) => ({ default: m.AdsProductsConsolePage })),
 );

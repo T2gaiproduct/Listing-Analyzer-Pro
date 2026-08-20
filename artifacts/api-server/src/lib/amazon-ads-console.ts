@@ -926,13 +926,115 @@ export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Pro
 }
 
 export async function listSearchTermsForConsole(ctx: AdsConsoleApiContext): Promise<AmazonSearchTermRow[]> {
-  return fetchSearchTermReportRows({
+  const end = new Date().toISOString().slice(0, 10);
+  const start = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const result = await listSearchTermsForConsoleFiltered(ctx, {
+    dateFrom: start,
+    dateTo: end,
+    page: 1,
+    pageSize: 100,
+  });
+  return result.searchTerms;
+}
+
+export type SearchTermConsoleListOptions = {
+  dateFrom?: string;
+  dateTo?: string;
+  name?: string;
+  termType?: "all" | "auto" | "auto_product" | "manual";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type SearchTermConsoleListResult = {
+  searchTerms: AmazonSearchTermRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+};
+
+function sortSearchTermRows(rows: AmazonSearchTermRow[], sort?: string): AmazonSearchTermRow[] {
+  const key = sort?.trim() || "-spend";
+  const desc = key.startsWith("-");
+  const field = desc ? key.slice(1) : key;
+  const mul = desc ? -1 : 1;
+
+  const getValue = (row: AmazonSearchTermRow): number | string => {
+    switch (field) {
+      case "spend":
+        return row.spend ?? (row.costCents ?? 0) / 100;
+      case "clicks":
+        return row.clicks ?? 0;
+      case "impressions":
+        return row.impressions ?? 0;
+      case "searchTerm":
+        return row.searchTerm.toLowerCase();
+      case "cpc":
+        return row.cpc ?? 0;
+      default:
+        return row.spend ?? (row.costCents ?? 0) / 100;
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+}
+
+export async function listSearchTermsForConsoleFiltered(
+  ctx: AdsConsoleApiContext,
+  opts: SearchTermConsoleListOptions,
+): Promise<SearchTermConsoleListResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { searchTerms: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  const rows = await fetchSearchTermReportRows({
     settings: ctx.settings,
     refreshToken: ctx.refreshToken,
     profileId: ctx.profileId,
     marketplaceCode: ctx.marketplaceCode,
-    timeoutMs: 60000,
+    startDate: opts.dateFrom.trim(),
+    endDate: opts.dateTo.trim(),
+    timeoutMs: 90000,
   });
+
+  let filtered = rows.map((r) => ({
+    ...r,
+    searchTermId: r.searchTermId ?? r.searchTerm,
+    sponsoredType: r.sponsoredType ?? "Sponsored Products",
+    purchases: r.purchases ?? r.orders,
+  }));
+
+  const termType = opts.termType ?? "all";
+  if (termType !== "all") {
+    filtered = filtered.filter((r) => r.termKind === termType);
+  }
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    filtered = filtered.filter(
+      (r) =>
+        r.searchTerm.toLowerCase().includes(nameQuery) ||
+        (r.campaignName ?? "").toLowerCase().includes(nameQuery),
+    );
+  }
+
+  filtered = sortSearchTermRows(filtered, opts.sort);
+
+  const total = filtered.length;
+  const start = (page - 1) * pageSize;
+  const searchTerms = filtered.slice(start, start + pageSize);
+
+  return { searchTerms, total, page, pageSize, requiresFilters: false };
 }
 
 export async function bulkUpdateSpCampaigns(
