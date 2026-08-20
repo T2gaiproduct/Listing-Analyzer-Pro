@@ -343,15 +343,16 @@ export type SpCampaignReportMetrics = {
   acos?: number;
 };
 
-function parseSpCampaignMetricsRow(row: Record<string, unknown>): SpCampaignReportMetrics | null {
-  const campaignId = String(row.campaignId ?? row.campaign_id ?? "").trim();
-  if (!campaignId) return null;
+export type SpPerformanceMetrics = SpCampaignReportMetrics;
 
+function parsePerformanceMetricsRow(row: Record<string, unknown>): SpPerformanceMetrics | null {
   const cost = Number(row.cost ?? row.spend ?? 0) || 0;
   const sales = Number(row.sales14d ?? row.sales7d ?? row.sales30d ?? row.sales ?? 0) || 0;
   const clicks = Number(row.clicks ?? 0) || 0;
   const impressions = Number(row.impressions ?? 0) || 0;
   const purchases = Number(row.purchases14d ?? row.purchases7d ?? row.purchases30d ?? row.purchases ?? 0) || 0;
+
+  if (!impressions && !clicks && !cost && !sales) return null;
 
   return {
     impressions: impressions || undefined,
@@ -365,6 +366,12 @@ function parseSpCampaignMetricsRow(row: Record<string, unknown>): SpCampaignRepo
     roas: cost > 0 ? sales / cost : undefined,
     acos: sales > 0 ? cost / sales : undefined,
   };
+}
+
+function parseSpCampaignMetricsRow(row: Record<string, unknown>): SpCampaignReportMetrics | null {
+  const campaignId = String(row.campaignId ?? row.campaign_id ?? "").trim();
+  if (!campaignId) return null;
+  return parsePerformanceMetricsRow(row);
 }
 
 export async function fetchSpCampaignReportMetricsMap(opts: {
@@ -399,6 +406,80 @@ export async function fetchSpCampaignReportMetricsMap(opts: {
   for (const row of rows) {
     const metrics = parseSpCampaignMetricsRow(row);
     const id = String(row.campaignId ?? row.campaign_id ?? "").trim();
+    if (id && metrics) map.set(id, metrics);
+  }
+  return map;
+}
+
+export async function fetchSpKeywordTargetingReportMetricsMap(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  profileId: string;
+  marketplaceCode?: string;
+  startDate: string;
+  endDate: string;
+  timeoutMs?: number;
+}): Promise<Map<string, SpPerformanceMetrics>> {
+  const rows = await fetchAsyncReportJsonLines({
+    settings: opts.settings,
+    refreshToken: opts.refreshToken,
+    profileId: opts.profileId,
+    marketplaceCode: opts.marketplaceCode,
+    name: `SellerLens SP keyword targets ${Date.now()}`,
+    startDate: opts.startDate,
+    endDate: opts.endDate,
+    timeoutMs: opts.timeoutMs,
+    configuration: {
+      adProduct: "SPONSORED_PRODUCTS",
+      groupBy: ["keyword"],
+      columns: ["keywordId", "impressions", "clicks", "cost", "purchases14d", "sales14d"],
+      reportTypeId: "spTargeting",
+      timeUnit: "SUMMARY",
+      format: "GZIP_JSON",
+    },
+  });
+
+  const map = new Map<string, SpPerformanceMetrics>();
+  for (const row of rows) {
+    const id = String(row.keywordId ?? row.keyword_id ?? "").trim();
+    const metrics = parsePerformanceMetricsRow(row);
+    if (id && metrics) map.set(id, metrics);
+  }
+  return map;
+}
+
+export async function fetchSpTargetClauseReportMetricsMap(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  profileId: string;
+  marketplaceCode?: string;
+  startDate: string;
+  endDate: string;
+  timeoutMs?: number;
+}): Promise<Map<string, SpPerformanceMetrics>> {
+  const rows = await fetchAsyncReportJsonLines({
+    settings: opts.settings,
+    refreshToken: opts.refreshToken,
+    profileId: opts.profileId,
+    marketplaceCode: opts.marketplaceCode,
+    name: `SellerLens SP product targets ${Date.now()}`,
+    startDate: opts.startDate,
+    endDate: opts.endDate,
+    timeoutMs: opts.timeoutMs,
+    configuration: {
+      adProduct: "SPONSORED_PRODUCTS",
+      groupBy: ["target"],
+      columns: ["targetId", "impressions", "clicks", "cost", "purchases14d", "sales14d"],
+      reportTypeId: "spTargeting",
+      timeUnit: "SUMMARY",
+      format: "GZIP_JSON",
+    },
+  });
+
+  const map = new Map<string, SpPerformanceMetrics>();
+  for (const row of rows) {
+    const id = String(row.targetId ?? row.target_id ?? "").trim();
+    const metrics = parsePerformanceMetricsRow(row);
     if (id && metrics) map.set(id, metrics);
   }
   return map;

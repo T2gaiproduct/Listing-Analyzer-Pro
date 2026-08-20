@@ -4,31 +4,7 @@ import {
   fetchAdsConsolePlacements,
   fetchAdsConsoleProductAds,
   fetchAdsConsoleSearchTerms,
-  fetchAdsConsoleTargets,
 } from "@/lib/ads-console-api";
-
-export function AdsTargetsConsolePage() {
-  return (
-    <AdsConsoleDataPage
-      config={{
-        title: "Targets",
-        queryKey: "ads-console-targets",
-        fetcher: fetchAdsConsoleTargets,
-        dataKey: "targets",
-        columns: [
-          { key: "keywordText", label: "Keyword" },
-          { key: "matchType", label: "Match Type" },
-          { key: "bid", label: "Bid", format: (v) => v == null ? "—" : String(v) },
-          { key: "state", label: "State" },
-          { key: "campaignId", label: "Campaign ID" },
-          { key: "adGroupId", label: "Ad Group ID" },
-          { key: "impressions", label: "Impressions" },
-          { key: "clicks", label: "Clicks" },
-        ],
-      }}
-    />
-  );
-}
 
 export function AdsSearchTermsConsolePage() {
   return (

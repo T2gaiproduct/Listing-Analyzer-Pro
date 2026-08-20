@@ -2,8 +2,11 @@ import {
   adsApiRequest,
   fetchSearchTermReportRows,
   fetchSpCampaignReportMetricsMap,
+  fetchSpKeywordTargetingReportMetricsMap,
+  fetchSpTargetClauseReportMetricsMap,
   type AmazonSearchTermRow,
   type SpCampaignReportMetrics,
+  type SpPerformanceMetrics,
 } from "./amazon-ads-api.js";
 import type { AmazonSpSettings } from "./amazon-sp-settings.js";
 
@@ -41,16 +44,35 @@ export type AdsConsoleCampaignRow = {
   purchases?: number;
 };
 
+export type AdsConsoleTargetKind = "keyword" | "product" | "other";
+
 export type AdsConsoleTargetRow = {
-  keywordId: string;
-  keywordText: string;
-  matchType: string;
+  targetId: string;
+  targetText: string;
+  targetKind: AdsConsoleTargetKind;
   state: string;
+  matchType?: string;
   bid?: number;
+  baseBid?: number;
   campaignId?: string;
+  campaignName?: string;
   adGroupId?: string;
+  adGroupName?: string;
+  sponsoredType: string;
   impressions?: number;
   clicks?: number;
+  spend?: number;
+  purchases?: number;
+  ctr?: number;
+  cpc?: number;
+  cvr?: number;
+  adSales?: number;
+  roas?: number;
+  acos?: number;
+  /** @deprecated use targetId */
+  keywordId?: string;
+  /** @deprecated use targetText */
+  keywordText?: string;
 };
 
 export type AdsConsoleProductAdRow = {
@@ -118,6 +140,361 @@ export async function listPortfoliosMap(ctx: AdsConsoleApiContext): Promise<Map<
     // portfolios optional
   }
   return map;
+}
+
+async function listCampaignNamesMap(ctx: AdsConsoleApiContext): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const campaigns = await listAllPages(async (nextToken) => {
+    const response = await adsApiRequest<{
+      campaigns?: Array<{ campaignId?: string; name?: string }>;
+      nextToken?: string;
+    }>({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      method: "POST",
+      path: "/sp/campaigns/list",
+      marketplaceCode: ctx.marketplaceCode,
+      contentType: "application/vnd.spCampaign.v3+json",
+      accept: "application/vnd.spCampaign.v3+json",
+      body: {
+        stateFilter: { include: ["ENABLED", "PAUSED", "ARCHIVED"] },
+        maxResults: 100,
+        nextToken,
+      },
+    });
+    return { items: response.campaigns ?? [], nextToken: response.nextToken };
+  }, 20);
+  for (const c of campaigns) {
+    if (c.campaignId && c.name) map.set(c.campaignId, c.name);
+  }
+  return map;
+}
+
+async function listAdGroupNamesMap(ctx: AdsConsoleApiContext): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const adGroups = await listAllPages(async (nextToken) => {
+    const response = await adsApiRequest<{
+      adGroups?: Array<{ adGroupId?: string; name?: string }>;
+      nextToken?: string;
+    }>({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      method: "POST",
+      path: "/sp/adGroups/list",
+      marketplaceCode: ctx.marketplaceCode,
+      contentType: "application/vnd.spAdGroup.v3+json",
+      accept: "application/vnd.spAdGroup.v3+json",
+      body: {
+        stateFilter: { include: ["ENABLED", "PAUSED", "ARCHIVED"] },
+        maxResults: 100,
+        nextToken,
+      },
+    });
+    return { items: response.adGroups ?? [], nextToken: response.nextToken };
+  }, 20);
+  for (const g of adGroups) {
+    if (g.adGroupId && g.name) map.set(g.adGroupId, g.name);
+  }
+  return map;
+}
+
+function formatProductTargetExpression(
+  expression?: Array<{ type?: string; value?: string }>,
+): { text: string; kind: AdsConsoleTargetKind } {
+  if (!expression?.length) return { text: "—", kind: "other" };
+  const parts = expression.map((e) => {
+    const type = e.type ?? "TARGET";
+    const value = e.value ?? "";
+    return value ? `${type}: ${value}` : type;
+  });
+  const joined = parts.join(" · ");
+  const upper = joined.toUpperCase();
+  const kind: AdsConsoleTargetKind =
+    upper.includes("ASIN") || upper.includes("CATEGORY") || upper.includes("PRODUCT")
+      ? "product"
+      : "other";
+  return { text: joined, kind };
+}
+
+function applyTargetMetrics(row: AdsConsoleTargetRow, metrics?: SpPerformanceMetrics): AdsConsoleTargetRow {
+  if (!metrics) return row;
+  return {
+    ...row,
+    impressions: metrics.impressions,
+    clicks: metrics.clicks,
+    spend: metrics.spend,
+    purchases: metrics.purchases,
+    adSales: metrics.sales,
+    ctr: metrics.ctr,
+    cpc: metrics.cpc,
+    cvr: metrics.cvr,
+    roas: metrics.roas,
+    acos: metrics.acos,
+  };
+}
+
+function sortTargetRows(rows: AdsConsoleTargetRow[], sort?: string): AdsConsoleTargetRow[] {
+  const key = sort?.trim() || "-spend";
+  const desc = key.startsWith("-");
+  const field = desc ? key.slice(1) : key;
+  const mul = desc ? -1 : 1;
+
+  const getValue = (row: AdsConsoleTargetRow): number | string => {
+    switch (field) {
+      case "spend":
+        return row.spend ?? 0;
+      case "clicks":
+        return row.clicks ?? 0;
+      case "impressions":
+        return row.impressions ?? 0;
+      case "targetText":
+        return row.targetText.toLowerCase();
+      case "campaignName":
+        return (row.campaignName ?? "").toLowerCase();
+      case "roas":
+        return row.roas ?? 0;
+      case "acos":
+        return row.acos ?? 0;
+      default:
+        return row.spend ?? 0;
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+}
+
+export type TargetConsoleListOptions = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string[];
+  name?: string;
+  targetType?: "all" | "keyword" | "product" | "other";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type TargetConsoleListResult = {
+  targets: AdsConsoleTargetRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+};
+
+async function listSpKeywordTargetsRaw(
+  ctx: AdsConsoleApiContext,
+  stateInclude: string[],
+): Promise<AdsConsoleTargetRow[]> {
+  const keywords = await listAllPages(async (nextToken) => {
+    const response = await adsApiRequest<{
+      keywords?: Array<{
+        keywordId?: string;
+        keywordText?: string;
+        matchType?: string;
+        state?: string;
+        bid?: number;
+        campaignId?: string;
+        adGroupId?: string;
+      }>;
+      nextToken?: string;
+    }>({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      method: "POST",
+      path: "/sp/keywords/list",
+      marketplaceCode: ctx.marketplaceCode,
+      contentType: "application/vnd.spKeyword.v3+json",
+      accept: "application/vnd.spKeyword.v3+json",
+      body: {
+        stateFilter: { include: stateInclude },
+        maxResults: 100,
+        nextToken,
+      },
+    });
+    return { items: response.keywords ?? [], nextToken: response.nextToken };
+  }, 20);
+
+  return keywords.map((k) => {
+    const targetId = k.keywordId ?? "";
+    const targetText = k.keywordText ?? "";
+    return {
+      targetId,
+      targetText,
+      targetKind: "keyword" as const,
+      state: k.state ?? "UNKNOWN",
+      matchType: k.matchType ?? "—",
+      bid: k.bid,
+      baseBid: k.bid,
+      campaignId: k.campaignId,
+      adGroupId: k.adGroupId,
+      sponsoredType: "Sponsored Products",
+      keywordId: targetId,
+      keywordText: targetText,
+    };
+  }).filter((k) => k.targetId);
+}
+
+async function listSpProductTargetsRaw(
+  ctx: AdsConsoleApiContext,
+  stateInclude: string[],
+): Promise<AdsConsoleTargetRow[]> {
+  const clauses = await listAllPages(async (nextToken) => {
+    const response = await adsApiRequest<{
+      targetingClauses?: Array<{
+        targetId?: string;
+        expression?: Array<{ type?: string; value?: string }>;
+        expressionType?: string;
+        state?: string;
+        bid?: number;
+        campaignId?: string;
+        adGroupId?: string;
+      }>;
+      nextToken?: string;
+    }>({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      method: "POST",
+      path: "/sp/targets/list",
+      marketplaceCode: ctx.marketplaceCode,
+      contentType: "application/vnd.spTargetingClause.v3+json",
+      accept: "application/vnd.spTargetingClause.v3+json",
+      body: {
+        stateFilter: { include: stateInclude },
+        maxResults: 100,
+        nextToken,
+      },
+    });
+    return { items: response.targetingClauses ?? [], nextToken: response.nextToken };
+  }, 20);
+
+  return clauses.map((t) => {
+    const { text, kind } = formatProductTargetExpression(t.expression);
+    const targetId = t.targetId ?? "";
+    return {
+      targetId,
+      targetText: text,
+      targetKind: kind,
+      state: t.state ?? "UNKNOWN",
+      matchType: t.expressionType ?? "—",
+      bid: t.bid,
+      baseBid: t.bid,
+      campaignId: t.campaignId,
+      adGroupId: t.adGroupId,
+      sponsoredType: "Sponsored Products",
+    };
+  }).filter((t) => t.targetId);
+}
+
+export async function listSpTargetsForConsoleFiltered(
+  ctx: AdsConsoleApiContext,
+  opts: TargetConsoleListOptions,
+): Promise<TargetConsoleListResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { targets: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  const dateFrom = opts.dateFrom.trim();
+  const dateTo = opts.dateTo.trim();
+  const stateInclude = opts.state?.length
+    ? opts.state
+    : ["ENABLED", "PAUSED", "ARCHIVED"];
+  const targetType = opts.targetType ?? "all";
+
+  const includeKeywords = targetType === "all" || targetType === "keyword";
+  const includeProductClauses = targetType === "all" || targetType === "product" || targetType === "other";
+
+  const [campaignNames, adGroupNames, keywordRows, productRows, keywordMetrics, productMetrics] =
+    await Promise.all([
+      listCampaignNamesMap(ctx),
+      listAdGroupNamesMap(ctx),
+      includeKeywords ? listSpKeywordTargetsRaw(ctx, stateInclude) : Promise.resolve([]),
+      includeProductClauses ? listSpProductTargetsRaw(ctx, stateInclude) : Promise.resolve([]),
+      includeKeywords
+        ? fetchSpKeywordTargetingReportMetricsMap({
+            settings: ctx.settings,
+            refreshToken: ctx.refreshToken,
+            profileId: ctx.profileId,
+            marketplaceCode: ctx.marketplaceCode,
+            startDate: dateFrom,
+            endDate: dateTo,
+            timeoutMs: 90000,
+          })
+        : Promise.resolve(new Map<string, SpPerformanceMetrics>()),
+      includeProductClauses
+        ? fetchSpTargetClauseReportMetricsMap({
+            settings: ctx.settings,
+            refreshToken: ctx.refreshToken,
+            profileId: ctx.profileId,
+            marketplaceCode: ctx.marketplaceCode,
+            startDate: dateFrom,
+            endDate: dateTo,
+            timeoutMs: 90000,
+          })
+        : Promise.resolve(new Map<string, SpPerformanceMetrics>()),
+    ]);
+
+  let rows: AdsConsoleTargetRow[] = [];
+
+  for (const row of keywordRows) {
+    const enriched = applyTargetMetrics(row, keywordMetrics.get(row.targetId));
+    rows.push({
+      ...enriched,
+      campaignName: row.campaignId ? campaignNames.get(row.campaignId) : undefined,
+      adGroupName: row.adGroupId ? adGroupNames.get(row.adGroupId) : undefined,
+    });
+  }
+
+  for (const row of productRows) {
+    if (targetType === "product" && row.targetKind !== "product") continue;
+    if (targetType === "other" && row.targetKind !== "other") continue;
+    const enriched = applyTargetMetrics(row, productMetrics.get(row.targetId));
+    rows.push({
+      ...enriched,
+      campaignName: row.campaignId ? campaignNames.get(row.campaignId) : undefined,
+      adGroupName: row.adGroupId ? adGroupNames.get(row.adGroupId) : undefined,
+    });
+  }
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.targetText.toLowerCase().includes(nameQuery) ||
+        (r.campaignName ?? "").toLowerCase().includes(nameQuery),
+    );
+  }
+
+  rows = sortTargetRows(rows, opts.sort);
+
+  const total = rows.length;
+  const start = (page - 1) * pageSize;
+  const targets = rows.slice(start, start + pageSize);
+
+  return { targets, total, page, pageSize, requiresFilters: false };
+}
+
+export async function listSpTargetsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsoleTargetRow[]> {
+  const result = await listSpTargetsForConsoleFiltered(ctx, {
+    dateFrom: new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10),
+    dateTo: new Date().toISOString().slice(0, 10),
+    targetType: "keyword",
+    page: 1,
+    pageSize: 100,
+  });
+  return result.targets;
 }
 
 export async function listSpCampaignsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsoleCampaignRow[]> {
@@ -395,52 +772,6 @@ function formatAdsDate(raw?: string): string | undefined {
   if (!raw || raw.length < 8) return raw;
   if (raw.includes("-")) return raw;
   return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-}
-
-export async function listSpTargetsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsoleTargetRow[]> {
-  const keywords = await listAllPages(async (nextToken) => {
-    const response = await adsApiRequest<{
-      keywords?: Array<{
-        keywordId?: string;
-        keywordText?: string;
-        matchType?: string;
-        state?: string;
-        bid?: number;
-        campaignId?: string;
-        adGroupId?: string;
-        impressions?: number;
-        clicks?: number;
-      }>;
-      nextToken?: string;
-    }>({
-      settings: ctx.settings,
-      refreshToken: ctx.refreshToken,
-      profileId: ctx.profileId,
-      method: "POST",
-      path: "/sp/keywords/list",
-      marketplaceCode: ctx.marketplaceCode,
-      contentType: "application/vnd.spKeyword.v3+json",
-      accept: "application/vnd.spKeyword.v3+json",
-      body: {
-        stateFilter: { include: ["ENABLED", "PAUSED", "ARCHIVED"] },
-        maxResults: 100,
-        nextToken,
-      },
-    });
-    return { items: response.keywords ?? [], nextToken: response.nextToken };
-  });
-
-  return keywords.map((k) => ({
-    keywordId: k.keywordId ?? "",
-    keywordText: k.keywordText ?? "",
-    matchType: k.matchType ?? "—",
-    state: k.state ?? "UNKNOWN",
-    bid: k.bid,
-    campaignId: k.campaignId,
-    adGroupId: k.adGroupId,
-    impressions: k.impressions,
-    clicks: k.clicks,
-  })).filter((k) => k.keywordId);
 }
 
 export async function listSpProductAdsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsoleProductAdRow[]> {

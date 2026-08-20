@@ -47,16 +47,55 @@ export type AdsConsoleCampaignsResponse = {
   profileId?: string;
 };
 
+export type AdsConsoleTargetKind = "keyword" | "product" | "other";
+
 export type AdsConsoleTarget = {
-  keywordId: string;
-  keywordText: string;
-  matchType: string;
+  targetId: string;
+  targetText: string;
+  targetKind: AdsConsoleTargetKind;
   state: string;
+  matchType?: string;
   bid?: number;
+  baseBid?: number;
   campaignId?: string;
+  campaignName?: string;
   adGroupId?: string;
+  adGroupName?: string;
+  sponsoredType: string;
   impressions?: number;
   clicks?: number;
+  spend?: number;
+  purchases?: number;
+  ctr?: number;
+  cpc?: number;
+  cvr?: number;
+  adSales?: number;
+  roas?: number;
+  acos?: number;
+  /** @deprecated use targetId */
+  keywordId?: string;
+  /** @deprecated use targetText */
+  keywordText?: string;
+};
+
+export type AdsConsoleTargetsQuery = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string;
+  name?: string;
+  targetType?: "all" | "keyword" | "product" | "other";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type AdsConsoleTargetsResponse = {
+  targets: AdsConsoleTarget[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+  profileId?: string;
 };
 
 export type AdsConsoleProductAd = {
@@ -112,8 +151,20 @@ export async function fetchAdsConsoleCampaigns(
   return fetchJson(`${basePath}/api/ads/console/campaigns${buildCampaignsQueryString(query)}`);
 }
 
-export async function fetchAdsConsoleTargets(): Promise<{ targets: AdsConsoleTarget[] }> {
-  return fetchJson(`${basePath}/api/ads/console/targets`);
+export async function fetchAdsConsoleTargets(
+  query: AdsConsoleTargetsQuery = {},
+): Promise<AdsConsoleTargetsResponse> {
+  const params = new URLSearchParams();
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.state) params.set("state", query.state);
+  if (query.name) params.set("name", query.name);
+  if (query.targetType) params.set("targetType", query.targetType);
+  if (query.page != null) params.set("page", String(query.page));
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  if (query.sort) params.set("sort", query.sort);
+  const qs = params.toString();
+  return fetchJson(`${basePath}/api/ads/console/targets${qs ? `?${qs}` : ""}`);
 }
 
 export async function fetchAdsConsoleSearchTerms(): Promise<{ searchTerms: AdsConsoleSearchTerm[] }> {
