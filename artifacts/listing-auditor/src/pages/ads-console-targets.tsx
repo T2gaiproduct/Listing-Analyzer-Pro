@@ -17,7 +17,7 @@ import {
   AdsConsoleToolbar,
   adsStateBadge,
 } from "@/components/ads-console-toolbar";
-import { fetchAdsStatus } from "@/lib/ads-api";
+import { fetchAdsStatusForDemo } from "@/lib/ads-api";
 import {
   defaultCampaignDateRange,
   fetchAdsConsoleTargets,
@@ -98,7 +98,7 @@ export default function AdsTargetsConsolePage() {
 
   const statusQuery = useQuery({
     queryKey: ["ads-status", demoMode],
-    queryFn: () => fetchAdsStatus(demoMode),
+    queryFn: () => fetchAdsStatusForDemo(demoMode),
   });
 
   useEffect(() => {

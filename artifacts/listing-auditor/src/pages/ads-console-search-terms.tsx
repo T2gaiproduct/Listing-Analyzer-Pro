@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AdsConsoleLayout } from "@/components/ads-console-layout";
 import { AdsConsoleTableShell, AdsConsoleToolbar } from "@/components/ads-console-toolbar";
-import { fetchAdsStatus } from "@/lib/ads-api";
+import { fetchAdsStatusForDemo } from "@/lib/ads-api";
 import {
   defaultCampaignDateRange,
   fetchAdsConsoleSearchTerms,
@@ -70,7 +70,7 @@ export default function AdsSearchTermsConsolePage() {
 
   const statusQuery = useQuery({
     queryKey: ["ads-status", demoMode],
-    queryFn: () => fetchAdsStatus(demoMode),
+    queryFn: () => fetchAdsStatusForDemo(demoMode),
   });
 
   useEffect(() => {

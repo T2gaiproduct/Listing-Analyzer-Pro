@@ -1028,11 +1028,11 @@ export async function listSearchTermsForConsoleFiltered(
     );
   }
 
-  filtered = sortSearchTermRows(filtered, opts.sort);
+  const sorted = sortSearchTermRows(filtered, opts.sort);
 
-  const total = filtered.length;
+  const total = sorted.length;
   const start = (page - 1) * pageSize;
-  const searchTerms = filtered.slice(start, start + pageSize);
+  const searchTerms = sorted.slice(start, start + pageSize);
 
   return { searchTerms, total, page, pageSize, requiresFilters: false };
 }

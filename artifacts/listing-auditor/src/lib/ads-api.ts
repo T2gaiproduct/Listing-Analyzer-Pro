@@ -87,10 +87,18 @@ export type AdsProfile = {
   marketplaceId?: string;
 };
 
-export async function fetchAdsStatus(demo?: boolean): Promise<AdsStatusResponse> {
+async function fetchAdsStatusRequest(demo: boolean): Promise<AdsStatusResponse> {
   const params = withDemoQuery(new URLSearchParams(), demo);
   const qs = params.toString();
   return fetchJson(`${basePath}/api/ads/status${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchAdsStatus(): Promise<AdsStatusResponse> {
+  return fetchAdsStatusRequest(isAdsConsoleDemoMode());
+}
+
+export function fetchAdsStatusForDemo(demo: boolean): Promise<AdsStatusResponse> {
+  return fetchAdsStatusRequest(demo);
 }
 
 export async function fetchAdsProfiles(): Promise<{ profiles: AdsProfile[] }> {
