@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -23,6 +23,7 @@ import {
   type AdsConsoleCampaign,
   type AdsConsoleCampaignsQuery,
 } from "@/lib/ads-console-api";
+import { useAdsConsoleColumns } from "@/lib/ads-console-columns";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,11 +63,60 @@ function buildStateFilter(d: {
   return states.join(",");
 }
 
+const CAMPAIGN_COLUMN_DEFS = [
+  { id: "status", label: "Status", required: true },
+  { id: "campaign", label: "Campaign", required: true },
+  { id: "todaySpend", label: "Today's consumption" },
+  { id: "targetingType", label: "Targeting Type" },
+  { id: "sponsoredType", label: "Sponsored Type" },
+  { id: "portfolioName", label: "Portfolio Name" },
+  { id: "budget", label: "Budget" },
+  { id: "baseBudget", label: "Base Budget" },
+  { id: "startDate", label: "Start Date" },
+  { id: "clicks", label: "Clicks" },
+  { id: "impressions", label: "Impressions" },
+  { id: "ctr", label: "CTR" },
+  { id: "cpc", label: "CPC" },
+  { id: "spend", label: "Ad Spend" },
+  { id: "cvr", label: "CVR" },
+  { id: "adSales", label: "Ad Sales" },
+  { id: "roas", label: "ROAS" },
+  { id: "acos", label: "ACOS" },
+  { id: "biddingStrategy", label: "Bidding Strategy", defaultVisible: false },
+];
+
+function campaignExportRow(row: AdsConsoleCampaign, compare: boolean): Record<string, string> {
+  return {
+    status: row.state,
+    campaign: row.name,
+    todaySpend: formatMoney(row.todaySpend),
+    targetingType: row.targetingType ?? "—",
+    sponsoredType: row.sponsoredType ?? "—",
+    portfolioName: row.portfolioName ?? "—",
+    budget: formatMoney(row.budget),
+    baseBudget: formatMoney(row.baseBudget),
+    startDate: row.startDate ?? "—",
+    clicks: row.clicks != null ? String(row.clicks) : "—",
+    impressions: row.impressions != null ? String(row.impressions) : "—",
+    ctr: formatPct(row.ctr),
+    cpc: formatMoney(row.cpc),
+    spend: formatMoney(row.spend),
+    cvr: formatPct(row.cvr),
+    adSales: formatMoney(row.adSales),
+    roas: formatRatio(row.roas),
+    acos: formatPct(row.acos),
+    biddingStrategy: compare ? row.biddingStrategy ?? "—" : "",
+  };
+}
+
 export default function AdsCampaignsConsolePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [compare, setCompare] = useState(false);
+  const [compactView, setCompactView] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const tableRef = useRef<HTMLDivElement>(null);
+  const { columnOptions, toggleColumn, isVisible } = useAdsConsoleColumns(CAMPAIGN_COLUMN_DEFS);
   const [filtersApplied, setFiltersApplied] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -200,6 +250,22 @@ export default function AdsCampaignsConsolePage() {
   const canPrev = page > 1;
   const canNext = page * pageSize < total;
 
+  const exportData = useMemo(() => {
+    if (!campaigns.length) return null;
+    const exportColumns = CAMPAIGN_COLUMN_DEFS.filter((col) => {
+      if (col.id === "biddingStrategy" && !compare) return false;
+      const visible = columnOptions.find((c) => c.id === col.id)?.visible ?? true;
+      return visible;
+    });
+    return {
+      filename: "campaigns",
+      headers: exportColumns.map((col) => col.label),
+      rows: campaigns.map((row) =>
+        exportColumns.map((col) => campaignExportRow(row, compare)[col.id] ?? ""),
+      ),
+    };
+  }, [campaigns, compare, columnOptions]);
+
   return (
     <AdsConsoleLayout>
       {!adsConnected && (
@@ -234,7 +300,13 @@ export default function AdsCampaignsConsolePage() {
         onBulkArchive={() => runBulk("archive")}
         onBulkBudget={(budget) => runBulk("budget", budget)}
         onFiltersClick={openFilterDialog}
-        onAiClick={() => toast({ title: "AI assistant", description: "Use Create → AI campaign wizard for keyword research and launch." })}
+        exportData={exportData}
+        onExportEmpty={() => toast({ title: "Nothing to export", description: "Load campaign data first." })}
+        columnOptions={columnOptions}
+        onColumnVisibilityChange={toggleColumn}
+        compactView={compactView}
+        onCompactViewChange={setCompactView}
+        tableRef={tableRef}
       />
 
       {campaignsQuery.isError && (
@@ -268,32 +340,32 @@ export default function AdsCampaignsConsolePage() {
           <div />
         </AdsConsoleTableShell>
       ) : (
-        <AdsConsoleTableShell empty={false}>
+        <AdsConsoleTableShell empty={false} compact={compactView} shellRef={tableRef}>
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
                 <TableHead className="w-10">
                   <Checkbox checked={allSelected} onCheckedChange={() => toggleAll()} aria-label="Select all" />
                 </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Campaign</TableHead>
-                <TableHead>Today&apos;s consumption</TableHead>
-                <TableHead>Targeting Type</TableHead>
-                <TableHead>Sponsored Type</TableHead>
-                <TableHead>Portfolio Name</TableHead>
-                <TableHead>Budget</TableHead>
-                <TableHead>Base Budget</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>Clicks</TableHead>
-                <TableHead>Impressions</TableHead>
-                <TableHead>CTR</TableHead>
-                <TableHead>CPC</TableHead>
-                <TableHead>Ad Spend</TableHead>
-                <TableHead>CVR</TableHead>
-                <TableHead>Ad Sales</TableHead>
-                <TableHead>ROAS</TableHead>
-                <TableHead>ACOS</TableHead>
-                {compare && <TableHead>Bidding Strategy</TableHead>}
+                {isVisible("status") && <TableHead>Status</TableHead>}
+                {isVisible("campaign") && <TableHead>Campaign</TableHead>}
+                {isVisible("todaySpend") && <TableHead>Today&apos;s consumption</TableHead>}
+                {isVisible("targetingType") && <TableHead>Targeting Type</TableHead>}
+                {isVisible("sponsoredType") && <TableHead>Sponsored Type</TableHead>}
+                {isVisible("portfolioName") && <TableHead>Portfolio Name</TableHead>}
+                {isVisible("budget") && <TableHead>Budget</TableHead>}
+                {isVisible("baseBudget") && <TableHead>Base Budget</TableHead>}
+                {isVisible("startDate") && <TableHead>Start Date</TableHead>}
+                {isVisible("clicks") && <TableHead>Clicks</TableHead>}
+                {isVisible("impressions") && <TableHead>Impressions</TableHead>}
+                {isVisible("ctr") && <TableHead>CTR</TableHead>}
+                {isVisible("cpc") && <TableHead>CPC</TableHead>}
+                {isVisible("spend") && <TableHead>Ad Spend</TableHead>}
+                {isVisible("cvr") && <TableHead>CVR</TableHead>}
+                {isVisible("adSales") && <TableHead>Ad Sales</TableHead>}
+                {isVisible("roas") && <TableHead>ROAS</TableHead>}
+                {isVisible("acos") && <TableHead>ACOS</TableHead>}
+                {compare && isVisible("biddingStrategy") && <TableHead>Bidding Strategy</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -306,27 +378,33 @@ export default function AdsCampaignsConsolePage() {
                       aria-label={`Select ${row.name}`}
                     />
                   </TableCell>
-                  <TableCell>
-                    <span className={adsStateBadge(row.state)}>{row.state}</span>
-                  </TableCell>
-                  <TableCell className="font-medium text-slate-800 max-w-[14rem] truncate">{row.name}</TableCell>
-                  <TableCell>{formatMoney(row.todaySpend)}</TableCell>
-                  <TableCell>{row.targetingType}</TableCell>
-                  <TableCell>{row.sponsoredType}</TableCell>
-                  <TableCell>{row.portfolioName ?? "—"}</TableCell>
-                  <TableCell>{formatMoney(row.budget)}</TableCell>
-                  <TableCell>{formatMoney(row.baseBudget)}</TableCell>
-                  <TableCell>{row.startDate ?? "—"}</TableCell>
-                  <TableCell>{row.clicks ?? "—"}</TableCell>
-                  <TableCell>{row.impressions ?? "—"}</TableCell>
-                  <TableCell>{formatPct(row.ctr)}</TableCell>
-                  <TableCell>{formatMoney(row.cpc)}</TableCell>
-                  <TableCell className="font-medium">{formatMoney(row.spend)}</TableCell>
-                  <TableCell>{formatPct(row.cvr)}</TableCell>
-                  <TableCell>{formatMoney(row.adSales)}</TableCell>
-                  <TableCell>{formatRatio(row.roas)}</TableCell>
-                  <TableCell>{formatPct(row.acos)}</TableCell>
-                  {compare && <TableCell>{row.biddingStrategy ?? "—"}</TableCell>}
+                  {isVisible("status") && (
+                    <TableCell>
+                      <span className={adsStateBadge(row.state)}>{row.state}</span>
+                    </TableCell>
+                  )}
+                  {isVisible("campaign") && (
+                    <TableCell className="font-medium text-slate-800 max-w-[14rem] truncate">{row.name}</TableCell>
+                  )}
+                  {isVisible("todaySpend") && <TableCell>{formatMoney(row.todaySpend)}</TableCell>}
+                  {isVisible("targetingType") && <TableCell>{row.targetingType}</TableCell>}
+                  {isVisible("sponsoredType") && <TableCell>{row.sponsoredType}</TableCell>}
+                  {isVisible("portfolioName") && <TableCell>{row.portfolioName ?? "—"}</TableCell>}
+                  {isVisible("budget") && <TableCell>{formatMoney(row.budget)}</TableCell>}
+                  {isVisible("baseBudget") && <TableCell>{formatMoney(row.baseBudget)}</TableCell>}
+                  {isVisible("startDate") && <TableCell>{row.startDate ?? "—"}</TableCell>}
+                  {isVisible("clicks") && <TableCell>{row.clicks ?? "—"}</TableCell>}
+                  {isVisible("impressions") && <TableCell>{row.impressions ?? "—"}</TableCell>}
+                  {isVisible("ctr") && <TableCell>{formatPct(row.ctr)}</TableCell>}
+                  {isVisible("cpc") && <TableCell>{formatMoney(row.cpc)}</TableCell>}
+                  {isVisible("spend") && <TableCell className="font-medium">{formatMoney(row.spend)}</TableCell>}
+                  {isVisible("cvr") && <TableCell>{formatPct(row.cvr)}</TableCell>}
+                  {isVisible("adSales") && <TableCell>{formatMoney(row.adSales)}</TableCell>}
+                  {isVisible("roas") && <TableCell>{formatRatio(row.roas)}</TableCell>}
+                  {isVisible("acos") && <TableCell>{formatPct(row.acos)}</TableCell>}
+                  {compare && isVisible("biddingStrategy") && (
+                    <TableCell>{row.biddingStrategy ?? "—"}</TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

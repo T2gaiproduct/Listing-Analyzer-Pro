@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -19,6 +19,7 @@ import {
   type AdsConsoleSearchTermsQuery,
 } from "@/lib/ads-console-api";
 import { enableAdsConsoleDemoInUrl, isAdsConsoleDemoMode } from "@/lib/ads-console-demo";
+import { buildAdsConsoleCsvExport } from "@/lib/ads-console-csv";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,8 @@ export default function AdsSearchTermsConsolePage() {
   const qc = useQueryClient();
   const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
   const [compare, setCompare] = useState(false);
+  const [compactView, setCompactView] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [termType, setTermType] = useState<TermTypeChip>("all");
   const [filtersApplied, setFiltersApplied] = useState(false);
@@ -169,6 +172,25 @@ export default function AdsSearchTermsConsolePage() {
   const canPrev = page > 1;
   const canNext = page * pageSize < total;
 
+  const exportData = useMemo(
+    () =>
+      buildAdsConsoleCsvExport(
+        "search-terms",
+        ["Search Term", "Campaign", "Ad Group", "Clicks", "Impressions", "Spend", "CTR"],
+        searchTerms.map((row) => ({
+          searchTerm: row.searchTerm,
+          campaign: row.campaignName ?? "",
+          adGroup: row.adGroupName ?? "",
+          clicks: row.clicks ?? "",
+          impressions: row.impressions ?? "",
+          spend: row.spend != null ? String(row.spend) : "",
+          ctr: row.ctr != null ? `${(row.ctr * 100).toFixed(2)}%` : "",
+        })),
+        ["searchTerm", "campaign", "adGroup", "clicks", "impressions", "spend", "ctr"],
+      ),
+    [searchTerms],
+  );
+
   return (
     <AdsConsoleLayout>
       {demoMode && (
@@ -238,14 +260,12 @@ export default function AdsSearchTermsConsolePage() {
         showBulk={false}
         showCreate={false}
         hideActivityLog
-        showColumnsLabel
         onFiltersClick={openFilterDialog}
-        onAiClick={() =>
-          toast({
-            title: "AI assistant",
-            description: "Use Create → AI campaign wizard for keyword research and launch.",
-          })
-        }
+        exportData={exportData}
+        onExportEmpty={() => toast({ title: "Nothing to export", description: "Load search term data first." })}
+        compactView={compactView}
+        onCompactViewChange={setCompactView}
+        tableRef={tableRef}
       />
 
       {searchTermsQuery.isError && !demoMode && (
@@ -286,7 +306,7 @@ export default function AdsSearchTermsConsolePage() {
           <div />
         </AdsConsoleTableShell>
       ) : (
-        <AdsConsoleTableShell empty={false}>
+        <AdsConsoleTableShell empty={false} compact={compactView} shellRef={tableRef}>
           <Table className="min-w-[1600px]">
             <TableHeader>
               <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
