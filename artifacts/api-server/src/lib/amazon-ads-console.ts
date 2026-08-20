@@ -98,12 +98,57 @@ export type AdsConsoleNegativeTargetRow = {
 };
 
 export type AdsConsolePlacementRow = {
+  placementId: string;
   campaignId: string;
   campaignName: string;
   placement: string;
+  placementLabel?: string;
   percentage?: number;
+  baseBidAdjustment?: number;
+  biddingStrategy?: string;
+  sponsoredType: string;
   state: string;
+  purchases?: number;
+  impressions?: number;
 };
+
+export type PlacementConsoleListOptions = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string[];
+  name?: string;
+  placementType?: "all" | "amazon_business";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type PlacementConsoleListResult = {
+  placements: AdsConsolePlacementRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+};
+
+function formatPlacementLabel(placement: string): string {
+  switch (placement) {
+    case "PLACEMENT_TOP":
+      return "Top of search (first page)";
+    case "PLACEMENT_PRODUCT_PAGE":
+      return "Product pages";
+    case "PLACEMENT_REST_OF_SEARCH":
+      return "Rest of search";
+    case "SITE_AMAZON_BUSINESS":
+      return "Amazon Business";
+    default:
+      return placement.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}
+
+function isAmazonBusinessPlacement(placement: string): boolean {
+  return placement.toUpperCase().includes("AMAZON_BUSINESS") || placement === "SITE_AMAZON_BUSINESS";
+}
 
 async function listAllPages<T>(
   fetchPage: (nextToken?: string) => Promise<{ items: T[]; nextToken?: string }>,
@@ -859,8 +904,33 @@ export async function listSpNegativeTargetsForConsole(ctx: AdsConsoleApiContext)
 }
 
 export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsolePlacementRow[]> {
-  const campaigns = await listSpCampaignsForConsole(ctx);
-  const rows: AdsConsolePlacementRow[] = [];
+  const end = new Date().toISOString().slice(0, 10);
+  const start = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const result = await listSpPlacementsForConsoleFiltered(ctx, {
+    dateFrom: start,
+    dateTo: end,
+    page: 1,
+    pageSize: 500,
+  });
+  return result.placements;
+}
+
+async function fetchSpPlacementRowsRaw(ctx: AdsConsoleApiContext): Promise<Array<{
+  campaignId: string;
+  campaignName: string;
+  placement: string;
+  percentage?: number;
+  biddingStrategy?: string;
+  state: string;
+}>> {
+  const rows: Array<{
+    campaignId: string;
+    campaignName: string;
+    placement: string;
+    percentage?: number;
+    biddingStrategy?: string;
+    state: string;
+  }> = [];
 
   const rawCampaigns = await listAllPages(async (nextToken) => {
     const response = await adsApiRequest<{
@@ -869,6 +939,7 @@ export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Pro
         name?: string;
         state?: string;
         dynamicBidding?: {
+          strategy?: string;
           placementBidding?: Array<{ placement?: string; percentage?: number }>;
         };
       }>;
@@ -883,7 +954,7 @@ export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Pro
       contentType: "application/vnd.spCampaign.v3+json",
       accept: "application/vnd.spCampaign.v3+json",
       body: {
-        stateFilter: { include: ["ENABLED", "PAUSED"] },
+        stateFilter: { include: ["ENABLED", "PAUSED", "ARCHIVED"] },
         maxResults: 100,
         nextToken,
       },
@@ -892,37 +963,134 @@ export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Pro
   });
 
   for (const c of rawCampaigns) {
+    const campaignId = c.campaignId ?? "";
+    const campaignName = c.name ?? "—";
+    const state = c.state ?? "UNKNOWN";
+    const biddingStrategy = c.dynamicBidding?.strategy;
     const placements = c.dynamicBidding?.placementBidding ?? [];
     if (placements.length === 0) {
       rows.push({
-        campaignId: c.campaignId ?? "",
-        campaignName: c.name ?? "—",
+        campaignId,
+        campaignName,
         placement: "—",
-        state: c.state ?? "UNKNOWN",
+        biddingStrategy,
+        state,
       });
       continue;
     }
     for (const p of placements) {
       rows.push({
-        campaignId: c.campaignId ?? "",
-        campaignName: c.name ?? "—",
+        campaignId,
+        campaignName,
         placement: p.placement ?? "—",
         percentage: p.percentage,
-        state: c.state ?? "UNKNOWN",
+        biddingStrategy,
+        state,
       });
     }
   }
 
-  if (rows.length === 0 && campaigns.length > 0) {
-    return campaigns.map((c) => ({
-      campaignId: c.campaignId,
-      campaignName: c.name,
-      placement: "—",
-      state: c.state,
-    }));
+  return rows.filter((r) => r.campaignId);
+}
+
+function sortPlacementRows(rows: AdsConsolePlacementRow[], sort?: string): AdsConsolePlacementRow[] {
+  const key = sort?.trim() || "campaignName";
+  const desc = key.startsWith("-");
+  const field = desc ? key.slice(1) : key;
+  const mul = desc ? -1 : 1;
+
+  const getValue = (row: AdsConsolePlacementRow): number | string => {
+    switch (field) {
+      case "placement":
+        return (row.placementLabel ?? row.placement).toLowerCase();
+      case "percentage":
+        return row.percentage ?? 0;
+      case "purchases":
+        return row.purchases ?? 0;
+      case "impressions":
+        return row.impressions ?? 0;
+      default:
+        return row.campaignName.toLowerCase();
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+}
+
+export async function listSpPlacementsForConsoleFiltered(
+  ctx: AdsConsoleApiContext,
+  opts: PlacementConsoleListOptions,
+): Promise<PlacementConsoleListResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { placements: [], total: 0, page, pageSize, requiresFilters: true };
   }
 
-  return rows;
+  const dateFrom = opts.dateFrom.trim();
+  const dateTo = opts.dateTo.trim();
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+
+  const [rawRows, metricsMap] = await Promise.all([
+    fetchSpPlacementRowsRaw(ctx),
+    fetchSpCampaignReportMetricsMap({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      marketplaceCode: ctx.marketplaceCode,
+      startDate: dateFrom,
+      endDate: dateTo,
+      timeoutMs: 90000,
+    }).catch(() => new Map<string, SpCampaignReportMetrics>()),
+  ]);
+
+  let rows: AdsConsolePlacementRow[] = rawRows
+    .filter((r) => stateInclude.includes(r.state.toUpperCase()))
+    .map((r) => {
+      const metrics = metricsMap.get(r.campaignId);
+      const pct = r.percentage;
+      return {
+        placementId: `${r.campaignId}:${r.placement}`,
+        campaignId: r.campaignId,
+        campaignName: r.campaignName,
+        placement: r.placement,
+        placementLabel: r.placement === "—" ? "—" : formatPlacementLabel(r.placement),
+        percentage: pct,
+        baseBidAdjustment: pct,
+        biddingStrategy: r.biddingStrategy,
+        sponsoredType: "Sponsored Products",
+        state: r.state,
+        purchases: metrics?.purchases,
+        impressions: metrics?.impressions,
+      };
+    });
+
+  const placementType = opts.placementType ?? "all";
+  if (placementType === "amazon_business") {
+    rows = rows.filter((r) => isAmazonBusinessPlacement(r.placement));
+  }
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.campaignName.toLowerCase().includes(nameQuery) ||
+        (r.placementLabel ?? r.placement).toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sorted = sortPlacementRows(rows, opts.sort);
+  const total = sorted.length;
+  const start = (page - 1) * pageSize;
+  const placements = sorted.slice(start, start + pageSize);
+
+  return { placements, total, page, pageSize, requiresFilters: false };
 }
 
 export async function listSearchTermsForConsole(ctx: AdsConsoleApiContext): Promise<AmazonSearchTermRow[]> {

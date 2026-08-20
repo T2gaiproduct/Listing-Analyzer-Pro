@@ -1,7 +1,6 @@
 import { AdsConsoleDataPage } from "./ads-console-data";
 import {
   fetchAdsConsoleNegativeTargets,
-  fetchAdsConsolePlacements,
   fetchAdsConsoleProductAds,
 } from "@/lib/ads-console-api";
 
@@ -19,29 +18,6 @@ export function AdsProductsConsolePage() {
           { key: "state", label: "State" },
           { key: "campaignId", label: "Campaign ID" },
           { key: "adGroupId", label: "Ad Group ID" },
-        ],
-      }}
-    />
-  );
-}
-
-export function AdsPlacementsConsolePage() {
-  return (
-    <AdsConsoleDataPage
-      config={{
-        title: "Placements",
-        queryKey: "ads-console-placements",
-        fetcher: fetchAdsConsolePlacements,
-        dataKey: "placements",
-        columns: [
-          { key: "campaignName", label: "Campaign" },
-          { key: "placement", label: "Placement" },
-          {
-            key: "percentage",
-            label: "Bid adjustment %",
-            format: (v) => v == null ? "—" : `${v}%`,
-          },
-          { key: "state", label: "State" },
         ],
       }}
     />

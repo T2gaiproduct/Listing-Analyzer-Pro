@@ -36,7 +36,7 @@ import {
   listSearchTermsForConsoleFiltered,
   listSpCampaignsForConsoleFiltered,
   listSpNegativeTargetsForConsole,
-  listSpPlacementsForConsole,
+  listSpPlacementsForConsoleFiltered,
   listSpProductAdsForConsole,
   listSpTargetsForConsoleFiltered,
   type AdsConsoleApiContext,
@@ -44,6 +44,7 @@ import {
 import {
   isAdsConsoleDemoRequest,
   listDemoCampaignsFiltered,
+  listDemoPlacementsFiltered,
   listDemoSearchTermsFiltered,
   listDemoTargetsFiltered,
 } from "../lib/ads-console-demo-data.js";
@@ -796,14 +797,51 @@ router.get("/ads/console/product-ads", requireAuth, resolveTeamAndWorkspace, asy
 });
 
 router.get("/ads/console/placements", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
+  const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
+  const name = typeof req.query.name === "string" ? req.query.name : undefined;
+  const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
+  const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+  const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
+  const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+  const state = stateRaw
+    ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+    : undefined;
+  const placementTypeRaw = typeof req.query.placementType === "string" ? req.query.placementType : "all";
+  const placementType = placementTypeRaw === "amazon_business" ? "amazon_business" : "all";
+
+  if (isAdsConsoleDemoRequest(req.query as Record<string, unknown>)) {
+    const result = listDemoPlacementsFiltered({
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+      placementType,
+    });
+    res.json({ ...result, profileId: "demo-profile", demoMode: true });
+    return;
+  }
+
   const resolved = await resolveAdsConsoleContext(req);
   if ("error" in resolved) {
     res.status(resolved.status).json({ error: resolved.error });
     return;
   }
   try {
-    const placements = await listSpPlacementsForConsole(resolved.ctx);
-    res.json({ placements });
+    const result = await listSpPlacementsForConsoleFiltered(resolved.ctx, {
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+      placementType,
+    });
+    res.json({ ...result, profileId: resolved.ctx.profileId });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load placements" });
   }

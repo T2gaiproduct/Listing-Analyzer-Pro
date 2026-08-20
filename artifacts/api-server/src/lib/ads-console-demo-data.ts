@@ -1,7 +1,9 @@
-import type { AdsConsoleCampaignRow, AdsConsoleTargetRow } from "./amazon-ads-console.js";
+import type { AdsConsoleCampaignRow, AdsConsolePlacementRow, AdsConsoleTargetRow } from "./amazon-ads-console.js";
 import type {
   CampaignConsoleListOptions,
   CampaignConsoleListResult,
+  PlacementConsoleListOptions,
+  PlacementConsoleListResult,
   SearchTermConsoleListOptions,
   SearchTermConsoleListResult,
   TargetConsoleListOptions,
@@ -818,4 +820,176 @@ export function listDemoSearchTermsFiltered(opts: SearchTermConsoleListOptions):
 
   const { items, total } = paginate(rows, page, pageSize);
   return { searchTerms: items, total, page, pageSize, requiresFilters: false };
+}
+
+const DEMO_PLACEMENTS: AdsConsolePlacementRow[] = [
+  {
+    placementId: "demo-camp-001:PLACEMENT_TOP",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    placement: "PLACEMENT_TOP",
+    placementLabel: "Top of search (first page)",
+    percentage: 25,
+    baseBidAdjustment: 20,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 28,
+    impressions: 8420,
+  },
+  {
+    placementId: "demo-camp-001:PLACEMENT_PRODUCT_PAGE",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    placement: "PLACEMENT_PRODUCT_PAGE",
+    placementLabel: "Product pages",
+    percentage: 10,
+    baseBidAdjustment: 10,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 28,
+    impressions: 8420,
+  },
+  {
+    placementId: "demo-camp-002:PLACEMENT_TOP",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    placement: "PLACEMENT_TOP",
+    placementLabel: "Top of search (first page)",
+    percentage: 15,
+    baseBidAdjustment: 15,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 41,
+    impressions: 15230,
+  },
+  {
+    placementId: "demo-camp-002:PLACEMENT_REST_OF_SEARCH",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    placement: "PLACEMENT_REST_OF_SEARCH",
+    placementLabel: "Rest of search",
+    percentage: 5,
+    baseBidAdjustment: 5,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 41,
+    impressions: 15230,
+  },
+  {
+    placementId: "demo-camp-003:PLACEMENT_PRODUCT_PAGE",
+    campaignId: "demo-camp-003",
+    campaignName: "SP | Auto Discovery",
+    placement: "PLACEMENT_PRODUCT_PAGE",
+    placementLabel: "Product pages",
+    percentage: 0,
+    baseBidAdjustment: 0,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "PAUSED",
+    purchases: 3,
+    impressions: 2100,
+  },
+  {
+    placementId: "demo-camp-004:SITE_AMAZON_BUSINESS",
+    campaignId: "demo-camp-004",
+    campaignName: "SP | Competitor ASINs",
+    placement: "SITE_AMAZON_BUSINESS",
+    placementLabel: "Amazon Business",
+    percentage: 30,
+    baseBidAdjustment: 25,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 12,
+    impressions: 4200,
+  },
+  {
+    placementId: "demo-camp-005:SITE_AMAZON_BUSINESS",
+    campaignId: "demo-camp-005",
+    campaignName: "SP | Seasonal Promo | Phrase",
+    placement: "SITE_AMAZON_BUSINESS",
+    placementLabel: "Amazon Business",
+    percentage: 20,
+    baseBidAdjustment: 18,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 19,
+    impressions: 6100,
+  },
+  {
+    placementId: "demo-camp-006:PLACEMENT_TOP",
+    campaignId: "demo-camp-006",
+    campaignName: "SP | Refurb Clearance",
+    placement: "PLACEMENT_TOP",
+    placementLabel: "Top of search (first page)",
+    percentage: 8,
+    baseBidAdjustment: 8,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 7,
+    impressions: 1850,
+  },
+];
+
+export function listDemoPlacementsFiltered(opts: PlacementConsoleListOptions): PlacementConsoleListResult {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { placements: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  let rows = [...DEMO_PLACEMENTS];
+  const placementType = opts.placementType ?? "all";
+  if (placementType === "amazon_business") {
+    rows = rows.filter((r) => r.placement === "SITE_AMAZON_BUSINESS");
+  }
+
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+  rows = rows.filter((r) => stateInclude.includes(r.state.toUpperCase()));
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.campaignName.toLowerCase().includes(nameQuery) ||
+        (r.placementLabel ?? r.placement).toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sort = opts.sort?.trim() || "campaignName";
+  const desc = sort.startsWith("-");
+  const field = desc ? sort.slice(1) : sort;
+  const mul = desc ? -1 : 1;
+  rows.sort((a, b) => {
+    let av: number | string;
+    let bv: number | string;
+    if (field === "placement") {
+      av = (a.placementLabel ?? a.placement).toLowerCase();
+      bv = (b.placementLabel ?? b.placement).toLowerCase();
+    } else if (field === "percentage") {
+      av = a.percentage ?? 0;
+      bv = b.percentage ?? 0;
+    } else if (field === "purchases") {
+      av = a.purchases ?? 0;
+      bv = b.purchases ?? 0;
+    } else if (field === "impressions") {
+      av = a.impressions ?? 0;
+      bv = b.impressions ?? 0;
+    } else {
+      av = a.campaignName.toLowerCase();
+      bv = b.campaignName.toLowerCase();
+    }
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+
+  const { items, total } = paginate(rows, page, pageSize);
+  return { placements: items, total, page, pageSize, requiresFilters: false };
 }
