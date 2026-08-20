@@ -59,9 +59,7 @@ export const AdsProductsConsolePage = lazy(() =>
 export const AdsPlacementsConsolePage = lazy(() =>
   import("@/pages/ads-console-views").then((m) => ({ default: m.AdsPlacementsConsolePage })),
 );
-export const AdsNegativeTargetsConsolePage = lazy(() =>
-  import("@/pages/ads-console-views").then((m) => ({ default: m.AdsNegativeTargetsConsolePage })),
-);
+export const AdsNegativeTargetsConsolePage = lazy(() => import("@/pages/ads-console-negative-targets"));
 export const AdsWorkflowPage = lazy(() => import("@/pages/ads-workflow"));
 export const SettingsPage = lazy(() => import("@/pages/settings"));
 export const WorkspacesPage = lazy(() => import("@/pages/workspaces"));

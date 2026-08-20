@@ -1,6 +1,5 @@
 import { AdsConsoleDataPage } from "./ads-console-data";
 import {
-  fetchAdsConsoleNegativeTargets,
   fetchAdsConsolePlacements,
   fetchAdsConsoleProductAds,
 } from "@/lib/ads-console-api";
@@ -42,26 +41,6 @@ export function AdsPlacementsConsolePage() {
             format: (v) => v == null ? "—" : `${v}%`,
           },
           { key: "state", label: "State" },
-        ],
-      }}
-    />
-  );
-}
-
-export function AdsNegativeTargetsConsolePage() {
-  return (
-    <AdsConsoleDataPage
-      config={{
-        title: "Negative Targets",
-        queryKey: "ads-console-negative-targets",
-        fetcher: fetchAdsConsoleNegativeTargets,
-        dataKey: "negativeTargets",
-        columns: [
-          { key: "keywordText", label: "Keyword" },
-          { key: "matchType", label: "Match Type" },
-          { key: "state", label: "State" },
-          { key: "campaignId", label: "Campaign ID" },
-          { key: "adGroupId", label: "Ad Group ID" },
         ],
       }}
     />

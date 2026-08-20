@@ -115,12 +115,42 @@ export type AdsConsoleProductAd = {
 };
 
 export type AdsConsoleNegativeTarget = {
-  keywordId: string;
-  keywordText: string;
+  negativeTargetId: string;
+  negativeTarget: string;
+  targetKind: "keyword" | "product";
   matchType: string;
+  type: string;
   state: string;
   campaignId?: string;
+  campaignName?: string;
   adGroupId?: string;
+  adGroupName?: string;
+  sponsoredType: string;
+  /** @deprecated use negativeTargetId */
+  keywordId?: string;
+  /** @deprecated use negativeTarget */
+  keywordText?: string;
+};
+
+export type AdsConsoleNegativeTargetsQuery = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string;
+  name?: string;
+  targetType?: "all" | "keyword" | "product";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  demo?: boolean;
+};
+
+export type AdsConsoleNegativeTargetsResponse = {
+  negativeTargets: AdsConsoleNegativeTarget[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+  profileId?: string;
 };
 
 export type AdsConsolePlacement = {
@@ -228,8 +258,20 @@ export async function fetchAdsConsolePlacements(): Promise<{ placements: AdsCons
   return fetchJson(`${basePath}/api/ads/console/placements`);
 }
 
-export async function fetchAdsConsoleNegativeTargets(): Promise<{ negativeTargets: AdsConsoleNegativeTarget[] }> {
-  return fetchJson(`${basePath}/api/ads/console/negative-targets`);
+export async function fetchAdsConsoleNegativeTargets(
+  query: AdsConsoleNegativeTargetsQuery = {},
+): Promise<AdsConsoleNegativeTargetsResponse> {
+  const params = withDemoQuery(new URLSearchParams(), query.demo);
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.state) params.set("state", query.state);
+  if (query.name) params.set("name", query.name);
+  if (query.targetType) params.set("targetType", query.targetType);
+  if (query.page != null) params.set("page", String(query.page));
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  if (query.sort) params.set("sort", query.sort);
+  const qs = params.toString();
+  return fetchJson(`${basePath}/api/ads/console/negative-targets${qs ? `?${qs}` : ""}`);
 }
 
 export async function bulkUpdateAdsCampaigns(input: {

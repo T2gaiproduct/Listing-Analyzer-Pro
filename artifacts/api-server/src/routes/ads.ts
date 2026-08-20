@@ -35,7 +35,7 @@ import {
   bulkUpdateSpCampaigns,
   listSearchTermsForConsoleFiltered,
   listSpCampaignsForConsoleFiltered,
-  listSpNegativeTargetsForConsole,
+  listSpNegativeTargetsForConsoleFiltered,
   listSpPlacementsForConsole,
   listSpProductAdsForConsole,
   listSpTargetsForConsoleFiltered,
@@ -44,6 +44,7 @@ import {
 import {
   isAdsConsoleDemoRequest,
   listDemoCampaignsFiltered,
+  listDemoNegativeTargetsFiltered,
   listDemoSearchTermsFiltered,
   listDemoTargetsFiltered,
 } from "../lib/ads-console-demo-data.js";
@@ -810,14 +811,52 @@ router.get("/ads/console/placements", requireAuth, resolveTeamAndWorkspace, asyn
 });
 
 router.get("/ads/console/negative-targets", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
+  const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
+  const name = typeof req.query.name === "string" ? req.query.name : undefined;
+  const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
+  const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+  const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
+  const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+  const state = stateRaw
+    ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+    : undefined;
+  const targetTypeRaw = typeof req.query.targetType === "string" ? req.query.targetType : "all";
+  const targetType =
+    targetTypeRaw === "keyword" || targetTypeRaw === "product" ? targetTypeRaw : "all";
+
+  if (isAdsConsoleDemoRequest(req.query as Record<string, unknown>)) {
+    const result = listDemoNegativeTargetsFiltered({
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+      targetType,
+    });
+    res.json({ ...result, profileId: "demo-profile", demoMode: true });
+    return;
+  }
+
   const resolved = await resolveAdsConsoleContext(req);
   if ("error" in resolved) {
     res.status(resolved.status).json({ error: resolved.error });
     return;
   }
   try {
-    const negativeTargets = await listSpNegativeTargetsForConsole(resolved.ctx);
-    res.json({ negativeTargets });
+    const result = await listSpNegativeTargetsForConsoleFiltered(resolved.ctx, {
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+      targetType,
+    });
+    res.json({ ...result, profileId: resolved.ctx.profileId });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load negative targets" });
   }
