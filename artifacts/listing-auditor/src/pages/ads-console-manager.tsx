@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
 import {
   AlertTriangle,
   Calendar,
@@ -8,7 +7,6 @@ import {
   ExternalLink,
   Loader2,
   Search,
-  Sparkles,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -258,7 +256,7 @@ export default function AdsCampaignManagerPage() {
   return (
     <div className="min-h-[calc(100vh-8rem)] -mx-1 sm:-mx-2 flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       {/* Top header bar */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-white">
+      <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3 bg-white">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-200 px-3 py-1.5 text-orange-900">
             <Calendar className="w-3.5 h-3.5 text-orange-600" />
@@ -269,14 +267,6 @@ export default function AdsCampaignManagerPage() {
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <span>{formatDisplayDate(compareRange.from)} - {formatDisplayDate(compareRange.to)}</span>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" className="h-9 gap-1.5 bg-orange-500 hover:bg-orange-600" asChild>
-            <Link href="/ads/new">
-              <Sparkles className="w-4 h-4" />
-              + AI
-            </Link>
-          </Button>
         </div>
       </header>
 
