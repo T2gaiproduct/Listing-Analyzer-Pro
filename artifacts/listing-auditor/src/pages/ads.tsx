@@ -139,7 +139,7 @@ export default function AdsPage() {
                 onClick={() => nav("/ads/campaigns")}
               >
                 <LayoutGrid className="w-4 h-4 mr-2" />
-                Open Ads Console
+                Manage Campaigns
               </Button>
             </div>
 
