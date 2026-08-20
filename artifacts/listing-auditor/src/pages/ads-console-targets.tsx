@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -24,6 +24,7 @@ import {
   type AdsConsoleTarget,
   type AdsConsoleTargetsQuery,
 } from "@/lib/ads-console-api";
+import { enableAdsConsoleDemoInUrl, isAdsConsoleDemoMode } from "@/lib/ads-console-demo";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,8 +62,21 @@ function formatRpc(adSales?: number, clicks?: number) {
   return formatMoney(adSales / clicks);
 }
 
+function buildStateFilter(d: {
+  enabled: boolean;
+  paused: boolean;
+  archived: boolean;
+}): string {
+  const states: string[] = [];
+  if (d.enabled) states.push("ENABLED");
+  if (d.paused) states.push("PAUSED");
+  if (d.archived) states.push("ARCHIVED");
+  return states.join(",");
+}
+
 export default function AdsTargetsConsolePage() {
   const { toast } = useToast();
+  const [demoMode, setDemoMode] = useState(isAdsConsoleDemoMode);
   const [compare, setCompare] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [targetType, setTargetType] = useState<TargetTypeChip>("all");
@@ -82,16 +96,27 @@ export default function AdsTargetsConsolePage() {
   });
   const [activeFilters, setActiveFilters] = useState<AdsConsoleTargetsQuery | null>(null);
 
-  const statusQuery = useQuery({ queryKey: ["ads-status"], queryFn: fetchAdsStatus });
+  const statusQuery = useQuery({ queryKey: ["ads-status", demoMode], queryFn: fetchAdsStatus });
+
+  useEffect(() => {
+    if (!demoMode || filtersApplied) return;
+    const states = buildStateFilter(draftFilters);
+    setActiveFilters({
+      dateFrom: draftFilters.dateFrom,
+      dateTo: draftFilters.dateTo,
+      state: states,
+    });
+    setFiltersApplied(true);
+  }, [demoMode]);
 
   const queryParams: AdsConsoleTargetsQuery | null = activeFilters
     ? { ...activeFilters, targetType, page, pageSize, sort: "-spend" }
     : null;
 
   const targetsQuery = useQuery({
-    queryKey: ["ads-console-targets", queryParams],
+    queryKey: ["ads-console-targets", demoMode, queryParams],
     queryFn: () => fetchAdsConsoleTargets(queryParams!),
-    enabled: statusQuery.data?.canGatherData === true && filtersApplied && queryParams != null,
+    enabled: (statusQuery.data?.canGatherData === true || demoMode) && filtersApplied && queryParams != null,
     retry: false,
   });
 
@@ -116,18 +141,25 @@ export default function AdsTargetsConsolePage() {
     });
   }
 
-  function buildStateFilter(d: typeof draftFilters): string {
-    const states: string[] = [];
-    if (d.enabled) states.push("ENABLED");
-    if (d.paused) states.push("PAUSED");
-    if (d.archived) states.push("ARCHIVED");
-    return states.join(",");
+  const adsConnected = statusQuery.data?.canGatherData === true || demoMode;
+
+  function loadDemoData() {
+    enableAdsConsoleDemoInUrl();
+    setDemoMode(true);
+    const states = buildStateFilter(draftFilters);
+    setActiveFilters({
+      dateFrom: draftFilters.dateFrom,
+      dateTo: draftFilters.dateTo,
+      state: states,
+    });
+    setFiltersApplied(true);
+    setPage(1);
+    void statusQuery.refetch();
+    toast({ title: "Demo data loaded", description: "Showing sample targets for UI preview." });
   }
 
-  const adsConnected = statusQuery.data?.canGatherData === true;
-
   function applyFilters() {
-    if (!adsConnected) {
+    if (!adsConnected && !demoMode) {
       toast({
         title: "Connect Amazon Ads first",
         description: "Save SP-API credentials and select an Ads profile on Marketplaces.",
@@ -181,7 +213,15 @@ export default function AdsTargetsConsolePage() {
 
   return (
     <AdsConsoleLayout>
-      {!adsConnected && (
+      {demoMode && (
+        <div className="mb-4 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+          <p className="text-sm text-teal-800">
+            <span className="font-medium">Demo mode</span> — sample target rows for UI preview. Add{" "}
+            <code className="rounded bg-teal-100 px-1">?demo=1</code> to the URL or use the button below.
+          </p>
+        </div>
+      )}
+      {!adsConnected && !demoMode && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -301,6 +341,13 @@ export default function AdsTargetsConsolePage() {
               <Filter className="w-4 h-4" />
               Filter Campaigns
             </Button>
+            {!demoMode && (
+              <div className="mt-4">
+                <Button variant="outline" className="border-teal-500 text-teal-700 hover:bg-teal-50" onClick={loadDemoData}>
+                  Load demo data
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       ) : targets.length === 0 ? (
@@ -367,12 +414,12 @@ export default function AdsTargetsConsolePage() {
                   </TableCell>
                   <TableCell>{formatMoney(row.bid)}</TableCell>
                   <TableCell>{formatMoney(row.baseBid)}</TableCell>
-                  <TableCell>—</TableCell>
-                  <TableCell>—</TableCell>
+                  <TableCell>{formatMoney(row.previousBid)}</TableCell>
+                  <TableCell>{row.lastBidChange ?? "—"}</TableCell>
                   <TableCell>{row.purchases ?? "—"}</TableCell>
                   <TableCell>{row.clicks ?? "—"}</TableCell>
                   <TableCell>{row.impressions ?? "—"}</TableCell>
-                  <TableCell>—</TableCell>
+                  <TableCell>{row.topOfSearchImpressions ?? "—"}</TableCell>
                   <TableCell>{formatPct(row.ctr)}</TableCell>
                   <TableCell className="font-medium">{formatMoney(row.spend)}</TableCell>
                   <TableCell>{formatMoney(row.cpc)}</TableCell>
@@ -381,7 +428,7 @@ export default function AdsTargetsConsolePage() {
                   <TableCell>{formatRatio(row.roas)}</TableCell>
                   <TableCell>{formatPct(row.acos)}</TableCell>
                   <TableCell>{formatRpc(row.adSales, row.clicks)}</TableCell>
-                  <TableCell>—</TableCell>
+                  <TableCell>{row.oldTags ?? "—"}</TableCell>
                   {compare && <TableCell className="capitalize">{row.targetKind}</TableCell>}
                 </TableRow>
               ))}

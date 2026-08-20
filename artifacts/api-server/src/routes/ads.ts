@@ -42,6 +42,11 @@ import {
   type AdsConsoleApiContext,
 } from "../lib/amazon-ads-console.js";
 import {
+  isAdsConsoleDemoRequest,
+  listDemoCampaignsFiltered,
+  listDemoTargetsFiltered,
+} from "../lib/ads-console-demo-data.js";
+import {
   expandKeywordsWithAi,
   mergeKeywordSources,
   scoreAndRankKeywords,
@@ -115,6 +120,21 @@ router.get("/ads/status", requireAuth, resolveTeamAndWorkspace, async (req, res)
   const workspaceId = getActiveWorkspaceId(req);
   if (!workspaceId) {
     res.status(400).json({ error: "Workspace required" });
+    return;
+  }
+
+  if (isAdsConsoleDemoRequest(req.query as Record<string, unknown>)) {
+    res.json({
+      spApiReady: true,
+      sellerConnected: true,
+      profileSelected: true,
+      profileId: "demo-profile",
+      profileName: "Demo Ads Profile (US)",
+      profileCountryCode: "US",
+      canGatherData: true,
+      canCreateOnAmazon: false,
+      demoMode: true,
+    });
     return;
   }
 
@@ -612,23 +632,37 @@ async function resolveAdsConsoleContext(req: Request): Promise<{
 }
 
 router.get("/ads/console/campaigns", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
+  const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
+  const name = typeof req.query.name === "string" ? req.query.name : undefined;
+  const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
+  const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+  const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
+  const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+  const state = stateRaw
+    ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+    : undefined;
+
+  if (isAdsConsoleDemoRequest(req.query as Record<string, unknown>)) {
+    const result = listDemoCampaignsFiltered({
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+    });
+    res.json({ ...result, profileId: "demo-profile", demoMode: true });
+    return;
+  }
+
   const resolved = await resolveAdsConsoleContext(req);
   if ("error" in resolved) {
     res.status(resolved.status).json({ error: resolved.error });
     return;
   }
   try {
-    const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
-    const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
-    const name = typeof req.query.name === "string" ? req.query.name : undefined;
-    const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
-    const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
-    const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
-    const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
-    const state = stateRaw
-      ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
-      : undefined;
-
     const result = await listSpCampaignsForConsoleFiltered(resolved.ctx, {
       dateFrom,
       dateTo,
@@ -645,28 +679,43 @@ router.get("/ads/console/campaigns", requireAuth, resolveTeamAndWorkspace, async
 });
 
 router.get("/ads/console/targets", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
+  const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
+  const name = typeof req.query.name === "string" ? req.query.name : undefined;
+  const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
+  const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+  const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
+  const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+  const state = stateRaw
+    ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+    : undefined;
+  const targetTypeRaw = typeof req.query.targetType === "string" ? req.query.targetType : "all";
+  const targetType =
+    targetTypeRaw === "keyword" || targetTypeRaw === "product" || targetTypeRaw === "other"
+      ? targetTypeRaw
+      : "all";
+
+  if (isAdsConsoleDemoRequest(req.query as Record<string, unknown>)) {
+    const result = listDemoTargetsFiltered({
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+      targetType,
+    });
+    res.json({ ...result, profileId: "demo-profile", demoMode: true });
+    return;
+  }
+
   const resolved = await resolveAdsConsoleContext(req);
   if ("error" in resolved) {
     res.status(resolved.status).json({ error: resolved.error });
     return;
   }
   try {
-    const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
-    const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
-    const name = typeof req.query.name === "string" ? req.query.name : undefined;
-    const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
-    const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
-    const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
-    const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
-    const state = stateRaw
-      ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
-      : undefined;
-    const targetTypeRaw = typeof req.query.targetType === "string" ? req.query.targetType : "all";
-    const targetType =
-      targetTypeRaw === "keyword" || targetTypeRaw === "product" || targetTypeRaw === "other"
-        ? targetTypeRaw
-        : "all";
-
     const result = await listSpTargetsForConsoleFiltered(resolved.ctx, {
       dateFrom,
       dateTo,

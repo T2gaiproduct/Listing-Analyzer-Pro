@@ -1,4 +1,5 @@
 import { fetchJson } from "./api-fetch";
+import { withDemoQuery } from "./ads-console-demo";
 
 const basePath = import.meta.env.BASE_PATH ?? "";
 
@@ -72,6 +73,10 @@ export type AdsConsoleTarget = {
   adSales?: number;
   roas?: number;
   acos?: number;
+  previousBid?: number;
+  lastBidChange?: string;
+  topOfSearchImpressions?: number;
+  oldTags?: string;
   /** @deprecated use targetId */
   keywordId?: string;
   /** @deprecated use targetText */
@@ -133,7 +138,7 @@ export type AdsConsoleSearchTerm = {
 };
 
 function buildCampaignsQueryString(query: AdsConsoleCampaignsQuery): string {
-  const params = new URLSearchParams();
+  const params = withDemoQuery(new URLSearchParams());
   if (query.dateFrom) params.set("dateFrom", query.dateFrom);
   if (query.dateTo) params.set("dateTo", query.dateTo);
   if (query.state) params.set("state", query.state);
@@ -154,7 +159,7 @@ export async function fetchAdsConsoleCampaigns(
 export async function fetchAdsConsoleTargets(
   query: AdsConsoleTargetsQuery = {},
 ): Promise<AdsConsoleTargetsResponse> {
-  const params = new URLSearchParams();
+  const params = withDemoQuery(new URLSearchParams());
   if (query.dateFrom) params.set("dateFrom", query.dateFrom);
   if (query.dateTo) params.set("dateTo", query.dateTo);
   if (query.state) params.set("state", query.state);

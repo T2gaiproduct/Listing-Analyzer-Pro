@@ -69,6 +69,10 @@ export type AdsConsoleTargetRow = {
   adSales?: number;
   roas?: number;
   acos?: number;
+  previousBid?: number;
+  lastBidChange?: string;
+  topOfSearchImpressions?: number;
+  oldTags?: string;
   /** @deprecated use targetId */
   keywordId?: string;
   /** @deprecated use targetText */
