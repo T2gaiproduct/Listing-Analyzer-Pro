@@ -7,7 +7,6 @@ import {
   Search,
   Settings2,
   Target,
-  Users,
 } from "lucide-react";
 
 export type ManageAdsNavItem = {
@@ -26,7 +25,6 @@ export const MANAGE_ADS_NAV_ITEMS: ManageAdsNavItem[] = [
   { href: "/ads/products", label: "Ads Products", icon: Package },
   { href: "/ads/placements", label: "Placements", icon: MapPin },
   { href: "/ads/negative-targets", label: "Negative Targets", icon: Ban },
-  { href: "/ads/amc-audiences", label: "AMC Audiences", icon: Users, badge: "New" },
   { href: "/ads/campaign-manager", label: "Campaign Manager", icon: Settings2 },
 ];
 

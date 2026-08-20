@@ -67,7 +67,6 @@ import {
   AdsPage,
   AdsCampaignsConsolePage,
   AdsCampaignManagerPage,
-  AdsAmcAudiencesPage,
   AdsTargetsConsolePage,
   AdsSearchTermsConsolePage,
   AdsProductsConsolePage,
@@ -750,9 +749,6 @@ function Router() {
       </Route>
       <Route path="/ads/negative-targets">
         <WorkspaceProtectedRoute><AdsNegativeTargetsConsolePage /></WorkspaceProtectedRoute>
-      </Route>
-      <Route path="/ads/amc-audiences">
-        <WorkspaceProtectedRoute><AdsAmcAudiencesPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/ads/campaign-manager">
         <WorkspaceProtectedRoute><AdsCampaignManagerPage /></WorkspaceProtectedRoute>
