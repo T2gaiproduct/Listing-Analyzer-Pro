@@ -33,17 +33,19 @@ import {
 } from "../lib/amazon-ads-api.js";
 import {
   bulkUpdateSpCampaigns,
+  bulkUpdateSpProductAds,
   listSearchTermsForConsoleFiltered,
   listSpCampaignsForConsoleFiltered,
   listSpNegativeTargetsForConsole,
   listSpPlacementsForConsole,
-  listSpProductAdsForConsole,
+  listSpProductAdsForConsoleFiltered,
   listSpTargetsForConsoleFiltered,
   type AdsConsoleApiContext,
 } from "../lib/amazon-ads-console.js";
 import {
   isAdsConsoleDemoRequest,
   listDemoCampaignsFiltered,
+  listDemoProductAdsFiltered,
   listDemoSearchTermsFiltered,
   listDemoTargetsFiltered,
 } from "../lib/ads-console-demo-data.js";
@@ -782,14 +784,47 @@ router.get("/ads/console/search-terms", requireAuth, resolveTeamAndWorkspace, as
 });
 
 router.get("/ads/console/product-ads", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+  const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : undefined;
+  const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : undefined;
+  const name = typeof req.query.name === "string" ? req.query.name : undefined;
+  const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
+  const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+  const pageSize = typeof req.query.pageSize === "string" ? parseInt(req.query.pageSize, 10) : undefined;
+  const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+  const state = stateRaw
+    ? stateRaw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+    : undefined;
+
+  if (isAdsConsoleDemoRequest(req.query as Record<string, unknown>)) {
+    const result = listDemoProductAdsFiltered({
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+    });
+    res.json({ ...result, profileId: "demo-profile", demoMode: true });
+    return;
+  }
+
   const resolved = await resolveAdsConsoleContext(req);
   if ("error" in resolved) {
     res.status(resolved.status).json({ error: resolved.error });
     return;
   }
   try {
-    const productAds = await listSpProductAdsForConsole(resolved.ctx);
-    res.json({ productAds });
+    const result = await listSpProductAdsForConsoleFiltered(resolved.ctx, {
+      dateFrom,
+      dateTo,
+      name,
+      sort,
+      page: Number.isFinite(page) ? page : undefined,
+      pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      state,
+    });
+    res.json({ ...result, profileId: resolved.ctx.profileId });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to load product ads" });
   }
@@ -852,6 +887,35 @@ router.post(
         action,
         dailyBudget,
       });
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Bulk update failed" });
+    }
+  },
+);
+
+router.post(
+  "/ads/console/product-ads/bulk",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceAction("ads", "edit"),
+  async (req, res): Promise<void> => {
+    const resolved = await resolveAdsConsoleContext(req);
+    if ("error" in resolved) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
+
+    const adIds = Array.isArray(req.body?.adIds) ? req.body.adIds.map(String).filter(Boolean) : [];
+    const action = req.body?.action as "enable" | "pause" | "archive";
+
+    if (!action || !["enable", "pause", "archive"].includes(action)) {
+      res.status(400).json({ error: "Invalid bulk action" });
+      return;
+    }
+
+    try {
+      const result = await bulkUpdateSpProductAds(resolved.ctx, { adIds, action });
       res.json(result);
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : "Bulk update failed" });

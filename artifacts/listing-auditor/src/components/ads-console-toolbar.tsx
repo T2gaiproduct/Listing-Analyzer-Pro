@@ -46,6 +46,7 @@ type ToolbarProps = {
   showColumnsLabel?: boolean;
   showAdvancedFilters?: boolean;
   hideActivityLog?: boolean;
+  showBudgetBulk?: boolean;
   onAiClick?: () => void;
 };
 
@@ -66,6 +67,7 @@ export function AdsConsoleToolbar({
   showColumnsLabel = false,
   showAdvancedFilters = true,
   hideActivityLog = false,
+  showBudgetBulk = true,
   onAiClick,
 }: ToolbarProps) {
   const [budgetOpen, setBudgetOpen] = useState(false);
@@ -146,7 +148,9 @@ export function AdsConsoleToolbar({
                 <DropdownMenuItem onClick={onBulkEnable}>Enable</DropdownMenuItem>
                 <DropdownMenuItem onClick={onBulkPause}>Pause</DropdownMenuItem>
                 <DropdownMenuItem onClick={onBulkArchive}>Archive</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setBudgetOpen(true)}>Set daily budget</DropdownMenuItem>
+                {showBudgetBulk && (
+                  <DropdownMenuItem onClick={() => setBudgetOpen(true)}>Set daily budget</DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

@@ -107,11 +107,36 @@ export type AdsConsoleTargetsResponse = {
 
 export type AdsConsoleProductAd = {
   adId: string;
+  adName?: string;
   asin?: string;
   sku?: string;
+  productName?: string;
   state: string;
   campaignId?: string;
+  campaignName?: string;
   adGroupId?: string;
+  adGroupName?: string;
+  sponsoredType: string;
+};
+
+export type AdsConsoleProductAdsQuery = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string;
+  name?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  demo?: boolean;
+};
+
+export type AdsConsoleProductAdsResponse = {
+  productAds: AdsConsoleProductAd[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+  profileId?: string;
 };
 
 export type AdsConsoleNegativeTarget = {
@@ -220,8 +245,30 @@ export async function fetchAdsConsoleSearchTerms(
   return fetchJson(`${basePath}/api/ads/console/search-terms${qs ? `?${qs}` : ""}`);
 }
 
-export async function fetchAdsConsoleProductAds(): Promise<{ productAds: AdsConsoleProductAd[] }> {
-  return fetchJson(`${basePath}/api/ads/console/product-ads`);
+export async function fetchAdsConsoleProductAds(
+  query: AdsConsoleProductAdsQuery = {},
+): Promise<AdsConsoleProductAdsResponse> {
+  const params = withDemoQuery(new URLSearchParams(), query.demo);
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.state) params.set("state", query.state);
+  if (query.name) params.set("name", query.name);
+  if (query.page != null) params.set("page", String(query.page));
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  if (query.sort) params.set("sort", query.sort);
+  const qs = params.toString();
+  return fetchJson(`${basePath}/api/ads/console/product-ads${qs ? `?${qs}` : ""}`);
+}
+
+export async function bulkUpdateAdsProductAds(input: {
+  adIds: string[];
+  action: "enable" | "pause" | "archive";
+}): Promise<{ updated: number; errors: string[] }> {
+  return fetchJson(`${basePath}/api/ads/console/product-ads/bulk`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function fetchAdsConsolePlacements(): Promise<{ placements: AdsConsolePlacement[] }> {
