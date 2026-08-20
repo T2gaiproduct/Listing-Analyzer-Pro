@@ -81,11 +81,34 @@ export type AdsConsoleTargetRow = {
 
 export type AdsConsoleProductAdRow = {
   adId: string;
+  adName?: string;
   asin?: string;
   sku?: string;
+  productName?: string;
   state: string;
   campaignId?: string;
+  campaignName?: string;
   adGroupId?: string;
+  adGroupName?: string;
+  sponsoredType: string;
+};
+
+export type ProductAdConsoleListOptions = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string[];
+  name?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type ProductAdConsoleListResult = {
+  productAds: AdsConsoleProductAdRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
 };
 
 export type AdsConsoleNegativeTargetRow = {
@@ -810,12 +833,128 @@ export async function listSpProductAdsForConsole(ctx: AdsConsoleApiContext): Pro
 
   return ads.map((a) => ({
     adId: a.adId ?? "",
+    adName: a.asin ?? a.sku,
     asin: a.asin,
     sku: a.sku,
     state: a.state ?? "UNKNOWN",
     campaignId: a.campaignId,
     adGroupId: a.adGroupId,
+    sponsoredType: "Sponsored Products",
   })).filter((a) => a.adId);
+}
+
+function sortProductAdRows(rows: AdsConsoleProductAdRow[], sort?: string): AdsConsoleProductAdRow[] {
+  const key = sort?.trim() || "adName";
+  const desc = key.startsWith("-");
+  const field = desc ? key.slice(1) : key;
+  const mul = desc ? -1 : 1;
+
+  const getValue = (row: AdsConsoleProductAdRow): number | string => {
+    switch (field) {
+      case "campaignName":
+        return (row.campaignName ?? "").toLowerCase();
+      case "productName":
+        return (row.productName ?? "").toLowerCase();
+      case "sku":
+        return (row.sku ?? "").toLowerCase();
+      case "state":
+        return row.state.toLowerCase();
+      default:
+        return (row.adName ?? row.asin ?? row.sku ?? "").toLowerCase();
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+}
+
+export async function listSpProductAdsForConsoleFiltered(
+  ctx: AdsConsoleApiContext,
+  opts: ProductAdConsoleListOptions,
+): Promise<ProductAdConsoleListResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { productAds: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+  const [rawAds, campaignNames, adGroupNames] = await Promise.all([
+    listSpProductAdsForConsole(ctx),
+    listCampaignNamesMap(ctx),
+    listAdGroupNamesMap(ctx),
+  ]);
+
+  let rows = rawAds
+    .filter((a) => stateInclude.includes(a.state.toUpperCase()))
+    .map((a) => ({
+      ...a,
+      adName: a.adName ?? a.asin ?? a.sku,
+      campaignName: a.campaignId ? campaignNames.get(a.campaignId) : undefined,
+      adGroupName: a.adGroupId ? adGroupNames.get(a.adGroupId) : undefined,
+      sponsoredType: a.sponsoredType ?? "Sponsored Products",
+    }));
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        (r.adName ?? "").toLowerCase().includes(nameQuery) ||
+        (r.asin ?? "").toLowerCase().includes(nameQuery) ||
+        (r.sku ?? "").toLowerCase().includes(nameQuery) ||
+        (r.productName ?? "").toLowerCase().includes(nameQuery) ||
+        (r.campaignName ?? "").toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sorted = sortProductAdRows(rows, opts.sort);
+  const total = sorted.length;
+  const start = (page - 1) * pageSize;
+  const productAds = sorted.slice(start, start + pageSize);
+
+  return { productAds, total, page, pageSize, requiresFilters: false };
+}
+
+export async function bulkUpdateSpProductAds(
+  ctx: AdsConsoleApiContext,
+  input: {
+    adIds: string[];
+    action: "enable" | "pause" | "archive";
+  },
+): Promise<{ updated: number; errors: string[] }> {
+  const errors: string[] = [];
+  if (!input.adIds.length) return { updated: 0, errors: ["No product ads selected"] };
+
+  const stateMap = { enable: "ENABLED", pause: "PAUSED", archive: "ARCHIVED" } as const;
+  const state = stateMap[input.action];
+  const productAds = input.adIds.map((adId) => ({ adId, state }));
+  const res = await adsApiRequest<{
+    productAds?: {
+      success?: Array<{ adId?: string }>;
+      error?: Array<{ errors?: Array<{ errorValue?: string }> }>;
+    };
+  }>({
+    settings: ctx.settings,
+    refreshToken: ctx.refreshToken,
+    profileId: ctx.profileId,
+    method: "PUT",
+    path: "/sp/productAds",
+    marketplaceCode: ctx.marketplaceCode,
+    contentType: "application/vnd.spProductAd.v3+json",
+    accept: "application/vnd.spProductAd.v3+json",
+    body: { productAds },
+  });
+  const success = res.productAds?.success?.length ?? 0;
+  const errItems = res.productAds?.error ?? [];
+  for (const e of errItems) {
+    errors.push(e.errors?.[0]?.errorValue ?? "Product ad update failed");
+  }
+  return { updated: success, errors };
 }
 
 export async function listSpNegativeTargetsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsoleNegativeTargetRow[]> {

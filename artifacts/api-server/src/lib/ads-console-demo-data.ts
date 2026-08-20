@@ -1,7 +1,9 @@
-import type { AdsConsoleCampaignRow, AdsConsoleTargetRow } from "./amazon-ads-console.js";
+import type { AdsConsoleCampaignRow, AdsConsoleProductAdRow, AdsConsoleTargetRow } from "./amazon-ads-console.js";
 import type {
   CampaignConsoleListOptions,
   CampaignConsoleListResult,
+  ProductAdConsoleListOptions,
+  ProductAdConsoleListResult,
   SearchTermConsoleListOptions,
   SearchTermConsoleListResult,
   TargetConsoleListOptions,
@@ -818,4 +820,215 @@ export function listDemoSearchTermsFiltered(opts: SearchTermConsoleListOptions):
 
   const { items, total } = paginate(rows, page, pageSize);
   return { searchTerms: items, total, page, pageSize, requiresFilters: false };
+}
+
+const DEMO_PRODUCT_ADS: AdsConsoleProductAdRow[] = [
+  {
+    adId: "demo-ad-001",
+    adName: "B0DEMO001",
+    asin: "B0DEMO001",
+    sku: "EARBUD-BLK-01",
+    productName: "ProFit Wireless Earbuds — Black",
+    state: "ENABLED",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    adGroupId: "demo-ag-001",
+    adGroupName: "Brand Exact",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-002",
+    adName: "B0DEMO002",
+    asin: "B0DEMO002",
+    sku: "EARBUD-WHT-01",
+    productName: "ProFit Wireless Earbuds — White",
+    state: "ENABLED",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    adGroupId: "demo-ag-001",
+    adGroupName: "Brand Exact",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-003",
+    adName: "B0DEMO003",
+    asin: "B0DEMO003",
+    sku: "HEADPHONE-NC-01",
+    productName: "Noise Cancelling Over-Ear Headphones",
+    state: "ENABLED",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    adGroupId: "demo-ag-002",
+    adGroupName: "Broad Discovery",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-004",
+    adName: "B0DEMO004",
+    asin: "B0DEMO004",
+    sku: "CASE-SIL-01",
+    productName: "Silicone Earbud Carrying Case",
+    state: "PAUSED",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    adGroupId: "demo-ag-003",
+    adGroupName: "Accessories",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-005",
+    adName: "B0DEMO005",
+    asin: "B0DEMO005",
+    sku: "CHARGER-USBC-01",
+    productName: "USB-C Fast Charging Dock",
+    state: "ENABLED",
+    campaignId: "demo-camp-003",
+    campaignName: "SP | Auto Discovery",
+    adGroupId: "demo-ag-004",
+    adGroupName: "Auto Close Match",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-006",
+    adName: "B0DEMO006",
+    asin: "B0DEMO006",
+    sku: "CABLE-USBC-2M",
+    productName: "Braided USB-C Cable 2m",
+    state: "ENABLED",
+    campaignId: "demo-camp-003",
+    campaignName: "SP | Auto Discovery",
+    adGroupId: "demo-ag-004",
+    adGroupName: "Auto Close Match",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-007",
+    adName: "B0DEMO007",
+    asin: "B0DEMO007",
+    sku: "EAR-TIP-SML",
+    productName: "Replacement Ear Tips — Small (3 pairs)",
+    state: "ENABLED",
+    campaignId: "demo-camp-004",
+    campaignName: "SP | Competitor ASINs",
+    adGroupId: "demo-ag-005",
+    adGroupName: "Competitor Targets",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-008",
+    adName: "B0DEMO008",
+    asin: "B0DEMO008",
+    sku: "EAR-TIP-LRG",
+    productName: "Replacement Ear Tips — Large (3 pairs)",
+    state: "PAUSED",
+    campaignId: "demo-camp-004",
+    campaignName: "SP | Competitor ASINs",
+    adGroupId: "demo-ag-005",
+    adGroupName: "Competitor Targets",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-009",
+    adName: "B0DEMO009",
+    asin: "B0DEMO009",
+    sku: "SPORT-BAND-01",
+    productName: "Sport Band for Earbuds",
+    state: "ENABLED",
+    campaignId: "demo-camp-005",
+    campaignName: "SP | Seasonal Promo | Phrase",
+    adGroupId: "demo-ag-006",
+    adGroupName: "Phrase Match",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-010",
+    adName: "B0DEMO010",
+    asin: "B0DEMO010",
+    sku: "CLEAN-KIT-01",
+    productName: "Earbud Cleaning Kit",
+    state: "ARCHIVED",
+    campaignId: "demo-camp-005",
+    campaignName: "SP | Seasonal Promo | Phrase",
+    adGroupId: "demo-ag-006",
+    adGroupName: "Phrase Match",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-011",
+    adName: "B0DEMO011",
+    asin: "B0DEMO011",
+    sku: "REFURB-EARBUD",
+    productName: "Certified Refurbished ProFit Earbuds",
+    state: "ENABLED",
+    campaignId: "demo-camp-006",
+    campaignName: "SP | Refurb Clearance",
+    adGroupId: "demo-ag-007",
+    adGroupName: "Refurb SKUs",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    adId: "demo-ad-012",
+    adName: "B0DEMO012",
+    asin: "B0DEMO012",
+    sku: "GIFT-BOX-01",
+    productName: "Premium Gift Box Set",
+    state: "ENABLED",
+    campaignId: "demo-camp-006",
+    campaignName: "SP | Refurb Clearance",
+    adGroupId: "demo-ag-007",
+    adGroupName: "Refurb SKUs",
+    sponsoredType: "Sponsored Products",
+  },
+];
+
+export function listDemoProductAdsFiltered(opts: ProductAdConsoleListOptions): ProductAdConsoleListResult {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { productAds: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  let rows = [...DEMO_PRODUCT_ADS];
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+  rows = rows.filter((r) => stateInclude.includes(r.state.toUpperCase()));
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        (r.adName ?? "").toLowerCase().includes(nameQuery) ||
+        (r.asin ?? "").toLowerCase().includes(nameQuery) ||
+        (r.sku ?? "").toLowerCase().includes(nameQuery) ||
+        (r.productName ?? "").toLowerCase().includes(nameQuery) ||
+        (r.campaignName ?? "").toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sort = opts.sort?.trim() || "adName";
+  const desc = sort.startsWith("-");
+  const field = desc ? sort.slice(1) : sort;
+  const mul = desc ? -1 : 1;
+  rows.sort((a, b) => {
+    let av: number | string;
+    let bv: number | string;
+    if (field === "campaignName") {
+      av = (a.campaignName ?? "").toLowerCase();
+      bv = (b.campaignName ?? "").toLowerCase();
+    } else if (field === "productName") {
+      av = (a.productName ?? "").toLowerCase();
+      bv = (b.productName ?? "").toLowerCase();
+    } else if (field === "sku") {
+      av = (a.sku ?? "").toLowerCase();
+      bv = (b.sku ?? "").toLowerCase();
+    } else {
+      av = (a.adName ?? a.asin ?? a.sku ?? "").toLowerCase();
+      bv = (b.adName ?? b.asin ?? b.sku ?? "").toLowerCase();
+    }
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return 0;
+  });
+
+  const { items, total } = paginate(rows, page, pageSize);
+  return { productAds: items, total, page, pageSize, requiresFilters: false };
 }
