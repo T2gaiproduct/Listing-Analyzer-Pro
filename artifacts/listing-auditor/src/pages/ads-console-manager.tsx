@@ -4,10 +4,8 @@ import { Link } from "wouter";
 import {
   AlertTriangle,
   Calendar,
-  ChevronLeft,
   ChevronRight,
   ExternalLink,
-  Home,
   Loader2,
   Search,
   Sparkles,
@@ -142,7 +140,7 @@ function consumptionPct(campaign: AdsConsoleCampaign): number | null {
 
 function consumptionColor(pct: number): string {
   if (pct >= 80) return "text-red-600";
-  if (pct >= 50) return "text-teal-600";
+  if (pct >= 50) return "text-orange-600";
   return "text-slate-600";
 }
 
@@ -150,7 +148,6 @@ export default function AdsCampaignManagerPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [demoMode, setDemoMode] = useState(() => isAdsConsoleDemoMode());
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [onlyActive, setOnlyActive] = useState(true);
   const [search, setSearch] = useState("");
   const [portfolio, setPortfolio] = useState<string>("all");
@@ -268,8 +265,8 @@ export default function AdsCampaignManagerPage() {
       {/* Top header bar */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-white">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <div className="inline-flex items-center gap-2 rounded-full bg-teal-50 border border-teal-200 px-3 py-1.5 text-teal-900">
-            <Calendar className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-200 px-3 py-1.5 text-orange-900">
+            <Calendar className="w-3.5 h-3.5 text-orange-600" />
             <span>{formatDisplayDate(defaultRange.dateFrom)} - {formatDisplayDate(defaultRange.dateTo)}</span>
           </div>
           <span className="text-slate-400 text-xs">compared to</span>
@@ -279,7 +276,7 @@ export default function AdsCampaignManagerPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9 border-teal-500 text-teal-700 hover:bg-teal-50" asChild>
+          <Button variant="outline" size="sm" className="h-9 border-orange-500 text-orange-600 hover:bg-orange-50" asChild>
             <a href="https://sellerlens.io/contact" target="_blank" rel="noopener noreferrer">
               Book Demo
             </a>
@@ -292,7 +289,7 @@ export default function AdsCampaignManagerPage() {
               <SelectItem value="current">{accountLabel}</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" className="h-9 gap-1.5 bg-teal-600 hover:bg-teal-700" asChild>
+          <Button size="sm" className="h-9 gap-1.5 bg-orange-500 hover:bg-orange-600" asChild>
             <Link href="/ads/new">
               <Sparkles className="w-4 h-4" />
               + AI
@@ -301,52 +298,12 @@ export default function AdsCampaignManagerPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0">
-        {/* Left sidebar */}
-        <aside
-          className={cn(
-            "border-r border-slate-200 bg-slate-50/60 flex flex-col shrink-0 transition-all",
-            sidebarCollapsed ? "w-12" : "w-52",
-          )}
-        >
-          {!sidebarCollapsed && (
-            <div className="px-4 pt-4 pb-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Campaigns Manager</p>
-            </div>
-          )}
-          <nav className="flex-1 px-2 py-2">
-            <Link
-              href="/ads/campaign-manager?demo=1"
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                "bg-white text-slate-900 shadow-sm border border-slate-200",
-                sidebarCollapsed && "justify-center px-2",
-              )}
-            >
-              <Home className="w-4 h-4 text-teal-600 shrink-0" />
-              {!sidebarCollapsed && <span>Campaigns</span>}
-            </Link>
-          </nav>
-          <div className="border-t border-slate-200 p-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-full h-8 text-slate-400"
-              onClick={() => setSidebarCollapsed((v) => !v)}
-              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </Button>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-auto">
+      <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-auto">
           {demoMode && (
-            <div className="mb-4 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
-              <p className="text-sm text-teal-800">
+            <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+              <p className="text-sm text-orange-800">
                 <span className="font-medium">Demo mode</span> — sample campaign metrics for UI preview. Add{" "}
-                <code className="rounded bg-teal-100 px-1">?demo=1</code> to the URL.
+                <code className="rounded bg-orange-100 px-1">?demo=1</code> to the URL.
               </p>
             </div>
           )}
@@ -358,7 +315,7 @@ export default function AdsCampaignManagerPage() {
                 <p className="text-sm text-slate-700 flex-1 min-w-0">
                   Connect Amazon Ads on Marketplaces to load live campaign data, or preview with demo data.
                 </p>
-                <Button size="sm" variant="outline" className="shrink-0 border-teal-500 text-teal-700" onClick={loadDemoData}>
+                <Button size="sm" variant="outline" className="shrink-0 border-orange-500 text-orange-600" onClick={loadDemoData}>
                   Load demo data
                 </Button>
               </div>
@@ -397,7 +354,12 @@ export default function AdsCampaignManagerPage() {
           {/* Table controls */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
-              <Switch id="only-active" checked={onlyActive} onCheckedChange={setOnlyActive} />
+              <Switch
+                id="only-active"
+                checked={onlyActive}
+                onCheckedChange={setOnlyActive}
+                className="data-[state=checked]:bg-orange-500"
+              />
               <Label htmlFor="only-active" className="text-sm text-slate-600 font-normal">
                 Only active campaigns
               </Label>
@@ -446,7 +408,7 @@ export default function AdsCampaignManagerPage() {
                 {adsConnected || demoMode ? "No campaigns match your filters." : "Connect Amazon Ads or load demo data."}
                 {!demoMode && (
                   <div className="mt-3">
-                    <Button variant="outline" className="border-teal-500 text-teal-700" onClick={loadDemoData}>
+                    <Button variant="outline" className="border-orange-500 text-orange-600" onClick={loadDemoData}>
                       Load demo data
                     </Button>
                   </div>
@@ -479,6 +441,7 @@ export default function AdsCampaignManagerPage() {
                             disabled={bulkMutation.isPending || row.state === "ARCHIVED"}
                             onCheckedChange={(v) => toggleCampaignState(row, v)}
                             aria-label={`Toggle ${row.name}`}
+                            className="data-[state=checked]:bg-orange-500"
                           />
                         </TableCell>
                         <TableCell>
@@ -486,7 +449,7 @@ export default function AdsCampaignManagerPage() {
                             href={`https://advertising.amazon.com/cm/campaigns/${row.campaignId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-teal-700 hover:text-teal-800 font-medium"
+                            className="inline-flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium"
                           >
                             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate max-w-[18rem]">{row.name}</span>
@@ -539,7 +502,6 @@ export default function AdsCampaignManagerPage() {
             )}
           </div>
         </main>
-      </div>
     </div>
   );
 }
