@@ -112,21 +112,94 @@ export type ProductAdConsoleListResult = {
 };
 
 export type AdsConsoleNegativeTargetRow = {
-  keywordId: string;
-  keywordText: string;
+  negativeTargetId: string;
+  negativeTarget: string;
+  targetKind: "keyword" | "product";
   matchType: string;
+  type: string;
   state: string;
   campaignId?: string;
+  campaignName?: string;
   adGroupId?: string;
+  adGroupName?: string;
+  sponsoredType: string;
+  /** @deprecated use negativeTargetId */
+  keywordId?: string;
+  /** @deprecated use negativeTarget */
+  keywordText?: string;
+};
+
+export type NegativeTargetConsoleListOptions = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string[];
+  name?: string;
+  targetType?: "all" | "keyword" | "product";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type NegativeTargetConsoleListResult = {
+  negativeTargets: AdsConsoleNegativeTargetRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
 };
 
 export type AdsConsolePlacementRow = {
+  placementId: string;
   campaignId: string;
   campaignName: string;
   placement: string;
+  placementLabel?: string;
   percentage?: number;
+  baseBidAdjustment?: number;
+  biddingStrategy?: string;
+  sponsoredType: string;
   state: string;
+  purchases?: number;
+  impressions?: number;
 };
+
+export type PlacementConsoleListOptions = {
+  dateFrom?: string;
+  dateTo?: string;
+  state?: string[];
+  name?: string;
+  placementType?: "all" | "amazon_business";
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+};
+
+export type PlacementConsoleListResult = {
+  placements: AdsConsolePlacementRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requiresFilters: boolean;
+};
+
+function formatPlacementLabel(placement: string): string {
+  switch (placement) {
+    case "PLACEMENT_TOP":
+      return "Top of search (first page)";
+    case "PLACEMENT_PRODUCT_PAGE":
+      return "Product pages";
+    case "PLACEMENT_REST_OF_SEARCH":
+      return "Rest of search";
+    case "SITE_AMAZON_BUSINESS":
+      return "Amazon Business";
+    default:
+      return placement.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}
+
+function isAmazonBusinessPlacement(placement: string): boolean {
+  return placement === "SITE_AMAZON_BUSINESS";
+}
 
 async function listAllPages<T>(
   fetchPage: (nextToken?: string) => Promise<{ items: T[]; nextToken?: string }>,
@@ -958,6 +1031,21 @@ export async function bulkUpdateSpProductAds(
 }
 
 export async function listSpNegativeTargetsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsoleNegativeTargetRow[]> {
+  const end = new Date().toISOString().slice(0, 10);
+  const start = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const result = await listSpNegativeTargetsForConsoleFiltered(ctx, {
+    dateFrom: start,
+    dateTo: end,
+    page: 1,
+    pageSize: 500,
+  });
+  return result.negativeTargets;
+}
+
+async function fetchSpNegativeKeywordRowsRaw(
+  ctx: AdsConsoleApiContext,
+  stateInclude: string[],
+): Promise<AdsConsoleNegativeTargetRow[]> {
   const negatives = await listAllPages(async (nextToken) => {
     const response = await adsApiRequest<{
       negativeKeywords?: Array<{
@@ -979,7 +1067,7 @@ export async function listSpNegativeTargetsForConsole(ctx: AdsConsoleApiContext)
       contentType: "application/vnd.spNegativeKeyword.v3+json",
       accept: "application/vnd.spNegativeKeyword.v3+json",
       body: {
-        stateFilter: { include: ["ENABLED", "PAUSED", "ARCHIVED"] },
+        stateFilter: { include: stateInclude },
         maxResults: 100,
         nextToken,
       },
@@ -987,19 +1075,181 @@ export async function listSpNegativeTargetsForConsole(ctx: AdsConsoleApiContext)
     return { items: response.negativeKeywords ?? [], nextToken: response.nextToken };
   });
 
-  return negatives.map((k) => ({
-    keywordId: k.keywordId ?? "",
-    keywordText: k.keywordText ?? "",
-    matchType: k.matchType ?? "—",
-    state: k.state ?? "UNKNOWN",
-    campaignId: k.campaignId,
-    adGroupId: k.adGroupId,
-  })).filter((k) => k.keywordId);
+  return negatives.map((k) => {
+    const negativeTargetId = k.keywordId ?? "";
+    const negativeTarget = k.keywordText ?? "";
+    return {
+      negativeTargetId,
+      negativeTarget,
+      targetKind: "keyword" as const,
+      matchType: k.matchType ?? "—",
+      type: "Negative Keyword",
+      state: k.state ?? "UNKNOWN",
+      campaignId: k.campaignId,
+      adGroupId: k.adGroupId,
+      sponsoredType: "Sponsored Products",
+      keywordId: negativeTargetId,
+      keywordText: negativeTarget,
+    };
+  }).filter((k) => k.negativeTargetId);
+}
+
+async function fetchSpNegativeProductRowsRaw(
+  ctx: AdsConsoleApiContext,
+  stateInclude: string[],
+): Promise<AdsConsoleNegativeTargetRow[]> {
+  const negatives = await listAllPages(async (nextToken) => {
+    const response = await adsApiRequest<{
+      negativeTargetingClauses?: Array<{
+        targetId?: string;
+        expression?: Array<{ type?: string; value?: string }>;
+        expressionType?: string;
+        state?: string;
+        campaignId?: string;
+        adGroupId?: string;
+      }>;
+      nextToken?: string;
+    }>({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      method: "POST",
+      path: "/sp/negativeTargets/list",
+      marketplaceCode: ctx.marketplaceCode,
+      contentType: "application/vnd.spNegativeTargetingClause.v3+json",
+      accept: "application/vnd.spNegativeTargetingClause.v3+json",
+      body: {
+        stateFilter: { include: stateInclude },
+        maxResults: 100,
+        nextToken,
+      },
+    });
+    return { items: response.negativeTargetingClauses ?? [], nextToken: response.nextToken };
+  });
+
+  return negatives.map((t) => {
+    const { text } = formatProductTargetExpression(t.expression);
+    const negativeTargetId = t.targetId ?? "";
+    return {
+      negativeTargetId,
+      negativeTarget: text,
+      targetKind: "product" as const,
+      matchType: t.expressionType ?? "—",
+      type: "Negative Product",
+      state: t.state ?? "UNKNOWN",
+      campaignId: t.campaignId,
+      adGroupId: t.adGroupId,
+      sponsoredType: "Sponsored Products",
+    };
+  }).filter((t) => t.negativeTargetId);
+}
+
+function sortNegativeTargetRows(
+  rows: AdsConsoleNegativeTargetRow[],
+  sort?: string,
+): AdsConsoleNegativeTargetRow[] {
+  const key = sort?.trim() || "negativeTarget";
+  const desc = key.startsWith("-");
+  const field = desc ? key.slice(1) : key;
+  const mul = desc ? -1 : 1;
+
+  const getValue = (row: AdsConsoleNegativeTargetRow): number | string => {
+    switch (field) {
+      case "campaignName":
+        return (row.campaignName ?? "").toLowerCase();
+      case "matchType":
+        return row.matchType.toLowerCase();
+      case "type":
+        return row.type.toLowerCase();
+      default:
+        return row.negativeTarget.toLowerCase();
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+}
+
+export async function listSpNegativeTargetsForConsoleFiltered(
+  ctx: AdsConsoleApiContext,
+  opts: NegativeTargetConsoleListOptions,
+): Promise<NegativeTargetConsoleListResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { negativeTargets: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+  const targetType = opts.targetType ?? "all";
+
+  const fetchKeywords = targetType === "all" || targetType === "keyword";
+  const fetchProducts = targetType === "all" || targetType === "product";
+
+  const [keywordRows, productRows, campaignNames, adGroupNames] = await Promise.all([
+    fetchKeywords ? fetchSpNegativeKeywordRowsRaw(ctx, stateInclude) : Promise.resolve([]),
+    fetchProducts ? fetchSpNegativeProductRowsRaw(ctx, stateInclude) : Promise.resolve([]),
+    listCampaignNamesMap(ctx),
+    listAdGroupNamesMap(ctx),
+  ]);
+
+  let rows = [...keywordRows, ...productRows].map((r) => ({
+    ...r,
+    campaignName: r.campaignId ? campaignNames.get(r.campaignId) : undefined,
+    adGroupName: r.adGroupId ? adGroupNames.get(r.adGroupId) : undefined,
+    sponsoredType: r.sponsoredType ?? "Sponsored Products",
+  }));
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.negativeTarget.toLowerCase().includes(nameQuery) ||
+        (r.campaignName ?? "").toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sorted = sortNegativeTargetRows(rows, opts.sort);
+  const total = sorted.length;
+  const start = (page - 1) * pageSize;
+  const negativeTargets = sorted.slice(start, start + pageSize);
+
+  return { negativeTargets, total, page, pageSize, requiresFilters: false };
 }
 
 export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Promise<AdsConsolePlacementRow[]> {
-  const campaigns = await listSpCampaignsForConsole(ctx);
-  const rows: AdsConsolePlacementRow[] = [];
+  const end = new Date().toISOString().slice(0, 10);
+  const start = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const result = await listSpPlacementsForConsoleFiltered(ctx, {
+    dateFrom: start,
+    dateTo: end,
+    page: 1,
+    pageSize: 500,
+  });
+  return result.placements;
+}
+
+async function fetchSpPlacementRowsRaw(ctx: AdsConsoleApiContext): Promise<Array<{
+  campaignId: string;
+  campaignName: string;
+  placement: string;
+  percentage?: number;
+  biddingStrategy?: string;
+  state: string;
+}>> {
+  const rows: Array<{
+    campaignId: string;
+    campaignName: string;
+    placement: string;
+    percentage?: number;
+    biddingStrategy?: string;
+    state: string;
+  }> = [];
 
   const rawCampaigns = await listAllPages(async (nextToken) => {
     const response = await adsApiRequest<{
@@ -1008,6 +1258,7 @@ export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Pro
         name?: string;
         state?: string;
         dynamicBidding?: {
+          strategy?: string;
           placementBidding?: Array<{ placement?: string; percentage?: number }>;
         };
       }>;
@@ -1022,7 +1273,7 @@ export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Pro
       contentType: "application/vnd.spCampaign.v3+json",
       accept: "application/vnd.spCampaign.v3+json",
       body: {
-        stateFilter: { include: ["ENABLED", "PAUSED"] },
+        stateFilter: { include: ["ENABLED", "PAUSED", "ARCHIVED"] },
         maxResults: 100,
         nextToken,
       },
@@ -1031,37 +1282,134 @@ export async function listSpPlacementsForConsole(ctx: AdsConsoleApiContext): Pro
   });
 
   for (const c of rawCampaigns) {
+    const campaignId = c.campaignId ?? "";
+    const campaignName = c.name ?? "—";
+    const state = c.state ?? "UNKNOWN";
+    const biddingStrategy = c.dynamicBidding?.strategy;
     const placements = c.dynamicBidding?.placementBidding ?? [];
     if (placements.length === 0) {
       rows.push({
-        campaignId: c.campaignId ?? "",
-        campaignName: c.name ?? "—",
+        campaignId,
+        campaignName,
         placement: "—",
-        state: c.state ?? "UNKNOWN",
+        biddingStrategy,
+        state,
       });
       continue;
     }
     for (const p of placements) {
       rows.push({
-        campaignId: c.campaignId ?? "",
-        campaignName: c.name ?? "—",
+        campaignId,
+        campaignName,
         placement: p.placement ?? "—",
         percentage: p.percentage,
-        state: c.state ?? "UNKNOWN",
+        biddingStrategy,
+        state,
       });
     }
   }
 
-  if (rows.length === 0 && campaigns.length > 0) {
-    return campaigns.map((c) => ({
-      campaignId: c.campaignId,
-      campaignName: c.name,
-      placement: "—",
-      state: c.state,
-    }));
+  return rows.filter((r) => r.campaignId);
+}
+
+function sortPlacementRows(rows: AdsConsolePlacementRow[], sort?: string): AdsConsolePlacementRow[] {
+  const key = sort?.trim() || "campaignName";
+  const desc = key.startsWith("-");
+  const field = desc ? key.slice(1) : key;
+  const mul = desc ? -1 : 1;
+
+  const getValue = (row: AdsConsolePlacementRow): number | string => {
+    switch (field) {
+      case "placement":
+        return (row.placementLabel ?? row.placement).toLowerCase();
+      case "percentage":
+        return row.percentage ?? 0;
+      case "purchases":
+        return row.purchases ?? 0;
+      case "impressions":
+        return row.impressions ?? 0;
+      default:
+        return row.campaignName.toLowerCase();
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+}
+
+export async function listSpPlacementsForConsoleFiltered(
+  ctx: AdsConsoleApiContext,
+  opts: PlacementConsoleListOptions,
+): Promise<PlacementConsoleListResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { placements: [], total: 0, page, pageSize, requiresFilters: true };
   }
 
-  return rows;
+  const dateFrom = opts.dateFrom.trim();
+  const dateTo = opts.dateTo.trim();
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+
+  const [rawRows, metricsMap] = await Promise.all([
+    fetchSpPlacementRowsRaw(ctx),
+    fetchSpCampaignReportMetricsMap({
+      settings: ctx.settings,
+      refreshToken: ctx.refreshToken,
+      profileId: ctx.profileId,
+      marketplaceCode: ctx.marketplaceCode,
+      startDate: dateFrom,
+      endDate: dateTo,
+      timeoutMs: 90000,
+    }).catch(() => new Map<string, SpCampaignReportMetrics>()),
+  ]);
+
+  let rows: AdsConsolePlacementRow[] = rawRows
+    .filter((r) => stateInclude.includes(r.state.toUpperCase()))
+    .map((r) => {
+      const metrics = metricsMap.get(r.campaignId);
+      const pct = r.percentage;
+      return {
+        placementId: `${r.campaignId}:${r.placement}`,
+        campaignId: r.campaignId,
+        campaignName: r.campaignName,
+        placement: r.placement,
+        placementLabel: r.placement === "—" ? "—" : formatPlacementLabel(r.placement),
+        percentage: pct,
+        baseBidAdjustment: pct,
+        biddingStrategy: r.biddingStrategy,
+        sponsoredType: "Sponsored Products",
+        state: r.state,
+        purchases: metrics?.purchases,
+        impressions: metrics?.impressions,
+      };
+    });
+
+  const placementType = opts.placementType ?? "all";
+  if (placementType === "amazon_business") {
+    rows = rows.filter((r) => isAmazonBusinessPlacement(r.placement));
+  }
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.campaignName.toLowerCase().includes(nameQuery) ||
+        (r.placementLabel ?? r.placement).toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sorted = sortPlacementRows(rows, opts.sort);
+  const total = sorted.length;
+  const start = (page - 1) * pageSize;
+  const placements = sorted.slice(start, start + pageSize);
+
+  return { placements, total, page, pageSize, requiresFilters: false };
 }
 
 export async function listSearchTermsForConsole(ctx: AdsConsoleApiContext): Promise<AmazonSearchTermRow[]> {

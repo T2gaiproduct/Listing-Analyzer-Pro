@@ -1,7 +1,17 @@
-import type { AdsConsoleCampaignRow, AdsConsoleProductAdRow, AdsConsoleTargetRow } from "./amazon-ads-console.js";
+import type {
+  AdsConsoleCampaignRow,
+  AdsConsoleNegativeTargetRow,
+  AdsConsolePlacementRow,
+  AdsConsoleProductAdRow,
+  AdsConsoleTargetRow,
+} from "./amazon-ads-console.js";
 import type {
   CampaignConsoleListOptions,
   CampaignConsoleListResult,
+  NegativeTargetConsoleListOptions,
+  NegativeTargetConsoleListResult,
+  PlacementConsoleListOptions,
+  PlacementConsoleListResult,
   ProductAdConsoleListOptions,
   ProductAdConsoleListResult,
   SearchTermConsoleListOptions,
@@ -22,99 +32,6 @@ export function isAdsConsoleDemoRequest(query: Record<string, unknown>): boolean
 }
 
 const DEMO_CAMPAIGNS: AdsConsoleCampaignRow[] = [
-  {
-    campaignId: "demo-camp-mgr-001",
-    name: "ABC Foot Cream",
-    state: "ENABLED",
-    targetingType: "MANUAL",
-    sponsoredType: "Sponsored Products",
-    portfolioName: "Health & Beauty",
-    budget: 10000,
-    baseBudget: 10000,
-    budgetType: "DAILY",
-    startDate: "2024-01-01",
-    todaySpend: 8800,
-    biddingStrategy: "LEGACY_FOR_SALES",
-    impressions: 245000,
-    clicks: 4820,
-    spend: 12450.75,
-    purchases: 312,
-    adSales: 47820.5,
-    ctr: 4820 / 245000,
-    cpc: 12450.75 / 4820,
-    cvr: 312 / 4820,
-    roas: 47820.5 / 12450.75,
-    acos: 12450.75 / 47820.5,
-  },
-  {
-    campaignId: "demo-camp-mgr-002",
-    name: "SP | Foot Cream | Exact Match",
-    state: "ENABLED",
-    targetingType: "MANUAL",
-    sponsoredType: "Sponsored Products",
-    portfolioName: "Health & Beauty",
-    budget: 5000,
-    baseBudget: 5000,
-    budgetType: "DAILY",
-    startDate: "2024-02-15",
-    todaySpend: 2700,
-    impressions: 98000,
-    clicks: 2140,
-    spend: 4820.3,
-    purchases: 98,
-    adSales: 18640.2,
-    ctr: 2140 / 98000,
-    cpc: 4820.3 / 2140,
-    cvr: 98 / 2140,
-    roas: 18640.2 / 4820.3,
-    acos: 4820.3 / 18640.2,
-  },
-  {
-    campaignId: "demo-camp-mgr-003",
-    name: "SP | Foot Care | Auto",
-    state: "ENABLED",
-    targetingType: "AUTO",
-    sponsoredType: "Sponsored Products",
-    portfolioName: "Growth",
-    budget: 2500,
-    baseBudget: 2500,
-    budgetType: "DAILY",
-    startDate: "2024-03-01",
-    todaySpend: 1350,
-    impressions: 52000,
-    clicks: 890,
-    spend: 1980.45,
-    purchases: 42,
-    adSales: 7560.8,
-    ctr: 890 / 52000,
-    cpc: 1980.45 / 890,
-    cvr: 42 / 890,
-    roas: 7560.8 / 1980.45,
-    acos: 1980.45 / 7560.8,
-  },
-  {
-    campaignId: "demo-camp-mgr-004",
-    name: "SP | Competitor Conquest",
-    state: "PAUSED",
-    targetingType: "MANUAL",
-    sponsoredType: "Sponsored Products",
-    portfolioName: "Conquest",
-    budget: 3000,
-    baseBudget: 3000,
-    budgetType: "DAILY",
-    startDate: "2024-01-20",
-    todaySpend: 0,
-    impressions: 12000,
-    clicks: 180,
-    spend: 420.15,
-    purchases: 8,
-    adSales: 1280.4,
-    ctr: 180 / 12000,
-    cpc: 420.15 / 180,
-    cvr: 8 / 180,
-    roas: 1280.4 / 420.15,
-    acos: 420.15 / 1280.4,
-  },
   {
     campaignId: "demo-camp-001",
     name: "SP | Brand Defense | Exact",
@@ -1124,4 +1041,363 @@ export function listDemoProductAdsFiltered(opts: ProductAdConsoleListOptions): P
 
   const { items, total } = paginate(rows, page, pageSize);
   return { productAds: items, total, page, pageSize, requiresFilters: false };
+}
+
+const DEMO_PLACEMENTS: AdsConsolePlacementRow[] = [
+  {
+    placementId: "demo-camp-001:PLACEMENT_TOP",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    placement: "PLACEMENT_TOP",
+    placementLabel: "Top of search (first page)",
+    percentage: 25,
+    baseBidAdjustment: 20,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 28,
+    impressions: 8420,
+  },
+  {
+    placementId: "demo-camp-001:PLACEMENT_PRODUCT_PAGE",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    placement: "PLACEMENT_PRODUCT_PAGE",
+    placementLabel: "Product pages",
+    percentage: 10,
+    baseBidAdjustment: 10,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 28,
+    impressions: 8420,
+  },
+  {
+    placementId: "demo-camp-002:PLACEMENT_TOP",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    placement: "PLACEMENT_TOP",
+    placementLabel: "Top of search (first page)",
+    percentage: 15,
+    baseBidAdjustment: 15,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 41,
+    impressions: 15230,
+  },
+  {
+    placementId: "demo-camp-002:PLACEMENT_REST_OF_SEARCH",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    placement: "PLACEMENT_REST_OF_SEARCH",
+    placementLabel: "Rest of search",
+    percentage: 5,
+    baseBidAdjustment: 5,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 41,
+    impressions: 15230,
+  },
+  {
+    placementId: "demo-camp-003:PLACEMENT_PRODUCT_PAGE",
+    campaignId: "demo-camp-003",
+    campaignName: "SP | Auto Discovery",
+    placement: "PLACEMENT_PRODUCT_PAGE",
+    placementLabel: "Product pages",
+    percentage: 0,
+    baseBidAdjustment: 0,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "PAUSED",
+    purchases: 3,
+    impressions: 2100,
+  },
+  {
+    placementId: "demo-camp-004:SITE_AMAZON_BUSINESS",
+    campaignId: "demo-camp-004",
+    campaignName: "SP | Competitor ASINs",
+    placement: "SITE_AMAZON_BUSINESS",
+    placementLabel: "Amazon Business",
+    percentage: 30,
+    baseBidAdjustment: 25,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 12,
+    impressions: 4200,
+  },
+  {
+    placementId: "demo-camp-005:SITE_AMAZON_BUSINESS",
+    campaignId: "demo-camp-005",
+    campaignName: "SP | Seasonal Promo | Phrase",
+    placement: "SITE_AMAZON_BUSINESS",
+    placementLabel: "Amazon Business",
+    percentage: 20,
+    baseBidAdjustment: 18,
+    biddingStrategy: "AUTO_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 19,
+    impressions: 6100,
+  },
+  {
+    placementId: "demo-camp-006:PLACEMENT_TOP",
+    campaignId: "demo-camp-006",
+    campaignName: "SP | Refurb Clearance",
+    placement: "PLACEMENT_TOP",
+    placementLabel: "Top of search (first page)",
+    percentage: 8,
+    baseBidAdjustment: 8,
+    biddingStrategy: "LEGACY_FOR_SALES",
+    sponsoredType: "Sponsored Products",
+    state: "ENABLED",
+    purchases: 7,
+    impressions: 1850,
+  },
+];
+
+export function listDemoPlacementsFiltered(opts: PlacementConsoleListOptions): PlacementConsoleListResult {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { placements: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  let rows = [...DEMO_PLACEMENTS];
+  const placementType = opts.placementType ?? "all";
+  if (placementType === "amazon_business") {
+    rows = rows.filter((r) => r.placement === "SITE_AMAZON_BUSINESS");
+  }
+
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+  rows = rows.filter((r) => stateInclude.includes(r.state.toUpperCase()));
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.campaignName.toLowerCase().includes(nameQuery) ||
+        (r.placementLabel ?? r.placement).toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sort = opts.sort?.trim() || "campaignName";
+  const desc = sort.startsWith("-");
+  const field = desc ? sort.slice(1) : sort;
+  const mul = desc ? -1 : 1;
+  rows.sort((a, b) => {
+    let av: number | string;
+    let bv: number | string;
+    if (field === "placement") {
+      av = (a.placementLabel ?? a.placement).toLowerCase();
+      bv = (b.placementLabel ?? b.placement).toLowerCase();
+    } else if (field === "percentage") {
+      av = a.percentage ?? 0;
+      bv = b.percentage ?? 0;
+    } else if (field === "purchases") {
+      av = a.purchases ?? 0;
+      bv = b.purchases ?? 0;
+    } else if (field === "impressions") {
+      av = a.impressions ?? 0;
+      bv = b.impressions ?? 0;
+    } else {
+      av = a.campaignName.toLowerCase();
+      bv = b.campaignName.toLowerCase();
+    }
+    if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
+    return mul * ((av as number) - (bv as number));
+  });
+
+  const { items, total } = paginate(rows, page, pageSize);
+  return { placements: items, total, page, pageSize, requiresFilters: false };
+}
+
+const DEMO_NEGATIVE_TARGETS: AdsConsoleNegativeTargetRow[] = [
+  {
+    negativeTargetId: "demo-neg-kw-001",
+    negativeTarget: "cheap earbuds",
+    targetKind: "keyword",
+    matchType: "NEGATIVE_EXACT",
+    type: "Negative Keyword",
+    state: "ENABLED",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    adGroupId: "demo-ag-001",
+    adGroupName: "Brand Exact",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-kw-002",
+    negativeTarget: "free shipping headphones",
+    targetKind: "keyword",
+    matchType: "NEGATIVE_PHRASE",
+    type: "Negative Keyword",
+    state: "ENABLED",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    adGroupId: "demo-ag-002",
+    adGroupName: "Broad Discovery",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-kw-003",
+    negativeTarget: "refurbished",
+    targetKind: "keyword",
+    matchType: "NEGATIVE_EXACT",
+    type: "Negative Keyword",
+    state: "PAUSED",
+    campaignId: "demo-camp-003",
+    campaignName: "SP | Auto Discovery",
+    adGroupId: "demo-ag-004",
+    adGroupName: "Auto Close Match",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-kw-004",
+    negativeTarget: "knockoff",
+    targetKind: "keyword",
+    matchType: "NEGATIVE_PHRASE",
+    type: "Negative Keyword",
+    state: "ENABLED",
+    campaignId: "demo-camp-004",
+    campaignName: "SP | Competitor ASINs",
+    adGroupId: "demo-ag-005",
+    adGroupName: "Competitor Targets",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-kw-005",
+    negativeTarget: "wholesale",
+    targetKind: "keyword",
+    matchType: "NEGATIVE_EXACT",
+    type: "Negative Keyword",
+    state: "ENABLED",
+    campaignId: "demo-camp-005",
+    campaignName: "SP | Seasonal Promo | Phrase",
+    adGroupId: "demo-ag-006",
+    adGroupName: "Phrase Match",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-prod-001",
+    negativeTarget: "ASIN: B0COMPETITOR1",
+    targetKind: "product",
+    matchType: "MANUAL",
+    type: "Negative Product",
+    state: "ENABLED",
+    campaignId: "demo-camp-004",
+    campaignName: "SP | Competitor ASINs",
+    adGroupId: "demo-ag-005",
+    adGroupName: "Competitor Targets",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-prod-002",
+    negativeTarget: "ASIN: B0COMPETITOR2",
+    targetKind: "product",
+    matchType: "MANUAL",
+    type: "Negative Product",
+    state: "ENABLED",
+    campaignId: "demo-camp-004",
+    campaignName: "SP | Competitor ASINs",
+    adGroupId: "demo-ag-005",
+    adGroupName: "Competitor Targets",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-prod-003",
+    negativeTarget: "ASIN: B0LOWQUALITY",
+    targetKind: "product",
+    matchType: "MANUAL",
+    type: "Negative Product",
+    state: "PAUSED",
+    campaignId: "demo-camp-002",
+    campaignName: "SP | Category Conquest | Broad",
+    adGroupId: "demo-ag-003",
+    adGroupName: "Accessories",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-prod-004",
+    negativeTarget: "ASIN: B0GENERIC01",
+    targetKind: "product",
+    matchType: "MANUAL",
+    type: "Negative Product",
+    state: "ENABLED",
+    campaignId: "demo-camp-001",
+    campaignName: "SP | Brand Defense | Exact",
+    adGroupId: "demo-ag-001",
+    adGroupName: "Brand Exact",
+    sponsoredType: "Sponsored Products",
+  },
+  {
+    negativeTargetId: "demo-neg-kw-006",
+    negativeTarget: "used",
+    targetKind: "keyword",
+    matchType: "NEGATIVE_PHRASE",
+    type: "Negative Keyword",
+    state: "ARCHIVED",
+    campaignId: "demo-camp-006",
+    campaignName: "SP | Refurb Clearance",
+    adGroupId: "demo-ag-007",
+    adGroupName: "Refurb SKUs",
+    sponsoredType: "Sponsored Products",
+  },
+];
+
+export function listDemoNegativeTargetsFiltered(
+  opts: NegativeTargetConsoleListOptions,
+): NegativeTargetConsoleListResult {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 100));
+
+  if (!opts.dateFrom?.trim() || !opts.dateTo?.trim()) {
+    return { negativeTargets: [], total: 0, page, pageSize, requiresFilters: true };
+  }
+
+  let rows = [...DEMO_NEGATIVE_TARGETS];
+  const targetType = opts.targetType ?? "all";
+  if (targetType === "keyword") {
+    rows = rows.filter((r) => r.targetKind === "keyword");
+  } else if (targetType === "product") {
+    rows = rows.filter((r) => r.targetKind === "product");
+  }
+
+  const stateInclude = opts.state?.length ? opts.state : ["ENABLED", "PAUSED", "ARCHIVED"];
+  rows = rows.filter((r) => stateInclude.includes(r.state.toUpperCase()));
+
+  const nameQuery = opts.name?.trim().toLowerCase();
+  if (nameQuery) {
+    rows = rows.filter(
+      (r) =>
+        r.negativeTarget.toLowerCase().includes(nameQuery) ||
+        (r.campaignName ?? "").toLowerCase().includes(nameQuery),
+    );
+  }
+
+  const sort = opts.sort?.trim() || "negativeTarget";
+  const desc = sort.startsWith("-");
+  const field = desc ? sort.slice(1) : sort;
+  const mul = desc ? -1 : 1;
+  rows.sort((a, b) => {
+    let av: number | string;
+    let bv: number | string;
+    if (field === "campaignName") {
+      av = (a.campaignName ?? "").toLowerCase();
+      bv = (b.campaignName ?? "").toLowerCase();
+    } else if (field === "matchType") {
+      av = a.matchType.toLowerCase();
+      bv = b.matchType.toLowerCase();
+    } else {
+      av = a.negativeTarget.toLowerCase();
+      bv = b.negativeTarget.toLowerCase();
+    }
+    return mul * av.localeCompare(bv);
+  });
+
+  const { items, total } = paginate(rows, page, pageSize);
+  return { negativeTargets: items, total, page, pageSize, requiresFilters: false };
 }
