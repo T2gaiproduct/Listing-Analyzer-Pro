@@ -254,11 +254,6 @@ export default function AdsCampaignManagerPage() {
   }
 
   const adsConnected = statusQuery.data?.canGatherData === true || demoMode;
-  const accountLabel = demoMode
-    ? "🇺🇸 Demo Amazon Ads Account"
-    : statusQuery.data?.profileName
-      ? `🇺🇸 ${statusQuery.data.profileName}`
-      : "Select account";
 
   return (
     <div className="min-h-[calc(100vh-8rem)] -mx-1 sm:-mx-2 flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -276,19 +271,6 @@ export default function AdsCampaignManagerPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9 border-orange-500 text-orange-600 hover:bg-orange-50" asChild>
-            <a href="https://sellerlens.io/contact" target="_blank" rel="noopener noreferrer">
-              Book Demo
-            </a>
-          </Button>
-          <Select value="current" disabled={!adsConnected && !demoMode}>
-            <SelectTrigger className="h-9 w-[220px] text-sm">
-              <SelectValue placeholder="Select account">{accountLabel}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">{accountLabel}</SelectItem>
-            </SelectContent>
-          </Select>
           <Button size="sm" className="h-9 gap-1.5 bg-orange-500 hover:bg-orange-600" asChild>
             <Link href="/ads/new">
               <Sparkles className="w-4 h-4" />
