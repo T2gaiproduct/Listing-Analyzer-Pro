@@ -44,7 +44,7 @@ type ToolbarProps = {
   createLabel?: string;
   showCreate?: boolean;
   showColumnsLabel?: boolean;
-  showAdvancedFilters?: boolean;
+  onFiltersClick?: () => void;
   hideActivityLog?: boolean;
   showBudgetBulk?: boolean;
   onAiClick?: () => void;
@@ -65,7 +65,7 @@ export function AdsConsoleToolbar({
   createLabel = "Create",
   showCreate = true,
   showColumnsLabel = false,
-  showAdvancedFilters = true,
+  onFiltersClick,
   hideActivityLog = false,
   showBudgetBulk = true,
   onAiClick,
@@ -78,10 +78,15 @@ export function AdsConsoleToolbar({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {title ? <h1 className="text-lg font-semibold text-slate-800">{title}</h1> : <div />}
         <div className="flex flex-wrap items-center gap-2">
-          {showAdvancedFilters && (
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-slate-600 bg-white">
+          {onFiltersClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-slate-600 bg-white"
+              onClick={onFiltersClick}
+            >
               <Filter className="w-4 h-4" />
-              Advanced Filters
+              Filters
             </Button>
           )}
           <Button

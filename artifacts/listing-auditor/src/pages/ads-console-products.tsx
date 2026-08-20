@@ -6,9 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  HelpCircle,
-  Info,
-  ListFilter,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -78,7 +75,8 @@ export default function AdsProductsConsolePage() {
   });
 
   useEffect(() => {
-    if (!demoMode || filtersApplied) return;
+    if (filtersApplied) return;
+    if (!demoMode && !statusQuery.data?.canGatherData) return;
     const states = buildStateFilter(draftFilters);
     setActiveFilters({
       dateFrom: draftFilters.dateFrom,
@@ -86,7 +84,7 @@ export default function AdsProductsConsolePage() {
       state: states,
     });
     setFiltersApplied(true);
-  }, [demoMode]);
+  }, [demoMode, statusQuery.data?.canGatherData, filtersApplied]);
 
   const queryParams: AdsConsoleProductAdsQuery | null = activeFilters
     ? { ...activeFilters, page, pageSize, sort: "adName", demo: demoMode }
@@ -226,40 +224,11 @@ export default function AdsProductsConsolePage() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Bulk Actions</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage &amp; bulk edit your campaigns, targets, etc from one place.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500" aria-label="Help">
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 border-orange-500 text-orange-600" asChild>
-            <Link href="/ads/campaigns">
-              <ListFilter className="w-4 h-4" />
-              Campaigns
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-800">Ad Products</span>
-          <Info className="w-3.5 h-3.5 text-slate-400" aria-hidden />
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-slate-600 ml-2"
-            onClick={openFilterDialog}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            Saved Filters
-          </Button>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-slate-900">Ad Products</h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Manage product ads in your Sponsored Products campaigns.
+        </p>
       </div>
 
       <AdsConsoleToolbar
@@ -274,6 +243,7 @@ export default function AdsProductsConsolePage() {
         showBudgetBulk={false}
         createHref="/ads/new"
         createLabel="Add Product To SP Campaign"
+        onFiltersClick={openFilterDialog}
         onAiClick={() =>
           toast({
             title: "AI assistant",

@@ -6,8 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  HelpCircle,
-  ListFilter,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -74,14 +72,15 @@ export default function AdsSearchTermsConsolePage() {
   });
 
   useEffect(() => {
-    if (!demoMode || filtersApplied) return;
+    if (filtersApplied) return;
+    if (!demoMode && !statusQuery.data?.canGatherData) return;
     setActiveFilters({
       dateFrom: draftFilters.dateFrom,
       dateTo: draftFilters.dateTo,
-      demo: true,
+      demo: demoMode,
     });
     setFiltersApplied(true);
-  }, [demoMode, filtersApplied, draftFilters.dateFrom, draftFilters.dateTo]);
+  }, [demoMode, statusQuery.data?.canGatherData, filtersApplied, draftFilters.dateFrom, draftFilters.dateTo]);
 
   const queryParams: AdsConsoleSearchTermsQuery | null = activeFilters
     ? { ...activeFilters, termType, page, pageSize, sort: "-spend", demo: demoMode }
@@ -170,15 +169,6 @@ export default function AdsSearchTermsConsolePage() {
   const canPrev = page > 1;
   const canNext = page * pageSize < total;
 
-  const tabLabel =
-    termType === "all"
-      ? "All Search Terms"
-      : termType === "auto"
-        ? "Auto Search Terms"
-        : termType === "auto_product"
-          ? "Auto Search Products"
-          : "Manual Search Terms";
-
   return (
     <AdsConsoleLayout>
       {demoMode && (
@@ -202,24 +192,11 @@ export default function AdsSearchTermsConsolePage() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Bulk Actions</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage &amp; bulk edit your campaigns, targets, etc from one place.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500" aria-label="Help">
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 border-orange-500 text-orange-600" asChild>
-            <Link href="/ads/campaigns">
-              <ListFilter className="w-4 h-4" />
-              Campaigns
-            </Link>
-          </Button>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-slate-900">Search Terms</h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Review search term performance from your Sponsored Products campaigns.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -253,21 +230,6 @@ export default function AdsSearchTermsConsolePage() {
         })}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-slate-800">{tabLabel}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-slate-600"
-            onClick={openFilterDialog}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            Saved Filters
-          </Button>
-        </div>
-      </div>
-
       <AdsConsoleToolbar
         title=""
         compare={compare}
@@ -275,9 +237,9 @@ export default function AdsSearchTermsConsolePage() {
         selectedCount={selected.size}
         showBulk={false}
         showCreate={false}
-        showAdvancedFilters={false}
         hideActivityLog
         showColumnsLabel
+        onFiltersClick={openFilterDialog}
         onAiClick={() =>
           toast({
             title: "AI assistant",

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -6,8 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  HelpCircle,
-  ListFilter,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -36,9 +34,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-
-type CampaignTypeChip = "all" | "product" | "brand" | "display";
 
 function formatMoney(n?: number) {
   if (n == null) return "—";
@@ -55,12 +50,23 @@ function formatRatio(n?: number) {
   return n.toFixed(2);
 }
 
+function buildStateFilter(d: {
+  enabled: boolean;
+  paused: boolean;
+  archived: boolean;
+}): string {
+  const states: string[] = [];
+  if (d.enabled) states.push("ENABLED");
+  if (d.paused) states.push("PAUSED");
+  if (d.archived) states.push("ARCHIVED");
+  return states.join(",");
+}
+
 export default function AdsCampaignsConsolePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [compare, setCompare] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [campaignType, setCampaignType] = useState<CampaignTypeChip>("all");
   const [filtersApplied, setFiltersApplied] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -78,6 +84,20 @@ export default function AdsCampaignsConsolePage() {
   const [activeFilters, setActiveFilters] = useState<AdsConsoleCampaignsQuery | null>(null);
 
   const statusQuery = useQuery({ queryKey: ["ads-status"], queryFn: fetchAdsStatus });
+
+  const adsConnected = statusQuery.data?.canGatherData === true;
+
+  useEffect(() => {
+    if (!adsConnected || filtersApplied) return;
+    const states = buildStateFilter(draftFilters);
+    if (!states) return;
+    setActiveFilters({
+      dateFrom: draftFilters.dateFrom,
+      dateTo: draftFilters.dateTo,
+      state: states,
+    });
+    setFiltersApplied(true);
+  }, [adsConnected, filtersApplied]);
 
   const queryParams: AdsConsoleCampaignsQuery | null = activeFilters
     ? { ...activeFilters, page, pageSize, sort: "-spend" }
@@ -135,16 +155,6 @@ export default function AdsCampaignsConsolePage() {
       dailyBudget: action === "budget" ? dailyBudget : undefined,
     });
   }
-
-  function buildStateFilter(d: typeof draftFilters): string {
-    const states: string[] = [];
-    if (d.enabled) states.push("ENABLED");
-    if (d.paused) states.push("PAUSED");
-    if (d.archived) states.push("ARCHIVED");
-    return states.join(",");
-  }
-
-  const adsConnected = statusQuery.data?.canGatherData === true;
 
   function applyFilters() {
     if (!adsConnected) {
@@ -206,67 +216,11 @@ export default function AdsCampaignsConsolePage() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Bulk Actions</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage &amp; bulk edit your campaigns, targets, etc from one place.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500" aria-label="Help">
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 border-orange-500 text-orange-600">
-            <ListFilter className="w-4 h-4" />
-            Campaigns
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-4">
-        {(
-          [
-            { id: "all" as const, label: "All" },
-            { id: "product" as const, label: "Product" },
-            { id: "brand" as const, label: "Brand" },
-            { id: "display" as const, label: "Display" },
-          ]
-        ).map((chip) => {
-          const disabled = chip.id === "brand" || chip.id === "display";
-          const active = campaignType === chip.id;
-          return (
-            <button
-              key={chip.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => !disabled && setCampaignType(chip.id)}
-              className={cn(
-                "rounded-lg px-4 py-1.5 text-sm font-medium border transition-colors",
-                disabled && "opacity-40 cursor-not-allowed border-slate-200 text-slate-400",
-                !disabled && active && "bg-orange-50 border-orange-400 text-orange-700",
-                !disabled && !active && "border-orange-300 text-orange-600 hover:bg-orange-50/50",
-              )}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-slate-800">All Campaigns</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-slate-600"
-            onClick={openFilterDialog}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            Saved Filters
-          </Button>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-slate-900">Campaigns</h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Manage and bulk edit Sponsored Products campaigns.
+        </p>
       </div>
 
       <AdsConsoleToolbar
@@ -279,6 +233,7 @@ export default function AdsCampaignsConsolePage() {
         onBulkPause={() => runBulk("pause")}
         onBulkArchive={() => runBulk("archive")}
         onBulkBudget={(budget) => runBulk("budget", budget)}
+        onFiltersClick={openFilterDialog}
         onAiClick={() => toast({ title: "AI assistant", description: "Use Create → AI campaign wizard for keyword research and launch." })}
       />
 
@@ -296,7 +251,7 @@ export default function AdsCampaignsConsolePage() {
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="py-16 px-6 text-center">
             <p className="text-sm text-slate-600 max-w-md mx-auto">
-              Too much data to display at once. Please apply filters to view specific campaign data.
+              Connect Amazon Ads and choose a date range to load campaign data.
             </p>
             <Button
               variant="link"
@@ -304,7 +259,7 @@ export default function AdsCampaignsConsolePage() {
               onClick={openFilterDialog}
             >
               <Filter className="w-4 h-4" />
-              Filter Campaigns
+              Filter campaigns
             </Button>
           </div>
         </div>

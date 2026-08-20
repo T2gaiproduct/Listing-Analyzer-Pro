@@ -6,8 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  HelpCircle,
-  ListFilter,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -86,7 +84,8 @@ export default function AdsNegativeTargetsConsolePage() {
   });
 
   useEffect(() => {
-    if (!demoMode || filtersApplied) return;
+    if (filtersApplied) return;
+    if (!demoMode && !statusQuery.data?.canGatherData) return;
     const states = buildStateFilter(draftFilters);
     setActiveFilters({
       dateFrom: draftFilters.dateFrom,
@@ -94,7 +93,7 @@ export default function AdsNegativeTargetsConsolePage() {
       state: states,
     });
     setFiltersApplied(true);
-  }, [demoMode]);
+  }, [demoMode, statusQuery.data?.canGatherData, filtersApplied]);
 
   const queryParams: AdsConsoleNegativeTargetsQuery | null = activeFilters
     ? { ...activeFilters, targetType, page, pageSize, sort: "negativeTarget", demo: demoMode }
@@ -227,24 +226,11 @@ export default function AdsNegativeTargetsConsolePage() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Bulk Actions</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage &amp; bulk edit your campaigns, targets, etc from one place.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500" aria-label="Help">
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 border-orange-500 text-orange-600" asChild>
-            <Link href="/ads/campaigns">
-              <ListFilter className="w-4 h-4" />
-              Campaigns
-            </Link>
-          </Button>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-slate-900">Negative Targets</h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Review negative keywords and product targets.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -277,27 +263,12 @@ export default function AdsNegativeTargetsConsolePage() {
         })}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-800">{tabLabel}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-slate-600 ml-2"
-            onClick={openFilterDialog}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            Saved Filters
-          </Button>
-        </div>
-      </div>
-
       <AdsConsoleToolbar
         title=""
         compare={compare}
         onCompareChange={setCompare}
         selectedCount={selected.size}
-        showAdvancedFilters={false}
+        onFiltersClick={openFilterDialog}
         createHref="/ads/new"
         createLabel="Add Negative List >"
         onBulkEnable={bulkComingSoon}
