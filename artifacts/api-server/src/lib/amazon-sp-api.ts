@@ -5,6 +5,8 @@ import {
   sellerCentralOAuthConsentUrl,
   spApiHost,
   spApiRegionForMarketplaceCode,
+  withProductionSpApiSettings,
+  canSignSpApiRequests,
   type AmazonSpSettings,
 } from "./amazon-sp-settings.js";
 
@@ -215,6 +217,52 @@ function getSignatureKey(secret: string, dateStamp: string, region: string, serv
   return hmac(kService, "aws4_request");
 }
 
+function encodeRfc3986(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function canonicalizeQueryString(query: string): string {
+  if (!query) return "";
+  const params = new URLSearchParams(query);
+  return [...params.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${encodeRfc3986(key)}=${encodeRfc3986(value)}`)
+    .join("&");
+}
+
+function splitPathAndQuery(pathWithQuery: string): { path: string; query: string } {
+  const queryIndex = pathWithQuery.indexOf("?");
+  if (queryIndex < 0) {
+    return { path: pathWithQuery, query: "" };
+  }
+  return {
+    path: pathWithQuery.slice(0, queryIndex),
+    query: pathWithQuery.slice(queryIndex + 1),
+  };
+}
+
+export function isSpApiAccessDenied(message: string, status?: number): boolean {
+  const lower = message.toLowerCase();
+  return status === 403
+    || lower.includes("access to requested resource is denied")
+    || lower.includes("access denied")
+    || lower.includes("not authorized")
+    || lower.includes("unauthorized");
+}
+
+export function formatSpApiAccessDeniedError(settings: AmazonSpSettings): string {
+  const roleHint = settings.awsRoleArn.trim()
+    ? " Confirm the AWS Role ARN matches the IAM Role registered in your SP-API app (Solution Provider Portal → Edit App)."
+    : " If your SP-API app is registered with an IAM Role ARN (not a User ARN), paste that Role ARN in the AWS Role ARN field. If registered with an IAM User ARN, leave Role ARN blank and use that user's Access Key + Secret.";
+  return [
+    "Amazon denied SP-API access. Your refresh token is valid, but AWS signing or app roles are wrong.",
+    "1) Solution Provider Portal → Seller Lens → Edit App: note the registered IAM User ARN or IAM Role ARN.",
+    "2) SellerLens credentials: AWS keys must belong to that exact IAM user. Role ARN only if the app uses role-based auth.",
+    "3) Seller Central India (sellercentral.amazon.in/apps/manage) → authorize Seller Lens → enable Product Listing + Inventory and Order Tracking → paste new Atzr| token.",
+    `4) Default marketplace = India, Sandbox OFF.${roleHint}`,
+  ].join(" ");
+}
+
 function signAwsRequest(opts: {
   method: string;
   host: string;
@@ -232,7 +280,7 @@ function signAwsRequest(opts: {
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.slice(0, 8);
   const payloadHash = sha256(opts.body);
-  const canonicalQuery = opts.query ?? "";
+  const canonicalQuery = canonicalizeQueryString(opts.query ?? "");
   const canonicalHeaders = [
     `host:${opts.host}`,
     `x-amz-date:${amzDate}`,
@@ -321,16 +369,19 @@ export async function spApiRequest<T>(opts: {
   const host = spApiHost(opts.settings, opts.region ?? "na").replace("https://", "");
   const bodyStr = opts.body ? JSON.stringify(opts.body) : "";
   const creds = await assumeRoleIfNeeded(opts.settings);
+  const { path, query } = splitPathAndQuery(opts.path);
   const signed = signAwsRequest({
     method: opts.method,
     host,
-    path: opts.path,
+    path,
+    query,
     body: bodyStr,
     accessKeyId: creds.accessKeyId,
     secretAccessKey: creds.secretAccessKey,
     sessionToken: creds.sessionToken,
   });
-  const res = await fetch(`https://${host}${opts.path}`, {
+  const requestUrl = query ? `https://${host}${path}?${query}` : `https://${host}${path}`;
+  const res = await fetch(requestUrl, {
     method: opts.method,
     headers: {
       ...signed,
@@ -339,9 +390,14 @@ export async function spApiRequest<T>(opts: {
     },
     body: opts.body ? bodyStr : undefined,
   });
-  const json = await res.json().catch(() => ({})) as T & { errors?: Array<{ message?: string }> };
+  const json = await res.json().catch(() => ({})) as T & { errors?: Array<{ message?: string; code?: string }> };
   if (!res.ok) {
     const msg = json.errors?.[0]?.message ?? `SP-API request failed (${res.status})`;
+    if (msg.includes("Could not match input arguments") && opts.settings.sandbox) {
+      throw new Error(
+        "Amazon sandbox mode rejected this request. Open Marketplaces → Edit credentials, uncheck \"Use SP-API sandbox\", save, then import again.",
+      );
+    }
     throw new Error(msg);
   }
   return json;
@@ -501,6 +557,44 @@ export type MerchantListingsReportRow = {
   status: string | null;
 };
 
+export async function fetchSellerMarketplaceParticipations(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  region?: "na" | "eu" | "fe";
+  accessToken?: string;
+}): Promise<string[]> {
+  const settings = withProductionSpApiSettings(opts.settings);
+  const regions: Array<"na" | "eu" | "fe"> = opts.region
+    ? [opts.region, "fe", "eu", "na"]
+    : ["fe", "eu", "na"];
+
+  let lastError: Error | null = null;
+
+  for (const region of [...new Set(regions)]) {
+    try {
+      const data = await spApiRequest<{
+        payload?: Array<{ marketplace?: { id?: string } }>;
+      }>({
+        settings,
+        refreshToken: opts.refreshToken,
+        method: "GET",
+        path: "/sellers/v1/marketplaceParticipations",
+        region,
+        accessToken: opts.accessToken,
+      });
+      const ids = (data.payload ?? [])
+        .map((entry) => entry.marketplace?.id?.trim())
+        .filter((id): id is string => Boolean(id));
+      if (ids.length > 0) return ids;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  if (lastError) throw lastError;
+  return [];
+}
+
 export async function fetchMerchantListingsAllDataReport(opts: {
   settings: AmazonSpSettings;
   refreshToken: string;
@@ -508,11 +602,12 @@ export async function fetchMerchantListingsAllDataReport(opts: {
   pollIntervalMs?: number;
   maxWaitMs?: number;
 }): Promise<MerchantListingsReportRow[]> {
+  const settings = withProductionSpApiSettings(opts.settings);
   const marketplaceId = resolveSpMarketplaceId(opts.marketplaceCode);
   const region = spApiRegionForMarketplaceCode(opts.marketplaceCode);
 
   const created = await spApiRequest<{ reportId?: string }>({
-    settings: opts.settings,
+    settings,
     refreshToken: opts.refreshToken,
     method: "POST",
     path: "/reports/2021-06-30/reports",
@@ -538,7 +633,7 @@ export async function fetchMerchantListingsAllDataReport(opts: {
       processingStatus?: string;
       reportDocumentId?: string;
     }>({
-      settings: opts.settings,
+      settings,
       refreshToken: opts.refreshToken,
       method: "GET",
       path: `/reports/2021-06-30/reports/${encodeURIComponent(reportId)}`,
@@ -565,7 +660,7 @@ export async function fetchMerchantListingsAllDataReport(opts: {
     url?: string;
     compressionAlgorithm?: string;
   }>({
-    settings: opts.settings,
+    settings,
     refreshToken: opts.refreshToken,
     method: "GET",
     path: `/reports/2021-06-30/documents/${encodeURIComponent(reportDocumentId)}`,
@@ -655,4 +750,300 @@ function parseMerchantListingsReport(text: string): MerchantListingsReportRow[] 
   }
 
   return rows;
+}
+
+export async function searchListingsItems(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  sellerId: string;
+  marketplaceCode: string;
+  maxItems?: number;
+}): Promise<MerchantListingsReportRow[]> {
+  const settings = withProductionSpApiSettings(opts.settings);
+  const marketplaceId = resolveSpMarketplaceId(opts.marketplaceCode);
+  const region = spApiRegionForMarketplaceCode(opts.marketplaceCode);
+  const maxItems = opts.maxItems ?? 500;
+  const rows: MerchantListingsReportRow[] = [];
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < 100 && rows.length < maxItems; page += 1) {
+    const queryParams = new URLSearchParams({
+      marketplaceIds: marketplaceId,
+      pageSize: "20",
+      includedData: "summaries,offers,fulfillmentAvailability",
+    });
+    if (pageToken) queryParams.set("pageToken", pageToken);
+
+    const path = `/listings/2021-08-01/items/${encodeURIComponent(opts.sellerId)}`;
+    const query = queryParams.toString();
+
+    const data = await spApiRequest<{
+      items?: Array<{
+        sku?: string;
+        summaries?: Array<{
+          marketplaceId?: string;
+          asin?: string;
+          itemName?: string;
+          status?: string[];
+          mainImage?: { link?: string };
+        }>;
+        offers?: Array<{
+          marketplaceId?: string;
+          price?: { amount?: string };
+        }>;
+        fulfillmentAvailability?: Array<{ quantity?: number }>;
+      }>;
+      pagination?: { nextToken?: string };
+    }>({
+      settings,
+      refreshToken: opts.refreshToken,
+      method: "GET",
+      path: `${path}?${query}`,
+      region,
+    });
+
+    for (const item of data.items ?? []) {
+      const sku = item.sku?.trim() ?? "";
+      const summary = item.summaries?.find((entry) => entry.marketplaceId === marketplaceId)
+        ?? item.summaries?.[0];
+      if (!sku && !summary?.itemName) continue;
+
+      const statuses = summary?.status ?? [];
+      let status: string | null = null;
+      if (statuses.includes("BUYABLE")) status = "active";
+      else if (statuses.length > 0) status = "inactive";
+
+      const offer = item.offers?.find((entry) => entry.marketplaceId === marketplaceId)
+        ?? item.offers?.[0];
+      let priceCents: number | null = null;
+      if (offer?.price?.amount) {
+        const price = Number.parseFloat(offer.price.amount);
+        if (Number.isFinite(price) && price > 0) {
+          priceCents = Math.round(price * 100);
+        }
+      }
+
+      const quantity = item.fulfillmentAvailability?.[0]?.quantity ?? null;
+      const asinRaw = summary?.asin?.trim() ?? "";
+      const asin = asinRaw && /^[A-Z0-9]{10}$/i.test(asinRaw) ? asinRaw.toUpperCase() : null;
+
+      rows.push({
+        sku: sku || asin || `ROW-${rows.length + 1}`,
+        title: summary?.itemName?.trim() || sku || asin || "Amazon listing",
+        asin,
+        priceCents,
+        quantity: typeof quantity === "number" ? quantity : null,
+        imageUrl: summary?.mainImage?.link?.trim() || null,
+        status,
+      });
+    }
+
+    pageToken = data.pagination?.nextToken?.trim();
+    if (!pageToken) break;
+  }
+
+  return rows.slice(0, maxItems);
+}
+
+export async function fetchSellerCatalog(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  sellerId: string;
+  marketplaceCode: string;
+}): Promise<MerchantListingsReportRow[]> {
+  let reportsError: Error | null = null;
+
+  try {
+    const reportRows = await fetchMerchantListingsAllDataReport({
+      settings: opts.settings,
+      refreshToken: opts.refreshToken,
+      marketplaceCode: opts.marketplaceCode,
+    });
+    if (reportRows.length > 0) return reportRows;
+  } catch (err) {
+    reportsError = err instanceof Error ? err : new Error(String(err));
+    if (!isSpApiAccessDenied(reportsError.message)) {
+      throw reportsError;
+    }
+  }
+
+  try {
+    const listingRows = await searchListingsItems({
+      settings: opts.settings,
+      refreshToken: opts.refreshToken,
+      sellerId: opts.sellerId,
+      marketplaceCode: opts.marketplaceCode,
+    });
+    if (listingRows.length > 0) return listingRows;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!isSpApiAccessDenied(message) && !reportsError) {
+      throw err instanceof Error ? err : new Error(message);
+    }
+  }
+
+  if (reportsError && !isSpApiAccessDenied(reportsError.message)) {
+    throw reportsError;
+  }
+
+  throw new Error(formatSpApiAccessDeniedError(opts.settings));
+}
+
+export type AmazonImportDiagnosticStep = {
+  name: string;
+  ok: boolean;
+  message: string;
+};
+
+export type AmazonImportDiagnostic = {
+  ok: boolean;
+  marketplaceCode: string;
+  steps: AmazonImportDiagnosticStep[];
+};
+
+export async function diagnoseAmazonImportAccess(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  sellerId: string;
+  marketplaceCode?: string;
+}): Promise<AmazonImportDiagnostic> {
+  const productionSettings = withProductionSpApiSettings(opts.settings);
+  const marketplaceCode = opts.marketplaceCode?.trim().toUpperCase()
+    || productionSettings.defaultMarketplace?.trim().toUpperCase()
+    || "IN";
+  const steps: AmazonImportDiagnosticStep[] = [];
+
+  if (!canSignSpApiRequests(productionSettings)) {
+    steps.push({
+      name: "AWS credentials",
+      ok: false,
+      message: "AWS Access Key ID and Secret Access Key are required on the Marketplaces credentials form.",
+    });
+    return { ok: false, marketplaceCode, steps };
+  }
+  steps.push({
+    name: "AWS credentials",
+    ok: true,
+    message: productionSettings.awsRoleArn.trim()
+      ? "AWS keys and Role ARN are set."
+      : "AWS keys are set.",
+  });
+
+  let accessToken: string;
+  try {
+    const token = await refreshAccessToken(productionSettings, opts.refreshToken);
+    accessToken = token.access_token;
+    steps.push({
+      name: "Seller refresh token",
+      ok: true,
+      message: "Amazon accepted the refresh token.",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Token refresh failed";
+    steps.push({
+      name: "Seller refresh token",
+      ok: false,
+      message: `${message} Re-authorize in Seller Central → Develop Apps and paste a new Atzr| refresh token.`,
+    });
+    return { ok: false, marketplaceCode, steps };
+  }
+
+  let participationIds: string[] = [];
+  try {
+    participationIds = await fetchSellerMarketplaceParticipations({
+      settings: productionSettings,
+      refreshToken: opts.refreshToken,
+      region: spApiRegionForMarketplaceCode(marketplaceCode),
+      accessToken,
+    });
+    if (participationIds.length === 0) {
+      steps.push({
+        name: "Marketplace access",
+        ok: false,
+        message: "Amazon returned no marketplaces for this seller. Re-authorize on sellercentral.amazon.in and confirm the Selling Partner ID matches your SARITE account.",
+      });
+    } else {
+      const codes = participationIds.map((id) => resolveMarketplaceCodeFromSpId(id));
+      steps.push({
+        name: "Marketplace access",
+        ok: true,
+        message: `Seller participates in: ${codes.join(", ")}.`,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Marketplace check failed";
+    steps.push({
+      name: "Marketplace access",
+      ok: false,
+      message: isSpApiAccessDenied(message)
+        ? `Access denied when reading seller marketplaces. ${formatSpApiAccessDeniedError(productionSettings)}`
+        : message,
+    });
+    return { ok: false, marketplaceCode, steps };
+  }
+
+  const effectiveMarketplace = participationIds.length > 0
+    ? resolveMarketplaceCodeFromSpId(
+      participationIds.find((id) => resolveMarketplaceCodeFromSpId(id) === marketplaceCode)
+        ?? participationIds[0]!,
+    )
+    : marketplaceCode;
+
+  try {
+    await spApiRequest({
+      settings: productionSettings,
+      refreshToken: opts.refreshToken,
+      method: "POST",
+      path: "/reports/2021-06-30/reports",
+      region: spApiRegionForMarketplaceCode(effectiveMarketplace),
+      body: {
+        reportType: "GET_MERCHANT_LISTINGS_ALL_DATA",
+        marketplaceIds: [resolveSpMarketplaceId(effectiveMarketplace)],
+      },
+      accessToken,
+    });
+    steps.push({
+      name: "Catalog report API",
+      ok: true,
+      message: `Reports API accepted a catalog export request for ${effectiveMarketplace}.`,
+    });
+    return { ok: true, marketplaceCode: effectiveMarketplace, steps };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Report request failed";
+    steps.push({
+      name: "Catalog report API",
+      ok: false,
+      message: isSpApiAccessDenied(message)
+        ? "Reports API denied access (missing Inventory and Order Tracking role or stale authorization)."
+        : message,
+    });
+  }
+
+  try {
+    const preview = await searchListingsItems({
+      settings: productionSettings,
+      refreshToken: opts.refreshToken,
+      sellerId: opts.sellerId,
+      marketplaceCode: effectiveMarketplace,
+      maxItems: 1,
+    });
+    steps.push({
+      name: "Listings Items API",
+      ok: true,
+      message: preview.length > 0
+        ? `Listings API works — found at least 1 listing in ${effectiveMarketplace}. Import should work.`
+        : `Listings API works but returned 0 listings for ${effectiveMarketplace}.`,
+    });
+    return { ok: preview.length > 0, marketplaceCode: effectiveMarketplace, steps };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Listings API failed";
+    steps.push({
+      name: "Listings Items API",
+      ok: false,
+      message: isSpApiAccessDenied(message)
+        ? `Listings API also denied access. ${formatSpApiAccessDeniedError(productionSettings)}`
+        : message,
+    });
+    return { ok: false, marketplaceCode: effectiveMarketplace, steps };
+  }
 }

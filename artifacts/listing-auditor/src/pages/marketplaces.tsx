@@ -34,6 +34,8 @@ import {
   connectAmazonSelfAuth,
   saveAmazonMarketplaceCredentials,
   testAmazonMarketplaceCredentials,
+  testAmazonImportAccess,
+  startAmazonConnect,
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
@@ -76,6 +78,8 @@ function ConnectCard({
   onConnect,
   onDisconnect,
   onImport,
+  onDiagnoseImport,
+  diagnoseLoading,
   importLoading,
   importDisabled,
   importDisabledReason,
@@ -93,6 +97,8 @@ function ConnectCard({
   onConnect: () => void;
   onDisconnect: () => void;
   onImport?: () => void;
+  onDiagnoseImport?: () => void;
+  diagnoseLoading?: boolean;
   importLoading?: boolean;
   importDisabled?: boolean;
   importDisabledReason?: string;
@@ -181,6 +187,21 @@ function ConnectCard({
                   Import products
                 </Button>
               )
+            ) : null}
+            {onDiagnoseImport ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={loading || importLoading || diagnoseLoading}
+                onClick={onDiagnoseImport}
+              >
+                {diagnoseLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                ) : null}
+                Diagnose import
+              </Button>
             ) : null}
             <Button
               type="button"
@@ -343,6 +364,27 @@ export default function MarketplacesPage() {
     },
   });
 
+  const amazonDiagnoseMutation = useMutation({
+    mutationFn: () => testAmazonImportAccess(),
+    onSuccess: (result) => {
+      const failed = result.steps.filter((step) => !step.ok);
+      toast({
+        title: result.ok ? "Import access looks good" : "Import blocked by Amazon",
+        description: result.ok
+          ? result.steps.map((step) => step.message).join(" ")
+          : failed.map((step) => `${step.name}: ${step.message}`).join(" "),
+        variant: result.ok ? "default" : "destructive",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Diagnosis failed",
+        description: error instanceof Error ? error.message : "Could not test Amazon import access.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const amazonSyncMutation = useMutation({
     mutationFn: () => syncAmazonProducts(),
     onSuccess: (result) => {
@@ -367,10 +409,20 @@ export default function MarketplacesPage() {
         });
       }
     },
-    onError: (error) => {
+    onError: async (error) => {
+      let description = error instanceof Error ? error.message : "Could not import Amazon listings.";
+      try {
+        const result = await testAmazonImportAccess();
+        const failed = result.steps.filter((step) => !step.ok);
+        if (failed.length > 0) {
+          description = failed.map((step) => `${step.name}: ${step.message}`).join(" ");
+        }
+      } catch {
+        // Keep the original import error message.
+      }
       toast({
         title: "Import failed",
-        description: error instanceof Error ? error.message : "Could not import Amazon listings.",
+        description,
         variant: "destructive",
       });
     },
@@ -442,7 +494,7 @@ export default function MarketplacesPage() {
     setAmazonClientId(data?.amazon.clientId ?? "");
     setAmazonClientSecret("");
     setAmazonDefaultMarketplace(data?.amazon.defaultMarketplace ?? "US");
-    setAmazonSandbox(data?.amazon.sandbox ?? true);
+    setAmazonSandbox(data?.amazon.sandbox ?? false);
     setAmazonAwsAccessKeyId("");
     setAmazonAwsSecretAccessKey("");
     setAmazonAwsRoleArn(data?.amazon.awsRoleArn ?? "");
@@ -534,6 +586,20 @@ export default function MarketplacesPage() {
       return;
     }
     amazonSyncMutation.mutate();
+  }
+
+  async function handleAmazonOAuthAuthorize() {
+    setPendingAction("amazon");
+    try {
+      await startAmazonConnect();
+    } catch (error) {
+      toast({
+        title: "Could not start Amazon authorization",
+        description: error instanceof Error ? error.message : "OAuth failed.",
+        variant: "destructive",
+      });
+      setPendingAction(null);
+    }
   }
 
   async function submitAmazonSelfAuth() {
@@ -722,6 +788,8 @@ export default function MarketplacesPage() {
             onConnect={handleAmazonConnect}
             onDisconnect={handleAmazonDisconnect}
             onImport={amazonConnected ? handleAmazonImport : undefined}
+            onDiagnoseImport={amazonConnected && amazonCanSignRequests ? () => amazonDiagnoseMutation.mutate() : undefined}
+            diagnoseLoading={amazonDiagnoseMutation.isPending}
             importDisabled={amazonConnected && !amazonCanSignRequests}
             importDisabledReason="Add AWS Access Key and Secret in Amazon SP-API credentials, then click Import products."
           />
@@ -1050,11 +1118,37 @@ export default function MarketplacesPage() {
           <DialogHeader>
             <DialogTitle>Connect with Amazon</DialogTitle>
             <DialogDescription>
-              In Seller Central → Develop Apps → your app → Authorize (self-authorization), copy the
-              Selling Partner ID and LWA refresh token (starts with Atzr|).
+              Your Seller Central &quot;Manage Your Apps&quot; page is empty until you authorize Seller Lens.
+              Use the button below — you will sign in on sellercentral.amazon.in as SARITE and approve access.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
+            <Button
+              type="button"
+              className="w-full h-9 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => void handleAmazonOAuthAuthorize()}
+              disabled={pendingAction === "amazon"}
+            >
+              {pendingAction === "amazon" ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  Redirecting to Amazon…
+                </>
+              ) : (
+                "Authorize on Amazon (recommended)"
+              )}
+            </Button>
+            <p className="text-[10px] text-muted-foreground text-center">
+              After approval, Seller Lens will appear under Manage Your Apps on sellercentral.amazon.in.
+            </p>
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or paste token manually</span>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="amazon-seller-id" className="text-xs text-muted-foreground">
                 Selling Partner ID

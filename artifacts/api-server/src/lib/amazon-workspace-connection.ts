@@ -142,7 +142,7 @@ export async function saveAmazonWorkspaceAppCredentials(
     defaultMarketplace: input.defaultMarketplace?.trim().toUpperCase()
       || existing?.defaultMarketplace
       || "US",
-    sandbox: input.sandbox ?? existing?.sandbox ?? true,
+    sandbox: input.sandbox ?? existing?.sandbox ?? false,
     awsAccessKeyId: input.awsAccessKeyId?.trim() || existing?.awsAccessKeyId,
     awsSecretAccessKey: input.awsSecretAccessKey?.trim() || existing?.awsSecretAccessKey,
     awsRoleArn: input.awsRoleArn?.trim() || existing?.awsRoleArn,

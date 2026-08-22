@@ -34,7 +34,7 @@ import {
   workspaceLegacyRecordToSpSettings,
 } from "../lib/amazon-workspace-connection.js";
 import { loadAmazonConnectionStatusForWorkspace } from "../lib/resolve-amazon-settings.js";
-import { testAmazonSpConnection } from "../lib/amazon-sp-api.js";
+import { testAmazonSpConnection, diagnoseAmazonImportAccess } from "../lib/amazon-sp-api.js";
 import { validateAmazonAwsCredentials } from "../lib/amazon-sp-settings.js";
 import { syncShopifyProducts } from "../lib/shopify-product-sync.js";
 import { syncShopifyOrders } from "../lib/shopify-order-sync.js";
@@ -237,7 +237,7 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       clientSecret: String(body.clientSecret ?? "").trim() || existing?.clientSecret || "",
       redirectUri: String(body.redirectUri ?? "").trim() || existing?.redirectUri || buildAmazonOAuthRedirectUri(req),
       defaultMarketplace: String(body.defaultMarketplace ?? "").trim() || existing?.defaultMarketplace || "US",
-      sandbox: body.sandbox ?? existing?.sandbox ?? true,
+      sandbox: body.sandbox ?? existing?.sandbox ?? false,
       awsAccessKeyId: String(body.awsAccessKeyId ?? "").trim() || existing?.awsAccessKeyId || "",
       awsSecretAccessKey: String(body.awsSecretAccessKey ?? "").trim() || existing?.awsSecretAccessKey || "",
       awsRoleArn: String(body.awsRoleArn ?? "").trim() || existing?.awsRoleArn || "",
@@ -436,7 +436,7 @@ router.post(
       defaultMarketplace: String(body.defaultMarketplace ?? "").trim()
         || workspaceRecord?.defaultMarketplace
         || "US",
-      sandbox: body.sandbox ?? workspaceRecord?.sandbox ?? true,
+      sandbox: body.sandbox ?? workspaceRecord?.sandbox ?? false,
       awsAccessKeyId: workspaceRecord?.awsAccessKeyId ?? "",
       awsSecretAccessKey: workspaceRecord?.awsSecretAccessKey ?? "",
       awsRoleArn: workspaceRecord?.awsRoleArn ?? "",
@@ -454,6 +454,47 @@ router.post(
       res.json({
         ok: false,
         message: err instanceof Error ? err.message : "Amazon SP-API test failed",
+      });
+    }
+  },
+);
+
+router.post(
+  "/marketplaces/amazon/test-import",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const userId = (req as AuthedRequest).userId;
+    const connection = await resolveAmazonConnectionForWorkspace({
+      workspaceId,
+      userId,
+      req,
+    });
+
+    if (!connection) {
+      res.status(400).json({
+        ok: false,
+        error: "Connect your Amazon seller account and save SP-API credentials before testing import.",
+      });
+      return;
+    }
+
+    const body = req.body as { marketplace?: string } | undefined;
+    const marketplaceCode = typeof body?.marketplace === "string" ? body.marketplace.trim() : undefined;
+
+    try {
+      const result = await diagnoseAmazonImportAccess({
+        settings: connection.settings,
+        refreshToken: connection.refreshToken,
+        sellerId: connection.sellerId,
+        marketplaceCode,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "Import diagnostic failed",
       });
     }
   },
