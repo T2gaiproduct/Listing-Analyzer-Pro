@@ -35,6 +35,7 @@ import {
   saveAmazonMarketplaceCredentials,
   testAmazonMarketplaceCredentials,
   testAmazonImportAccess,
+  startAmazonConnect,
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
@@ -587,6 +588,20 @@ export default function MarketplacesPage() {
     amazonSyncMutation.mutate();
   }
 
+  async function handleAmazonOAuthAuthorize() {
+    setPendingAction("amazon");
+    try {
+      await startAmazonConnect();
+    } catch (error) {
+      toast({
+        title: "Could not start Amazon authorization",
+        description: error instanceof Error ? error.message : "OAuth failed.",
+        variant: "destructive",
+      });
+      setPendingAction(null);
+    }
+  }
+
   async function submitAmazonSelfAuth() {
     const sellerId = amazonSellerId.trim();
     const refreshToken = amazonRefreshToken.trim();
@@ -1103,11 +1118,37 @@ export default function MarketplacesPage() {
           <DialogHeader>
             <DialogTitle>Connect with Amazon</DialogTitle>
             <DialogDescription>
-              In Seller Central → Develop Apps → your app → Authorize (self-authorization), copy the
-              Selling Partner ID and LWA refresh token (starts with Atzr|).
+              Your Seller Central &quot;Manage Your Apps&quot; page is empty until you authorize Seller Lens.
+              Use the button below — you will sign in on sellercentral.amazon.in as SARITE and approve access.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
+            <Button
+              type="button"
+              className="w-full h-9 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => void handleAmazonOAuthAuthorize()}
+              disabled={pendingAction === "amazon"}
+            >
+              {pendingAction === "amazon" ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  Redirecting to Amazon…
+                </>
+              ) : (
+                "Authorize on Amazon (recommended)"
+              )}
+            </Button>
+            <p className="text-[10px] text-muted-foreground text-center">
+              After approval, Seller Lens will appear under Manage Your Apps on sellercentral.amazon.in.
+            </p>
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or paste token manually</span>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="amazon-seller-id" className="text-xs text-muted-foreground">
                 Selling Partner ID
