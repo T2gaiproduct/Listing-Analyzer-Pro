@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Bot,
   ChevronDown,
   ChevronRight,
   Clock,
@@ -38,13 +39,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { fetchMarketplaceConnections } from "@/lib/marketplace-connections";
@@ -124,6 +118,7 @@ export default function SellerAgentsPage() {
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<"basic" | "agent">("agent");
   const [promptCategory, setPromptCategory] = useState<(typeof PROMPT_CATEGORIES)[number]>("All");
+  const [agentsOpen, setAgentsOpen] = useState(true);
   const [memoryOpen, setMemoryOpen] = useState(true);
   const [connectedOpen, setConnectedOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -144,6 +139,14 @@ export default function SellerAgentsPage() {
   });
 
   const agents = agentsQuery.data?.agents ?? [];
+  const sortedAgents = useMemo(() => {
+    return [...agents].sort((a, b) => {
+      if (a.isPlatformTemplate !== b.isPlatformTemplate) {
+        return a.isPlatformTemplate ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [agents]);
   const selectedAgent = useMemo(
     () => agents.find((a) => a.id === selectedAgentId) ?? null,
     [agents, selectedAgentId],
@@ -349,26 +352,39 @@ export default function SellerAgentsPage() {
     <div className="flex h-[calc(100vh-3.5rem)] min-h-[640px] -mx-4 -mt-2 md:-mx-6 bg-background">
       {/* Inner left pane — SellerMate style */}
       <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col">
-        <div className="p-3 border-b border-border">
-          <Select
-            value={selectedAgentId ? String(selectedAgentId) : undefined}
-            onValueChange={(value) => {
-              setSelectedAgentId(Number(value));
-              setActiveChatId(null);
-            }}
+        <div className="flex-1 overflow-y-auto">
+          <SidebarSection
+            title="Agents"
+            icon={Bot}
+            open={agentsOpen}
+            onToggle={() => setAgentsOpen((v) => !v)}
+            onAdd={() => setCreateOpen(true)}
           >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Select agent" />
-            </SelectTrigger>
-            <SelectContent>
-              {agents.map((agent) => (
-                <SelectItem key={agent.id} value={String(agent.id)} className="text-xs">
-                  {agent.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            {agentsQuery.isLoading ? (
+              <p className="text-[11px] text-muted-foreground px-1">Loading agents…</p>
+            ) : sortedAgents.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground px-1">No agents yet</p>
+            ) : (
+              sortedAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAgentId(agent.id);
+                    setActiveChatId(null);
+                  }}
+                  className={cn(
+                    "w-full text-left rounded-md px-2 py-1.5 text-[11px] transition-colors",
+                    selectedAgentId === agent.id
+                      ? "bg-muted font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  )}
+                >
+                  <span className="line-clamp-2">{agent.name}</span>
+                </button>
+              ))
+            )}
+          </SidebarSection>
 
         <button
           type="button"
@@ -392,7 +408,6 @@ export default function SellerAgentsPage() {
           <span className="ml-auto text-[10px] uppercase tracking-wide">Soon</span>
         </button>
 
-        <div className="flex-1 overflow-y-auto">
           <SidebarSection
             title="Memory Files"
             icon={FolderOpen}
@@ -475,18 +490,18 @@ export default function SellerAgentsPage() {
             size="sm"
             variant="ghost"
             className="w-full h-7 text-[11px] justify-start"
-            onClick={() => selectedAgent && cloneMutation.mutate(selectedAgent.id)}
-            disabled={!selectedAgent || cloneMutation.isPending}
+            onClick={() => setCreateOpen(true)}
           >
-            <Copy className="w-3 h-3 mr-1" /> Clone agent
+            <Plus className="w-3 h-3 mr-1" /> Create agent
           </Button>
           <Button
             size="sm"
             variant="ghost"
             className="w-full h-7 text-[11px] justify-start"
-            onClick={() => setCreateOpen(true)}
+            onClick={() => selectedAgent && cloneMutation.mutate(selectedAgent.id)}
+            disabled={!selectedAgent || cloneMutation.isPending}
           >
-            <Plus className="w-3 h-3 mr-1" /> Create agent
+            <Copy className="w-3 h-3 mr-1" /> Clone agent
           </Button>
           {canDeleteSelectedAgent ? (
             <Button
