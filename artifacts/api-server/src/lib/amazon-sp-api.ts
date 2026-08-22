@@ -252,14 +252,14 @@ export function isSpApiAccessDenied(message: string, status?: number): boolean {
 
 export function formatSpApiAccessDeniedError(settings: AmazonSpSettings): string {
   const roleHint = settings.awsRoleArn.trim()
-    ? ""
-    : " If your SP-API app is registered with an IAM Role ARN, paste that ARN in the AWS Role ARN field.";
+    ? " Confirm the AWS Role ARN matches the IAM Role registered in your SP-API app (Solution Provider Portal → Edit App)."
+    : " If your SP-API app is registered with an IAM Role ARN (not a User ARN), paste that Role ARN in the AWS Role ARN field. If registered with an IAM User ARN, leave Role ARN blank and use that user's Access Key + Secret.";
   return [
-    "Amazon denied access to your seller catalog.",
-    "1) Seller Central → Develop Apps → enable Product Listing and Inventory and Order Tracking roles.",
-    "2) Marketplaces → Connect with Amazon again (fresh refresh token).",
-    `3) Set Default marketplace to match Seller Central (e.g. India for amazon.in).${roleHint}`,
-    "4) Confirm AWS Access Key ID + Secret match the IAM user registered with your SP-API app.",
+    "Amazon denied SP-API access. Your refresh token is valid, but AWS signing or app roles are wrong.",
+    "1) Solution Provider Portal → Seller Lens → Edit App: note the registered IAM User ARN or IAM Role ARN.",
+    "2) SellerLens credentials: AWS keys must belong to that exact IAM user. Role ARN only if the app uses role-based auth.",
+    "3) Seller Central India (sellercentral.amazon.in/apps/manage) → authorize Seller Lens → enable Product Listing + Inventory and Order Tracking → paste new Atzr| token.",
+    `4) Default marketplace = India, Sandbox OFF.${roleHint}`,
   ].join(" ");
 }
 
@@ -568,6 +568,8 @@ export async function fetchSellerMarketplaceParticipations(opts: {
     ? [opts.region, "fe", "eu", "na"]
     : ["fe", "eu", "na"];
 
+  let lastError: Error | null = null;
+
   for (const region of [...new Set(regions)]) {
     try {
       const data = await spApiRequest<{
@@ -584,11 +586,12 @@ export async function fetchSellerMarketplaceParticipations(opts: {
         .map((entry) => entry.marketplace?.id?.trim())
         .filter((id): id is string => Boolean(id));
       if (ids.length > 0) return ids;
-    } catch {
-      // Try the next SP-API region (e.g. India sellers use FE).
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
     }
   }
 
+  if (lastError) throw lastError;
   return [];
 }
 
@@ -957,7 +960,7 @@ export async function diagnoseAmazonImportAccess(opts: {
       steps.push({
         name: "Marketplace access",
         ok: false,
-        message: "Connected, but no marketplaces returned. Check Default marketplace = India and re-authorize the seller account.",
+        message: "Amazon returned no marketplaces for this seller. Re-authorize on sellercentral.amazon.in and confirm the Selling Partner ID matches your SARITE account.",
       });
     } else {
       const codes = participationIds.map((id) => resolveMarketplaceCodeFromSpId(id));
