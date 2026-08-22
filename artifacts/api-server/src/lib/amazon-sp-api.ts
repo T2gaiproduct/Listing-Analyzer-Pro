@@ -216,6 +216,52 @@ function getSignatureKey(secret: string, dateStamp: string, region: string, serv
   return hmac(kService, "aws4_request");
 }
 
+function encodeRfc3986(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function canonicalizeQueryString(query: string): string {
+  if (!query) return "";
+  const params = new URLSearchParams(query);
+  return [...params.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${encodeRfc3986(key)}=${encodeRfc3986(value)}`)
+    .join("&");
+}
+
+function splitPathAndQuery(pathWithQuery: string): { path: string; query: string } {
+  const queryIndex = pathWithQuery.indexOf("?");
+  if (queryIndex < 0) {
+    return { path: pathWithQuery, query: "" };
+  }
+  return {
+    path: pathWithQuery.slice(0, queryIndex),
+    query: pathWithQuery.slice(queryIndex + 1),
+  };
+}
+
+export function isSpApiAccessDenied(message: string, status?: number): boolean {
+  const lower = message.toLowerCase();
+  return status === 403
+    || lower.includes("access to requested resource is denied")
+    || lower.includes("access denied")
+    || lower.includes("not authorized")
+    || lower.includes("unauthorized");
+}
+
+export function formatSpApiAccessDeniedError(settings: AmazonSpSettings): string {
+  const roleHint = settings.awsRoleArn.trim()
+    ? ""
+    : " If your SP-API app is registered with an IAM Role ARN, paste that ARN in the AWS Role ARN field.";
+  return [
+    "Amazon denied access to your seller catalog.",
+    "1) Seller Central → Develop Apps → enable Product Listing and Inventory and Order Tracking roles.",
+    "2) Marketplaces → Connect with Amazon again (fresh refresh token).",
+    `3) Set Default marketplace to match Seller Central (e.g. India for amazon.in).${roleHint}`,
+    "4) Confirm AWS Access Key ID + Secret match the IAM user registered with your SP-API app.",
+  ].join(" ");
+}
+
 function signAwsRequest(opts: {
   method: string;
   host: string;
@@ -233,7 +279,7 @@ function signAwsRequest(opts: {
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.slice(0, 8);
   const payloadHash = sha256(opts.body);
-  const canonicalQuery = opts.query ?? "";
+  const canonicalQuery = canonicalizeQueryString(opts.query ?? "");
   const canonicalHeaders = [
     `host:${opts.host}`,
     `x-amz-date:${amzDate}`,
@@ -322,16 +368,19 @@ export async function spApiRequest<T>(opts: {
   const host = spApiHost(opts.settings, opts.region ?? "na").replace("https://", "");
   const bodyStr = opts.body ? JSON.stringify(opts.body) : "";
   const creds = await assumeRoleIfNeeded(opts.settings);
+  const { path, query } = splitPathAndQuery(opts.path);
   const signed = signAwsRequest({
     method: opts.method,
     host,
-    path: opts.path,
+    path,
+    query,
     body: bodyStr,
     accessKeyId: creds.accessKeyId,
     secretAccessKey: creds.secretAccessKey,
     sessionToken: creds.sessionToken,
   });
-  const res = await fetch(`https://${host}${opts.path}`, {
+  const requestUrl = query ? `https://${host}${path}?${query}` : `https://${host}${path}`;
+  const res = await fetch(requestUrl, {
     method: opts.method,
     headers: {
       ...signed,
@@ -695,4 +744,141 @@ function parseMerchantListingsReport(text: string): MerchantListingsReportRow[] 
   }
 
   return rows;
+}
+
+export async function searchListingsItems(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  sellerId: string;
+  marketplaceCode: string;
+  maxItems?: number;
+}): Promise<MerchantListingsReportRow[]> {
+  const settings = withProductionSpApiSettings(opts.settings);
+  const marketplaceId = resolveSpMarketplaceId(opts.marketplaceCode);
+  const region = spApiRegionForMarketplaceCode(opts.marketplaceCode);
+  const maxItems = opts.maxItems ?? 500;
+  const rows: MerchantListingsReportRow[] = [];
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < 100 && rows.length < maxItems; page += 1) {
+    const queryParams = new URLSearchParams({
+      marketplaceIds: marketplaceId,
+      pageSize: "20",
+      includedData: "summaries,offers,fulfillmentAvailability",
+    });
+    if (pageToken) queryParams.set("pageToken", pageToken);
+
+    const path = `/listings/2021-08-01/items/${encodeURIComponent(opts.sellerId)}`;
+    const query = queryParams.toString();
+
+    const data = await spApiRequest<{
+      items?: Array<{
+        sku?: string;
+        summaries?: Array<{
+          marketplaceId?: string;
+          asin?: string;
+          itemName?: string;
+          status?: string[];
+          mainImage?: { link?: string };
+        }>;
+        offers?: Array<{
+          marketplaceId?: string;
+          price?: { amount?: string };
+        }>;
+        fulfillmentAvailability?: Array<{ quantity?: number }>;
+      }>;
+      pagination?: { nextToken?: string };
+    }>({
+      settings,
+      refreshToken: opts.refreshToken,
+      method: "GET",
+      path: `${path}?${query}`,
+      region,
+    });
+
+    for (const item of data.items ?? []) {
+      const sku = item.sku?.trim() ?? "";
+      const summary = item.summaries?.find((entry) => entry.marketplaceId === marketplaceId)
+        ?? item.summaries?.[0];
+      if (!sku && !summary?.itemName) continue;
+
+      const statuses = summary?.status ?? [];
+      let status: string | null = null;
+      if (statuses.includes("BUYABLE")) status = "active";
+      else if (statuses.length > 0) status = "inactive";
+
+      const offer = item.offers?.find((entry) => entry.marketplaceId === marketplaceId)
+        ?? item.offers?.[0];
+      let priceCents: number | null = null;
+      if (offer?.price?.amount) {
+        const price = Number.parseFloat(offer.price.amount);
+        if (Number.isFinite(price) && price > 0) {
+          priceCents = Math.round(price * 100);
+        }
+      }
+
+      const quantity = item.fulfillmentAvailability?.[0]?.quantity ?? null;
+      const asinRaw = summary?.asin?.trim() ?? "";
+      const asin = asinRaw && /^[A-Z0-9]{10}$/i.test(asinRaw) ? asinRaw.toUpperCase() : null;
+
+      rows.push({
+        sku: sku || asin || `ROW-${rows.length + 1}`,
+        title: summary?.itemName?.trim() || sku || asin || "Amazon listing",
+        asin,
+        priceCents,
+        quantity: typeof quantity === "number" ? quantity : null,
+        imageUrl: summary?.mainImage?.link?.trim() || null,
+        status,
+      });
+    }
+
+    pageToken = data.pagination?.nextToken?.trim();
+    if (!pageToken) break;
+  }
+
+  return rows.slice(0, maxItems);
+}
+
+export async function fetchSellerCatalog(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  sellerId: string;
+  marketplaceCode: string;
+}): Promise<MerchantListingsReportRow[]> {
+  let reportsError: Error | null = null;
+
+  try {
+    const reportRows = await fetchMerchantListingsAllDataReport({
+      settings: opts.settings,
+      refreshToken: opts.refreshToken,
+      marketplaceCode: opts.marketplaceCode,
+    });
+    if (reportRows.length > 0) return reportRows;
+  } catch (err) {
+    reportsError = err instanceof Error ? err : new Error(String(err));
+    if (!isSpApiAccessDenied(reportsError.message)) {
+      throw reportsError;
+    }
+  }
+
+  try {
+    const listingRows = await searchListingsItems({
+      settings: opts.settings,
+      refreshToken: opts.refreshToken,
+      sellerId: opts.sellerId,
+      marketplaceCode: opts.marketplaceCode,
+    });
+    if (listingRows.length > 0) return listingRows;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!isSpApiAccessDenied(message) && !reportsError) {
+      throw err instanceof Error ? err : new Error(message);
+    }
+  }
+
+  if (reportsError && !isSpApiAccessDenied(reportsError.message)) {
+    throw reportsError;
+  }
+
+  throw new Error(formatSpApiAccessDeniedError(opts.settings));
 }

@@ -7,7 +7,7 @@ import {
 } from "@workspace/db";
 import { isRealAmazonAsin } from "./amazon-asin-utils.js";
 import { resolveAmazonMarketplace, amazonMarketplaceCurrency } from "./amazon-marketplaces.js";
-import { fetchMerchantListingsAllDataReport, fetchSellerMarketplaceParticipations, type MerchantListingsReportRow } from "./amazon-sp-api.js";
+import { fetchSellerCatalog, fetchSellerMarketplaceParticipations, type MerchantListingsReportRow } from "./amazon-sp-api.js";
 import { resolveMarketplaceCodeFromSpId, spApiRegionForMarketplaceCode, withProductionSpApiSettings } from "./amazon-sp-settings.js";
 import type { ResolvedAmazonConnection } from "./resolve-amazon-settings.js";
 import { TARGET_MARKETPLACES } from "./create-product.js";
@@ -180,9 +180,10 @@ export async function syncAmazonProducts(input: {
   const currency = amazonMarketplaceCurrency(marketplaceCode);
   const productionSettings = withProductionSpApiSettings(input.connection.settings);
 
-  const catalog = await fetchMerchantListingsAllDataReport({
+  const catalog = await fetchSellerCatalog({
     settings: productionSettings,
     refreshToken: input.connection.refreshToken,
+    sellerId: input.connection.sellerId,
     marketplaceCode,
   });
 
@@ -195,7 +196,10 @@ export async function syncAmazonProducts(input: {
       auditsQueued: 0,
       pendingAuditIds: [],
       products: [],
-      errors: [],
+      errors: [{
+        handle: "catalog",
+        error: `No listings returned for marketplace ${marketplaceCode}. In Marketplaces → Edit credentials, set Default marketplace to match Seller Central (e.g. India for amazon.in), save, then import again.`,
+      }],
     };
   }
 
