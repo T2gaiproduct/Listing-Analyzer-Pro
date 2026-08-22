@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
-  Brain,
+  ChevronDown,
+  ChevronRight,
+  Clock,
   Copy,
   FileText,
+  FolderOpen,
   Loader2,
-  MessageSquare,
+  PenLine,
+  Plug,
   Plus,
   Send,
   Sparkles,
   Trash2,
   Upload,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +30,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { fetchMarketplaceConnections } from "@/lib/marketplace-connections";
 import {
   cloneSellerAgent,
   createSellerAgent,
@@ -39,20 +51,60 @@ import {
   fetchSellerAgents,
   indexWorkspaceForAgent,
   sendSellerAgentMessage,
+  updateSellerAgent,
   type SellerAgent,
   type SellerAgentMessage,
   uploadSellerAgentMemoryFile,
 } from "@/lib/seller-agents";
 
-function agentIcon(icon: string) {
-  switch (icon) {
-    case "zap":
-      return Zap;
-    case "file-search":
-      return FileText;
-    default:
-      return Bot;
-  }
+const PROMPT_CATEGORIES = [
+  "All",
+  "Data Insights & Recommendations",
+  "Data Fetching",
+  "PPC Helper",
+] as const;
+
+const SUGGESTED_PROMPTS: Array<{ category: (typeof PROMPT_CATEGORIES)[number]; text: string }> = [
+  { category: "Data Insights & Recommendations", text: "Summarise the story behind my performance change" },
+  { category: "Data Insights & Recommendations", text: "Which listings need the most optimization right now?" },
+  { category: "Data Fetching", text: "What does my workspace catalog look like?" },
+  { category: "Data Fetching", text: "List my top products and their audit scores" },
+  { category: "PPC Helper", text: "Suggest negative keywords from wasted ad spend patterns" },
+  { category: "PPC Helper", text: "Compare campaign performance and recommend bid changes" },
+];
+
+function SidebarSection({
+  title,
+  icon: Icon,
+  open,
+  onToggle,
+  onAdd,
+  children,
+}: {
+  title: string;
+  icon: typeof FolderOpen;
+  open: boolean;
+  onToggle: () => void;
+  onAdd?: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="border-b border-border/60">
+      <div className="flex items-center gap-1 px-3 py-2">
+        <button type="button" onClick={onToggle} className="flex flex-1 items-center gap-2 text-left text-xs text-foreground">
+          {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="font-medium">{title}</span>
+        </button>
+        {onAdd ? (
+          <button type="button" onClick={onAdd} className="p-1 rounded hover:bg-muted text-muted-foreground">
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        ) : null}
+      </div>
+      {open ? <div className="px-3 pb-3 space-y-1">{children}</div> : null}
+    </div>
+  );
 }
 
 export default function SellerAgentsPage() {
@@ -61,15 +113,25 @@ export default function SellerAgentsPage() {
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
-  const [mode, setMode] = useState<"basic" | "agent">("basic");
+  const [mode, setMode] = useState<"basic" | "agent">("agent");
+  const [promptCategory, setPromptCategory] = useState<(typeof PROMPT_CATEGORIES)[number]>("All");
+  const [memoryOpen, setMemoryOpen] = useState(true);
+  const [skillsOpen, setSkillsOpen] = useState(true);
+  const [connectedOpen, setConnectedOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentInstructions, setNewAgentInstructions] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const agentsQuery = useQuery({
     queryKey: ["seller-agents"],
     queryFn: fetchSellerAgents,
+  });
+
+  const connectionsQuery = useQuery({
+    queryKey: ["marketplace-connections"],
+    queryFn: fetchMarketplaceConnections,
   });
 
   const agents = agentsQuery.data?.agents ?? [];
@@ -85,7 +147,7 @@ export default function SellerAgentsPage() {
   }, [agents, selectedAgentId]);
 
   useEffect(() => {
-    if (selectedAgent) setMode(selectedAgent.mode === "agent" ? "agent" : "basic");
+    if (selectedAgent) setMode(selectedAgent.mode === "basic" ? "basic" : "agent");
   }, [selectedAgent]);
 
   const chatsQuery = useQuery({
@@ -105,17 +167,6 @@ export default function SellerAgentsPage() {
     queryFn: () => fetchSellerAgentMessages(selectedAgentId!, activeChatId!),
     enabled: Boolean(selectedAgentId && activeChatId),
   });
-
-  useEffect(() => {
-    const chats = chatsQuery.data?.chats ?? [];
-    if (!activeChatId && chats.length > 0) {
-      setActiveChatId(chats[0]!.id);
-    }
-  }, [chatsQuery.data?.chats, activeChatId]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messagesQuery.data?.messages]);
 
   const createAgentMutation = useMutation({
     mutationFn: () => createSellerAgent({
@@ -137,6 +188,14 @@ export default function SellerAgentsPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "destructive",
       });
+    },
+  });
+
+  const updateModeMutation = useMutation({
+    mutationFn: (nextMode: "basic" | "agent") =>
+      updateSellerAgent(selectedAgentId!, { mode: nextMode }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["seller-agents"] });
     },
   });
 
@@ -164,15 +223,6 @@ export default function SellerAgentsPage() {
         description: error instanceof Error ? error.message : "Try again.",
         variant: "destructive",
       });
-    },
-  });
-
-  const cloneMutation = useMutation({
-    mutationFn: (agentId: number) => cloneSellerAgent(agentId),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["seller-agents"] });
-      setSelectedAgentId(result.agent.id);
-      toast({ title: "Agent cloned", description: "Customize your copy in a new agent." });
     },
   });
 
@@ -214,6 +264,19 @@ export default function SellerAgentsPage() {
     },
   });
 
+  const cloneMutation = useMutation({
+    mutationFn: (agentId: number) => cloneSellerAgent(agentId),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["seller-agents"] });
+      setSelectedAgentId(result.agent.id);
+      toast({ title: "Agent cloned" });
+    },
+  });
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messagesQuery.data?.messages, sendMutation.isPending]);
+
   async function handleMemoryFileUpload(file: File) {
     const text = await file.text();
     await uploadMemoryMutation.mutateAsync({
@@ -223,8 +286,8 @@ export default function SellerAgentsPage() {
     });
   }
 
-  async function handleSend() {
-    const content = draft.trim();
+  async function handleSend(contentOverride?: string) {
+    const content = (contentOverride ?? draft).trim();
     if (!content || !selectedAgentId || sendMutation.isPending) return;
 
     let chatId = activeChatId;
@@ -235,264 +298,311 @@ export default function SellerAgentsPage() {
       void queryClient.invalidateQueries({ queryKey: ["seller-agent-chats", selectedAgentId] });
     }
 
+    if (!contentOverride) setDraft(content);
     sendMutation.mutate({ chatId, content });
   }
 
+  function handleModeChange(nextMode: "basic" | "agent") {
+    setMode(nextMode);
+    if (selectedAgentId) updateModeMutation.mutate(nextMode);
+  }
+
   const messages = messagesQuery.data?.messages ?? [];
+  const showWelcome = messages.length === 0 && !sendMutation.isPending;
+  const filteredPrompts = SUGGESTED_PROMPTS.filter(
+    (p) => promptCategory === "All" || p.category === promptCategory,
+  );
+
+  const connections = connectionsQuery.data;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] min-h-[640px] gap-4">
-      <aside className="w-64 shrink-0 rounded-xl border border-border bg-card p-3 flex flex-col">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold">Seller Agents</h2>
-          <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-3.5 h-3.5" />
-          </Button>
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-[640px] -mx-4 -mt-2 md:-mx-6 bg-background">
+      {/* Inner left pane — SellerMate style */}
+      <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col">
+        <div className="p-3 border-b border-border">
+          <Select
+            value={selectedAgentId ? String(selectedAgentId) : undefined}
+            onValueChange={(value) => {
+              setSelectedAgentId(Number(value));
+              setActiveChatId(null);
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select agent" />
+            </SelectTrigger>
+            <SelectContent>
+              {agents.map((agent) => (
+                <SelectItem key={agent.id} value={String(agent.id)} className="text-xs">
+                  {agent.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="space-y-1 overflow-y-auto flex-1">
-          {agents.map((agent) => {
-            const Icon = agentIcon(agent.icon);
-            return (
-              <button
-                key={agent.id}
-                type="button"
-                onClick={() => {
-                  setSelectedAgentId(agent.id);
-                  setActiveChatId(null);
-                }}
-                className={cn(
-                  "w-full text-left rounded-lg px-2.5 py-2 text-xs transition-colors",
-                  selectedAgentId === agent.id ? "bg-muted text-foreground" : "hover:bg-muted/60 text-muted-foreground",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="font-medium truncate">{agent.name}</span>
-                </div>
-                {agent.isDefault ? (
-                  <span className="text-[10px] text-muted-foreground ml-5">Default</span>
-                ) : null}
-              </button>
-            );
-          })}
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveChatId(null);
+            newChatMutation.mutate();
+          }}
+          className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium hover:bg-muted/60 border-b border-border/60"
+        >
+          <PenLine className="w-3.5 h-3.5" />
+          New chat
+        </button>
+
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground border-b border-border/60 cursor-not-allowed"
+        >
+          <Clock className="w-3.5 h-3.5" />
+          Automations
+          <span className="ml-auto text-[10px] uppercase tracking-wide">Soon</span>
+        </button>
+
+        <div className="flex-1 overflow-y-auto">
+          <SidebarSection
+            title="Memory Files"
+            icon={FolderOpen}
+            open={memoryOpen}
+            onToggle={() => setMemoryOpen((v) => !v)}
+            onAdd={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,.csv,.json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleMemoryFileUpload(file);
+                e.currentTarget.value = "";
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-7 text-[11px] mb-1"
+              onClick={() => indexWorkspaceMutation.mutate()}
+              disabled={!selectedAgentId || indexWorkspaceMutation.isPending}
+            >
+              {indexWorkspaceMutation.isPending ? (
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              ) : (
+                <Upload className="w-3 h-3 mr-1" />
+              )}
+              Learn from workspace
+            </Button>
+            {(memoryQuery.data?.files ?? []).map((file) => (
+              <div key={file.id} className="flex items-center justify-between gap-1 text-[11px] rounded-md bg-muted/40 px-2 py-1">
+                <span className="truncate">{file.fileName}</span>
+                <button type="button" onClick={() => deleteMemoryMutation.mutate(file.id)}>
+                  <Trash2 className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                </button>
+              </div>
+            ))}
+            {(memoryQuery.data?.files ?? []).length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">No files yet</p>
+            ) : null}
+          </SidebarSection>
+
+          <SidebarSection
+            title="Skills"
+            icon={Sparkles}
+            open={skillsOpen}
+            onToggle={() => setSkillsOpen((v) => !v)}
+            onAdd={() => setCreateOpen(true)}
+          >
+            {(selectedAgent?.enabledSkills ?? []).map((skill) => (
+              <span key={skill} className="inline-block text-[10px] rounded-full bg-muted px-2 py-0.5 mr-1 mb-1">
+                {skill.replace(/_/g, " ")}
+              </span>
+            ))}
+            {(selectedAgent?.enabledSkills ?? []).length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">Default skills from agent template</p>
+            ) : null}
+          </SidebarSection>
+
+          <SidebarSection
+            title="Connected Apps"
+            icon={Plug}
+            open={connectedOpen}
+            onToggle={() => setConnectedOpen((v) => !v)}
+          >
+            <div className="space-y-1 text-[11px]">
+              <div className="flex justify-between">
+                <span>Amazon</span>
+                <span className={connections?.amazon.connected ? "text-emerald-600" : "text-muted-foreground"}>
+                  {connections?.amazon.connected ? "Connected" : "Not connected"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Shopify</span>
+                <span className={connections?.shopify.connected ? "text-emerald-600" : "text-muted-foreground"}>
+                  {connections?.shopify.connected ? "Connected" : "Not connected"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>WooCommerce</span>
+                <span className={connections?.woocommerce.connected ? "text-emerald-600" : "text-muted-foreground"}>
+                  {connections?.woocommerce.connected ? "Connected" : "Not connected"}
+                </span>
+              </div>
+              <Link href="/marketplaces" className="inline-block mt-1 text-primary hover:underline">
+                Manage connections →
+              </Link>
+            </div>
+          </SidebarSection>
+        </div>
+
+        <div className="p-2 border-t border-border space-y-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="w-full h-7 text-[11px] justify-start"
+            onClick={() => selectedAgent && cloneMutation.mutate(selectedAgent.id)}
+          >
+            <Copy className="w-3 h-3 mr-1" /> Clone agent
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="w-full h-7 text-[11px] justify-start"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="w-3 h-3 mr-1" /> Create agent
+          </Button>
         </div>
       </aside>
 
-      <section className="flex-1 rounded-xl border border-border bg-card flex flex-col min-w-0">
-        {selectedAgent ? (
-          <>
-            <header className="border-b border-border px-4 py-3 flex items-center justify-between gap-3">
-              <div>
-                <h1 className="text-sm font-semibold">{selectedAgent.name}</h1>
-                <p className="text-xs text-muted-foreground">{selectedAgent.description}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={() => cloneMutation.mutate(selectedAgent.id)}
-                  disabled={cloneMutation.isPending}
-                >
-                  <Copy className="w-3.5 h-3.5 mr-1" />
-                  Clone
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={() => newChatMutation.mutate()}
-                  disabled={newChatMutation.isPending}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 mr-1" />
-                  New chat
-                </Button>
-              </div>
-            </header>
+      {/* Main chat workspace */}
+      <section className="flex-1 flex flex-col min-w-0 bg-[#f8faf9]">
+        <div className="flex-1 overflow-y-auto px-6 py-8">
+          {showWelcome ? (
+            <div className="max-w-3xl mx-auto text-center space-y-6">
+              <div className="text-2xl">👋</div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Hi! I can automatically plan, fetch, and analyze your Amazon listings and ads data.
+                Just describe what you want — for example, &quot;Compare my top campaigns&quot; or
+                &quot;Improve my listing titles.&quot;
+              </p>
 
-            <div className="flex flex-1 min-h-0">
-              <div className="flex-1 flex flex-col min-w-0">
-                <div className="px-4 py-3 border-b border-border">
-                  <p className="text-xs text-muted-foreground">
-                    Hi! I can plan, fetch context from memory, and analyze your Amazon business data. Describe what you want.
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={mode === "basic" ? "default" : "outline"}
-                      className="h-7 text-xs"
-                      onClick={() => setMode("basic")}
-                    >
-                      Basic
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={mode === "agent" ? "default" : "outline"}
-                      className="h-7 text-xs"
-                      onClick={() => setMode("agent")}
-                    >
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      Agent
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-                  {messages.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">
-                      Start a conversation with {selectedAgent.name}. Upload Memory Files or index your workspace catalog for better answers.
-                    </div>
-                  ) : null}
-                  {messages.map((message: SellerAgentMessage) => (
-                    <div
-                      key={message.id}
+              <div className="text-left space-y-3">
+                <p className="text-xs font-medium text-foreground">Try one of these prompts</p>
+                <div className="flex flex-wrap gap-2">
+                  {PROMPT_CATEGORIES.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setPromptCategory(category)}
                       className={cn(
-                        "rounded-lg px-3 py-2 text-xs max-w-[85%] whitespace-pre-wrap",
-                        message.role === "user"
-                          ? "bg-foreground text-background ml-auto"
-                          : "bg-muted text-foreground",
+                        "text-[11px] rounded-full px-3 py-1 border",
+                        promptCategory === category
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-white text-muted-foreground border-border hover:border-foreground/30",
                       )}
                     >
-                      {message.content}
-                    </div>
+                      {category}
+                    </button>
                   ))}
-                  {sendMutation.isPending ? (
-                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Thinking…
-                    </div>
-                  ) : null}
-                  <div ref={messagesEndRef} />
                 </div>
-
-                <div className="border-t border-border p-3">
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      placeholder={`Ask ${selectedAgent.name}…`}
-                      className="min-h-[72px] text-xs resize-none"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void handleSend();
-                        }
-                      }}
-                    />
-                    <Button
-                      className="h-auto px-3"
-                      onClick={() => void handleSend()}
-                      disabled={!draft.trim() || sendMutation.isPending}
+                <div className="space-y-2">
+                  {filteredPrompts.map((prompt) => (
+                    <button
+                      key={prompt.text}
+                      type="button"
+                      onClick={() => void handleSend(prompt.text)}
+                      className="w-full text-left text-xs rounded-xl border border-border bg-white px-4 py-3 hover:border-foreground/20 hover:shadow-sm transition-all"
                     >
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </div>
+                      {prompt.text}
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              <aside className="w-72 border-l border-border p-3 space-y-4 overflow-y-auto">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Brain className="w-3.5 h-3.5" />
-                    <h3 className="text-xs font-semibold">Memory Files</h3>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block cursor-pointer">
-                      <input
-                        type="file"
-                        accept=".txt,.md,.csv,.json"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) void handleMemoryFileUpload(file);
-                          e.currentTarget.value = "";
-                        }}
-                      />
-                      <div className="inline-flex w-full h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-xs hover:bg-muted">
-                        <Upload className="w-3.5 h-3.5 mr-1" />
-                        Upload file
-                      </div>
-                    </label>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full h-8 text-xs"
-                      onClick={() => indexWorkspaceMutation.mutate()}
-                      disabled={indexWorkspaceMutation.isPending}
-                    >
-                      {indexWorkspaceMutation.isPending ? (
-                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <FileText className="w-3.5 h-3.5 mr-1" />
-                      )}
-                      Learn from workspace
-                    </Button>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    {(memoryQuery.data?.files ?? []).map((file) => (
-                      <div key={file.id} className="flex items-center justify-between gap-2 text-[11px] rounded-md bg-muted/50 px-2 py-1.5">
-                        <span className="truncate">{file.fileName}</span>
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-foreground"
-                          onClick={() => deleteMemoryMutation.mutate(file.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                    {(memoryQuery.data?.files ?? []).length === 0 ? (
-                      <p className="text-[11px] text-muted-foreground">No memory files yet.</p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-semibold mb-2">Skills</h3>
-                  <div className="flex flex-wrap gap-1">
-                    {(selectedAgent.enabledSkills ?? []).map((skill) => (
-                      <span key={skill} className="text-[10px] rounded-full bg-muted px-2 py-0.5">
-                        {skill.replace(/_/g, " ")}
-                      </span>
-                    ))}
-                    {(selectedAgent.enabledSkills ?? []).length === 0 ? (
-                      <span className="text-[11px] text-muted-foreground">No skills enabled</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-semibold mb-2">Chats</h3>
-                  <div className="space-y-1">
-                    {(chatsQuery.data?.chats ?? []).map((chat) => (
-                      <button
-                        key={chat.id}
-                        type="button"
-                        onClick={() => setActiveChatId(chat.id)}
-                        className={cn(
-                          "w-full text-left text-[11px] rounded-md px-2 py-1.5 truncate",
-                          activeChatId === chat.id ? "bg-muted" : "hover:bg-muted/60 text-muted-foreground",
-                        )}
-                      >
-                        {chat.title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </aside>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-            {agentsQuery.isLoading ? "Loading agents…" : "Create your first seller agent."}
+          ) : (
+            <div className="max-w-3xl mx-auto space-y-3 pb-4">
+              {messages.map((message: SellerAgentMessage) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap max-w-[90%]",
+                    message.role === "user"
+                      ? "bg-foreground text-background ml-auto"
+                      : "bg-white border border-border text-foreground",
+                  )}
+                >
+                  {message.content}
+                </div>
+              ))}
+              {sendMutation.isPending ? (
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Thinking…
+                </div>
+              ) : null}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-border bg-white px-6 py-4">
+          <div className="max-w-3xl mx-auto rounded-2xl border border-border bg-white shadow-sm p-3">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={`Ask ${selectedAgent?.name ?? "AI"} to analyze your Amazon data…`}
+              className="min-h-[72px] text-sm border-0 shadow-none resize-none focus-visible:ring-0 px-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+            />
+            <div className="flex items-center justify-between pt-2 border-t border-border/60 mt-2">
+              <div className="flex items-center gap-1 rounded-full bg-muted p-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("basic")}
+                  className={cn(
+                    "text-[11px] px-3 py-1 rounded-full transition-colors",
+                    mode === "basic" ? "bg-white shadow-sm font-medium" : "text-muted-foreground",
+                  )}
+                >
+                  Basic
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("agent")}
+                  className={cn(
+                    "text-[11px] px-3 py-1 rounded-full transition-colors flex items-center gap-1",
+                    mode === "agent" ? "bg-emerald-600 text-white shadow-sm font-medium" : "text-muted-foreground",
+                  )}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Agent
+                </button>
+              </div>
+              <Button
+                size="icon"
+                className="rounded-full h-9 w-9"
+                onClick={() => void handleSend()}
+                disabled={!draft.trim() || sendMutation.isPending || !selectedAgentId}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-        )}
+        </div>
       </section>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create seller agent</DialogTitle>
+            <DialogTitle>Create AI agent</DialogTitle>
             <DialogDescription>
               Custom agents have separate memory and instructions for your workspace.
             </DialogDescription>

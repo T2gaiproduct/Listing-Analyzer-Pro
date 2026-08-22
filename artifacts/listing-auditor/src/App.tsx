@@ -770,8 +770,11 @@ function Router() {
       <Route path="/ads">
         <WorkspaceProtectedRoute><AdsPage /></WorkspaceProtectedRoute>
       </Route>
-      <Route path="/seller-agents">
+      <Route path="/ai">
         <WorkspaceProtectedRoute><SellerAgentsPage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/seller-agents">
+        <Redirect to="/ai" />
       </Route>
       <Route path="/settings">
         <WorkspaceProtectedRoute><SettingsPage /></WorkspaceProtectedRoute>

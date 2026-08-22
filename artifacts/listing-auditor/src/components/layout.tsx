@@ -23,6 +23,7 @@ import {
   Folder,
   MessageSquare,
   Eye,
+  Bot,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SiteLogo, SiteLogoMark, SiteLogoIcon } from "@/components/site-logo";
@@ -73,8 +74,8 @@ const mainNavItems: Array<{
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
+  { icon: Bot, label: "AI", href: "/ai", feature: "audits" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
-  { icon: MessageSquare, label: "Seller Agents", href: "/seller-agents", feature: "audits" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------
@@ -157,7 +158,7 @@ function getPageTitle(location: string): string {
   if (location === "/billing") return "Billing";
   if (location === "/profile") return "Profile";
   if (location === "/settings") return "Settings";
-  if (location === "/seller-agents") return "Seller Agents";
+  if (location === "/ai" || location === "/seller-agents") return "AI";
   if (location === "/team") return "Team";
   if (location === "/roles") return "Roles";
   if (location === "/workspaces") return WORKSPACES_HUB_LABEL;
@@ -188,6 +189,7 @@ function isRibbonVisible(location: string): boolean {
   if (location === "/notifications") return false;
   if (location === "/archive") return false;
   if (location === "/recent-projects") return false;
+  if (location === "/ai" || location === "/seller-agents") return false;
   return true;
 }
 
@@ -244,8 +246,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const visibleNavItems = navReady
     ? mainNavItems.filter((item) => isAccountOwner || canView(item.feature))
     : [];
-  const navItemsBeforeManageAds = visibleNavItems.filter((item) => item.href !== "/recent-projects" && item.href !== "/marketplaces");
-  const navItemsAfterManageAds = visibleNavItems.filter((item) => item.href === "/recent-projects" || item.href === "/marketplaces");
+  const navItemsBeforeManageAds = visibleNavItems.filter(
+    (item) => item.href !== "/recent-projects" && item.href !== "/marketplaces" && item.href !== "/ai",
+  );
+  const navItemsAfterManageAds = visibleNavItems.filter(
+    (item) => item.href === "/recent-projects" || item.href === "/marketplaces" || item.href === "/ai",
+  );
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
