@@ -256,12 +256,28 @@ router.post(
       return;
     }
 
+    const baseName = agent.name.replace(/(\s*\(Copy\))+$/i, "").trim();
+    const siblings = await db
+      .select({ name: sellerAgentsTable.name })
+      .from(sellerAgentsTable)
+      .where(and(
+        eq(sellerAgentsTable.workspaceId, workspaceId),
+        eq(sellerAgentsTable.isDeleted, 0),
+      ));
+    const copyPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\(Copy(?:\\s*(\\d+))?\\)$`, "i");
+    let maxCopy = 0;
+    for (const sibling of siblings) {
+      const match = sibling.name.match(copyPattern);
+      if (match) maxCopy = Math.max(maxCopy, match[1] ? Number(match[1]) : 1);
+    }
+    const cloneName = maxCopy > 0 ? `${baseName} (Copy ${maxCopy + 1})` : `${baseName} (Copy)`;
+
     const [clone] = await db
       .insert(sellerAgentsTable)
       .values({
         workspaceId,
         userId,
-        name: `${agent.name} (Copy)`,
+        name: cloneName,
         description: agent.description,
         instructions: agent.instructions,
         icon: agent.icon,

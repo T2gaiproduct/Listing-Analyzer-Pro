@@ -120,6 +120,10 @@ export async function cloneSellerAgent(agentId: number): Promise<{ agent: Seller
   return fetchJson(`${basePath}/api/seller-agents/${agentId}/clone`, { method: "POST" });
 }
 
+export async function deleteSellerAgent(agentId: number): Promise<void> {
+  await fetchJson(`${basePath}/api/seller-agents/${agentId}`, { method: "DELETE" });
+}
+
 export async function fetchSellerAgentChats(agentId: number): Promise<{ chats: SellerAgentChat[] }> {
   return fetchJson(`${basePath}/api/seller-agents/${agentId}/chats`);
 }

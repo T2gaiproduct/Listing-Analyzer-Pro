@@ -30,6 +30,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,6 +61,7 @@ import {
   cloneSellerAgent,
   createSellerAgent,
   createSellerAgentChat,
+  deleteSellerAgent,
   deleteSellerAgentMemoryFile,
   fetchSellerAgentChats,
   fetchSellerAgentMemoryFiles,
@@ -217,6 +228,7 @@ export default function SellerAgentsPage() {
   const [connectedOpen, setConnectedOpen] = useState(true);
   const [workspaceView, setWorkspaceView] = useState<"skills" | "chat">("skills");
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentInstructions, setNewAgentInstructions] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -396,6 +408,26 @@ export default function SellerAgentsPage() {
     },
   });
 
+  const deleteAgentMutation = useMutation({
+    mutationFn: (agentId: number) => deleteSellerAgent(agentId),
+    onSuccess: (_result, deletedAgentId) => {
+      void queryClient.invalidateQueries({ queryKey: ["seller-agents"] });
+      setDeleteOpen(false);
+      setActiveChatId(null);
+      const cached = queryClient.getQueryData<{ agents: SellerAgent[] }>(["seller-agents"]);
+      const remaining = (cached?.agents ?? agents).filter((agent) => agent.id !== deletedAgentId);
+      setSelectedAgentId(remaining.find((agent) => agent.isPlatformTemplate)?.id ?? remaining[0]?.id ?? null);
+      toast({ title: "Agent deleted" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not delete agent",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesQuery.data?.messages, sendMutation.isPending]);
@@ -446,6 +478,7 @@ export default function SellerAgentsPage() {
   );
 
   const connections = connectionsQuery.data;
+  const canDeleteSelectedAgent = Boolean(selectedAgent && !selectedAgent.isPlatformTemplate);
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-h-[640px] -mx-4 -mt-2 md:-mx-6 bg-background">
@@ -607,6 +640,7 @@ export default function SellerAgentsPage() {
             variant="ghost"
             className="w-full h-7 text-[11px] justify-start"
             onClick={() => selectedAgent && cloneMutation.mutate(selectedAgent.id)}
+            disabled={!selectedAgent || cloneMutation.isPending}
           >
             <Copy className="w-3 h-3 mr-1" /> Clone agent
           </Button>
@@ -618,6 +652,17 @@ export default function SellerAgentsPage() {
           >
             <Plus className="w-3 h-3 mr-1" /> Create agent
           </Button>
+          {canDeleteSelectedAgent ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full h-7 text-[11px] justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteOpen(true)}
+              disabled={deleteAgentMutation.isPending}
+            >
+              <Trash2 className="w-3 h-3 mr-1" /> Delete agent
+            </Button>
+          ) : null}
         </div>
       </aside>
 
@@ -790,6 +835,28 @@ export default function SellerAgentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete agent?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove <span className="font-medium">{selectedAgent?.name}</span> and its chats.
+              Default platform agents cannot be deleted — only custom or cloned agents.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => selectedAgentId && deleteAgentMutation.mutate(selectedAgentId)}
+              disabled={deleteAgentMutation.isPending}
+            >
+              {deleteAgentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
