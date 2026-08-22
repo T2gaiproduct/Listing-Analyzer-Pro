@@ -237,7 +237,7 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
       clientSecret: String(body.clientSecret ?? "").trim() || existing?.clientSecret || "",
       redirectUri: String(body.redirectUri ?? "").trim() || existing?.redirectUri || buildAmazonOAuthRedirectUri(req),
       defaultMarketplace: String(body.defaultMarketplace ?? "").trim() || existing?.defaultMarketplace || "US",
-      sandbox: body.sandbox ?? existing?.sandbox ?? true,
+      sandbox: body.sandbox ?? existing?.sandbox ?? false,
       awsAccessKeyId: String(body.awsAccessKeyId ?? "").trim() || existing?.awsAccessKeyId || "",
       awsSecretAccessKey: String(body.awsSecretAccessKey ?? "").trim() || existing?.awsSecretAccessKey || "",
       awsRoleArn: String(body.awsRoleArn ?? "").trim() || existing?.awsRoleArn || "",
@@ -436,7 +436,7 @@ router.post(
       defaultMarketplace: String(body.defaultMarketplace ?? "").trim()
         || workspaceRecord?.defaultMarketplace
         || "US",
-      sandbox: body.sandbox ?? workspaceRecord?.sandbox ?? true,
+      sandbox: body.sandbox ?? workspaceRecord?.sandbox ?? false,
       awsAccessKeyId: workspaceRecord?.awsAccessKeyId ?? "",
       awsSecretAccessKey: workspaceRecord?.awsSecretAccessKey ?? "",
       awsRoleArn: workspaceRecord?.awsRoleArn ?? "",

@@ -7,8 +7,8 @@ import {
 } from "@workspace/db";
 import { isRealAmazonAsin } from "./amazon-asin-utils.js";
 import { resolveAmazonMarketplace, amazonMarketplaceCurrency } from "./amazon-marketplaces.js";
-import { fetchMerchantListingsAllDataReport, type MerchantListingsReportRow } from "./amazon-sp-api.js";
-import { resolveMarketplaceCodeFromSpId } from "./amazon-sp-settings.js";
+import { fetchMerchantListingsAllDataReport, fetchSellerMarketplaceParticipations, type MerchantListingsReportRow } from "./amazon-sp-api.js";
+import { resolveMarketplaceCodeFromSpId, spApiRegionForMarketplaceCode, withProductionSpApiSettings } from "./amazon-sp-settings.js";
 import type { ResolvedAmazonConnection } from "./resolve-amazon-settings.js";
 import { TARGET_MARKETPLACES } from "./create-product.js";
 import type { ShopifySyncResult } from "./shopify-product-sync.js";
@@ -125,13 +125,45 @@ async function refreshAmazonProductFromCatalog(input: {
 }
 
 function resolvePrimaryMarketplaceCode(connection: ResolvedAmazonConnection): string {
-  const sellerDefault = connection.settings.defaultMarketplace?.trim().toUpperCase();
-  if (sellerDefault) return sellerDefault;
-
   const firstSpId = connection.marketplaceIds?.[0]?.trim();
   if (firstSpId) return resolveMarketplaceCodeFromSpId(firstSpId);
 
+  const sellerDefault = connection.settings.defaultMarketplace?.trim().toUpperCase();
+  if (sellerDefault) return sellerDefault;
+
   return "US";
+}
+
+async function resolveMarketplaceCodeForImport(
+  connection: ResolvedAmazonConnection,
+  marketplaceCodeOverride?: string,
+): Promise<string> {
+  if (marketplaceCodeOverride?.trim()) {
+    return marketplaceCodeOverride.trim().toUpperCase();
+  }
+
+  const fromConnection = resolvePrimaryMarketplaceCode(connection);
+  const productionSettings = withProductionSpApiSettings(connection.settings);
+
+  try {
+    const participationIds = await fetchSellerMarketplaceParticipations({
+      settings: productionSettings,
+      refreshToken: connection.refreshToken,
+      region: spApiRegionForMarketplaceCode(fromConnection),
+    });
+
+    if (participationIds.length > 0) {
+      const preferredId = participationIds.find((id) => {
+        const code = resolveMarketplaceCodeFromSpId(id);
+        return code === fromConnection;
+      }) ?? participationIds[0]!;
+      return resolveMarketplaceCodeFromSpId(preferredId);
+    }
+  } catch {
+    // Fall back to saved marketplace preference.
+  }
+
+  return fromConnection;
 }
 
 export async function syncAmazonProducts(input: {
@@ -141,12 +173,15 @@ export async function syncAmazonProducts(input: {
   workspaceId: number;
   marketplaceCode?: string;
 }): Promise<ShopifySyncResult> {
-  const marketplaceCode = input.marketplaceCode?.trim().toUpperCase()
-    || resolvePrimaryMarketplaceCode(input.connection);
+  const marketplaceCode = await resolveMarketplaceCodeForImport(
+    input.connection,
+    input.marketplaceCode,
+  );
   const currency = amazonMarketplaceCurrency(marketplaceCode);
+  const productionSettings = withProductionSpApiSettings(input.connection.settings);
 
   const catalog = await fetchMerchantListingsAllDataReport({
-    settings: input.connection.settings,
+    settings: productionSettings,
     refreshToken: input.connection.refreshToken,
     marketplaceCode,
   });

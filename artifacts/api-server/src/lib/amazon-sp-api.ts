@@ -5,6 +5,7 @@ import {
   sellerCentralOAuthConsentUrl,
   spApiHost,
   spApiRegionForMarketplaceCode,
+  withProductionSpApiSettings,
   type AmazonSpSettings,
 } from "./amazon-sp-settings.js";
 
@@ -339,9 +340,14 @@ export async function spApiRequest<T>(opts: {
     },
     body: opts.body ? bodyStr : undefined,
   });
-  const json = await res.json().catch(() => ({})) as T & { errors?: Array<{ message?: string }> };
+  const json = await res.json().catch(() => ({})) as T & { errors?: Array<{ message?: string; code?: string }> };
   if (!res.ok) {
     const msg = json.errors?.[0]?.message ?? `SP-API request failed (${res.status})`;
+    if (msg.includes("Could not match input arguments") && opts.settings.sandbox) {
+      throw new Error(
+        "Amazon sandbox mode rejected this request. Open Marketplaces → Edit credentials, uncheck \"Use SP-API sandbox\", save, then import again.",
+      );
+    }
     throw new Error(msg);
   }
   return json;
@@ -501,6 +507,39 @@ export type MerchantListingsReportRow = {
   status: string | null;
 };
 
+export async function fetchSellerMarketplaceParticipations(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  region?: "na" | "eu" | "fe";
+}): Promise<string[]> {
+  const settings = withProductionSpApiSettings(opts.settings);
+  const regions: Array<"na" | "eu" | "fe"> = opts.region
+    ? [opts.region, "fe", "eu", "na"]
+    : ["fe", "eu", "na"];
+
+  for (const region of [...new Set(regions)]) {
+    try {
+      const data = await spApiRequest<{
+        payload?: Array<{ marketplace?: { id?: string } }>;
+      }>({
+        settings,
+        refreshToken: opts.refreshToken,
+        method: "GET",
+        path: "/sellers/v1/marketplaceParticipations",
+        region,
+      });
+      const ids = (data.payload ?? [])
+        .map((entry) => entry.marketplace?.id?.trim())
+        .filter((id): id is string => Boolean(id));
+      if (ids.length > 0) return ids;
+    } catch {
+      // Try the next SP-API region (e.g. India sellers use FE).
+    }
+  }
+
+  return [];
+}
+
 export async function fetchMerchantListingsAllDataReport(opts: {
   settings: AmazonSpSettings;
   refreshToken: string;
@@ -508,11 +547,12 @@ export async function fetchMerchantListingsAllDataReport(opts: {
   pollIntervalMs?: number;
   maxWaitMs?: number;
 }): Promise<MerchantListingsReportRow[]> {
+  const settings = withProductionSpApiSettings(opts.settings);
   const marketplaceId = resolveSpMarketplaceId(opts.marketplaceCode);
   const region = spApiRegionForMarketplaceCode(opts.marketplaceCode);
 
   const created = await spApiRequest<{ reportId?: string }>({
-    settings: opts.settings,
+    settings,
     refreshToken: opts.refreshToken,
     method: "POST",
     path: "/reports/2021-06-30/reports",
@@ -538,7 +578,7 @@ export async function fetchMerchantListingsAllDataReport(opts: {
       processingStatus?: string;
       reportDocumentId?: string;
     }>({
-      settings: opts.settings,
+      settings,
       refreshToken: opts.refreshToken,
       method: "GET",
       path: `/reports/2021-06-30/reports/${encodeURIComponent(reportId)}`,
@@ -565,7 +605,7 @@ export async function fetchMerchantListingsAllDataReport(opts: {
     url?: string;
     compressionAlgorithm?: string;
   }>({
-    settings: opts.settings,
+    settings,
     refreshToken: opts.refreshToken,
     method: "GET",
     path: `/reports/2021-06-30/documents/${encodeURIComponent(reportDocumentId)}`,

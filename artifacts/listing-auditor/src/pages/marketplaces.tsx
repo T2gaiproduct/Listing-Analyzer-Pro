@@ -442,7 +442,7 @@ export default function MarketplacesPage() {
     setAmazonClientId(data?.amazon.clientId ?? "");
     setAmazonClientSecret("");
     setAmazonDefaultMarketplace(data?.amazon.defaultMarketplace ?? "US");
-    setAmazonSandbox(data?.amazon.sandbox ?? true);
+    setAmazonSandbox(data?.amazon.sandbox ?? false);
     setAmazonAwsAccessKeyId("");
     setAmazonAwsSecretAccessKey("");
     setAmazonAwsRoleArn(data?.amazon.awsRoleArn ?? "");

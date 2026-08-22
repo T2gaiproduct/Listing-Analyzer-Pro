@@ -265,3 +265,9 @@ export function spApiHost(settings: AmazonSpSettings, region: "na" | "eu" | "fe"
   const prefix = settings.sandbox ? "sandbox." : "";
   return `https://${prefix}sellingpartnerapi-${region}.amazon.com`;
 }
+
+/** Catalog import and seller data always use production SP-API — sandbox only accepts static test params. */
+export function withProductionSpApiSettings(settings: AmazonSpSettings): AmazonSpSettings {
+  if (!settings.sandbox) return settings;
+  return { ...settings, sandbox: false };
+}
