@@ -21,7 +21,6 @@ import {
   Trash2,
   Zap,
   Folder,
-  MessageSquare,
   Eye,
   Bot,
 } from "lucide-react";
