@@ -16,8 +16,9 @@ import {
   exchangeAuthorizationCode,
   refreshAccessToken,
   testAmazonSpConnection,
+  fetchSellerMarketplaceParticipations,
 } from "../lib/amazon-sp-api.js";
-import { isAmazonLwaConfigured } from "../lib/amazon-sp-settings.js";
+import { isAmazonLwaConfigured, resolveMarketplaceCodeFromSpId } from "../lib/amazon-sp-settings.js";
 import { publishListingToAmazonMarketplace } from "../lib/amazon-publish.js";
 import { resolveAmazonMarketplace } from "../lib/amazon-marketplaces.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
@@ -34,6 +35,8 @@ import {
 } from "../lib/resolve-amazon-settings.js";
 import {
   disconnectAmazonWorkspaceSellerConnection,
+  getAmazonWorkspaceConnection,
+  saveAmazonWorkspaceAppCredentials,
   saveAmazonWorkspaceSellerConnection,
 } from "../lib/amazon-workspace-connection.js";
 
@@ -207,13 +210,50 @@ router.post("/amazon/connection/self-auth", requireAuth, resolveTeamAndWorkspace
     return;
   }
 
+  let marketplaceIds: string[] = [];
+  let defaultMarketplace: string | undefined;
+  try {
+    marketplaceIds = await fetchSellerMarketplaceParticipations({
+      settings,
+      refreshToken,
+      region: "fe",
+    });
+    if (marketplaceIds.length > 0) {
+      defaultMarketplace = resolveMarketplaceCodeFromSpId(marketplaceIds[0]!);
+    }
+  } catch {
+    // Seller link can still succeed; import will surface access errors.
+  }
+
   await saveAmazonWorkspaceSellerConnection(workspaceId, {
     sellerId,
     refreshToken,
-    marketplaceIds: [],
+    marketplaceIds,
   });
 
-  res.json({ ok: true, connected: true, sellerId });
+  if (defaultMarketplace) {
+    const existing = await getAmazonWorkspaceConnection(workspaceId);
+    if (existing?.appCredentialsSavedAt) {
+      await saveAmazonWorkspaceAppCredentials(workspaceId, {
+        clientId: existing.clientId ?? settings.clientId,
+        clientSecret: existing.clientSecret,
+        applicationId: existing.applicationId,
+        defaultMarketplace,
+        sandbox: existing.sandbox ?? false,
+        awsAccessKeyId: existing.awsAccessKeyId,
+        awsSecretAccessKey: existing.awsSecretAccessKey,
+        awsRoleArn: existing.awsRoleArn,
+      });
+    }
+  }
+
+  res.json({
+    ok: true,
+    connected: true,
+    sellerId,
+    marketplaceIds,
+    defaultMarketplace: defaultMarketplace ?? null,
+  });
 });
 
 router.delete("/amazon/connection", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {

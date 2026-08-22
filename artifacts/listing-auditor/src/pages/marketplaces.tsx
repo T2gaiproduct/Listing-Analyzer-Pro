@@ -34,6 +34,7 @@ import {
   connectAmazonSelfAuth,
   saveAmazonMarketplaceCredentials,
   testAmazonMarketplaceCredentials,
+  testAmazonImportAccess,
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
@@ -76,6 +77,8 @@ function ConnectCard({
   onConnect,
   onDisconnect,
   onImport,
+  onDiagnoseImport,
+  diagnoseLoading,
   importLoading,
   importDisabled,
   importDisabledReason,
@@ -93,6 +96,8 @@ function ConnectCard({
   onConnect: () => void;
   onDisconnect: () => void;
   onImport?: () => void;
+  onDiagnoseImport?: () => void;
+  diagnoseLoading?: boolean;
   importLoading?: boolean;
   importDisabled?: boolean;
   importDisabledReason?: string;
@@ -181,6 +186,21 @@ function ConnectCard({
                   Import products
                 </Button>
               )
+            ) : null}
+            {onDiagnoseImport ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={loading || importLoading || diagnoseLoading}
+                onClick={onDiagnoseImport}
+              >
+                {diagnoseLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                ) : null}
+                Diagnose import
+              </Button>
             ) : null}
             <Button
               type="button"
@@ -343,6 +363,27 @@ export default function MarketplacesPage() {
     },
   });
 
+  const amazonDiagnoseMutation = useMutation({
+    mutationFn: () => testAmazonImportAccess(),
+    onSuccess: (result) => {
+      const failed = result.steps.filter((step) => !step.ok);
+      toast({
+        title: result.ok ? "Import access looks good" : "Import blocked by Amazon",
+        description: result.ok
+          ? result.steps.map((step) => step.message).join(" ")
+          : failed.map((step) => `${step.name}: ${step.message}`).join(" "),
+        variant: result.ok ? "default" : "destructive",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Diagnosis failed",
+        description: error instanceof Error ? error.message : "Could not test Amazon import access.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const amazonSyncMutation = useMutation({
     mutationFn: () => syncAmazonProducts(),
     onSuccess: (result) => {
@@ -367,10 +408,20 @@ export default function MarketplacesPage() {
         });
       }
     },
-    onError: (error) => {
+    onError: async (error) => {
+      let description = error instanceof Error ? error.message : "Could not import Amazon listings.";
+      try {
+        const result = await testAmazonImportAccess();
+        const failed = result.steps.filter((step) => !step.ok);
+        if (failed.length > 0) {
+          description = failed.map((step) => `${step.name}: ${step.message}`).join(" ");
+        }
+      } catch {
+        // Keep the original import error message.
+      }
       toast({
         title: "Import failed",
-        description: error instanceof Error ? error.message : "Could not import Amazon listings.",
+        description,
         variant: "destructive",
       });
     },
@@ -722,6 +773,8 @@ export default function MarketplacesPage() {
             onConnect={handleAmazonConnect}
             onDisconnect={handleAmazonDisconnect}
             onImport={amazonConnected ? handleAmazonImport : undefined}
+            onDiagnoseImport={amazonConnected && amazonCanSignRequests ? () => amazonDiagnoseMutation.mutate() : undefined}
+            diagnoseLoading={amazonDiagnoseMutation.isPending}
             importDisabled={amazonConnected && !amazonCanSignRequests}
             importDisabledReason="Add AWS Access Key and Secret in Amazon SP-API credentials, then click Import products."
           />

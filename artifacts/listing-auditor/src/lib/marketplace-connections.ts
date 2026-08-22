@@ -110,6 +110,22 @@ export async function testAmazonMarketplaceCredentials(
   });
 }
 
+export type AmazonImportDiagnostic = {
+  ok: boolean;
+  marketplaceCode: string;
+  steps: Array<{ name: string; ok: boolean; message: string }>;
+};
+
+export async function testAmazonImportAccess(
+  marketplace?: string,
+): Promise<AmazonImportDiagnostic> {
+  return fetchJson(`${basePath}/api/marketplaces/amazon/test-import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(marketplace ? { marketplace } : {}),
+  });
+}
+
 export async function disconnectStoreMarketplace(platform: StoreMarketplace): Promise<void> {
   await fetchJson(`${basePath}/api/marketplaces/connections/${platform}`, {
     method: "DELETE",

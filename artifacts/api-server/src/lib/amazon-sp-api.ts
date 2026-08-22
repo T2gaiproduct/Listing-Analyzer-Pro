@@ -6,6 +6,7 @@ import {
   spApiHost,
   spApiRegionForMarketplaceCode,
   withProductionSpApiSettings,
+  canSignSpApiRequests,
   type AmazonSpSettings,
 } from "./amazon-sp-settings.js";
 
@@ -560,6 +561,7 @@ export async function fetchSellerMarketplaceParticipations(opts: {
   settings: AmazonSpSettings;
   refreshToken: string;
   region?: "na" | "eu" | "fe";
+  accessToken?: string;
 }): Promise<string[]> {
   const settings = withProductionSpApiSettings(opts.settings);
   const regions: Array<"na" | "eu" | "fe"> = opts.region
@@ -576,6 +578,7 @@ export async function fetchSellerMarketplaceParticipations(opts: {
         method: "GET",
         path: "/sellers/v1/marketplaceParticipations",
         region,
+        accessToken: opts.accessToken,
       });
       const ids = (data.payload ?? [])
         .map((entry) => entry.marketplace?.id?.trim())
@@ -881,4 +884,163 @@ export async function fetchSellerCatalog(opts: {
   }
 
   throw new Error(formatSpApiAccessDeniedError(opts.settings));
+}
+
+export type AmazonImportDiagnosticStep = {
+  name: string;
+  ok: boolean;
+  message: string;
+};
+
+export type AmazonImportDiagnostic = {
+  ok: boolean;
+  marketplaceCode: string;
+  steps: AmazonImportDiagnosticStep[];
+};
+
+export async function diagnoseAmazonImportAccess(opts: {
+  settings: AmazonSpSettings;
+  refreshToken: string;
+  sellerId: string;
+  marketplaceCode?: string;
+}): Promise<AmazonImportDiagnostic> {
+  const productionSettings = withProductionSpApiSettings(opts.settings);
+  const marketplaceCode = opts.marketplaceCode?.trim().toUpperCase()
+    || productionSettings.defaultMarketplace?.trim().toUpperCase()
+    || "IN";
+  const steps: AmazonImportDiagnosticStep[] = [];
+
+  if (!canSignSpApiRequests(productionSettings)) {
+    steps.push({
+      name: "AWS credentials",
+      ok: false,
+      message: "AWS Access Key ID and Secret Access Key are required on the Marketplaces credentials form.",
+    });
+    return { ok: false, marketplaceCode, steps };
+  }
+  steps.push({
+    name: "AWS credentials",
+    ok: true,
+    message: productionSettings.awsRoleArn.trim()
+      ? "AWS keys and Role ARN are set."
+      : "AWS keys are set.",
+  });
+
+  let accessToken: string;
+  try {
+    const token = await refreshAccessToken(productionSettings, opts.refreshToken);
+    accessToken = token.access_token;
+    steps.push({
+      name: "Seller refresh token",
+      ok: true,
+      message: "Amazon accepted the refresh token.",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Token refresh failed";
+    steps.push({
+      name: "Seller refresh token",
+      ok: false,
+      message: `${message} Re-authorize in Seller Central → Develop Apps and paste a new Atzr| refresh token.`,
+    });
+    return { ok: false, marketplaceCode, steps };
+  }
+
+  let participationIds: string[] = [];
+  try {
+    participationIds = await fetchSellerMarketplaceParticipations({
+      settings: productionSettings,
+      refreshToken: opts.refreshToken,
+      region: spApiRegionForMarketplaceCode(marketplaceCode),
+      accessToken,
+    });
+    if (participationIds.length === 0) {
+      steps.push({
+        name: "Marketplace access",
+        ok: false,
+        message: "Connected, but no marketplaces returned. Check Default marketplace = India and re-authorize the seller account.",
+      });
+    } else {
+      const codes = participationIds.map((id) => resolveMarketplaceCodeFromSpId(id));
+      steps.push({
+        name: "Marketplace access",
+        ok: true,
+        message: `Seller participates in: ${codes.join(", ")}.`,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Marketplace check failed";
+    steps.push({
+      name: "Marketplace access",
+      ok: false,
+      message: isSpApiAccessDenied(message)
+        ? `Access denied when reading seller marketplaces. ${formatSpApiAccessDeniedError(productionSettings)}`
+        : message,
+    });
+    return { ok: false, marketplaceCode, steps };
+  }
+
+  const effectiveMarketplace = participationIds.length > 0
+    ? resolveMarketplaceCodeFromSpId(
+      participationIds.find((id) => resolveMarketplaceCodeFromSpId(id) === marketplaceCode)
+        ?? participationIds[0]!,
+    )
+    : marketplaceCode;
+
+  try {
+    await spApiRequest({
+      settings: productionSettings,
+      refreshToken: opts.refreshToken,
+      method: "POST",
+      path: "/reports/2021-06-30/reports",
+      region: spApiRegionForMarketplaceCode(effectiveMarketplace),
+      body: {
+        reportType: "GET_MERCHANT_LISTINGS_ALL_DATA",
+        marketplaceIds: [resolveSpMarketplaceId(effectiveMarketplace)],
+      },
+      accessToken,
+    });
+    steps.push({
+      name: "Catalog report API",
+      ok: true,
+      message: `Reports API accepted a catalog export request for ${effectiveMarketplace}.`,
+    });
+    return { ok: true, marketplaceCode: effectiveMarketplace, steps };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Report request failed";
+    steps.push({
+      name: "Catalog report API",
+      ok: false,
+      message: isSpApiAccessDenied(message)
+        ? "Reports API denied access (missing Inventory and Order Tracking role or stale authorization)."
+        : message,
+    });
+  }
+
+  try {
+    const preview = await searchListingsItems({
+      settings: productionSettings,
+      refreshToken: opts.refreshToken,
+      sellerId: opts.sellerId,
+      marketplaceCode: effectiveMarketplace,
+      maxItems: 1,
+    });
+    steps.push({
+      name: "Listings Items API",
+      ok: true,
+      message: preview.length > 0
+        ? `Listings API works — found at least 1 listing in ${effectiveMarketplace}. Import should work.`
+        : `Listings API works but returned 0 listings for ${effectiveMarketplace}.`,
+    });
+    return { ok: preview.length > 0, marketplaceCode: effectiveMarketplace, steps };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Listings API failed";
+    steps.push({
+      name: "Listings Items API",
+      ok: false,
+      message: isSpApiAccessDenied(message)
+        ? `Listings API also denied access. ${formatSpApiAccessDeniedError(productionSettings)}`
+        : message,
+    });
+    return { ok: false, marketplaceCode: effectiveMarketplace, steps };
+  }
 }
