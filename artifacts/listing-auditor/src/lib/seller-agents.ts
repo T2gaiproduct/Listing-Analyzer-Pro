@@ -62,6 +62,26 @@ export type SellerAgentMemoryFile = {
   createdAt: string;
 };
 
+export type PlatformSkill = {
+  id: string;
+  description: string;
+  isPlatform: true;
+};
+
+export async function fetchSellerAgentsMeta(): Promise<{
+  defaultTemplates: Array<{
+    name: string;
+    description: string;
+    instructions: string;
+    icon: string;
+    enabledSkills: string[];
+  }>;
+  platformSkills: PlatformSkill[];
+  skillLabels: Record<string, string>;
+}> {
+  return fetchJson(`${basePath}/api/seller-agents/meta`);
+}
+
 export async function fetchSellerAgents(): Promise<{ agents: SellerAgent[] }> {
   return fetchJson(`${basePath}/api/seller-agents`);
 }

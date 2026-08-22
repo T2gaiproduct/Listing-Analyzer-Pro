@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Bot,
+  BadgeCheck,
   ChevronDown,
   ChevronRight,
   Clock,
   Copy,
-  FileText,
   FolderOpen,
   Loader2,
+  MoreVertical,
   PenLine,
   Plug,
   Plus,
@@ -22,6 +22,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -49,13 +56,20 @@ import {
   fetchSellerAgentMemoryFiles,
   fetchSellerAgentMessages,
   fetchSellerAgents,
+  fetchSellerAgentsMeta,
   indexWorkspaceForAgent,
   sendSellerAgentMessage,
   updateSellerAgent,
+  type PlatformSkill,
   type SellerAgent,
   type SellerAgentMessage,
   uploadSellerAgentMemoryFile,
 } from "@/lib/seller-agents";
+import {
+  isPlatformSkillEnabled,
+  resolvePlatformSkills,
+  togglePlatformSkill,
+} from "@/lib/seller-agent-platform-skills";
 
 const PROMPT_CATEGORIES = [
   "All",
@@ -107,6 +121,89 @@ function SidebarSection({
   );
 }
 
+function SkillsPanel({
+  skills,
+  enabledSkills,
+  onToggle,
+  onCreateSkill,
+  isUpdating,
+}: {
+  skills: PlatformSkill[];
+  enabledSkills: string[];
+  onToggle: (skillId: string, enabled: boolean) => void;
+  onCreateSkill: () => void;
+  isUpdating: boolean;
+}) {
+  return (
+    <div className="max-w-2xl mx-auto w-full">
+      <div className="rounded-xl border border-border/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/80">
+          <h2 className="text-[15px] font-semibold text-slate-900">Skills</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 px-3 text-xs font-medium border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+            onClick={onCreateSkill}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            New
+          </Button>
+        </div>
+        <div className="max-h-[min(70vh,640px)] overflow-y-auto">
+          {skills.map((skill, index) => {
+            const enabled = isPlatformSkillEnabled(skill.id, enabledSkills);
+            return (
+              <div
+                key={skill.id}
+                className={cn(
+                  "flex items-start gap-4 px-5 py-4",
+                  index < skills.length - 1 && "border-b border-border/60",
+                )}
+              >
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold text-slate-900">{skill.id}</span>
+                    {skill.isPlatform ? (
+                      <BadgeCheck className="w-4 h-4 text-sky-500 shrink-0 fill-sky-50" />
+                    ) : null}
+                  </div>
+                  <p className="text-[13px] leading-5 text-slate-500 line-clamp-2 pr-2">
+                    {skill.description}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 pt-0.5 shrink-0">
+                  <Switch
+                    checked={enabled}
+                    disabled={isUpdating}
+                    onCheckedChange={(checked) => onToggle(skill.id, checked)}
+                    className="data-[state=checked]:bg-emerald-700 data-[state=unchecked]:bg-slate-200"
+                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                        aria-label={`More options for ${skill.id}`}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem disabled>View details</DropdownMenuItem>
+                      <DropdownMenuItem disabled>Duplicate</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SellerAgentsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -118,6 +215,7 @@ export default function SellerAgentsPage() {
   const [memoryOpen, setMemoryOpen] = useState(true);
   const [skillsOpen, setSkillsOpen] = useState(true);
   const [connectedOpen, setConnectedOpen] = useState(true);
+  const [workspaceView, setWorkspaceView] = useState<"skills" | "chat">("skills");
   const [createOpen, setCreateOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentInstructions, setNewAgentInstructions] = useState("");
@@ -128,6 +226,16 @@ export default function SellerAgentsPage() {
     queryKey: ["seller-agents"],
     queryFn: fetchSellerAgents,
   });
+
+  const metaQuery = useQuery({
+    queryKey: ["seller-agents-meta"],
+    queryFn: fetchSellerAgentsMeta,
+  });
+
+  const platformSkills = useMemo(
+    () => resolvePlatformSkills(metaQuery.data?.platformSkills),
+    [metaQuery.data?.platformSkills],
+  );
 
   const connectionsQuery = useQuery({
     queryKey: ["marketplace-connections"],
@@ -196,6 +304,21 @@ export default function SellerAgentsPage() {
       updateSellerAgent(selectedAgentId!, { mode: nextMode }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["seller-agents"] });
+    },
+  });
+
+  const updateSkillsMutation = useMutation({
+    mutationFn: (enabledSkills: string[]) =>
+      updateSellerAgent(selectedAgentId!, { enabledSkills }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["seller-agents"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not update skills",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -290,6 +413,8 @@ export default function SellerAgentsPage() {
     const content = (contentOverride ?? draft).trim();
     if (!content || !selectedAgentId || sendMutation.isPending) return;
 
+    setWorkspaceView("chat");
+
     let chatId = activeChatId;
     if (!chatId) {
       const result = await createSellerAgentChat(selectedAgentId);
@@ -307,8 +432,15 @@ export default function SellerAgentsPage() {
     if (selectedAgentId) updateModeMutation.mutate(nextMode);
   }
 
+  function handleSkillToggle(skillId: string, enabled: boolean) {
+    if (!selectedAgent) return;
+    const nextSkills = togglePlatformSkill(skillId, enabled, selectedAgent.enabledSkills ?? []);
+    updateSkillsMutation.mutate(nextSkills);
+  }
+
   const messages = messagesQuery.data?.messages ?? [];
-  const showWelcome = messages.length === 0 && !sendMutation.isPending;
+  const showChatWelcome = workspaceView === "chat" && messages.length === 0 && !sendMutation.isPending;
+  const showSkillsPanel = workspaceView === "skills" && messages.length === 0 && !sendMutation.isPending;
   const filteredPrompts = SUGGESTED_PROMPTS.filter(
     (p) => promptCategory === "All" || p.category === promptCategory,
   );
@@ -343,10 +475,14 @@ export default function SellerAgentsPage() {
         <button
           type="button"
           onClick={() => {
+            setWorkspaceView("chat");
             setActiveChatId(null);
             newChatMutation.mutate();
           }}
-          className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium hover:bg-muted/60 border-b border-border/60"
+          className={cn(
+            "flex items-center gap-2 px-3 py-2.5 text-xs font-medium border-b border-border/60",
+            workspaceView === "chat" ? "bg-muted/60 text-foreground" : "hover:bg-muted/60",
+          )}
         >
           <PenLine className="w-3.5 h-3.5" />
           New chat
@@ -412,17 +548,25 @@ export default function SellerAgentsPage() {
             title="Skills"
             icon={Sparkles}
             open={skillsOpen}
-            onToggle={() => setSkillsOpen((v) => !v)}
-            onAdd={() => setCreateOpen(true)}
+            onToggle={() => {
+              setSkillsOpen((v) => !v);
+              setWorkspaceView("skills");
+            }}
+            onAdd={() => {
+              setWorkspaceView("skills");
+              setCreateOpen(true);
+            }}
           >
-            {(selectedAgent?.enabledSkills ?? []).map((skill) => (
-              <span key={skill} className="inline-block text-[10px] rounded-full bg-muted px-2 py-0.5 mr-1 mb-1">
-                {skill.replace(/_/g, " ")}
-              </span>
-            ))}
-            {(selectedAgent?.enabledSkills ?? []).length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">Default skills from agent template</p>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => setWorkspaceView("skills")}
+              className={cn(
+                "w-full text-left text-[11px] rounded-md px-2 py-1.5",
+                workspaceView === "skills" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60",
+              )}
+            >
+              {platformSkills.length} platform skills
+            </button>
           </SidebarSection>
 
           <SidebarSection
@@ -480,7 +624,15 @@ export default function SellerAgentsPage() {
       {/* Main chat workspace */}
       <section className="flex-1 flex flex-col min-w-0 bg-[#f8faf9]">
         <div className="flex-1 overflow-y-auto px-6 py-8">
-          {showWelcome ? (
+          {showSkillsPanel ? (
+            <SkillsPanel
+              skills={platformSkills}
+              enabledSkills={selectedAgent?.enabledSkills ?? []}
+              onToggle={handleSkillToggle}
+              onCreateSkill={() => setCreateOpen(true)}
+              isUpdating={updateSkillsMutation.isPending}
+            />
+          ) : showChatWelcome ? (
             <div className="max-w-3xl mx-auto text-center space-y-6">
               <div className="text-2xl">👋</div>
               <p className="text-sm text-muted-foreground leading-relaxed">

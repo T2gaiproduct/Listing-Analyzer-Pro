@@ -17,7 +17,9 @@ import {
 import { deductCreditsTeamAware, getCreditCost, hasCreditsTeamAware } from "../lib/credits.js";
 import { ensureDefaultSellerAgentsForWorkspace } from "../lib/seller-agent-seed.js";
 import {
+  DEFAULT_PLATFORM_SKILLS,
   DEFAULT_SELLER_AGENT_TEMPLATES,
+  normalizeEnabledSkills,
   SELLER_AGENT_SKILL_LABELS,
 } from "../lib/seller-agent-defaults.js";
 import {
@@ -55,7 +57,7 @@ function serializeAgent(agent: typeof sellerAgentsTable.$inferSelect) {
     isDefault: Boolean(agent.isDefault),
     isPlatformTemplate: Boolean(agent.isPlatformTemplate),
     mode: agent.mode,
-    enabledSkills: agent.enabledSkills ?? [],
+    enabledSkills: normalizeEnabledSkills(agent.enabledSkills),
     learnFromWorkspace: Boolean(agent.learnFromWorkspace),
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
@@ -69,6 +71,7 @@ router.get(
   (_req, res) => {
     res.json({
       defaultTemplates: DEFAULT_SELLER_AGENT_TEMPLATES,
+      platformSkills: DEFAULT_PLATFORM_SKILLS,
       skillLabels: SELLER_AGENT_SKILL_LABELS,
     });
   },
