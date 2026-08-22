@@ -292,6 +292,75 @@ ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS daily_budget_cents integer;
 ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS keyword_data jsonb;
 ALTER TABLE ads_projects ADD COLUMN IF NOT EXISTS sources_snapshot jsonb;
 
+-- ─── Seller agents (custom AI agents + memory) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS seller_agents (
+  id serial PRIMARY KEY,
+  workspace_id integer NOT NULL,
+  user_id text NOT NULL,
+  name text NOT NULL,
+  description text,
+  instructions text NOT NULL,
+  icon text NOT NULL DEFAULT 'bot',
+  is_default integer NOT NULL DEFAULT 0,
+  is_platform_template integer NOT NULL DEFAULT 0,
+  mode text NOT NULL DEFAULT 'basic',
+  enabled_skills jsonb DEFAULT '[]'::jsonb,
+  learn_from_workspace integer NOT NULL DEFAULT 1,
+  is_deleted integer NOT NULL DEFAULT 0,
+  deleted_at timestamp,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS seller_agent_memory_files (
+  id serial PRIMARY KEY,
+  agent_id integer NOT NULL,
+  workspace_id integer NOT NULL,
+  file_name text NOT NULL,
+  mime_type text,
+  byte_size integer NOT NULL DEFAULT 0,
+  source text NOT NULL DEFAULT 'upload',
+  is_deleted integer NOT NULL DEFAULT 0,
+  deleted_at timestamp,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS seller_agent_memory_chunks (
+  id serial PRIMARY KEY,
+  agent_id integer NOT NULL,
+  memory_file_id integer,
+  workspace_id integer NOT NULL,
+  content text NOT NULL,
+  embedding jsonb,
+  metadata jsonb,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS seller_agent_chats (
+  id serial PRIMARY KEY,
+  agent_id integer NOT NULL,
+  workspace_id integer NOT NULL,
+  user_id text NOT NULL,
+  title text NOT NULL DEFAULT 'New chat',
+  is_deleted integer NOT NULL DEFAULT 0,
+  deleted_at timestamp,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS seller_agent_messages (
+  id serial PRIMARY KEY,
+  chat_id integer NOT NULL,
+  agent_id integer NOT NULL,
+  role text NOT NULL,
+  content text NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS seller_agents_workspace_idx ON seller_agents (workspace_id);
+CREATE INDEX IF NOT EXISTS seller_agent_memory_chunks_agent_idx ON seller_agent_memory_chunks (agent_id);
+CREATE INDEX IF NOT EXISTS seller_agent_chats_agent_idx ON seller_agent_chats (agent_id);
+
 COMMIT;
 --   SELECT column_name FROM information_schema.columns
 --     WHERE table_name = 'user_profiles' AND column_name IN ('login_email', 'notification_preferences');

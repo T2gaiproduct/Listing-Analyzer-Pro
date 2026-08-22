@@ -20,6 +20,7 @@ import productsRouter from "./products";
 import accountRolesRouter from "./account-roles";
 import marketplacesRouter from "./marketplaces";
 import adsRouter from "./ads";
+import sellerAgentsRouter from "./seller-agents";
 
 const router: IRouter = Router();
 
@@ -31,6 +32,7 @@ router.use(teamRouter);
 router.use(accountRolesRouter);
 router.use(marketplacesRouter);
 router.use(adsRouter);
+router.use(sellerAgentsRouter);
 router.use(productsRouter);
 router.use(workspacesRouter);
 router.use(amazonRouter);

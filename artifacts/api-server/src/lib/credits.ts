@@ -22,6 +22,7 @@ export const CREDIT_RULE_FEATURE_ALIASES: Record<string, string[]> = {
   img: ["graphics", "img", "images"],
   ebc: ["ebc"],
   competitors: ["competitors"],
+  agents: ["agents", "ai"],
 };
 
 export function creditRuleLookupTypes(featureType: string): string[] {
@@ -85,6 +86,7 @@ export async function getCreditCost(featureType: string): Promise<{ creditType: 
     image_regenerate: { creditType: "image", creditsRequired: 1, activityName: "Image Regenerate" },
     image_edit: { creditType: "image", creditsRequired: 1, activityName: "Image Edit" },
     competitors: { creditType: "audit", creditsRequired: 1, activityName: "Competitors Analysis" },
+    agents: { creditType: "ai", creditsRequired: 1, activityName: "Seller Agent Chat" },
   };
 
   return defaults[featureType] ?? { creditType: "audit", creditsRequired: 1, activityName: featureType };

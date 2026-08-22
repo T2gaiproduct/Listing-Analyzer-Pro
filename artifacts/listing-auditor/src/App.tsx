@@ -74,6 +74,7 @@ import {
   AdsNegativeTargetsConsolePage,
   AdsWorkflowPage,
   SettingsPage,
+  SellerAgentsPage,
   WorkspacesPage,
   WorkspaceDetailPage,
   RolesPage,
@@ -768,6 +769,9 @@ function Router() {
       </Route>
       <Route path="/ads">
         <WorkspaceProtectedRoute><AdsPage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/seller-agents">
+        <WorkspaceProtectedRoute><SellerAgentsPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/settings">
         <WorkspaceProtectedRoute><SettingsPage /></WorkspaceProtectedRoute>

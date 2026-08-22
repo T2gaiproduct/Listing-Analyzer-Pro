@@ -74,6 +74,7 @@ const mainNavItems: Array<{
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
+  { icon: MessageSquare, label: "Seller Agents", href: "/seller-agents", feature: "audits" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------
@@ -156,6 +157,7 @@ function getPageTitle(location: string): string {
   if (location === "/billing") return "Billing";
   if (location === "/profile") return "Profile";
   if (location === "/settings") return "Settings";
+  if (location === "/seller-agents") return "Seller Agents";
   if (location === "/team") return "Team";
   if (location === "/roles") return "Roles";
   if (location === "/workspaces") return WORKSPACES_HUB_LABEL;
