@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   ChevronDown,
   ChevronRight,
-  Clock,
   Copy,
   FolderOpen,
   Loader2,
   PenLine,
-  Plug,
   Plus,
   Send,
   Sparkles,
@@ -41,7 +38,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { fetchMarketplaceConnections } from "@/lib/marketplace-connections";
 import {
   cloneSellerAgent,
   createSellerAgent,
@@ -120,7 +116,6 @@ export default function SellerAgentsPage() {
   const [promptCategory, setPromptCategory] = useState<(typeof PROMPT_CATEGORIES)[number]>("All");
   const [agentsOpen, setAgentsOpen] = useState(true);
   const [memoryOpen, setMemoryOpen] = useState(true);
-  const [connectedOpen, setConnectedOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
@@ -131,11 +126,6 @@ export default function SellerAgentsPage() {
   const agentsQuery = useQuery({
     queryKey: ["seller-agents"],
     queryFn: fetchSellerAgents,
-  });
-
-  const connectionsQuery = useQuery({
-    queryKey: ["marketplace-connections"],
-    queryFn: fetchMarketplaceConnections,
   });
 
   const agents = agentsQuery.data?.agents ?? [];
@@ -345,7 +335,6 @@ export default function SellerAgentsPage() {
     (p) => promptCategory === "All" || p.category === promptCategory,
   );
 
-  const connections = connectionsQuery.data;
   const canDeleteSelectedAgent = Boolean(selectedAgent && !selectedAgent.isPlatformTemplate);
 
   return (
@@ -398,16 +387,6 @@ export default function SellerAgentsPage() {
           New chat
         </button>
 
-        <button
-          type="button"
-          disabled
-          className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground border-b border-border/60 cursor-not-allowed"
-        >
-          <Clock className="w-3.5 h-3.5" />
-          Automations
-          <span className="ml-auto text-[10px] uppercase tracking-wide">Soon</span>
-        </button>
-
           <SidebarSection
             title="Memory Files"
             icon={FolderOpen}
@@ -451,37 +430,6 @@ export default function SellerAgentsPage() {
             {(memoryQuery.data?.files ?? []).length === 0 ? (
               <p className="text-[11px] text-muted-foreground">No files yet</p>
             ) : null}
-          </SidebarSection>
-
-          <SidebarSection
-            title="Connected Apps"
-            icon={Plug}
-            open={connectedOpen}
-            onToggle={() => setConnectedOpen((v) => !v)}
-          >
-            <div className="space-y-1 text-[11px]">
-              <div className="flex justify-between">
-                <span>Amazon</span>
-                <span className={connections?.amazon.connected ? "text-emerald-600" : "text-muted-foreground"}>
-                  {connections?.amazon.connected ? "Connected" : "Not connected"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Shopify</span>
-                <span className={connections?.shopify.connected ? "text-emerald-600" : "text-muted-foreground"}>
-                  {connections?.shopify.connected ? "Connected" : "Not connected"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>WooCommerce</span>
-                <span className={connections?.woocommerce.connected ? "text-emerald-600" : "text-muted-foreground"}>
-                  {connections?.woocommerce.connected ? "Connected" : "Not connected"}
-                </span>
-              </div>
-              <Link href="/marketplaces" className="inline-block mt-1 text-primary hover:underline">
-                Manage connections →
-              </Link>
-            </div>
           </SidebarSection>
         </div>
 
