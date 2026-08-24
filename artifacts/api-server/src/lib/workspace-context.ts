@@ -18,7 +18,7 @@ import {
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { displayWorkspaceRoleLabel } from "./role-display.js";
-import { getDefaultWorkspaceId, ensureTeamMembersSchema, ensureSubscriberDefaultWorkspace } from "./ensure-workspaces";
+import { getDefaultWorkspaceId, ensureTeamMembersSchema, ensureSubscriberDefaultWorkspace, dedupeRacedDefaultWorkspaces } from "./ensure-workspaces";
 import { ensureAccountRolesMigrated, getAccountRole } from "./ensure-account-roles";
 import { syncTeamMemberWorkspaceMemberships } from "./team-workspace-sync.js";
 import { fetchClerkUserEmailAndName } from "./clerk-user.js";
@@ -95,6 +95,7 @@ export async function listAccessibleWorkspaces(userId: string): Promise<Array<{
 
   const team = await resolveTeamContext(userId);
   if (!team.isTeamMember) {
+    await dedupeRacedDefaultWorkspaces(userId);
     await ensureSubscriberDefaultWorkspace(userId);
   }
   if (team.isTeamMember && team.memberId) {
