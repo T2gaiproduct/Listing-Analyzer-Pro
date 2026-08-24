@@ -1,84 +1,41 @@
-import { and, asc, desc, eq, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import {
   db,
   sellermateAgentsTable,
+  sellermateAgentToolsTable,
   sellermateMemoryTable,
   sellermateMessagesTable,
   sellermateThreadsTable,
   type SellermateAgent,
 } from "@workspace/db";
+import {
+  AGENT_TOOL_CATALOG,
+  SUPPORTED_AGENT_MODELS,
+  isValidAgentToolName,
+  type AgentToolName,
+} from "./agent-registry.js";
 import { generateChatCompletion } from "./ai-provider.js";
+import {
+  invokeMakeAgentWebhook,
+  shouldUseMakeForAgent,
+} from "./make-agent-client.js";
+import {
+  ensureWorkspaceDefaultAgents,
+  listAgentTools,
+  replaceAgentTools,
+} from "./workspace-agents.js";
 
-export const DEFAULT_SELLERMATE_AGENTS = [
-  {
-    slug: "keyword-research",
-    name: "Keyword Research",
-    description: "Find keywords, search terms, and targeting ideas for your Amazon listings and ads.",
-    icon: "search",
-    systemPrompt: `You are SellerLens AI Keyword Research Agent for Amazon sellers.
-Help users discover high-intent keywords, analyze search terms, suggest negatives, and explain match types.
-Be concise, actionable, and ask clarifying questions when ASIN or campaign context is missing.`,
-  },
-  {
-    slug: "campaign-optimizer",
-    name: "Campaign Optimizer",
-    description: "Review bids, budgets, ACOS, and campaign structure to improve ad performance.",
-    icon: "target",
-    systemPrompt: `You are SellerLens AI Campaign Optimizer for Amazon PPC.
-Help users improve ACOS, bids, budgets, placements, and campaign structure.
-Give specific recommendations and explain trade-offs. Ask for metrics when needed.`,
-  },
-  {
-    slug: "ads-analyst",
-    name: "Ads Analyst",
-    description: "Summarize performance trends and explain what changed in your Amazon Ads account.",
-    icon: "chart",
-    systemPrompt: `You are SellerLens AI Ads Analyst for Amazon advertising.
-Help users understand performance trends, anomalies, and reports in plain language.
-Highlight what matters, suggest next steps, and request date ranges or campaign names when unclear.`,
-  },
-] as const;
-
-export async function ensureDefaultSellermateAgents(): Promise<void> {
-  for (const agent of DEFAULT_SELLERMATE_AGENTS) {
-    const [existing] = await db
-      .select({ id: sellermateAgentsTable.id })
-      .from(sellermateAgentsTable)
-      .where(and(
-        eq(sellermateAgentsTable.slug, agent.slug),
-        eq(sellermateAgentsTable.isDefault, 1),
-        isNull(sellermateAgentsTable.workspaceId),
-        eq(sellermateAgentsTable.isDeleted, 0),
-      ))
-      .limit(1);
-
-    if (existing) continue;
-
-    await db.insert(sellermateAgentsTable).values({
-      workspaceId: null,
-      userId: null,
-      slug: agent.slug,
-      name: agent.name,
-      description: agent.description,
-      systemPrompt: agent.systemPrompt,
-      icon: agent.icon,
-      isDefault: 1,
-    });
-  }
-}
+export { AGENT_TOOL_CATALOG, SUPPORTED_AGENT_MODELS };
 
 export async function listSellermateAgents(workspaceId: number): Promise<SellermateAgent[]> {
-  await ensureDefaultSellermateAgents();
+  await ensureWorkspaceDefaultAgents(workspaceId);
 
   return db
     .select()
     .from(sellermateAgentsTable)
     .where(and(
+      eq(sellermateAgentsTable.workspaceId, workspaceId),
       eq(sellermateAgentsTable.isDeleted, 0),
-      or(
-        and(eq(sellermateAgentsTable.isDefault, 1), isNull(sellermateAgentsTable.workspaceId)),
-        and(eq(sellermateAgentsTable.workspaceId, workspaceId), eq(sellermateAgentsTable.isDefault, 0)),
-      ),
     ))
     .orderBy(desc(sellermateAgentsTable.isDefault), asc(sellermateAgentsTable.name));
 }
@@ -87,22 +44,40 @@ export async function getSellermateAgentForWorkspace(
   agentId: number,
   workspaceId: number,
 ): Promise<SellermateAgent | null> {
-  await ensureDefaultSellermateAgents();
+  await ensureWorkspaceDefaultAgents(workspaceId);
 
   const [agent] = await db
     .select()
     .from(sellermateAgentsTable)
     .where(and(
       eq(sellermateAgentsTable.id, agentId),
+      eq(sellermateAgentsTable.workspaceId, workspaceId),
       eq(sellermateAgentsTable.isDeleted, 0),
-      or(
-        and(eq(sellermateAgentsTable.isDefault, 1), isNull(sellermateAgentsTable.workspaceId)),
-        and(eq(sellermateAgentsTable.workspaceId, workspaceId), eq(sellermateAgentsTable.isDefault, 0)),
-      ),
     ))
     .limit(1);
 
   return agent ?? null;
+}
+
+export async function getSellermateAgentTools(agentId: number, workspaceId: number) {
+  return listAgentTools(agentId, workspaceId);
+}
+
+function normalizeModel(model?: string): string {
+  const value = model?.trim() || "gpt-5.4";
+  if ((SUPPORTED_AGENT_MODELS as readonly string[]).includes(value)) return value;
+  return "gpt-5.4";
+}
+
+function normalizeTools(tools?: Array<{ toolName: string; enabled?: boolean; requiresApproval?: boolean }>) {
+  if (!tools) return [];
+  return tools
+    .filter((tool) => isValidAgentToolName(tool.toolName))
+    .map((tool) => ({
+      toolName: tool.toolName as AgentToolName,
+      enabled: tool.enabled !== false,
+      requiresApproval: Boolean(tool.requiresApproval),
+    }));
 }
 
 export async function createSellermateAgent(input: {
@@ -111,6 +86,9 @@ export async function createSellermateAgent(input: {
   name: string;
   description?: string;
   systemPrompt: string;
+  model?: string;
+  tools?: Array<{ toolName: string; enabled?: boolean; requiresApproval?: boolean }>;
+  executionProvider?: string;
 }): Promise<SellermateAgent> {
   const name = input.name.trim();
   const systemPrompt = input.systemPrompt.trim();
@@ -126,11 +104,70 @@ export async function createSellermateAgent(input: {
       description: input.description?.trim() ?? "",
       systemPrompt,
       icon: "bot",
+      model: normalizeModel(input.model),
+      status: "active",
+      executionProvider: input.executionProvider === "make" ? "make" : "native",
       isDefault: 0,
     })
     .returning();
 
   if (!agent) throw new Error("Failed to create agent.");
+
+  const tools = normalizeTools(input.tools);
+  if (tools.length > 0) {
+    await replaceAgentTools({
+      agentId: agent.id,
+      workspaceId: input.workspaceId,
+      tools,
+    });
+  }
+
+  return agent;
+}
+
+export async function duplicateSellermateAgent(input: {
+  sourceAgentId: number;
+  workspaceId: number;
+  userId: string;
+  name?: string;
+}): Promise<SellermateAgent> {
+  const source = await getSellermateAgentForWorkspace(input.sourceAgentId, input.workspaceId);
+  if (!source) throw new Error("Agent not found.");
+
+  const name = input.name?.trim() || `${source.name} (copy)`;
+  const [agent] = await db
+    .insert(sellermateAgentsTable)
+    .values({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      slug: null,
+      name,
+      description: source.description,
+      systemPrompt: source.systemPrompt,
+      icon: source.icon,
+      model: source.model,
+      status: "active",
+      executionProvider: source.executionProvider,
+      makeAgentId: source.makeAgentId,
+      isDefault: 0,
+    })
+    .returning();
+
+  if (!agent) throw new Error("Failed to duplicate agent.");
+
+  const sourceTools = await listAgentTools(source.id, input.workspaceId);
+  if (sourceTools.length > 0) {
+    await replaceAgentTools({
+      agentId: agent.id,
+      workspaceId: input.workspaceId,
+      tools: sourceTools.map((tool) => ({
+        toolName: tool.toolName as AgentToolName,
+        enabled: tool.enabled === 1,
+        requiresApproval: tool.requiresApproval === 1,
+      })),
+    });
+  }
+
   return agent;
 }
 
@@ -140,14 +177,17 @@ export async function updateSellermateAgent(input: {
   name?: string;
   description?: string;
   systemPrompt?: string;
+  model?: string;
+  tools?: Array<{ toolName: string; enabled?: boolean; requiresApproval?: boolean }>;
 }): Promise<SellermateAgent> {
   const agent = await getSellermateAgentForWorkspace(input.agentId, input.workspaceId);
   if (!agent) throw new Error("Agent not found.");
-  if (agent.isDefault) throw new Error("Default agents cannot be edited.");
+  if (agent.isDefault) throw new Error("Default agents cannot be edited. Duplicate it to customize.");
 
   const name = input.name !== undefined ? input.name.trim() : agent.name;
   const description = input.description !== undefined ? input.description.trim() : agent.description;
   const systemPrompt = input.systemPrompt !== undefined ? input.systemPrompt.trim() : agent.systemPrompt;
+  const model = input.model !== undefined ? normalizeModel(input.model) : agent.model;
 
   if (!name) throw new Error("Agent name is required.");
   if (!systemPrompt) throw new Error("System instructions are required.");
@@ -158,12 +198,22 @@ export async function updateSellermateAgent(input: {
       name,
       description,
       systemPrompt,
+      model,
       updatedAt: new Date(),
     })
     .where(eq(sellermateAgentsTable.id, input.agentId))
     .returning();
 
   if (!updated) throw new Error("Failed to update agent.");
+
+  if (input.tools) {
+    await replaceAgentTools({
+      agentId: input.agentId,
+      workspaceId: input.workspaceId,
+      tools: normalizeTools(input.tools),
+    });
+  }
+
   return updated;
 }
 
@@ -270,6 +320,45 @@ export async function listSellermateMessages(threadId: number) {
     .orderBy(asc(sellermateMessagesTable.createdAt));
 }
 
+async function sendNativeSellermateMessage(input: {
+  agent: SellermateAgent;
+  workspaceId: number;
+  thread: typeof sellermateThreadsTable.$inferSelect;
+  message: string;
+  mode?: "basic" | "agent";
+  history: Awaited<ReturnType<typeof listSellermateMessages>>;
+  memoryContext: string;
+}): Promise<string> {
+  const systemParts = [input.agent.systemPrompt.trim()];
+  if (input.memoryContext) {
+    systemParts.push(`\n\n## Memory files for this agent\n${input.memoryContext}`);
+  }
+  if (input.mode === "agent") {
+    systemParts.push("\n\nYou may plan multi-step analysis, ask follow-up questions, and suggest automations when helpful.");
+  }
+
+  const transcript = input.history
+    .filter((row) => row.role === "user" || row.role === "assistant")
+    .map((row) => `${row.role === "user" ? "User" : "Assistant"}: ${row.content}`)
+    .join("\n\n");
+
+  const userPrompt = transcript
+    ? `Conversation so far:\n${transcript}\n\nUser: ${input.message}`
+    : input.message;
+
+  const chatMessages: Array<{ role: "system" | "user"; content: string }> = [
+    { role: "system", content: systemParts.join("") },
+    { role: "user", content: userPrompt },
+  ];
+
+  const { content: assistantContent } = await generateChatCompletion(chatMessages, {
+    maxTokens: input.mode === "agent" ? 2048 : 1024,
+    temperature: 0.4,
+  });
+
+  return assistantContent.trim() || "I could not generate a response. Please try again.";
+}
+
 export async function sendSellermateMessage(input: {
   agent: SellermateAgent;
   workspaceId: number;
@@ -291,44 +380,57 @@ export async function sendSellermateMessage(input: {
   const history = await listSellermateMessages(thread.id);
   const memoryContext = await loadAgentMemoryContext(input.agent.id, input.workspaceId);
 
-  const systemParts = [input.agent.systemPrompt.trim()];
-  if (memoryContext) {
-    systemParts.push(`\n\n## Memory files for this agent\n${memoryContext}`);
-  }
-  if (input.mode === "agent") {
-    systemParts.push("\n\nYou may plan multi-step analysis, ask follow-up questions, and suggest automations when helpful.");
-  }
-
   const [userRow] = await db
     .insert(sellermateMessagesTable)
     .values({ threadId: thread.id, role: "user", content: message })
     .returning();
 
-  const transcript = history
-    .filter((row) => row.role === "user" || row.role === "assistant")
-    .map((row) => `${row.role === "user" ? "User" : "Assistant"}: ${row.content}`)
-    .join("\n\n");
+  let assistantText: string;
+  let externalConversationId: string | null = null;
 
-  const userPrompt = transcript
-    ? `Conversation so far:\n${transcript}\n\nUser: ${message}`
-    : message;
-
-  const chatMessages: Array<{ role: "system" | "user"; content: string }> = [
-    { role: "system", content: systemParts.join("") },
-    { role: "user", content: userPrompt },
-  ];
-
-  const { content: assistantContent } = await generateChatCompletion(chatMessages, {
-    maxTokens: input.mode === "agent" ? 2048 : 1024,
-    temperature: 0.4,
-  });
+  if (shouldUseMakeForAgent(input.agent.executionProvider)) {
+    try {
+      const makeResult = await invokeMakeAgentWebhook({
+        workspaceId: input.workspaceId,
+        agentId: input.agent.id,
+        threadId: thread.id,
+        conversationId: thread.externalConversationId,
+        userId: input.userId,
+        message,
+        mode: input.mode === "basic" ? "basic" : "agent",
+      });
+      assistantText = makeResult.response || "I could not generate a response. Please try again.";
+      externalConversationId = makeResult.externalConversationId ?? thread.externalConversationId;
+    } catch (err) {
+      reqLogFallback(err);
+      assistantText = await sendNativeSellermateMessage({
+        agent: input.agent,
+        workspaceId: input.workspaceId,
+        thread,
+        message,
+        mode: input.mode,
+        history,
+        memoryContext,
+      });
+    }
+  } else {
+    assistantText = await sendNativeSellermateMessage({
+      agent: input.agent,
+      workspaceId: input.workspaceId,
+      thread,
+      message,
+      mode: input.mode,
+      history,
+      memoryContext,
+    });
+  }
 
   const [assistantRow] = await db
     .insert(sellermateMessagesTable)
     .values({
       threadId: thread.id,
       role: "assistant",
-      content: assistantContent.trim() || "I could not generate a response. Please try again.",
+      content: assistantText,
     })
     .returning();
 
@@ -342,14 +444,20 @@ export async function sendSellermateMessage(input: {
       title,
       lastMessageAt: new Date(),
       updatedAt: new Date(),
+      ...(externalConversationId ? { externalConversationId } : {}),
     })
     .where(eq(sellermateThreadsTable.id, thread.id));
 
   return {
-    thread: { ...thread, title },
+    thread: { ...thread, title, externalConversationId: externalConversationId ?? thread.externalConversationId },
     userMessage: userRow!,
     assistantMessage: assistantRow!,
   };
+}
+
+function reqLogFallback(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  console.warn("[sellermate] Make execution failed, falling back to native:", message);
 }
 
 export async function listSellermateMemory(agentId: number, workspaceId: number) {
@@ -371,6 +479,8 @@ export async function addSellermateMemory(input: {
   name: string;
   description?: string;
   content: string;
+  memoryKey?: string;
+  memoryType?: string;
 }) {
   const name = input.name.trim();
   const description = input.description?.trim() ?? "";
@@ -387,6 +497,8 @@ export async function addSellermateMemory(input: {
       name,
       description,
       content,
+      memoryKey: input.memoryKey?.trim() || null,
+      memoryType: input.memoryType?.trim() || "file",
     })
     .returning();
 
@@ -416,6 +528,7 @@ export async function addSellermateMemoryFromFile(input: {
     name: input.name,
     description: input.description,
     content,
+    memoryType: "file",
   });
 }
 
@@ -427,4 +540,11 @@ export async function deleteSellermateMemory(memoryId: number, workspaceId: numb
       eq(sellermateMemoryTable.id, memoryId),
       eq(sellermateMemoryTable.workspaceId, workspaceId),
     ));
+}
+
+export async function getAgentConfigForMake(agentId: number, workspaceId: number) {
+  const agent = await getSellermateAgentForWorkspace(agentId, workspaceId);
+  if (!agent) return null;
+  const tools = await listAgentTools(agentId, workspaceId);
+  return { agent, tools };
 }

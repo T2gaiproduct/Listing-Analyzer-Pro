@@ -1,12 +1,16 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import {
+  AGENT_TOOL_CATALOG,
+  SUPPORTED_AGENT_MODELS,
   addSellermateMemory,
   addSellermateMemoryFromFile,
   createSellermateAgent,
   deleteSellermateAgent,
   deleteSellermateMemory,
+  duplicateSellermateAgent,
   getSellermateAgentForWorkspace,
+  getSellermateAgentTools,
   listSellermateAgents,
   listSellermateMemory,
   listSellermateMessages,
@@ -37,18 +41,40 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-function mapAgent(agent: Awaited<ReturnType<typeof listSellermateAgents>>[number]) {
+async function mapAgent(
+  agent: Awaited<ReturnType<typeof listSellermateAgents>>[number],
+  workspaceId: number,
+) {
+  const tools = await getSellermateAgentTools(agent.id, workspaceId);
   return {
     id: agent.id,
     name: agent.name,
     description: agent.description,
     systemPrompt: agent.isDefault ? undefined : agent.systemPrompt,
     icon: agent.icon,
+    model: agent.model,
+    executionProvider: agent.executionProvider,
     isDefault: agent.isDefault === 1,
     slug: agent.slug,
     createdAt: agent.createdAt,
+    tools: tools.map((tool) => ({
+      toolName: tool.toolName,
+      enabled: tool.enabled === 1,
+      requiresApproval: tool.requiresApproval === 1,
+    })),
   };
 }
+
+router.get(
+  "/sellermate/tools-catalog",
+  requireAuth,
+  (_req, res) => {
+    res.json({
+      tools: AGENT_TOOL_CATALOG,
+      models: SUPPORTED_AGENT_MODELS,
+    });
+  },
+);
 
 router.get(
   "/sellermate/agents",
@@ -63,9 +89,10 @@ router.get(
 
     try {
       const agents = await listSellermateAgents(workspaceId);
-      res.json({ agents: agents.map(mapAgent) });
+      const mapped = await Promise.all(agents.map((agent) => mapAgent(agent, workspaceId)));
+      res.json({ agents: mapped });
     } catch (err) {
-      req.log?.error?.({ err }, "List SellerMate agents failed");
+      req.log?.error?.({ err }, "List SellerLens AI agents failed");
       res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load agents." });
     }
   },
@@ -84,7 +111,13 @@ router.post(
       return;
     }
 
-    const body = req.body as { name?: string; description?: string; systemPrompt?: string };
+    const body = req.body as {
+      name?: string;
+      description?: string;
+      systemPrompt?: string;
+      model?: string;
+      tools?: Array<{ toolName: string; enabled?: boolean; requiresApproval?: boolean }>;
+    };
     try {
       const agent = await createSellermateAgent({
         workspaceId,
@@ -92,11 +125,42 @@ router.post(
         name: String(body.name ?? ""),
         description: String(body.description ?? ""),
         systemPrompt: String(body.systemPrompt ?? ""),
+        model: body.model,
+        tools: body.tools,
       });
-      res.status(201).json({ agent: mapAgent(agent) });
+      res.status(201).json({ agent: await mapAgent(agent, workspaceId) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create agent.";
       res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.post(
+  "/sellermate/agents/:id/duplicate",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceAction("ads", "create"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const userId = (req as AuthedRequest).userId;
+    const agentId = Number(req.params.id);
+    if (!workspaceId || !Number.isFinite(agentId)) {
+      res.status(400).json({ error: "Invalid request." });
+      return;
+    }
+
+    const body = req.body as { name?: string };
+    try {
+      const agent = await duplicateSellermateAgent({
+        sourceAgentId: agentId,
+        workspaceId,
+        userId,
+        name: body.name,
+      });
+      res.status(201).json({ agent: await mapAgent(agent, workspaceId) });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Failed to duplicate agent." });
     }
   },
 );
@@ -114,7 +178,13 @@ router.patch(
       return;
     }
 
-    const body = req.body as { name?: string; description?: string; systemPrompt?: string };
+    const body = req.body as {
+      name?: string;
+      description?: string;
+      systemPrompt?: string;
+      model?: string;
+      tools?: Array<{ toolName: string; enabled?: boolean; requiresApproval?: boolean }>;
+    };
     try {
       const agent = await updateSellermateAgent({
         agentId,
@@ -122,8 +192,10 @@ router.patch(
         name: body.name !== undefined ? String(body.name) : undefined,
         description: body.description !== undefined ? String(body.description) : undefined,
         systemPrompt: body.systemPrompt !== undefined ? String(body.systemPrompt) : undefined,
+        model: body.model,
+        tools: body.tools,
       });
-      res.json({ agent: mapAgent(agent) });
+      res.json({ agent: await mapAgent(agent, workspaceId) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update agent.";
       res.status(400).json({ error: message });
@@ -230,7 +302,7 @@ router.post(
       });
       res.json(result);
     } catch (err) {
-      req.log?.error?.({ err }, "SellerMate chat failed");
+      req.log?.error?.({ err }, "SellerLens AI chat failed");
       res.status(500).json({ error: err instanceof Error ? err.message : "Chat failed." });
     }
   },

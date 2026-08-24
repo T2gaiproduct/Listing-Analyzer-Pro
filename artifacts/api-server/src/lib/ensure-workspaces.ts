@@ -82,6 +82,8 @@ async function ensureDefaultWorkspace(accountOwnerId: string): Promise<number> {
     .limit(1);
 
   if (existing) {
+    const { ensureWorkspaceDefaultAgents } = await import("./workspace-agents.js");
+    await ensureWorkspaceDefaultAgents(existing.id);
     return existing.id;
   }
 
@@ -92,6 +94,9 @@ async function ensureDefaultWorkspace(accountOwnerId: string): Promise<number> {
     isDefault: true,
     preserveLegacyPermissions: true,
   }).returning();
+
+  const { ensureWorkspaceDefaultAgents } = await import("./workspace-agents.js");
+  await ensureWorkspaceDefaultAgents(ws!.id);
 
   return ws!.id;
 }
@@ -191,6 +196,9 @@ export async function ensureSubscriberDefaultWorkspace(accountOwnerId: string): 
     isDefault: true,
     preserveLegacyPermissions: true,
   }).returning();
+
+  const { ensureWorkspaceDefaultAgents } = await import("./workspace-agents.js");
+  await ensureWorkspaceDefaultAgents(ws!.id);
 
   return ws!.id;
 }

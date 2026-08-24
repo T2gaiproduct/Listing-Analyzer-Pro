@@ -379,6 +379,9 @@ router.post("/workspaces", requireAuth, async (req, res): Promise<void> => {
     preserveLegacyPermissions: preserveLegacyPermissions ?? true,
   }).returning();
 
+  const { ensureWorkspaceDefaultAgents } = await import("../lib/workspace-agents.js");
+  await ensureWorkspaceDefaultAgents(ws!.id);
+
   res.status(201).json(ws);
 });
 

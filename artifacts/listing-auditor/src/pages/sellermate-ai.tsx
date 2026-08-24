@@ -5,7 +5,10 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
+  Copy,
   FileText,
+  Image,
   Loader2,
   MessageSquarePlus,
   Pencil,
@@ -27,6 +30,8 @@ import {
   createSellermateAgent,
   deleteSellermateAgent,
   deleteSellermateMemory,
+  duplicateSellermateAgent,
+  fetchAgentToolsCatalog,
   fetchSellermateAgents,
   fetchSellermateMemory,
   fetchSellermateMessages,
@@ -34,6 +39,8 @@ import {
   sendSellermateChat,
   updateSellermateAgent,
   uploadSellermateMemoryFile,
+  type AgentToolConfig,
+  type AgentToolDefinition,
   type SellermateAgent,
   type SellermateMessage,
 } from "@/lib/sellermate-ai";
@@ -49,9 +56,21 @@ function agentIcon(icon: string) {
       return Target;
     case "chart":
       return BarChart3;
+    case "clipboard-check":
+      return ClipboardCheck;
+    case "image":
+      return Image;
     default:
       return Bot;
   }
+}
+
+function defaultToolSelection(catalog: AgentToolDefinition[]): AgentToolConfig[] {
+  return catalog.map((tool) => ({
+    toolName: tool.name,
+    enabled: true,
+    requiresApproval: tool.defaultRequiresApproval,
+  }));
 }
 
 export default function SellerMateAiPage() {
@@ -72,6 +91,16 @@ export default function SellerMateAiPage() {
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentDescription, setNewAgentDescription] = useState("");
   const [newAgentPrompt, setNewAgentPrompt] = useState("");
+  const [newAgentModel, setNewAgentModel] = useState("gpt-5.4");
+  const [selectedTools, setSelectedTools] = useState<AgentToolConfig[]>([]);
+
+  const toolsCatalogQuery = useQuery({
+    queryKey: ["sellermate-tools-catalog"],
+    queryFn: fetchAgentToolsCatalog,
+  });
+
+  const toolCatalog = toolsCatalogQuery.data?.tools ?? [];
+  const modelOptions = toolsCatalogQuery.data?.models ?? ["gpt-5.4"];
 
   const agentsQuery = useQuery({
     queryKey: ["sellermate-agents"],
@@ -140,9 +169,7 @@ export default function SellerMateAiPage() {
       setSelectedAgentId(agent.id);
       setActiveThreadId(null);
       setCreateAgentOpen(false);
-      setNewAgentName("");
-      setNewAgentDescription("");
-      setNewAgentPrompt("");
+      resetAgentForm();
       toast({ title: "Agent created", description: `${agent.name} is ready to use.` });
     },
     onError: (error) => {
@@ -165,20 +192,27 @@ export default function SellerMateAiPage() {
   });
 
   const updateAgentMutation = useMutation({
-    mutationFn: (input: { agentId: number; name: string; description?: string; systemPrompt: string }) =>
+    mutationFn: (input: {
+      agentId: number;
+      name: string;
+      description?: string;
+      systemPrompt: string;
+      model?: string;
+      tools?: AgentToolConfig[];
+    }) =>
       updateSellermateAgent(input.agentId, {
         name: input.name,
         description: input.description,
         systemPrompt: input.systemPrompt,
+        model: input.model,
+        tools: input.tools,
       }),
     onSuccess: (agent) => {
       void queryClient.invalidateQueries({ queryKey: ["sellermate-agents"] });
       setSelectedAgentId(agent.id);
       setEditAgentOpen(false);
       setEditingAgent(null);
-      setNewAgentName("");
-      setNewAgentDescription("");
-      setNewAgentPrompt("");
+      resetAgentForm();
       toast({ title: "Agent updated", description: `${agent.name} was saved.` });
     },
     onError: (error) => {
@@ -206,6 +240,60 @@ export default function SellerMateAiPage() {
       });
     },
   });
+
+  const duplicateAgentMutation = useMutation({
+    mutationFn: (agentId: number) => duplicateSellermateAgent(agentId),
+    onSuccess: (agent) => {
+      void queryClient.invalidateQueries({ queryKey: ["sellermate-agents"] });
+      setSelectedAgentId(agent.id);
+      setActiveThreadId(null);
+      toast({ title: "Agent duplicated", description: `${agent.name} is ready to customize.` });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not duplicate agent",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function resetAgentForm() {
+    setNewAgentName("");
+    setNewAgentDescription("");
+    setNewAgentPrompt("");
+    setNewAgentModel("gpt-5.4");
+    setSelectedTools(defaultToolSelection(toolCatalog));
+  }
+
+  function openCreateAgent() {
+    resetAgentForm();
+    setCreateAgentOpen(true);
+  }
+
+  function toggleTool(toolName: AgentToolConfig["toolName"]) {
+    setSelectedTools((current) => {
+      const existing = current.find((tool) => tool.toolName === toolName);
+      if (existing) {
+        return current.map((tool) =>
+          tool.toolName === toolName ? { ...tool, enabled: !tool.enabled } : tool,
+        );
+      }
+      const definition = toolCatalog.find((tool) => tool.name === toolName);
+      return [
+        ...current,
+        {
+          toolName,
+          enabled: true,
+          requiresApproval: definition?.defaultRequiresApproval ?? false,
+        },
+      ];
+    });
+  }
+
+  function isToolEnabled(toolName: AgentToolConfig["toolName"]) {
+    return selectedTools.find((tool) => tool.toolName === toolName)?.enabled ?? false;
+  }
 
   const deleteMemoryMutation = useMutation({
     mutationFn: (memoryId: number) => deleteSellermateMemory(selectedAgentId!, memoryId),
@@ -239,6 +327,8 @@ export default function SellerMateAiPage() {
     setNewAgentName(agent.name);
     setNewAgentDescription(agent.description ?? "");
     setNewAgentPrompt(agent.systemPrompt ?? "");
+    setNewAgentModel(agent.model ?? "gpt-5.4");
+    setSelectedTools(agent.tools ?? defaultToolSelection(toolCatalog));
     setEditAgentOpen(true);
   }
 
@@ -249,6 +339,8 @@ export default function SellerMateAiPage() {
       name: newAgentName,
       description: newAgentDescription,
       systemPrompt: newAgentPrompt,
+      model: newAgentModel,
+      tools: selectedTools,
     });
   }
 
@@ -296,6 +388,7 @@ export default function SellerMateAiPage() {
             agents={defaultAgents}
             selectedAgentId={selectedAgentId}
             onSelect={handleSelectAgent}
+            onDuplicate={(agent) => duplicateAgentMutation.mutate(agent.id)}
           />
 
           <div>
@@ -303,7 +396,7 @@ export default function SellerMateAiPage() {
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Your agents</p>
               <button
                 type="button"
-                onClick={() => setCreateAgentOpen(true)}
+                onClick={openCreateAgent}
                 className="text-slate-400 hover:text-slate-700"
                 aria-label="Create agent"
               >
@@ -504,6 +597,39 @@ export default function SellerMateAiPage() {
                 className="min-h-[120px]"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Model</Label>
+              <select
+                value={newAgentModel}
+                onChange={(e) => setNewAgentModel(e.target.value)}
+                className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+              >
+                {modelOptions.map((model) => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+            {toolCatalog.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs">Tools</Label>
+                <div className="space-y-2 rounded-md border border-slate-200 p-3">
+                  {toolCatalog.map((tool) => (
+                    <label key={tool.name} className="flex items-start gap-2 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={isToolEnabled(tool.name)}
+                        onChange={() => toggleTool(tool.name)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-medium">{tool.label}</span>
+                        <span className="block text-slate-500">{tool.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setCreateAgentOpen(false)}>Cancel</Button>
@@ -513,6 +639,8 @@ export default function SellerMateAiPage() {
                 name: newAgentName,
                 description: newAgentDescription,
                 systemPrompt: newAgentPrompt,
+                model: newAgentModel,
+                tools: selectedTools,
               })}
               disabled={createAgentMutation.isPending}
             >
@@ -556,6 +684,39 @@ export default function SellerMateAiPage() {
                 className="min-h-[120px]"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Model</Label>
+              <select
+                value={newAgentModel}
+                onChange={(e) => setNewAgentModel(e.target.value)}
+                className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+              >
+                {modelOptions.map((model) => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+            {toolCatalog.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs">Tools</Label>
+                <div className="space-y-2 rounded-md border border-slate-200 p-3">
+                  {toolCatalog.map((tool) => (
+                    <label key={tool.name} className="flex items-start gap-2 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={isToolEnabled(tool.name)}
+                        onChange={() => toggleTool(tool.name)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="font-medium">{tool.label}</span>
+                        <span className="block text-slate-500">{tool.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditAgentOpen(false)}>Cancel</Button>
@@ -589,6 +750,7 @@ function AgentSection({
   onSelect,
   onEdit,
   onDelete,
+  onDuplicate,
   emptyLabel,
 }: {
   title?: string;
@@ -597,6 +759,7 @@ function AgentSection({
   onSelect: (agent: SellermateAgent) => void;
   onEdit?: (agent: SellermateAgent) => void;
   onDelete?: (agent: SellermateAgent) => void;
+  onDuplicate?: (agent: SellermateAgent) => void;
   emptyLabel?: string;
 }) {
   if (agents.length === 0) {
@@ -626,6 +789,16 @@ function AgentSection({
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{agent.name}</span>
               </button>
+              {onDuplicate && (
+                <button
+                  type="button"
+                  onClick={() => onDuplicate(agent)}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700"
+                  aria-label={`Duplicate ${agent.name}`}
+                >
+                  <Copy className="w-3 h-3" />
+                </button>
+              )}
               {onEdit && (
                 <button
                   type="button"
