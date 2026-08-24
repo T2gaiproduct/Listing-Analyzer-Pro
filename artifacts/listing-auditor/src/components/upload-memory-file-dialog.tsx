@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Loader2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,8 @@ export function UploadMemoryFileDialog({
   isUploading = false,
 }: UploadMemoryFileDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const openedAtRef = useRef(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +83,17 @@ export function UploadMemoryFileDialog({
   const handleOpenChange = (next: boolean) => {
     if (!next) reset();
     onOpenChange(next);
+  };
+
+  useEffect(() => {
+    if (open) {
+      openedAtRef.current = Date.now();
+    }
+  }, [open]);
+
+  const openFilePicker = () => {
+    if (Date.now() - openedAtRef.current < 400) return;
+    inputRef.current?.click();
   };
 
   const applyFile = (file: File | null) => {
@@ -123,7 +136,13 @@ export function UploadMemoryFileDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden">
+      <DialogContent
+        className="sm:max-w-lg p-0 gap-0 overflow-hidden"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          window.setTimeout(() => titleInputRef.current?.focus(), 0);
+        }}
+      >
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
           <DialogTitle className="text-base font-semibold">Upload Memory File</DialogTitle>
         </DialogHeader>
@@ -132,9 +151,9 @@ export function UploadMemoryFileDialog({
           <div
             role="button"
             tabIndex={0}
-            onClick={() => inputRef.current?.click()}
+            onClick={openFilePicker}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+              if (e.key === "Enter" || e.key === " ") openFilePicker();
             }}
             onDragEnter={(e) => {
               e.preventDefault();
@@ -209,6 +228,7 @@ export function UploadMemoryFileDialog({
               Document Title <span className="text-red-500">*</span>
             </Label>
             <Input
+              ref={titleInputRef}
               id="memory-document-title"
               value={documentTitle}
               onChange={(e) => setDocumentTitle(e.target.value)}

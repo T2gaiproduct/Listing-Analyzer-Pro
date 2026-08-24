@@ -1,4 +1,5 @@
 import { Paperclip, Plus } from "lucide-react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +17,16 @@ export function SellermateChatAttachMenu({
   disabled,
   onAddPhotosAndFiles,
 }: SellermateChatAttachMenuProps) {
+  const [open, setOpen] = useState(false);
+
+  function handleAddPhotosAndFiles() {
+    setOpen(false);
+    // Defer so the menu click does not fall through to the upload dialog dropzone/file input.
+    window.setTimeout(() => onAddPhotosAndFiles?.(), 150);
+  }
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -36,10 +45,13 @@ export function SellermateChatAttachMenu({
         side="top"
         align="start"
         sideOffset={8}
-        className="w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+        className="z-[60] w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
       >
         <DropdownMenuItem
-          onClick={onAddPhotosAndFiles}
+          onSelect={(event) => {
+            event.preventDefault();
+            handleAddPhotosAndFiles();
+          }}
           className="gap-2.5 px-3 py-2.5 text-sm text-slate-700 cursor-pointer focus:bg-slate-50"
         >
           <Paperclip className="w-4 h-4 text-slate-500" />
