@@ -49,6 +49,7 @@ export const ArchivePage = lazy(() => import("@/pages/archive"));
 export const NotificationsPage = lazy(() => import("@/pages/notifications"));
 export const VideosPage = lazy(() => import("@/pages/videos"));
 export const AdsPage = lazy(() => import("@/pages/ads"));
+export const SellerMateAiPage = lazy(() => import("@/pages/sellermate-ai"));
 export const AdsCampaignsConsolePage = lazy(() => import("@/pages/ads-console-campaigns"));
 export const AdsCampaignManagerPage = lazy(() => import("@/pages/ads-console-manager"));
 export const AdsTargetsConsolePage = lazy(() => import("@/pages/ads-console-targets"));

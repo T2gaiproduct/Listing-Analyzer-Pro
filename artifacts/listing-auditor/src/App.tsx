@@ -129,6 +129,7 @@ import {
   RevenueReport,
   CustomerReport,
   SubscriptionReport,
+  SellerMateAiPage,
 } from "@/routes/lazy-pages";
 
 const queryClient = new QueryClient({
@@ -707,6 +708,9 @@ function Router() {
       </Route>
       <Route path="/marketplaces">
         <WorkspaceProtectedRoute><MarketplacesPage /></WorkspaceProtectedRoute>
+      </Route>
+      <Route path="/ai">
+        <WorkspaceProtectedRoute><SellerMateAiPage /></WorkspaceProtectedRoute>
       </Route>
       <Route path="/products/:id">
         {params => (
