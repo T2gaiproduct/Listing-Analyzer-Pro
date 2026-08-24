@@ -12,11 +12,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import {
+  MEMORY_FILE_ACCEPT as MEMORY_UPLOAD_ACCEPT,
+  memoryFileToBase64,
+  titleFromMemoryFilename,
+} from "@/lib/sellermate-memory-upload";
 
-export const MEMORY_UPLOAD_ACCEPT = ".csv,.xlsx,.xls,.md,.txt,.doc,.docx";
-export const MEMORY_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+export { MEMORY_UPLOAD_ACCEPT };
 
-const ALLOWED_EXTENSIONS = [".csv", ".xlsx", ".xls", ".md", ".txt", ".doc", ".docx"];
+const MEMORY_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
+const ALLOWED_EXTENSIONS = MEMORY_UPLOAD_ACCEPT.split(",").map((ext) => ext.trim().toLowerCase());
 
 function fileExtension(filename: string): string {
   const dot = filename.lastIndexOf(".");
@@ -28,19 +34,11 @@ function isAllowedFile(file: File): boolean {
 }
 
 function titleFromFilename(filename: string): string {
-  const base = filename.replace(/\.[^.]+$/, "");
-  return base.replace(/[-_]+/g, " ").trim();
+  return titleFromMemoryFilename(filename);
 }
 
 async function fileToBase64(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
+  return memoryFileToBase64(file);
 }
 
 export type UploadMemoryFileInput = {

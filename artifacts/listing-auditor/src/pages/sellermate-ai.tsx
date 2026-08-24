@@ -39,6 +39,7 @@ import {
 } from "@/lib/sellermate-ai";
 import { UploadMemoryFileDialog } from "@/components/upload-memory-file-dialog";
 import { SellermateChatAttachMenu } from "@/components/sellermate-chat-attach-menu";
+import { memoryFileToBase64, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
 
 function agentIcon(icon: string) {
   switch (icon) {
@@ -251,6 +252,24 @@ export default function SellerMateAiPage() {
     });
   }
 
+  async function handleChatMemoryFile(file: File) {
+    if (!selectedAgentId || uploadMemoryMutation.isPending) return;
+    try {
+      const fileBase64 = await memoryFileToBase64(file);
+      await uploadMemoryMutation.mutateAsync({
+        name: titleFromMemoryFilename(file.name),
+        filename: file.name,
+        fileBase64,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Could not read the selected file.",
+        variant: "destructive",
+      });
+    }
+  }
+
   return (
     <div className="min-h-[calc(100vh-8rem)] -mx-1 sm:-mx-2 flex rounded-xl border border-slate-200 bg-[#f8f9fb] shadow-sm overflow-hidden">
       {/* Left sidebar */}
@@ -411,8 +430,8 @@ export default function SellerMateAiPage() {
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
                   <SellermateChatAttachMenu
-                    disabled={!selectedAgentId}
-                    onAddPhotosAndFiles={() => setUploadMemoryOpen(true)}
+                    disabled={!selectedAgentId || uploadMemoryMutation.isPending}
+                    onFileSelected={(file) => void handleChatMemoryFile(file)}
                   />
                   <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
                     <button
