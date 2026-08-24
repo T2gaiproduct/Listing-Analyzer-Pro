@@ -274,6 +274,10 @@ export default function SellerMateAiPage() {
     <div className="min-h-[calc(100vh-8rem)] -mx-1 sm:-mx-2 flex rounded-xl border border-slate-200 bg-[#f8f9fb] shadow-sm overflow-hidden">
       {/* Left sidebar */}
       <aside className="w-64 shrink-0 border-r border-slate-200 bg-white flex flex-col">
+        <div className="px-3 pt-3 pb-2 border-b border-slate-100">
+          <p className="text-sm font-semibold text-slate-800">SellerLens AI</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Amazon ads & listing assistant</p>
+        </div>
         <div className="p-3 border-b border-slate-100">
           <Button
             type="button"

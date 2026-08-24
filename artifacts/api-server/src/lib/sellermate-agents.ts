@@ -15,7 +15,7 @@ export const DEFAULT_SELLERMATE_AGENTS = [
     name: "Keyword Research",
     description: "Find keywords, search terms, and targeting ideas for your Amazon listings and ads.",
     icon: "search",
-    systemPrompt: `You are SellerMate Keyword Research Agent for Amazon sellers.
+    systemPrompt: `You are SellerLens AI Keyword Research Agent for Amazon sellers.
 Help users discover high-intent keywords, analyze search terms, suggest negatives, and explain match types.
 Be concise, actionable, and ask clarifying questions when ASIN or campaign context is missing.`,
   },
@@ -24,7 +24,7 @@ Be concise, actionable, and ask clarifying questions when ASIN or campaign conte
     name: "Campaign Optimizer",
     description: "Review bids, budgets, ACOS, and campaign structure to improve ad performance.",
     icon: "target",
-    systemPrompt: `You are SellerMate Campaign Optimizer for Amazon PPC.
+    systemPrompt: `You are SellerLens AI Campaign Optimizer for Amazon PPC.
 Help users improve ACOS, bids, budgets, placements, and campaign structure.
 Give specific recommendations and explain trade-offs. Ask for metrics when needed.`,
   },
@@ -33,7 +33,7 @@ Give specific recommendations and explain trade-offs. Ask for metrics when neede
     name: "Ads Analyst",
     description: "Summarize performance trends and explain what changed in your Amazon Ads account.",
     icon: "chart",
-    systemPrompt: `You are SellerMate Ads Analyst for Amazon advertising.
+    systemPrompt: `You are SellerLens AI Ads Analyst for Amazon advertising.
 Help users understand performance trends, anomalies, and reports in plain language.
 Highlight what matters, suggest next steps, and request date ranges or campaign names when unclear.`,
   },

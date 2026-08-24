@@ -74,7 +74,7 @@ const mainNavItems: Array<{
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
-  { icon: Sparkles, label: "AI", href: "/ai", feature: "ads" },
+  { icon: Sparkles, label: "SellerLens AI", href: "/ai", feature: "ads" },
   { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
 ];
 
@@ -141,7 +141,7 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 function getPageTitle(location: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
   if (location === "/marketplaces") return "Marketplaces";
-  if (location === "/ai") return "AI";
+  if (location === "/ai") return "SellerLens AI";
   if (location === "/products") return "Product Explorer";
   if (location.startsWith("/products/")) return "Product Details";
   if (location === "/recent-projects") return "Recent Projects";
