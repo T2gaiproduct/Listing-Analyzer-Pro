@@ -8,6 +8,7 @@ import {
   FileText,
   Loader2,
   MessageSquarePlus,
+  Pencil,
   Plus,
   Search,
   Send,
@@ -32,6 +33,7 @@ import {
   fetchSellermateMessages,
   fetchSellermateThreads,
   sendSellermateChat,
+  updateSellermateAgent,
   type SellermateAgent,
   type SellermateMessage,
 } from "@/lib/sellermate-ai";
@@ -61,6 +63,8 @@ export default function SellerMateAiPage() {
   const [memoryOpen, setMemoryOpen] = useState(true);
   const [chatsOpen, setChatsOpen] = useState(true);
   const [createAgentOpen, setCreateAgentOpen] = useState(false);
+  const [editAgentOpen, setEditAgentOpen] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<SellermateAgent | null>(null);
   const [addMemoryOpen, setAddMemoryOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentDescription, setNewAgentDescription] = useState("");
@@ -159,6 +163,32 @@ export default function SellerMateAiPage() {
     },
   });
 
+  const updateAgentMutation = useMutation({
+    mutationFn: (input: { agentId: number; name: string; description?: string; systemPrompt: string }) =>
+      updateSellermateAgent(input.agentId, {
+        name: input.name,
+        description: input.description,
+        systemPrompt: input.systemPrompt,
+      }),
+    onSuccess: (agent) => {
+      void queryClient.invalidateQueries({ queryKey: ["sellermate-agents"] });
+      setSelectedAgentId(agent.id);
+      setEditAgentOpen(false);
+      setEditingAgent(null);
+      setNewAgentName("");
+      setNewAgentDescription("");
+      setNewAgentPrompt("");
+      toast({ title: "Agent updated", description: `${agent.name} was saved.` });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not update agent",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const addMemoryMutation = useMutation({
     mutationFn: (input: { name: string; content: string }) => addSellermateMemory(selectedAgentId!, input),
     onSuccess: () => {
@@ -204,6 +234,24 @@ export default function SellerMateAiPage() {
     });
   }
 
+  function openEditAgent(agent: SellermateAgent) {
+    setEditingAgent(agent);
+    setNewAgentName(agent.name);
+    setNewAgentDescription(agent.description ?? "");
+    setNewAgentPrompt(agent.systemPrompt ?? "");
+    setEditAgentOpen(true);
+  }
+
+  function submitAgentUpdate() {
+    if (!editingAgent) return;
+    updateAgentMutation.mutate({
+      agentId: editingAgent.id,
+      name: newAgentName,
+      description: newAgentDescription,
+      systemPrompt: newAgentPrompt,
+    });
+  }
+
   return (
     <div className="min-h-[calc(100vh-8rem)] -mx-1 sm:-mx-2 flex rounded-xl border border-slate-200 bg-[#f8f9fb] shadow-sm overflow-hidden">
       {/* Left sidebar */}
@@ -244,6 +292,7 @@ export default function SellerMateAiPage() {
               agents={customAgents}
               selectedAgentId={selectedAgentId}
               onSelect={handleSelectAgent}
+              onEdit={openEditAgent}
               onDelete={(agent) => deleteAgentMutation.mutate(agent.id)}
               emptyLabel="Create your first custom agent"
             />
@@ -453,6 +502,54 @@ export default function SellerMateAiPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit agent dialog */}
+      <Dialog
+        open={editAgentOpen}
+        onOpenChange={(open) => {
+          setEditAgentOpen(open);
+          if (!open) setEditingAgent(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit agent</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Name</Label>
+              <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} placeholder="My PPC helper" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description</Label>
+              <Input
+                value={newAgentDescription}
+                onChange={(e) => setNewAgentDescription(e.target.value)}
+                placeholder="What this agent helps with"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Instructions</Label>
+              <Textarea
+                value={newAgentPrompt}
+                onChange={(e) => setNewAgentPrompt(e.target.value)}
+                placeholder="You are an Amazon ads expert who…"
+                className="min-h-[120px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditAgentOpen(false)}>Cancel</Button>
+            <Button
+              type="button"
+              onClick={submitAgentUpdate}
+              disabled={updateAgentMutation.isPending}
+            >
+              {updateAgentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add memory dialog */}
       <Dialog open={addMemoryOpen} onOpenChange={setAddMemoryOpen}>
         <DialogContent className="sm:max-w-md">
@@ -498,6 +595,7 @@ function AgentSection({
   agents,
   selectedAgentId,
   onSelect,
+  onEdit,
   onDelete,
   emptyLabel,
 }: {
@@ -505,6 +603,7 @@ function AgentSection({
   agents: SellermateAgent[];
   selectedAgentId: number | null;
   onSelect: (agent: SellermateAgent) => void;
+  onEdit?: (agent: SellermateAgent) => void;
   onDelete?: (agent: SellermateAgent) => void;
   emptyLabel?: string;
 }) {
@@ -535,6 +634,16 @@ function AgentSection({
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{agent.name}</span>
               </button>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(agent)}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700"
+                  aria-label={`Edit ${agent.name}`}
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
               {onDelete && (
                 <button
                   type="button"

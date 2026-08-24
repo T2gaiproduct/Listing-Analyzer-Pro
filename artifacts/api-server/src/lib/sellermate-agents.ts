@@ -134,6 +134,39 @@ export async function createSellermateAgent(input: {
   return agent;
 }
 
+export async function updateSellermateAgent(input: {
+  agentId: number;
+  workspaceId: number;
+  name?: string;
+  description?: string;
+  systemPrompt?: string;
+}): Promise<SellermateAgent> {
+  const agent = await getSellermateAgentForWorkspace(input.agentId, input.workspaceId);
+  if (!agent) throw new Error("Agent not found.");
+  if (agent.isDefault) throw new Error("Default agents cannot be edited.");
+
+  const name = input.name !== undefined ? input.name.trim() : agent.name;
+  const description = input.description !== undefined ? input.description.trim() : agent.description;
+  const systemPrompt = input.systemPrompt !== undefined ? input.systemPrompt.trim() : agent.systemPrompt;
+
+  if (!name) throw new Error("Agent name is required.");
+  if (!systemPrompt) throw new Error("System instructions are required.");
+
+  const [updated] = await db
+    .update(sellermateAgentsTable)
+    .set({
+      name,
+      description,
+      systemPrompt,
+      updatedAt: new Date(),
+    })
+    .where(eq(sellermateAgentsTable.id, input.agentId))
+    .returning();
+
+  if (!updated) throw new Error("Failed to update agent.");
+  return updated;
+}
+
 export async function deleteSellermateAgent(agentId: number, workspaceId: number): Promise<void> {
   const agent = await getSellermateAgentForWorkspace(agentId, workspaceId);
   if (!agent) throw new Error("Agent not found.");

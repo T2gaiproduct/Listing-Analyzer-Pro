@@ -11,6 +11,7 @@ import {
   listSellermateMessages,
   listSellermateThreads,
   sendSellermateMessage,
+  updateSellermateAgent,
 } from "../lib/sellermate-agents.js";
 import {
   getActiveWorkspaceId,
@@ -94,6 +95,36 @@ router.post(
       res.status(201).json({ agent: mapAgent(agent) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create agent.";
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.patch(
+  "/sellermate/agents/:id",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceAction("ads", "edit"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const agentId = Number(req.params.id);
+    if (!workspaceId || !Number.isFinite(agentId)) {
+      res.status(400).json({ error: "Invalid request." });
+      return;
+    }
+
+    const body = req.body as { name?: string; description?: string; systemPrompt?: string };
+    try {
+      const agent = await updateSellermateAgent({
+        agentId,
+        workspaceId,
+        name: body.name !== undefined ? String(body.name) : undefined,
+        description: body.description !== undefined ? String(body.description) : undefined,
+        systemPrompt: body.systemPrompt !== undefined ? String(body.systemPrompt) : undefined,
+      });
+      res.json({ agent: mapAgent(agent) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update agent.";
       res.status(400).json({ error: message });
     }
   },

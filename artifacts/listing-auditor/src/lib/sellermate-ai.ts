@@ -59,6 +59,18 @@ export async function deleteSellermateAgent(agentId: number): Promise<void> {
   await fetchJson(`${basePath}/api/sellermate/agents/${agentId}`, { method: "DELETE" });
 }
 
+export async function updateSellermateAgent(
+  agentId: number,
+  input: { name: string; description?: string; systemPrompt: string },
+): Promise<SellermateAgent> {
+  const data = await fetchJson<{ agent: SellermateAgent }>(`${basePath}/api/sellermate/agents/${agentId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return data.agent;
+}
+
 export async function fetchSellermateThreads(agentId: number): Promise<SellermateThread[]> {
   const data = await fetchJson<{ threads: SellermateThread[] }>(`${basePath}/api/sellermate/agents/${agentId}/threads`);
   return data.threads;
