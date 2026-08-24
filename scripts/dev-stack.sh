@@ -3,6 +3,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMUX_CONF="${TMUX_CONF:-/exec-daemon/tmux.portal.conf}"
+
+# Load local secrets from .env (gitignored)
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
+
 DATABASE_URL="${DATABASE_URL:-postgresql://lauser:lapass@127.0.0.1:5432/listingauditor}"
 CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-$HOME/.local/bin/cloudflared}"
 PUBLIC_URL_FILE="/tmp/public-url.txt"
@@ -342,6 +351,9 @@ tmux_cmd new-session -d -s api-server-live -c "$ROOT" -- bash -lc "
   export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
   export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
   export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+  export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
+  export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
+  export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
   pnpm --filter @workspace/api-server run dev
 "
 
