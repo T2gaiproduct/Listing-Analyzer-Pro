@@ -38,6 +38,7 @@ import {
   type SellermateMessage,
 } from "@/lib/sellermate-ai";
 import { UploadMemoryFileDialog } from "@/components/upload-memory-file-dialog";
+import { SellermateChatAttachMenu } from "@/components/sellermate-chat-attach-menu";
 
 function agentIcon(icon: string) {
   switch (icon) {
@@ -409,14 +410,10 @@ export default function SellerMateAiPage() {
               />
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMemoryOpen(true)}
+                  <SellermateChatAttachMenu
                     disabled={!selectedAgentId}
-                    className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                    onAddPhotosAndFiles={() => setUploadMemoryOpen(true)}
+                  />
                   <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
                     <button
                       type="button"
