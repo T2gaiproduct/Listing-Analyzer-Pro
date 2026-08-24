@@ -443,6 +443,9 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export ALLOW_DEV_ADMIN_BOOTSTRAP=\"\${ALLOW_DEV_ADMIN_BOOTSTRAP:-true}\"
     export AI_INTEGRATIONS_OPENAI_BASE_URL=\"\${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}\"
     export AI_INTEGRATIONS_OPENAI_API_KEY=\"\${AI_INTEGRATIONS_OPENAI_API_KEY:-sk-dummy}\"
+    export AI_AGENT_EXECUTION_PROVIDER=\"\${AI_AGENT_EXECUTION_PROVIDER:-}\"
+    export MAKE_AGENT_WEBHOOK_URL=\"\${MAKE_AGENT_WEBHOOK_URL:-}\"
+    export MAKE_TOOL_SECRET=\"\${MAKE_TOOL_SECRET:-}\"
     pnpm --filter @workspace/api-server run dev
   "
 
