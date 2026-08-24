@@ -17,7 +17,6 @@ import {
   Send,
   Target,
   Trash2,
-  WandSparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +80,6 @@ export default function SellerMateAiPage() {
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
-  const [mode, setMode] = useState<"basic" | "agent">("agent");
   const [memoryOpen, setMemoryOpen] = useState(true);
   const [chatsOpen, setChatsOpen] = useState(true);
   const [createAgentOpen, setCreateAgentOpen] = useState(false);
@@ -318,7 +316,6 @@ export default function SellerMateAiPage() {
       agentId: selectedAgentId,
       message: draft.trim(),
       threadId: activeThreadId ?? undefined,
-      mode,
     });
   }
 
@@ -530,29 +527,6 @@ export default function SellerMateAiPage() {
                     disabled={!selectedAgentId || uploadMemoryMutation.isPending}
                     onFileSelected={(file) => void handleChatMemoryFile(file)}
                   />
-                  <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
-                    <button
-                      type="button"
-                      onClick={() => setMode("basic")}
-                      className={cn(
-                        "px-3 py-1 text-[11px] rounded-md transition-colors",
-                        mode === "basic" ? "bg-white shadow-sm text-slate-800" : "text-slate-500",
-                      )}
-                    >
-                      Basic
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMode("agent")}
-                      className={cn(
-                        "px-3 py-1 text-[11px] rounded-md transition-colors flex items-center gap-1",
-                        mode === "agent" ? "bg-white shadow-sm text-slate-800" : "text-slate-500",
-                      )}
-                    >
-                      <WandSparkles className="w-3 h-3" />
-                      Agent
-                    </button>
-                  </div>
                 </div>
                 <Button
                   type="button"
