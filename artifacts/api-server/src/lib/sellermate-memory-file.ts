@@ -32,6 +32,46 @@ export function memoryFileExtension(filename: string): string {
   return dot >= 0 ? filename.slice(dot).toLowerCase() : "";
 }
 
+function imageMimeFromExtension(ext: string): string {
+  const map: Record<string, string> = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".jfif": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+  };
+  return map[ext] ?? "application/octet-stream";
+}
+
+/** Infer extension when the filename omits one (common on Windows exports). */
+export function sniffMemoryFileExtension(filename: string, buffer: Buffer): string {
+  const fromName = memoryFileExtension(filename);
+  if (fromName && MEMORY_FILE_EXTENSIONS.includes(fromName as (typeof MEMORY_FILE_EXTENSIONS)[number])) {
+    return fromName;
+  }
+
+  if (buffer.length >= 4) {
+    if (buffer[0] === 0x50 && buffer[1] === 0x4b) return ".xlsx";
+    if (buffer[0] === 0xff && buffer[1] === 0xd8) return ".jpeg";
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return ".png";
+    if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return ".gif";
+    if (buffer[0] === 0x42 && buffer[1] === 0x4d) return ".bmp";
+    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return ".webp";
+  }
+
+  const sample = buffer.subarray(0, Math.min(buffer.length, 8192)).toString("utf8");
+  if (sample.includes(",") && sample.includes("\n")) return ".csv";
+  if (sample.trim()) return ".txt";
+
+  return fromName;
+}
+
+export function allowedMemoryExtensionsLabel(): string {
+  return "CSV, XLSX, XLS, MD, TXT, JPG, PNG, GIF, WEBP, and other common image formats";
+}
+
 export function isAllowedMemoryFilename(filename: string): boolean {
   const ext = memoryFileExtension(filename);
   return MEMORY_FILE_EXTENSIONS.includes(ext as (typeof MEMORY_FILE_EXTENSIONS)[number]);
@@ -54,13 +94,13 @@ function assertSizeLimit(buffer: Buffer): void {
   }
 }
 
-function parseDelimitedText(text: string, filename: string): string {
+function parseDelimitedText(text: string, ext: string): string {
   const lines = text.split(/\r?\n/).filter((line) => line.length > 0);
   if (lines.length > MEMORY_FILE_MAX_ROWS) {
     throw new Error(`File has too many rows (${lines.length.toLocaleString()}). Max is ${MEMORY_FILE_MAX_ROWS.toLocaleString()} rows.`);
   }
 
-  const delimiter = memoryFileExtension(filename) === ".csv" ? "," : null;
+  const delimiter = ext === ".csv" ? "," : null;
   if (delimiter) {
     const maxCols = lines.reduce((max, line) => {
       const cols = line.split(delimiter).length;
@@ -120,6 +160,17 @@ async function parseExcelBuffer(buffer: Buffer): Promise<string> {
   return text;
 }
 
+function parseImageBuffer(buffer: Buffer, filename: string, ext: string): string {
+  const mime = imageMimeFromExtension(ext);
+  const sizeLabel = `${(buffer.length / 1024).toFixed(1)} KB`;
+  return [
+    `Image memory: ${filename}`,
+    `Format: ${mime}`,
+    `Size: ${sizeLabel}`,
+    "The seller attached this image for this agent. Treat it as visual/product context when answering questions about listings, infographics, or creative assets.",
+  ].join("\n");
+}
+
 export async function extractMemoryFileText(input: {
   filename: string;
   buffer: Buffer;
@@ -127,22 +178,20 @@ export async function extractMemoryFileText(input: {
   const { filename, buffer } = input;
   assertSizeLimit(buffer);
 
-  const ext = memoryFileExtension(filename);
-  if (!isAllowedMemoryFilename(filename)) {
-    throw new Error(`Unsupported file type. Allowed: ${MEMORY_FILE_EXTENSIONS.join(", ")}`);
+  const ext = sniffMemoryFileExtension(filename, buffer);
+  if (!MEMORY_FILE_EXTENSIONS.includes(ext as (typeof MEMORY_FILE_EXTENSIONS)[number])) {
+    throw new Error(`Unsupported file type. Allowed: ${allowedMemoryExtensionsLabel()}.`);
   }
 
   if (WORD_EXTENSIONS.has(ext)) {
     throw new Error("DOC and DOCX uploads are not supported yet. Save as TXT, MD, or CSV and try again.");
   }
 
-  if (IMAGE_EXTENSIONS.has(ext)) {
-    throw new Error("Image files are not supported for agent memory yet. Use CSV, XLSX, MD, or TXT.");
-  }
-
   let text = "";
-  if (TEXT_EXTENSIONS.has(ext)) {
-    text = parseDelimitedText(buffer.toString("utf8"), filename);
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    text = parseImageBuffer(buffer, filename, ext);
+  } else if (TEXT_EXTENSIONS.has(ext)) {
+    text = parseDelimitedText(buffer.toString("utf8"), ext);
   } else if (EXCEL_EXTENSIONS.has(ext)) {
     text = await parseExcelBuffer(buffer);
   }
