@@ -116,7 +116,8 @@ function parseDelimitedText(text: string, ext: string): string {
 
 async function parseExcelBuffer(buffer: Buffer): Promise<string> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
+  // ExcelJS typings expect Node Buffer; runtime accepts Uint8Array as well.
+  await workbook.xlsx.load(buffer as unknown as Parameters<ExcelJS.Workbook["xlsx"]["load"]>[0]);
 
   const chunks: string[] = [];
   let totalRows = 0;
