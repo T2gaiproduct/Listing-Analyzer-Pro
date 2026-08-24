@@ -14,6 +14,8 @@ import {
 } from "@workspace/db";
 import { ensureTeamMembersRoleId } from "./ensure-account-roles.js";
 
+type DbClient = typeof db;
+
 /** Remove auto-seeded Viewer/Editor/Admin templates; members keep legacyRole fallback. */
 async function purgeLegacySystemRoles(): Promise<void> {
   const systemRoles = await db
@@ -168,39 +170,119 @@ export async function ensureTeamMembersSchema(): Promise<void> {
   await ensureTeamMembersRoleId();
 }
 
-/**
- * Active subscribers without an active workspace get a default workspace (e.g. after payment or if all were deleted).
- */
-export async function ensureSubscriberDefaultWorkspace(accountOwnerId: string): Promise<number | null> {
-  const [activeWs] = await db
+const AUTO_PROVISIONED_WORKSPACE_NAME = "My Workspace";
+
+async function workspaceHasAnyProjects(client: DbClient, workspaceId: number): Promise<boolean> {
+  const checks = await Promise.all([
+    client.select({ id: auditsTable.id }).from(auditsTable).where(eq(auditsTable.workspaceId, workspaceId)).limit(1),
+    client.select({ id: graphicsProjectsTable.id }).from(graphicsProjectsTable).where(eq(graphicsProjectsTable.workspaceId, workspaceId)).limit(1),
+    client.select({ id: videosProjectsTable.id }).from(videosProjectsTable).where(eq(videosProjectsTable.workspaceId, workspaceId)).limit(1),
+    client.select({ id: adsProjectsTable.id }).from(adsProjectsTable).where(eq(adsProjectsTable.workspaceId, workspaceId)).limit(1),
+    client.select({ id: pinnedProjectsTable.id }).from(pinnedProjectsTable).where(eq(pinnedProjectsTable.workspaceId, workspaceId)).limit(1),
+  ]);
+  return checks.some(([row]) => row != null);
+}
+
+/** Remove empty auto-provisioned duplicates created by concurrent /api/workspaces calls. */
+async function dedupeRacedDefaultWorkspacesForAccount(client: DbClient, accountOwnerId: string): Promise<void> {
+  const autoProvisioned = await client
+    .select()
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.name, AUTO_PROVISIONED_WORKSPACE_NAME),
+      eq(workspacesTable.isDeleted, 0),
+      isNull(workspacesTable.description),
+      isNull(workspacesTable.clientLabel),
+    ))
+    .orderBy(workspacesTable.createdAt, workspacesTable.id);
+
+  if (autoProvisioned.length <= 1) return;
+
+  const [keep, ...dupes] = autoProvisioned;
+  for (const dupe of dupes) {
+    if (await workspaceHasAnyProjects(client, dupe.id)) continue;
+    await client.update(workspacesTable)
+      .set({ isDeleted: 1, deletedAt: new Date(), isDefault: false, updatedAt: new Date() })
+      .where(eq(workspacesTable.id, dupe.id));
+  }
+
+  const activeDefaults = await client
     .select({ id: workspacesTable.id })
     .from(workspacesTable)
     .where(and(
       eq(workspacesTable.accountOwnerId, accountOwnerId),
+      eq(workspacesTable.isDefault, true),
       eq(workspacesTable.isDeleted, 0),
     ))
-    .limit(1);
-  if (activeWs) return activeWs.id;
+    .orderBy(workspacesTable.createdAt, workspacesTable.id);
 
-  const [sub] = await db
-    .select({ status: subscriptionsTable.status })
-    .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.userId, accountOwnerId))
-    .limit(1);
-  if (!sub || sub.status !== "active") return null;
+  if (activeDefaults.length <= 1) return;
 
-  const [ws] = await db.insert(workspacesTable).values({
-    accountOwnerId,
-    name: "My Workspace",
-    description: null,
-    isDefault: true,
-    preserveLegacyPermissions: true,
-  }).returning();
+  const [, ...extraDefaults] = activeDefaults;
+  for (const row of extraDefaults) {
+    await client.update(workspacesTable)
+      .set({ isDefault: false, updatedAt: new Date() })
+      .where(eq(workspacesTable.id, row.id));
+  }
 
-  const { ensureWorkspaceDefaultAgents } = await import("./workspace-agents.js");
-  await ensureWorkspaceDefaultAgents(ws!.id);
+  if (!activeDefaults.some((row) => row.id === keep.id)) {
+    await client.update(workspacesTable)
+      .set({ isDefault: true, updatedAt: new Date() })
+      .where(eq(workspacesTable.id, keep.id));
+  }
+}
 
-  return ws!.id;
+/** Remove empty auto-provisioned duplicates for an account (called on workspace list). */
+export async function dedupeRacedDefaultWorkspaces(accountOwnerId: string): Promise<void> {
+  await dedupeRacedDefaultWorkspacesForAccount(db, accountOwnerId);
+}
+
+/**
+ * Active subscribers without an active workspace get a default workspace (e.g. after payment or if all were deleted).
+ */
+export async function ensureSubscriberDefaultWorkspace(accountOwnerId: string): Promise<number | null> {
+  let createdWorkspaceId: number | null = null;
+
+  const workspaceId = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`la-ws:${accountOwnerId}`}))`);
+    await dedupeRacedDefaultWorkspacesForAccount(tx, accountOwnerId);
+
+    const [activeWs] = await tx
+      .select({ id: workspacesTable.id })
+      .from(workspacesTable)
+      .where(and(
+        eq(workspacesTable.accountOwnerId, accountOwnerId),
+        eq(workspacesTable.isDeleted, 0),
+      ))
+      .limit(1);
+    if (activeWs) return activeWs.id;
+
+    const [sub] = await tx
+      .select({ status: subscriptionsTable.status })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.userId, accountOwnerId))
+      .limit(1);
+    if (!sub || sub.status !== "active") return null;
+
+    const [ws] = await tx.insert(workspacesTable).values({
+      accountOwnerId,
+      name: AUTO_PROVISIONED_WORKSPACE_NAME,
+      description: null,
+      isDefault: true,
+      preserveLegacyPermissions: true,
+    }).returning();
+
+    createdWorkspaceId = ws!.id;
+    return ws!.id;
+  });
+
+  if (createdWorkspaceId != null) {
+    const { ensureWorkspaceDefaultAgents } = await import("./workspace-agents.js");
+    await ensureWorkspaceDefaultAgents(createdWorkspaceId);
+  }
+
+  return workspaceId;
 }
 
 export async function getDefaultWorkspaceId(accountOwnerId: string): Promise<number | null> {
