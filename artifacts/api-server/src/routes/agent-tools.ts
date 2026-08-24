@@ -32,7 +32,8 @@ function requireMakeToolSecret(req: Request, res: Response, next: NextFunction):
   next();
 }
 
-router.use(requireMakeToolSecret);
+// Scope auth to /agent-tools only — a bare router.use() would intercept every later /api route.
+router.use("/agent-tools", requireMakeToolSecret);
 
 router.get("/agent-tools/catalog", (_req, res) => {
   res.json({ tools: AGENT_TOOL_CATALOG });
