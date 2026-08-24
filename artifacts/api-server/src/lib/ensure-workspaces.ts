@@ -14,7 +14,8 @@ import {
 } from "@workspace/db";
 import { ensureTeamMembersRoleId } from "./ensure-account-roles.js";
 
-type DbClient = typeof db;
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbClient = typeof db | DbTransaction;
 
 /** Remove auto-seeded Viewer/Editor/Admin templates; members keep legacyRole fallback. */
 async function purgeLegacySystemRoles(): Promise<void> {
