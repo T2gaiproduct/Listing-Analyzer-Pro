@@ -13,11 +13,19 @@ export const MEMORY_FILE_EXTENSIONS = [
   ".txt",
   ".doc",
   ".docx",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".jfif",
+  ".bmp",
 ] as const;
 
 const TEXT_EXTENSIONS = new Set([".txt", ".md", ".csv"]);
 const EXCEL_EXTENSIONS = new Set([".xlsx", ".xls"]);
 const WORD_EXTENSIONS = new Set([".doc", ".docx"]);
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".jfif", ".bmp"]);
 
 export function memoryFileExtension(filename: string): string {
   const dot = filename.lastIndexOf(".");
@@ -126,6 +134,10 @@ export async function extractMemoryFileText(input: {
 
   if (WORD_EXTENSIONS.has(ext)) {
     throw new Error("DOC and DOCX uploads are not supported yet. Save as TXT, MD, or CSV and try again.");
+  }
+
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    throw new Error("Image files are not supported for agent memory yet. Use CSV, XLSX, MD, or TXT.");
   }
 
   let text = "";
