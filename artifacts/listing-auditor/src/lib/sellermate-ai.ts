@@ -33,6 +33,7 @@ export type SellermateMemory = {
   id: number;
   agentId: number;
   name: string;
+  description?: string;
   content: string;
   createdAt: string;
 };
@@ -107,8 +108,20 @@ export async function fetchSellermateMemory(agentId: number): Promise<Sellermate
   return data.memory;
 }
 
-export async function addSellermateMemory(agentId: number, input: { name: string; content: string }): Promise<SellermateMemory> {
+export async function addSellermateMemory(agentId: number, input: { name: string; description?: string; content: string }): Promise<SellermateMemory> {
   const data = await fetchJson<{ memory: SellermateMemory }>(`${basePath}/api/sellermate/agents/${agentId}/memory`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return data.memory;
+}
+
+export async function uploadSellermateMemoryFile(
+  agentId: number,
+  input: { name: string; description?: string; filename: string; fileBase64: string },
+): Promise<SellermateMemory> {
+  const data = await fetchJson<{ memory: SellermateMemory }>(`${basePath}/api/sellermate/agents/${agentId}/memory/upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),

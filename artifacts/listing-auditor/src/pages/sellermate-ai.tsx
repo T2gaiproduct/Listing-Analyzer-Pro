@@ -24,7 +24,6 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
-  addSellermateMemory,
   createSellermateAgent,
   deleteSellermateAgent,
   deleteSellermateMemory,
@@ -34,9 +33,11 @@ import {
   fetchSellermateThreads,
   sendSellermateChat,
   updateSellermateAgent,
+  uploadSellermateMemoryFile,
   type SellermateAgent,
   type SellermateMessage,
 } from "@/lib/sellermate-ai";
+import { UploadMemoryFileDialog } from "@/components/upload-memory-file-dialog";
 
 function agentIcon(icon: string) {
   switch (icon) {
@@ -65,12 +66,10 @@ export default function SellerMateAiPage() {
   const [createAgentOpen, setCreateAgentOpen] = useState(false);
   const [editAgentOpen, setEditAgentOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<SellermateAgent | null>(null);
-  const [addMemoryOpen, setAddMemoryOpen] = useState(false);
+  const [uploadMemoryOpen, setUploadMemoryOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentDescription, setNewAgentDescription] = useState("");
   const [newAgentPrompt, setNewAgentPrompt] = useState("");
-  const [memoryName, setMemoryName] = useState("");
-  const [memoryContent, setMemoryContent] = useState("");
 
   const agentsQuery = useQuery({
     queryKey: ["sellermate-agents"],
@@ -189,19 +188,18 @@ export default function SellerMateAiPage() {
     },
   });
 
-  const addMemoryMutation = useMutation({
-    mutationFn: (input: { name: string; content: string }) => addSellermateMemory(selectedAgentId!, input),
-    onSuccess: () => {
+  const uploadMemoryMutation = useMutation({
+    mutationFn: (input: { name: string; description?: string; filename: string; fileBase64: string }) =>
+      uploadSellermateMemoryFile(selectedAgentId!, input),
+    onSuccess: (memory) => {
       void queryClient.invalidateQueries({ queryKey: ["sellermate-memory", selectedAgentId] });
-      setAddMemoryOpen(false);
-      setMemoryName("");
-      setMemoryContent("");
-      toast({ title: "Memory saved" });
+      setUploadMemoryOpen(false);
+      toast({ title: "Memory uploaded", description: memory.name });
     },
     onError: (error) => {
       toast({
-        title: "Memory failed",
-        description: error instanceof Error ? error.message : "Could not save memory.",
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Could not upload memory file.",
         variant: "destructive",
       });
     },
@@ -305,7 +303,7 @@ export default function SellerMateAiPage() {
             action={
               <button
                 type="button"
-                onClick={() => setAddMemoryOpen(true)}
+                onClick={() => setUploadMemoryOpen(true)}
                 disabled={!selectedAgentId}
                 className="text-slate-400 hover:text-slate-700 disabled:opacity-40"
                 aria-label="Add memory"
@@ -322,7 +320,9 @@ export default function SellerMateAiPage() {
                   <FileText className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-medium text-slate-700 truncate">{file.name}</p>
-                    <p className="text-[10px] text-slate-400 line-clamp-2">{file.content}</p>
+                    <p className="text-[10px] text-slate-400 line-clamp-2">
+                      {file.description?.trim() || `${file.content.length.toLocaleString()} characters`}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -411,7 +411,7 @@ export default function SellerMateAiPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setAddMemoryOpen(true)}
+                    onClick={() => setUploadMemoryOpen(true)}
                     disabled={!selectedAgentId}
                     className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50"
                   >
@@ -550,42 +550,14 @@ export default function SellerMateAiPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add memory dialog */}
-      <Dialog open={addMemoryOpen} onOpenChange={setAddMemoryOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add memory file</DialogTitle>
-          </DialogHeader>
-          <p className="text-xs text-muted-foreground">
-            Memory is saved per agent. This agent will remember these notes in future chats.
-          </p>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Name</Label>
-              <Input value={memoryName} onChange={(e) => setMemoryName(e.target.value)} placeholder="Brand guidelines" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Content</Label>
-              <Textarea
-                value={memoryContent}
-                onChange={(e) => setMemoryContent(e.target.value)}
-                placeholder="Key facts, ASINs, target ACOS, brand voice…"
-                className="min-h-[120px]"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAddMemoryOpen(false)}>Cancel</Button>
-            <Button
-              type="button"
-              onClick={() => addMemoryMutation.mutate({ name: memoryName, content: memoryContent })}
-              disabled={addMemoryMutation.isPending}
-            >
-              Save memory
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <UploadMemoryFileDialog
+        open={uploadMemoryOpen}
+        onOpenChange={setUploadMemoryOpen}
+        isUploading={uploadMemoryMutation.isPending}
+        onUpload={async (input) => {
+          await uploadMemoryMutation.mutateAsync(input);
+        }}
+      />
     </div>
   );
 }

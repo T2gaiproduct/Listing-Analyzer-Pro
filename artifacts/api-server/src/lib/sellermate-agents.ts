@@ -180,7 +180,11 @@ export async function deleteSellermateAgent(agentId: number, workspaceId: number
 
 async function loadAgentMemoryContext(agentId: number, workspaceId: number): Promise<string> {
   const rows = await db
-    .select({ name: sellermateMemoryTable.name, content: sellermateMemoryTable.content })
+    .select({
+      name: sellermateMemoryTable.name,
+      description: sellermateMemoryTable.description,
+      content: sellermateMemoryTable.content,
+    })
     .from(sellermateMemoryTable)
     .where(and(
       eq(sellermateMemoryTable.agentId, agentId),
@@ -193,7 +197,12 @@ async function loadAgentMemoryContext(agentId: number, workspaceId: number): Pro
   if (rows.length === 0) return "";
 
   return rows
-    .map((row) => `### ${row.name}\n${row.content}`)
+    .map((row) => {
+      const header = row.description?.trim()
+        ? `### ${row.name}\n${row.description.trim()}`
+        : `### ${row.name}`;
+      return `${header}\n${row.content}`;
+    })
     .join("\n\n");
 }
 
@@ -360,9 +369,11 @@ export async function addSellermateMemory(input: {
   workspaceId: number;
   userId: string;
   name: string;
+  description?: string;
   content: string;
 }) {
   const name = input.name.trim();
+  const description = input.description?.trim() ?? "";
   const content = input.content.trim();
   if (!name) throw new Error("Memory name is required.");
   if (!content) throw new Error("Memory content is required.");
@@ -374,12 +385,38 @@ export async function addSellermateMemory(input: {
       workspaceId: input.workspaceId,
       userId: input.userId,
       name,
+      description,
       content,
     })
     .returning();
 
   if (!row) throw new Error("Failed to save memory.");
   return row;
+}
+
+export async function addSellermateMemoryFromFile(input: {
+  agentId: number;
+  workspaceId: number;
+  userId: string;
+  name: string;
+  description?: string;
+  filename: string;
+  buffer: Buffer;
+}) {
+  const { extractMemoryFileText } = await import("./sellermate-memory-file.js");
+  const content = await extractMemoryFileText({
+    filename: input.filename,
+    buffer: input.buffer,
+  });
+
+  return addSellermateMemory({
+    agentId: input.agentId,
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    name: input.name,
+    description: input.description,
+    content,
+  });
 }
 
 export async function deleteSellermateMemory(memoryId: number, workspaceId: number): Promise<void> {

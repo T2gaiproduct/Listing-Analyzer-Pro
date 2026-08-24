@@ -56,6 +56,7 @@ export const sellermateMemoryTable = pgTable("sellermate_memory", {
   workspaceId: integer("workspace_id").notNull(),
   userId: text("user_id").notNull(),
   name: text("name").notNull(),
+  description: text("description").notNull().default(""),
   content: text("content").notNull(),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),

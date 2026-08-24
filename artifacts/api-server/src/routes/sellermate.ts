@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { getAuth } from "@clerk/express";
 import {
   addSellermateMemory,
+  addSellermateMemoryFromFile,
   createSellermateAgent,
   deleteSellermateAgent,
   deleteSellermateMemory,
@@ -278,18 +279,75 @@ router.post(
       return;
     }
 
-    const body = req.body as { name?: string; content?: string };
+    const body = req.body as { name?: string; description?: string; content?: string };
     try {
       const row = await addSellermateMemory({
         agentId,
         workspaceId,
         userId,
         name: String(body.name ?? ""),
+        description: String(body.description ?? ""),
         content: String(body.content ?? ""),
       });
       res.status(201).json({ memory: row });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : "Failed to save memory." });
+    }
+  },
+);
+
+router.post(
+  "/sellermate/agents/:id/memory/upload",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceAction("ads", "create"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const userId = (req as AuthedRequest).userId;
+    const agentId = Number(req.params.id);
+    if (!workspaceId || !Number.isFinite(agentId)) {
+      res.status(400).json({ error: "Invalid request." });
+      return;
+    }
+
+    const agent = await getSellermateAgentForWorkspace(agentId, workspaceId);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found." });
+      return;
+    }
+
+    const body = req.body as {
+      name?: string;
+      description?: string;
+      filename?: string;
+      fileBase64?: string;
+    };
+
+    try {
+      const filename = String(body.filename ?? "").trim();
+      const fileBase64 = String(body.fileBase64 ?? "").trim();
+      if (!filename) {
+        res.status(400).json({ error: "Filename is required." });
+        return;
+      }
+      if (!fileBase64) {
+        res.status(400).json({ error: "File data is required." });
+        return;
+      }
+
+      const buffer = Buffer.from(fileBase64, "base64");
+      const row = await addSellermateMemoryFromFile({
+        agentId,
+        workspaceId,
+        userId,
+        name: String(body.name ?? ""),
+        description: String(body.description ?? ""),
+        filename,
+        buffer,
+      });
+      res.status(201).json({ memory: row });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Failed to upload memory file." });
     }
   },
 );
