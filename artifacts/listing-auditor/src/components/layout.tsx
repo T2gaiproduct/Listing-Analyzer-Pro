@@ -141,7 +141,7 @@ function NotificationIcon({ collapsed }: { collapsed: boolean }) {
 function getPageTitle(location: string): string {
   if (location === "/" || location === "/dashboard") return "Dashboard";
   if (location === "/marketplaces") return "Marketplaces";
-  if (location === "/ai") return "SellerMate AI";
+  if (location === "/ai") return "AI";
   if (location === "/products") return "Product Explorer";
   if (location.startsWith("/products/")) return "Product Details";
   if (location === "/recent-projects") return "Recent Projects";

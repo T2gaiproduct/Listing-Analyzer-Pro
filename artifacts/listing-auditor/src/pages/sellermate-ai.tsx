@@ -11,11 +11,9 @@ import {
   Plus,
   Search,
   Send,
-  Sparkles,
   Target,
   Trash2,
   WandSparkles,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -210,19 +208,7 @@ export default function SellerMateAiPage() {
     <div className="min-h-[calc(100vh-8rem)] -mx-1 sm:-mx-2 flex rounded-xl border border-slate-200 bg-[#f8f9fb] shadow-sm overflow-hidden">
       {/* Left sidebar */}
       <aside className="w-64 shrink-0 border-r border-slate-200 bg-white flex flex-col">
-        <div className="px-4 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">SellerMate AI</p>
-              <p className="text-[10px] text-slate-500">Amazon Ads assistant</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-3">
+        <div className="p-3 border-b border-slate-100">
           <Button
             type="button"
             variant="outline"
@@ -363,7 +349,7 @@ export default function SellerMateAiPage() {
               <Textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="Ask SellerMate AI to find keywords, optimize campaigns, or analyze performance…"
+                placeholder="Ask AI to find keywords, optimize campaigns, or analyze performance…"
                 className="min-h-[72px] resize-none border-0 shadow-none focus-visible:ring-0 text-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
