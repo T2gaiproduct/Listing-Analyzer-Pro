@@ -62,6 +62,13 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
      AND column_name IN ('workspace_id', 'workspace_member_id')
    ORDER BY column_name;"
 
+echo "==> SellerLens AI (sellermate) tables"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
+  "SELECT tablename FROM pg_tables
+   WHERE schemaname = 'public'
+     AND tablename LIKE 'sellermate_%'
+   ORDER BY tablename;"
+
 echo "==> credit_transactions.workspace_id"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
   "SELECT column_name FROM information_schema.columns

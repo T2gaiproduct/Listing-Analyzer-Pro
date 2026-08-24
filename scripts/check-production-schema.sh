@@ -41,6 +41,15 @@ invoices:discount_amount
 subscriptions:coupon_code
 subscriptions:discount_amount
 plans:enabled_features
+sellermate_agents:id
+sellermate_agents:model
+sellermate_agents:execution_provider
+sellermate_agent_tools:id
+sellermate_threads:id
+sellermate_threads:external_conversation_id
+sellermate_messages:id
+sellermate_memory:id
+sellermate_memory:memory_type
 EOF
 
 missing=()
