@@ -366,11 +366,22 @@ ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS model text DEFAULT 'gpt-5
 ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS status text DEFAULT 'active';
 ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS execution_provider text DEFAULT 'native';
 ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS make_agent_id text;
+ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS is_default integer NOT NULL DEFAULT 0;
+ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS is_deleted integer NOT NULL DEFAULT 0;
+ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS deleted_at timestamp;
+ALTER TABLE sellermate_agents ADD COLUMN IF NOT EXISTS updated_at timestamp NOT NULL DEFAULT now();
 ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS description text DEFAULT '';
 ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS memory_key text;
 ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS memory_type text DEFAULT 'file';
+ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS is_deleted integer NOT NULL DEFAULT 0;
+ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS deleted_at timestamp;
 ALTER TABLE sellermate_threads ADD COLUMN IF NOT EXISTS external_conversation_id text;
+ALTER TABLE sellermate_threads ADD COLUMN IF NOT EXISTS is_deleted integer NOT NULL DEFAULT 0;
+ALTER TABLE sellermate_threads ADD COLUMN IF NOT EXISTS deleted_at timestamp;
+ALTER TABLE sellermate_threads ADD COLUMN IF NOT EXISTS updated_at timestamp NOT NULL DEFAULT now();
 ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS metadata text;
+ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS is_deleted integer NOT NULL DEFAULT 0;
+ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS deleted_at timestamp;
 
 COMMIT;
 --   SELECT column_name FROM information_schema.columns

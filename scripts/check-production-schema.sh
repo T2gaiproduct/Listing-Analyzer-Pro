@@ -43,6 +43,7 @@ subscriptions:discount_amount
 plans:enabled_features
 sellermate_agents:id
 sellermate_agents:model
+sellermate_agents:is_deleted
 sellermate_agents:execution_provider
 sellermate_agent_tools:id
 sellermate_threads:id

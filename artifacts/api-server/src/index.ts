@@ -10,6 +10,7 @@ import { ensureDefaultPromoCoupons } from "./lib/promo-coupon-sync";
 import { ensureAdminRolePermissions } from "./lib/ensure-admin-role-permissions";
 import { ensureWorkspacesMigrated } from "./lib/ensure-workspaces";
 import { ensureWorkspaceCreditsMigrated } from "./lib/ensure-workspace-credits.js";
+import { ensureSellermateSchemaMigrated } from "./lib/ensure-sellermate-schema.js";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -95,6 +96,10 @@ ensureWorkspacesMigrated()
 ensureWorkspaceCreditsMigrated()
   .then(() => logger.info("Workspace credits migration ready"))
   .catch((err) => logger.error({ err }, "Workspace credits migration failed"));
+
+ensureSellermateSchemaMigrated()
+  .then(() => logger.info("SellerMate schema migration ready"))
+  .catch((err) => logger.error({ err }, "SellerMate schema migration failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);
