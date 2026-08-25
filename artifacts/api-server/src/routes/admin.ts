@@ -1526,6 +1526,32 @@ router.delete("/admin/notifications/:id", requireAdmin, async (req, res): Promis
 
 router.get("/admin/settings", async (req, res): Promise<void> => {
   const category = (req.query.category as string | undefined) ?? "";
+
+  if (category === "sellermate_default_agents") {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const allowed = await isAdminUser(auth.userId);
+    if (!allowed) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    try {
+      const agents = await loadDefaultAgentTemplates();
+      res.json({
+        agents,
+        tools: AGENT_TOOL_CATALOG,
+        models: SUPPORTED_AGENT_MODELS,
+      });
+      return;
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load default agents." });
+      return;
+    }
+  }
+
   const all = await db.select().from(settingsTable);
   const filtered = category ? all.filter((s) => s.category === category) : all;
   const map: Record<string, string> = {};
@@ -1536,8 +1562,45 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
 });
 
 router.put("/admin/settings", async (req, res): Promise<void> => {
-  const { category, settings } = req.body as { category?: string; settings?: Record<string, string> };
-  if (!category?.trim() || !settings || typeof settings !== "object") {
+  const body = req.body as {
+    category?: string;
+    settings?: Record<string, string>;
+    agents?: DefaultAgentTemplate[];
+  };
+  const category = body.category?.trim() ?? "";
+
+  if (category === "sellermate_default_agents") {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const allowed = await isAdminUser(auth.userId);
+    if (!allowed) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    if (!Array.isArray(body.agents) || body.agents.length === 0) {
+      res.status(400).json({ error: "agents array is required." });
+      return;
+    }
+    try {
+      const agents = await saveDefaultAgentTemplates(normalizeTemplates(body.agents));
+      res.json({
+        success: true,
+        agents,
+        tools: AGENT_TOOL_CATALOG,
+        models: SUPPORTED_AGENT_MODELS,
+      });
+      return;
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Failed to save default agents." });
+      return;
+    }
+  }
+
+  const { settings } = body;
+  if (!category || !settings || typeof settings !== "object") {
     res.status(400).json({ error: "Invalid settings payload" });
     return;
   }

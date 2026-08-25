@@ -28,22 +28,49 @@ type DefaultAgentsResponse = {
 };
 
 async function fetchDefaultAgents(): Promise<DefaultAgentsResponse> {
-  const res = await fetch(`${basePath}/api/admin/sellermate/default-agents`, {
-    credentials: "include",
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(data.error ?? "Failed to load default agents.");
+  const endpoints = [
+    `${basePath}/api/admin/sellermate/default-agents`,
+    `${basePath}/api/admin/settings?category=sellermate_default_agents`,
+  ];
+
+  let lastError = "Failed to load default agents.";
+  for (const url of endpoints) {
+    const res = await fetch(url, { credentials: "include" });
+    if (res.status === 404) {
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      lastError = data.error ?? lastError;
+      continue;
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(data.error ?? "Failed to load default agents.");
+    }
+    return res.json() as Promise<DefaultAgentsResponse>;
   }
-  return res.json() as Promise<DefaultAgentsResponse>;
+  throw new Error(lastError);
 }
 
 async function saveDefaultAgents(agents: DefaultSellermateAgentTemplate[]): Promise<DefaultAgentsResponse> {
-  const res = await fetch(`${basePath}/api/admin/sellermate/default-agents`, {
+  const dedicated = await fetch(`${basePath}/api/admin/sellermate/default-agents`, {
     method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ agents }),
+  });
+
+  if (dedicated.status !== 404) {
+    const data = await dedicated.json().catch(() => ({})) as DefaultAgentsResponse & { error?: string };
+    if (!dedicated.ok) {
+      throw new Error(data.error ?? "Failed to save default agents.");
+    }
+    return data;
+  }
+
+  const res = await fetch(`${basePath}/api/admin/settings`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category: "sellermate_default_agents", agents }),
   });
   const data = await res.json().catch(() => ({})) as DefaultAgentsResponse & { error?: string };
   if (!res.ok) {
