@@ -126,9 +126,12 @@ Use plain text only in message, questions, and options — no markdown, no ** bo
 function buildToolArgs(
   toolName: AgentToolName,
   transcript: string,
+  listingToolArgs: { asin?: string; url?: string },
 ): Record<string, unknown> {
   if (toolName === "get_amazon_listing") {
-    return extractAmazonListingToolArgs(transcript);
+    return listingToolArgs.asin || listingToolArgs.url
+      ? listingToolArgs
+      : extractAmazonListingToolArgs(transcript);
   }
   return {};
 }
@@ -267,9 +270,18 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
   }
 
   const toolsUsed: string[] = [];
-  const requestedTools = (orchestration.requestTools ?? [])
-    .filter((name): name is AgentToolName => isValidAgentToolName(name) && enabledToolSet.has(name as AgentToolName))
-    .filter((name) => name !== "get_seller_memory" || input.memoryFileCount > 0) as AgentToolName[];
+  const listingToolArgs = enabledToolSet.has("get_amazon_listing")
+    ? extractAmazonListingToolArgs(transcript)
+    : {};
+  const shouldAutoFetchListing = Boolean(listingToolArgs.asin || listingToolArgs.url);
+
+  const requestedTools = [
+    ...(shouldAutoFetchListing && enabledToolSet.has("get_amazon_listing") ? ["get_amazon_listing" as const] : []),
+    ...(orchestration.requestTools ?? [])
+      .filter((name): name is AgentToolName => isValidAgentToolName(name) && enabledToolSet.has(name as AgentToolName))
+      .filter((name) => name !== "get_seller_memory" || input.memoryFileCount > 0)
+      .filter((name) => name !== "get_amazon_listing" || !shouldAutoFetchListing),
+  ].filter((name, index, all) => all.indexOf(name) === index) as AgentToolName[];
 
   if (requestedTools.length > 0) {
     const toolResults: string[] = [];
@@ -280,7 +292,7 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
       try {
         const result = await executeSellermateAgentTool(
           toolName,
-          buildToolArgs(toolName, transcript),
+          buildToolArgs(toolName, transcript, listingToolArgs),
           {
             workspaceId: input.workspaceId,
             agentId: input.agent.id,
