@@ -166,13 +166,18 @@ async function parseExcelBuffer(buffer: Buffer): Promise<string> {
 }
 
 async function parsePdfBuffer(buffer: Buffer): Promise<string> {
-  const pdfParse = (await import("pdf-parse")).default;
-  const data = await pdfParse(buffer);
-  const text = data.text?.trim() ?? "";
-  if (!text) {
-    throw new Error("Could not extract text from this PDF. Try a text-based PDF or save as TXT.");
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const result = await parser.getText();
+    const text = result.text?.trim() ?? "";
+    if (!text) {
+      throw new Error("Could not extract text from this PDF. Try a text-based PDF or save as TXT.");
+    }
+    return text;
+  } finally {
+    await parser.destroy();
   }
-  return text;
 }
 
 function parseImageBuffer(buffer: Buffer, filename: string, ext: string): string {

@@ -30,7 +30,7 @@ function isAllowedMimeType(mime: string): boolean {
   return false;
 }
 
-export function memoryUploadValidationError(file: Pick<File, "name" | "type" | "size">): string | null {
+export function memoryUploadValidationError(file: Pick<File, "name" | "type">): string | null {
   const ext = fileExtension(file.name);
 
   if (UNSUPPORTED_EXTENSIONS.has(ext)) {

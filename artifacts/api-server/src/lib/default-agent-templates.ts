@@ -183,7 +183,6 @@ export function createBlankDefaultAgentTemplate(existing: DefaultAgentTemplate[]
 }
 
 async function retireLegacyDefaultAgents(workspaceId: number): Promise<void> {
-  if (LEGACY_DEFAULT_AGENT_SLUGS.length === 0) return;
   await db
     .update(sellermateAgentsTable)
     .set({ isDeleted: 1, deletedAt: new Date(), updatedAt: new Date() })
