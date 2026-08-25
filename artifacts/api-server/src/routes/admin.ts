@@ -26,6 +26,7 @@ import {
   addDefaultAgentMemoryFromFile,
   deleteDefaultAgentMemoryFile,
   listDefaultAgentMemoryFiles,
+  loadDefaultAgentMemoryTemplates,
 } from "../lib/default-agent-memory-templates.js";
 import { AGENT_TOOL_CATALOG, DEFAULT_AGENT_ICON_OPTIONS, SUPPORTED_AGENT_MODELS } from "../lib/agent-registry.js";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
@@ -1545,15 +1546,43 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
     }
     try {
       const agents = await loadDefaultAgentTemplates();
+      const memoryBySlug = await loadDefaultAgentMemoryTemplates();
       res.json({
         agents,
         tools: AGENT_TOOL_CATALOG,
         models: SUPPORTED_AGENT_MODELS,
         iconOptions: DEFAULT_AGENT_ICON_OPTIONS,
+        memoryBySlug,
       });
       return;
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load default agents." });
+      return;
+    }
+  }
+
+  if (category === "sellermate_default_agent_memory") {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const allowed = await isAdminUser(auth.userId);
+    if (!allowed) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const slug = String(req.query.slug ?? "").trim().toLowerCase();
+    if (!slug) {
+      res.status(400).json({ error: "slug query parameter is required." });
+      return;
+    }
+    try {
+      const memory = await listDefaultAgentMemoryFiles(slug);
+      res.json({ memory });
+      return;
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load default agent memory." });
       return;
     }
   }
@@ -1572,8 +1601,77 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
     category?: string;
     settings?: Record<string, string>;
     agents?: DefaultAgentTemplate[];
+    action?: string;
+    slug?: string;
+    memoryId?: string;
+    name?: string;
+    description?: string;
+    filename?: string;
+    fileBase64?: string;
   };
   const category = body.category?.trim() ?? "";
+
+  if (category === "sellermate_default_agent_memory") {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const allowed = await isAdminUser(auth.userId);
+    if (!allowed) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const slug = String(body.slug ?? "").trim().toLowerCase();
+    if (!slug) {
+      res.status(400).json({ error: "slug is required." });
+      return;
+    }
+
+    const action = String(body.action ?? "").trim().toLowerCase();
+    try {
+      if (action === "upload") {
+        const filename = String(body.filename ?? "").trim();
+        const fileBase64 = String(body.fileBase64 ?? "").trim();
+        if (!filename) {
+          res.status(400).json({ error: "Filename is required." });
+          return;
+        }
+        if (!fileBase64) {
+          res.status(400).json({ error: "File data is required." });
+          return;
+        }
+        const buffer = Buffer.from(fileBase64, "base64");
+        const memory = await addDefaultAgentMemoryFromFile({
+          slug,
+          name: String(body.name ?? ""),
+          description: String(body.description ?? ""),
+          filename,
+          buffer,
+        });
+        res.status(201).json({ memory });
+        return;
+      }
+
+      if (action === "delete") {
+        const memoryId = String(body.memoryId ?? "").trim();
+        if (!memoryId) {
+          res.status(400).json({ error: "memoryId is required." });
+          return;
+        }
+        await deleteDefaultAgentMemoryFile(slug, memoryId);
+        res.status(204).end();
+        return;
+      }
+
+      res.status(400).json({ error: "action must be upload or delete." });
+      return;
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Failed to update default agent memory." });
+      return;
+    }
+  }
 
   if (category === "sellermate_default_agents") {
     const auth = getAuth(req);
@@ -1708,11 +1806,13 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
 router.get("/admin/sellermate/default-agents", requireAdmin, async (_req, res): Promise<void> => {
   try {
     const agents = await loadDefaultAgentTemplates();
+    const memoryBySlug = await loadDefaultAgentMemoryTemplates();
     res.json({
       agents,
       tools: AGENT_TOOL_CATALOG,
       models: SUPPORTED_AGENT_MODELS,
       iconOptions: DEFAULT_AGENT_ICON_OPTIONS,
+      memoryBySlug,
     });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load default agents." });

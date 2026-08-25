@@ -18,25 +18,61 @@ type DefaultAgentMemoryFile = {
 };
 
 async function fetchDefaultAgentMemory(slug: string): Promise<DefaultAgentMemoryFile[]> {
-  const res = await fetch(`${basePath}/api/admin/sellermate/default-agents/${encodeURIComponent(slug)}/memory`, {
-    credentials: "include",
-  });
-  const data = await res.json().catch(() => ({})) as { memory?: DefaultAgentMemoryFile[]; error?: string };
-  if (!res.ok) {
-    throw new Error(data.error ?? "Failed to load memory files.");
+  const endpoints = [
+    `${basePath}/api/admin/sellermate/default-agents/${encodeURIComponent(slug)}/memory`,
+    `${basePath}/api/admin/settings?category=sellermate_default_agent_memory&slug=${encodeURIComponent(slug)}`,
+  ];
+
+  let lastError = "Failed to load memory files.";
+  for (const url of endpoints) {
+    const res = await fetch(url, { credentials: "include" });
+    if (res.status === 404) {
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      lastError = data.error ?? lastError;
+      continue;
+    }
+    const data = await res.json().catch(() => ({})) as { memory?: DefaultAgentMemoryFile[]; error?: string };
+    if (!res.ok) {
+      throw new Error(data.error ?? lastError);
+    }
+    return data.memory ?? [];
   }
-  return data.memory ?? [];
+  throw new Error(lastError);
 }
 
 async function uploadDefaultAgentMemory(
   slug: string,
   input: { name: string; description?: string; filename: string; fileBase64: string },
 ): Promise<DefaultAgentMemoryFile> {
-  const res = await fetch(`${basePath}/api/admin/sellermate/default-agents/${encodeURIComponent(slug)}/memory/upload`, {
-    method: "POST",
+  const dedicated = await fetch(
+    `${basePath}/api/admin/sellermate/default-agents/${encodeURIComponent(slug)}/memory/upload`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+
+  if (dedicated.status !== 404) {
+    const data = await dedicated.json().catch(() => ({})) as { memory?: DefaultAgentMemoryFile; error?: string };
+    if (!dedicated.ok) {
+      throw new Error(data.error ?? "Failed to upload memory file.");
+    }
+    if (!data.memory) throw new Error("Failed to upload memory file.");
+    return data.memory;
+  }
+
+  const res = await fetch(`${basePath}/api/admin/settings`, {
+    method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      category: "sellermate_default_agent_memory",
+      action: "upload",
+      slug,
+      ...input,
+    }),
   });
   const data = await res.json().catch(() => ({})) as { memory?: DefaultAgentMemoryFile; error?: string };
   if (!res.ok) {
@@ -47,11 +83,31 @@ async function uploadDefaultAgentMemory(
 }
 
 async function deleteDefaultAgentMemory(slug: string, memoryId: string): Promise<void> {
-  const res = await fetch(
+  const dedicated = await fetch(
     `${basePath}/api/admin/sellermate/default-agents/${encodeURIComponent(slug)}/memory/${encodeURIComponent(memoryId)}`,
     { method: "DELETE", credentials: "include" },
   );
-  if (!res.ok) {
+
+  if (dedicated.status !== 404) {
+    if (!dedicated.ok) {
+      const data = await dedicated.json().catch(() => ({})) as { error?: string };
+      throw new Error(data.error ?? "Failed to delete memory file.");
+    }
+    return;
+  }
+
+  const res = await fetch(`${basePath}/api/admin/settings`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      category: "sellermate_default_agent_memory",
+      action: "delete",
+      slug,
+      memoryId,
+    }),
+  });
+  if (!res.ok && res.status !== 204) {
     const data = await res.json().catch(() => ({})) as { error?: string };
     throw new Error(data.error ?? "Failed to delete memory file.");
   }
@@ -124,7 +180,7 @@ export function DefaultAgentMemorySection({ slug }: { slug: string }) {
         </p>
       )}
 
-      {files.length === 0 && !memoryQuery.isLoading ? (
+      {files.length === 0 && !memoryQuery.isLoading && !memoryQuery.isError ? (
         <p className="text-xs text-slate-400">No shared memory files yet.</p>
       ) : (
         <div className="space-y-1">
