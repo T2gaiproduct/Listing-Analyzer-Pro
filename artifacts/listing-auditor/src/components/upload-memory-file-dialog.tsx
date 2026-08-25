@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   MEMORY_FILE_ACCEPT as MEMORY_UPLOAD_ACCEPT,
+  isImageMemoryFile,
   memoryFileToBase64,
   titleFromMemoryFilename,
 } from "@/lib/sellermate-memory-upload";
@@ -69,6 +70,7 @@ export function UploadMemoryFileDialog({
   const [error, setError] = useState<string | null>(null);
   const [documentTitle, setDocumentTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     setSelectedFile(null);
@@ -76,6 +78,10 @@ export function UploadMemoryFileDialog({
     setError(null);
     setDocumentTitle("");
     setDescription("");
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
   }, []);
 
   const handleOpenChange = (next: boolean) => {
@@ -106,6 +112,10 @@ export function UploadMemoryFileDialog({
     }
     setError(null);
     setSelectedFile(file);
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return isImageMemoryFile(file) ? URL.createObjectURL(file) : null;
+    });
     if (!documentTitle.trim()) {
       setDocumentTitle(titleFromFilename(file.name));
     }
@@ -187,7 +197,17 @@ export function UploadMemoryFileDialog({
             />
             {selectedFile ? (
               <div className="flex flex-col items-center gap-2">
-                <FileText className="w-8 h-8 text-slate-500" />
+                {previewUrl ? (
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 bg-white">
+                    <img
+                      src={previewUrl}
+                      alt={selectedFile.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <FileText className="w-8 h-8 text-slate-500" />
+                )}
                 <p className="text-sm font-medium text-slate-800">{selectedFile.name}</p>
                 <p className="text-xs text-slate-500">
                   {(selectedFile.size / 1024).toFixed(1)} KB — click or drop to replace
@@ -198,6 +218,10 @@ export function UploadMemoryFileDialog({
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedFile(null);
+                    setPreviewUrl((current) => {
+                      if (current) URL.revokeObjectURL(current);
+                      return null;
+                    });
                   }}
                 >
                   <X className="w-3 h-3" />

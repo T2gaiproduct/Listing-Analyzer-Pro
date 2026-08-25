@@ -45,7 +45,11 @@ import {
 } from "@/lib/sellermate-ai";
 import { UploadMemoryFileDialog } from "@/components/upload-memory-file-dialog";
 import { SellermateChatAttachMenu } from "@/components/sellermate-chat-attach-menu";
-import { memoryFileToBase64, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
+import {
+  SellermateChatAttachmentPreview,
+  type ChatAttachmentPreviewItem,
+} from "@/components/sellermate-chat-attachment-preview";
+import { isImageMemoryFile, memoryFileToBase64, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
 
 function agentIcon(icon: string) {
   switch (icon) {
@@ -91,6 +95,8 @@ export default function SellerMateAiPage() {
   const [newAgentPrompt, setNewAgentPrompt] = useState("");
   const [newAgentModel, setNewAgentModel] = useState("gpt-5.4");
   const [selectedTools, setSelectedTools] = useState<AgentToolConfig[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<ChatAttachmentPreviewItem[]>([]);
+  const attachmentPreviewUrlsRef = useRef<Map<string, string>>(new Map());
 
   const toolsCatalogQuery = useQuery({
     queryKey: ["sellermate-tools-catalog"],
@@ -143,11 +149,39 @@ export default function SellerMateAiPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, messagesQuery.isFetching]);
 
+  useEffect(() => {
+    const previewUrls = attachmentPreviewUrlsRef.current;
+    return () => {
+      for (const url of previewUrls.values()) {
+        URL.revokeObjectURL(url);
+      }
+      previewUrls.clear();
+    };
+  }, []);
+
+  function clearPendingAttachments() {
+    for (const url of attachmentPreviewUrlsRef.current.values()) {
+      URL.revokeObjectURL(url);
+    }
+    attachmentPreviewUrlsRef.current.clear();
+    setPendingAttachments([]);
+  }
+
+  function removePendingAttachment(id: string) {
+    const previewUrl = attachmentPreviewUrlsRef.current.get(id);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      attachmentPreviewUrlsRef.current.delete(id);
+    }
+    setPendingAttachments((current) => current.filter((attachment) => attachment.id !== id));
+  }
+
   const chatMutation = useMutation({
     mutationFn: sendSellermateChat,
     onSuccess: (result) => {
       setActiveThreadId(result.thread.id);
       setDraft("");
+      clearPendingAttachments();
       void queryClient.invalidateQueries({ queryKey: ["sellermate-messages", result.thread.id] });
       void queryClient.invalidateQueries({ queryKey: ["sellermate-threads", selectedAgentId] });
     },
@@ -308,6 +342,7 @@ export default function SellerMateAiPage() {
   function handleNewChat() {
     setActiveThreadId(null);
     setDraft("");
+    clearPendingAttachments();
   }
 
   function handleSend() {
@@ -342,7 +377,24 @@ export default function SellerMateAiPage() {
   }
 
   async function handleChatMemoryFile(file: File) {
-    if (!selectedAgentId || uploadMemoryMutation.isPending) return;
+    if (!selectedAgentId) return;
+
+    const attachmentId = crypto.randomUUID();
+    const previewUrl = isImageMemoryFile(file) ? URL.createObjectURL(file) : null;
+    if (previewUrl) {
+      attachmentPreviewUrlsRef.current.set(attachmentId, previewUrl);
+    }
+
+    setPendingAttachments((current) => [
+      ...current,
+      {
+        id: attachmentId,
+        filename: file.name,
+        previewUrl,
+        uploadStatus: "uploading",
+      },
+    ]);
+
     try {
       const fileBase64 = await memoryFileToBase64(file);
       await uploadMemoryMutation.mutateAsync({
@@ -350,7 +402,17 @@ export default function SellerMateAiPage() {
         filename: file.name,
         fileBase64,
       });
+      setPendingAttachments((current) =>
+        current.map((attachment) =>
+          attachment.id === attachmentId ? { ...attachment, uploadStatus: "done" } : attachment,
+        ),
+      );
     } catch (error) {
+      setPendingAttachments((current) =>
+        current.map((attachment) =>
+          attachment.id === attachmentId ? { ...attachment, uploadStatus: "error" } : attachment,
+        ),
+      );
       toast({
         title: "Upload failed",
         description: error instanceof Error ? error.message : "Could not read the selected file.",
@@ -509,6 +571,10 @@ export default function SellerMateAiPage() {
         <div className="border-t border-slate-200 bg-white px-4 sm:px-8 py-4">
           <div className="max-w-3xl mx-auto">
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-3">
+              <SellermateChatAttachmentPreview
+                attachments={pendingAttachments}
+                onRemove={removePendingAttachment}
+              />
               <Textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
