@@ -69,6 +69,14 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
      AND tablename LIKE 'sellermate_%'
    ORDER BY tablename;"
 
+echo "==> Default agent templates (settings)"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
+  "SELECT key FROM settings WHERE key = 'sellermate_default_agent_templates' LIMIT 1;"
+
+DEFAULT_AGENT_COUNT="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -A -c \
+  "SELECT COUNT(*) FROM sellermate_agents WHERE is_default = 1 AND is_deleted = 0;")"
+echo "==> Active default sellermate_agents rows: ${DEFAULT_AGENT_COUNT}"
+
 echo "==> credit_transactions.workspace_id"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
   "SELECT column_name FROM information_schema.columns

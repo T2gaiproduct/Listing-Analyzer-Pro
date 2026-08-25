@@ -45,6 +45,11 @@ if [[ "${SKIP_DATA:-}" != "1" ]]; then
   DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run backfill-plan-features || {
     echo "    WARN: enabled_features backfill failed — run manually after schema sync"
   }
+
+  echo "==> Default SellerLens agents (templates → all workspaces)"
+  DATABASE_URL="$DATABASE_URL" pnpm run db:sync-default-agents || {
+    echo "    WARN: default agent sync failed — run: pnpm run db:sync-default-agents"
+  }
 else
   echo "==> SKIP_DATA=1 — data backfill skipped (API boot will run ensureWorkspaceCreditsMigrated)"
 fi

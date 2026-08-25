@@ -494,15 +494,15 @@ CREATE TABLE IF NOT EXISTS "sellermate_agents" (
   "description" text DEFAULT ''::text NOT NULL,
   "system_prompt" text NOT NULL,
   "icon" text DEFAULT 'sparkles'::text NOT NULL,
+  "model" text DEFAULT 'gpt-5.4'::text NOT NULL,
+  "status" text DEFAULT 'active'::text NOT NULL,
+  "execution_provider" text DEFAULT 'native'::text NOT NULL,
+  "make_agent_id" text,
   "is_default" integer DEFAULT 0 NOT NULL,
   "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL,
-  "updated_at" timestamp DEFAULT now() NOT NULL,
-  "model" text DEFAULT 'gpt-5.4'::text NOT NULL,
-  "status" text DEFAULT 'active'::text NOT NULL,
-  "execution_provider" text DEFAULT 'native'::text NOT NULL,
-  "make_agent_id" text
+  "updated_at" timestamp DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "sellermate_memory" (
@@ -511,13 +511,13 @@ CREATE TABLE IF NOT EXISTS "sellermate_memory" (
   "workspace_id" integer NOT NULL,
   "user_id" text NOT NULL,
   "name" text NOT NULL,
+  "description" text DEFAULT ''::text NOT NULL,
+  "memory_key" text,
+  "memory_type" text DEFAULT 'file'::text NOT NULL,
   "content" text NOT NULL,
   "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
-  "created_at" timestamp DEFAULT now() NOT NULL,
-  "description" text DEFAULT ''::text NOT NULL,
-  "memory_key" text,
-  "memory_type" text DEFAULT 'file'::text NOT NULL
+  "created_at" timestamp DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "sellermate_messages" (
@@ -527,7 +527,8 @@ CREATE TABLE IF NOT EXISTS "sellermate_messages" (
   "content" text NOT NULL,
   "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
-  "created_at" timestamp DEFAULT now() NOT NULL
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "metadata" text
 );
 
 CREATE TABLE IF NOT EXISTS "sellermate_threads" (
@@ -536,12 +537,12 @@ CREATE TABLE IF NOT EXISTS "sellermate_threads" (
   "workspace_id" integer NOT NULL,
   "user_id" text NOT NULL,
   "title" text DEFAULT 'New chat'::text NOT NULL,
+  "external_conversation_id" text,
   "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
   "last_message_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL,
-  "updated_at" timestamp DEFAULT now() NOT NULL,
-  "external_conversation_id" text
+  "updated_at" timestamp DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "seo_settings" (
@@ -1133,28 +1134,28 @@ ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "name" text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "description" text DEFAULT ''::text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "system_prompt" text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "icon" text DEFAULT 'sparkles'::text;
+ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "model" text DEFAULT 'gpt-5.4'::text;
+ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'active'::text;
+ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "execution_provider" text DEFAULT 'native'::text;
+ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "make_agent_id" text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_default" integer DEFAULT 0;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now();
-ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "model" text DEFAULT 'gpt-5.4'::text;
-ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'active'::text;
-ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "execution_provider" text DEFAULT 'native'::text;
-ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "make_agent_id" text;
 
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "agent_id" integer;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "workspace_id" integer;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "user_id" text;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "name" text;
+ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "description" text DEFAULT ''::text;
+ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "memory_key" text;
+ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "memory_type" text DEFAULT 'file'::text;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "content" text;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
-ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "description" text DEFAULT ''::text;
-ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "memory_key" text;
-ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "memory_type" text DEFAULT 'file'::text;
 
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "thread_id" integer;
@@ -1163,18 +1164,19 @@ ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "content" text;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
+ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "metadata" text;
 
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "agent_id" integer;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "workspace_id" integer;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "user_id" text;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "title" text DEFAULT 'New chat'::text;
+ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "external_conversation_id" text;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "last_message_at" timestamp;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now();
-ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "external_conversation_id" text;
 
 ALTER TABLE "seo_settings" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "seo_settings" ADD COLUMN IF NOT EXISTS "page_slug" varchar(100);
