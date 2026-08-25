@@ -16,6 +16,13 @@ import { like, or, ilike } from "drizzle-orm";
 import { clearProviderCache } from "../lib/ai-provider";
 import { clearOpenAICache } from "../lib/openai-client";
 import { clearGeminiCache } from "../lib/gemini-client";
+import {
+  loadDefaultAgentTemplates,
+  normalizeTemplates,
+  saveDefaultAgentTemplates,
+  type DefaultAgentTemplate,
+} from "../lib/default-agent-templates.js";
+import { AGENT_TOOL_CATALOG, SUPPORTED_AGENT_MODELS } from "../lib/agent-registry.js";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { ANNOUNCEMENT_PROMO_CATEGORY, ANNOUNCEMENT_PROMO_KEYS } from "../lib/announcement-promo.js";
 import { ensurePromoCoupon } from "../lib/promo-coupon-sync.js";
@@ -1625,6 +1632,39 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   } catch (err) {
     req.log?.error?.({ err, category }, "Failed to save admin settings");
     res.status(500).json({ error: err instanceof Error ? err.message : "Failed to save settings" });
+  }
+});
+
+router.get("/admin/sellermate/default-agents", requireAdmin, async (_req, res): Promise<void> => {
+  try {
+    const agents = await loadDefaultAgentTemplates();
+    res.json({
+      agents,
+      tools: AGENT_TOOL_CATALOG,
+      models: SUPPORTED_AGENT_MODELS,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load default agents." });
+  }
+});
+
+router.put("/admin/sellermate/default-agents", requireAdmin, async (req, res): Promise<void> => {
+  const body = req.body as { agents?: DefaultAgentTemplate[] };
+  if (!Array.isArray(body.agents) || body.agents.length === 0) {
+    res.status(400).json({ error: "agents array is required." });
+    return;
+  }
+
+  try {
+    const agents = await saveDefaultAgentTemplates(normalizeTemplates(body.agents));
+    res.json({
+      success: true,
+      agents,
+      tools: AGENT_TOOL_CATALOG,
+      models: SUPPORTED_AGENT_MODELS,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to save default agents." });
   }
 });
 

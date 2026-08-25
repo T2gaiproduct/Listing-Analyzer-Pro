@@ -38,7 +38,10 @@ export const AGENT_TOOL_CATALOG: AgentToolDefinition[] = [
   },
 ];
 
-export type DefaultAgentSlug = "listing-audit" | "graphics" | "ppc";
+export type DefaultAgentSlug = "image-creator" | "generate-content" | "ppc";
+
+/** Retired slugs — soft-deleted when workspaces sync default agents. */
+export const LEGACY_DEFAULT_AGENT_SLUGS = ["listing-audit", "graphics"] as const;
 
 export type DefaultAgentDefinition = {
   slug: DefaultAgentSlug;
@@ -52,26 +55,27 @@ export type DefaultAgentDefinition = {
 
 export const WORKSPACE_DEFAULT_AGENTS: DefaultAgentDefinition[] = [
   {
-    slug: "listing-audit",
-    name: "Listing Audit Agent",
-    description: "Analyze Amazon listings, run audits, and recommend title, bullets, and image improvements.",
-    icon: "clipboard-check",
-    model: "gpt-5.4",
-    systemPrompt: `You are SellerLens AI Listing Audit Agent for Amazon sellers.
-Help users audit listings, interpret audit scores, and suggest concrete improvements to titles, bullets, keywords, and images.
-Ask for an ASIN or URL when listing context is missing. Be concise and actionable.`,
-    tools: ["get_seller_memory", "get_amazon_listing", "audit_listing", "save_agent_memory"],
-  },
-  {
-    slug: "graphics",
-    name: "Graphics Agent",
-    description: "Plan listing images, infographics, and A+ content using brand and product context.",
+    slug: "image-creator",
+    name: "Image Creator Agent",
+    description: "Plan listing images, infographics, and A+ visuals using brand and product context.",
     icon: "image",
     model: "gpt-5.4",
-    systemPrompt: `You are SellerLens AI Graphics Agent for Amazon sellers.
+    systemPrompt: `You are SellerLens AI Image Creator Agent for Amazon sellers.
 Help users plan main images, lifestyle shots, infographics, and A+ content that convert.
 Use brand voice and product details from memory when available. Ask clarifying questions about style and audience.`,
     tools: ["get_seller_memory", "get_amazon_listing", "save_agent_memory"],
+  },
+  {
+    slug: "generate-content",
+    name: "Generate Content Agent",
+    description: "Optimize Amazon listing copy — titles, bullets, descriptions, keywords, and backend search terms.",
+    icon: "clipboard-check",
+    model: "gpt-5.4",
+    systemPrompt: `You are SellerLens AI Generate Content Agent for Amazon sellers.
+Help users optimize listing content: titles, bullet points, product descriptions, keywords, and backend search terms.
+Run audits when helpful, fetch listing data by ASIN or URL, and use uploaded brand guides from memory.
+Be concise, actionable, and conversion-focused.`,
+    tools: ["get_seller_memory", "get_amazon_listing", "audit_listing", "save_agent_memory"],
   },
   {
     slug: "ppc",
@@ -96,6 +100,10 @@ export type SupportedAgentModel = (typeof SUPPORTED_AGENT_MODELS)[number];
 
 export function isValidAgentToolName(name: string): name is AgentToolName {
   return AGENT_TOOL_CATALOG.some((tool) => tool.name === name);
+}
+
+export function isValidDefaultAgentSlug(slug: string): slug is DefaultAgentSlug {
+  return WORKSPACE_DEFAULT_AGENTS.some((row) => row.slug === slug);
 }
 
 export function getDefaultToolsForSlug(slug: string): AgentToolName[] {

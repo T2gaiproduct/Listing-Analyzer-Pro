@@ -1,74 +1,19 @@
 import { and, eq } from "drizzle-orm";
 import {
   db,
-  sellermateAgentsTable,
   sellermateAgentToolsTable,
 } from "@workspace/db";
 import {
-  WORKSPACE_DEFAULT_AGENTS,
   isValidAgentToolName,
   type AgentToolName,
 } from "./agent-registry.js";
-import { isMakeExecutionEnabled } from "./make-agent-client.js";
-
-const seededWorkspaces = new Set<number>();
 
 export async function ensureWorkspaceDefaultAgents(workspaceId: number): Promise<void> {
-  if (seededWorkspaces.has(workspaceId)) {
-    const [existing] = await db
-      .select({ id: sellermateAgentsTable.id })
-      .from(sellermateAgentsTable)
-      .where(and(
-        eq(sellermateAgentsTable.workspaceId, workspaceId),
-        eq(sellermateAgentsTable.isDefault, 1),
-        eq(sellermateAgentsTable.isDeleted, 0),
-      ))
-      .limit(1);
-    if (existing) return;
-  }
-
-  const executionProvider = isMakeExecutionEnabled() ? "make" : "native";
-
-  for (const definition of WORKSPACE_DEFAULT_AGENTS) {
-    const [existing] = await db
-      .select({ id: sellermateAgentsTable.id })
-      .from(sellermateAgentsTable)
-      .where(and(
-        eq(sellermateAgentsTable.workspaceId, workspaceId),
-        eq(sellermateAgentsTable.slug, definition.slug),
-        eq(sellermateAgentsTable.isDefault, 1),
-        eq(sellermateAgentsTable.isDeleted, 0),
-      ))
-      .limit(1);
-
-    if (existing) continue;
-
-    const [agent] = await db
-      .insert(sellermateAgentsTable)
-      .values({
-        workspaceId,
-        userId: null,
-        slug: definition.slug,
-        name: definition.name,
-        description: definition.description,
-        systemPrompt: definition.systemPrompt,
-        icon: definition.icon,
-        model: definition.model,
-        status: "active",
-        executionProvider,
-        isDefault: 1,
-      })
-      .returning();
-
-    if (!agent) continue;
-
-    await seedAgentTools(agent.id, workspaceId, definition.tools);
-  }
-
-  seededWorkspaces.add(workspaceId);
+  const { syncWorkspaceDefaultAgents } = await import("./default-agent-templates.js");
+  await syncWorkspaceDefaultAgents(workspaceId);
 }
 
-async function seedAgentTools(
+export async function seedAgentTools(
   agentId: number,
   workspaceId: number,
   tools: AgentToolName[],
