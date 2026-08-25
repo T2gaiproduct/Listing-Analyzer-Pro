@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { DefaultAgentMemorySection } from "@/components/admin/default-agent-memory-section";
 import type { AgentToolDefinition } from "@/lib/sellermate-ai";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -195,7 +196,7 @@ export default function AdminSettingsDefaultAgents() {
 
       <p className="text-sm text-muted-foreground">
         These agents appear for every seller under <strong>Default agents</strong> in SellerLens AI.
-        Sellers cannot edit or duplicate them — they can create custom agents under <strong>Your agents</strong>.
+        Sellers cannot edit, duplicate, or change memory for them. Upload shared memory files below — they sync to every workspace.
         Removing an agent here retires it from all workspaces on save.
       </p>
 
@@ -313,6 +314,8 @@ export default function AdminSettingsDefaultAgents() {
                   ))}
                 </div>
               </div>
+
+              <DefaultAgentMemorySection slug={agent.slug} />
             </div>
           ))}
 

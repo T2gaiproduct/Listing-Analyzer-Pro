@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db, sellermateMemoryTable } from "@workspace/db";
+import { db, sellermateAgentsTable, sellermateMemoryTable } from "@workspace/db";
 import type { AgentToolName } from "./agent-registry.js";
 import { fetchListing } from "./listing-fetcher.js";
 import { analyzeListingWithAI } from "./analyzer.js";
@@ -72,6 +72,23 @@ export async function executeSellermateAgentTool(
     }
 
     case "save_agent_memory": {
+      const [agent] = await db
+        .select()
+        .from(sellermateAgentsTable)
+        .where(and(
+          eq(sellermateAgentsTable.id, ctx.agentId),
+          eq(sellermateAgentsTable.workspaceId, ctx.workspaceId),
+          eq(sellermateAgentsTable.isDeleted, 0),
+        ))
+        .limit(1);
+
+      if (!agent) {
+        return JSON.stringify({ error: "Agent not found." });
+      }
+      if (agent.isDefault) {
+        return JSON.stringify({ error: "Default agent memory is read-only." });
+      }
+
       const name = typeof args.name === "string" ? args.name.trim() : "";
       const content = typeof args.content === "string" ? args.content.trim() : "";
       if (!name || !content) {

@@ -28,6 +28,12 @@ import { serializeSellermateMessageMetadata } from "./sellermate-message-types.j
 
 export { AGENT_TOOL_CATALOG, SUPPORTED_AGENT_MODELS };
 
+export function assertCustomerCanModifyAgentMemory(agent: SellermateAgent): void {
+  if (agent.isDefault) {
+    throw new Error("Default agent memory is read-only. Administrators manage shared memory files.");
+  }
+}
+
 export async function listSellermateAgents(workspaceId: number): Promise<SellermateAgent[]> {
   await ensureWorkspaceDefaultAgents(workspaceId);
 
@@ -494,6 +500,10 @@ export async function addSellermateMemory(input: {
   if (!name) throw new Error("Memory name is required.");
   if (!content) throw new Error("Memory content is required.");
 
+  const agent = await getSellermateAgentForWorkspace(input.agentId, input.workspaceId);
+  if (!agent) throw new Error("Agent not found.");
+  assertCustomerCanModifyAgentMemory(agent);
+
   const [row] = await db
     .insert(sellermateMemoryTable)
     .values({
@@ -539,6 +549,22 @@ export async function addSellermateMemoryFromFile(input: {
 }
 
 export async function deleteSellermateMemory(memoryId: number, workspaceId: number): Promise<void> {
+  const [memory] = await db
+    .select()
+    .from(sellermateMemoryTable)
+    .where(and(
+      eq(sellermateMemoryTable.id, memoryId),
+      eq(sellermateMemoryTable.workspaceId, workspaceId),
+      eq(sellermateMemoryTable.isDeleted, 0),
+    ))
+    .limit(1);
+
+  if (!memory) throw new Error("Memory not found.");
+
+  const agent = await getSellermateAgentForWorkspace(memory.agentId, workspaceId);
+  if (!agent) throw new Error("Agent not found.");
+  assertCustomerCanModifyAgentMemory(agent);
+
   await db
     .update(sellermateMemoryTable)
     .set({ isDeleted: 1, deletedAt: new Date() })

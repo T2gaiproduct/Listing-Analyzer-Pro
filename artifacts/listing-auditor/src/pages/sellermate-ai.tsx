@@ -122,6 +122,7 @@ export default function SellerMateAiPage() {
   }, [agents, selectedAgentId]);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null;
+  const isDefaultAgentSelected = selectedAgent?.isDefault ?? false;
 
   const threadsQuery = useQuery({
     queryKey: ["sellermate-threads", selectedAgentId],
@@ -496,19 +497,28 @@ export default function SellerMateAiPage() {
             open={memoryOpen}
             onToggle={() => setMemoryOpen((v) => !v)}
             action={
-              <button
-                type="button"
-                onClick={() => setUploadMemoryOpen(true)}
-                disabled={!selectedAgentId}
-                className="text-slate-400 hover:text-slate-700 disabled:opacity-40"
-                aria-label="Add memory"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
+              !isDefaultAgentSelected ? (
+                <button
+                  type="button"
+                  onClick={() => setUploadMemoryOpen(true)}
+                  disabled={!selectedAgentId}
+                  className="text-slate-400 hover:text-slate-700 disabled:opacity-40"
+                  aria-label="Add memory"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              ) : undefined
             }
           >
+            {isDefaultAgentSelected && (
+              <p className="px-2 text-[11px] text-slate-400">
+                Shared memory is managed by your administrator.
+              </p>
+            )}
             {memoryFiles.length === 0 ? (
-              <p className="px-2 text-[11px] text-slate-400">No memory files yet for this agent.</p>
+              <p className="px-2 text-[11px] text-slate-400">
+                {isDefaultAgentSelected ? "No shared memory files yet." : "No memory files yet for this agent."}
+              </p>
             ) : (
               memoryFiles.map((file) => (
                 <div key={file.id} className="group flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50">
@@ -519,13 +529,15 @@ export default function SellerMateAiPage() {
                       {file.description?.trim() || `${file.content.length.toLocaleString()} characters`}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => deleteMemoryMutation.mutate(file.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  {!isDefaultAgentSelected && (
+                    <button
+                      type="button"
+                      onClick={() => deleteMemoryMutation.mutate(file.id)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -624,7 +636,7 @@ export default function SellerMateAiPage() {
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
                   <SellermateChatAttachMenu
-                    disabled={!selectedAgentId || uploadMemoryMutation.isPending}
+                    disabled={!selectedAgentId || uploadMemoryMutation.isPending || isDefaultAgentSelected}
                     onFileSelected={(file) => void handleChatMemoryFile(file)}
                   />
                 </div>

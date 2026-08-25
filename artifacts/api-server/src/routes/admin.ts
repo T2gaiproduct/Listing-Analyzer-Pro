@@ -22,6 +22,11 @@ import {
   saveDefaultAgentTemplates,
   type DefaultAgentTemplate,
 } from "../lib/default-agent-templates.js";
+import {
+  addDefaultAgentMemoryFromFile,
+  deleteDefaultAgentMemoryFile,
+  listDefaultAgentMemoryFiles,
+} from "../lib/default-agent-memory-templates.js";
 import { AGENT_TOOL_CATALOG, DEFAULT_AGENT_ICON_OPTIONS, SUPPORTED_AGENT_MODELS } from "../lib/agent-registry.js";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { ANNOUNCEMENT_PROMO_CATEGORY, ANNOUNCEMENT_PROMO_KEYS } from "../lib/announcement-promo.js";
@@ -1732,6 +1737,77 @@ router.put("/admin/sellermate/default-agents", requireAdmin, async (req, res): P
     });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to save default agents." });
+  }
+});
+
+router.get("/admin/sellermate/default-agents/:slug/memory", requireAdmin, async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "").trim().toLowerCase();
+  if (!slug) {
+    res.status(400).json({ error: "Agent slug is required." });
+    return;
+  }
+
+  try {
+    const memory = await listDefaultAgentMemoryFiles(slug);
+    res.json({ memory });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load default agent memory." });
+  }
+});
+
+router.post("/admin/sellermate/default-agents/:slug/memory/upload", requireAdmin, async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "").trim().toLowerCase();
+  if (!slug) {
+    res.status(400).json({ error: "Agent slug is required." });
+    return;
+  }
+
+  const body = req.body as {
+    name?: string;
+    description?: string;
+    filename?: string;
+    fileBase64?: string;
+  };
+
+  try {
+    const filename = String(body.filename ?? "").trim();
+    const fileBase64 = String(body.fileBase64 ?? "").trim();
+    if (!filename) {
+      res.status(400).json({ error: "Filename is required." });
+      return;
+    }
+    if (!fileBase64) {
+      res.status(400).json({ error: "File data is required." });
+      return;
+    }
+
+    const buffer = Buffer.from(fileBase64, "base64");
+    const memory = await addDefaultAgentMemoryFromFile({
+      slug,
+      name: String(body.name ?? ""),
+      description: String(body.description ?? ""),
+      filename,
+      buffer,
+    });
+    res.status(201).json({ memory });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to upload default agent memory." });
+  }
+});
+
+router.delete("/admin/sellermate/default-agents/:slug/memory/:memoryId", requireAdmin, async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "").trim().toLowerCase();
+  const memoryId = String(req.params.memoryId ?? "").trim();
+  if (!slug || !memoryId) {
+    res.status(400).json({ error: "Agent slug and memory id are required." });
+    return;
+  }
+
+  try {
+    await deleteDefaultAgentMemoryFile(slug, memoryId);
+    res.status(204).end();
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to delete default agent memory." });
   }
 });
 

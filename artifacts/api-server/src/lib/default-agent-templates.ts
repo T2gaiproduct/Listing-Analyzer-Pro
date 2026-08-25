@@ -292,6 +292,9 @@ export async function syncWorkspaceDefaultAgents(
   for (const definition of definitions) {
     await upsertWorkspaceDefaultAgent(workspaceId, definition, executionProvider);
   }
+
+  const { syncWorkspaceDefaultAgentMemory } = await import("./default-agent-memory-templates.js");
+  await syncWorkspaceDefaultAgentMemory(workspaceId);
 }
 
 export async function syncAllWorkspaceDefaultAgents(
