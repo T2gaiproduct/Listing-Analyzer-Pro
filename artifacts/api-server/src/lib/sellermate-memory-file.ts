@@ -11,8 +11,7 @@ export const MEMORY_FILE_EXTENSIONS = [
   ".xls",
   ".md",
   ".txt",
-  ".doc",
-  ".docx",
+  ".pdf",
   ".jpg",
   ".jpeg",
   ".png",
@@ -20,12 +19,14 @@ export const MEMORY_FILE_EXTENSIONS = [
   ".webp",
   ".jfif",
   ".bmp",
+  ".heic",
+  ".heif",
 ] as const;
 
 const TEXT_EXTENSIONS = new Set([".txt", ".md", ".csv"]);
 const EXCEL_EXTENSIONS = new Set([".xlsx", ".xls"]);
-const WORD_EXTENSIONS = new Set([".doc", ".docx"]);
-const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".jfif", ".bmp"]);
+const PDF_EXTENSIONS = new Set([".pdf"]);
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".jfif", ".bmp", ".heic", ".heif"]);
 
 export function memoryFileExtension(filename: string): string {
   const dot = filename.lastIndexOf(".");
@@ -41,6 +42,8 @@ function imageMimeFromExtension(ext: string): string {
     ".gif": "image/gif",
     ".webp": "image/webp",
     ".bmp": "image/bmp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
   };
   return map[ext] ?? "application/octet-stream";
 }
@@ -53,6 +56,7 @@ export function sniffMemoryFileExtension(filename: string, buffer: Buffer): stri
   }
 
   if (buffer.length >= 4) {
+    if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) return ".pdf";
     if (buffer[0] === 0x50 && buffer[1] === 0x4b) return ".xlsx";
     if (buffer[0] === 0xff && buffer[1] === 0xd8) return ".jpeg";
     if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return ".png";
@@ -69,7 +73,7 @@ export function sniffMemoryFileExtension(filename: string, buffer: Buffer): stri
 }
 
 export function allowedMemoryExtensionsLabel(): string {
-  return "CSV, XLSX, XLS, MD, TXT, JPG, PNG, GIF, WEBP, and other common image formats";
+  return "CSV, XLSX, XLS, MD, TXT, PDF, JPG, PNG, GIF, WEBP, HEIC, and other common image formats";
 }
 
 export function isAllowedMemoryFilename(filename: string): boolean {
@@ -161,6 +165,16 @@ async function parseExcelBuffer(buffer: Buffer): Promise<string> {
   return text;
 }
 
+async function parsePdfBuffer(buffer: Buffer): Promise<string> {
+  const pdfParse = (await import("pdf-parse")).default;
+  const data = await pdfParse(buffer);
+  const text = data.text?.trim() ?? "";
+  if (!text) {
+    throw new Error("Could not extract text from this PDF. Try a text-based PDF or save as TXT.");
+  }
+  return text;
+}
+
 function parseImageBuffer(buffer: Buffer, filename: string, ext: string): string {
   const mime = imageMimeFromExtension(ext);
   const sizeLabel = `${(buffer.length / 1024).toFixed(1)} KB`;
@@ -184,10 +198,6 @@ export async function extractMemoryFileText(input: {
     throw new Error(`Unsupported file type. Allowed: ${allowedMemoryExtensionsLabel()}.`);
   }
 
-  if (WORD_EXTENSIONS.has(ext)) {
-    throw new Error("DOC and DOCX uploads are not supported yet. Save as TXT, MD, or CSV and try again.");
-  }
-
   let text = "";
   if (IMAGE_EXTENSIONS.has(ext)) {
     text = parseImageBuffer(buffer, filename, ext);
@@ -195,6 +205,8 @@ export async function extractMemoryFileText(input: {
     text = parseDelimitedText(buffer.toString("utf8"), ext);
   } else if (EXCEL_EXTENSIONS.has(ext)) {
     text = await parseExcelBuffer(buffer);
+  } else if (PDF_EXTENSIONS.has(ext)) {
+    text = await parsePdfBuffer(buffer);
   }
 
   if (!text.trim()) {

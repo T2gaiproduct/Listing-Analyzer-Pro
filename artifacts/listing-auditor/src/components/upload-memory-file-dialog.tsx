@@ -14,25 +14,16 @@ import {
 import { cn } from "@/lib/utils";
 import {
   MEMORY_FILE_ACCEPT as MEMORY_UPLOAD_ACCEPT,
+  MEMORY_UPLOAD_HELP_TEXT,
   isImageMemoryFile,
   memoryFileToBase64,
+  memoryUploadValidationError,
   titleFromMemoryFilename,
 } from "@/lib/sellermate-memory-upload";
 
 export { MEMORY_UPLOAD_ACCEPT };
 
 const MEMORY_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
-
-const ALLOWED_EXTENSIONS = MEMORY_UPLOAD_ACCEPT.split(",").map((ext) => ext.trim().toLowerCase());
-
-function fileExtension(filename: string): string {
-  const dot = filename.lastIndexOf(".");
-  return dot >= 0 ? filename.slice(dot).toLowerCase() : "";
-}
-
-function isAllowedFile(file: File): boolean {
-  return ALLOWED_EXTENSIONS.includes(fileExtension(file.name));
-}
 
 function titleFromFilename(filename: string): string {
   return titleFromMemoryFilename(filename);
@@ -102,8 +93,9 @@ export function UploadMemoryFileDialog({
 
   const applyFile = (file: File | null) => {
     if (!file) return;
-    if (!isAllowedFile(file)) {
-      setError(`Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(", ")}`);
+    const validationError = memoryUploadValidationError(file);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     if (file.size > MEMORY_UPLOAD_MAX_BYTES) {
@@ -233,7 +225,7 @@ export function UploadMemoryFileDialog({
                 <FileText className="w-8 h-8 text-slate-400" />
                 <p className="text-sm text-slate-700">Drag &amp; drop or click to browse</p>
                 <p className="text-[11px] leading-relaxed text-slate-500 max-w-sm">
-                  CSV, XLSX, XLS, MD, TXT, DOC, DOCX — max 10 MB — max 25k tokens — max 50k rows — max 400 columns
+                  {MEMORY_UPLOAD_HELP_TEXT}
                 </p>
               </div>
             )}
