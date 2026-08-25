@@ -185,6 +185,9 @@ importers:
       '@google/genai':
         specifier: ^2.8.0
         version: 2.8.0
+      '@thednp/dommatrix':
+        specifier: ^2.0.12
+        version: 2.0.12
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -1929,6 +1932,10 @@ packages:
     resolution: {integrity: sha512-0Lu6y5t+tvlTJMTO7oh5NSpJfpg/5D41LlThfepTixPYkJ0sE2Jj0m0f6yYqujBwIXlId87e234+MxG3D3g7kg==}
     peerDependencies:
       react: ^18 || ^19
+
+  '@thednp/dommatrix@2.0.12':
+    resolution: {integrity: sha512-eOshhlSShBXLfrMQqqhA450TppJXhKriaQdN43mmniOCMn9sD60QKF1Axsj7bKl339WH058LuGFS6H84njYH5w==}
+    engines: {node: '>=20', pnpm: '>=8.6.0'}
 
   '@types/archiver@8.0.0':
     resolution: {integrity: sha512-YpXPbEuv9+eUIPPQWUPahj3cvs9isWRuF+J4z+KbdYVDO3rWorWQFxUVHnwPu2AgKwvgpki5F2VMX0Xx+mX45A==}
@@ -5579,6 +5586,8 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.90.20
       react: 19.1.0
+
+  '@thednp/dommatrix@2.0.12': {}
 
   '@types/archiver@8.0.0':
     dependencies:

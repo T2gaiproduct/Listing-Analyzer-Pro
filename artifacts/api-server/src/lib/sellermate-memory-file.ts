@@ -1,4 +1,16 @@
 import ExcelJS from "exceljs";
+import CSSMatrix from "@thednp/dommatrix";
+
+let pdfGlobalsReady = false;
+
+function ensurePdfParseGlobals(): void {
+  if (pdfGlobalsReady) return;
+  const g = globalThis as typeof globalThis & { DOMMatrix?: typeof CSSMatrix };
+  if (typeof g.DOMMatrix === "undefined") {
+    g.DOMMatrix = CSSMatrix;
+  }
+  pdfGlobalsReady = true;
+}
 
 export const MEMORY_FILE_MAX_BYTES = 10 * 1024 * 1024;
 export const MEMORY_FILE_MAX_TOKENS = 25_000;
@@ -166,6 +178,7 @@ async function parseExcelBuffer(buffer: Buffer): Promise<string> {
 }
 
 async function parsePdfBuffer(buffer: Buffer): Promise<string> {
+  ensurePdfParseGlobals();
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
   try {

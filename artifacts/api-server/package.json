@@ -14,6 +14,7 @@
     "@clerk/express": "^2.1.15",
     "@clerk/shared": "^4.10.2",
     "@google/genai": "^2.8.0",
+    "@thednp/dommatrix": "^2.0.12",
     "@types/ws": "^8.18.1",
     "@workspace/admin-permissions": "workspace:*",
     "@workspace/api-zod": "workspace:*",

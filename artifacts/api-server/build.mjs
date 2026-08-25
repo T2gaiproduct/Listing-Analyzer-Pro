@@ -102,6 +102,10 @@ async function buildAll() {
       "puppeteer-core",
       "electron",
       "pdfkit",
+      "pdf-parse",
+      "pdfjs-dist",
+      "@napi-rs/canvas",
+      "@thednp/dommatrix",
     ],
     sourcemap: "linked",
     plugins: [
