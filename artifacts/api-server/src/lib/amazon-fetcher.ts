@@ -251,13 +251,19 @@ function extractKeywords(title: string, bullets: string[]): string[] {
   return [...new Set([...phrases.slice(0, 4), ...singles])].slice(0, 10);
 }
 
-export async function fetchListingByAsin(asin: string, domain = "amazon.com"): Promise<FetchedListing> {
-  const normalizedAsin = asin.trim().toUpperCase();
-  if (!isValidAsin(normalizedAsin)) {
-    throw new Error(`Invalid ASIN format: ${asin}. Must be 10 alphanumeric characters (e.g. B09G9FPHY6).`);
-  }
+const ASIN_ONLY_MARKETPLACE_FALLBACKS = [
+  "amazon.com",
+  "amazon.in",
+  "amazon.co.uk",
+  "amazon.de",
+  "amazon.ca",
+  "amazon.com.au",
+] as const;
 
-  // Fetch session cookies first to bypass basic bot detection
+async function fetchListingByAsinOnDomain(
+  normalizedAsin: string,
+  domain: string,
+): Promise<FetchedListing> {
   const cookies = await getSessionCookies(domain);
 
   let html: string;
@@ -270,18 +276,12 @@ export async function fetchListingByAsin(asin: string, domain = "amazon.com"): P
           "Please use the manual entry option to paste your listing data directly.",
       );
     }
-    // Retry once without cookies
     try {
       html = await fetchAmazonPage(normalizedAsin, "", domain);
     } catch (retryErr) {
       if (retryErr instanceof Error && retryErr.message === "CAPTCHA") {
         throw new Error(
           "Amazon blocked this request (CAPTCHA). Please use the manual entry option to paste your listing data directly.",
-        );
-      }
-      if (retryErr instanceof Error && retryErr.message.includes("404") && domain === "amazon.com") {
-        throw new Error(
-          `Product not found on amazon.com. If this is a non-US listing, paste the full URL from your marketplace (e.g. https://www.amazon.in/dp/${normalizedAsin}).`,
         );
       }
       throw retryErr;
@@ -300,6 +300,39 @@ export async function fetchListingByAsin(asin: string, domain = "amazon.com"): P
   return listing;
 }
 
+export async function fetchListingByAsin(asin: string, domain = "amazon.com"): Promise<FetchedListing> {
+  const normalizedAsin = asin.trim().toUpperCase();
+  if (!isValidAsin(normalizedAsin)) {
+    throw new Error(`Invalid ASIN format: ${asin}. Must be 10 alphanumeric characters (e.g. B09G9FPHY6).`);
+  }
+
+  const domainsToTry = domain === "amazon.com"
+    ? ASIN_ONLY_MARKETPLACE_FALLBACKS
+    : [domain];
+
+  let lastError: Error | undefined;
+  for (const marketplace of domainsToTry) {
+    try {
+      return await fetchListingByAsinOnDomain(normalizedAsin, marketplace);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const isNotFound = message.includes("404") || message.includes("not found");
+      if (isNotFound && marketplace !== domainsToTry[domainsToTry.length - 1]) {
+        lastError = err instanceof Error ? err : new Error(message);
+        continue;
+      }
+      if (isNotFound && domain === "amazon.com") {
+        throw new Error(
+          `Product not found on common Amazon marketplaces. Paste the full product URL from your marketplace (e.g. https://www.amazon.in/dp/${normalizedAsin}).`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  throw lastError ?? new Error(`Product not found for ASIN ${normalizedAsin}.`);
+}
+
 export async function fetchListingByUrl(url: string): Promise<FetchedListing> {
   const asin = extractAsinFromUrl(url);
   if (!asin) {
@@ -307,8 +340,8 @@ export async function fetchListingByUrl(url: string): Promise<FetchedListing> {
       "Could not find an ASIN in that URL. Please paste a direct Amazon product page URL (e.g. https://amazon.com/dp/B09G9FPHY6).",
     );
   }
-  const domain = extractMarketplaceDomain(url);
-  return fetchListingByAsin(asin, domain);
+  const marketplace = extractMarketplaceDomain(url);
+  return fetchListingByAsin(asin, marketplace);
 }
 
 export async function fetchListing(input: { asin?: string; url?: string }): Promise<FetchedListing> {

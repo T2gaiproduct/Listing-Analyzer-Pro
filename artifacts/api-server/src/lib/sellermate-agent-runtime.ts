@@ -12,6 +12,7 @@ import {
 } from "./sellermate-message-types.js";
 import { getEnabledAgentToolNames } from "./workspace-agents.js";
 import { parseSellermateMessageMetadata } from "./sellermate-message-types.js";
+import { extractAmazonListingToolArgs } from "./sellermate-listing-tool-args.js";
 
 const MAX_HISTORY_MESSAGES = 30;
 
@@ -120,6 +121,16 @@ Use plain text only in message, questions, and options — no markdown, no ** bo
   }
 
   return parts.join("\n");
+}
+
+function buildToolArgs(
+  toolName: AgentToolName,
+  transcript: string,
+): Record<string, unknown> {
+  if (toolName === "get_amazon_listing") {
+    return extractAmazonListingToolArgs(transcript);
+  }
+  return {};
 }
 
 async function runOrchestrator(
@@ -267,11 +278,15 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
         continue;
       }
       try {
-        const result = await executeSellermateAgentTool(toolName, {}, {
-          workspaceId: input.workspaceId,
-          agentId: input.agent.id,
-          userId: input.userId,
-        });
+        const result = await executeSellermateAgentTool(
+          toolName,
+          buildToolArgs(toolName, transcript),
+          {
+            workspaceId: input.workspaceId,
+            agentId: input.agent.id,
+            userId: input.userId,
+          },
+        );
         toolResults.push(`Tool ${toolName}:\n${result}`);
         toolsUsed.push(toolName);
       } catch (err) {
