@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { BrainCircuit, Save, KeyRound, CheckCircle, AlertCircle, Sparkles, Zap, Shield } from "lucide-react";
-import { DefaultSellermateAgentsSettings } from "./default-sellermate-agents-settings";
 
 function fetchSettings(category: string): Promise<Record<string, string>> {
   return fetch(`/api/admin/settings?category=${category}`).then((r) => r.json());
@@ -151,7 +150,7 @@ export default function AdminSettingsAI() {
 
   return (
     <>
-      <div className="space-y-6 max-w-4xl">
+      <div className="space-y-6 max-w-2xl">
         <div className="flex items-center gap-2">
           <BrainCircuit className="h-6 w-6 text-orange-500" />
           <h1 className="text-2xl font-bold">AI Settings</h1>
@@ -387,8 +386,6 @@ export default function AdminSettingsAI() {
             </CardContent>
           </Card>
         )}
-
-        <DefaultSellermateAgentsSettings />
 
         {/* Security notice */}
         <div className="flex items-start gap-3 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">

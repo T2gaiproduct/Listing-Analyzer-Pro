@@ -6,7 +6,7 @@ import {
   Users, FileText, BarChart2, CreditCard,
   Layers, Shield, LogOut, ChevronRight, Settings,
   BadgePercent, ClipboardList,
-  BrainCircuit, KeyRound, Lock, Wallet,
+  BrainCircuit, Bot, KeyRound, Lock, Wallet,
   Globe, BookOpen, TrendingUp, MessageSquare, Image, Navigation, Home,
   ChevronDown, ChevronUp, FileSearch, Palette, Archive,
   Video, Megaphone, HelpCircle, Mail, LifeBuoy, PanelLeftClose, PanelLeftOpen,
@@ -115,6 +115,7 @@ const navSections: Array<{
     items: [
       { href: "/admin/settings/platform", label: "Company Settings", icon: Settings, permission: "manage_settings" },
       { href: "/admin/settings/ai", label: "AI Settings", icon: BrainCircuit, permission: "manage_settings" },
+      { href: "/admin/settings/default-agents", label: "Default SellerLens Agents", icon: Bot, permission: "manage_settings" },
       { href: "/admin/settings/api", label: "Webhook Settings", icon: KeyRound, permission: "manage_settings" },
       { href: "/admin/settings/email", label: "Email Settings", icon: Mail, permission: "manage_settings" },
       { href: "/admin/settings/payment-gateway", label: "Payment Settings", icon: Wallet, permission: "manage_settings" },

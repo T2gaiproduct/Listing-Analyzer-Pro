@@ -98,6 +98,7 @@ export const AdminTeamActivity = lazy(() => import("@/pages/admin/team-activity"
 export const AdminArchivePage = lazy(() => import("@/pages/admin/archive"));
 export const AdminSettingsPlatform = lazy(() => import("@/pages/admin/settings/platform"));
 export const AdminSettingsAI = lazy(() => import("@/pages/admin/settings/ai"));
+export const AdminSettingsDefaultAgents = lazy(() => import("@/pages/admin/settings/default-agents"));
 export const AdminSettingsAPI = lazy(() => import("@/pages/admin/settings/api"));
 export const AdminSettingsSecurity = lazy(() => import("@/pages/admin/settings/security"));
 export const AdminSettingsPaymentGateway = lazy(() => import("@/pages/admin/settings/payment-gateway"));

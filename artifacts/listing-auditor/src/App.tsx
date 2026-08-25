@@ -111,6 +111,7 @@ import {
   AdminArchivePage,
   AdminSettingsPlatform,
   AdminSettingsAI,
+  AdminSettingsDefaultAgents,
   AdminSettingsAPI,
   AdminSettingsSecurity,
   AdminSettingsPaymentGateway,
@@ -547,6 +548,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/ai">
         <AdminRoute><AdminSettingsAI /></AdminRoute>
+      </Route>
+      <Route path="/admin/settings/default-agents">
+        <AdminRoute><AdminSettingsDefaultAgents /></AdminRoute>
       </Route>
       <Route path="/admin/settings/api">
         <AdminRoute><AdminSettingsAPI /></AdminRoute>
