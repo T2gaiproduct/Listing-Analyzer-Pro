@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
-  Copy,
   FileText,
   Image,
   Loader2,
@@ -29,7 +28,6 @@ import {
   createSellermateAgent,
   deleteSellermateAgent,
   deleteSellermateMemory,
-  duplicateSellermateAgent,
   fetchAgentToolsCatalog,
   fetchSellermateAgents,
   fetchSellermateMemory,
@@ -300,23 +298,6 @@ export default function SellerMateAiPage() {
     },
   });
 
-  const duplicateAgentMutation = useMutation({
-    mutationFn: (agentId: number) => duplicateSellermateAgent(agentId),
-    onSuccess: (agent) => {
-      void queryClient.invalidateQueries({ queryKey: ["sellermate-agents"] });
-      setSelectedAgentId(agent.id);
-      setActiveThreadId(null);
-      toast({ title: "Agent duplicated", description: `${agent.name} is ready to customize.` });
-    },
-    onError: (error) => {
-      toast({
-        title: "Could not duplicate agent",
-        description: error instanceof Error ? error.message : "Try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
   function resetAgentForm() {
     setNewAgentName("");
     setNewAgentDescription("");
@@ -486,7 +467,6 @@ export default function SellerMateAiPage() {
             agents={defaultAgents}
             selectedAgentId={selectedAgentId}
             onSelect={handleSelectAgent}
-            onDuplicate={(agent) => duplicateAgentMutation.mutate(agent.id)}
           />
 
           <div>
@@ -844,7 +824,6 @@ function AgentSection({
   onSelect,
   onEdit,
   onDelete,
-  onDuplicate,
   emptyLabel,
 }: {
   title?: string;
@@ -853,7 +832,6 @@ function AgentSection({
   onSelect: (agent: SellermateAgent) => void;
   onEdit?: (agent: SellermateAgent) => void;
   onDelete?: (agent: SellermateAgent) => void;
-  onDuplicate?: (agent: SellermateAgent) => void;
   emptyLabel?: string;
 }) {
   if (agents.length === 0) {
@@ -883,16 +861,6 @@ function AgentSection({
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{agent.name}</span>
               </button>
-              {onDuplicate && (
-                <button
-                  type="button"
-                  onClick={() => onDuplicate(agent)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700"
-                  aria-label={`Duplicate ${agent.name}`}
-                >
-                  <Copy className="w-3 h-3" />
-                </button>
-              )}
               {onEdit && (
                 <button
                   type="button"

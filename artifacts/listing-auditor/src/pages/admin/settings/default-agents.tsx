@@ -195,7 +195,7 @@ export default function AdminSettingsDefaultAgents() {
 
       <p className="text-sm text-muted-foreground">
         These agents appear for every seller under <strong>Default agents</strong> in SellerLens AI.
-        Sellers cannot edit them — they can duplicate a default agent to create a custom copy.
+        Sellers cannot edit or duplicate them — they can create custom agents under <strong>Your agents</strong>.
         Removing an agent here retires it from all workspaces on save.
       </p>
 

@@ -134,6 +134,7 @@ export async function duplicateSellermateAgent(input: {
 }): Promise<SellermateAgent> {
   const source = await getSellermateAgentForWorkspace(input.sourceAgentId, input.workspaceId);
   if (!source) throw new Error("Agent not found.");
+  if (source.isDefault) throw new Error("Default agents cannot be duplicated.");
 
   const name = input.name?.trim() || `${source.name} (copy)`;
   const [agent] = await db
@@ -183,7 +184,7 @@ export async function updateSellermateAgent(input: {
 }): Promise<SellermateAgent> {
   const agent = await getSellermateAgentForWorkspace(input.agentId, input.workspaceId);
   if (!agent) throw new Error("Agent not found.");
-  if (agent.isDefault) throw new Error("Default agents cannot be edited. Duplicate it to customize.");
+  if (agent.isDefault) throw new Error("Default agents cannot be edited.");
 
   const name = input.name !== undefined ? input.name.trim() : agent.name;
   const description = input.description !== undefined ? input.description.trim() : agent.description;
