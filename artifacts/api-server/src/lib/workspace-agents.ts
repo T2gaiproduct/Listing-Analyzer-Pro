@@ -6,6 +6,7 @@ import {
 } from "@workspace/db";
 import {
   WORKSPACE_DEFAULT_AGENTS,
+  isValidAgentToolName,
   type AgentToolName,
 } from "./agent-registry.js";
 import { isMakeExecutionEnabled } from "./make-agent-client.js";
@@ -127,4 +128,23 @@ export async function listAgentTools(agentId: number, workspaceId: number) {
       eq(sellermateAgentToolsTable.agentId, agentId),
       eq(sellermateAgentToolsTable.workspaceId, workspaceId),
     ));
+}
+
+export async function getEnabledAgentToolNames(
+  agentId: number,
+  workspaceId: number,
+): Promise<AgentToolName[]> {
+  const tools = await listAgentTools(agentId, workspaceId);
+  return tools
+    .filter((tool) => tool.enabled === 1 && isValidAgentToolName(tool.toolName))
+    .map((tool) => tool.toolName as AgentToolName);
+}
+
+export async function isAgentToolEnabled(
+  agentId: number,
+  workspaceId: number,
+  toolName: AgentToolName,
+): Promise<boolean> {
+  const enabled = await getEnabledAgentToolNames(agentId, workspaceId);
+  return enabled.includes(toolName);
 }

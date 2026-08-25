@@ -50,6 +50,10 @@ import {
 } from "@/components/sellermate-chat-attachment-preview";
 import { SellermateMessageBubble } from "@/components/sellermate-message-bubble";
 import { parseSellermateMessageMetadata } from "@/lib/sellermate-message-types";
+import {
+  defaultAgentToolSelection,
+  mergeAgentToolSelection,
+} from "@/lib/sellermate-agent-tools";
 import { isImageMemoryFile, memoryFileToBase64, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
 
 function agentIcon(icon: string) {
@@ -70,11 +74,7 @@ function agentIcon(icon: string) {
 }
 
 function defaultToolSelection(catalog: AgentToolDefinition[]): AgentToolConfig[] {
-  return catalog.map((tool) => ({
-    toolName: tool.name,
-    enabled: true,
-    requiresApproval: tool.defaultRequiresApproval,
-  }));
+  return defaultAgentToolSelection(catalog);
 }
 
 export default function SellerMateAiPage() {
@@ -322,8 +322,16 @@ export default function SellerMateAiPage() {
     setNewAgentDescription("");
     setNewAgentPrompt("");
     setNewAgentModel("gpt-5.4");
-    setSelectedTools(defaultToolSelection(toolCatalog));
+    setSelectedTools(defaultAgentToolSelection(toolCatalog));
   }
+
+  useEffect(() => {
+    if (toolCatalog.length === 0) return;
+    setSelectedTools((current) => {
+      if (current.length > 0) return current;
+      return defaultAgentToolSelection(toolCatalog);
+    });
+  }, [toolCatalog]);
 
   function openCreateAgent() {
     resetAgentForm();
@@ -331,23 +339,11 @@ export default function SellerMateAiPage() {
   }
 
   function toggleTool(toolName: AgentToolConfig["toolName"]) {
-    setSelectedTools((current) => {
-      const existing = current.find((tool) => tool.toolName === toolName);
-      if (existing) {
-        return current.map((tool) =>
-          tool.toolName === toolName ? { ...tool, enabled: !tool.enabled } : tool,
-        );
-      }
-      const definition = toolCatalog.find((tool) => tool.name === toolName);
-      return [
-        ...current,
-        {
-          toolName,
-          enabled: true,
-          requiresApproval: definition?.defaultRequiresApproval ?? false,
-        },
-      ];
-    });
+    setSelectedTools((current) =>
+      current.map((tool) =>
+        tool.toolName === toolName ? { ...tool, enabled: !tool.enabled } : tool,
+      ),
+    );
   }
 
   function isToolEnabled(toolName: AgentToolConfig["toolName"]) {
@@ -403,7 +399,7 @@ export default function SellerMateAiPage() {
     setNewAgentDescription(agent.description ?? "");
     setNewAgentPrompt(agent.systemPrompt ?? "");
     setNewAgentModel(agent.model ?? "gpt-5.4");
-    setSelectedTools(agent.tools ?? defaultToolSelection(toolCatalog));
+    setSelectedTools(mergeAgentToolSelection(toolCatalog, agent.tools));
     setEditAgentOpen(true);
   }
 

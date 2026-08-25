@@ -4,6 +4,7 @@ import type { AgentToolName } from "./agent-registry.js";
 import { fetchListing } from "./listing-fetcher.js";
 import { analyzeListingWithAI } from "./analyzer.js";
 import { listSellermateMemory } from "./sellermate-agents.js";
+import { isAgentToolEnabled } from "./workspace-agents.js";
 
 export type AgentToolContext = {
   workspaceId: number;
@@ -16,6 +17,11 @@ export async function executeSellermateAgentTool(
   args: Record<string, unknown>,
   ctx: AgentToolContext,
 ): Promise<string> {
+  const enabled = await isAgentToolEnabled(ctx.agentId, ctx.workspaceId, toolName);
+  if (!enabled) {
+    return JSON.stringify({ error: `Tool "${toolName}" is disabled for this agent.` });
+  }
+
   switch (toolName) {
     case "get_seller_memory": {
       const rows = await listSellermateMemory(ctx.agentId, ctx.workspaceId);

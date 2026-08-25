@@ -1,6 +1,5 @@
 import type { SellermateAgent } from "@workspace/db";
-import type { AgentToolName } from "./agent-registry.js";
-import { isValidAgentToolName } from "./agent-registry.js";
+import { isValidAgentToolName, type AgentToolName } from "./agent-registry.js";
 import { generateChatCompletion } from "./ai-provider.js";
 import { executeSellermateAgentTool } from "./sellermate-agent-tools-internal.js";
 import {
@@ -11,7 +10,7 @@ import {
   type SellermateOrchestratorResponse,
   type SellermateResultOption,
 } from "./sellermate-message-types.js";
-import { listAgentTools } from "./workspace-agents.js";
+import { getEnabledAgentToolNames } from "./workspace-agents.js";
 import { parseSellermateMessageMetadata } from "./sellermate-message-types.js";
 
 const MAX_HISTORY_MESSAGES = 30;
@@ -102,6 +101,7 @@ Follow this sequence for every new user request:
 
 ## Enabled tools
 ${input.enabledTools.length > 0 ? input.enabledTools.join(", ") : "none"}
+Only request tools from the enabled list above. Never request disabled or unavailable tools.
 
 ## Output format
 Respond with ONLY valid JSON (no markdown fences):
@@ -219,10 +219,8 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
     };
   }
 
-  const toolRows = await listAgentTools(input.agent.id, input.workspaceId);
-  const enabledTools = toolRows
-    .filter((tool) => tool.enabled === 1 && isValidAgentToolName(tool.toolName))
-    .map((tool) => tool.toolName as AgentToolName);
+  const enabledTools = await getEnabledAgentToolNames(input.agent.id, input.workspaceId);
+  const enabledToolSet = new Set<AgentToolName>(enabledTools);
 
   const systemPrompt = buildWorkflowSystemPrompt({
     agent: input.agent,
@@ -251,12 +249,15 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
 
   const toolsUsed: string[] = [];
   const requestedTools = (orchestration.requestTools ?? [])
-    .filter((name): name is AgentToolName => isValidAgentToolName(name) && enabledTools.includes(name as AgentToolName))
+    .filter((name): name is AgentToolName => isValidAgentToolName(name) && enabledToolSet.has(name as AgentToolName))
     .filter((name) => name !== "get_seller_memory" || input.memoryFileCount > 0) as AgentToolName[];
 
   if (requestedTools.length > 0) {
     const toolResults: string[] = [];
     for (const toolName of requestedTools) {
+      if (!enabledToolSet.has(toolName)) {
+        continue;
+      }
       try {
         const result = await executeSellermateAgentTool(toolName, {}, {
           workspaceId: input.workspaceId,
