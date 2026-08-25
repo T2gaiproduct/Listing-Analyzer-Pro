@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { stripChatMarkdown } from "@/lib/strip-chat-markdown";
 import {
   parseSellermateMessageMetadata,
   type SellermateMessageMetadata,
@@ -32,6 +33,7 @@ export function SellermateMessageBubble({
 }: SellermateMessageBubbleProps) {
   const isUser = role === "user";
   const meta = resolveMetadata(metadata);
+  const displayContent = stripChatMarkdown(content);
 
   return (
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
@@ -43,14 +45,14 @@ export function SellermateMessageBubble({
             : "bg-white border border-slate-200 text-slate-800 shadow-sm space-y-3",
         )}
       >
-        <p className={cn(isUser ? "" : "whitespace-pre-wrap")}>{content}</p>
+        <p className={cn(isUser ? "" : "whitespace-pre-wrap")}>{displayContent}</p>
 
         {!isUser && meta?.phase === "clarifying" && meta.questions && meta.questions.length > 0 && (
           <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">To help you better</p>
             <ol className="list-decimal list-inside space-y-1 text-slate-700">
               {meta.questions.map((question) => (
-                <li key={question}>{question}</li>
+                <li key={question}>{stripChatMarkdown(question)}</li>
               ))}
             </ol>
           </div>
@@ -79,9 +81,9 @@ export function SellermateMessageBubble({
                     )}
                   >
                     <p className="text-xs font-semibold text-orange-700 uppercase">{option.id}</p>
-                    <p className="text-sm font-medium text-slate-800 mt-0.5">{option.title}</p>
+                    <p className="text-sm font-medium text-slate-800 mt-0.5">{stripChatMarkdown(option.title)}</p>
                     {option.summary && (
-                      <p className="text-xs text-slate-600 mt-1 line-clamp-2">{option.summary}</p>
+                      <p className="text-xs text-slate-600 mt-1 line-clamp-2">{stripChatMarkdown(option.summary)}</p>
                     )}
                   </button>
                 );

@@ -6,6 +6,7 @@ import { executeSellermateAgentTool } from "./sellermate-agent-tools-internal.js
 import {
   parseOrchestratorResponse,
   serializeSellermateMessageMetadata,
+  stripChatMarkdown,
   type SellermateMessageMetadata,
   type SellermateOrchestratorResponse,
   type SellermateResultOption,
@@ -43,9 +44,9 @@ function normalizeOptions(options: SellermateResultOption[] | undefined): Seller
   if (!options?.length) return [];
   return options.slice(0, 4).map((option, index) => ({
     id: option.id?.trim() || `ex${index + 1}`,
-    title: option.title?.trim() || `Example ${index + 1}`,
-    summary: option.summary?.trim() || "",
-    content: option.content?.trim() || option.summary?.trim() || "",
+    title: stripChatMarkdown(option.title?.trim() || `Example ${index + 1}`),
+    summary: stripChatMarkdown(option.summary?.trim() || ""),
+    content: stripChatMarkdown(option.content?.trim() || option.summary?.trim() || ""),
   }));
 }
 
@@ -112,7 +113,8 @@ Respond with ONLY valid JSON (no markdown fences):
   "requestTools": ["optional tool names to call before final answer"]
 }
 
-Keep message concise. Options must be meaningfully different.`);
+Keep message concise. Options must be meaningfully different.
+Use plain text only in message, questions, and options — no markdown, no ** bold, no asterisks for emphasis.`);
   } else {
     parts.push("\n\nAnswer concisely and helpfully. Use prior conversation context when relevant.");
   }
@@ -168,7 +170,7 @@ Provide the refined final recommendation.`,
   );
 
   return {
-    content: content.trim() || input.selectedOption.content,
+    content: stripChatMarkdown(content.trim() || input.selectedOption.content),
     metadata: {
       phase: "response",
       selectedOptionId: input.selectedOption.id,
@@ -278,13 +280,15 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
 
   const metadata: SellermateMessageMetadata = {
     phase: orchestration.phase,
-    questions: orchestration.phase === "clarifying" ? orchestration.questions?.slice(0, 3) : undefined,
+    questions: orchestration.phase === "clarifying"
+      ? orchestration.questions?.slice(0, 3).map(stripChatMarkdown)
+      : undefined,
     options: orchestration.phase === "presenting_options" ? normalizeOptions(orchestration.options) : undefined,
     toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
   };
 
   return {
-    content: orchestration.message.trim(),
+    content: stripChatMarkdown(orchestration.message.trim()),
     metadata,
   };
 }

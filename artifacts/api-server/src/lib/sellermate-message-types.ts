@@ -38,6 +38,17 @@ export function serializeSellermateMessageMetadata(metadata: SellermateMessageMe
   return JSON.stringify(metadata);
 }
 
+/** Strip markdown emphasis so chat messages display cleanly as plain text. */
+export function stripChatMarkdown(text: string): string {
+  if (!text) return text;
+  let result = text;
+  result = result.replace(/\*\*\*([^*]+)\*\*\*/g, "$1");
+  result = result.replace(/\*\*([^*]+)\*\*/g, "$1");
+  result = result.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1");
+  result = result.replace(/\*{2,}/g, "");
+  return result;
+}
+
 export function parseOrchestratorResponse(raw: string): SellermateOrchestratorResponse | null {
   const trimmed = raw.trim();
   const jsonText = trimmed.startsWith("```")
