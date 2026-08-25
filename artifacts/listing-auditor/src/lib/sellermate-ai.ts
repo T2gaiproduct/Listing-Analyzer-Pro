@@ -1,4 +1,5 @@
 import { fetchJson } from "@/lib/api-fetch";
+import type { SellermateMessageMetadata } from "@/lib/sellermate-message-types";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -48,6 +49,7 @@ export type SellermateMessage = {
   threadId: number;
   role: "user" | "assistant" | string;
   content: string;
+  metadata?: string | SellermateMessageMetadata | null;
   createdAt: string;
 };
 
@@ -133,6 +135,8 @@ export async function sendSellermateChat(input: {
   message: string;
   threadId?: number;
   mode?: "basic" | "agent";
+  selectedOptionId?: string;
+  replyToMessageId?: number;
 }): Promise<{
   thread: SellermateThread;
   userMessage: SellermateMessage;
@@ -145,6 +149,8 @@ export async function sendSellermateChat(input: {
       message: input.message,
       threadId: input.threadId,
       mode: input.mode ?? "agent",
+      selectedOptionId: input.selectedOptionId,
+      replyToMessageId: input.replyToMessageId,
     }),
   });
 }

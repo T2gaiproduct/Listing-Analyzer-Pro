@@ -283,6 +283,8 @@ router.post(
       message?: string;
       threadId?: number;
       mode?: "basic" | "agent";
+      selectedOptionId?: string;
+      replyToMessageId?: number;
     };
 
     const agent = await getSellermateAgentForWorkspace(agentId, workspaceId);
@@ -299,6 +301,8 @@ router.post(
         threadId: typeof body.threadId === "number" ? body.threadId : undefined,
         content: String(body.message ?? ""),
         mode: body.mode === "basic" ? "basic" : "agent",
+        selectedOptionId: typeof body.selectedOptionId === "string" ? body.selectedOptionId : undefined,
+        replyToMessageId: typeof body.replyToMessageId === "number" ? body.replyToMessageId : undefined,
       });
       res.json(result);
     } catch (err) {

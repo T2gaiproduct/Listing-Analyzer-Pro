@@ -370,6 +370,7 @@ ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS description text DEFAULT 
 ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS memory_key text;
 ALTER TABLE sellermate_memory ADD COLUMN IF NOT EXISTS memory_type text DEFAULT 'file';
 ALTER TABLE sellermate_threads ADD COLUMN IF NOT EXISTS external_conversation_id text;
+ALTER TABLE sellermate_messages ADD COLUMN IF NOT EXISTS metadata text;
 
 COMMIT;
 --   SELECT column_name FROM information_schema.columns

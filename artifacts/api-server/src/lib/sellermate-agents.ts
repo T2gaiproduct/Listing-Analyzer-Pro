@@ -14,7 +14,6 @@ import {
   isValidAgentToolName,
   type AgentToolName,
 } from "./agent-registry.js";
-import { generateChatCompletion } from "./ai-provider.js";
 import {
   invokeMakeAgentWebhook,
   shouldUseMakeForAgent,
@@ -24,6 +23,8 @@ import {
   listAgentTools,
   replaceAgentTools,
 } from "./workspace-agents.js";
+import { metadataToDb, runNativeSellermateAgent } from "./sellermate-agent-runtime.js";
+import { serializeSellermateMessageMetadata } from "./sellermate-message-types.js";
 
 export { AGENT_TOOL_CATALOG, SUPPORTED_AGENT_MODELS };
 
@@ -228,32 +229,16 @@ export async function deleteSellermateAgent(agentId: number, workspaceId: number
     .where(eq(sellermateAgentsTable.id, agentId));
 }
 
-async function loadAgentMemoryContext(agentId: number, workspaceId: number): Promise<string> {
+async function countAgentMemoryFiles(agentId: number, workspaceId: number): Promise<number> {
   const rows = await db
-    .select({
-      name: sellermateMemoryTable.name,
-      description: sellermateMemoryTable.description,
-      content: sellermateMemoryTable.content,
-    })
+    .select({ id: sellermateMemoryTable.id })
     .from(sellermateMemoryTable)
     .where(and(
       eq(sellermateMemoryTable.agentId, agentId),
       eq(sellermateMemoryTable.workspaceId, workspaceId),
       eq(sellermateMemoryTable.isDeleted, 0),
-    ))
-    .orderBy(desc(sellermateMemoryTable.createdAt))
-    .limit(20);
-
-  if (rows.length === 0) return "";
-
-  return rows
-    .map((row) => {
-      const header = row.description?.trim()
-        ? `### ${row.name}\n${row.description.trim()}`
-        : `### ${row.name}`;
-      return `${header}\n${row.content}`;
-    })
-    .join("\n\n");
+    ));
+  return rows.length;
 }
 
 export async function getOrCreateActiveThread(input: {
@@ -323,40 +308,33 @@ export async function listSellermateMessages(threadId: number) {
 async function sendNativeSellermateMessage(input: {
   agent: SellermateAgent;
   workspaceId: number;
+  userId: string;
   thread: typeof sellermateThreadsTable.$inferSelect;
   message: string;
   mode?: "basic" | "agent";
   history: Awaited<ReturnType<typeof listSellermateMessages>>;
-  memoryContext: string;
-}): Promise<string> {
-  const systemParts = [input.agent.systemPrompt.trim()];
-  if (input.memoryContext) {
-    systemParts.push(`\n\n## Memory files for this agent\n${input.memoryContext}`);
-  }
-  if (input.mode === "agent") {
-    systemParts.push("\n\nYou may plan multi-step analysis, ask follow-up questions, and suggest automations when helpful.");
-  }
-
-  const transcript = input.history
-    .filter((row) => row.role === "user" || row.role === "assistant")
-    .map((row) => `${row.role === "user" ? "User" : "Assistant"}: ${row.content}`)
-    .join("\n\n");
-
-  const userPrompt = transcript
-    ? `Conversation so far:\n${transcript}\n\nUser: ${input.message}`
-    : input.message;
-
-  const chatMessages: Array<{ role: "system" | "user"; content: string }> = [
-    { role: "system", content: systemParts.join("") },
-    { role: "user", content: userPrompt },
-  ];
-
-  const { content: assistantContent } = await generateChatCompletion(chatMessages, {
-    maxTokens: input.mode === "agent" ? 2048 : 1024,
-    temperature: 0.4,
+  memoryFileCount: number;
+  selectedOptionId?: string;
+  replyToMessageId?: number;
+}) {
+  const result = await runNativeSellermateAgent({
+    agent: input.agent,
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    message: input.message,
+    mode: input.mode,
+    history: input.history.map((row) => ({
+      id: row.id,
+      role: row.role,
+      content: row.content,
+      metadata: row.metadata ?? null,
+    })),
+    memoryFileCount: input.memoryFileCount,
+    selectedOptionId: input.selectedOptionId,
+    replyToMessageId: input.replyToMessageId,
   });
 
-  return assistantContent.trim() || "I could not generate a response. Please try again.";
+  return result;
 }
 
 export async function sendSellermateMessage(input: {
@@ -366,9 +344,11 @@ export async function sendSellermateMessage(input: {
   threadId?: number;
   content: string;
   mode?: "basic" | "agent";
+  selectedOptionId?: string;
+  replyToMessageId?: number;
 }) {
   const message = input.content.trim();
-  if (!message) throw new Error("Message is required.");
+  if (!message && !input.selectedOptionId) throw new Error("Message is required.");
 
   const thread = await getOrCreateActiveThread({
     agentId: input.agent.id,
@@ -378,14 +358,28 @@ export async function sendSellermateMessage(input: {
   });
 
   const history = await listSellermateMessages(thread.id);
-  const memoryContext = await loadAgentMemoryContext(input.agent.id, input.workspaceId);
+  const memoryFileCount = await countAgentMemoryFiles(input.agent.id, input.workspaceId);
+
+  const userContent = message || `I'd like to proceed with ${input.selectedOptionId}`;
+  const userMetadata = input.selectedOptionId
+    ? serializeSellermateMessageMetadata({
+        phase: "response",
+        selectedOptionId: input.selectedOptionId,
+      })
+    : null;
 
   const [userRow] = await db
     .insert(sellermateMessagesTable)
-    .values({ threadId: thread.id, role: "user", content: message })
+    .values({
+      threadId: thread.id,
+      role: "user",
+      content: userContent,
+      metadata: userMetadata,
+    })
     .returning();
 
-  let assistantText: string;
+  let assistantContent: string;
+  let assistantMetadata: string | null = null;
   let externalConversationId: string | null = null;
 
   if (shouldUseMakeForAgent(input.agent.executionProvider)) {
@@ -396,33 +390,43 @@ export async function sendSellermateMessage(input: {
         threadId: thread.id,
         conversationId: thread.externalConversationId,
         userId: input.userId,
-        message,
+        message: userContent,
         mode: input.mode === "basic" ? "basic" : "agent",
       });
-      assistantText = makeResult.response || "I could not generate a response. Please try again.";
+      assistantContent = makeResult.response || "I could not generate a response. Please try again.";
       externalConversationId = makeResult.externalConversationId ?? thread.externalConversationId;
     } catch (err) {
       reqLogFallback(err);
-      assistantText = await sendNativeSellermateMessage({
+      const native = await sendNativeSellermateMessage({
         agent: input.agent,
         workspaceId: input.workspaceId,
+        userId: input.userId,
         thread,
-        message,
+        message: userContent,
         mode: input.mode,
         history,
-        memoryContext,
+        memoryFileCount,
+        selectedOptionId: input.selectedOptionId,
+        replyToMessageId: input.replyToMessageId,
       });
+      assistantContent = native.content;
+      assistantMetadata = metadataToDb(native.metadata);
     }
   } else {
-    assistantText = await sendNativeSellermateMessage({
+    const native = await sendNativeSellermateMessage({
       agent: input.agent,
       workspaceId: input.workspaceId,
+      userId: input.userId,
       thread,
-      message,
+      message: userContent,
       mode: input.mode,
       history,
-      memoryContext,
+      memoryFileCount,
+      selectedOptionId: input.selectedOptionId,
+      replyToMessageId: input.replyToMessageId,
     });
+    assistantContent = native.content;
+    assistantMetadata = metadataToDb(native.metadata);
   }
 
   const [assistantRow] = await db
@@ -430,12 +434,13 @@ export async function sendSellermateMessage(input: {
     .values({
       threadId: thread.id,
       role: "assistant",
-      content: assistantText,
+      content: assistantContent,
+      metadata: assistantMetadata,
     })
     .returning();
 
   const title = thread.title === "New chat"
-    ? message.slice(0, 60) + (message.length > 60 ? "…" : "")
+    ? userContent.slice(0, 60) + (userContent.length > 60 ? "…" : "")
     : thread.title;
 
   await db

@@ -60,6 +60,8 @@ export const sellermateMessagesTable = pgTable("sellermate_messages", {
     .references(() => sellermateThreadsTable.id, { onDelete: "cascade" }),
   role: text("role").notNull(),
   content: text("content").notNull(),
+  /** JSON: phase, questions, options, selectedOptionId, toolsUsed */
+  metadata: text("metadata"),
   isDeleted: integer("is_deleted").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

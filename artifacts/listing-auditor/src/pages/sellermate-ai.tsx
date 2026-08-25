@@ -41,7 +41,6 @@ import {
   type AgentToolConfig,
   type AgentToolDefinition,
   type SellermateAgent,
-  type SellermateMessage,
 } from "@/lib/sellermate-ai";
 import { UploadMemoryFileDialog } from "@/components/upload-memory-file-dialog";
 import { SellermateChatAttachMenu } from "@/components/sellermate-chat-attach-menu";
@@ -49,6 +48,8 @@ import {
   SellermateChatAttachmentPreview,
   type ChatAttachmentPreviewItem,
 } from "@/components/sellermate-chat-attachment-preview";
+import { SellermateMessageBubble } from "@/components/sellermate-message-bubble";
+import { parseSellermateMessageMetadata } from "@/lib/sellermate-message-types";
 import { isImageMemoryFile, memoryFileToBase64, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
 
 function agentIcon(icon: string) {
@@ -97,6 +98,7 @@ export default function SellerMateAiPage() {
   const [selectedTools, setSelectedTools] = useState<AgentToolConfig[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachmentPreviewItem[]>([]);
   const attachmentPreviewUrlsRef = useRef<Map<string, string>>(new Map());
+  const [selectingOptionForMessageId, setSelectingOptionForMessageId] = useState<number | null>(null);
 
   const toolsCatalogQuery = useQuery({
     queryKey: ["sellermate-tools-catalog"],
@@ -145,6 +147,29 @@ export default function SellerMateAiPage() {
   const threads = threadsQuery.data ?? [];
   const memoryFiles = memoryQuery.data ?? [];
 
+  const optionMessagesWithSelection = useMemo(() => {
+    const selected = new Set<number>();
+    for (let i = 0; i < messages.length; i++) {
+      const row = messages[i];
+      const meta = parseSellermateMessageMetadata(
+        typeof row.metadata === "string" ? row.metadata : null,
+      );
+      if (row.role === "user" && meta?.selectedOptionId) {
+        for (let j = i - 1; j >= 0; j--) {
+          const prior = messages[j];
+          const priorMeta = parseSellermateMessageMetadata(
+            typeof prior.metadata === "string" ? prior.metadata : null,
+          );
+          if (prior.role === "assistant" && priorMeta?.phase === "presenting_options") {
+            selected.add(prior.id);
+            break;
+          }
+        }
+      }
+    }
+    return selected;
+  }, [messages]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, messagesQuery.isFetching]);
@@ -182,10 +207,12 @@ export default function SellerMateAiPage() {
       setActiveThreadId(result.thread.id);
       setDraft("");
       clearPendingAttachments();
+      setSelectingOptionForMessageId(null);
       void queryClient.invalidateQueries({ queryKey: ["sellermate-messages", result.thread.id] });
       void queryClient.invalidateQueries({ queryKey: ["sellermate-threads", selectedAgentId] });
     },
     onError: (error) => {
+      setSelectingOptionForMessageId(null);
       toast({
         title: "Message failed",
         description: error instanceof Error ? error.message : "Could not send message.",
@@ -351,6 +378,22 @@ export default function SellerMateAiPage() {
       agentId: selectedAgentId,
       message: draft.trim(),
       threadId: activeThreadId ?? undefined,
+    });
+  }
+
+  function handleSelectOption(input: {
+    optionId: string;
+    messageId: number;
+    option: { id: string; title: string };
+  }) {
+    if (!selectedAgentId || chatMutation.isPending) return;
+    setSelectingOptionForMessageId(input.messageId);
+    chatMutation.mutate({
+      agentId: selectedAgentId,
+      message: `I'd like to proceed with ${input.option.title} (${input.optionId})`,
+      threadId: activeThreadId ?? undefined,
+      selectedOptionId: input.optionId,
+      replyToMessageId: input.messageId,
     });
   }
 
@@ -555,7 +598,22 @@ export default function SellerMateAiPage() {
           ) : (
             <div className="max-w-3xl mx-auto space-y-4">
               {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+                <SellermateMessageBubble
+                  key={message.id}
+                  role={message.role}
+                  content={message.content}
+                  metadata={message.metadata}
+                  messageId={message.id}
+                  onSelectOption={handleSelectOption}
+                  isSelectingOption={selectingOptionForMessageId === message.id}
+                  disabledOptionIds={
+                    optionMessagesWithSelection.has(message.id)
+                      ? (parseSellermateMessageMetadata(
+                          typeof message.metadata === "string" ? message.metadata : null,
+                        )?.options ?? []).map((opt) => opt.id)
+                      : []
+                  }
+                />
               ))}
               {chatMutation.isPending && (
                 <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -893,20 +951,3 @@ function SidebarSection({
   );
 }
 
-function MessageBubble({ message }: { message: SellermateMessage }) {
-  const isUser = message.role === "user";
-  return (
-    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-      <div
-        className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap",
-          isUser
-            ? "bg-orange-500 text-white"
-            : "bg-white border border-slate-200 text-slate-800 shadow-sm",
-        )}
-      >
-        {message.content}
-      </div>
-    </div>
-  );
-}
