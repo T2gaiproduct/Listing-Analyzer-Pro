@@ -49,17 +49,109 @@ export function stripChatMarkdown(text: string): string {
   return result;
 }
 
-export function parseOrchestratorResponse(raw: string): SellermateOrchestratorResponse | null {
+const VALID_PHASES = new Set<SellermateMessagePhase>(["clarifying", "presenting_options", "response"]);
+
+function extractJsonObject(raw: string): string | null {
   const trimmed = raw.trim();
-  const jsonText = trimmed.startsWith("```")
-    ? trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
-    : trimmed;
+  if (!trimmed) return null;
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]?.trim()) {
+    return fenced[1].trim();
+  }
+
+  const start = trimmed.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < trimmed.length; i++) {
+    const char = trimmed[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (char === "{") depth++;
+    if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        return trimmed.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizePhase(value: unknown): SellermateMessagePhase {
+  if (typeof value === "string" && VALID_PHASES.has(value as SellermateMessagePhase)) {
+    return value as SellermateMessagePhase;
+  }
+  return "response";
+}
+
+function coerceOrchestratorResponse(parsed: Record<string, unknown>): SellermateOrchestratorResponse | null {
+  const message = typeof parsed.message === "string" ? parsed.message.trim() : "";
+  if (!message) return null;
+
+  const questions = Array.isArray(parsed.questions)
+    ? parsed.questions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+    : undefined;
+
+  const options = Array.isArray(parsed.options)
+    ? parsed.options
+        .filter((opt): opt is Record<string, unknown> => Boolean(opt) && typeof opt === "object")
+        .map((opt, index) => ({
+          id: typeof opt.id === "string" ? opt.id : `ex${index + 1}`,
+          title: typeof opt.title === "string" ? opt.title : `Example ${index + 1}`,
+          summary: typeof opt.summary === "string" ? opt.summary : "",
+          content: typeof opt.content === "string" ? opt.content : typeof opt.summary === "string" ? opt.summary : "",
+        }))
+    : undefined;
+
+  const requestTools = Array.isArray(parsed.requestTools)
+    ? parsed.requestTools.filter((tool): tool is string => typeof tool === "string")
+    : undefined;
+
+  return {
+    phase: normalizePhase(parsed.phase),
+    message,
+    questions,
+    options,
+    requestTools,
+  };
+}
+
+export function parseOrchestratorResponse(raw: string): SellermateOrchestratorResponse | null {
+  const jsonText = extractJsonObject(raw);
+  if (!jsonText) {
+    const plain = raw.trim();
+    if (!plain) return null;
+    return { phase: "response", message: plain };
+  }
 
   try {
-    const parsed = JSON.parse(jsonText) as SellermateOrchestratorResponse;
-    if (!parsed?.phase || !parsed.message) return null;
-    return parsed;
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return null;
+    return coerceOrchestratorResponse(parsed);
   } catch {
-    return null;
+    const plain = raw.trim();
+    if (!plain) return null;
+    return { phase: "response", message: plain };
   }
 }

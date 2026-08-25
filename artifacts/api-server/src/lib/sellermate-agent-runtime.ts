@@ -241,9 +241,17 @@ export async function runNativeSellermateAgent(input: NativeAgentRunInput): Prom
       ],
       { maxTokens: 2048, temperature: 0.4 },
     );
+    const fallback = parseOrchestratorResponse(content);
+    const fallbackMessage = (fallback?.message ?? content.trim()) || "I could not generate a response. Please try again.";
     return {
-      content: content.trim() || "I could not generate a response. Please try again.",
-      metadata: { phase: "response" },
+      content: stripChatMarkdown(fallbackMessage),
+      metadata: fallback && fallback.phase !== "response"
+        ? {
+            phase: fallback.phase,
+            questions: fallback.questions,
+            options: fallback.options ? normalizeOptions(fallback.options) : undefined,
+          }
+        : { phase: "response" },
     };
   }
 
