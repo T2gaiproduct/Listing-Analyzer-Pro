@@ -197,10 +197,17 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function resolveClerkProxyUrl(): string | undefined {
   if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
-  if (typeof window !== "undefined" && window.location.hostname.endsWith(".trycloudflare.com")) {
-    // Relative proxy URL keeps Clerk JS + FAPI on the tunnel origin (required for sign-up CAPTCHA).
-    const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
-    return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const useSameOriginProxy =
+      host.endsWith(".trycloudflare.com")
+      || host === "sellerlens.io"
+      || host === "www.sellerlens.io";
+    if (useSameOriginProxy) {
+      // Relative proxy URL keeps Clerk JS + FAPI on the app origin (required for OAuth on custom domains and Cloudflare previews).
+      const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
+      return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
+    }
   }
   return undefined;
 }
