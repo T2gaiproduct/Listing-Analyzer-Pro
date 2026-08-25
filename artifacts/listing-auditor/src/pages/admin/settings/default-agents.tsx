@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bot, Save } from "lucide-react";
+import { Bot, Plus, Save, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { AgentToolDefinition } from "@/lib/sellermate-ai";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const DEFAULT_NEW_AGENT_PROMPT = `You are a SellerLens AI assistant for Amazon sellers.
+Help users with clear, actionable guidance. Ask clarifying questions when context is missing.`;
 
 type DefaultSellermateAgentTemplate = {
   slug: string;
@@ -25,7 +28,48 @@ type DefaultAgentsResponse = {
   agents: DefaultSellermateAgentTemplate[];
   tools: AgentToolDefinition[];
   models: string[];
+  iconOptions?: string[];
 };
+
+const ICON_LABELS: Record<string, string> = {
+  image: "Image",
+  "clipboard-check": "Clipboard",
+  target: "Target",
+  chart: "Chart",
+  search: "Search",
+  sparkles: "Sparkles",
+};
+
+function slugifyDefaultAgentName(name: string, existingSlugs: string[]): string {
+  const taken = new Set(existingSlugs.map((slug) => slug.toLowerCase()));
+  let base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  if (!base) base = "agent";
+  let slug = base;
+  let suffix = 2;
+  while (taken.has(slug)) {
+    slug = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  return slug;
+}
+
+function createBlankDefaultAgent(existing: DefaultSellermateAgentTemplate[]): DefaultSellermateAgentTemplate {
+  const name = "New Default Agent";
+  return {
+    slug: slugifyDefaultAgentName(name, existing.map((agent) => agent.slug)),
+    name,
+    description: "",
+    icon: "sparkles",
+    model: "gpt-5.4",
+    systemPrompt: DEFAULT_NEW_AGENT_PROMPT,
+    tools: ["get_seller_memory", "save_agent_memory"],
+  };
+}
 
 async function fetchDefaultAgents(): Promise<DefaultAgentsResponse> {
   const endpoints = [
@@ -114,6 +158,7 @@ export default function AdminSettingsDefaultAgents() {
 
   const toolCatalog = query.data?.tools ?? [];
   const models = query.data?.models ?? ["gpt-5.4"];
+  const iconOptions = query.data?.iconOptions ?? ["sparkles", "image", "clipboard-check", "target", "chart", "search"];
 
   function updateAgent(index: number, patch: Partial<DefaultSellermateAgentTemplate>) {
     setAgents((current) => current.map((agent, i) => (i === index ? { ...agent, ...patch } : agent)));
@@ -132,6 +177,15 @@ export default function AdminSettingsDefaultAgents() {
     }));
   }
 
+  function addAgent() {
+    setAgents((current) => [...current, createBlankDefaultAgent(current)]);
+  }
+
+  function removeAgent(index: number) {
+    if (agents.length <= 1) return;
+    setAgents((current) => current.filter((_, i) => i !== index));
+  }
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-2">
@@ -140,8 +194,9 @@ export default function AdminSettingsDefaultAgents() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        These three agents appear for every seller under <strong>Default agents</strong> in SellerLens AI.
+        These agents appear for every seller under <strong>Default agents</strong> in SellerLens AI.
         Sellers cannot edit them — they can duplicate a default agent to create a custom copy.
+        Removing an agent here retires it from all workspaces on save.
       </p>
 
       <Card>
@@ -157,10 +212,23 @@ export default function AdminSettingsDefaultAgents() {
           )}
 
           {agents.map((agent, index) => (
-            <div key={agent.slug} className="rounded-lg border border-slate-200 p-4 space-y-4 bg-slate-50/40">
+            <div key={`${agent.slug}-${index}`} className="rounded-lg border border-slate-200 p-4 space-y-4 bg-slate-50/40">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-slate-900">{agent.name}</h2>
-                <span className="text-[10px] uppercase tracking-wide text-slate-400">{agent.slug}</span>
+                <h2 className="text-sm font-semibold text-slate-900">{agent.name || "Untitled agent"}</h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-400">{agent.slug}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:text-red-600"
+                    onClick={() => removeAgent(index)}
+                    disabled={agents.length <= 1}
+                    title={agents.length <= 1 ? "At least one default agent is required" : "Remove agent"}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -187,13 +255,30 @@ export default function AdminSettingsDefaultAgents() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor={`agent-description-${agent.slug}`}>Description</Label>
-                <Input
-                  id={`agent-description-${agent.slug}`}
-                  value={agent.description}
-                  onChange={(e) => updateAgent(index, { description: e.target.value })}
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor={`agent-description-${agent.slug}`}>Description</Label>
+                  <Input
+                    id={`agent-description-${agent.slug}`}
+                    value={agent.description}
+                    onChange={(e) => updateAgent(index, { description: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`agent-icon-${agent.slug}`}>Icon</Label>
+                  <select
+                    id={`agent-icon-${agent.slug}`}
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white"
+                    value={agent.icon}
+                    onChange={(e) => updateAgent(index, { icon: e.target.value })}
+                  >
+                    {iconOptions.map((icon) => (
+                      <option key={icon} value={icon}>
+                        {ICON_LABELS[icon] ?? icon}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -231,14 +316,26 @@ export default function AdminSettingsDefaultAgents() {
             </div>
           ))}
 
-          <Button
-            type="button"
-            onClick={() => save.mutate()}
-            disabled={save.isPending || agents.length === 0}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {save.isPending ? "Saving…" : "Save Default Agents"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addAgent}
+              disabled={query.isLoading}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add default agent
+            </Button>
+
+            <Button
+              type="button"
+              onClick={() => save.mutate()}
+              disabled={save.isPending || agents.length === 0}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {save.isPending ? "Saving…" : "Save Default Agents"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

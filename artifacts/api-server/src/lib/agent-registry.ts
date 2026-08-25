@@ -38,13 +38,20 @@ export const AGENT_TOOL_CATALOG: AgentToolDefinition[] = [
   },
 ];
 
-export type DefaultAgentSlug = "image-creator" | "generate-content" | "ppc";
-
 /** Retired slugs — soft-deleted when workspaces sync default agents. */
 export const LEGACY_DEFAULT_AGENT_SLUGS = ["listing-audit", "graphics"] as const;
 
+export const DEFAULT_AGENT_ICON_OPTIONS = [
+  "image",
+  "clipboard-check",
+  "target",
+  "chart",
+  "search",
+  "sparkles",
+] as const;
+
 export type DefaultAgentDefinition = {
-  slug: DefaultAgentSlug;
+  slug: string;
   name: string;
   description: string;
   icon: string;
@@ -102,11 +109,33 @@ export function isValidAgentToolName(name: string): name is AgentToolName {
   return AGENT_TOOL_CATALOG.some((tool) => tool.name === name);
 }
 
-export function isValidDefaultAgentSlug(slug: string): slug is DefaultAgentSlug {
-  return WORKSPACE_DEFAULT_AGENTS.some((row) => row.slug === slug);
+const RESERVED_DEFAULT_AGENT_SLUGS = new Set<string>([
+  ...LEGACY_DEFAULT_AGENT_SLUGS,
+]);
+
+export function isValidAgentSlugFormat(slug: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length >= 2 && slug.length <= 64;
+}
+
+export function slugifyDefaultAgentName(name: string, existingSlugs: string[]): string {
+  const taken = new Set(existingSlugs.map((s) => s.toLowerCase()));
+  let base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  if (!base || RESERVED_DEFAULT_AGENT_SLUGS.has(base)) base = "agent";
+  let slug = base;
+  let suffix = 2;
+  while (taken.has(slug) || RESERVED_DEFAULT_AGENT_SLUGS.has(slug)) {
+    slug = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  return slug;
 }
 
 export function getDefaultToolsForSlug(slug: string): AgentToolName[] {
   const agent = WORKSPACE_DEFAULT_AGENTS.find((row) => row.slug === slug);
-  return agent?.tools ?? [];
+  return agent?.tools ?? ["get_seller_memory", "save_agent_memory"];
 }

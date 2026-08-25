@@ -22,7 +22,7 @@ import {
   saveDefaultAgentTemplates,
   type DefaultAgentTemplate,
 } from "../lib/default-agent-templates.js";
-import { AGENT_TOOL_CATALOG, SUPPORTED_AGENT_MODELS } from "../lib/agent-registry.js";
+import { AGENT_TOOL_CATALOG, DEFAULT_AGENT_ICON_OPTIONS, SUPPORTED_AGENT_MODELS } from "../lib/agent-registry.js";
 import { normalizeBrandingSettingValue } from "../lib/branding-storage";
 import { ANNOUNCEMENT_PROMO_CATEGORY, ANNOUNCEMENT_PROMO_KEYS } from "../lib/announcement-promo.js";
 import { ensurePromoCoupon } from "../lib/promo-coupon-sync.js";
@@ -1544,6 +1544,7 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
         agents,
         tools: AGENT_TOOL_CATALOG,
         models: SUPPORTED_AGENT_MODELS,
+        iconOptions: DEFAULT_AGENT_ICON_OPTIONS,
       });
       return;
     } catch (err) {
@@ -1591,6 +1592,7 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
         agents,
         tools: AGENT_TOOL_CATALOG,
         models: SUPPORTED_AGENT_MODELS,
+        iconOptions: DEFAULT_AGENT_ICON_OPTIONS,
       });
       return;
     } catch (err) {
@@ -1705,6 +1707,7 @@ router.get("/admin/sellermate/default-agents", requireAdmin, async (_req, res): 
       agents,
       tools: AGENT_TOOL_CATALOG,
       models: SUPPORTED_AGENT_MODELS,
+      iconOptions: DEFAULT_AGENT_ICON_OPTIONS,
     });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load default agents." });
@@ -1725,6 +1728,7 @@ router.put("/admin/sellermate/default-agents", requireAdmin, async (req, res): P
       agents,
       tools: AGENT_TOOL_CATALOG,
       models: SUPPORTED_AGENT_MODELS,
+      iconOptions: DEFAULT_AGENT_ICON_OPTIONS,
     });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to save default agents." });

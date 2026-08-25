@@ -1,13 +1,15 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { db, sellermateAgentsTable, settingsTable, workspacesTable } from "@workspace/db";
 import {
+  DEFAULT_AGENT_ICON_OPTIONS,
   LEGACY_DEFAULT_AGENT_SLUGS,
+  SUPPORTED_AGENT_MODELS,
   WORKSPACE_DEFAULT_AGENTS,
+  isValidAgentSlugFormat,
   isValidAgentToolName,
-  isValidDefaultAgentSlug,
+  slugifyDefaultAgentName,
   type AgentToolName,
   type DefaultAgentDefinition,
-  type DefaultAgentSlug,
 } from "./agent-registry.js";
 import { isMakeExecutionEnabled } from "./make-agent-client.js";
 import { replaceAgentTools } from "./workspace-agents.js";
@@ -17,33 +19,75 @@ export const DEFAULT_AGENT_TEMPLATES_CATEGORY = "ai";
 
 export type DefaultAgentTemplate = DefaultAgentDefinition;
 
+const DEFAULT_NEW_AGENT_PROMPT = `You are a SellerLens AI assistant for Amazon sellers.
+Help users with clear, actionable guidance. Ask clarifying questions when context is missing.`;
+
+function builtinForSlug(slug: string): DefaultAgentTemplate | undefined {
+  return WORKSPACE_DEFAULT_AGENTS.find((row) => row.slug === slug);
+}
+
+function normalizeIcon(icon: string | undefined, slug: string): string {
+  const value = icon?.trim() || builtinForSlug(slug)?.icon || "sparkles";
+  return (DEFAULT_AGENT_ICON_OPTIONS as readonly string[]).includes(value) ? value : "sparkles";
+}
+
+function normalizeModel(model: string | undefined, slug: string): string {
+  const value = model?.trim() || builtinForSlug(slug)?.model || "gpt-5.4";
+  return (SUPPORTED_AGENT_MODELS as readonly string[]).includes(value) ? value : "gpt-5.4";
+}
+
+function normalizeTools(tools: unknown, slug: string): AgentToolName[] {
+  const fromInput = Array.isArray(tools)
+    ? tools.filter((t): t is AgentToolName => typeof t === "string" && isValidAgentToolName(t))
+    : [];
+  if (fromInput.length > 0) return fromInput;
+  return builtinForSlug(slug)?.tools ?? ["get_seller_memory", "save_agent_memory"];
+}
+
+function normalizeTemplateRow(
+  row: Record<string, unknown>,
+  existingSlugs: string[],
+): DefaultAgentTemplate | null {
+  const name = String(row.name ?? "").trim();
+  if (!name) return null;
+
+  let slug = String(row.slug ?? "").trim().toLowerCase();
+  if (!slug || !isValidAgentSlugFormat(slug)) {
+    slug = slugifyDefaultAgentName(name, existingSlugs);
+  }
+  if (!isValidAgentSlugFormat(slug)) return null;
+
+  const builtin = builtinForSlug(slug);
+  const systemPrompt = String(row.systemPrompt ?? builtin?.systemPrompt ?? DEFAULT_NEW_AGENT_PROMPT).trim();
+  if (!systemPrompt) return null;
+
+  return {
+    slug,
+    name,
+    description: String(row.description ?? builtin?.description ?? "").trim(),
+    icon: normalizeIcon(typeof row.icon === "string" ? row.icon : undefined, slug),
+    model: normalizeModel(typeof row.model === "string" ? row.model : undefined, slug),
+    systemPrompt,
+    tools: normalizeTools(row.tools, slug),
+  };
+}
+
 function parseTemplatesJson(raw: string): DefaultAgentTemplate[] | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
+
     const templates: DefaultAgentTemplate[] = [];
+    const slugs: string[] = [];
     for (const item of parsed) {
       if (!item || typeof item !== "object") continue;
-      const row = item as Record<string, unknown>;
-      const slug = String(row.slug ?? "");
-      if (!isValidDefaultAgentSlug(slug)) continue;
-      const tools = Array.isArray(row.tools)
-        ? row.tools.filter((t): t is AgentToolName => typeof t === "string" && isValidAgentToolName(t))
-        : WORKSPACE_DEFAULT_AGENTS.find((d) => d.slug === slug)?.tools ?? [];
-      const builtin = WORKSPACE_DEFAULT_AGENTS.find((d) => d.slug === slug);
-      templates.push({
-        slug,
-        name: String(row.name ?? builtin?.name ?? slug).trim(),
-        description: String(row.description ?? builtin?.description ?? "").trim(),
-        icon: String(row.icon ?? builtin?.icon ?? "sparkles").trim(),
-        model: String(row.model ?? builtin?.model ?? "gpt-5.4").trim(),
-        systemPrompt: String(row.systemPrompt ?? builtin?.systemPrompt ?? "").trim(),
-        tools: tools.length > 0 ? tools : (builtin?.tools ?? []),
-      });
+      const normalized = normalizeTemplateRow(item as Record<string, unknown>, slugs);
+      if (!normalized) continue;
+      if (slugs.includes(normalized.slug)) continue;
+      slugs.push(normalized.slug);
+      templates.push(normalized);
     }
-    if (templates.length === 0) return null;
-    const bySlug = new Map(templates.map((t) => [t.slug, t]));
-    return WORKSPACE_DEFAULT_AGENTS.map((builtin) => bySlug.get(builtin.slug) ?? builtin);
+    return templates.length > 0 ? templates : null;
   } catch {
     return null;
   }
@@ -102,29 +146,40 @@ export async function saveDefaultAgentTemplates(
 }
 
 export function normalizeTemplates(templates: DefaultAgentTemplate[]): DefaultAgentTemplate[] {
-  const bySlug = new Map<DefaultAgentSlug, DefaultAgentTemplate>();
-  for (const template of templates) {
-    if (!isValidDefaultAgentSlug(template.slug)) continue;
-    const builtin = WORKSPACE_DEFAULT_AGENTS.find((row) => row.slug === template.slug);
-    const name = template.name?.trim() || builtin?.name || template.slug;
-    const systemPrompt = template.systemPrompt?.trim() || builtin?.systemPrompt || "";
-    if (!systemPrompt) {
-      throw new Error(`System prompt is required for ${name}.`);
-    }
-    const tools = (template.tools ?? [])
-      .filter((tool): tool is AgentToolName => isValidAgentToolName(tool));
-    bySlug.set(template.slug, {
-      slug: template.slug,
-      name,
-      description: template.description?.trim() || builtin?.description || "",
-      icon: template.icon?.trim() || builtin?.icon || "sparkles",
-      model: template.model?.trim() || builtin?.model || "gpt-5.4",
-      systemPrompt,
-      tools: tools.length > 0 ? tools : (builtin?.tools ?? []),
-    });
+  if (!Array.isArray(templates) || templates.length === 0) {
+    throw new Error("At least one default agent is required.");
   }
 
-  return WORKSPACE_DEFAULT_AGENTS.map((builtin) => bySlug.get(builtin.slug) ?? { ...builtin });
+  const normalized: DefaultAgentTemplate[] = [];
+  const slugs: string[] = [];
+
+  for (const template of templates) {
+    const row = normalizeTemplateRow(template as unknown as Record<string, unknown>, slugs);
+    if (!row) {
+      throw new Error("Each default agent needs a name and system prompt.");
+    }
+    if (slugs.includes(row.slug)) {
+      throw new Error(`Duplicate default agent slug: ${row.slug}`);
+    }
+    slugs.push(row.slug);
+    normalized.push(row);
+  }
+
+  return normalized;
+}
+
+export function createBlankDefaultAgentTemplate(existing: DefaultAgentTemplate[]): DefaultAgentTemplate {
+  const name = "New Default Agent";
+  const slug = slugifyDefaultAgentName(name, existing.map((row) => row.slug));
+  return {
+    slug,
+    name,
+    description: "",
+    icon: "sparkles",
+    model: "gpt-5.4",
+    systemPrompt: DEFAULT_NEW_AGENT_PROMPT,
+    tools: ["get_seller_memory", "save_agent_memory"],
+  };
 }
 
 async function retireLegacyDefaultAgents(workspaceId: number): Promise<void> {
@@ -137,6 +192,19 @@ async function retireLegacyDefaultAgents(workspaceId: number): Promise<void> {
       eq(sellermateAgentsTable.isDefault, 1),
       inArray(sellermateAgentsTable.slug, [...LEGACY_DEFAULT_AGENT_SLUGS]),
       eq(sellermateAgentsTable.isDeleted, 0),
+    ));
+}
+
+async function retireRemovedDefaultAgents(workspaceId: number, activeSlugs: string[]): Promise<void> {
+  if (activeSlugs.length === 0) return;
+  await db
+    .update(sellermateAgentsTable)
+    .set({ isDeleted: 1, deletedAt: new Date(), updatedAt: new Date() })
+    .where(and(
+      eq(sellermateAgentsTable.workspaceId, workspaceId),
+      eq(sellermateAgentsTable.isDefault, 1),
+      eq(sellermateAgentsTable.isDeleted, 0),
+      notInArray(sellermateAgentsTable.slug, activeSlugs),
     ));
 }
 
@@ -217,8 +285,10 @@ export async function syncWorkspaceDefaultAgents(
 ): Promise<void> {
   const definitions = templates ?? await loadDefaultAgentTemplates();
   const executionProvider = isMakeExecutionEnabled() ? "make" : "native";
+  const activeSlugs = definitions.map((row) => row.slug);
 
   await retireLegacyDefaultAgents(workspaceId);
+  await retireRemovedDefaultAgents(workspaceId, activeSlugs);
 
   for (const definition of definitions) {
     await upsertWorkspaceDefaultAgent(workspaceId, definition, executionProvider);
