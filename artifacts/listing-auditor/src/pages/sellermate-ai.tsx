@@ -10,6 +10,7 @@ import {
   Image,
   Loader2,
   MessageSquarePlus,
+  PanelLeft,
   Pencil,
   Plus,
   Search,
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -39,6 +41,8 @@ import {
   type AgentToolConfig,
   type AgentToolDefinition,
   type SellermateAgent,
+  type SellermateMemory,
+  type SellermateThread,
 } from "@/lib/sellermate-ai";
 import { UploadMemoryFileDialog } from "@/components/upload-memory-file-dialog";
 import { SellermateChatAttachMenu } from "@/components/sellermate-chat-attach-menu";
@@ -98,6 +102,7 @@ export default function SellerMateAiPage() {
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachmentPreviewItem[]>([]);
   const attachmentPreviewUrlsRef = useRef<Map<string, string>>(new Map());
   const [selectingOptionForMessageId, setSelectingOptionForMessageId] = useState<number | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const toolsCatalogQuery = useQuery({
     queryKey: ["sellermate-tools-catalog"],
@@ -354,12 +359,14 @@ export default function SellerMateAiPage() {
   function handleSelectAgent(agent: SellermateAgent) {
     setSelectedAgentId(agent.id);
     setActiveThreadId(null);
+    setMobileSidebarOpen(false);
   }
 
   function handleNewChat() {
     setActiveThreadId(null);
     setDraft("");
     clearPendingAttachments();
+    setMobileSidebarOpen(false);
   }
 
   function handleSend() {
@@ -469,146 +476,103 @@ export default function SellerMateAiPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] -mx-1 sm:-mx-2 flex rounded-xl border border-slate-200 bg-[#f8f9fb] shadow-sm overflow-hidden">
-      {/* Left sidebar */}
-      <aside className="w-64 shrink-0 border-r border-slate-200 bg-white flex flex-col">
-        <div className="px-3 pt-3 pb-2 border-b border-slate-100">
-          <p className="text-sm font-semibold text-slate-800">SellerLens AI</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Amazon ads & listing assistant</p>
-        </div>
-        <div className="p-3 border-b border-slate-100">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start gap-2 h-9 text-xs"
-            onClick={handleNewChat}
-          >
-            <MessageSquarePlus className="w-3.5 h-3.5" />
-            New chat
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-4">
-          <AgentSection
-            title="Default agents"
-            agents={defaultAgents}
-            selectedAgentId={selectedAgentId}
-            onSelect={handleSelectAgent}
-          />
-
-          <div>
-            <div className="flex items-center justify-between px-2 mb-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Your agents</p>
-              <button
-                type="button"
-                onClick={openCreateAgent}
-                className="text-slate-400 hover:text-slate-700"
-                aria-label="Create agent"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <AgentSection
-              agents={customAgents}
-              selectedAgentId={selectedAgentId}
-              onSelect={handleSelectAgent}
-              onEdit={openEditAgent}
-              onDelete={(agent) => deleteAgentMutation.mutate(agent.id)}
-              emptyLabel="Create your first custom agent"
-            />
-          </div>
-
-          <SidebarSection
-            title="Memory files"
-            open={memoryOpen}
-            onToggle={() => setMemoryOpen((v) => !v)}
-            action={
-              canUploadMemory ? (
-                <button
-                  type="button"
-                  onClick={() => setUploadMemoryOpen(true)}
-                  disabled={!selectedAgentId || uploadMemoryMutation.isPending}
-                  className="text-slate-400 hover:text-slate-700 disabled:opacity-40"
-                  aria-label="Add memory"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              ) : undefined
-            }
-          >
-            {isDefaultAgentSelected && (
-              <p className="px-2 text-[11px] text-slate-400">
-                Upload your own files here. Administrator shared files are marked below.
-              </p>
-            )}
-            {memoryFiles.length === 0 ? (
-              <p className="px-2 text-[11px] text-slate-400">
-                No memory files yet for this agent.
-              </p>
-            ) : (
-              memoryFiles.map((file) => {
-                const isShared = isSharedDefaultAgentMemory(file);
-                return (
-                <div key={file.id} className="group flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50">
-                  <FileText className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium text-slate-700 truncate">
-                      {file.name}
-                      {isShared && (
-                        <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-                          Shared
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[10px] text-slate-400 line-clamp-2">
-                      {file.description?.trim() || `${file.content.length.toLocaleString()} characters`}
-                    </p>
-                  </div>
-                  {!isShared && (
-                    <button
-                      type="button"
-                      onClick={() => deleteMemoryMutation.mutate(file.id)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-                );
-              })
-            )}
-          </SidebarSection>
-
-          <SidebarSection title="Chats" open={chatsOpen} onToggle={() => setChatsOpen((v) => !v)}>
-            {threads.length === 0 ? (
-              <p className="px-2 text-[11px] text-slate-400">Start a conversation to see chats here.</p>
-            ) : (
-              threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  onClick={() => setActiveThreadId(thread.id)}
-                  className={cn(
-                    "w-full text-left px-2 py-1.5 rounded-md text-[11px] truncate",
-                    activeThreadId === thread.id
-                      ? "bg-orange-50 text-orange-700 font-medium"
-                      : "text-slate-600 hover:bg-slate-50",
-                  )}
-                >
-                  {thread.title}
-                </button>
-              ))
-            )}
-          </SidebarSection>
-        </div>
+    <div className="min-h-[calc(100dvh-7.5rem)] -mx-5 sm:-mx-6 md:mx-0 flex rounded-none md:rounded-xl border-0 md:border border-slate-200 bg-[#f8f9fb] shadow-none md:shadow-sm overflow-hidden">
+      <aside className="hidden md:flex w-64 shrink-0 border-r border-slate-200 bg-white flex-col">
+        <SellerMateSidebarPanel
+          defaultAgents={defaultAgents}
+          customAgents={customAgents}
+          selectedAgentId={selectedAgentId}
+          isDefaultAgentSelected={isDefaultAgentSelected}
+          canUploadMemory={canUploadMemory}
+          memoryOpen={memoryOpen}
+          chatsOpen={chatsOpen}
+          memoryFiles={memoryFiles}
+          threads={threads}
+          activeThreadId={activeThreadId}
+          uploadMemoryPending={uploadMemoryMutation.isPending}
+          onNewChat={handleNewChat}
+          onSelectAgent={handleSelectAgent}
+          onOpenCreateAgent={openCreateAgent}
+          onEditAgent={openEditAgent}
+          onDeleteAgent={(agent) => deleteAgentMutation.mutate(agent.id)}
+          onToggleMemory={() => setMemoryOpen((v) => !v)}
+          onToggleChats={() => setChatsOpen((v) => !v)}
+          onOpenUploadMemory={() => setUploadMemoryOpen(true)}
+          onDeleteMemory={(id) => deleteMemoryMutation.mutate(id)}
+          onSelectThread={setActiveThreadId}
+        />
       </aside>
+
+      <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+        <SheetContent
+          side="left"
+          className="w-[min(100vw-3rem,18rem)] p-0 flex flex-col md:hidden bg-white text-slate-900 border-slate-200"
+        >
+          <SheetTitle className="sr-only">SellerLens AI agents and chats</SheetTitle>
+          <SellerMateSidebarPanel
+            defaultAgents={defaultAgents}
+            customAgents={customAgents}
+            selectedAgentId={selectedAgentId}
+            isDefaultAgentSelected={isDefaultAgentSelected}
+            canUploadMemory={canUploadMemory}
+            memoryOpen={memoryOpen}
+            chatsOpen={chatsOpen}
+            memoryFiles={memoryFiles}
+            threads={threads}
+            activeThreadId={activeThreadId}
+            uploadMemoryPending={uploadMemoryMutation.isPending}
+            onNewChat={handleNewChat}
+            onSelectAgent={handleSelectAgent}
+            onOpenCreateAgent={openCreateAgent}
+            onEditAgent={openEditAgent}
+            onDeleteAgent={(agent) => deleteAgentMutation.mutate(agent.id)}
+            onToggleMemory={() => setMemoryOpen((v) => !v)}
+            onToggleChats={() => setChatsOpen((v) => !v)}
+            onOpenUploadMemory={() => setUploadMemoryOpen(true)}
+            onDeleteMemory={(id) => deleteMemoryMutation.mutate(id)}
+            onSelectThread={(threadId) => {
+              setActiveThreadId(threadId);
+              setMobileSidebarOpen(false);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* Main chat */}
       <section className="flex-1 min-w-0 flex flex-col bg-[#f8f9fb]">
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-8">
+        <div className="md:hidden flex items-center gap-2 px-3 py-2.5 border-b border-slate-200 bg-white shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Open agents and chats"
+          >
+            <PanelLeft className="w-5 h-5" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-slate-800 truncate">SellerLens AI</p>
+            {selectedAgent && (
+              <p className="text-[11px] text-slate-500 truncate">{selectedAgent.name}</p>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0 h-9 w-9"
+            onClick={handleNewChat}
+            aria-label="New chat"
+          >
+            <MessageSquarePlus className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 sm:px-8 py-4 sm:py-8">
           {messages.length === 0 ? (
-            <div className="max-w-2xl mx-auto pt-16 text-center">
-              <p className="text-2xl sm:text-3xl font-medium text-slate-800 leading-snug">
+            <div className="max-w-2xl mx-auto pt-6 sm:pt-16 text-center">
+              <p className="text-xl sm:text-3xl font-medium text-slate-800 leading-snug">
                 👋 Hi! I can automatically plan, fetch, and analyze your Amazon Ads data.
                 Just describe what you want.
               </p>
@@ -650,7 +614,7 @@ export default function SellerMateAiPage() {
           )}
         </div>
 
-        <div className="border-t border-slate-200 bg-white px-4 sm:px-8 py-4">
+        <div className="border-t border-slate-200 bg-white px-3 sm:px-8 py-3 sm:py-4">
           <div className="max-w-3xl mx-auto">
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-3">
               <SellermateChatAttachmentPreview
@@ -862,6 +826,184 @@ export default function SellerMateAiPage() {
           await uploadMemoryMutation.mutateAsync(input);
         }}
       />
+    </div>
+  );
+}
+
+function SellerMateSidebarPanel({
+  defaultAgents,
+  customAgents,
+  selectedAgentId,
+  isDefaultAgentSelected,
+  canUploadMemory,
+  memoryOpen,
+  chatsOpen,
+  memoryFiles,
+  threads,
+  activeThreadId,
+  uploadMemoryPending,
+  onNewChat,
+  onSelectAgent,
+  onOpenCreateAgent,
+  onEditAgent,
+  onDeleteAgent,
+  onToggleMemory,
+  onToggleChats,
+  onOpenUploadMemory,
+  onDeleteMemory,
+  onSelectThread,
+}: {
+  defaultAgents: SellermateAgent[];
+  customAgents: SellermateAgent[];
+  selectedAgentId: number | null;
+  isDefaultAgentSelected: boolean;
+  canUploadMemory: boolean;
+  memoryOpen: boolean;
+  chatsOpen: boolean;
+  memoryFiles: SellermateMemory[];
+  threads: SellermateThread[];
+  activeThreadId: number | null;
+  uploadMemoryPending: boolean;
+  onNewChat: () => void;
+  onSelectAgent: (agent: SellermateAgent) => void;
+  onOpenCreateAgent: () => void;
+  onEditAgent: (agent: SellermateAgent) => void;
+  onDeleteAgent: (agent: SellermateAgent) => void;
+  onToggleMemory: () => void;
+  onToggleChats: () => void;
+  onOpenUploadMemory: () => void;
+  onDeleteMemory: (id: number) => void;
+  onSelectThread: (threadId: number) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="px-3 pt-3 pb-2 border-b border-slate-100">
+        <p className="text-sm font-semibold text-slate-800">SellerLens AI</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">Amazon ads & listing assistant</p>
+      </div>
+      <div className="p-3 border-b border-slate-100">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-start gap-2 h-9 text-xs"
+          onClick={onNewChat}
+        >
+          <MessageSquarePlus className="w-3.5 h-3.5" />
+          New chat
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-4">
+        <AgentSection
+          title="Default agents"
+          agents={defaultAgents}
+          selectedAgentId={selectedAgentId}
+          onSelect={onSelectAgent}
+        />
+
+        <div>
+          <div className="flex items-center justify-between px-2 mb-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Your agents</p>
+            <button
+              type="button"
+              onClick={onOpenCreateAgent}
+              className="text-slate-400 hover:text-slate-700"
+              aria-label="Create agent"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <AgentSection
+            agents={customAgents}
+            selectedAgentId={selectedAgentId}
+            onSelect={onSelectAgent}
+            onEdit={onEditAgent}
+            onDelete={onDeleteAgent}
+            emptyLabel="Create your first custom agent"
+          />
+        </div>
+
+        <SidebarSection
+          title="Memory files"
+          open={memoryOpen}
+          onToggle={onToggleMemory}
+          action={
+            canUploadMemory ? (
+              <button
+                type="button"
+                onClick={onOpenUploadMemory}
+                disabled={!selectedAgentId || uploadMemoryPending}
+                className="text-slate-400 hover:text-slate-700 disabled:opacity-40"
+                aria-label="Add memory"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            ) : undefined
+          }
+        >
+          {isDefaultAgentSelected && (
+            <p className="px-2 text-[11px] text-slate-400">
+              Upload your own files here. Administrator shared files are marked below.
+            </p>
+          )}
+          {memoryFiles.length === 0 ? (
+            <p className="px-2 text-[11px] text-slate-400">No memory files yet for this agent.</p>
+          ) : (
+            memoryFiles.map((file) => {
+              const isShared = isSharedDefaultAgentMemory(file);
+              return (
+                <div key={file.id} className="group flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50">
+                  <FileText className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium text-slate-700 truncate">
+                      {file.name}
+                      {isShared && (
+                        <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                          Shared
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-slate-400 line-clamp-2">
+                      {file.description?.trim() || `${file.content.length.toLocaleString()} characters`}
+                    </p>
+                  </div>
+                  {!isShared && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteMemory(file.id)}
+                      className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </SidebarSection>
+
+        <SidebarSection title="Chats" open={chatsOpen} onToggle={onToggleChats}>
+          {threads.length === 0 ? (
+            <p className="px-2 text-[11px] text-slate-400">Start a conversation to see chats here.</p>
+          ) : (
+            threads.map((thread) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={() => onSelectThread(thread.id)}
+                className={cn(
+                  "w-full text-left px-2 py-1.5 rounded-md text-[11px] truncate",
+                  activeThreadId === thread.id
+                    ? "bg-orange-50 text-orange-700 font-medium"
+                    : "text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                {thread.title}
+              </button>
+            ))
+          )}
+        </SidebarSection>
+      </div>
     </div>
   );
 }
