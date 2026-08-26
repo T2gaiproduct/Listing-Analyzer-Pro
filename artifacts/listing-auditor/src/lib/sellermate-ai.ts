@@ -59,6 +59,8 @@ export type SellermateMemory = {
   name: string;
   description?: string;
   content: string;
+  userId?: string;
+  memoryKey?: string | null;
   createdAt: string;
 };
 

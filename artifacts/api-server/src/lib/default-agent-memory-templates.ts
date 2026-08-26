@@ -164,6 +164,7 @@ async function replaceWorkspaceDefaultAgentMemory(
       eq(sellermateMemoryTable.workspaceId, workspaceId),
       eq(sellermateMemoryTable.agentId, agentId),
       eq(sellermateMemoryTable.isDeleted, 0),
+      eq(sellermateMemoryTable.userId, ADMIN_TEMPLATE_MEMORY_USER_ID),
     ));
 
   if (files.length === 0) return;

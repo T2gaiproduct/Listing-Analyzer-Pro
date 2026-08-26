@@ -36,7 +36,6 @@ import {
   sendSellermateChat,
   updateSellermateAgent,
   uploadSellermateMemoryFile,
-  uploadDefaultAgentMemoryFile,
   type AgentToolConfig,
   type AgentToolDefinition,
   type SellermateAgent,
@@ -54,7 +53,7 @@ import {
   mergeAgentToolSelection,
 } from "@/lib/sellermate-agent-tools";
 import { isImageMemoryFile, memoryFileToBase64, memoryUploadValidationError, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
-import { useIsAdmin } from "@/hooks/use-is-admin";
+import { isSharedDefaultAgentMemory } from "@/lib/sellermate-memory-shared";
 
 function agentIcon(icon: string) {
   switch (icon) {
@@ -79,7 +78,6 @@ function defaultToolSelection(catalog: AgentToolDefinition[]): AgentToolConfig[]
 
 export default function SellerMateAiPage() {
   const { toast } = useToast();
-  const { isAdmin } = useIsAdmin();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -126,11 +124,7 @@ export default function SellerMateAiPage() {
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null;
   const isDefaultAgentSelected = selectedAgent?.isDefault ?? false;
-  const canUploadMemory = Boolean(
-    selectedAgentId
-    && selectedAgent
-    && (!selectedAgent.isDefault || (isAdmin && selectedAgent.slug)),
-  );
+  const canUploadMemory = Boolean(selectedAgentId && selectedAgent);
 
   const threadsQuery = useQuery({
     queryKey: ["sellermate-threads", selectedAgentId],
@@ -291,26 +285,16 @@ export default function SellerMateAiPage() {
   });
 
   const uploadMemoryMutation = useMutation({
-    mutationFn: async (input: { name: string; description?: string; filename: string; fileBase64: string }) => {
-      if (!selectedAgent || !selectedAgentId) {
+    mutationFn: (input: { name: string; description?: string; filename: string; fileBase64: string }) => {
+      if (!selectedAgentId) {
         throw new Error("Select an agent first.");
-      }
-      if (selectedAgent.isDefault) {
-        const slug = selectedAgent.slug?.trim();
-        if (!slug) {
-          throw new Error("Upload shared memory from Admin → Default Agents.");
-        }
-        return uploadDefaultAgentMemoryFile(slug, input);
       }
       return uploadSellermateMemoryFile(selectedAgentId, input);
     },
     onSuccess: (memory) => {
       void queryClient.invalidateQueries({ queryKey: ["sellermate-memory", selectedAgentId] });
       setUploadMemoryOpen(false);
-      toast({
-        title: isDefaultAgentSelected ? "Shared memory uploaded" : "Memory uploaded",
-        description: memory.name,
-      });
+      toast({ title: "Memory uploaded", description: memory.name });
     },
     onError: (error) => {
       toast({
@@ -325,11 +309,7 @@ export default function SellerMateAiPage() {
     ? "Select an agent first."
     : uploadMemoryMutation.isPending
       ? "Upload in progress…"
-      : isDefaultAgentSelected && !isAdmin
-        ? "Shared memory is managed by your administrator."
-        : isDefaultAgentSelected && isAdmin && !selectedAgent?.slug
-          ? "Upload shared memory from Admin → Default Agents."
-          : undefined;
+      : undefined;
 
   function resetAgentForm() {
     setNewAgentName("");
@@ -556,31 +536,35 @@ export default function SellerMateAiPage() {
               ) : undefined
             }
           >
-            {isDefaultAgentSelected && !isAdmin && (
+            {isDefaultAgentSelected && (
               <p className="px-2 text-[11px] text-slate-400">
-                Shared memory is managed by your administrator.
-              </p>
-            )}
-            {isDefaultAgentSelected && isAdmin && (
-              <p className="px-2 text-[11px] text-slate-400">
-                Uploads here are shared with every seller workspace for this default agent.
+                Upload your own files here. Administrator shared files are marked below.
               </p>
             )}
             {memoryFiles.length === 0 ? (
               <p className="px-2 text-[11px] text-slate-400">
-                {isDefaultAgentSelected ? "No shared memory files yet." : "No memory files yet for this agent."}
+                No memory files yet for this agent.
               </p>
             ) : (
-              memoryFiles.map((file) => (
+              memoryFiles.map((file) => {
+                const isShared = isSharedDefaultAgentMemory(file);
+                return (
                 <div key={file.id} className="group flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50">
                   <FileText className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium text-slate-700 truncate">{file.name}</p>
+                    <p className="text-[11px] font-medium text-slate-700 truncate">
+                      {file.name}
+                      {isShared && (
+                        <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                          Shared
+                        </span>
+                      )}
+                    </p>
                     <p className="text-[10px] text-slate-400 line-clamp-2">
                       {file.description?.trim() || `${file.content.length.toLocaleString()} characters`}
                     </p>
                   </div>
-                  {!isDefaultAgentSelected && (
+                  {!isShared && (
                     <button
                       type="button"
                       onClick={() => deleteMemoryMutation.mutate(file.id)}
@@ -590,7 +574,8 @@ export default function SellerMateAiPage() {
                     </button>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </SidebarSection>
 

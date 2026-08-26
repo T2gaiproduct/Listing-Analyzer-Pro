@@ -9,6 +9,10 @@ import {
   type SellermateAgent,
 } from "@workspace/db";
 import {
+  ADMIN_TEMPLATE_MEMORY_KEY_PREFIX,
+  ADMIN_TEMPLATE_MEMORY_USER_ID,
+} from "./default-agent-memory-templates.js";
+import {
   AGENT_TOOL_CATALOG,
   SUPPORTED_AGENT_MODELS,
   isValidAgentToolName,
@@ -28,9 +32,20 @@ import { serializeSellermateMessageMetadata } from "./sellermate-message-types.j
 
 export { AGENT_TOOL_CATALOG, SUPPORTED_AGENT_MODELS };
 
-export function assertCustomerCanModifyAgentMemory(agent: SellermateAgent): void {
-  if (agent.isDefault) {
-    throw new Error("Default agent memory is read-only. Administrators manage shared memory files.");
+export function isAdminTemplateMemory(memory: {
+  userId: string;
+  memoryKey?: string | null;
+}): boolean {
+  return memory.userId === ADMIN_TEMPLATE_MEMORY_USER_ID
+    || (memory.memoryKey?.startsWith(ADMIN_TEMPLATE_MEMORY_KEY_PREFIX) ?? false);
+}
+
+export function assertCustomerCanModifyMemoryRow(memory: {
+  userId: string;
+  memoryKey?: string | null;
+}): void {
+  if (isAdminTemplateMemory(memory)) {
+    throw new Error("Shared memory files cannot be edited. Ask your administrator to update them.");
   }
 }
 
@@ -502,7 +517,6 @@ export async function addSellermateMemory(input: {
 
   const agent = await getSellermateAgentForWorkspace(input.agentId, input.workspaceId);
   if (!agent) throw new Error("Agent not found.");
-  assertCustomerCanModifyAgentMemory(agent);
 
   const [row] = await db
     .insert(sellermateMemoryTable)
@@ -563,7 +577,7 @@ export async function deleteSellermateMemory(memoryId: number, workspaceId: numb
 
   const agent = await getSellermateAgentForWorkspace(memory.agentId, workspaceId);
   if (!agent) throw new Error("Agent not found.");
-  assertCustomerCanModifyAgentMemory(agent);
+  assertCustomerCanModifyMemoryRow(memory);
 
   await db
     .update(sellermateMemoryTable)
