@@ -23,6 +23,7 @@ import {
   sendMarketplacePublishGraphicsImage,
 } from "./lib/marketplace-publish-images";
 import { isAllowedOrigin } from "./lib/allowed-origins";
+import { clerkMiddlewareOptionsForRequest } from "./lib/clerk-middleware-options.js";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -82,22 +83,14 @@ app.use(cors({
 app.post(
   "/api/admin/hero-video",
   express.raw({ type: ["video/*", "application/octet-stream"], limit: "50mb" }),
-  clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY,
-  }),
+  clerkMiddleware((req) => clerkMiddlewareOptionsForRequest(req)),
   (req, res) => { void handleHeroVideoUpload(req, res); },
 );
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.use(
-  clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY,
-  }),
-);
+app.use(clerkMiddleware((req) => clerkMiddlewareOptionsForRequest(req)));
 
 // Public CMS/branding assets — register before /api/images/:auditId/:filename so
 // segment names like "heroes" are not captured as audit ids (see protected-images.ts).

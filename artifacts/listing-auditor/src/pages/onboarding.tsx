@@ -394,7 +394,7 @@ export default function Onboarding() {
   });
 
   const saveProfileMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!isApiAuthReady()) {
         throw new Error("Still signing you in — wait a moment and try again.");
       }

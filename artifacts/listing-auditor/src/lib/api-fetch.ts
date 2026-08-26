@@ -116,7 +116,7 @@ export async function readApiJson<T>(res: Response): Promise<T> {
     if (!res.ok) {
       throw new ApiFetchError(
         res.status === 401
-          ? "Sign in again to continue."
+          ? "Your session could not be verified. Sign out and sign in again on this site."
           : `Server error (${res.status}). Restart the API server after deploying the latest code.`,
         res.status,
       );
@@ -134,10 +134,11 @@ export async function readApiJson<T>(res: Response): Promise<T> {
   try {
     const data = JSON.parse(text) as T & { error?: string; message?: string };
     if (!res.ok) {
-      throw new ApiFetchError(
-        data.error ?? data.message ?? `Server error (${res.status})`,
-        res.status,
-      );
+      const raw = data.error ?? data.message ?? `Server error (${res.status})`;
+      const message = res.status === 401 && (!raw || raw === "Unauthorized")
+        ? "Your session could not be verified. Sign out and sign in again on this site."
+        : raw;
+      throw new ApiFetchError(message, res.status);
     }
     return data;
   } catch (error) {
