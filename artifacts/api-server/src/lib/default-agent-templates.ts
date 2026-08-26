@@ -12,7 +12,7 @@ import {
   type DefaultAgentDefinition,
 } from "./agent-registry.js";
 import { isMakeExecutionEnabled } from "./make-agent-client.js";
-import { ensureSellermateSchemaMigrated } from "./ensure-sellermate-schema.js";
+import { ensureSellermateAgentsSchemaMigrated } from "./ensure-sellermate-schema.js";
 import { replaceAgentTools } from "./workspace-agents.js";
 
 export const DEFAULT_AGENT_TEMPLATES_SETTINGS_KEY = "sellermate_default_agent_templates";
@@ -115,7 +115,7 @@ export async function loadDefaultAgentTemplates(): Promise<DefaultAgentTemplate[
 export async function saveDefaultAgentTemplates(
   templates: DefaultAgentTemplate[],
 ): Promise<DefaultAgentTemplate[]> {
-  await ensureSellermateSchemaMigrated();
+  await ensureSellermateAgentsSchemaMigrated();
   const normalized = normalizeTemplates(templates);
   const payload = JSON.stringify(normalized);
 
@@ -284,7 +284,7 @@ export async function syncWorkspaceDefaultAgents(
   workspaceId: number,
   templates?: DefaultAgentTemplate[],
 ): Promise<void> {
-  await ensureSellermateSchemaMigrated();
+  await ensureSellermateAgentsSchemaMigrated();
   const definitions = templates ?? await loadDefaultAgentTemplates();
   const executionProvider = isMakeExecutionEnabled() ? "make" : "native";
   const activeSlugs = definitions.map((row) => row.slug);
