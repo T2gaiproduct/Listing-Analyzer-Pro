@@ -28,7 +28,7 @@ if rg -q "invalid secret key" /tmp/clerk-env.json 2>/dev/null; then
   echo "  3. pm2 restart listing-auditor-api"
   echo "  4. Rebuild frontend if you changed VITE_CLERK_PUBLISHABLE_KEY"
   echo ""
-  echo "If using pk_test_ (development) keys, deploy latest main — frontend skips proxy for dev keys."
+  echo "Ensure CLERK_SECRET_KEY matches the same Clerk instance as VITE_CLERK_PUBLISHABLE_KEY."
   exit 1
 fi
 
