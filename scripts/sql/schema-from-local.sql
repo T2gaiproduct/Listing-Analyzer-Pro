@@ -499,10 +499,10 @@ CREATE TABLE IF NOT EXISTS "sellermate_agents" (
   "execution_provider" text DEFAULT 'native'::text NOT NULL,
   "make_agent_id" text,
   "is_default" integer DEFAULT 0 NOT NULL,
-  "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL,
-  "updated_at" timestamp DEFAULT now() NOT NULL
+  "updated_at" timestamp DEFAULT now() NOT NULL,
+  "is_deleted" integer DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "sellermate_memory" (
@@ -525,10 +525,10 @@ CREATE TABLE IF NOT EXISTS "sellermate_messages" (
   "thread_id" integer NOT NULL,
   "role" text NOT NULL,
   "content" text NOT NULL,
+  "metadata" text,
   "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
-  "created_at" timestamp DEFAULT now() NOT NULL,
-  "metadata" text
+  "created_at" timestamp DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "sellermate_threads" (
@@ -1139,10 +1139,10 @@ ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "status" text DEFAULT '
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "execution_provider" text DEFAULT 'native'::text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "make_agent_id" text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_default" integer DEFAULT 0;
-ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now();
+ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "agent_id" integer;
@@ -1161,10 +1161,10 @@ ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "thread_id" integer;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "role" text;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "content" text;
+ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "metadata" text;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
-ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "metadata" text;
 
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "agent_id" integer;

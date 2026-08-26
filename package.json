@@ -8,6 +8,7 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "db:sync-local": "bash scripts/sync-local-db.sh",
+    "db:sync-local-from-production": "bash scripts/sync-local-from-production.sh",
     "db:sync-production": "bash scripts/sync-production-db.sh",
     "db:sync-default-agents": "pnpm --filter @workspace/db exec tsx ../../scripts/sync-default-agents.ts",
     "db:generate-schema": "bash scripts/generate-additive-schema-from-local.sh",
