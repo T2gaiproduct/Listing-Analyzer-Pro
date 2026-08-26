@@ -244,6 +244,14 @@ configure_clerk_proxy_for_tunnel() {
   local host="${public_url#https://}"
   local secret="${CLERK_SEC_FOR_STACK:-${CLERK_SECRET_KEY:-}}"
 
+  # Never repoint the shared Clerk primary domain to a random *.trycloudflare.com URL —
+  # that breaks https://sellerlens.io/sign-in for all production users until restored.
+  if [[ "$host" == *".trycloudflare.com" ]]; then
+    echo "WARNING: Skipping Clerk dashboard proxy_url update for quick tunnel ($host)." >&2
+    echo "         Production stays on sellerlens.io; dev sign-in uses same-origin /api/__clerk." >&2
+    return 0
+  fi
+
   if [[ -z "$secret" ]]; then
     echo "WARNING: CLERK_SECRET_KEY missing — skipping Clerk proxy configuration" >&2
     return 1
@@ -421,8 +429,10 @@ if [[ -n "$PUBLIC_URL" ]]; then
     echo "==> Enabling Clerk proxy for Cloudflare (required for sign-in on trycloudflare.com)"
   fi
   CLERK_PROXY_FOR_STACK="${PUBLIC_URL}/api/__clerk"
-  if ! should_skip_cloudflare_tunnel; then
+  if using_named_cloudflare_tunnel; then
     configure_clerk_proxy_for_tunnel "$PUBLIC_URL"
+  elif ! should_skip_cloudflare_tunnel; then
+    echo "==> Quick Cloudflare tunnel: leaving Clerk production proxy_url unchanged (sellerlens.io)" >&2
   fi
   if ! should_skip_cloudflare_tunnel; then
     configure_amazon_redirect_for_tunnel "$PUBLIC_URL"
@@ -455,7 +465,11 @@ if [[ -n "$PUBLIC_URL" ]]; then
     export BASE_PATH=/
     export VITE_DISABLE_HMR=true
     export VITE_CLERK_PUBLISHABLE_KEY='$CLERK_PUB_FOR_STACK'
-    export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'
+    # Same-origin /api/__clerk on *.trycloudflare.com (see App.tsx resolveClerkProxyUrl).
+    # Do not bake an absolute trycloudflare URL — it goes stale and breaks Clerk when the tunnel restarts.
+    if using_named_cloudflare_tunnel; then
+      export VITE_CLERK_PROXY_URL='$CLERK_PROXY_FOR_STACK'
+    fi
     export VITE_ADMIN_USER_IDS='$ADMIN_IDS_FOR_STACK'
     while true; do
       pnpm --filter @workspace/listing-auditor run dev || true
