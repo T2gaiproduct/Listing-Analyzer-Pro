@@ -197,6 +197,11 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function resolveClerkProxyUrl(): string | undefined {
   if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
+  // Development Clerk keys use direct FAPI. The /api/__clerk proxy needs a matching secret on the
+  // API server; a mismatched CLERK_SECRET_KEY blanks sign-in with proxy_request_invalid_secret_key.
+  if (clerkPubKey.startsWith("pk_test_")) {
+    return undefined;
+  }
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
     // Quick Cloudflare URLs are ephemeral; Clerk dashboard proxy_url stays on sellerlens.io.
@@ -205,7 +210,7 @@ function resolveClerkProxyUrl(): string | undefined {
       return undefined;
     }
     if (host === "sellerlens.io" || host === "www.sellerlens.io") {
-      // Relative proxy URL keeps Clerk JS + FAPI on the app origin (required for OAuth on custom domains).
+      // Relative proxy URL keeps Clerk JS + FAPI on the app origin (required for live OAuth).
       const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
       return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
     }
