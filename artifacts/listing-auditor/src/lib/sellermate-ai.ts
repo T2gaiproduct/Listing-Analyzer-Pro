@@ -181,6 +181,28 @@ export async function uploadSellermateMemoryFile(
   return data.memory;
 }
 
+export async function uploadDefaultAgentMemoryFile(
+  slug: string,
+  input: { name: string; description?: string; filename: string; fileBase64: string },
+): Promise<SellermateMemory> {
+  const data = await fetchJson<{
+    memory: { id: string; name: string; description?: string; content: string };
+  }>(`${basePath}/api/admin/sellermate/default-agents/${encodeURIComponent(slug)}/memory/upload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const memory = data.memory;
+  return {
+    id: 0,
+    agentId: 0,
+    name: memory.name,
+    description: memory.description,
+    content: memory.content,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export async function deleteSellermateMemory(agentId: number, memoryId: number): Promise<void> {
   await fetchJson(`${basePath}/api/sellermate/agents/${agentId}/memory/${memoryId}`, { method: "DELETE" });
 }

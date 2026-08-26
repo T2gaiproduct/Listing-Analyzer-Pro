@@ -36,6 +36,7 @@ import {
   sendSellermateChat,
   updateSellermateAgent,
   uploadSellermateMemoryFile,
+  uploadDefaultAgentMemoryFile,
   type AgentToolConfig,
   type AgentToolDefinition,
   type SellermateAgent,
@@ -52,7 +53,8 @@ import {
   defaultAgentToolSelection,
   mergeAgentToolSelection,
 } from "@/lib/sellermate-agent-tools";
-import { isImageMemoryFile, memoryFileToBase64, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
+import { isImageMemoryFile, memoryFileToBase64, memoryUploadValidationError, titleFromMemoryFilename } from "@/lib/sellermate-memory-upload";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 function agentIcon(icon: string) {
   switch (icon) {
@@ -77,6 +79,7 @@ function defaultToolSelection(catalog: AgentToolDefinition[]): AgentToolConfig[]
 
 export default function SellerMateAiPage() {
   const { toast } = useToast();
+  const { isAdmin } = useIsAdmin();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -123,6 +126,11 @@ export default function SellerMateAiPage() {
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null;
   const isDefaultAgentSelected = selectedAgent?.isDefault ?? false;
+  const canUploadMemory = Boolean(
+    selectedAgentId
+    && selectedAgent
+    && (!selectedAgent.isDefault || (isAdmin && selectedAgent.slug)),
+  );
 
   const threadsQuery = useQuery({
     queryKey: ["sellermate-threads", selectedAgentId],
@@ -283,12 +291,26 @@ export default function SellerMateAiPage() {
   });
 
   const uploadMemoryMutation = useMutation({
-    mutationFn: (input: { name: string; description?: string; filename: string; fileBase64: string }) =>
-      uploadSellermateMemoryFile(selectedAgentId!, input),
+    mutationFn: async (input: { name: string; description?: string; filename: string; fileBase64: string }) => {
+      if (!selectedAgent || !selectedAgentId) {
+        throw new Error("Select an agent first.");
+      }
+      if (selectedAgent.isDefault) {
+        const slug = selectedAgent.slug?.trim();
+        if (!slug) {
+          throw new Error("Upload shared memory from Admin → Default Agents.");
+        }
+        return uploadDefaultAgentMemoryFile(slug, input);
+      }
+      return uploadSellermateMemoryFile(selectedAgentId, input);
+    },
     onSuccess: (memory) => {
       void queryClient.invalidateQueries({ queryKey: ["sellermate-memory", selectedAgentId] });
       setUploadMemoryOpen(false);
-      toast({ title: "Memory uploaded", description: memory.name });
+      toast({
+        title: isDefaultAgentSelected ? "Shared memory uploaded" : "Memory uploaded",
+        description: memory.name,
+      });
     },
     onError: (error) => {
       toast({
@@ -298,6 +320,16 @@ export default function SellerMateAiPage() {
       });
     },
   });
+
+  const attachDisabledReason = !selectedAgentId
+    ? "Select an agent first."
+    : uploadMemoryMutation.isPending
+      ? "Upload in progress…"
+      : isDefaultAgentSelected && !isAdmin
+        ? "Shared memory is managed by your administrator."
+        : isDefaultAgentSelected && isAdmin && !selectedAgent?.slug
+          ? "Upload shared memory from Admin → Default Agents."
+          : undefined;
 
   function resetAgentForm() {
     setNewAgentName("");
@@ -398,7 +430,26 @@ export default function SellerMateAiPage() {
   }
 
   async function handleChatMemoryFile(file: File) {
-    if (!selectedAgentId) return;
+    if (!selectedAgentId || !canUploadMemory) return;
+
+    const validationError = memoryUploadValidationError(file);
+    if (validationError) {
+      toast({
+        title: "Unsupported file",
+        description: validationError,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Memory files must be 10 MB or smaller.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const attachmentId = crypto.randomUUID();
     const previewUrl = isImageMemoryFile(file) ? URL.createObjectURL(file) : null;
@@ -428,17 +479,12 @@ export default function SellerMateAiPage() {
           attachment.id === attachmentId ? { ...attachment, uploadStatus: "done" } : attachment,
         ),
       );
-    } catch (error) {
+    } catch {
       setPendingAttachments((current) =>
         current.map((attachment) =>
           attachment.id === attachmentId ? { ...attachment, uploadStatus: "error" } : attachment,
         ),
       );
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "Could not read the selected file.",
-        variant: "destructive",
-      });
     }
   }
 
@@ -497,11 +543,11 @@ export default function SellerMateAiPage() {
             open={memoryOpen}
             onToggle={() => setMemoryOpen((v) => !v)}
             action={
-              !isDefaultAgentSelected ? (
+              canUploadMemory ? (
                 <button
                   type="button"
                   onClick={() => setUploadMemoryOpen(true)}
-                  disabled={!selectedAgentId}
+                  disabled={!selectedAgentId || uploadMemoryMutation.isPending}
                   className="text-slate-400 hover:text-slate-700 disabled:opacity-40"
                   aria-label="Add memory"
                 >
@@ -510,9 +556,14 @@ export default function SellerMateAiPage() {
               ) : undefined
             }
           >
-            {isDefaultAgentSelected && (
+            {isDefaultAgentSelected && !isAdmin && (
               <p className="px-2 text-[11px] text-slate-400">
                 Shared memory is managed by your administrator.
+              </p>
+            )}
+            {isDefaultAgentSelected && isAdmin && (
+              <p className="px-2 text-[11px] text-slate-400">
+                Uploads here are shared with every seller workspace for this default agent.
               </p>
             )}
             {memoryFiles.length === 0 ? (
@@ -636,7 +687,8 @@ export default function SellerMateAiPage() {
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
                   <SellermateChatAttachMenu
-                    disabled={!selectedAgentId || uploadMemoryMutation.isPending || isDefaultAgentSelected}
+                    disabled={!canUploadMemory || uploadMemoryMutation.isPending}
+                    disabledReason={attachDisabledReason}
                     onFileSelected={(file) => void handleChatMemoryFile(file)}
                   />
                 </div>
