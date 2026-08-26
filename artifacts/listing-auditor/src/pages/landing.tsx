@@ -761,7 +761,12 @@ export default function Landing() {
             <Button size="lg" className="bg-orange-500 hover:bg-orange-600 px-3 sm:px-8 flex-1 sm:flex-none min-w-0 text-sm sm:text-base h-11 sm:h-12" asChild>
               <Link href={cmsText(cms, "cta.primary_url")}>{cmsText(cms, "cta.primary_text")}</Link>
             </Button>
-            <Button size="lg" variant="outline" className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12" asChild>
+            <Button
+              size="lg"
+              variant="outline"
+              className="px-3 sm:px-8 flex-1 sm:flex-none min-w-0 gap-1.5 sm:gap-2 text-sm sm:text-base h-11 sm:h-12 border-slate-300 bg-white text-slate-900 hover:bg-slate-50 shadow-sm"
+              asChild
+            >
               <Link href={cmsText(cms, "cta.secondary_url")} className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
                 <Play className="w-4 h-4 shrink-0" />
                 <span className="truncate">{cmsText(cms, "cta.secondary_text")}</span>
