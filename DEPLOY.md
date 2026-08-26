@@ -312,7 +312,7 @@ pm2 restart listing-auditor-api
 | API 502 | PM2 crashed — run `pm2 logs` to see the error |
 | Blank page | Check `dist/` was built, Nginx root path is correct |
 | Clerk auth failing | Ensure production keys are set, domain is whitelisted in Clerk |
-| Blank sign-in / `invalid secret key` on `/api/__clerk` | `CLERK_SECRET_KEY` must match `VITE_CLERK_PUBLISHABLE_KEY` (same Clerk instance). Run `bash scripts/verify-clerk-proxy.sh https://sellerlens.io`. With `pk_test_` keys, deploy latest frontend (uses direct Clerk, no proxy). For live traffic use `pk_live_` / `sk_live_` and matching proxy. |
+| Blank sign-in / `invalid secret key` on `/api/__clerk` | `CLERK_SECRET_KEY` must match `VITE_CLERK_PUBLISHABLE_KEY` (same Clerk instance). Run `bash scripts/verify-clerk-proxy.sh https://sellerlens.io`. **Dev keys (`pk_test_`) cannot use the Clerk proxy** — deploy latest frontend (skips proxy for `pk_test_`). For live traffic use **production** Clerk keys (`pk_live_` / `sk_live_`), set `proxy_url` to `https://sellerlens.io/api/__clerk` on the **production** Clerk instance (`bash scripts/fix-clerk-production-proxy.sh`), then rebuild and restart. |
 | DB connection refused | Check `DATABASE_URL` format and firewall rules |
 | `column "login_email" does not exist` | Run Step 5 Option B SQL script or `pnpm --filter @workspace/db run push` |
 | `workspace_members` errors | Same — production needs workspace RBAC schema (Step 5) |

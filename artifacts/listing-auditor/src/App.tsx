@@ -197,22 +197,21 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function resolveClerkProxyUrl(): string | undefined {
   if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
+  // Clerk proxy_url only works on production instances (pk_live_). Development keys
+  // (pk_test_) must use direct FAPI — proxying returns proxy_request_invalid_secret_key.
+  if (clerkPubKey.startsWith("pk_test_")) {
+    return undefined;
+  }
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    // Quick Cloudflare URLs are ephemeral; Clerk dashboard proxy_url stays on sellerlens.io.
-    // Routing FAPI through /api/__clerk on *.trycloudflare.com returns host_invalid.
+    // Quick Cloudflare URLs are ephemeral; routing FAPI through /api/__clerk returns host_invalid.
     if (host.endsWith(".trycloudflare.com")) {
       return undefined;
     }
-    // Production domain always uses same-origin proxy (required for Google OAuth callbacks).
     if (host === "sellerlens.io" || host === "www.sellerlens.io") {
       const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
       return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
     }
-  }
-  // Other dev hosts with pk_test_ keys use direct FAPI when the API secret may not match.
-  if (clerkPubKey.startsWith("pk_test_")) {
-    return undefined;
   }
   return undefined;
 }
