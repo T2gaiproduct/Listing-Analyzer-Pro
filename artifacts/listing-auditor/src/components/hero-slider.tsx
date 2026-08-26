@@ -275,7 +275,7 @@ function HeroSlideCtas({
             "flex-1 min-w-0 px-3 sm:px-6 gap-1.5 sm:gap-2",
             mobileOverlay
               ? "h-10 text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/15 text-white border border-white/25"
-              : "text-xs sm:text-base h-11 sm:h-12",
+              : "text-xs sm:text-base h-11 sm:h-12 border-slate-300 bg-white text-slate-900 hover:bg-slate-50 shadow-sm",
             overlay && !mobileOverlay && "bg-white/95 hover:bg-white text-slate-900 border-0",
           )}
           asChild

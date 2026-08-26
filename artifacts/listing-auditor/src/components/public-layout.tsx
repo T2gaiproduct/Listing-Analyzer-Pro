@@ -69,7 +69,7 @@ function NavCtaButton({
         primary
           ? "bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm"
           : stacked
-            ? "w-full min-h-11"
+            ? "w-full min-h-11 border-slate-300 text-slate-900 bg-white hover:bg-slate-50"
             : "hidden sm:inline-flex text-slate-600 hover:text-slate-900",
         className,
       )}
@@ -143,7 +143,7 @@ function HeaderActionButtons({
       <Button
         variant={stacked ? "outline" : "ghost"}
         size="sm"
-        className={stacked ? "w-full min-h-11" : "hidden sm:inline-flex text-slate-600 hover:text-slate-900 w-full min-h-11 sm:w-auto"}
+        className={stacked ? "w-full min-h-11 border-slate-300 text-slate-900 bg-white hover:bg-slate-50" : "hidden sm:inline-flex text-slate-600 hover:text-slate-900 w-full min-h-11 sm:w-auto"}
         asChild
       >
         <Link href={signInUrl} onClick={onNavigate}>{signInText}</Link>
@@ -220,7 +220,10 @@ export function PublicNav() {
       </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="right" className="w-[min(100vw-3rem,20rem)] p-0 flex flex-col lg:hidden">
+        <SheetContent
+          side="right"
+          className="w-[min(100vw-3rem,20rem)] p-0 flex flex-col lg:hidden bg-white text-slate-900 border-slate-200 [&>button]:text-slate-600 [&>button]:hover:text-slate-900 [&>button]:opacity-100"
+        >
           <SheetTitle className="sr-only">Site navigation</SheetTitle>
           <div className="flex items-center gap-2.5 px-4 py-4 pr-12 border-b border-slate-200">
             <Link href="/" className="flex items-center gap-2.5 font-bold text-lg min-w-0" onClick={() => setMobileOpen(false)}>
