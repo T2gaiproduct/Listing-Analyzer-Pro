@@ -199,12 +199,13 @@ function resolveClerkProxyUrl(): string | undefined {
   if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    const useSameOriginProxy =
-      host.endsWith(".trycloudflare.com")
-      || host === "sellerlens.io"
-      || host === "www.sellerlens.io";
-    if (useSameOriginProxy) {
-      // Relative proxy URL keeps Clerk JS + FAPI on the app origin (required for OAuth on custom domains and Cloudflare previews).
+    // Quick Cloudflare URLs are ephemeral; Clerk dashboard proxy_url stays on sellerlens.io.
+    // Routing FAPI through /api/__clerk on *.trycloudflare.com returns host_invalid.
+    if (host.endsWith(".trycloudflare.com")) {
+      return undefined;
+    }
+    if (host === "sellerlens.io" || host === "www.sellerlens.io") {
+      // Relative proxy URL keeps Clerk JS + FAPI on the app origin (required for OAuth on custom domains).
       const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
       return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
     }
