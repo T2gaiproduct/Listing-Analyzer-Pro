@@ -104,6 +104,7 @@ function HeaderActionButtons({
   ctaText,
   ctaUrl,
   stacked,
+  includeGetStarted = true,
   onNavigate,
 }: {
   headerCtas: NavLink[];
@@ -114,6 +115,7 @@ function HeaderActionButtons({
   ctaText: string;
   ctaUrl: string;
   stacked?: boolean;
+  includeGetStarted?: boolean;
   onNavigate?: () => void;
 }) {
   if (isLoading) return null;
@@ -146,16 +148,18 @@ function HeaderActionButtons({
       >
         <Link href={signInUrl} onClick={onNavigate}>{signInText}</Link>
       </Button>
-      <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm w-full min-h-11 sm:w-auto" asChild>
-        <Link href={ctaUrl} onClick={onNavigate}>
-          {stacked ? ctaText : (
-            <>
-              <span className="sm:hidden">{ctaText.split(" ").slice(0, 2).join(" ")}</span>
-              <span className="hidden sm:inline">{ctaText}</span>
-            </>
-          )}
-        </Link>
-      </Button>
+      {includeGetStarted && (
+        <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-3 sm:px-4 text-xs sm:text-sm w-full min-h-11 sm:w-auto" asChild>
+          <Link href={ctaUrl} onClick={onNavigate}>
+            {stacked ? ctaText : (
+              <>
+                <span className="sm:hidden">{ctaText.split(" ").slice(0, 2).join(" ")}</span>
+                <span className="hidden sm:inline">{ctaText}</span>
+              </>
+            )}
+          </Link>
+        </Button>
+      )}
     </>
   );
 }
@@ -249,6 +253,7 @@ export function PublicNav() {
                 ctaText={ctaText}
                 ctaUrl={ctaUrl}
                 stacked
+                includeGetStarted={false}
                 onNavigate={() => setMobileOpen(false)}
               />
             </div>
