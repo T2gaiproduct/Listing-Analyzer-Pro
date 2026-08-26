@@ -1,6 +1,5 @@
 import { CheckCircle2, Loader2, MessageCircle, Send, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,71 +146,45 @@ export function LiveChatWidget() {
             )}
 
             {!submitted && (
-              <>
-                <div className="space-y-2">
-                  <Link
-                    href="/help"
-                    onClick={() => handleOpenChange(false)}
-                    className="block w-full text-left px-3 py-2 rounded-lg bg-slate-50 hover:bg-orange-50 text-sm text-slate-700 hover:text-orange-700 transition-colors"
-                  >
-                    Browse Help Center
-                  </Link>
-                  <Link
-                    href="/tutorials"
-                    onClick={() => handleOpenChange(false)}
-                    className="block w-full text-left px-3 py-2 rounded-lg bg-slate-50 hover:bg-orange-50 text-sm text-slate-700 hover:text-orange-700 transition-colors"
-                  >
-                    Watch Tutorials
-                  </Link>
-                  <Link
-                    href="/contact"
-                    onClick={() => handleOpenChange(false)}
-                    className="block w-full text-left px-3 py-2 rounded-lg bg-slate-50 hover:bg-orange-50 text-sm text-slate-700 hover:text-orange-700 transition-colors"
-                  >
-                    Send us an email
-                  </Link>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-2 pt-1">
-                  {!signedInEmail && (
-                    <Input
-                      type="email"
-                      placeholder="Your email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-9 text-sm"
-                      required
-                      disabled={submitting}
-                    />
-                  )}
-                  <Textarea
-                    placeholder="Type your question…"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    className="min-h-[72px] resize-none text-sm"
+              <form onSubmit={handleSubmit} className="space-y-2">
+                {!signedInEmail && (
+                  <Input
+                    type="email"
+                    placeholder="Your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-9 text-sm"
                     required
                     disabled={submitting}
                   />
-                  {error && <p className="text-xs text-red-600">{error}</p>}
-                  <Button
-                    type="submit"
-                    className="w-full h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm"
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Sending…
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Send message
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </>
+                )}
+                <Textarea
+                  placeholder="Type your question…"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="min-h-[72px] resize-none text-sm"
+                  required
+                  disabled={submitting}
+                />
+                {error && <p className="text-xs text-red-600">{error}</p>}
+                <Button
+                  type="submit"
+                  className="w-full h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send message
+                    </>
+                  )}
+                </Button>
+              </form>
             )}
           </div>
 
