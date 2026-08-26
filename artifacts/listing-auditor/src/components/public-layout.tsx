@@ -95,6 +95,23 @@ function NavCtaButton({
   );
 }
 
+function visibleMobileHeaderCtas(
+  headerCtas: NavLink[],
+  includeGetStarted: boolean,
+  ctaText: string,
+  ctaUrl: string,
+): NavLink[] {
+  if (includeGetStarted) return headerCtas;
+  if (headerCtas.length > 1) return headerCtas.slice(0, -1);
+  const lone = headerCtas[0];
+  if (!lone) return [];
+  const isGetStartedCta =
+    lone.href === ctaUrl ||
+    lone.label.trim().toLowerCase() === ctaText.trim().toLowerCase() ||
+    lone.label.toLowerCase().includes("get started");
+  return isGetStartedCta ? [] : headerCtas;
+}
+
 function HeaderActionButtons({
   headerCtas,
   useAdminOnly,
@@ -121,15 +138,19 @@ function HeaderActionButtons({
   if (isLoading) return null;
 
   if (useAdminOnly || headerCtas.length > 0) {
-    if (headerCtas.length === 0) return null;
+    const visibleCtas = stacked
+      ? visibleMobileHeaderCtas(headerCtas, includeGetStarted, ctaText, ctaUrl)
+      : headerCtas;
+
+    if (visibleCtas.length === 0) return null;
 
     return (
       <>
-        {headerCtas.map((cta, index) => (
+        {visibleCtas.map((cta, index) => (
           <NavCtaButton
             key={cta.id}
             cta={cta}
-            primary={index === headerCtas.length - 1}
+            primary={index === visibleCtas.length - 1}
             stacked={stacked}
             onClick={onNavigate}
           />
@@ -245,7 +266,10 @@ export function PublicNav() {
               />
             ))}
           </nav>
-          {!isLoading && (hasHeaderNavConfig ? headerCtas.length > 0 : true) && (
+          {!isLoading &&
+            (hasHeaderNavConfig
+              ? visibleMobileHeaderCtas(headerCtas, false, ctaText, ctaUrl).length > 0
+              : true) && (
             <div className="p-4 border-t border-slate-200 space-y-2">
               <HeaderActionButtons
                 headerCtas={headerCtas}
