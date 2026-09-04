@@ -515,9 +515,18 @@ router.post("/admin/customers/:userId/reconcile-paypal", requireAdmin, async (re
   }
 });
 
-router.post("/admin/settings/test-paypal", requireAdmin, async (_req, res): Promise<void> => {
+router.post("/admin/settings/test-paypal", requireAdmin, async (req, res): Promise<void> => {
+  const body = (req.body ?? {}) as {
+    paypal_client_id?: string;
+    paypal_client_secret?: string;
+    paypal_mode?: string;
+  };
   try {
-    const { mode } = await testPayPalCredentials();
+    const { mode } = await testPayPalCredentials({
+      clientId: body.paypal_client_id,
+      clientSecret: body.paypal_client_secret,
+      mode: body.paypal_mode,
+    });
     res.json({
       ok: true,
       message: `PayPal credentials are valid (${mode} mode).`,
@@ -1672,14 +1681,18 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
   for (const [key, value] of Object.entries(settings as Record<string, string>)) {
     if (value === "***") continue;
     const isSecret = SECRET_KEYS.has(key);
+    const normalizedValue =
+      category === "payment_gateway" && (key === "paypal_client_id" || key === "paypal_client_secret" || key === "paypal_mode")
+        ? value.trim()
+        : value;
     const [existing] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
-    if (isSecret && !value.trim() && existing?.value) continue;
+    if (isSecret && !normalizedValue.trim() && existing?.value) continue;
     if (existing) {
       await db.update(settingsTable)
-        .set({ value, category, isSecret, updatedAt: new Date() })
+        .set({ value: normalizedValue, category, isSecret, updatedAt: new Date() })
         .where(eq(settingsTable.key, key));
     } else {
-      await db.insert(settingsTable).values({ key, value, category, isSecret });
+      await db.insert(settingsTable).values({ key, value: normalizedValue, category, isSecret });
     }
   }
 
