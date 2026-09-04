@@ -110,6 +110,14 @@ export default function AdminSettingsPaymentGateway() {
       fetch(`${basePath}/api/admin/settings/test-paypal`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paypal_client_id: form.paypal_client_id.trim(),
+          paypal_mode: form.paypal_mode,
+          ...(form.paypal_client_secret.trim()
+            ? { paypal_client_secret: form.paypal_client_secret.trim() }
+            : {}),
+        }),
       }).then(async (r) => {
         const d = await r.json() as { ok?: boolean; message?: string; error?: string };
         if (!r.ok || !d.ok) throw new Error(d.error ?? "PayPal test failed");
@@ -257,7 +265,10 @@ export default function AdminSettingsPaymentGateway() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">Client ID</label>
-                  <Input value={form.paypal_client_id} onChange={(e) => setForm({ ...form, paypal_client_id: e.target.value })} />
+                  <Input
+                    value={form.paypal_client_id}
+                    onChange={(e) => setForm({ ...form, paypal_client_id: e.target.value.trim() })}
+                  />
                 </div>
                 <SecretInput
                   label="Client Secret"
@@ -304,7 +315,7 @@ export default function AdminSettingsPaymentGateway() {
         </div>
         {paypalEnabled && (
           <p className="text-xs text-slate-500">
-            Use <strong>Test PayPal connection</strong> to verify Client ID and Client Secret against PayPal (secret stays hidden in the form).
+            <strong>Test PayPal connection</strong> checks the Client ID and Secret in this form (paste the secret if it is hidden). Save settings after a successful test.
           </p>
         )}
       </div>

@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db, paymentsTable } from "@workspace/db";
-import { getPayPalAccessToken, getGatewaySettings } from "./paypal-client";
+import { getGatewaySettings, requestPayPalAccessToken } from "./paypal-client";
 import { fulfillGatewayPaymentIntent } from "./gateway-payment";
 import { logger } from "./logger";
 
@@ -102,7 +102,12 @@ export async function tryFulfillPayPalOrder(
   orderId: string,
 ): Promise<PayPalReconcileRow & { result?: Awaited<ReturnType<typeof fulfillGatewayPaymentIntent>> }> {
   try {
-    const { token, baseUrl } = await getPayPalAccessToken();
+    const s = await getGatewaySettings();
+    const { token, baseUrl } = await requestPayPalAccessToken({
+      clientId: s.paypal_client_id ?? "",
+      clientSecret: s.paypal_client_secret ?? "",
+      mode: s.paypal_mode,
+    });
     const capture = await resolvePayPalOrderCapture(token, baseUrl, orderId);
 
     const captureUnit = capture.purchase_units?.[0]?.payments?.captures?.[0];
@@ -146,7 +151,12 @@ export async function tryFulfillPayPalOrder(
   } catch (err) {
     let paypalStatus: string | undefined;
     try {
-      const { token, baseUrl } = await getPayPalAccessToken();
+      const s = await getGatewaySettings();
+      const { token, baseUrl } = await requestPayPalAccessToken({
+        clientId: s.paypal_client_id ?? "",
+        clientSecret: s.paypal_client_secret ?? "",
+        mode: s.paypal_mode,
+      });
       const order = await fetchPayPalOrder(token, baseUrl, orderId);
       paypalStatus = order.status;
     } catch {
@@ -186,16 +196,24 @@ export async function reconcileUserPendingPayPalPayments(userId: string): Promis
   return results;
 }
 
-/** Verify stored PayPal client id + secret can obtain an access token. */
-export async function testPayPalCredentials(): Promise<{ ok: true; mode: string }> {
+/** Verify PayPal client id + secret can obtain an access token (saved settings or explicit overrides). */
+export async function testPayPalCredentials(overrides?: {
+  clientId?: string;
+  clientSecret?: string;
+  mode?: string;
+}): Promise<{ ok: true; mode: string }> {
   const s = await getGatewaySettings();
-  const mode = s.paypal_mode ?? "sandbox";
-  if (s.paypal_enabled !== "true") {
+  const mode = overrides?.mode?.trim() || s.paypal_mode || "sandbox";
+  const clientId = overrides?.clientId?.trim() || s.paypal_client_id?.trim() || "";
+  const clientSecret = overrides?.clientSecret?.trim() || s.paypal_client_secret?.trim() || "";
+
+  if (!overrides && s.paypal_enabled !== "true") {
     throw new Error("PayPal is not enabled in payment gateway settings");
   }
-  if (!s.paypal_client_id?.trim() || !s.paypal_client_secret?.trim()) {
-    throw new Error("PayPal Client ID and Client Secret must both be saved");
+  if (!clientId || !clientSecret) {
+    throw new Error("PayPal Client ID and Client Secret are required. Paste the secret and save, or enter it before testing.");
   }
-  await getPayPalAccessToken();
-  return { ok: true, mode };
+
+  const result = await requestPayPalAccessToken({ clientId, clientSecret, mode });
+  return { ok: true, mode: result.mode };
 }
