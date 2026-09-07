@@ -195,24 +195,32 @@ const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 const clerkProxyUrlFromEnv = import.meta.env.VITE_CLERK_PROXY_URL as string | undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function sameOriginClerkProxyPath(): string {
+  const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
+  return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
+}
+
 function resolveClerkProxyUrl(): string | undefined {
   if (clerkProxyUrlFromEnv?.trim()) return clerkProxyUrlFromEnv.trim();
-  // Clerk proxy_url only works on production instances (pk_live_). Development keys
-  // (pk_test_) must use direct FAPI — proxying returns proxy_request_invalid_secret_key.
+  if (typeof window === "undefined") return undefined;
+
+  const host = window.location.hostname;
+  // Cloudflare preview + production domain: route Clerk FAPI through our API proxy.
+  // Quick tunnel hostnames change on restart; dev-stack updates Clerk proxy_url to match.
+  if (
+    host.endsWith(".trycloudflare.com")
+    || host === "sellerlens.io"
+    || host === "www.sellerlens.io"
+    || host.endsWith(".sellerlens.io")
+  ) {
+    return sameOriginClerkProxyPath();
+  }
+
+  // Local Vite (localhost): pk_test can use Clerk CDN directly.
   if (clerkPubKey.startsWith("pk_test_")) {
     return undefined;
   }
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    // Quick Cloudflare URLs are ephemeral; routing FAPI through /api/__clerk returns host_invalid.
-    if (host.endsWith(".trycloudflare.com")) {
-      return undefined;
-    }
-    if (host === "sellerlens.io" || host === "www.sellerlens.io") {
-      const proxyPath = `${basePath}/api/__clerk`.replace(/\/+/g, "/");
-      return proxyPath.startsWith("/") ? proxyPath : `/${proxyPath}`;
-    }
-  }
+
   return undefined;
 }
 
