@@ -68,12 +68,40 @@ export async function verifyShopifyConnection(input: {
     publicationsError = err instanceof Error ? err.message : "Could not read Shopify publications";
   }
 
+  let ordersOk = false;
+  let ordersError: string | null = null;
+  try {
+    await shopifyAdminRequest<{ orders: unknown[] }>({
+      shopHost,
+      accessToken,
+      method: "GET",
+      path: "/orders.json?limit=1&status=any",
+    });
+    ordersOk = true;
+  } catch (err) {
+    ordersError = err instanceof Error ? err.message : "Could not read orders from Shopify";
+  }
+
   // Functional probes are authoritative — if both succeed, the token has what we need.
   if (productsOk && publicationId) {
+    const grantedSet = new Set(grantedScopes);
+    const missingReadOrders = !grantedSet.has("read_orders");
+    if (ordersOk) {
+      return {
+        ok: true,
+        scopes: scope,
+        message: "Shopify connection verified for product publishing, Online Store, and order sync.",
+      };
+    }
+
+    const orderHint = missingReadOrders
+      ? "Add read_orders in Shopify Dev Dashboard, release the app version, reinstall on your store, then reconnect."
+      : "Confirm the app is installed on this store and has permission to read orders.";
+
     return {
       ok: true,
       scopes: scope,
-      message: "Shopify connection verified for product and Online Store publishing.",
+      message: `Shopify connection verified for products and Online Store publishing. Order sync is not available yet: ${ordersError ?? "missing read_orders scope"}. ${orderHint}`,
     };
   }
 

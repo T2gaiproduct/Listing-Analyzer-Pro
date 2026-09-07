@@ -105,7 +105,7 @@ function deriveSku(productName: string, id: number): string {
 }
 
 async function maybeRefreshShopifyOrders(req: Request, _auditId: number): Promise<void> {
-  await maybeRefreshMarketplaceOrders(req);
+  await maybeRefreshMarketplaceOrders(req, { force: true });
 }
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";

@@ -545,16 +545,28 @@ router.post(
         clientId: credentials?.clientId,
         clientSecret: credentials?.clientSecret,
       };
-      void syncShopifyOrders(orderSyncInput).catch((err) => {
+      let ordersImported = 0;
+      let ordersUpdated = 0;
+      let orderSyncErrors: string[] = [];
+      try {
+        const orderResult = await syncShopifyOrders(orderSyncInput);
+        ordersImported = orderResult.imported;
+        ordersUpdated = orderResult.updated;
+        orderSyncErrors = orderResult.errors;
+      } catch (err) {
         req.log?.error?.({ err }, "Shopify order sync failed");
-      });
+        orderSyncErrors = [err instanceof Error ? err.message : "Shopify order sync failed"];
+      }
 
       res.status(201).json({
         ...result,
         auditsCompleted: 0,
         auditsFailed: 0,
         auditsRemaining: 0,
-        ordersSyncQueued: true,
+        ordersImported,
+        ordersUpdated,
+        orderSyncErrors,
+        ordersSyncQueued: false,
       });
     } catch (err) {
       req.log?.error?.({ err }, "Shopify product sync failed");

@@ -1,7 +1,8 @@
-import { and, eq, like } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   auditsTable,
   db,
+  productMarketplaceListingsTable,
   productProfilesTable,
 } from "@workspace/db";
 import type { ProductOrderStatus } from "./product-orders.js";
@@ -65,43 +66,76 @@ function lineItemAmountCents(lineItem: ShopifyRestOrder["line_items"][number]): 
   return Math.round(safePrice * lineItem.quantity * 100);
 }
 
+function addSkuAlias(map: Map<string, number>, sku: string | null | undefined, auditId: number): void {
+  const normalized = sku?.trim().toLowerCase();
+  if (normalized) map.set(normalized, auditId);
+}
+
 async function loadShopifyAuditMatchers(workspaceId: number): Promise<{
   byHandle: Map<string, number>;
   bySku: Map<string, number>;
   byProductId: Map<number, number>;
+  byVariantId: Map<number, number>;
 }> {
   const rows = await db
     .select({
       auditId: auditsTable.id,
       asin: auditsTable.asin,
-      sku: productProfilesTable.sku,
+      profileSku: productProfilesTable.sku,
+      listingSku: productMarketplaceListingsTable.sku,
     })
     .from(auditsTable)
     .leftJoin(productProfilesTable, eq(productProfilesTable.auditId, auditsTable.id))
+    .leftJoin(
+      productMarketplaceListingsTable,
+      and(
+        eq(productMarketplaceListingsTable.auditId, auditsTable.id),
+        eq(productMarketplaceListingsTable.marketplace, "Shopify"),
+        eq(productMarketplaceListingsTable.isDeleted, 0),
+      ),
+    )
     .where(and(
       eq(auditsTable.workspaceId, workspaceId),
       eq(auditsTable.isDeleted, 0),
-      like(auditsTable.asin, "shopify:%"),
     ));
 
   const byHandle = new Map<string, number>();
   const bySku = new Map<string, number>();
+
   for (const row of rows) {
     const handle = shopifyHandleFromAsin(row.asin);
-    if (handle) byHandle.set(handle, row.auditId);
-    const sku = row.sku?.trim();
-    if (sku) bySku.set(sku.toLowerCase(), row.auditId);
+    if (handle) {
+      byHandle.set(handle, row.auditId);
+      addSkuAlias(bySku, handle, row.auditId);
+      addSkuAlias(bySku, handle.toUpperCase(), row.auditId);
+    }
+
+    for (const sku of [row.profileSku, row.listingSku]) {
+      addSkuAlias(bySku, sku, row.auditId);
+    }
+
+    addSkuAlias(bySku, `sl-${row.auditId}`, row.auditId);
   }
 
-  return { byHandle, bySku, byProductId: new Map() };
+  return {
+    byHandle,
+    bySku,
+    byProductId: new Map(),
+    byVariantId: new Map(),
+  };
 }
 
-async function buildProductIdMap(opts: {
+async function buildShopifyCatalogMatchers(opts: {
   shopHost: string;
   accessToken: string;
   byHandle: Map<string, number>;
-}): Promise<Map<number, number>> {
+  bySku: Map<string, number>;
+}): Promise<{
+  byProductId: Map<number, number>;
+  byVariantId: Map<number, number>;
+}> {
   const byProductId = new Map<number, number>();
+  const byVariantId = new Map<number, number>();
   const products = await listShopifyProducts({
     shopHost: opts.shopHost,
     accessToken: opts.accessToken,
@@ -109,11 +143,24 @@ async function buildProductIdMap(opts: {
   });
 
   for (const product of products) {
-    const auditId = opts.byHandle.get(product.handle);
-    if (auditId) byProductId.set(product.id, auditId);
+    let auditId = opts.byHandle.get(product.handle) ?? null;
+
+    for (const variant of product.variants ?? []) {
+      const sku = variant.sku?.trim().toLowerCase();
+      if (!auditId && sku && opts.bySku.has(sku)) {
+        auditId = opts.bySku.get(sku)!;
+      }
+    }
+
+    if (!auditId) continue;
+
+    byProductId.set(product.id, auditId);
+    for (const variant of product.variants ?? []) {
+      if (variant.id) byVariantId.set(variant.id, auditId);
+    }
   }
 
-  return byProductId;
+  return { byProductId, byVariantId };
 }
 
 function resolveAuditIdForLineItem(
@@ -122,11 +169,16 @@ function resolveAuditIdForLineItem(
     byHandle: Map<string, number>;
     bySku: Map<string, number>;
     byProductId: Map<number, number>;
+    byVariantId: Map<number, number>;
   },
 ): number | null {
   const sku = lineItem.sku?.trim().toLowerCase();
   if (sku && matchers.bySku.has(sku)) {
     return matchers.bySku.get(sku)!;
+  }
+
+  if (lineItem.variant_id && matchers.byVariantId.has(lineItem.variant_id)) {
+    return matchers.byVariantId.get(lineItem.variant_id)!;
   }
 
   if (lineItem.product_id && matchers.byProductId.has(lineItem.product_id)) {
@@ -169,6 +221,10 @@ async function upsertShopifyOrderRow(input: {
   return outcome;
 }
 
+function shopifyOrdersScopeMessage(): string {
+  return "Shopify app needs read_orders API scope. Add it in Shopify Dev Dashboard → API credentials, release the app version, reinstall on your store, then reconnect on Marketplaces.";
+}
+
 export async function syncShopifyOrders(input: {
   workspaceId: number;
   storeUrl: string;
@@ -189,7 +245,7 @@ export async function syncShopifyOrders(input: {
   }
 
   const matchers = await loadShopifyAuditMatchers(input.workspaceId);
-  if (matchers.byHandle.size === 0) {
+  if (matchers.byHandle.size === 0 && matchers.bySku.size === 0) {
     return result;
   }
 
@@ -200,21 +256,35 @@ export async function syncShopifyOrders(input: {
     clientSecret: input.clientSecret.trim(),
   });
 
-  matchers.byProductId = await buildProductIdMap({
+  const catalogMatchers = await buildShopifyCatalogMatchers({
     shopHost,
     accessToken,
     byHandle: matchers.byHandle,
+    bySku: matchers.bySku,
   });
+  matchers.byProductId = catalogMatchers.byProductId;
+  matchers.byVariantId = catalogMatchers.byVariantId;
 
   const createdAtMin = new Date();
   createdAtMin.setDate(createdAtMin.getDate() - 365);
 
-  const orders = await listShopifyOrders({
-    shopHost,
-    accessToken,
-    createdAtMin: createdAtMin.toISOString(),
-    maxOrders: 500,
-  });
+  let orders: ShopifyRestOrder[] = [];
+  try {
+    orders = await listShopifyOrders({
+      shopHost,
+      accessToken,
+      createdAtMin: createdAtMin.toISOString(),
+      maxOrders: 500,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/access|scope|permission|read_orders|unauthorized/i.test(message)) {
+      result.errors.push(shopifyOrdersScopeMessage());
+    } else {
+      result.errors.push(`Could not fetch Shopify orders: ${message}`);
+    }
+    return result;
+  }
   result.totalOrders = orders.length;
 
   for (const order of orders) {
@@ -251,13 +321,17 @@ export async function maybeSyncShopifyOrdersForWorkspace(input: {
   storeUrl: string;
   clientId?: string;
   clientSecret?: string;
-}): Promise<void> {
+  force?: boolean;
+}): Promise<ShopifyOrderSyncResult | null> {
   const lastSync = lastSyncByWorkspace.get(input.workspaceId) ?? 0;
-  if (Date.now() - lastSync < SYNC_COOLDOWN_MS) return;
+  if (!input.force && Date.now() - lastSync < SYNC_COOLDOWN_MS) {
+    return null;
+  }
 
   try {
-    await syncShopifyOrders(input);
+    return await syncShopifyOrders(input);
   } catch (err) {
     console.error("Shopify order sync failed:", err);
+    return null;
   }
 }

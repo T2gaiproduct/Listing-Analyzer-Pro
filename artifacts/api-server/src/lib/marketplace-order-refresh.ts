@@ -11,7 +11,10 @@ import { maybeSyncWooCommerceOrdersForWorkspace } from "./woocommerce-order-sync
 import { maybeSyncAmazonOrdersForWorkspace } from "./amazon-order-sync.js";
 import { resolveAmazonConnectionForWorkspace } from "./resolve-amazon-settings.js";
 
-export async function maybeRefreshMarketplaceOrders(req: Request): Promise<void> {
+export async function maybeRefreshMarketplaceOrders(
+  req: Request,
+  opts?: { force?: boolean },
+): Promise<void> {
   const workspaceId = getActiveWorkspaceId(req);
   const userId = getAuth(req)?.userId;
   if (!workspaceId) return;
@@ -24,6 +27,7 @@ export async function maybeRefreshMarketplaceOrders(req: Request): Promise<void>
       storeUrl: shopifyConnection.storeUrl,
       clientId: credentials?.clientId,
       clientSecret: credentials?.clientSecret,
+      force: opts?.force === true,
     });
   }
 

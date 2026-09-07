@@ -326,6 +326,13 @@ export default function MarketplacesPage() {
         title: "Shopify products imported",
         description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}${ordersNote}`,
       });
+      if ((result.orderSyncErrors?.length ?? 0) > 0) {
+        toast({
+          title: "Shopify orders not synced",
+          description: result.orderSyncErrors!.slice(0, 2).join(" "),
+          variant: "destructive",
+        });
+      }
       if (result.errors.length > 0) {
         toast({
           title: "Some products could not be imported",
