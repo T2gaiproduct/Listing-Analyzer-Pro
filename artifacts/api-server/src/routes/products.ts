@@ -518,6 +518,7 @@ router.patch("/products/:id", requireAuth, resolveTeamAndWorkspace, requireWorks
     req,
     auditId: id,
     body: body as Record<string, unknown>,
+    force: (body as { syncMarketplaces?: boolean }).syncMarketplaces === true,
   });
 
   res.json({ success: true, marketplaceSync });

@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Audit, ImageRecord } from "@workspace/db";
 import { db, productMarketplaceListingsTable, productProfilesTable } from "@workspace/db";
-import { buildShopifyExportBundle } from "./shopify-listing-export.js";
+import { buildShopifyExportBundle, type ShopifyCsvRow } from "./shopify-listing-export.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import type { ShopifyStoreConnectionWithSecret } from "./marketplace-connections.js";
 import {
@@ -160,6 +160,39 @@ function buildRestProductPayload(opts: {
   return payload;
 }
 
+function emptyShopifyImageRow(handle: string): ShopifyCsvRow {
+  return {
+    Handle: handle,
+    Title: "",
+    "Body (HTML)": "",
+    Vendor: "",
+    Type: "",
+    Tags: "",
+    Published: "",
+    "Option1 Name": "",
+    "Option1 Value": "",
+    "Variant SKU": "",
+    "Variant Grams": "",
+    "Variant Inventory Tracker": "",
+    "Variant Inventory Qty": "",
+    "Variant Inventory Policy": "",
+    "Variant Fulfillment Service": "",
+    "Variant Price": "",
+    "Variant Compare At Price": "",
+    "Variant Requires Shipping": "",
+    "Variant Taxable": "",
+    "Variant Barcode": "",
+    "Image Src": "",
+    "Image Position": "",
+    "Image Alt Text": "",
+    "Gift Card": "",
+    "SEO Title": "",
+    "SEO Description": "",
+    Status: "",
+  };
+}
+
+/** Rebuild bundle image rows from all publishable URLs (audit + graphics project). */
 function applyResolvedPublishImagesToBundle(
   bundle: ReturnType<typeof buildShopifyExportBundle>,
   opts: {
@@ -177,13 +210,25 @@ function applyResolvedPublishImagesToBundle(
   });
   if (resolvedUrls.length === 0) return bundle;
 
-  let imageIndex = 0;
-  const rows = bundle.rows.map((row) => {
-    if (!row["Image Src"]?.trim()) return row;
-    const resolved = resolvedUrls[imageIndex];
-    imageIndex += 1;
-    if (!resolved) return row;
-    return { ...row, "Image Src": resolved };
+  const primary = bundle.rows[0];
+  if (!primary) return bundle;
+
+  const handle = primary.Handle;
+  const altText = primary["Image Alt Text"]?.trim() || primary.Title?.trim() || undefined;
+  const rows: ShopifyCsvRow[] = resolvedUrls.map((src, index) => {
+    if (index === 0) {
+      return {
+        ...primary,
+        "Image Src": src,
+        "Image Position": "1",
+        "Image Alt Text": altText ?? primary["Image Alt Text"],
+      };
+    }
+    return {
+      ...emptyShopifyImageRow(handle),
+      "Image Src": src,
+      "Image Position": String(index + 1),
+    };
   });
 
   return { ...bundle, rows };
@@ -193,6 +238,7 @@ export async function publishListingToShopify(opts: {
   connection: ShopifyStoreConnectionWithSecret;
   audit: Audit;
   graphicsImageRecords?: ImageRecord[];
+  graphicsProjectId?: number | null;
   publicBaseUrl?: string;
   publishMode?: ShopifyPublishMode;
 }): Promise<ShopifyPublishResult> {
@@ -253,6 +299,7 @@ export async function publishListingToShopify(opts: {
     {
       audit,
       graphicsImageRecords: opts.graphicsImageRecords,
+      graphicsProjectId: opts.graphicsProjectId,
       publicBaseUrl: opts.publicBaseUrl,
     },
   );

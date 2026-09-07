@@ -15,6 +15,7 @@ import {
 } from "../lib/marketplace-connections.js";
 import { publishListingToShopify, type ShopifyPublishMode } from "../lib/shopify-publish.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
+import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
 
 const router: IRouter = Router();
 
@@ -31,15 +32,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   }
   (req as AuthedRequest).userId = userId;
   next();
-}
-
-function resolvePublicBaseUrl(req: Request): string {
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  const proto = typeof forwardedProto === "string"
-    ? forwardedProto.split(",")[0]?.trim()
-    : req.protocol;
-  const host = req.get("host");
-  return `${proto}://${host}`;
 }
 
 function parsePublishMode(raw: unknown): ShopifyPublishMode {
@@ -95,13 +87,15 @@ router.post(
 
     const publishMode = parsePublishMode((req.body as { publishMode?: string })?.publishMode);
     const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
+    const graphicsProjectId = loaded.graphicsProject?.id ?? null;
 
     try {
       const result = await publishListingToShopify({
         connection,
         audit: loaded.audit,
         graphicsImageRecords,
-        publicBaseUrl: resolvePublicBaseUrl(req),
+        graphicsProjectId,
+        publicBaseUrl: resolveMarketplacePublishBaseUrl(req),
         publishMode,
       });
 

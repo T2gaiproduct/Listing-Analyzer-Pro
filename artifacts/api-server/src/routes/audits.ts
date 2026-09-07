@@ -725,9 +725,35 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
     req,
     auditId: id,
     body: body as Record<string, unknown>,
+    force: (body as { syncMarketplaces?: boolean }).syncMarketplaces === true,
   });
 
   res.json({ ...updated, marketplaceSync });
+});
+
+router.post("/audits/:id/sync-marketplaces", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["build_brand", "audits"], "edit"), async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id ?? ""));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db
+    .select({ id: auditsTable.id })
+    .from(auditsTable)
+    .where(await auditScopeWhere(req, eq(auditsTable.id, id)))
+    .limit(1);
+
+  if (!existing) { res.status(404).json({ error: "Audit not found" }); return; }
+
+  try {
+    const marketplaceSync = await syncListingToConnectedMarketplaces({
+      req,
+      auditId: id,
+      force: true,
+    });
+    res.json({ success: true, marketplaceSync });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Marketplace sync failed";
+    res.status(400).json({ error: message });
+  }
 });
 
 router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {

@@ -51,36 +51,68 @@ function WorkflowStepShell({
   showSaveAndContinue,
   onSaveAndContinue,
   isSaving,
+  showStoreSync,
+  storePlatformLabel,
+  onSyncToStore,
+  isSyncingStore,
 }: {
   children: ReactNode;
   showSaveAndContinue: boolean;
   onSaveAndContinue?: () => void;
   isSaving?: boolean;
+  showStoreSync?: boolean;
+  storePlatformLabel?: string;
+  onSyncToStore?: () => void;
+  isSyncingStore?: boolean;
 }) {
+  const showFooter = (showSaveAndContinue && onSaveAndContinue) || (showStoreSync && onSyncToStore);
+  const busy = Boolean(isSaving || isSyncingStore);
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm space-y-3">
       {children}
-      {showSaveAndContinue && onSaveAndContinue && (
-        <div className="flex justify-end border-t border-slate-100 pt-3">
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 text-[10px] rounded-lg bg-orange-500 hover:bg-orange-600 gap-1"
-            onClick={onSaveAndContinue}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              <>
-                Save &amp; Continue
-                <ArrowRight className="w-3 h-3" />
-              </>
-            )}
-          </Button>
+      {showFooter && (
+        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+          {showStoreSync && onSyncToStore && storePlatformLabel && (
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 text-[10px] rounded-lg bg-orange-500 hover:bg-orange-600 gap-1"
+              onClick={onSyncToStore}
+              disabled={busy}
+            >
+              {isSyncingStore ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Syncing…
+                </>
+              ) : (
+                <>Save &amp; sync to {storePlatformLabel}</>
+              )}
+            </Button>
+          )}
+          {showSaveAndContinue && onSaveAndContinue && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] rounded-lg gap-1"
+              onClick={onSaveAndContinue}
+              disabled={busy}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  Save &amp; Continue
+                  <ArrowRight className="w-3 h-3" />
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -107,6 +139,10 @@ export function ProductWorkflowStepContent({
   canPublishMarketplaces,
   onSaveAndContinue,
   isSavingContinue,
+  showStoreSync,
+  storePlatformLabel,
+  onSyncToStore,
+  isSyncingStore,
   OptimizedContentPanel,
 }: {
   step: ProductExplorerWorkflowStepId;
@@ -133,6 +169,10 @@ export function ProductWorkflowStepContent({
   canPublishMarketplaces?: boolean;
   onSaveAndContinue?: () => void;
   isSavingContinue?: boolean;
+  showStoreSync?: boolean;
+  storePlatformLabel?: string;
+  onSyncToStore?: () => void;
+  isSyncingStore?: boolean;
   OptimizedContentPanel: React.ComponentType<{
     generatedContent: GeneratedContent | null | undefined;
     existingContent?: {
@@ -153,11 +193,19 @@ export function ProductWorkflowStepContent({
     [audit, productImageUrls],
   );
   const hasNextStep = nextProductExplorerWorkflowStep(step) != null;
-  const showFooter = hasNextStep
+  const showContinueFooter = hasNextStep
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
-    && step !== 5
     && step !== 6;
+  const shellProps = {
+    showSaveAndContinue: showContinueFooter,
+    onSaveAndContinue,
+    isSaving: isSavingContinue,
+    showStoreSync: showStoreSync && !listingEditorContent,
+    storePlatformLabel,
+    onSyncToStore,
+    isSyncingStore,
+  };
 
   if (step === 1) {
     if (listingEditorContent) {
@@ -169,11 +217,7 @@ export function ProductWorkflowStepContent({
     }
 
     return (
-      <WorkflowStepShell
-        showSaveAndContinue={showFooter}
-        onSaveAndContinue={onSaveAndContinue}
-        isSaving={isSavingContinue}
-      >
+      <WorkflowStepShell {...shellProps}>
         {overviewContent ?? (
           <p className="text-[11px] text-slate-500">Product summary and stats appear here.</p>
         )}
@@ -183,11 +227,7 @@ export function ProductWorkflowStepContent({
 
   if (step === 2) {
     return (
-      <WorkflowStepShell
-        showSaveAndContinue={showFooter}
-        onSaveAndContinue={onSaveAndContinue}
-        isSaving={isSavingContinue}
-      >
+      <WorkflowStepShell {...shellProps}>
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-orange-500" />
           <h3 className="text-xs font-semibold text-slate-900">Listing content</h3>
@@ -207,11 +247,7 @@ export function ProductWorkflowStepContent({
 
   if (step === 3) {
     return (
-      <WorkflowStepShell
-        showSaveAndContinue={showFooter}
-        onSaveAndContinue={onSaveAndContinue}
-        isSaving={isSavingContinue}
-      >
+      <WorkflowStepShell {...shellProps}>
         <div className="flex items-center gap-1.5">
           <ImageIcon className="w-3.5 h-3.5 text-orange-500" />
           <h3 className="text-xs font-semibold text-slate-900">Product graphics</h3>
@@ -246,11 +282,7 @@ export function ProductWorkflowStepContent({
 
   if (step === 4) {
     return (
-      <WorkflowStepShell
-        showSaveAndContinue={showFooter}
-        onSaveAndContinue={onSaveAndContinue}
-        isSaving={isSavingContinue}
-      >
+      <WorkflowStepShell {...shellProps}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <ExistingAplusPanel auditId={auditId} />
           <div className="space-y-2 min-w-0">
@@ -269,11 +301,7 @@ export function ProductWorkflowStepContent({
 
   if (step === 5 && productId && productSource) {
     return (
-      <WorkflowStepShell
-        showSaveAndContinue={showFooter}
-        onSaveAndContinue={onSaveAndContinue}
-        isSaving={isSavingContinue}
-      >
+      <WorkflowStepShell {...shellProps}>
         <ProductMarketplacesTab
           productId={productId}
           auditId={auditId}
@@ -288,9 +316,11 @@ export function ProductWorkflowStepContent({
   if (step === 6 && productId && productSource) {
     return (
       <WorkflowStepShell
-        showSaveAndContinue={showFooter}
-        onSaveAndContinue={onSaveAndContinue}
-        isSaving={isSavingContinue}
+        showSaveAndContinue={false}
+        showStoreSync={showStoreSync}
+        storePlatformLabel={storePlatformLabel}
+        onSyncToStore={onSyncToStore}
+        isSyncingStore={isSyncingStore}
       >
         <ProductOrdersTab productId={productId} source={productSource} enabled />
       </WorkflowStepShell>
@@ -299,8 +329,28 @@ export function ProductWorkflowStepContent({
 
   if (step === 7 && productId && productSource) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         <ProductSalesTab productId={productId} source={productSource} enabled />
+        {showStoreSync && onSyncToStore && storePlatformLabel && (
+          <div className="flex justify-end border-t border-slate-100 pt-3">
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 text-[10px] rounded-lg bg-orange-500 hover:bg-orange-600"
+              onClick={onSyncToStore}
+              disabled={isSyncingStore}
+            >
+              {isSyncingStore ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Syncing…
+                </>
+              ) : (
+                `Save & sync to ${storePlatformLabel}`
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     );
   }

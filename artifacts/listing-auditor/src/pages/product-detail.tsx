@@ -1678,6 +1678,78 @@ export default function ProductDetailPage({ id }: { id: number }) {
     },
   });
 
+  const syncToStoreMutation = useMutation({
+    mutationFn: async () => {
+      const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
+      const response = await fetchJson<{ marketplaceSync?: MarketplaceSyncResult }>(
+        `${basePath}/api/audits/${auditId}/sync-marketplaces`,
+        { method: "POST" },
+      );
+      return extractMarketplaceSync(response);
+    },
+    onSuccess: async (marketplaceSync) => {
+      await refreshProductData();
+      void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id, resolvedSource] });
+
+      const { syncedPlatforms, warnings, errors } = describeMarketplaceSyncResult(marketplaceSync);
+
+      if (syncedPlatforms.length > 0) {
+        const syncedDescription = syncedPlatforms.length === 1
+          ? `${syncedPlatforms[0]} listing updated with your latest content and images.`
+          : `${syncedPlatforms.join(", ")} listings updated with your latest content and images.`;
+        if (errors.length > 0) {
+          toast({
+            title: "Synced with partial errors",
+            description: `${syncedDescription} ${errors.join(" ")}`,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (warnings.length > 0) {
+          toast({
+            title: "Synced with a warning",
+            description: `${syncedDescription} ${warnings.join(" ")}`,
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({
+          title: syncedPlatforms.length === 1
+            ? `Synced to ${syncedPlatforms[0]}`
+            : `Synced to ${syncedPlatforms.join(", ")}`,
+          description: syncedDescription,
+        });
+        return;
+      }
+
+      if (errors.length > 0) {
+        toast({
+          title: "Marketplace sync failed",
+          description: errors.join(" "),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Nothing to sync",
+        description: "Connect your store on Marketplaces or list this product first.",
+      });
+    },
+    onError: (error) => {
+      const description = error instanceof ApiFetchError && error.status === 401
+        ? "Your session expired or the server could not verify your login. Sign in again and retry."
+        : error instanceof Error
+          ? error.message
+          : "Could not sync to your store.";
+      toast({
+        title: "Sync failed",
+        description,
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveProductMutation = useMutation({
     mutationFn: async (data: ProductEditForm) => {
       const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
@@ -1708,6 +1780,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
       if (parsedPrice != null) {
         payload.price = String(parsedPrice);
+      }
+
+      if (isStoreImportProduct(product)) {
+        payload.syncMarketplaces = true;
       }
 
       let response: unknown;
@@ -1742,8 +1818,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
       if (syncedPlatforms.length > 0) {
         const syncedDescription = syncedPlatforms.length === 1
-          ? `${syncedPlatforms[0]} listing updated with your latest title, price, description, and tags.`
-          : `${syncedPlatforms.join(", ")} listings updated with your latest title, price, description, and tags.`;
+          ? `${syncedPlatforms[0]} listing updated with your latest content, images, and pricing.`
+          : `${syncedPlatforms.join(", ")} listings updated with your latest content, images, and pricing.`;
         if (errors.length > 0) {
           toast({
             title: "Saved with partial marketplace sync",
@@ -2149,7 +2225,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const showBuildBrandWorkflow = resolvedSource === "listing" || resolvedSource === "audit";
 
   const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
-  const isPublishingToStore = publishShopifyMutation.isPending || publishWooCommerceMutation.isPending;
+  const isPublishingToStore = publishShopifyMutation.isPending
+    || publishWooCommerceMutation.isPending
+    || syncToStoreMutation.isPending;
   const isPublishingToAmazon = publishAmazonMutation.isPending;
   const storePublishReady = product?.isWooCommerceImport
     ? woocommerceStatus?.publishReady
@@ -2319,6 +2397,10 @@ export default function ProductDetailPage({ id }: { id: number }) {
           canPublishMarketplaces={canEditProduct}
           onSaveAndContinue={() => void saveAndContinueWorkflowStep()}
           isSavingContinue={isSavingWorkflowStep}
+          showStoreSync={canPublishToStore && Boolean(storePublishReady)}
+          storePlatformLabel={storePlatformLabel}
+          onSyncToStore={() => syncToStoreMutation.mutate()}
+          isSyncingStore={syncToStoreMutation.isPending}
           OptimizedContentPanel={(panelProps) => (
             <OptimizedContentPanel
               {...panelProps}

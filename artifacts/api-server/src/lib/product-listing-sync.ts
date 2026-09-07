@@ -17,10 +17,7 @@ import { publishListingToShopify } from "./shopify-publish.js";
 import { publishListingToWooCommerce } from "./woocommerce-publish.js";
 import { isShopifyImportAsin } from "./shopify-import-utils.js";
 import { isWooCommerceImportAsin } from "./woocommerce-import-utils.js";
-import {
-  resolveMarketplacePublishBaseUrl,
-  resolvePublicBaseUrl,
-} from "./resolve-public-base-url.js";
+import { resolveMarketplacePublishBaseUrl } from "./resolve-public-base-url.js";
 import { getActiveWorkspaceId } from "./workspace-route-helpers.js";
 
 export type MarketplaceSyncPlatformResult = {
@@ -101,8 +98,13 @@ export async function syncListingToConnectedMarketplaces(opts: {
   req: Request;
   auditId: number;
   body?: Record<string, unknown>;
+  /** Push images + listing to marketplaces even when the PATCH body has no text field changes. */
+  force?: boolean;
 }): Promise<MarketplaceSyncResult> {
-  if (opts.body && !hasListingFieldChanges(opts.body)) {
+  const forceSync = opts.force === true
+    || opts.body?.syncMarketplaces === true
+    || opts.body?.syncMarketplaces === "true";
+  if (opts.body && !forceSync && !hasListingFieldChanges(opts.body)) {
     return { synced: false };
   }
 
@@ -134,11 +136,13 @@ export async function syncListingToConnectedMarketplaces(opts: {
       };
     } else {
       try {
+        const publicBaseUrl = resolveMarketplacePublishBaseUrl(opts.req);
         const publishResult = await publishListingToShopify({
           connection,
           audit,
           graphicsImageRecords,
-          publicBaseUrl: resolvePublicBaseUrl(opts.req),
+          graphicsProjectId,
+          publicBaseUrl,
           publishMode: "live",
         });
         result.shopify = {
