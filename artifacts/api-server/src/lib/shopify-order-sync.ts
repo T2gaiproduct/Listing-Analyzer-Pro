@@ -9,6 +9,7 @@ import type { ProductOrderStatus } from "./product-orders.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import {
+  clearShopifyAccessTokenCache,
   getShopifyAccessToken,
   listShopifyOrders,
   listShopifyProducts,
@@ -230,6 +231,7 @@ export async function syncShopifyOrders(input: {
   storeUrl: string;
   clientId?: string;
   clientSecret?: string;
+  refreshToken?: boolean;
 }): Promise<ShopifyOrderSyncResult> {
   const result: ShopifyOrderSyncResult = {
     imported: 0,
@@ -250,11 +252,19 @@ export async function syncShopifyOrders(input: {
   }
 
   const shopHost = parseShopifyShopHost(input.storeUrl);
-  const accessToken = await getShopifyAccessToken({
+  const clientId = input.clientId.trim();
+  const clientSecret = input.clientSecret.trim();
+  if (input.refreshToken) {
+    clearShopifyAccessTokenCache({ shopHost, clientId });
+  }
+
+  const fetchAccessToken = () => getShopifyAccessToken({
     shopHost,
-    clientId: input.clientId.trim(),
-    clientSecret: input.clientSecret.trim(),
+    clientId,
+    clientSecret,
   });
+
+  let accessToken = await fetchAccessToken();
 
   const catalogMatchers = await buildShopifyCatalogMatchers({
     shopHost,
@@ -279,11 +289,28 @@ export async function syncShopifyOrders(input: {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (/access|scope|permission|read_orders|unauthorized/i.test(message)) {
-      result.errors.push(shopifyOrdersScopeMessage());
+      clearShopifyAccessTokenCache({ shopHost, clientId });
+      try {
+        accessToken = await fetchAccessToken();
+        orders = await listShopifyOrders({
+          shopHost,
+          accessToken,
+          createdAtMin: createdAtMin.toISOString(),
+          maxOrders: 500,
+        });
+      } catch (retryErr) {
+        const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+        result.errors.push(
+          /access|scope|permission|read_orders|unauthorized/i.test(retryMessage)
+            ? shopifyOrdersScopeMessage()
+            : `Could not fetch Shopify orders: ${retryMessage}`,
+        );
+        return result;
+      }
     } else {
       result.errors.push(`Could not fetch Shopify orders: ${message}`);
+      return result;
     }
-    return result;
   }
   result.totalOrders = orders.length;
 
@@ -329,7 +356,10 @@ export async function maybeSyncShopifyOrdersForWorkspace(input: {
   }
 
   try {
-    return await syncShopifyOrders(input);
+    return await syncShopifyOrders({
+      ...input,
+      refreshToken: input.force === true,
+    });
   } catch (err) {
     console.error("Shopify order sync failed:", err);
     return null;
