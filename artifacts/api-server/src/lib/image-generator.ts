@@ -1,4 +1,5 @@
 import { generateImageBuffer, editImagesProxy } from "./openai-image";
+import pLimit from "p-limit";
 import * as fs from "fs";
 import * as path from "path";
 import type { ImageRecord, ImageVersion, ImageStyle, AspectRatio } from "@workspace/db";
@@ -133,8 +134,9 @@ export async function generateProductImages(data: {
   const specs = buildSpecs(productDesc);
   const records: ImageRecord[] = [];
   const errors: Array<{ id: string; error: string }> = [];
+  const limit = pLimit(3);
 
-  for (const spec of specs) {
+  await Promise.all(specs.map((spec) => limit(async () => {
     const style: ImageStyle = globalStyle ?? spec.defaultStyle;
     const aspectRatio = globalAspectRatio;
     const id = `${spec.type}_${spec.index}`;
@@ -166,7 +168,7 @@ export async function generateProductImages(data: {
     } catch (err) {
       errors.push({ id, error: err instanceof Error ? err.message : String(err) });
     }
-  }
+  })));
 
   if (records.length === 0) {
     const summary = errors.map((e) => `${e.id}: ${e.error}`).join("; ");

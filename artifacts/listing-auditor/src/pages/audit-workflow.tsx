@@ -777,7 +777,7 @@ export default function AuditWorkflow() {
     };
 
     void poll();
-    const interval = setInterval(() => void poll(), 2500);
+    const interval = setInterval(() => void poll(), 1500);
     return () => clearInterval(interval);
   }, [currentAuditId, aplusStatus, queryClient, toast]);
 
@@ -1019,7 +1019,7 @@ export default function AuditWorkflow() {
     };
 
     poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(poll, 1500);
     return () => clearInterval(interval);
   }, [graphicsProjectId, existingGraphicsProject, graphicsStatus, toast, queryClient, currentAuditId, patchAudit]);
 

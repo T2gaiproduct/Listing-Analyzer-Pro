@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import pLimit from "p-limit";
 import type { EbcContent } from "./ebc-generator";
 import { generateImageBuffer, generateImageWithReferenceProxy, editImagesProxy } from "./openai-image";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./image-storage";
 
 const MIN_FILE_SIZE = 1024;
+const MAX_CONCURRENT_APLUS_IMAGES = 4;
 const REFERENCE_IMAGE_INSTRUCTION =
   "This image is a visual reference of the exact product you MUST feature. The product's appearance, shape, colors, branding, and design must be faithfully reproduced — not changed or substituted.";
 
@@ -157,6 +159,12 @@ function resolveImageFilePath(auditId: number, imageUrl: string): string | null 
   return resolveAuditImagePath(auditId, imageUrl);
 }
 
+function isValidSourcePath(sourcePath: string | null): boolean {
+  return sourcePath !== null
+    && fs.existsSync(sourcePath)
+    && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+}
+
 async function generateModuleBuffer(
   spec: ModuleSpec,
   data: {
@@ -165,12 +173,14 @@ async function generateModuleBuffer(
     category?: string | null;
     content: EbcContent;
     imageUrls: string[];
+    sourcePath?: string | null;
+    prompt?: string;
   },
 ): Promise<Buffer> {
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-  const sourcePath = await resolveSourceImage(data.auditId, data.imageUrls);
-  const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
-  const prompt = spec.buildPrompt(productDesc, data.content);
+  const sourcePath = data.sourcePath ?? await resolveSourceImage(data.auditId, data.imageUrls);
+  const sourceValid = isValidSourcePath(sourcePath);
+  const prompt = data.prompt ?? spec.buildPrompt(productDesc, data.content);
 
   if (sourceValid) {
     return generateImageWithReferenceProxy(
@@ -377,61 +387,91 @@ export async function generateAplusModuleImages(data: {
   onModuleComplete?: (module: AplusModule, done: number, total: number) => void | Promise<void>;
 }): Promise<AplusModule[]> {
   const dir = ensureAuditImageDir(data.auditId);
-
   const productDesc = `${data.productName}${data.category ? `, a ${data.category} product` : ""}`;
-
   const specs = MODULE_SPECS.filter((spec) => data.moduleIds.includes(spec.id));
-  const modules: AplusModule[] = [];
-  const errors: string[] = [];
   const total = specs.length;
   const globalImageDirection = data.imageCustomPrompt?.trim();
+  const globalRefUrls = [
+    ...(data.promptReferenceImageUrls ?? []),
+    ...data.imageUrls,
+  ];
+  const sharedSourcePath = await resolveSourceImage(data.auditId, globalRefUrls);
+  const sharedSourceValid = isValidSourcePath(sharedSourcePath);
+  const perModuleSourceCache = new Map<string, string | null>();
 
-  for (const spec of specs) {
-    const moduleConfig = data.moduleConfigs?.[spec.id];
-    const mergedReferenceUrls = [
-      ...(moduleConfig?.promptReferenceImageUrls ?? data.promptReferenceImageUrls ?? []),
-      ...data.imageUrls,
-    ];
-    const sourcePath = await resolveSourceImage(data.auditId, mergedReferenceUrls);
-    const sourceValid = sourcePath !== null && fs.existsSync(sourcePath) && fs.statSync(sourcePath).size >= MIN_FILE_SIZE;
+  const limit = pLimit(MAX_CONCURRENT_APLUS_IMAGES);
+  const progressLock = pLimit(1);
+  let doneCount = 0;
+  const errors: string[] = [];
 
-    const filename = `aplus_${spec.id}_${Date.now()}.png`;
-    const filePath = path.join(dir, filename);
-    const imageUrl = urlPath(data.auditId, filename);
-    const basePrompt = spec.buildPrompt(productDesc, data.content);
-    const imageDirection = moduleConfig?.imageCustomPrompt?.trim() || globalImageDirection;
-    const prompt = applyQualityToPrompt(
-      imageDirection ? `${basePrompt} Additional creative direction: ${imageDirection}` : basePrompt,
-      moduleConfig?.quality ?? data.quality,
-    );
-
-    try {
-      let buffer: Buffer;
-      if (sourceValid) {
-        buffer = await generateImageWithReferenceProxy(
-          `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
-          sourcePath!,
-          spec.size,
-        );
-      } else {
-        buffer = await generateImageBuffer(prompt, spec.size);
-      }
-      if (!buffer?.length) throw new Error("No image data returned");
-      fs.writeFileSync(filePath, buffer);
-
-      const module: AplusModule = buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl);
-      modules.push(module);
-      await data.onModuleComplete?.(module, modules.length, total);
-    } catch (err) {
-      errors.push(`${spec.id}: ${err instanceof Error ? err.message : String(err)}`);
+  async function resolveModuleSourcePath(moduleConfig?: {
+    promptReferenceImageUrls?: string[];
+  }): Promise<string | null> {
+    const extraRefs = moduleConfig?.promptReferenceImageUrls;
+    if (!extraRefs?.length) {
+      return sharedSourceValid ? sharedSourcePath : null;
     }
+
+    const cacheKey = extraRefs.join("|");
+    if (perModuleSourceCache.has(cacheKey)) {
+      return perModuleSourceCache.get(cacheKey) ?? null;
+    }
+
+    const merged = [...extraRefs, ...data.imageUrls];
+    const resolved = await resolveSourceImage(data.auditId, merged);
+    perModuleSourceCache.set(cacheKey, resolved);
+    return isValidSourcePath(resolved) ? resolved : null;
   }
 
-  if (modules.length === 0) {
+  const modules = await Promise.all(
+    specs.map((spec) => limit(async (): Promise<AplusModule | null> => {
+      const moduleConfig = data.moduleConfigs?.[spec.id];
+      const sourcePath = await resolveModuleSourcePath(moduleConfig);
+      const sourceValid = sourcePath !== null;
+
+      const filename = `aplus_${spec.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
+      const filePath = path.join(dir, filename);
+      const imageUrl = urlPath(data.auditId, filename);
+      const basePrompt = spec.buildPrompt(productDesc, data.content);
+      const imageDirection = moduleConfig?.imageCustomPrompt?.trim() || globalImageDirection;
+      const prompt = applyQualityToPrompt(
+        imageDirection ? `${basePrompt} Additional creative direction: ${imageDirection}` : basePrompt,
+        moduleConfig?.quality ?? data.quality,
+      );
+
+      try {
+        let buffer: Buffer;
+        if (sourceValid) {
+          buffer = await generateImageWithReferenceProxy(
+            `${REFERENCE_IMAGE_INSTRUCTION} ${prompt}`,
+            sourcePath!,
+            spec.size,
+          );
+        } else {
+          buffer = await generateImageBuffer(prompt, spec.size);
+        }
+        if (!buffer?.length) throw new Error("No image data returned");
+        fs.writeFileSync(filePath, buffer);
+
+        const module = buildAplusModuleFromSpec(spec, data.auditId, data.content, imageUrl);
+        await progressLock(async () => {
+          doneCount += 1;
+          await data.onModuleComplete?.(module, doneCount, total);
+        });
+        return module;
+      } catch (err) {
+        errors.push(`${spec.id}: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+      }
+    })),
+  );
+
+  const successful = modules.filter((module): module is AplusModule => module !== null);
+  if (successful.length === 0) {
     throw new Error(errors[0] ?? "A+ image generation failed");
   }
 
   return specs
-    .map((spec) => modules.find((m) => m.id === spec.id))
-    .filter((m): m is AplusModule => !!m);
+    .map((spec) => successful.find((module) => module.id === spec.id))
+    .filter((module): module is AplusModule => !!module);
 }

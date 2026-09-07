@@ -99,8 +99,8 @@ function fetchProjectForAudit(auditId: number): Promise<WizardProject | null> {
     });
 }
 
-const IMAGE_GENERATION_SEC = 30;
-const MAX_CONCURRENT = 3;
+const IMAGE_GENERATION_SEC = 22;
+const MAX_CONCURRENT = 4;
 
 function formatEta(seconds: number): string {
   if (seconds <= 0) return "Almost done";
@@ -296,7 +296,7 @@ export function GraphicsWizard({ auditId, productName, imageUrls, category, targ
         });
     },
     enabled: !!activeProjectId && isGenerating,
-    refetchInterval: 2000,
+    refetchInterval: 1500,
   });
 
   const totalImages = (project?.lifestyleCount ?? 0) + (project?.featureCount ?? 0);

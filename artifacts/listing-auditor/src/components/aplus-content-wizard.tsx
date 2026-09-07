@@ -257,7 +257,7 @@ export function AplusContentWizard({
     };
 
     void poll();
-    const interval = setInterval(() => void poll(), 2500);
+    const interval = setInterval(() => void poll(), 1500);
     return () => clearInterval(interval);
   }, [auditId, aplusStatus, queryClient, toast]);
 

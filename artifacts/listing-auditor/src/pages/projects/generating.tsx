@@ -7,8 +7,8 @@ import { refreshCreditBalances } from "@/lib/credit-queries";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const IMAGE_GENERATION_SEC = 30;
-const MAX_CONCURRENT = 3;
+const IMAGE_GENERATION_SEC = 22;
+const MAX_CONCURRENT = 4;
 
 interface GraphicsProject {
   id: number;
@@ -48,7 +48,7 @@ export default function GeneratingPage({ params }: { params?: { id?: string } })
   const { data: project } = useQuery({
     queryKey: ["graphics-project", id],
     queryFn: () => fetchProject(id),
-    refetchInterval: 2000,
+    refetchInterval: 1500,
     enabled: !!id,
   });
 

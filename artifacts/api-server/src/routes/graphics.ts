@@ -247,8 +247,8 @@ function buildNewImageSpecs(
   return specs;
 }
 
-const MAX_CONCURRENT_IMAGES = 3;
-const IMAGE_GENERATION_MS = 30000;
+const MAX_CONCURRENT_IMAGES = 4;
+const IMAGE_GENERATION_MS = 22000;
 
 async function generateGraphicsImages(
   projectId: number,
@@ -277,9 +277,9 @@ async function generateGraphicsImages(
   const errors: Array<{ id: string; error: string }> = [];
 
   const limit = pLimit(MAX_CONCURRENT_IMAGES);
+  const dbLock = pLimit(1);
 
   let generatedCount = startIndex ?? 0;
-  const totalCount = generatedCount + specs.length;
 
   // Resolve source image path: download remote URLs to local file
   let sourcePath: string | null = null;
@@ -339,9 +339,9 @@ async function generateGraphicsImages(
       });
 
       generatedCount++;
-      await db.update(graphicsProjectsTable)
+      await dbLock(() => db.update(graphicsProjectsTable)
         .set({ generatedCount, updatedAt: new Date() })
-        .where(eq(graphicsProjectsTable.id, projectId));
+        .where(eq(graphicsProjectsTable.id, projectId)));
     } catch (err) {
       errors.push({ id: spec.id, error: err instanceof Error ? err.message : String(err) });
     }
@@ -377,8 +377,40 @@ async function generateNewImageTypes(
   const errors: Array<{ id: string; error: string }> = [];
 
   const limit = pLimit(MAX_CONCURRENT_IMAGES);
+  const dbLock = pLimit(1);
 
   let generatedCount = startIndex ?? 0;
+
+  const defaultReferencePaths = await resolveReferencePaths(
+    projectId,
+    dir,
+    legacy?.promptReferenceImageUrls,
+    sourceImagePaths,
+  );
+  const referencePathCache = new Map<string, string[]>();
+
+  async function getReferencePaths(spec: GraphicsSpec): Promise<string[]> {
+    const promptRefs = spec.promptReferenceImageUrls ?? legacy?.promptReferenceImageUrls;
+    if (!promptRefs?.length && !sourceImagePaths?.[0]) return [];
+
+    const usesDefaultRefs = !spec.promptReferenceImageUrls
+      && promptRefs === legacy?.promptReferenceImageUrls;
+    if (usesDefaultRefs) return defaultReferencePaths;
+
+    const cacheKey = JSON.stringify(promptRefs ?? []);
+    if (referencePathCache.has(cacheKey)) {
+      return referencePathCache.get(cacheKey)!;
+    }
+
+    const resolved = await resolveReferencePaths(
+      projectId,
+      dir,
+      promptRefs,
+      sourceImagePaths,
+    );
+    referencePathCache.set(cacheKey, resolved);
+    return resolved;
+  }
 
   async function generateOne(spec: GraphicsSpec): Promise<void> {
     const filename = versionedFilename(spec.type, spec.index);
@@ -390,12 +422,7 @@ async function generateNewImageTypes(
       const size = ASPECT_SIZES[arKey as keyof typeof ASPECT_SIZES] ?? ASPECT_SIZES["1:1"];
       const quality = spec.quality ?? legacy?.quality ?? "standard";
       const prompt = applyQualityToPrompt(spec.prompt, quality);
-      const referencePaths = await resolveReferencePaths(
-        projectId,
-        dir,
-        spec.promptReferenceImageUrls ?? legacy?.promptReferenceImageUrls,
-        sourceImagePaths,
-      );
+      const referencePaths = await getReferencePaths(spec);
       let buffer: Buffer;
 
       if (referencePaths.length > 1) {
@@ -434,9 +461,9 @@ async function generateNewImageTypes(
       });
 
       generatedCount++;
-      await db.update(graphicsProjectsTable)
+      await dbLock(() => db.update(graphicsProjectsTable)
         .set({ generatedCount, updatedAt: new Date() })
-        .where(eq(graphicsProjectsTable.id, projectId));
+        .where(eq(graphicsProjectsTable.id, projectId)));
     } catch (err) {
       errors.push({ id: spec.id, error: err instanceof Error ? err.message : String(err) });
     }
