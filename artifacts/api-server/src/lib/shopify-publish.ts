@@ -113,6 +113,21 @@ function buildRestProductPayload(opts: {
   ) ?? opts.existingVariants?.[0];
   const bundlePrice = primary["Variant Price"]?.trim();
   const variantPrice = bundlePrice || existingVariant?.price || undefined;
+  const isUpdate = Boolean(opts.existingProductId);
+
+  const variantPayload: Record<string, unknown> = {
+    ...(existingVariant?.id ? { id: existingVariant.id } : {}),
+    sku: targetSku || existingVariant?.sku || undefined,
+    ...(variantPrice ? { price: variantPrice } : {}),
+  };
+
+  if (!isUpdate) {
+    variantPayload.inventory_policy = primary["Variant Inventory Policy"] || "deny";
+    variantPayload.fulfillment_service = "manual";
+    variantPayload.requires_shipping = primary["Variant Requires Shipping"] === "TRUE";
+    variantPayload.taxable = primary["Variant Taxable"] === "TRUE";
+    variantPayload.option1 = primary["Option1 Value"] || "Default Title";
+  }
 
   const payload: Record<string, unknown> = {
     title: primary.Title,
@@ -123,28 +138,20 @@ function buildRestProductPayload(opts: {
     handle: primary.Handle,
     status: opts.publishMode === "live" ? "active" : "draft",
     published_at: opts.publishMode === "live" ? new Date().toISOString() : null,
-    variants: [
-      {
-        ...(existingVariant?.id ? { id: existingVariant.id } : {}),
-        sku: targetSku || existingVariant?.sku || undefined,
-        ...(variantPrice ? { price: variantPrice } : {}),
-        inventory_policy: primary["Variant Inventory Policy"] || "deny",
-        fulfillment_service: "manual",
-        requires_shipping: primary["Variant Requires Shipping"] === "TRUE",
-        taxable: primary["Variant Taxable"] === "TRUE",
-        option1: primary["Option1 Value"] || "Default Title",
-      },
-    ],
-    options: [
-      {
-        name: primary["Option1 Name"] || "Title",
-        values: [primary["Option1 Value"] || "Default Title"],
-      },
-    ],
+    variants: [variantPayload],
     images,
     metafields_global_title_tag: primary["SEO Title"] || undefined,
     metafields_global_description_tag: primary["SEO Description"] || undefined,
   };
+
+  if (!isUpdate) {
+    payload.options = [
+      {
+        name: primary["Option1 Name"] || "Title",
+        values: [primary["Option1 Value"] || "Default Title"],
+      },
+    ];
+  }
 
   if (opts.existingProductId) {
     payload.id = opts.existingProductId;
