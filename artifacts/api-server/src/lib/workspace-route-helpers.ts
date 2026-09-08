@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { ownerPermissions } from "@workspace/workspace-permissions";
-import { db, auditsTable } from "@workspace/db";
+import { db, auditsTable, graphicsProjectsTable } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { resolveWorkspace, type WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 import { WORKSPACE_HEADER } from "./workspace-context";
@@ -241,6 +241,7 @@ export async function assertProjectViewAccess(
   projectId: number,
 ): Promise<boolean> {
   const ctx = getWorkspaceCtx(req);
+  const userId = (req as AuthedRequest).userId;
   if (ctx.isAccountOwner) return true;
   const features = Array.isArray(feature) ? feature : [feature];
   for (const f of features) {
@@ -248,7 +249,22 @@ export async function assertProjectViewAccess(
   }
   if (!features.some((f) => requireWorkspacePerm(ctx, f, "viewOwn"))) return false;
   const worked = await loadWorkedProjects(req);
-  return worked ? memberHasProjectAccess(worked, type, projectId) : false;
+  if (worked && memberHasProjectAccess(worked, type, projectId)) return true;
+
+  if (type === "graphics") {
+    const [row] = await db
+      .select({
+        createdByUserId: graphicsProjectsTable.createdByUserId,
+        auditId: graphicsProjectsTable.auditId,
+      })
+      .from(graphicsProjectsTable)
+      .where(eq(graphicsProjectsTable.id, projectId))
+      .limit(1);
+    if (row?.createdByUserId === userId) return true;
+    if (row?.auditId != null && worked?.auditIds.includes(row.auditId)) return true;
+  }
+
+  return false;
 }
 
 export function canViewFeature(ctx: WorkspaceContext, feature: WorkspaceFeature, isCreator = false): boolean {

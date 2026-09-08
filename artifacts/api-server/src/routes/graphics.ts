@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, inArray, isNull } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
@@ -13,12 +13,12 @@ import {
   requireWorkspaceAction,
   requireWorkspaceActionAny,
   loadWorkedProjects,
-  viewOwnIdFilterAny,
   memberCreatedByUserId,
   getWorkspaceCtx,
   workspaceOwnerFilter,
   buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
+import { requireWorkspacePerm } from "../lib/workspace-context";
 import { formatGraphicsProjectError, isGraphicsSchemaError } from "../lib/db-client-errors";
 import * as fs from "fs";
 import * as path from "path";
@@ -56,15 +56,47 @@ async function isAdminUser(userId: string): Promise<boolean> {
   return !!row;
 }
 
+async function graphicsMemberAccessFilter(req: Request) {
+  const ctx = getWorkspaceCtx(req);
+  if (ctx.isAccountOwner) return undefined;
+
+  const features = ["graphics", "build_brand"] as const;
+  for (const feature of features) {
+    if (requireWorkspacePerm(ctx, feature, "viewGlobal")) return undefined;
+  }
+
+  const userId = (req as AuthedRequest).userId;
+  const worked = await loadWorkedProjects(req);
+  const clauses = [eq(graphicsProjectsTable.createdByUserId, userId)];
+
+  if (worked?.graphicsIds.length) {
+    clauses.push(inArray(graphicsProjectsTable.id, worked.graphicsIds));
+  }
+  if (worked?.auditIds.length) {
+    clauses.push(inArray(graphicsProjectsTable.auditId, worked.auditIds));
+  }
+
+  return clauses.length === 1 ? clauses[0] : or(...clauses);
+}
+
+function graphicsWorkspaceFilter(ownerId: string, workspaceId: number) {
+  return or(
+    workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
+    and(
+      eq(graphicsProjectsTable.userId, ownerId),
+      isNull(graphicsProjectsTable.workspaceId),
+    ),
+  );
+}
+
 async function graphicsScopeWhere(req: Request, extra?: ReturnType<typeof eq>) {
   const ownerId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
-  const worked = await loadWorkedProjects(req);
-  const ownFilter = viewOwnIdFilterAny(getWorkspaceCtx(req), ["graphics", "build_brand"], worked, "graphics", graphicsProjectsTable);
+  const memberFilter = await graphicsMemberAccessFilter(req);
   return and(
-    workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
+    graphicsWorkspaceFilter(ownerId, workspaceId),
     eq(graphicsProjectsTable.isDeleted, 0),
-    ownFilter,
+    memberFilter,
     extra,
   );
 }
