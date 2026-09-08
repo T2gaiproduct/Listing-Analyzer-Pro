@@ -27,6 +27,7 @@ export type GraphicsImageRecords = z.infer<typeof graphicsImageRecordsSchema>;
 export const graphicsProjectsTable = pgTable("graphics_projects", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  createdByUserId: text("created_by_user_id"),
   workspaceId: integer("workspace_id"),
   teamId: text("team_id"),
   auditId: integer("audit_id"),

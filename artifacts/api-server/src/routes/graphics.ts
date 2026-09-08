@@ -14,6 +14,7 @@ import {
   requireWorkspaceActionAny,
   loadWorkedProjects,
   viewOwnIdFilterAny,
+  memberCreatedByUserId,
   getWorkspaceCtx,
   workspaceOwnerFilter,
   buildTeamAwareCreditCtx,
@@ -689,6 +690,7 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
 
   const [project] = await db.insert(graphicsProjectsTable).values({
     userId,
+    createdByUserId: memberCreatedByUserId(req),
     workspaceId: getActiveWorkspaceId(req),
     auditId: body.auditId ?? null,
     name: body.name ?? "Untitled Project",

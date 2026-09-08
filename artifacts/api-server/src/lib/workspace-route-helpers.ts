@@ -148,6 +148,13 @@ export function requireWorkspaceView(feature: WorkspaceFeature) {
   };
 }
 
+/** Clerk user id of the workspace member who created a project (null for account owners). */
+export function memberCreatedByUserId(req: Request): string | null {
+  const ctx = getWorkspaceCtx(req);
+  if (ctx.isAccountOwner) return null;
+  return (req as AuthedRequest).userId;
+}
+
 export async function loadWorkedProjects(req: Request): Promise<MemberWorkedProjects | null> {
   const ctx = getWorkspaceCtx(req);
   const userId = (req as AuthedRequest).userId;

@@ -172,6 +172,21 @@ export async function getMemberWorkedProjects(
       auditIds.add(row.id);
       touchActivity(lastActivityAt, "audit", row.id, row.createdAt ?? new Date());
     }
+
+    const createdGraphics = await db
+      .select({ id: graphicsProjectsTable.id, createdAt: graphicsProjectsTable.createdAt })
+      .from(graphicsProjectsTable)
+      .where(
+        and(
+          eq(graphicsProjectsTable.createdByUserId, memberUserId),
+          eq(graphicsProjectsTable.workspaceId, options.workspaceId),
+          eq(graphicsProjectsTable.isDeleted, 0),
+        ),
+      );
+    for (const row of createdGraphics) {
+      graphicsIds.add(row.id);
+      touchActivity(lastActivityAt, "graphics", row.id, row.createdAt ?? new Date());
+    }
   }
 
   return {
