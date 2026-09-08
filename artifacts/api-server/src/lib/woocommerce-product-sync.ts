@@ -8,10 +8,16 @@ import {
   type GeneratedContent,
 } from "@workspace/db";
 import { TARGET_MARKETPLACES } from "./create-product.js";
-import { fetchWooCommerceCatalog, fetchWooCommerceStoreCurrency, type WooCommerceRestProduct } from "./woocommerce-admin-client.js";
+import {
+  fetchWooCommerceProducts,
+  fetchWooCommerceProductsByIds,
+  fetchWooCommerceStoreCurrency,
+  type WooCommerceRestProduct,
+} from "./woocommerce-admin-client.js";
 import { woocommerceAsin } from "./woocommerce-import-utils.js";
 import { normalizeStoreCurrency } from "./store-currency.js";
 import type { ShopifySyncResult } from "./shopify-product-sync.js";
+import { clampImportLimit } from "./marketplace-catalog-types.js";
 
 const DEFAULT_WORKFLOW_TEMPLATE = "build-brand-standard";
 const MAX_IMPORT = 500;
@@ -178,13 +184,43 @@ export async function syncWooCommerceProducts(input: {
   ownerId: string;
   createdByUserId: string | null;
   workspaceId: number;
+  productIds?: string[];
+  limit?: number;
+  search?: string;
 }): Promise<ShopifySyncResult> {
-  const catalog = await fetchWooCommerceCatalog({
-    storeUrl: input.storeUrl,
-    consumerKey: input.consumerKey,
-    consumerSecret: input.consumerSecret,
-    maxProducts: MAX_IMPORT,
-  });
+  const importLimit = clampImportLimit(input.limit);
+  let catalog: WooCommerceRestProduct[];
+
+  if (input.productIds?.length) {
+    const ids = input.productIds
+      .map((id) => Number.parseInt(id, 10))
+      .filter((id) => Number.isFinite(id));
+    catalog = await fetchWooCommerceProductsByIds({
+      storeUrl: input.storeUrl,
+      consumerKey: input.consumerKey,
+      consumerSecret: input.consumerSecret,
+      productIds: ids,
+    });
+  } else {
+    catalog = [];
+    let page = 1;
+    while (catalog.length < importLimit) {
+      const batch = await fetchWooCommerceProducts({
+        storeUrl: input.storeUrl,
+        consumerKey: input.consumerKey,
+        consumerSecret: input.consumerSecret,
+        page,
+        perPage: Math.min(100, importLimit - catalog.length),
+        search: input.search,
+      });
+      if (batch.length === 0) break;
+      catalog.push(...batch);
+      if (batch.length < 100) break;
+      page += 1;
+      if (page > 40) break;
+    }
+    catalog = catalog.slice(0, importLimit);
+  }
 
   const storeCurrency = await fetchWooCommerceStoreCurrency({
     storeUrl: input.storeUrl,

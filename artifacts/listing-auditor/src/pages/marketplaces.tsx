@@ -37,8 +37,11 @@ import {
   syncShopifyProducts,
   syncWooCommerceProducts,
   syncAmazonProducts,
+  type MarketplacePlatform,
+  type ShopifySyncResult,
   type StoreMarketplace,
 } from "@/lib/marketplace-connections";
+import { MarketplaceImportWizard } from "@/components/marketplace-import-wizard";
 import { AMAZON_MARKETPLACES } from "@/lib/amazon-export";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -253,6 +256,7 @@ export default function MarketplacesPage() {
   const [amazonAwsAccessKeyId, setAmazonAwsAccessKeyId] = useState("");
   const [amazonAwsSecretAccessKey, setAmazonAwsSecretAccessKey] = useState("");
   const [amazonAwsRoleArn, setAmazonAwsRoleArn] = useState("");
+  const [importWizardPlatform, setImportWizardPlatform] = useState<MarketplacePlatform | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-connections", featureWorkspaceId],
@@ -310,106 +314,80 @@ export default function MarketplacesPage() {
     onSettled: () => setPendingAction(null),
   });
 
-  const shopifySyncMutation = useMutation({
-    mutationFn: syncShopifyProducts,
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["products"] });
-      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
-      const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
-      const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Shopify.` : "";
-      const ordersNote = (result.ordersImported ?? 0) > 0 || (result.ordersUpdated ?? 0) > 0
-        ? ` Synced ${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0)} Shopify order${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0) === 1 ? "" : "s"}.`
-        : result.ordersSyncQueued
-          ? " Syncing Shopify orders in the background."
-          : "";
+  function handleShopifyImportSuccess(result: ShopifySyncResult) {
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+    const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Shopify.` : "";
+    const ordersNote = (result.ordersImported ?? 0) > 0 || (result.ordersUpdated ?? 0) > 0
+      ? ` Synced ${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0)} Shopify order${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0) === 1 ? "" : "s"}.`
+      : result.ordersSyncQueued
+        ? " Syncing Shopify orders in the background."
+        : "";
+    toast({
+      title: "Shopify products imported",
+      description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}${ordersNote}`,
+    });
+    if ((result.orderSyncErrors?.length ?? 0) > 0) {
       toast({
-        title: "Shopify products imported",
-        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}${ordersNote}`,
-      });
-      if ((result.orderSyncErrors?.length ?? 0) > 0) {
-        toast({
-          title: "Shopify orders not synced",
-          description: result.orderSyncErrors!.slice(0, 2).join(" "),
-          variant: "destructive",
-        });
-      }
-      if (result.errors.length > 0) {
-        toast({
-          title: "Some products could not be imported",
-          description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Import failed",
-        description: error instanceof Error ? error.message : "Could not import Shopify products.",
+        title: "Shopify orders not synced",
+        description: result.orderSyncErrors!.slice(0, 2).join(" "),
         variant: "destructive",
       });
-    },
-  });
+    }
+    if (result.errors.length > 0) {
+      toast({
+        title: "Some products could not be imported",
+        description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
+        variant: "destructive",
+      });
+    }
+  }
 
-  const amazonSyncMutation = useMutation({
-    mutationFn: () => syncAmazonProducts(),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["products"] });
-      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
-      const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
-      const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Amazon.` : "";
-      const ordersNote = (result.ordersImported ?? 0) > 0 || (result.ordersUpdated ?? 0) > 0
-        ? ` Synced ${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0)} Amazon order${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0) === 1 ? "" : "s"}.`
-        : result.ordersSyncQueued
-          ? " Syncing Amazon orders in the background."
-          : "";
+  function handleAmazonImportSuccess(result: ShopifySyncResult) {
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+    const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from Amazon.` : "";
+    const ordersNote = (result.ordersImported ?? 0) > 0 || (result.ordersUpdated ?? 0) > 0
+      ? ` Synced ${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0)} Amazon order${(result.ordersImported ?? 0) + (result.ordersUpdated ?? 0) === 1 ? "" : "s"}.`
+      : result.ordersSyncQueued
+        ? " Syncing Amazon orders in the background."
+        : "";
+    toast({
+      title: "Amazon listings imported",
+      description: `Imported ${result.imported} of ${result.total} listings from Seller Central.${updatedNote}${skippedNote}${ordersNote}`,
+    });
+    if (result.errors.length > 0) {
       toast({
-        title: "Amazon listings imported",
-        description: `Imported ${result.imported} of ${result.total} listings from Seller Central.${updatedNote}${skippedNote}${ordersNote}`,
-      });
-      if (result.errors.length > 0) {
-        toast({
-          title: "Some listings could not be imported",
-          description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Import failed",
-        description: error instanceof Error ? error.message : "Could not import Amazon listings.",
+        title: "Some listings could not be imported",
+        description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
         variant: "destructive",
       });
-    },
-  });
+    }
+  }
 
-  const woocommerceSyncMutation = useMutation({
-    mutationFn: syncWooCommerceProducts,
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["products"] });
-      void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
-      const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
-      const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from WooCommerce.` : "";
+  function handleWooCommerceImportSuccess(result: ShopifySyncResult) {
+    void queryClient.invalidateQueries({ queryKey: ["products"] });
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-connections"] });
+    const skippedNote = result.skipped > 0 ? ` ${result.skipped} already imported.` : "";
+    const updatedNote = result.updated > 0 ? ` ${result.updated} refreshed from WooCommerce.` : "";
+    toast({
+      title: "WooCommerce products imported",
+      description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}`,
+    });
+    if (result.errors.length > 0) {
       toast({
-        title: "WooCommerce products imported",
-        description: `Imported ${result.imported} of ${result.total} products.${updatedNote}${skippedNote}`,
-      });
-      if (result.errors.length > 0) {
-        toast({
-          title: "Some products could not be imported",
-          description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Import failed",
-        description: error instanceof Error ? error.message : "Could not import WooCommerce products.",
+        title: "Some products could not be imported",
+        description: result.errors.slice(0, 2).map((e) => e.error).join(" "),
         variant: "destructive",
       });
-    },
-  });
+    }
+  }
+
+  const shopifySyncMutation = useMutation({ mutationFn: syncShopifyProducts });
+  const amazonSyncMutation = useMutation({ mutationFn: syncAmazonProducts });
+  const woocommerceSyncMutation = useMutation({ mutationFn: syncWooCommerceProducts });
 
   function handleAmazonConnect() {
     if (!data?.amazon.workspaceCredentialsSaved) {
@@ -540,7 +518,22 @@ export default function MarketplacesPage() {
       });
       return;
     }
-    amazonSyncMutation.mutate();
+    setImportWizardPlatform("amazon");
+  }
+
+  function handleImportWizardSuccess(platform: MarketplacePlatform, result: ShopifySyncResult) {
+    if (platform === "shopify") handleShopifyImportSuccess(result);
+    else if (platform === "woocommerce") handleWooCommerceImportSuccess(result);
+    else handleAmazonImportSuccess(result);
+    setImportWizardPlatform(null);
+  }
+
+  function handleImportWizardError(_platform: MarketplacePlatform, error: unknown) {
+    toast({
+      title: "Import failed",
+      description: error instanceof Error ? error.message : "Could not import products.",
+      variant: "destructive",
+    });
   }
 
   async function submitAmazonSelfAuth() {
@@ -760,7 +753,7 @@ export default function MarketplacesPage() {
           importLoading={shopifySyncMutation.isPending}
           onConnect={() => openStoreDialog("shopify")}
           onDisconnect={() => void handleStoreDisconnect("shopify")}
-          onImport={shopifyConnected ? () => shopifySyncMutation.mutate() : undefined}
+          onImport={shopifyConnected ? () => setImportWizardPlatform("shopify") : undefined}
         />
         <ConnectCard
           marketplace="WooCommerce"
@@ -780,7 +773,7 @@ export default function MarketplacesPage() {
           onDisconnect={() => void handleStoreDisconnect("woocommerce")}
           onImport={
             woocommerceConnected && data?.woocommerce.publishReady
-              ? () => woocommerceSyncMutation.mutate()
+              ? () => setImportWizardPlatform("woocommerce")
               : undefined
           }
         />
@@ -1118,6 +1111,41 @@ export default function MarketplacesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {importWizardPlatform ? (
+        <MarketplaceImportWizard
+          open={importWizardPlatform != null}
+          onOpenChange={(open) => {
+            if (!open) setImportWizardPlatform(null);
+          }}
+          platform={importWizardPlatform}
+          platformLabel={
+            importWizardPlatform === "shopify"
+              ? "Shopify"
+              : importWizardPlatform === "woocommerce"
+                ? "WooCommerce"
+                : "Amazon"
+          }
+          marketplace={importWizardPlatform === "amazon" ? (data?.amazon.defaultMarketplace ?? "US") : undefined}
+          onImport={async (input) => {
+            const platform = importWizardPlatform;
+            if (!platform) throw new Error("No marketplace selected");
+            try {
+              if (platform === "shopify") return await shopifySyncMutation.mutateAsync(input);
+              if (platform === "woocommerce") return await woocommerceSyncMutation.mutateAsync(input);
+              return await amazonSyncMutation.mutateAsync(input);
+            } catch (error) {
+              handleImportWizardError(platform, error);
+              throw error;
+            }
+          }}
+          onSuccess={(result) => {
+            if (importWizardPlatform) {
+              handleImportWizardSuccess(importWizardPlatform, result);
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

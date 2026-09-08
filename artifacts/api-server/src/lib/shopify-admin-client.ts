@@ -303,6 +303,57 @@ export async function findShopifyAdminCatalogProductByHandle(opts: {
   return data.products?.[0] ?? null;
 }
 
+export async function fetchShopifyCatalogPage(opts: {
+  shopHost: string;
+  accessToken: string;
+  pageSize: number;
+  sinceId?: number | null;
+}): Promise<{
+  products: ShopifyAdminCatalogProduct[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}> {
+  const pageSize = Math.min(250, Math.max(1, opts.pageSize));
+  const path = opts.sinceId && opts.sinceId > 0
+    ? `/products.json?limit=${pageSize}&since_id=${opts.sinceId}`
+    : `/products.json?limit=${pageSize}`;
+  const data = await shopifyAdminRequest<{ products: ShopifyAdminCatalogProduct[] }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    method: "GET",
+    path,
+  });
+  const products = data.products ?? [];
+  const lastId = products[products.length - 1]?.id;
+  return {
+    products,
+    hasMore: products.length >= pageSize,
+    nextCursor: lastId ? String(lastId) : null,
+  };
+}
+
+export async function fetchShopifyProductsByIds(opts: {
+  shopHost: string;
+  accessToken: string;
+  productIds: number[];
+}): Promise<ShopifyAdminCatalogProduct[]> {
+  const uniqueIds = [...new Set(opts.productIds.filter((id) => Number.isFinite(id) && id > 0))];
+  if (uniqueIds.length === 0) return [];
+
+  const products: ShopifyAdminCatalogProduct[] = [];
+  for (let offset = 0; offset < uniqueIds.length; offset += 250) {
+    const chunk = uniqueIds.slice(offset, offset + 250);
+    const data = await shopifyAdminRequest<{ products: ShopifyAdminCatalogProduct[] }>({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+      method: "GET",
+      path: `/products.json?ids=${chunk.join(",")}&limit=${chunk.length}`,
+    });
+    products.push(...(data.products ?? []));
+  }
+  return products;
+}
+
 export async function fetchShopifyCatalogViaAdmin(opts: {
   shopHost: string;
   accessToken: string;
