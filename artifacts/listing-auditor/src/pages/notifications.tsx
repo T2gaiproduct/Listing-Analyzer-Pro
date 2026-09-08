@@ -61,6 +61,7 @@ export default function NotificationsPage() {
   const typeBadge = (type: string) => {
     const colors: Record<string, string> = {
       credit_low: "bg-yellow-100 text-yellow-700",
+      credits_assigned: "bg-green-100 text-green-700",
       credit_expired: "bg-red-100 text-red-700",
       payment_failed: "bg-red-100 text-red-700",
       payment_success: "bg-green-100 text-green-700",

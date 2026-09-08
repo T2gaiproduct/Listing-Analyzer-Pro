@@ -31,7 +31,7 @@ export const NOTIFICATION_PREFERENCE_META: Record<
   billing: {
     label: "Billing & credits",
     description: "Credit balance warnings, payments, and subscription updates.",
-    examples: "Low credits, credits depleted, payment received",
+    examples: "Low credits, credits depleted, credits assigned, payment received",
   },
   audits: {
     label: "Audits & competitors",
@@ -135,6 +135,7 @@ export const ADMIN_NOTIFICATION_TYPES_BY_CATEGORY: Record<string, string[]> = {
     "credit_low",
     "credit_depleted",
     "credits_low",
+    "credits_assigned",
     "payment_received",
     "subscription_expired",
     "subscription_renewed",

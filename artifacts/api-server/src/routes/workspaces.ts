@@ -53,6 +53,7 @@ import {
   computeAccountCreditSummary,
   sumCreditBalance,
 } from "../lib/workspace-credits.js";
+import { notifyWorkspaceMemberCreditsAssigned } from "../lib/workspace-member-credit-notify.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { createNotification } from "../lib/notifications.js";
@@ -670,6 +671,7 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
   }
 
   try {
+    const previousCredits = await getWorkspaceMemberCredits(memberId);
     const credits = await setWorkspaceMemberCredits(
       ctx.workspaceId,
       memberId,
@@ -678,6 +680,12 @@ router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, 
       imageCredits ?? 0,
       auditCredits ?? 0,
     );
+    void notifyWorkspaceMemberCreditsAssigned({
+      workspaceId: ctx.workspaceId,
+      workspaceMemberId: memberId,
+      previousCredits: previousCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 },
+      assignedCredits: credits,
+    });
     const pool = await getWorkspaceCredits(ctx.workspaceId);
     const memberAllocatedRaw = await sumAllocatedMemberCreditsForWorkspace(ctx.workspaceId);
     const memberAllocated = memberCreditsInWorkspace(pool, memberAllocatedRaw);
