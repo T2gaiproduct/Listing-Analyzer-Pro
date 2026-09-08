@@ -45,6 +45,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
   "SELECT column_name FROM information_schema.columns
    WHERE table_name = 'plans' AND column_name = 'enabled_features';"
 
+echo "==> product_orders.payment_status"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -c \
+  "SELECT column_name FROM information_schema.columns
+   WHERE table_name = 'product_orders' AND column_name = 'payment_status';"
+
 echo "==> Full schema column check"
 bash scripts/check-production-schema.sh
 

@@ -338,8 +338,8 @@ CREATE TABLE IF NOT EXISTS "member_credits" (
   "image_credits" integer DEFAULT 0 NOT NULL,
   "audit_credits" integer DEFAULT 0 NOT NULL,
   "updated_at" timestamp DEFAULT now() NOT NULL,
-  "workspace_id" integer NOT NULL,
-  "workspace_member_id" integer NOT NULL
+  "workspace_id" integer,
+  "workspace_member_id" integer
 );
 
 CREATE TABLE IF NOT EXISTS "nav_items" (
@@ -447,11 +447,11 @@ CREATE TABLE IF NOT EXISTS "product_orders" (
   "amount_cents" integer NOT NULL,
   "currency" text DEFAULT 'USD'::text NOT NULL,
   "status" text NOT NULL,
-  "payment_status" text DEFAULT 'pending'::text NOT NULL,
   "ordered_at" timestamp NOT NULL,
   "tracking_number" text,
   "is_deleted" integer DEFAULT 0 NOT NULL,
-  "created_at" timestamp DEFAULT now() NOT NULL
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "payment_status" text DEFAULT 'pending'::text NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "product_profiles" (
@@ -500,10 +500,10 @@ CREATE TABLE IF NOT EXISTS "sellermate_agents" (
   "execution_provider" text DEFAULT 'native'::text NOT NULL,
   "make_agent_id" text,
   "is_default" integer DEFAULT 0 NOT NULL,
+  "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL,
-  "updated_at" timestamp DEFAULT now() NOT NULL,
-  "is_deleted" integer DEFAULT 0 NOT NULL
+  "updated_at" timestamp DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "sellermate_memory" (
@@ -526,10 +526,10 @@ CREATE TABLE IF NOT EXISTS "sellermate_messages" (
   "thread_id" integer NOT NULL,
   "role" text NOT NULL,
   "content" text NOT NULL,
-  "metadata" text,
   "is_deleted" integer DEFAULT 0 NOT NULL,
   "deleted_at" timestamp,
-  "created_at" timestamp DEFAULT now() NOT NULL
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "metadata" text
 );
 
 CREATE TABLE IF NOT EXISTS "sellermate_threads" (
@@ -1096,11 +1096,11 @@ ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "quantity" integer DEFAULT
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "amount_cents" integer;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "currency" text DEFAULT 'USD'::text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "status" text;
-ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "payment_status" text DEFAULT 'pending'::text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "ordered_at" timestamp;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "tracking_number" text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
+ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "payment_status" text DEFAULT 'pending'::text;
 
 ALTER TABLE "product_profiles" ADD COLUMN IF NOT EXISTS "audit_id" integer;
 ALTER TABLE "product_profiles" ADD COLUMN IF NOT EXISTS "sku" text;
@@ -1141,10 +1141,10 @@ ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "status" text DEFAULT '
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "execution_provider" text DEFAULT 'native'::text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "make_agent_id" text;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_default" integer DEFAULT 0;
+ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
 ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now();
-ALTER TABLE "sellermate_agents" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_memory" ADD COLUMN IF NOT EXISTS "agent_id" integer;
@@ -1163,10 +1163,10 @@ ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "thread_id" integer;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "role" text;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "content" text;
-ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "metadata" text;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
+ALTER TABLE "sellermate_messages" ADD COLUMN IF NOT EXISTS "metadata" text;
 
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "sellermate_threads" ADD COLUMN IF NOT EXISTS "agent_id" integer;
