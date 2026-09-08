@@ -15,6 +15,7 @@ import {
 } from "./amazon-sp-api.js";
 import { resolveSpMarketplaceId } from "./amazon-sp-settings.js";
 import type { ResolvedAmazonConnection } from "./resolve-amazon-settings.js";
+import { formatProductOrderSyncError } from "./product-order-sync-errors.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
 import { mapAmazonPaymentStatus } from "./product-order-payment.js";
 
@@ -192,7 +193,7 @@ export async function syncAmazonOrders(input: {
         else result.updated += 1;
       } catch (err) {
         result.errors.push(
-          err instanceof Error ? err.message : `Failed to save Amazon order ${order.AmazonOrderId}`,
+          formatProductOrderSyncError(err, order.AmazonOrderId),
         );
       }
     }
