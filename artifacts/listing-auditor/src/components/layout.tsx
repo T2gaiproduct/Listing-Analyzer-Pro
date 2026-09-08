@@ -74,8 +74,8 @@ const mainNavItems: Array<{
   { icon: Palette, label: "Create Graphics", href: "/projects", feature: "graphics" },
   { icon: Video, label: "Create Video", href: "/videos", feature: "videos", comingSoon: true },
   { icon: Folder, label: "Recent Projects", href: "/recent-projects", feature: "recent_projects" },
-  { icon: Sparkles, label: "SellerLens AI", href: "/ai", feature: "ads" },
-  { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "build_brand" },
+  { icon: Sparkles, label: "SellerLens AI", href: "/ai", feature: "sellermate_ai" },
+  { icon: Store, label: "Marketplaces", href: "/marketplaces", feature: "amazon" },
 ];
 
 // --- Tooltip ----------------------------------------------------------------

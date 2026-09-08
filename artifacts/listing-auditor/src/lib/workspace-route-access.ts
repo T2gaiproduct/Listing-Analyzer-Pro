@@ -7,8 +7,8 @@ type CanViewFn = (feature: WorkspaceFeature) => boolean;
 export function viewFeatureForPath(path: string): WorkspaceFeature | null {
   const p = path.split("?")[0] ?? path;
   if (p === "/" || p === "/dashboard") return null;
-  if (p === "/marketplaces") return "build_brand";
-  if (p === "/ai") return "ads";
+  if (p === "/marketplaces") return "amazon";
+  if (p === "/ai") return "sellermate_ai";
   if (p === "/products") return "build_brand";
   if (p.startsWith("/products/")) return "build_brand";
   if (p === "/recent-projects") return "recent_projects";
