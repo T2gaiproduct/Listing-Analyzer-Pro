@@ -197,11 +197,14 @@ export function ProductWorkflowStepContent({
     && !listingEditorContent
     && Boolean(onSaveAndContinue)
     && step !== 6;
+  const showStoreSyncOnStep = Boolean(
+    showStoreSync && !listingEditorContent && step >= 1 && step <= 4,
+  );
   const shellProps = {
     showSaveAndContinue: showContinueFooter,
     onSaveAndContinue,
     isSaving: isSavingContinue,
-    showStoreSync: showStoreSync && !listingEditorContent,
+    showStoreSync: showStoreSyncOnStep,
     storePlatformLabel,
     onSyncToStore,
     isSyncingStore,
@@ -315,13 +318,7 @@ export function ProductWorkflowStepContent({
 
   if (step === 6 && productId && productSource) {
     return (
-      <WorkflowStepShell
-        showSaveAndContinue={false}
-        showStoreSync={showStoreSync}
-        storePlatformLabel={storePlatformLabel}
-        onSyncToStore={onSyncToStore}
-        isSyncingStore={isSyncingStore}
-      >
+      <WorkflowStepShell showSaveAndContinue={false}>
         <ProductOrdersTab productId={productId} source={productSource} enabled />
       </WorkflowStepShell>
     );
@@ -329,28 +326,8 @@ export function ProductWorkflowStepContent({
 
   if (step === 7 && productId && productSource) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <ProductSalesTab productId={productId} source={productSource} enabled />
-        {showStoreSync && onSyncToStore && storePlatformLabel && (
-          <div className="flex justify-end border-t border-slate-100 pt-3">
-            <Button
-              type="button"
-              size="sm"
-              className="h-7 text-[10px] rounded-lg bg-orange-500 hover:bg-orange-600"
-              onClick={onSyncToStore}
-              disabled={isSyncingStore}
-            >
-              {isSyncingStore ? (
-                <>
-                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  Syncing…
-                </>
-              ) : (
-                `Save & sync to ${storePlatformLabel}`
-              )}
-            </Button>
-          </div>
-        )}
       </div>
     );
   }
