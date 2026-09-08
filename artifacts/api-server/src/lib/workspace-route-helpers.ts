@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { ownerPermissions } from "@workspace/workspace-permissions";
+import { db, auditsTable } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
 import { resolveWorkspace, type WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
 import { WORKSPACE_HEADER } from "./workspace-context";
@@ -267,4 +268,63 @@ export function ownerProjectFilter(
     return eq(ownerColumn.userId as never, ownerId);
   }
   return workspaceOwnerFilter(ownerColumn, workspaceColumn, ownerId, workspaceId);
+}
+
+const AUDIT_SCOPE_FEATURES: WorkspaceFeature[] = ["audits", "build_brand"];
+
+export type AuditAccessMode = "read" | "write";
+
+/** Load one audit with workspace RBAC; members can claim unassigned audits on write. */
+export async function loadAuditForRequest(
+  req: Request,
+  auditId: number,
+  mode: AuditAccessMode = "read",
+): Promise<typeof auditsTable.$inferSelect | null> {
+  const ctx = getWorkspaceCtx(req);
+  const userId = (req as AuthedRequest).userId;
+  const ownerId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+
+  const [audit] = await db
+    .select()
+    .from(auditsTable)
+    .where(
+      and(
+        workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
+        eq(auditsTable.isDeleted, 0),
+        eq(auditsTable.id, auditId),
+      ),
+    )
+    .limit(1);
+
+  if (!audit) return null;
+  if (ctx.isAccountOwner) return audit;
+
+  for (const feature of AUDIT_SCOPE_FEATURES) {
+    if (requireWorkspacePerm(ctx, feature, "viewGlobal")) return audit;
+  }
+
+  const memberOwnsAudit =
+    audit.createdByUserId === userId
+    && (audit.workspaceId === workspaceId || audit.workspaceId == null);
+  if (memberOwnsAudit) return audit;
+
+  const worked = await loadWorkedProjects(req);
+  if (worked && memberHasProjectAccess(worked, "audit", auditId)) {
+    return audit;
+  }
+
+  if (mode === "write") {
+    const canEdit = AUDIT_SCOPE_FEATURES.some((feature) => requireWorkspacePerm(ctx, feature, "edit"));
+    if (canEdit && audit.createdByUserId == null) {
+      const [claimed] = await db
+        .update(auditsTable)
+        .set({ createdByUserId: userId, updatedAt: new Date() })
+        .where(eq(auditsTable.id, auditId))
+        .returning();
+      return claimed ?? null;
+    }
+  }
+
+  return null;
 }

@@ -17,6 +17,7 @@ import {
   loadWorkedProjects,
   viewOwnIdFilterAny,
   workspaceOwnerFilter,
+  loadAuditForRequest,
 } from "./workspace-route-helpers";
 import { buildProductSuggestions, type ProductSuggestionInput } from "./product-suggestions.js";
 import { mapProductPriority, priorityFromStoredLevel } from "./product-priority.js";
@@ -234,9 +235,15 @@ async function loadAuditDetail(
   id: number,
   sourceType: "listing" | "audit",
 ): Promise<ProductDetailPayload | null> {
-  const where = await auditScopeWhere(req, sourceType);
-  const [row] = await db.select().from(auditsTable).where(and(where, eq(auditsTable.id, id))).limit(1);
+  const row = await loadAuditForRequest(req, id, "read");
   if (!row) return null;
+
+  const [asinScoped] = await db
+    .select({ id: auditsTable.id })
+    .from(auditsTable)
+    .where(and(eq(auditsTable.id, id), auditAsinScopeFilter(sourceType, auditsTable.asin)))
+    .limit(1);
+  if (!asinScoped) return null;
 
   const workspaceId = getActiveWorkspaceId(req);
 

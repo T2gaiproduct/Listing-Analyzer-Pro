@@ -50,6 +50,8 @@ import {
   assertProjectViewAccess,
   workspaceOwnerFilter,
   buildTeamAwareCreditCtx,
+  loadAuditForRequest,
+  type AuditAccessMode,
 } from "../lib/workspace-route-helpers";
 import { applyProductProfileUpdates } from "../lib/product-profile-update.js";
 import { applyProductListingUpdates } from "../lib/product-listing-update.js";
@@ -127,6 +129,23 @@ function auditCreatedByUserId(req: Request): string | null {
   const ctx = getWorkspaceCtx(req);
   if (ctx.isAccountOwner) return null;
   return (req as AuthedRequest).userId;
+}
+
+async function loadScopedAudit(
+  req: Request,
+  auditId: number,
+  mode: AuditAccessMode = "read",
+): Promise<typeof auditsTable.$inferSelect | null> {
+  const userId = (req as AuthedRequest).userId;
+  if (isAdmin(userId)) {
+    const [audit] = await db
+      .select()
+      .from(auditsTable)
+      .where(and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0)))
+      .limit(1);
+    return audit ?? null;
+  }
+  return loadAuditForRequest(req, auditId, mode);
 }
 
 function readLegacyGeneratedImages(audit: typeof auditsTable.$inferSelect) {
@@ -503,16 +522,7 @@ router.post("/audits/:id/analyze", requireAuth, resolveTeamAndWorkspace, require
     return;
   }
 
-  const whereClause = isAdmin((req as AuthedRequest).userId)
-    ? and(eq(auditsTable.id, params.data.id), eq(auditsTable.isDeleted, 0))
-    : await auditScopeWhere(req, eq(auditsTable.id, params.data.id));
-
-  const [audit] = await db
-    .select({ id: auditsTable.id })
-    .from(auditsTable)
-    .where(whereClause)
-    .limit(1);
-
+  const audit = await loadScopedAudit(req, params.data.id, "write");
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
     return;
@@ -531,14 +541,7 @@ router.get("/audits/:id", requireAuth, resolveTeamAndWorkspace, async (req, res)
     return;
   }
 
-  const whereClause = isAdmin(userId)
-    ? and(eq(auditsTable.id, params.data.id), eq(auditsTable.isDeleted, 0))
-    : await auditScopeWhere(req, eq(auditsTable.id, params.data.id));
-
-  const [audit] = await db
-    .select()
-    .from(auditsTable)
-    .where(whereClause);
+  const audit = await loadScopedAudit(req, params.data.id, "read");
 
   if (!audit) {
     res.status(404).json({ error: "Audit not found" });
@@ -604,10 +607,16 @@ router.delete("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorksp
     return;
   }
 
+  const existing = await loadScopedAudit(req, params.data.id, "write");
+  if (!existing) {
+    res.status(404).json({ error: "Audit not found" });
+    return;
+  }
+
   const [audit] = await db
     .update(auditsTable)
     .set({ isDeleted: 1, deletedAt: new Date() })
-    .where(await auditScopeWhere(req, eq(auditsTable.id, params.data.id)))
+    .where(eq(auditsTable.id, params.data.id))
     .returning();
 
   if (!audit) {
@@ -622,10 +631,7 @@ router.patch("/audits/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspa
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [existing] = await db
-    .select()
-    .from(auditsTable)
-    .where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const existing = await loadScopedAudit(req, id, "write");
 
   if (!existing) { res.status(404).json({ error: "Audit not found" }); return; }
 
@@ -735,12 +741,7 @@ router.post("/audits/:id/sync-marketplaces", requireAuth, resolveTeamAndWorkspac
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [existing] = await db
-    .select({ id: auditsTable.id })
-    .from(auditsTable)
-    .where(await auditScopeWhere(req, eq(auditsTable.id, id)))
-    .limit(1);
-
+  const existing = await loadScopedAudit(req, id, "write");
   if (!existing) { res.status(404).json({ error: "Audit not found" }); return; }
 
   try {
@@ -773,7 +774,7 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   try {
@@ -825,7 +826,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const existingAplus = readLegacyGeneratedImages(audit).aplus;
@@ -1009,7 +1010,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const body = (req.body ?? {}) as {
@@ -1068,7 +1069,7 @@ router.post("/audits/:id/generate-images", requireAuth, resolveTeamAndWorkspace,
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const body = req.body as { style?: ImageStyle; aspectRatio?: AspectRatio } | undefined;
@@ -1146,7 +1147,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -1204,7 +1205,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndW
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const records = buildAllRecordsFromAudit(audit);
@@ -1266,7 +1267,7 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAn
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const aplus = readLegacyGeneratedImages(audit).aplus;
@@ -1338,7 +1339,7 @@ router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorks
     return;
   }
 
-  const [audit] = await db.select().from(auditsTable).where(await auditScopeWhere(req, eq(auditsTable.id, id)));
+  const audit = await loadScopedAudit(req, id, "write");
   if (!audit) { res.status(404).json({ error: "Audit not found" }); return; }
 
   const aplus = readLegacyGeneratedImages(audit).aplus;
