@@ -166,6 +166,33 @@ export async function loadWorkedProjects(req: Request): Promise<MemberWorkedProj
   });
 }
 
+/**
+ * Attach team + workspace to req for protected asset routes.
+ * Browser <img> requests do not send x-workspace-id, so resolve workspace from the asset row.
+ */
+export async function bootstrapAssetRequestContext(
+  req: Request,
+  userId: string,
+  workspaceId: number | null | undefined,
+  accountOwnerId?: string,
+): Promise<boolean> {
+  const team = await resolveTeamContext(userId);
+  (req as TeamAuthedRequest).team = team;
+  (req as AuthedRequest).userId = userId;
+
+  let wsId = workspaceId ?? null;
+  if (wsId == null) {
+    const owner = accountOwnerId ?? team.ownerUserId;
+    wsId = await getDefaultWorkspaceId(owner);
+  }
+  if (!wsId) return false;
+
+  const workspace = await resolveWorkspaceContext(userId, wsId);
+  if (!workspace) return false;
+  (req as WorkspaceAuthedRequest).workspace = workspace;
+  return true;
+}
+
 function workedIds(worked: MemberWorkedProjects | null, type: WorkedProjectType): number[] {
   if (!worked) return [];
   switch (type) {

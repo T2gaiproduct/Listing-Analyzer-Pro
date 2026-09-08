@@ -3,8 +3,13 @@ import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, auditsTable, graphicsProjectsTable } from "@workspace/db";
-import { resolveTeamContext } from "../middlewares/team-auth";
 import { GRAPHICS_IMAGES_DIR, resolveAuditImagePath } from "./image-storage";
+import { getDefaultWorkspaceId } from "./ensure-workspaces.js";
+import {
+  assertProjectViewAccess,
+  bootstrapAssetRequestContext,
+  loadAuditForRequest,
+} from "./workspace-route-helpers";
 
 /** First path segment under /api/images served by express.static (not audit-owned files). */
 export const PUBLIC_IMAGE_PATH_SEGMENTS = new Set([
@@ -15,14 +20,6 @@ export const PUBLIC_IMAGE_PATH_SEGMENTS = new Set([
   "branding",
   "graphics",
 ]);
-
-async function resolveOwnerUserId(req: Request): Promise<string | null> {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) return null;
-  const team = await resolveTeamContext(userId);
-  return team.ownerUserId;
-}
 
 export async function requireAuditImageAccess(
   req: Request,
@@ -44,19 +41,35 @@ export async function requireAuditImageAccess(
     return;
   }
 
-  const ownerId = await resolveOwnerUserId(req);
-  if (!ownerId) {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
   const [audit] = await db
-    .select({ id: auditsTable.id })
+    .select({
+      id: auditsTable.id,
+      userId: auditsTable.userId,
+      workspaceId: auditsTable.workspaceId,
+    })
     .from(auditsTable)
-    .where(and(eq(auditsTable.id, auditId), eq(auditsTable.userId, ownerId), eq(auditsTable.isDeleted, 0)))
+    .where(and(eq(auditsTable.id, auditId), eq(auditsTable.isDeleted, 0)))
     .limit(1);
 
   if (!audit) {
+    res.status(404).json({ error: "Image not found" });
+    return;
+  }
+
+  const workspaceId = audit.workspaceId ?? await getDefaultWorkspaceId(audit.userId);
+  if (!(await bootstrapAssetRequestContext(req, userId, workspaceId, audit.userId))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const loaded = await loadAuditForRequest(req, auditId, "read");
+  if (!loaded) {
     res.status(404).json({ error: "Image not found" });
     return;
   }
@@ -69,8 +82,8 @@ export async function requireGraphicsImageAccess(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const ownerId = await resolveOwnerUserId(req);
-  if (!ownerId) {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
@@ -82,12 +95,28 @@ export async function requireGraphicsImageAccess(
   }
 
   const [project] = await db
-    .select({ id: graphicsProjectsTable.id })
+    .select({
+      id: graphicsProjectsTable.id,
+      userId: graphicsProjectsTable.userId,
+      workspaceId: graphicsProjectsTable.workspaceId,
+    })
     .from(graphicsProjectsTable)
-    .where(and(eq(graphicsProjectsTable.id, projectId), eq(graphicsProjectsTable.userId, ownerId)))
+    .where(and(eq(graphicsProjectsTable.id, projectId), eq(graphicsProjectsTable.isDeleted, 0)))
     .limit(1);
 
   if (!project) {
+    res.status(404).json({ error: "Image not found" });
+    return;
+  }
+
+  const workspaceId = project.workspaceId ?? await getDefaultWorkspaceId(project.userId);
+  if (!(await bootstrapAssetRequestContext(req, userId, workspaceId, project.userId))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const allowed = await assertProjectViewAccess(req, ["graphics", "build_brand"], "graphics", projectId);
+  if (!allowed) {
     res.status(404).json({ error: "Image not found" });
     return;
   }
