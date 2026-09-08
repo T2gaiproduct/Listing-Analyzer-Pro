@@ -78,7 +78,7 @@ export async function notifyWorkspaceMemberCreditsAssigned(opts: {
   if (!email || !(await isEmailNotificationsEnabled())) return;
 
   const html = notificationEmailTemplate({
-    recipientName: row.invitedName?.trim() || undefined,
+    recipientName: row.invitedName?.trim() || "there",
     title,
     message,
     actionUrl: `${getAppBaseUrl()}${link}`,
