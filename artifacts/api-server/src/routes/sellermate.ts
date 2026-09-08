@@ -22,6 +22,7 @@ import {
   getActiveWorkspaceId,
   resolveTeamAndWorkspace,
   requireWorkspaceAction,
+  requireWorkspaceView,
 } from "../lib/workspace-route-helpers.js";
 
 const router: IRouter = Router();
@@ -80,6 +81,7 @@ router.get(
   "/sellermate/agents",
   requireAuth,
   resolveTeamAndWorkspace,
+  requireWorkspaceView("sellermate_ai"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     if (!workspaceId) {
@@ -102,7 +104,7 @@ router.post(
   "/sellermate/agents",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "create"),
+  requireWorkspaceAction("sellermate_ai", "create"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const userId = (req as AuthedRequest).userId;
@@ -140,7 +142,7 @@ router.post(
   "/sellermate/agents/:id/duplicate",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "create"),
+  requireWorkspaceAction("sellermate_ai", "create"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const userId = (req as AuthedRequest).userId;
@@ -169,7 +171,7 @@ router.patch(
   "/sellermate/agents/:id",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "edit"),
+  requireWorkspaceAction("sellermate_ai", "edit"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const agentId = Number(req.params.id);
@@ -207,7 +209,7 @@ router.delete(
   "/sellermate/agents/:id",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "delete"),
+  requireWorkspaceAction("sellermate_ai", "delete"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const agentId = Number(req.params.id);
@@ -229,6 +231,7 @@ router.get(
   "/sellermate/agents/:id/threads",
   requireAuth,
   resolveTeamAndWorkspace,
+  requireWorkspaceView("sellermate_ai"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const userId = (req as AuthedRequest).userId;
@@ -253,6 +256,7 @@ router.get(
   "/sellermate/threads/:threadId/messages",
   requireAuth,
   resolveTeamAndWorkspace,
+  requireWorkspaceView("sellermate_ai"),
   async (req: Request, res: Response): Promise<void> => {
     const threadId = Number(req.params.threadId);
     if (!Number.isFinite(threadId)) {
@@ -269,7 +273,7 @@ router.post(
   "/sellermate/agents/:id/chat",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "create"),
+  requireWorkspaceAction("sellermate_ai", "create"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const userId = (req as AuthedRequest).userId;
@@ -316,6 +320,7 @@ router.get(
   "/sellermate/agents/:id/memory",
   requireAuth,
   resolveTeamAndWorkspace,
+  requireWorkspaceView("sellermate_ai"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const agentId = Number(req.params.id);
@@ -339,7 +344,7 @@ router.post(
   "/sellermate/agents/:id/memory",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "create"),
+  requireWorkspaceAction("sellermate_ai", "create"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const userId = (req as AuthedRequest).userId;
@@ -376,7 +381,7 @@ router.post(
   "/sellermate/agents/:id/memory/upload",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "create"),
+  requireWorkspaceAction("sellermate_ai", "create"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const userId = (req as AuthedRequest).userId;
@@ -432,7 +437,7 @@ router.delete(
   "/sellermate/agents/:agentId/memory/:memoryId",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceAction("ads", "delete"),
+  requireWorkspaceAction("sellermate_ai", "delete"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const memoryId = Number(req.params.memoryId);

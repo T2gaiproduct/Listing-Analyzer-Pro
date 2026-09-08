@@ -15,6 +15,7 @@ import {
   hasWorkspacePermission,
   canViewInWorkspace,
   canWriteInWorkspace,
+  normalizeRolePermissions,
 } from "@workspace/workspace-permissions";
 import { resolveTeamContext, type TeamContext } from "../middlewares/team-auth";
 import { displayWorkspaceRoleLabel } from "./role-display.js";
@@ -318,7 +319,7 @@ export async function resolveWorkspaceContext(
           roleId = accountRole.id;
           roleName = accountRole.name;
           legacyRole = normalizeLegacyRole(accountRole.legacyRoleKey ?? legacyRole);
-          permissions = accountRole.permissions ?? legacyRolePermissions(legacyRole);
+          permissions = normalizeRolePermissions(accountRole.permissions ?? legacyRolePermissions(legacyRole));
         }
       }
 
@@ -362,9 +363,9 @@ export async function resolveWorkspaceContext(
     && !membership.member.roleId
     && isLegacyRoleKey(legacyRoleKey);
 
-  const permissions = useLegacy
+  const permissions = normalizeRolePermissions(useLegacy
     ? legacyRolePermissions(legacyRole)
-    : (membership.role?.permissions ?? legacyRolePermissions(legacyRole));
+    : (membership.role?.permissions ?? legacyRolePermissions(legacyRole)));
 
   return {
     workspaceId,

@@ -9,7 +9,8 @@ import {
   loadWorkedProjects,
   viewOwnIdFilter,
   getWorkspaceCtx,
-  requireWorkspaceActionAny,
+  requireWorkspaceAction,
+  requireWorkspaceView,
 } from "../lib/workspace-route-helpers.js";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { getWorkspaceMarketplacesOverview } from "../lib/workspace-marketplaces.js";
@@ -161,7 +162,7 @@ async function productsScopeWhere(req: Request) {
 }
 
 
-router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, requireWorkspaceView("amazon"), async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const workspaceId = getActiveWorkspaceId(req);
 
@@ -202,7 +203,7 @@ router.get("/marketplaces/connections", requireAuth, resolveTeamAndWorkspace, as
   });
 });
 
-router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("amazon", "edit"), async (req: Request, res: Response): Promise<void> => {
   const platform = parseConnectionPlatform(String(req.params.platform ?? ""));
   if (!platform) {
     res.status(400).json({ error: "Invalid marketplace platform" });
@@ -381,7 +382,7 @@ router.post("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWo
   res.status(400).json({ error: "Invalid marketplace platform" });
 });
 
-router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+router.delete("/marketplaces/connections/:platform", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("amazon", "edit"), async (req: Request, res: Response): Promise<void> => {
   const platform = parseConnectionPlatform(String(req.params.platform ?? ""));
   if (!platform) {
     res.status(400).json({ error: "Invalid marketplace platform" });
@@ -404,6 +405,7 @@ router.post(
   "/marketplaces/amazon/test-credentials",
   requireAuth,
   resolveTeamAndWorkspace,
+  requireWorkspaceAction("amazon", "edit"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const workspaceRecord = await getAmazonWorkspaceConnection(workspaceId);
@@ -463,7 +465,7 @@ router.post(
   "/marketplaces/amazon/sync",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceActionAny(["build_brand", "audits"], "create"),
+  requireWorkspaceAction("amazon", "edit"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const userId = (req as AuthedRequest).userId;
@@ -518,7 +520,7 @@ router.post(
   "/marketplaces/shopify/sync",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceActionAny(["build_brand", "audits"], "create"),
+  requireWorkspaceAction("amazon", "edit"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const connection = await getShopifyConnectionPublic(workspaceId);
@@ -580,7 +582,7 @@ router.post(
   "/marketplaces/woocommerce/sync",
   requireAuth,
   resolveTeamAndWorkspace,
-  requireWorkspaceActionAny(["build_brand", "audits"], "create"),
+  requireWorkspaceAction("amazon", "edit"),
   async (req: Request, res: Response): Promise<void> => {
     const workspaceId = getActiveWorkspaceId(req);
     const connection = await getWooCommerceConnection(workspaceId);
@@ -625,7 +627,7 @@ router.post(
   },
 );
 
-router.get("/marketplaces", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
+router.get("/marketplaces", requireAuth, resolveTeamAndWorkspace, requireWorkspaceView("amazon"), async (req: Request, res: Response): Promise<void> => {
   const where = await productsScopeWhere(req);
   const workspaceId = getActiveWorkspaceId(req);
 

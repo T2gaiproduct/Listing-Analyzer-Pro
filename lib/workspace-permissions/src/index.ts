@@ -15,6 +15,7 @@ export const WORKSPACE_FEATURES = [
   "videos",
   "ads",
   "amazon",
+  "sellermate_ai",
   "workspaces",
   "credits",
 ] as const;
@@ -99,8 +100,8 @@ export const WORKSPACE_FEATURE_META: WorkspaceFeatureMeta[] = [
   { id: "settings", label: "Settings", group: "Account", actions: ["viewOwn", "edit"] },
 
   // ── Advanced / integrations ──────────────────────────────────────────────
-  { id: "competitors", label: "Competitors", group: "Advanced", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
-  { id: "amazon", label: "Amazon Integration", group: "Advanced", actions: ["viewOwn", "edit"] },
+  { id: "sellermate_ai", label: "SellerLens AI", group: "Advanced", actions: ["viewGlobal", "viewOwn", "create", "edit", "delete"] },
+  { id: "amazon", label: "Marketplaces", group: "Advanced", actions: ["viewGlobal", "viewOwn", "edit"] },
 ];
 
 export const WORKSPACE_OWNER_ROLE_NAME = "Owner";
@@ -226,6 +227,17 @@ export function mergePermissionsFromForm(
       edit: Boolean(row.edit),
       delete: Boolean(row.delete),
     };
+  }
+  return normalizeRolePermissions(out);
+}
+
+/** Backfill new feature keys from legacy permissions stored on older roles. */
+export function normalizeRolePermissions(
+  permissions: WorkspaceRolePermissions,
+): WorkspaceRolePermissions {
+  const out: WorkspaceRolePermissions = { ...permissions };
+  if (!out.sellermate_ai && out.ads) {
+    out.sellermate_ai = { ...out.ads };
   }
   return out;
 }

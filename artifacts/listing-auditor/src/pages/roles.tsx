@@ -39,6 +39,23 @@ const ACTION_LABELS: Record<WorkspaceAction, string> = {
   delete: "Delete",
 };
 
+function emptyPermissionRow(): FeaturePermission {
+  return { viewGlobal: false, viewOwn: false, create: false, edit: false, delete: false };
+}
+
+function buildPermissionMatrix(
+  source?: Record<string, Partial<FeaturePermission>>,
+): Record<string, Partial<FeaturePermission>> {
+  const matrix: Record<string, Partial<FeaturePermission>> = {};
+  for (const meta of WORKSPACE_FEATURE_META) {
+    matrix[meta.id] = {
+      ...emptyPermissionRow(),
+      ...(source?.[meta.id] ?? {}),
+    };
+  }
+  return matrix;
+}
+
 export default function RolesPage() {
   const { isAccountOwner, isLoading: wsLoading } = useWorkspace();
   const { toast } = useToast();
@@ -75,14 +92,14 @@ export default function RolesPage() {
     Projects: "Project history and archive",
     Workspace: "Team and workspace management",
     Account: "User account settings",
-    Advanced: "Integrations and extra tools",
+    Advanced: "SellerLens AI, marketplace integrations (Amazon, Shopify, WooCommerce), and extra tools",
   };
 
   const openCreate = () => {
     setEditing(null);
     setName("");
     setDescription("");
-    setMatrix({});
+    setMatrix(buildPermissionMatrix());
     setDialogOpen(true);
   };
 
@@ -90,7 +107,7 @@ export default function RolesPage() {
     setEditing(role);
     setName(role.name);
     setDescription(role.description ?? "");
-    setMatrix(role.permissions ?? {});
+    setMatrix(buildPermissionMatrix(role.permissions ?? {}));
     setDialogOpen(true);
   };
 
