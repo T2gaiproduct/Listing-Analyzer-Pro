@@ -104,8 +104,9 @@ function deriveSku(productName: string, id: number): string {
   return `${prefix}-${String(id).padStart(4, "0")}`;
 }
 
-async function maybeRefreshShopifyOrders(req: Request, _auditId: number): Promise<void> {
-  await maybeRefreshMarketplaceOrders(req, { force: true });
+async function maybeRefreshShopifyOrders(req: Request, _auditId: number): Promise<string[]> {
+  const result = await maybeRefreshMarketplaceOrders(req, { force: true });
+  return result.warnings;
 }
 
 type ProductStatus = "active" | "in_progress" | "draft" | "failed";
@@ -305,11 +306,11 @@ router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (
 
   const statsAuditId = await resolveStatsAuditId(req, id, parseProductSourceFromRequest(req));
   if (!statsAuditId) {
-    res.json({ orders: [], total: 0, revenue: 0 });
+    res.json({ orders: [], total: 0, revenue: 0, syncWarnings: [] });
     return;
   }
 
-  await maybeRefreshShopifyOrders(req, statsAuditId);
+  const syncWarnings = await maybeRefreshShopifyOrders(req, statsAuditId);
 
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const marketplace = typeof req.query.marketplace === "string" ? req.query.marketplace : undefined;
@@ -323,6 +324,7 @@ router.get("/products/:id/orders", requireAuth, resolveTeamAndWorkspace, async (
     orders: result.orders,
     total: result.total,
     revenue: result.revenue,
+    syncWarnings,
   });
 });
 

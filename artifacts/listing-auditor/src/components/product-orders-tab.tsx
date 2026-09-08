@@ -38,6 +38,7 @@ interface ProductOrdersResponse {
   orders: ProductOrder[];
   total: number;
   revenue: number;
+  syncWarnings?: string[];
 }
 
 const MARKETPLACE_OPTIONS = ["all", "Amazon", "Flipkart", "Shopify", "WooCommerce"] as const;
@@ -142,7 +143,7 @@ export function ProductOrdersTab({
     return qs ? `?${qs}` : "";
   }, [source, search, marketplace, status, dateRange]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["product-orders", productId, source, search, marketplace, status, dateRange],
     queryFn: () => fetchJson<ProductOrdersResponse>(`${basePath}/api/products/${productId}/orders${queryString}`),
     enabled: enabled && productId > 0,
@@ -151,6 +152,8 @@ export function ProductOrdersTab({
 
   const orders = data?.orders ?? [];
   const total = data?.total ?? 0;
+  const syncWarnings = data?.syncWarnings ?? [];
+  const errorMessage = error instanceof Error ? error.message : "Could not load orders";
 
   const marketplaceLabel = marketplace === "all" ? "Marketplace" : marketplace;
   const statusLabel = STATUS_OPTIONS.find((o) => o.value === status)?.label ?? "Status";
@@ -229,6 +232,16 @@ export function ProductOrdersTab({
         </div>
       </div>
 
+      {syncWarnings.length > 0 && (
+        <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 text-[11px] text-amber-900">
+          <p className="font-medium">Order sync issue</p>
+          <p className="mt-1 text-amber-800">{syncWarnings[0]}</p>
+          {syncWarnings.length > 1 && (
+            <p className="mt-1 text-amber-700">{syncWarnings.slice(1).join(" ")}</p>
+          )}
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[860px] text-left border-collapse">
           <thead>
@@ -254,6 +267,15 @@ export function ProductOrdersTab({
                   ))}
                 </tr>
               ))
+            ) : isError ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-12 text-center text-[11px] text-red-600">
+                  {errorMessage}
+                  <span className="block mt-1 text-[10px] text-red-500">
+                    If this persists, ask your admin to run the production database schema upgrade.
+                  </span>
+                </td>
+              </tr>
             ) : orders.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center text-[11px] text-slate-500">

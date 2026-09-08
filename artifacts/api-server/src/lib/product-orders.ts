@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
 import { db, productOrdersTable } from "@workspace/db";
+import { isMissingProductOrdersColumnError } from "./product-order-sync-errors.js";
 import { normalizeStoreCurrency } from "./store-currency.js";
 
 export type ProductOrderStatus = "delivered" | "shipped" | "processing" | "returned";
@@ -53,7 +54,21 @@ function dateRangeStart(dateRange: string | undefined): Date | null {
   return start;
 }
 
-function mapOrderRow(row: typeof productOrdersTable.$inferSelect): ProductOrderRow {
+type ProductOrderDbRow = {
+  id: number;
+  orderNumber: string;
+  marketplace: string;
+  customerName: string;
+  quantity: number;
+  amountCents: number;
+  currency: string;
+  status: string;
+  paymentStatus?: string | null;
+  orderedAt: Date;
+  trackingNumber: string | null;
+};
+
+function mapOrderRow(row: ProductOrderDbRow): ProductOrderRow {
   const status = row.status as ProductOrderStatus;
   const paymentStatus = (row.paymentStatus ?? "pending") as ProductOrderPaymentStatus;
   return {
@@ -73,10 +88,10 @@ function mapOrderRow(row: typeof productOrdersTable.$inferSelect): ProductOrderR
   };
 }
 
-export async function listProductOrders(
+async function selectProductOrderRows(
   auditId: number,
   query: ListProductOrdersQuery,
-): Promise<{ orders: ProductOrderRow[]; total: number; revenue: number }> {
+): Promise<ProductOrderDbRow[]> {
   const conditions = [
     eq(productOrdersTable.auditId, auditId),
     eq(productOrdersTable.isDeleted, 0),
@@ -105,12 +120,88 @@ export async function listProductOrders(
     conditions.push(gte(productOrdersTable.orderedAt, rangeStart));
   }
 
-  const rows = await db
-    .select()
-    .from(productOrdersTable)
-    .where(and(...conditions))
-    .orderBy(desc(productOrdersTable.orderedAt));
+  try {
+    const rows = await db
+      .select()
+      .from(productOrdersTable)
+      .where(and(...conditions))
+      .orderBy(desc(productOrdersTable.orderedAt));
+    return rows;
+  } catch (err) {
+    if (!isMissingProductOrdersColumnError(err, "payment_status")) {
+      throw err;
+    }
+    return selectLegacyProductOrderRows(auditId, query);
+  }
+}
 
+async function selectLegacyProductOrderRows(
+  auditId: number,
+  query: ListProductOrdersQuery,
+): Promise<ProductOrderDbRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      id,
+      order_number,
+      marketplace,
+      customer_name,
+      quantity,
+      amount_cents,
+      currency,
+      status,
+      ordered_at,
+      tracking_number
+    FROM product_orders
+    WHERE audit_id = ${auditId}
+      AND is_deleted = 0
+    ORDER BY ordered_at DESC
+  `);
+
+  const rows = (Array.isArray(result) ? result : result.rows) as Array<Record<string, unknown>>;
+  let mapped = rows.map((row) => ({
+    id: Number(row.id),
+    orderNumber: String(row.order_number),
+    marketplace: String(row.marketplace),
+    customerName: String(row.customer_name),
+    quantity: Number(row.quantity),
+    amountCents: Number(row.amount_cents),
+    currency: String(row.currency),
+    status: String(row.status),
+    orderedAt: row.ordered_at instanceof Date ? row.ordered_at : new Date(String(row.ordered_at)),
+    trackingNumber: row.tracking_number == null ? null : String(row.tracking_number),
+  }));
+
+  const search = query.search?.trim().toLowerCase();
+  if (search) {
+    mapped = mapped.filter((row) =>
+      row.orderNumber.toLowerCase().includes(search)
+      || row.customerName.toLowerCase().includes(search)
+      || (row.trackingNumber?.toLowerCase().includes(search) ?? false),
+    );
+  }
+
+  if (query.marketplace && query.marketplace !== "all") {
+    const marketplace = query.marketplace.toLowerCase();
+    mapped = mapped.filter((row) => row.marketplace.toLowerCase() === marketplace);
+  }
+
+  if (query.status && query.status !== "all") {
+    mapped = mapped.filter((row) => row.status === query.status);
+  }
+
+  const rangeStart = dateRangeStart(query.dateRange);
+  if (rangeStart) {
+    mapped = mapped.filter((row) => row.orderedAt >= rangeStart);
+  }
+
+  return mapped;
+}
+
+export async function listProductOrders(
+  auditId: number,
+  query: ListProductOrdersQuery,
+): Promise<{ orders: ProductOrderRow[]; total: number; revenue: number }> {
+  const rows = await selectProductOrderRows(auditId, query);
   const orders = rows.map(mapOrderRow);
   const revenue = orders
     .filter((o) => o.status !== "returned")
@@ -124,26 +215,40 @@ export async function getProductOrderStats(auditId: number): Promise<{
   revenue: number;
   currency: string;
 }> {
-  const [stats] = await db
-    .select({
-      totalOrders: sql<number>`count(*)::int`,
-      revenue: sql<number>`coalesce(sum(case when ${productOrdersTable.status} != 'returned' then ${productOrdersTable.amountCents} else 0 end), 0)::int`,
-    })
-    .from(productOrdersTable)
-    .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)));
+  try {
+    const [stats] = await db
+      .select({
+        totalOrders: sql<number>`count(*)::int`,
+        revenue: sql<number>`coalesce(sum(case when ${productOrdersTable.status} != 'returned' then ${productOrdersTable.amountCents} else 0 end), 0)::int`,
+      })
+      .from(productOrdersTable)
+      .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)));
 
-  const [latestOrder] = await db
-    .select({ currency: productOrdersTable.currency })
-    .from(productOrdersTable)
-    .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)))
-    .orderBy(desc(productOrdersTable.orderedAt))
-    .limit(1);
+    const [latestOrder] = await db
+      .select({ currency: productOrdersTable.currency })
+      .from(productOrdersTable)
+      .where(and(eq(productOrdersTable.auditId, auditId), eq(productOrdersTable.isDeleted, 0)))
+      .orderBy(desc(productOrdersTable.orderedAt))
+      .limit(1);
 
-  return {
-    totalOrders: stats?.totalOrders ?? 0,
-    revenue: (stats?.revenue ?? 0) / 100,
-    currency: normalizeStoreCurrency(latestOrder?.currency),
-  };
+    return {
+      totalOrders: stats?.totalOrders ?? 0,
+      revenue: (stats?.revenue ?? 0) / 100,
+      currency: normalizeStoreCurrency(latestOrder?.currency),
+    };
+  } catch (err) {
+    if (!isMissingProductOrdersColumnError(err, "payment_status")) {
+      throw err;
+    }
+
+    const { orders, revenue } = await listProductOrders(auditId, {});
+    const latestOrder = orders[0];
+    return {
+      totalOrders: orders.length,
+      revenue,
+      currency: normalizeStoreCurrency(latestOrder?.currency),
+    };
+  }
 }
 
 export function resolveRevenueCurrency(opts: {
