@@ -138,25 +138,6 @@ export async function getMemberWorkedProjects(
     }
   }
 
-  if (auditIds.size > 0) {
-    const linked = await db
-      .select({ id: graphicsProjectsTable.id, auditId: graphicsProjectsTable.auditId })
-      .from(graphicsProjectsTable)
-      .where(
-        and(
-          inArray(graphicsProjectsTable.auditId, [...auditIds]),
-          eq(graphicsProjectsTable.isDeleted, 0),
-        ),
-      );
-    for (const row of linked) {
-      graphicsIds.add(row.id);
-      if (row.auditId != null) {
-        const auditActivity = lastActivityAt.get(`audit-${row.auditId}`);
-        if (auditActivity) touchActivity(lastActivityAt, "graphics", row.id, auditActivity);
-      }
-    }
-  }
-
   if (options?.workspaceId != null) {
     const createdAudits = await db
       .select({ id: auditsTable.id, createdAt: auditsTable.createdAt })
@@ -186,6 +167,25 @@ export async function getMemberWorkedProjects(
     for (const row of createdGraphics) {
       graphicsIds.add(row.id);
       touchActivity(lastActivityAt, "graphics", row.id, row.createdAt ?? new Date());
+    }
+  }
+
+  if (auditIds.size > 0) {
+    const linked = await db
+      .select({ id: graphicsProjectsTable.id, auditId: graphicsProjectsTable.auditId })
+      .from(graphicsProjectsTable)
+      .where(
+        and(
+          inArray(graphicsProjectsTable.auditId, [...auditIds]),
+          eq(graphicsProjectsTable.isDeleted, 0),
+        ),
+      );
+    for (const row of linked) {
+      graphicsIds.add(row.id);
+      if (row.auditId != null) {
+        const auditActivity = lastActivityAt.get(`audit-${row.auditId}`);
+        if (auditActivity) touchActivity(lastActivityAt, "graphics", row.id, auditActivity);
+      }
     }
   }
 
