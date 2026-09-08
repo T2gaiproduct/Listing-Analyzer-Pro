@@ -34,7 +34,7 @@ export async function maybeRefreshMarketplaceOrders(
       clientSecret: credentials?.clientSecret,
       force: opts?.force === true,
     });
-    if (shopifyResult?.errors.length) {
+    if (shopifyResult?.errors?.length) {
       warnings.push(...shopifyResult.errors);
     }
   }
@@ -47,7 +47,7 @@ export async function maybeRefreshMarketplaceOrders(
       consumerKey: wooConnection.consumerKey,
       consumerSecret: wooConnection.consumerSecret,
     });
-    if (wooResult?.errors.length) {
+    if (wooResult?.errors?.length) {
       warnings.push(...wooResult.errors);
     }
   }
@@ -59,7 +59,7 @@ export async function maybeRefreshMarketplaceOrders(
         workspaceId,
         connection: amazonConnection,
       });
-      if (amazonResult?.errors.length) {
+      if (amazonResult?.errors?.length) {
         warnings.push(...amazonResult.errors);
       }
     }

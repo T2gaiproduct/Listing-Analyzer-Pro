@@ -206,13 +206,14 @@ export async function syncAmazonOrders(input: {
 export async function maybeSyncAmazonOrdersForWorkspace(input: {
   workspaceId: number;
   connection: ResolvedAmazonConnection;
-}): Promise<void> {
+}): Promise<AmazonOrderSyncResult | null> {
   const lastSync = lastSyncByWorkspace.get(input.workspaceId) ?? 0;
-  if (Date.now() - lastSync < SYNC_COOLDOWN_MS) return;
+  if (Date.now() - lastSync < SYNC_COOLDOWN_MS) return null;
 
   try {
-    await syncAmazonOrders(input);
+    return await syncAmazonOrders(input);
   } catch (err) {
     console.error("Amazon order sync failed:", err);
+    return null;
   }
 }

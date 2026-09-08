@@ -238,13 +238,14 @@ export async function maybeSyncWooCommerceOrdersForWorkspace(input: {
   storeUrl: string;
   consumerKey?: string;
   consumerSecret?: string;
-}): Promise<void> {
+}): Promise<WooCommerceOrderSyncResult | null> {
   const lastSync = lastSyncByWorkspace.get(input.workspaceId) ?? 0;
-  if (Date.now() - lastSync < SYNC_COOLDOWN_MS) return;
+  if (Date.now() - lastSync < SYNC_COOLDOWN_MS) return null;
 
   try {
-    await syncWooCommerceOrders(input);
+    return await syncWooCommerceOrders(input);
   } catch (err) {
     console.error("WooCommerce order sync failed:", err);
+    return null;
   }
 }
