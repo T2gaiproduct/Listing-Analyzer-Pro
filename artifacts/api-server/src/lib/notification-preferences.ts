@@ -51,6 +51,7 @@ const CATEGORY_TYPES: Record<NotificationPreferenceCategory, readonly string[]> 
     "credit_low",
     "credit_depleted",
     "credits_low",
+    "credits_assigned",
     "payment_received",
     "subscription_expired",
     "subscription_renewed",

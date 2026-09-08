@@ -18,6 +18,7 @@ export type NotificationType =
   | "credits_low"
   | "credit_low"
   | "credit_depleted"
+  | "credits_assigned"
   | "subscription_expired"
   | "subscription_renewed"
   | "payment_received"
