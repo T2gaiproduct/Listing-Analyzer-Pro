@@ -28,8 +28,8 @@ interface ProductOrder {
   currency: string;
   status: OrderStatus;
   statusLabel: string;
-  paymentStatus: PaymentStatus;
-  paymentStatusLabel: string;
+  paymentStatus?: PaymentStatus;
+  paymentStatusLabel?: string;
   date: string;
   tracking: string | null;
 }
