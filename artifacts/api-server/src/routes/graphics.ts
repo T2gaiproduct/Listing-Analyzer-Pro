@@ -19,6 +19,7 @@ import {
   workspaceOwnerFilter,
   buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
+import { formatGraphicsProjectError, isGraphicsSchemaError } from "../lib/db-client-errors";
 import * as fs from "fs";
 import * as path from "path";
 import pLimit from "p-limit";
@@ -688,41 +689,49 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
     featureCount = body.imageTypes.filter((t) => ["callouts", "social", "size", "beforeafter"].includes(t)).length;
   }
 
-  const [project] = await db.insert(graphicsProjectsTable).values({
-    userId,
-    createdByUserId: memberCreatedByUserId(req),
-    workspaceId: getActiveWorkspaceId(req),
-    auditId: body.auditId ?? null,
-    name: body.name ?? "Untitled Project",
-    productName: body.productName,
-    category: body.category ?? null,
-    sourceImageUrls: body.sourceImageUrls ?? null,
-    lifestyleCount: lifestyleCount,
-    featureCount: featureCount,
-    status: "draft",
-  }).returning();
+  const sourceImages = body.sourceImageUrls ?? [];
 
-  // Save uploaded base64 images as files for later use
-  if (body.sourceImageUrls && body.sourceImageUrls.length > 0) {
-    const projectDir = path.join(IMAGES_DIR, String(project.id), "source");
-    ensureDir(projectDir);
-    const savedPaths: string[] = [];
-    body.sourceImageUrls.forEach((img, idx) => {
-      const ext = img.startsWith("data:image/png") ? "png" : "jpg";
-      const filePath = saveBase64Image(img, projectDir, `source_${idx}.${ext}`);
-      if (filePath) {
-        savedPaths.push(filePath);
+  try {
+    const [project] = await db.insert(graphicsProjectsTable).values({
+      userId,
+      createdByUserId: memberCreatedByUserId(req),
+      workspaceId: getActiveWorkspaceId(req),
+      auditId: body.auditId ?? null,
+      name: body.name ?? "Untitled Project",
+      productName: body.productName,
+      category: body.category ?? null,
+      sourceImageUrls: null,
+      lifestyleCount: lifestyleCount,
+      featureCount: featureCount,
+      status: "draft",
+    }).returning();
+
+    // Save uploaded base64 images as files; store paths only (never base64 in Postgres).
+    if (sourceImages.length > 0) {
+      const projectDir = path.join(IMAGES_DIR, String(project.id), "source");
+      ensureDir(projectDir);
+      const savedPaths: string[] = [];
+      sourceImages.forEach((img, idx) => {
+        const ext = img.startsWith("data:image/png") ? "png" : "jpg";
+        const filePath = saveBase64Image(img, projectDir, `source_${idx}.${ext}`);
+        if (filePath) {
+          savedPaths.push(filePath);
+        }
+      });
+      if (savedPaths.length > 0) {
+        await db.update(graphicsProjectsTable)
+          .set({ sourceImageUrls: savedPaths, updatedAt: new Date() })
+          .where(eq(graphicsProjectsTable.id, project.id));
+        project.sourceImageUrls = savedPaths;
       }
-    });
-    // Update with saved paths
-    if (savedPaths.length > 0) {
-      await db.update(graphicsProjectsTable)
-        .set({ sourceImageUrls: savedPaths, updatedAt: new Date() })
-        .where(eq(graphicsProjectsTable.id, project.id));
     }
-  }
 
-  res.status(201).json(project);
+    res.status(201).json(project);
+  } catch (err) {
+    req.log?.error?.({ err }, "Create graphics project failed");
+    const status = isGraphicsSchemaError(err) ? 503 : 500;
+    res.status(status).json({ error: formatGraphicsProjectError(err) });
+  }
 });
 
 // ─── List projects ────────────────────────────────────────────────────────────

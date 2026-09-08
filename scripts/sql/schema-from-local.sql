@@ -973,6 +973,7 @@ ALTER TABLE "graphics_projects" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 ALTER TABLE "graphics_projects" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now();
 ALTER TABLE "graphics_projects" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now();
 ALTER TABLE "graphics_projects" ADD COLUMN IF NOT EXISTS "workspace_id" integer;
+ALTER TABLE "graphics_projects" ADD COLUMN IF NOT EXISTS "created_by_user_id" text;
 
 ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "id" integer;
 ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "user_id" text;

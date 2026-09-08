@@ -11,6 +11,7 @@ import { ensureAdminRolePermissions } from "./lib/ensure-admin-role-permissions"
 import { ensureWorkspacesMigrated } from "./lib/ensure-workspaces";
 import { ensureWorkspaceCreditsMigrated } from "./lib/ensure-workspace-credits.js";
 import { ensureSellermateSchemaMigrated } from "./lib/ensure-sellermate-schema.js";
+import { ensureGraphicsProjectsSchemaMigrated } from "./lib/ensure-graphics-schema.js";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -100,6 +101,10 @@ ensureWorkspaceCreditsMigrated()
 ensureSellermateSchemaMigrated()
   .then(() => logger.info("SellerMate schema migration ready"))
   .catch((err) => logger.error({ err }, "SellerMate schema migration failed"));
+
+ensureGraphicsProjectsSchemaMigrated()
+  .then(() => logger.info("Graphics projects schema migration ready"))
+  .catch((err) => logger.error({ err }, "Graphics projects schema migration failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);
