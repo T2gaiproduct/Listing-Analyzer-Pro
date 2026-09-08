@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import type { ProductOrderStatus } from "./product-orders.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
+import { mapWooCommercePaymentStatus } from "./product-order-payment.js";
 import { woocommerceSlugFromAsin } from "./woocommerce-import-utils.js";
 import {
   fetchWooCommerceCatalog,
@@ -193,6 +194,7 @@ export async function syncWooCommerceOrders(input: {
 
   for (const order of orders) {
     const status = mapWooCommerceOrderStatus(order.status);
+    const paymentStatus = mapWooCommercePaymentStatus(order);
     const orderedAt = new Date(order.date_created);
     for (const lineItem of order.line_items ?? []) {
       const auditId = resolveAuditIdForLineItem(lineItem, matchers);
@@ -212,6 +214,7 @@ export async function syncWooCommerceOrders(input: {
           amountCents: lineItemAmountCents(lineItem),
           currency: order.currency || "USD",
           status,
+          paymentStatus,
           orderedAt,
           trackingNumber: null,
         });

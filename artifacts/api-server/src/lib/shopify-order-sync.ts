@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import type { ProductOrderStatus } from "./product-orders.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
+import { mapShopifyPaymentStatus } from "./product-order-payment.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import {
   clearShopifyAccessTokenCache,
@@ -204,6 +205,7 @@ async function upsertShopifyOrderRow(input: {
   const amountCents = lineItemAmountCents(input.lineItem);
   const orderedAt = new Date(input.order.created_at);
   const status = mapShopifyOrderStatus(input.order);
+  const paymentStatus = mapShopifyPaymentStatus(input.order);
 
   const outcome = await upsertProductOrderRow({
     auditId: input.auditId,
@@ -215,6 +217,7 @@ async function upsertShopifyOrderRow(input: {
     amountCents,
     currency: input.order.currency || "USD",
     status,
+    paymentStatus,
     orderedAt,
     trackingNumber: trackingNumber(input.order),
   });

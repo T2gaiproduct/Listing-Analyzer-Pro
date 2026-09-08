@@ -447,6 +447,7 @@ CREATE TABLE IF NOT EXISTS "product_orders" (
   "amount_cents" integer NOT NULL,
   "currency" text DEFAULT 'USD'::text NOT NULL,
   "status" text NOT NULL,
+  "payment_status" text DEFAULT 'pending'::text NOT NULL,
   "ordered_at" timestamp NOT NULL,
   "tracking_number" text,
   "is_deleted" integer DEFAULT 0 NOT NULL,
@@ -1095,6 +1096,7 @@ ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "quantity" integer DEFAULT
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "amount_cents" integer;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "currency" text DEFAULT 'USD'::text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "status" text;
+ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "payment_status" text DEFAULT 'pending'::text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "ordered_at" timestamp;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "tracking_number" text;
 ALTER TABLE "product_orders" ADD COLUMN IF NOT EXISTS "is_deleted" integer DEFAULT 0;

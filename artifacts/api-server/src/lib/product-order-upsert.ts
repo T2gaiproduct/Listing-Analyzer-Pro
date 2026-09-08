@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db, productOrdersTable } from "@workspace/db";
-import type { ProductOrderStatus } from "./product-orders.js";
+import type { ProductOrderStatus, ProductOrderPaymentStatus } from "./product-orders.js";
 
 export async function upsertProductOrderRow(input: {
   auditId: number;
@@ -12,6 +12,7 @@ export async function upsertProductOrderRow(input: {
   amountCents: number;
   currency: string;
   status: ProductOrderStatus;
+  paymentStatus: ProductOrderPaymentStatus;
   orderedAt: Date;
   trackingNumber: string | null;
 }): Promise<"imported" | "updated"> {
@@ -36,6 +37,7 @@ export async function upsertProductOrderRow(input: {
     amountCents: input.amountCents,
     currency: input.currency,
     status: input.status,
+    paymentStatus: input.paymentStatus,
     orderedAt: input.orderedAt,
     trackingNumber: input.trackingNumber,
   };
@@ -49,6 +51,7 @@ export async function upsertProductOrderRow(input: {
         amountCents: values.amountCents,
         currency: values.currency,
         status: values.status,
+        paymentStatus: values.paymentStatus,
         orderedAt: values.orderedAt,
         trackingNumber: values.trackingNumber,
       })

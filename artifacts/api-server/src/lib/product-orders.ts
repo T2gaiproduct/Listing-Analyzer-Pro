@@ -4,6 +4,8 @@ import { normalizeStoreCurrency } from "./store-currency.js";
 
 export type ProductOrderStatus = "delivered" | "shipped" | "processing" | "returned";
 
+export type ProductOrderPaymentStatus = "pending" | "received" | "refunded";
+
 export interface ProductOrderRow {
   id: number;
   orderId: string;
@@ -14,6 +16,8 @@ export interface ProductOrderRow {
   currency: string;
   status: ProductOrderStatus;
   statusLabel: string;
+  paymentStatus: ProductOrderPaymentStatus;
+  paymentStatusLabel: string;
   date: string;
   tracking: string | null;
 }
@@ -23,6 +27,12 @@ const STATUS_LABELS: Record<ProductOrderStatus, string> = {
   shipped: "Shipped",
   processing: "Processing",
   returned: "Returned",
+};
+
+const PAYMENT_STATUS_LABELS: Record<ProductOrderPaymentStatus, string> = {
+  pending: "Pending",
+  received: "Received",
+  refunded: "Refunded",
 };
 
 export interface ListProductOrdersQuery {
@@ -45,6 +55,7 @@ function dateRangeStart(dateRange: string | undefined): Date | null {
 
 function mapOrderRow(row: typeof productOrdersTable.$inferSelect): ProductOrderRow {
   const status = row.status as ProductOrderStatus;
+  const paymentStatus = (row.paymentStatus ?? "pending") as ProductOrderPaymentStatus;
   return {
     id: row.id,
     orderId: row.orderNumber,
@@ -55,6 +66,8 @@ function mapOrderRow(row: typeof productOrdersTable.$inferSelect): ProductOrderR
     currency: row.currency,
     status,
     statusLabel: STATUS_LABELS[status] ?? row.status,
+    paymentStatus,
+    paymentStatusLabel: PAYMENT_STATUS_LABELS[paymentStatus] ?? paymentStatus,
     date: row.orderedAt.toISOString(),
     tracking: row.trackingNumber,
   };

@@ -16,6 +16,7 @@ import { fetchJson } from "@/lib/api-fetch";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type OrderStatus = "delivered" | "shipped" | "processing" | "returned";
+type PaymentStatus = "pending" | "received" | "refunded";
 
 interface ProductOrder {
   id: number;
@@ -27,6 +28,8 @@ interface ProductOrder {
   currency: string;
   status: OrderStatus;
   statusLabel: string;
+  paymentStatus: PaymentStatus;
+  paymentStatusLabel: string;
   date: string;
   tracking: string | null;
 }
@@ -67,6 +70,21 @@ function OrderStatusBadge({ status, label }: { status: OrderStatus; label: strin
         status === "shipped" && "bg-blue-50 text-blue-700 border-blue-200",
         status === "processing" && "bg-amber-50 text-amber-700 border-amber-200",
         status === "returned" && "bg-red-50 text-red-700 border-red-200",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function PaymentStatusBadge({ status, label }: { status: PaymentStatus; label: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
+        status === "received" && "bg-emerald-50 text-emerald-700 border-emerald-200",
+        status === "pending" && "bg-amber-50 text-amber-700 border-amber-200",
+        status === "refunded" && "bg-red-50 text-red-700 border-red-200",
       )}
     >
       {label}
@@ -212,10 +230,10 @@ export function ProductOrdersTab({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left border-collapse">
+        <table className="w-full min-w-[860px] text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/80">
-              {["Order ID", "Marketplace", "Customer", "Qty", "Amount", "Status", "Date"].map((header) => (
+              {["Order ID", "Marketplace", "Customer", "Qty", "Amount", "Payment", "Status", "Date"].map((header) => (
                 <th
                   key={header}
                   className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
@@ -229,7 +247,7 @@ export function ProductOrdersTab({
             {isLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b border-slate-50">
-                  {Array.from({ length: 7 }).map((__, j) => (
+                  {Array.from({ length: 8 }).map((__, j) => (
                     <td key={j} className="px-4 py-3">
                       <Skeleton className="h-4 w-full max-w-[88px]" />
                     </td>
@@ -238,7 +256,7 @@ export function ProductOrdersTab({
               ))
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-[11px] text-slate-500">
+                <td colSpan={8} className="px-4 py-12 text-center text-[11px] text-slate-500">
                   No orders match your filters yet.
                   <span className="block mt-1 text-[10px] text-slate-400">
                     Orders sync from connected Shopify, WooCommerce, and Amazon stores when you open this tab or run a marketplace sync.
@@ -260,6 +278,12 @@ export function ProductOrdersTab({
                   <td className="px-4 py-3 text-[11px] text-slate-800 tabular-nums">{order.quantity}</td>
                   <td className="px-4 py-3 text-[11px] font-semibold text-slate-900 tabular-nums">
                     {formatAmount(order.amount, order.currency)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <PaymentStatusBadge
+                      status={order.paymentStatus ?? "pending"}
+                      label={order.paymentStatusLabel ?? "Pending"}
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <OrderStatusBadge status={order.status} label={order.statusLabel} />

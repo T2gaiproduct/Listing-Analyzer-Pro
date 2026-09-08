@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS product_orders (
   amount_cents integer NOT NULL,
   currency text NOT NULL DEFAULT 'USD',
   status text NOT NULL,
+  payment_status text NOT NULL DEFAULT 'pending',
   ordered_at timestamp NOT NULL,
   tracking_number text,
   is_deleted integer NOT NULL DEFAULT 0,
@@ -158,6 +159,8 @@ CREATE TABLE IF NOT EXISTS product_orders (
 
 CREATE INDEX IF NOT EXISTS product_orders_audit_id_idx
   ON product_orders (audit_id);
+
+ALTER TABLE product_orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'pending';
 
 CREATE TABLE IF NOT EXISTS product_marketplace_listings (
   id serial PRIMARY KEY,

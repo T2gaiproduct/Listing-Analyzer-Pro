@@ -16,6 +16,7 @@ import {
 import { resolveSpMarketplaceId } from "./amazon-sp-settings.js";
 import type { ResolvedAmazonConnection } from "./resolve-amazon-settings.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
+import { mapAmazonPaymentStatus } from "./product-order-payment.js";
 
 const SYNC_COOLDOWN_MS = 5 * 60 * 1000;
 const lastSyncByWorkspace = new Map<number, number>();
@@ -148,6 +149,7 @@ export async function syncAmazonOrders(input: {
 
   for (const order of orders) {
     const status = mapAmazonOrderStatus(order.OrderStatus);
+    const paymentStatus = mapAmazonPaymentStatus(order.OrderStatus);
     const orderedAt = new Date(order.PurchaseDate);
     let items: AmazonSpOrderItem[] = [];
 
@@ -182,6 +184,7 @@ export async function syncAmazonOrders(input: {
           amountCents: lineItemAmountCents(lineItem),
           currency: lineItem.ItemPrice?.CurrencyCode || order.OrderTotal?.CurrencyCode || "USD",
           status,
+          paymentStatus,
           orderedAt,
           trackingNumber: null,
         });

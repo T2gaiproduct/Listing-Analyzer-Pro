@@ -11,6 +11,7 @@ export const productOrdersTable = pgTable("product_orders", {
   amountCents: integer("amount_cents").notNull(),
   currency: text("currency").notNull().default("USD"),
   status: text("status").notNull(),
+  paymentStatus: text("payment_status").notNull().default("pending"),
   orderedAt: timestamp("ordered_at").notNull(),
   trackingNumber: text("tracking_number"),
   isDeleted: integer("is_deleted").notNull().default(0),
