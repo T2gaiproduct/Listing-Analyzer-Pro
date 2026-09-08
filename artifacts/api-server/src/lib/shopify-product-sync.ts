@@ -402,14 +402,22 @@ export async function syncShopifyProducts(input: {
   workspaceId: number;
   clientId?: string;
   clientSecret?: string;
+  productIds?: string[];
+  limit?: number;
+  search?: string;
 }): Promise<ShopifySyncResult> {
-  const catalog = input.clientId?.trim() && input.clientSecret?.trim()
-    ? await fetchShopifyCatalogProductsWithCredentials({
-      storeUrl: input.storeUrl,
-      clientId: input.clientId.trim(),
-      clientSecret: input.clientSecret.trim(),
-    })
-    : await fetchShopifyCatalogProducts(input.storeUrl);
+  const { fetchShopifyCatalogForImport } = await import("./marketplace-catalog-preview.js");
+  const { clampImportLimit } = await import("./marketplace-catalog-types.js");
+  const importLimit = clampImportLimit(input.limit);
+
+  const catalog = await fetchShopifyCatalogForImport({
+    storeUrl: input.storeUrl,
+    clientId: input.clientId,
+    clientSecret: input.clientSecret,
+    productIds: input.productIds,
+    limit: input.productIds?.length ? Math.min(input.productIds.length, importLimit) : importLimit,
+    search: input.search,
+  });
   if (catalog.length === 0) {
     return {
       imported: 0,
@@ -423,7 +431,9 @@ export async function syncShopifyProducts(input: {
     };
   }
 
-  const limitedCatalog = catalog.slice(0, MAX_IMPORT);
+  const limitedCatalog = catalog.slice(0, input.productIds?.length
+    ? Math.min(catalog.length, MAX_IMPORT)
+    : importLimit);
   const existingAudits = await loadExistingShopifyAudits(
     input.workspaceId,
     limitedCatalog.map((product) => product.handle),
@@ -554,10 +564,10 @@ export async function syncShopifyProducts(input: {
 
   result.auditsQueued = result.pendingAuditIds.length;
 
-  if (catalog.length > MAX_IMPORT) {
+  if (!input.productIds?.length && catalog.length > importLimit) {
     result.errors.push({
       handle: "*",
-      error: `Only the first ${MAX_IMPORT} products were processed. Run sync again after clearing duplicates or contact support for a higher limit.`,
+      error: `Imported first ${importLimit} of ${catalog.length} matching products. Select specific products or increase the limit (max ${MAX_IMPORT}).`,
     });
   }
 

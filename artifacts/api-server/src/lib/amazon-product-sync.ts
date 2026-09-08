@@ -12,6 +12,8 @@ import { resolveMarketplaceCodeFromSpId } from "./amazon-sp-settings.js";
 import type { ResolvedAmazonConnection } from "./resolve-amazon-settings.js";
 import { TARGET_MARKETPLACES } from "./create-product.js";
 import type { ShopifySyncResult } from "./shopify-product-sync.js";
+import { clampImportLimit } from "./marketplace-catalog-types.js";
+import { getCachedAmazonCatalog, setCachedAmazonCatalog } from "./amazon-catalog-cache.js";
 
 const DEFAULT_WORKFLOW_TEMPLATE = "build-brand-standard";
 const MAX_IMPORT = 500;
@@ -140,16 +142,40 @@ export async function syncAmazonProducts(input: {
   createdByUserId: string | null;
   workspaceId: number;
   marketplaceCode?: string;
+  productIds?: string[];
+  limit?: number;
+  search?: string;
 }): Promise<ShopifySyncResult> {
   const marketplaceCode = input.marketplaceCode?.trim().toUpperCase()
     || resolvePrimaryMarketplaceCode(input.connection);
   const currency = amazonMarketplaceCurrency(marketplaceCode);
+  const importLimit = clampImportLimit(input.limit);
 
-  const catalog = await fetchMerchantListingsAllDataReport({
-    settings: input.connection.settings,
-    refreshToken: input.connection.refreshToken,
-    marketplaceCode,
-  });
+  let catalog: MerchantListingsReportRow[] = getCachedAmazonCatalog(input.workspaceId, marketplaceCode) ?? [];
+  if (catalog.length === 0) {
+    catalog = await fetchMerchantListingsAllDataReport({
+      settings: input.connection.settings,
+      refreshToken: input.connection.refreshToken,
+      marketplaceCode,
+    });
+    setCachedAmazonCatalog(input.workspaceId, marketplaceCode, catalog);
+  }
+
+  if (input.productIds?.length) {
+    const selected = new Set(input.productIds.map((id) => id.trim().toUpperCase()));
+    catalog = catalog.filter((row) => {
+      const asin = row.asin?.trim().toUpperCase() ?? "";
+      const sku = row.sku.trim().toUpperCase();
+      return selected.has(asin) || selected.has(sku);
+    });
+  } else if (input.search?.trim()) {
+    const needle = input.search.trim().toLowerCase();
+    catalog = catalog.filter((row) =>
+      row.title.toLowerCase().includes(needle)
+      || row.sku.toLowerCase().includes(needle)
+      || (row.asin?.toLowerCase().includes(needle) ?? false),
+    );
+  }
 
   if (catalog.length === 0) {
     return {
@@ -164,7 +190,9 @@ export async function syncAmazonProducts(input: {
     };
   }
 
-  const limitedCatalog = catalog.slice(0, MAX_IMPORT);
+  const limitedCatalog = catalog.slice(0, input.productIds?.length
+    ? Math.min(catalog.length, MAX_IMPORT)
+    : importLimit);
   const existing = await loadExistingAmazonAudits(input.workspaceId);
 
   const result: ShopifySyncResult = {

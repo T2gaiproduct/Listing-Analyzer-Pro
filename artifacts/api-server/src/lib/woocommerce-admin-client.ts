@@ -122,17 +122,50 @@ async function wooCommerceRequest<T>(
   return readWooCommerceJson<T>(response, storeUrl);
 }
 
+export async function fetchWooCommerceProductsByIds(input: {
+  storeUrl: string;
+  consumerKey: string;
+  consumerSecret: string;
+  productIds: number[];
+}): Promise<WooCommerceRestProduct[]> {
+  const uniqueIds = [...new Set(input.productIds.filter((id) => Number.isFinite(id) && id > 0))];
+  if (uniqueIds.length === 0) return [];
+
+  const products: WooCommerceRestProduct[] = [];
+  for (let offset = 0; offset < uniqueIds.length; offset += 100) {
+    const chunk = uniqueIds.slice(offset, offset + 100);
+    const batch = await fetchWooCommerceProducts({
+      storeUrl: input.storeUrl,
+      consumerKey: input.consumerKey,
+      consumerSecret: input.consumerSecret,
+      page: 1,
+      perPage: chunk.length,
+      include: chunk,
+    });
+    products.push(...batch);
+  }
+  return products;
+}
+
 export async function fetchWooCommerceProducts(input: {
   storeUrl: string;
   consumerKey: string;
   consumerSecret: string;
   page?: number;
   perPage?: number;
+  search?: string;
+  include?: number[];
 }): Promise<WooCommerceRestProduct[]> {
   const storeUrl = normalizeWooCommerceStoreUrl(input.storeUrl);
   const page = input.page ?? 1;
   const perPage = input.perPage ?? 100;
-  const endpoint = `${storeUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&status=any`;
+  const searchParam = input.search?.trim()
+    ? `&search=${encodeURIComponent(input.search.trim())}`
+    : "";
+  const includeParam = input.include?.length
+    ? `&include=${input.include.join(",")}`
+    : "";
+  const endpoint = `${storeUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&status=any${searchParam}${includeParam}`;
   const response = await wooCommerceFetch(storeUrl, endpoint, {
     method: "GET",
     headers: wooCommerceAuthHeaders(input.consumerKey, input.consumerSecret),

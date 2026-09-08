@@ -45,6 +45,15 @@ import { syncAmazonProducts } from "../lib/amazon-product-sync.js";
 import { maybeSyncAmazonOrdersForWorkspace } from "../lib/amazon-order-sync.js";
 import { resolveAmazonConnectionForWorkspace } from "../lib/resolve-amazon-settings.js";
 import { verifyShopifyConnection } from "../lib/shopify-connection-verify.js";
+import {
+  parseCatalogPreviewQuery,
+  parseMarketplaceImportBody,
+} from "../lib/marketplace-catalog-types.js";
+import {
+  previewAmazonCatalog,
+  previewShopifyCatalog,
+  previewWooCommerceCatalog,
+} from "../lib/marketplace-catalog-preview.js";
 
 const router: IRouter = Router();
 
@@ -461,6 +470,117 @@ router.post(
   },
 );
 
+router.get(
+  "/marketplaces/shopify/catalog-preview",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceView("amazon"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getShopifyConnectionPublic(workspaceId);
+    if (!connection?.storeUrl) {
+      res.status(400).json({ error: "Connect your Shopify store first on the Marketplaces page." });
+      return;
+    }
+    const credentials = await getShopifyConnection(workspaceId);
+    const { page, pageSize, search, cursor } = parseCatalogPreviewQuery(req.query as Record<string, unknown>);
+
+    try {
+      const preview = await previewShopifyCatalog({
+        storeUrl: connection.storeUrl,
+        clientId: credentials?.clientId,
+        clientSecret: credentials?.clientSecret,
+        page,
+        pageSize,
+        search,
+        cursor,
+      });
+      res.json(preview);
+    } catch (err) {
+      req.log?.error?.({ err }, "Shopify catalog preview failed");
+      const message = err instanceof Error ? err.message : "Failed to load Shopify catalog";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.get(
+  "/marketplaces/woocommerce/catalog-preview",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceView("amazon"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getWooCommerceConnection(workspaceId);
+    if (!connection?.storeUrl || !connection.consumerKey || !connection.consumerSecret) {
+      res.status(400).json({
+        error: "Connect your WooCommerce store with REST API credentials on the Marketplaces page first.",
+      });
+      return;
+    }
+    const { page, pageSize, search } = parseCatalogPreviewQuery(req.query as Record<string, unknown>);
+
+    try {
+      const preview = await previewWooCommerceCatalog({
+        storeUrl: connection.storeUrl,
+        consumerKey: connection.consumerKey,
+        consumerSecret: connection.consumerSecret,
+        page,
+        pageSize,
+        search,
+      });
+      res.json(preview);
+    } catch (err) {
+      req.log?.error?.({ err }, "WooCommerce catalog preview failed");
+      const message = err instanceof Error ? err.message : "Failed to load WooCommerce catalog";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.get(
+  "/marketplaces/amazon/catalog-preview",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  requireWorkspaceView("amazon"),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const userId = (req as AuthedRequest).userId;
+    const connection = await resolveAmazonConnectionForWorkspace({
+      workspaceId,
+      userId,
+      req,
+    });
+    if (!connection) {
+      res.status(400).json({
+        error: "Amazon catalog preview requires a connected seller account and SP-API credentials.",
+      });
+      return;
+    }
+
+    const { page, pageSize, search } = parseCatalogPreviewQuery(req.query as Record<string, unknown>);
+    const marketplaceCode = typeof req.query.marketplace === "string"
+      ? req.query.marketplace.trim()
+      : undefined;
+
+    try {
+      const preview = await previewAmazonCatalog({
+        connection,
+        workspaceId,
+        marketplaceCode: marketplaceCode || connection.settings.defaultMarketplace || "US",
+        page,
+        pageSize,
+        search,
+      });
+      res.json(preview);
+    } catch (err) {
+      req.log?.error?.({ err }, "Amazon catalog preview failed");
+      const message = err instanceof Error ? err.message : "Failed to load Amazon catalog";
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
 router.post(
   "/marketplaces/amazon/sync",
   requireAuth,
@@ -482,8 +602,7 @@ router.post(
       return;
     }
 
-    const body = req.body as { marketplace?: string } | undefined;
-    const marketplaceCode = typeof body?.marketplace === "string" ? body.marketplace.trim() : undefined;
+    const importBody = parseMarketplaceImportBody(req.body);
 
     try {
       const result = await syncAmazonProducts({
@@ -491,7 +610,9 @@ router.post(
         ownerId: getEffectiveUserId(req),
         createdByUserId: auditCreatedByUserId(req),
         workspaceId,
-        marketplaceCode,
+        marketplaceCode: importBody.marketplace,
+        productIds: importBody.productIds,
+        limit: importBody.limit,
       });
 
       void maybeSyncAmazonOrdersForWorkspace({
@@ -530,6 +651,7 @@ router.post(
     }
 
     const credentials = await getShopifyConnection(workspaceId);
+    const importBody = parseMarketplaceImportBody(req.body);
 
     try {
       const result = await syncShopifyProducts({
@@ -539,6 +661,8 @@ router.post(
         ownerId: getEffectiveUserId(req),
         createdByUserId: auditCreatedByUserId(req),
         workspaceId,
+        productIds: importBody.productIds,
+        limit: importBody.limit,
       });
 
       const orderSyncInput = {
@@ -593,6 +717,8 @@ router.post(
       return;
     }
 
+    const importBody = parseMarketplaceImportBody(req.body);
+
     try {
       const result = await syncWooCommerceProducts({
         storeUrl: connection.storeUrl,
@@ -601,6 +727,8 @@ router.post(
         ownerId: getEffectiveUserId(req),
         createdByUserId: auditCreatedByUserId(req),
         workspaceId,
+        productIds: importBody.productIds,
+        limit: importBody.limit,
       });
 
       void syncWooCommerceOrders({

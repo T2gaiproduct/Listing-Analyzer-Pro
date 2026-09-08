@@ -140,23 +140,76 @@ export type ShopifySyncResult = {
   errors: Array<{ handle: string; error: string }>;
 };
 
-export async function syncShopifyProducts(): Promise<ShopifySyncResult> {
+export type CatalogPreviewItem = {
+  id: string;
+  title: string;
+  sku: string | null;
+  imageUrl: string | null;
+  status: string | null;
+  subtitle: string | null;
+};
+
+export type CatalogPreviewResponse = {
+  items: CatalogPreviewItem[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+  totalHint: number | null;
+  nextCursor: string | null;
+};
+
+export type MarketplaceImportInput = {
+  productIds?: string[];
+  limit?: number;
+  marketplace?: string;
+};
+
+export const DEFAULT_IMPORT_LIMIT = 50;
+export const MAX_IMPORT_PER_RUN = 500;
+
+export async function fetchCatalogPreview(
+  platform: MarketplacePlatform,
+  params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    cursor?: string | null;
+    marketplace?: string;
+  } = {},
+): Promise<CatalogPreviewResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.search?.trim()) searchParams.set("search", params.search.trim());
+  if (params.cursor) searchParams.set("cursor", params.cursor);
+  if (params.marketplace) searchParams.set("marketplace", params.marketplace);
+  const qs = searchParams.toString();
+  return fetchJson<CatalogPreviewResponse>(
+    `${basePath}/api/marketplaces/${platform}/catalog-preview${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export async function syncShopifyProducts(input?: MarketplaceImportInput): Promise<ShopifySyncResult> {
   return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/shopify/sync`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input ?? {}),
   });
 }
 
-export async function syncWooCommerceProducts(): Promise<ShopifySyncResult> {
+export async function syncWooCommerceProducts(input?: MarketplaceImportInput): Promise<ShopifySyncResult> {
   return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/woocommerce/sync`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input ?? {}),
   });
 }
 
-export async function syncAmazonProducts(marketplace?: string): Promise<ShopifySyncResult> {
+export async function syncAmazonProducts(input?: MarketplaceImportInput): Promise<ShopifySyncResult> {
   return fetchJson<ShopifySyncResult>(`${basePath}/api/marketplaces/amazon/sync`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(marketplace ? { marketplace } : {}),
+    body: JSON.stringify(input ?? {}),
   });
 }
 
