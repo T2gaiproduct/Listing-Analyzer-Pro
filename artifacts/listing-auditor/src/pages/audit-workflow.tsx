@@ -173,6 +173,61 @@ function formatAplusApiError(status: number, apiError?: string): string {
   return `Failed (${status})`;
 }
 
+function buildSyntheticListingFields(productName: string, brandName: string, category: string) {
+  const name = productName.trim();
+  const syntheticTitle = brandName.trim()
+    ? `${brandName.trim()} ${name} — ${category}`
+    : `${name} — ${category}`;
+  const syntheticBullets = [
+    `High-quality ${name.toLowerCase()} designed for everyday use`,
+    `Perfect for ${category.toLowerCase()} enthusiasts and professionals`,
+    `Durable, reliable, and built to last`,
+    `Easy to use and maintain — great value for money`,
+    `Premium quality backed by customer satisfaction`,
+  ];
+  const syntheticKeywords = name.split(/\s+/).filter((w) => w.length > 2);
+  if (category) {
+    syntheticKeywords.push(...category.split(/\s+/).filter((w) => w.length > 2));
+  }
+  const filler = [
+    "premium", "best seller", "top rated", "quality", "durable", "reliable", "easy", "value",
+    "professional", "home", "gift", "essential", "popular", "recommended", "trusted",
+  ];
+  while (syntheticKeywords.length < 10 && filler.length > 0) {
+    syntheticKeywords.push(filler.shift()!);
+  }
+  return {
+    syntheticTitle,
+    syntheticBullets,
+    syntheticKeywords: syntheticKeywords.slice(0, 10),
+  };
+}
+
+function buildAuditDraftBody(
+  projectName: string,
+  productName: string,
+  brandName: string,
+  category: string,
+  uploadedImages: string[],
+) {
+  if (!productName.trim() || !category) return null;
+  const { syntheticTitle, syntheticBullets, syntheticKeywords } = buildSyntheticListingFields(
+    productName,
+    brandName,
+    category,
+  );
+  return {
+    projectName: projectName.trim() || productName.trim(),
+    productName: productName.trim(),
+    brandName: brandName.trim() || undefined,
+    category,
+    title: syntheticTitle,
+    bulletPoints: syntheticBullets,
+    targetKeywords: syntheticKeywords,
+    imageUrls: uploadedImages,
+  };
+}
+
 function readAplusFromAudit(generatedImages: unknown): {
   status: string;
   content: AplusContent | null;
@@ -548,6 +603,46 @@ export default function AuditWorkflow() {
     );
   }, [currentAuditId, patchAudit, queryClient]);
   const generateContentDirect = useGenerateContentDirect();
+
+  const ensureAuditDraft = useCallback(async (): Promise<number | null> => {
+    if (currentAuditId) return currentAuditId;
+    const data = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages);
+    if (!data) {
+      toast({
+        title: "Upload step incomplete",
+        description: "Enter a product name and category on the Upload step before generating graphics or A+ content.",
+        variant: "destructive",
+      });
+      return null;
+    }
+    try {
+      const audit = await createAuditDraft.mutateAsync({ data });
+      setCurrentAuditId(audit.id);
+      void queryClient.invalidateQueries({ queryKey: getListAuditsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetRecentsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(audit.id) });
+      return audit.id;
+    } catch (err) {
+      toast({
+        title: "Failed to save project",
+        description: err instanceof Error ? err.message : "Please try again",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [
+    currentAuditId,
+    projectName,
+    productName,
+    brandName,
+    category,
+    uploadedImages,
+    createAuditDraft,
+    queryClient,
+    toast,
+  ]);
+
   const { data: auditData } = useGetAudit(currentAuditId ?? 0, {
     query: { enabled: currentAuditId !== null, queryKey: getGetAuditQueryKey(currentAuditId ?? 0) },
   });
@@ -1118,40 +1213,13 @@ export default function AuditWorkflow() {
         toast({ title: "Category required", description: "Please select a category.", variant: "destructive" });
         return;
       }
-      const syntheticTitle = brandName.trim()
-        ? `${brandName.trim()} ${productName.trim()} — ${category}`
-        : `${productName.trim()} — ${category}`;
-      const syntheticBullets = [
-        `High-quality ${productName.trim().toLowerCase()} designed for everyday use`,
-        `Perfect for ${category.toLowerCase()} enthusiasts and professionals`,
-        `Durable, reliable, and built to last`,
-        `Easy to use and maintain — great value for money`,
-        `Premium quality backed by customer satisfaction`,
-      ];
-      const syntheticKeywords = productName.trim().split(/\s+/).filter((w) => w.length > 2);
-      if (category) {
-        syntheticKeywords.push(...category.split(/\s+/).filter((w) => w.length > 2));
-      }
-      const filler = [
-        "premium", "best seller", "top rated", "quality", "durable", "reliable", "easy", "value",
-        "professional", "home", "gift", "essential", "popular", "recommended", "trusted",
-      ];
-      while (syntheticKeywords.length < 10 && filler.length > 0) {
-        syntheticKeywords.push(filler.shift()!);
+      const draftBody = buildAuditDraftBody(projectName, productName, brandName, category, uploadedImages);
+      if (!draftBody) {
+        setIsCreating(false);
+        return;
       }
       createAuditDraft.mutate(
-        {
-          data: {
-            projectName: projectName.trim() || productName.trim(),
-            productName: productName.trim(),
-            brandName: brandName.trim() || undefined,
-            category: category || undefined,
-            title: syntheticTitle,
-            bulletPoints: syntheticBullets,
-            targetKeywords: syntheticKeywords.slice(0, 10),
-            imageUrls: uploadedImages,
-          },
-        },
+        { data: draftBody },
         {
           onSuccess: (audit) => {
             setIsCreating(false);
@@ -1181,27 +1249,11 @@ export default function AuditWorkflow() {
         toast({ title: "Category required", description: "Please select a category in the Upload step first.", variant: "destructive" });
         return;
       }
-      const syntheticTitle = brandName.trim()
-        ? `${brandName.trim()} ${productName.trim()} — ${category}`
-        : `${productName.trim()} — ${category}`;
-      const syntheticBullets = [
-        `High-quality ${productName.trim().toLowerCase()} designed for everyday use`,
-        `Perfect for ${category.toLowerCase()} enthusiasts and professionals`,
-        `Durable, reliable, and built to last`,
-        `Easy to use and maintain — great value for money`,
-        `Premium quality backed by customer satisfaction`,
-      ];
-      const syntheticKeywords = productName.trim().split(/\s+/).filter((w) => w.length > 2);
-      if (category) {
-        syntheticKeywords.push(...category.split(/\s+/).filter((w) => w.length > 2));
-      }
-      const filler = [
-        "premium", "best seller", "top rated", "quality", "durable", "reliable", "easy", "value",
-        "professional", "home", "gift", "essential", "popular", "recommended", "trusted",
-      ];
-      while (syntheticKeywords.length < 10 && filler.length > 0) {
-        syntheticKeywords.push(filler.shift()!);
-      }
+      const { syntheticTitle, syntheticBullets, syntheticKeywords } = buildSyntheticListingFields(
+        productName,
+        brandName,
+        category,
+      );
       generateContentDirect.mutate(
         {
           data: {
@@ -1210,7 +1262,7 @@ export default function AuditWorkflow() {
             category: category || undefined,
             title: syntheticTitle,
             bulletPoints: syntheticBullets,
-            targetKeywords: syntheticKeywords.slice(0, 10),
+            targetKeywords: syntheticKeywords,
             imageUrls: uploadedImages,
           },
         },
@@ -1241,37 +1293,43 @@ export default function AuditWorkflow() {
         return;
       }
       // Reuse existing graphics project for this audit, or create new one
-      if (existingGraphicsProject?.id) {
-        generateExisting.mutate({
-          projectId: existingGraphicsProject.id,
-          imageTypes: selectedImageTypes,
-          typeConfigs: graphicsTypeConfigsPayload,
-        });
-      } else {
-        createProject.mutate({
-          createBody: {
-            name: projectName.trim() || productName || "Product",
-            productName: productName || "Product",
-            category,
-            sourceImageUrls: uploadedImages,
+      void ensureAuditDraft().then((auditId) => {
+        if (!auditId) {
+          setIsCreating(false);
+          return;
+        }
+        if (existingGraphicsProject?.id) {
+          generateExisting.mutate({
+            projectId: existingGraphicsProject.id,
             imageTypes: selectedImageTypes,
-            auditId: currentAuditId ?? undefined,
-          },
-          imageTypes: selectedImageTypes,
-          typeConfigs: graphicsTypeConfigsPayload,
-        });
-      }
+            typeConfigs: graphicsTypeConfigsPayload,
+          });
+        } else {
+          createProject.mutate({
+            createBody: {
+              name: projectName.trim() || productName || "Product",
+              productName: productName || "Product",
+              category,
+              sourceImageUrls: uploadedImages,
+              imageTypes: selectedImageTypes,
+              auditId,
+            },
+            imageTypes: selectedImageTypes,
+            typeConfigs: graphicsTypeConfigsPayload,
+          });
+        }
+      });
 
     }
-  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast, ensureAuditDraft]);
 
   const handleGenerateAplus = useCallback(() => {
-    if (!currentAuditId) {
-      toast({ title: "Save project first", description: "Complete the Upload step to create your project before generating A+ content.", variant: "destructive" });
-      return;
-    }
     if (!productName.trim()) {
       toast({ title: "Product name required", description: "Please enter a product name in the Upload step first.", variant: "destructive" });
+      return;
+    }
+    if (!category) {
+      toast({ title: "Category required", description: "Please select a category in the Upload step first.", variant: "destructive" });
       return;
     }
     if (selectedAplusModules.length === 0) {
@@ -1290,16 +1348,20 @@ export default function AuditWorkflow() {
         return;
       }
     }
-    setCreatingStep(5);
-    setActiveStep(5);
-    setIsCreating(true);
-    patchAudit.mutate({ id: currentAuditId, data: { currentStep: uiStepToApiStep(5) } });
-    generateAplus.mutate({
-      auditId: currentAuditId,
-      moduleIds: selectedAplusModules,
-      ...aplusGenerateOptions,
-    });
-  }, [currentAuditId, productName, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule, aplusGenerateOptions]);
+    void (async () => {
+      const auditId = await ensureAuditDraft();
+      if (!auditId) return;
+      setCreatingStep(5);
+      setActiveStep(5);
+      setIsCreating(true);
+      patchAudit.mutate({ id: auditId, data: { currentStep: uiStepToApiStep(5) } });
+      generateAplus.mutate({
+        auditId,
+        moduleIds: selectedAplusModules,
+        ...aplusGenerateOptions,
+      });
+    })();
+  }, [productName, category, selectedAplusModules, generateAplus, patchAudit, toast, isTeamMember, memberCredits, aplusImageCostPerModule, aplusGenerateOptions, ensureAuditDraft]);
 
   /* ── Auto-save helper ── */
   const autoSave = useCallback((step: StepId) => {
@@ -1358,9 +1420,17 @@ export default function AuditWorkflow() {
 
   const handleStepClick = useCallback((step: StepId) => {
     setIsCreating(false);
+    if (step >= 4) {
+      void ensureAuditDraft().then((auditId) => {
+        if (!auditId) return;
+        setActiveStep(step);
+        if (step > 1) persistWorkflowStep(step);
+      });
+      return;
+    }
     setActiveStep(step);
     if (step > 1) persistWorkflowStep(step);
-  }, [persistWorkflowStep]);
+  }, [persistWorkflowStep, ensureAuditDraft]);
 
   /* ── Bottom bar ── */
   function handleBack() {
@@ -1431,12 +1501,15 @@ export default function AuditWorkflow() {
     5: aplusModules.length > 0 || aplusStatus === "completed",
   }), [activeStep, currentAuditId, uploadedImages, generatedContent, generatedImages, graphicsStatus, aplusModules, aplusStatus]);
 
+  const workflowUploadReady = Boolean(productName.trim() && category);
+
   const productExplorerSaveBlocker = useMemo((): string | null => {
     if (patchAudit.isPending) return "Saving your project…";
-    if (!currentAuditId) return "Complete the Upload step and save your project first.";
+    if (!workflowUploadReady) return "Enter a product name and category on the Upload step first.";
+    if (!currentAuditId) return "Saving your project…";
     if (!generatedContent) return "Go to the Listing step and click Generate Listing Content.";
     return null;
-  }, [currentAuditId, generatedContent, patchAudit.isPending]);
+  }, [currentAuditId, generatedContent, patchAudit.isPending, workflowUploadReady]);
 
   const canSaveToProductExplorer = productExplorerSaveBlocker === null;
 
@@ -2165,7 +2238,7 @@ export default function AuditWorkflow() {
                   isCreating
                   || generateAplus.isPending
                   || aplusStatus === "generating"
-                  || !currentAuditId
+                  || !workflowUploadReady
                   || selectedAplusModules.length === 0
                   || (isTeamMember && (memberCredits?.imageCredits ?? 0) < aplusImageCostPerModule * selectedAplusModules.length)
                 }
@@ -2206,9 +2279,9 @@ export default function AuditWorkflow() {
                 </div>
               )}
 
-              {!currentAuditId && (
+              {!workflowUploadReady && (
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                  Complete the Upload step and save your project before generating A+ content.
+                  Enter a product name and category on the Upload step before generating A+ content.
                 </p>
               )}
 
