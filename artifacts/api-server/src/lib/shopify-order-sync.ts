@@ -8,6 +8,7 @@ import {
 import type { ProductOrderStatus } from "./product-orders.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
 import { mapShopifyPaymentStatus } from "./product-order-payment.js";
+import { formatProductOrderSyncError } from "./product-order-sync-errors.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import {
   clearShopifyAccessTokenCache,
@@ -336,7 +337,7 @@ export async function syncShopifyOrders(input: {
         else if (outcome === "updated") result.updated += 1;
       } catch (err) {
         result.errors.push(
-          err instanceof Error ? err.message : `Failed to save order ${order.name}`,
+          formatProductOrderSyncError(err, order.name?.trim() || `#${order.order_number}`),
         );
       }
     }

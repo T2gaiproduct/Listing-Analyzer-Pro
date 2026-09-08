@@ -6,6 +6,7 @@ import {
   productProfilesTable,
 } from "@workspace/db";
 import type { ProductOrderStatus } from "./product-orders.js";
+import { formatProductOrderSyncError } from "./product-order-sync-errors.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
 import { mapWooCommercePaymentStatus } from "./product-order-payment.js";
 import { woocommerceSlugFromAsin } from "./woocommerce-import-utils.js";
@@ -222,7 +223,7 @@ export async function syncWooCommerceOrders(input: {
         else result.updated += 1;
       } catch (err) {
         result.errors.push(
-          err instanceof Error ? err.message : `Failed to save WooCommerce order ${order.number}`,
+          formatProductOrderSyncError(err, order.number?.trim() || `#${order.id}`),
         );
       }
     }
