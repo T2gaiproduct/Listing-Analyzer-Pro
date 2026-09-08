@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronDown, ChevronRight, Plus, Search, Check, LayoutGrid, Shield } from "lucide-react";
+import { Building2, ChevronDown, Plus, Search, Check, LayoutGrid, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/api-fetch";
@@ -318,7 +318,6 @@ export function TopbarWorkspaceSwitcher() {
                     )}
                     onClick={() => selectWorkspace(ws.id)}
                   >
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                     <span className="truncate flex-1 font-medium">{workspaceListLabel(ws)}</span>
                     {highlightedWorkspaceId === ws.id && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
                   </button>
@@ -429,7 +428,6 @@ export function TopbarWorkspaceSwitcher() {
                       isCurrent && "bg-orange-50 text-orange-800",
                     )}
                   >
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                     <span className="truncate flex-1 font-medium text-slate-800">{workspaceListLabel(ws)}</span>
                     {isCurrent && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
                   </button>
