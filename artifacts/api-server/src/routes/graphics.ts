@@ -11,8 +11,9 @@ import {
   getAccountOwnerId,
   getActiveWorkspaceId,
   requireWorkspaceAction,
+  requireWorkspaceActionAny,
   loadWorkedProjects,
-  viewOwnIdFilter,
+  viewOwnIdFilterAny,
   getWorkspaceCtx,
   workspaceOwnerFilter,
   buildTeamAwareCreditCtx,
@@ -57,7 +58,7 @@ async function graphicsScopeWhere(req: Request, extra?: ReturnType<typeof eq>) {
   const ownerId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
-  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "graphics", worked, "graphics", graphicsProjectsTable);
+  const ownFilter = viewOwnIdFilterAny(getWorkspaceCtx(req), ["graphics", "build_brand"], worked, "graphics", graphicsProjectsTable);
   return and(
     workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
     eq(graphicsProjectsTable.isDeleted, 0),
@@ -674,7 +675,7 @@ function buildRegeneratePrompt(
 }
 
 // ─── Create project ───────────────────────────────────────────────────────────
-router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "create"), async (req, res): Promise<void> => {
+router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "create"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number; imageTypes?: string[]; customPrompt?: string; auditId?: number };
 
@@ -762,7 +763,7 @@ router.get("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, async
 });
 
 // ─── Update project ───────────────────────────────────────────────────────────
-router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
+router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -785,7 +786,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, req
 });
 
 // ─── Generate images ──────────────────────────────────────────────────────────
-router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -937,7 +938,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
 });
 
 // ─── Edit single image ────────────────────────────────────────────────────────
-router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const imageId = String(req.params.imageId ?? "");
@@ -982,7 +983,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
 });
 
 // ─── Regenerate single image ──────────────────────────────────────────────────
-router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "edit"), async (req, res): Promise<void> => {
+router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const imageId = String(req.params.imageId ?? "");
@@ -1064,7 +1065,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
 });
 
 // ─── Delete project ───────────────────────────────────────────────────────────
-router.delete("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("graphics", "delete"), async (req, res): Promise<void> => {
+router.delete("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "delete"), async (req, res): Promise<void> => {
   const userId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }

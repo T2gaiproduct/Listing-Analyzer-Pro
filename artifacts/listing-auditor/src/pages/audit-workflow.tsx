@@ -362,7 +362,6 @@ function CreatingPanel({
       {/* Dim overlay over the rest of the content */}
       <div
         className="absolute inset-0 bg-black/10 dark:bg-black/30 z-10"
-        style={{ left: 320 }}
         onClick={onCancel}
       />
 
@@ -488,7 +487,7 @@ export default function AuditWorkflow() {
   const search          = useSearch();
   const { toast }       = useToast();
   const queryClient     = useQueryClient();
-  const { isTeamMember, memberCredits } = useTeam();
+  const { isTeamMember, memberCredits, canEditGraphics } = useTeam();
   const { data: creditRules = [] } = useQuery<{ featureType: string; creditsRequired: number }[]>({
     queryKey: ["credit-rules"],
     queryFn: () => fetch(`${basePath}/api/credit-rules`).then((r) => r.json()),
@@ -885,7 +884,7 @@ export default function AuditWorkflow() {
       setGraphicsStatus("generating");
       completionToastShownRef.current = false;
       hasSeenGeneratingRef.current = false;
-      // Keep existing images visible during generation
+      setIsCreating(false);
       setGraphicsProgress({ generated: 0, total: variables.imageTypes.length });
     },
     onError: (err) => {
@@ -919,23 +918,37 @@ export default function AuditWorkflow() {
       const project = await res.json() as { id: number; lifestyleCount?: number; featureCount?: number };
       return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
     },
-    onSuccess: ({ project, imageTypes, typeConfigs }) => {
-      void fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          imageTypes,
-          typeConfigs,
-        }),
-      }).then(() => refreshCreditBalances(queryClient));
-      setGraphicsProjectId(project.id);
-      setGraphicsStatus("generating");
-      completionToastShownRef.current = false;
-      hasSeenGeneratingRef.current = false;
-      // Keep existing images visible during generation
-      setGraphicsProgress({ generated: 0, total: selectedImageTypes.length });
-      /* Stay in workflow — no nav() away */
+    onSuccess: async ({ project, imageTypes, typeConfigs }) => {
+      try {
+        const res = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            imageTypes,
+            typeConfigs,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error || `Generation failed (${res.status})`);
+        }
+        setGraphicsProjectId(project.id);
+        setGraphicsStatus("generating");
+        completionToastShownRef.current = false;
+        hasSeenGeneratingRef.current = false;
+        setGraphicsProgress({ generated: 0, total: imageTypes.length });
+        refreshCreditBalances(queryClient);
+      } catch (err) {
+        setGraphicsStatus("failed");
+        toast({
+          title: "Graphics generation failed",
+          description: err instanceof Error ? err.message : "Please try again",
+          variant: "destructive",
+        });
+      } finally {
+        setIsCreating(false);
+      }
     },
     onError: (err) => {
       setIsCreating(false);
@@ -1344,6 +1357,7 @@ export default function AuditWorkflow() {
   }, [autoSave, currentAuditId, generatedContent, nav, persistWorkflowStep, queryClient, toast]);
 
   const handleStepClick = useCallback((step: StepId) => {
+    setIsCreating(false);
     setActiveStep(step);
     if (step > 1) persistWorkflowStep(step);
   }, [persistWorkflowStep]);
@@ -1451,7 +1465,7 @@ export default function AuditWorkflow() {
           />
         )}
 
-        <div className="py-4 sm:py-5 w-full min-w-0">
+        <div className="py-4 sm:py-5 w-full min-w-0 px-4 sm:px-6">
 
           {/* STEP 1: Select existing product ── */}
           {activeStep === 1 && (
@@ -1876,6 +1890,12 @@ export default function AuditWorkflow() {
           {/* STEP 4: Graphics ── */}
           {activeStep === 4 && (
             <div className="space-y-8">
+              {!canEditGraphics && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Your workspace role does not include permission to create graphics. Ask your workspace owner to enable
+                  <strong> Build Your Brand </strong> or <strong> Create Graphics </strong> edit access.
+                </div>
+              )}
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
                   <Wand2 className="w-6 h-6 text-orange-500" />

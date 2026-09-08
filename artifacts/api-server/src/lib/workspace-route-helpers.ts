@@ -177,12 +177,23 @@ export function viewOwnIdFilter(
   type: WorkedProjectType,
   idColumn: { id: unknown },
 ): SQL | undefined {
+  return viewOwnIdFilterAny(ctx, [feature], worked, type, idColumn);
+}
+
+/** Same as viewOwnIdFilter but accepts any of the listed features (e.g. build_brand + graphics). */
+export function viewOwnIdFilterAny(
+  ctx: WorkspaceContext,
+  features: WorkspaceFeature[],
+  worked: MemberWorkedProjects | null,
+  type: WorkedProjectType,
+  idColumn: { id: unknown },
+): SQL | undefined {
   if (ctx.isAccountOwner) return undefined;
-  const opts = workspacePermOpts(ctx);
-  const global = requireWorkspacePerm(ctx, feature, "viewGlobal");
-  if (global) return undefined;
-  const own = requireWorkspacePerm(ctx, feature, "viewOwn");
-  if (!own) return sql`false`;
+  for (const feature of features) {
+    if (requireWorkspacePerm(ctx, feature, "viewGlobal")) return undefined;
+  }
+  const hasViewOwn = features.some((feature) => requireWorkspacePerm(ctx, feature, "viewOwn"));
+  if (!hasViewOwn) return sql`false`;
   const ids = workedIds(worked, type);
   if (ids.length === 0) return sql`false`;
   return inArray(idColumn.id as never, ids);
@@ -190,15 +201,17 @@ export function viewOwnIdFilter(
 
 export async function assertProjectViewAccess(
   req: Request,
-  feature: WorkspaceFeature,
+  feature: WorkspaceFeature | WorkspaceFeature[],
   type: WorkedProjectType,
   projectId: number,
 ): Promise<boolean> {
   const ctx = getWorkspaceCtx(req);
   if (ctx.isAccountOwner) return true;
-  const opts = workspacePermOpts(ctx);
-  if (requireWorkspacePerm(ctx, feature, "viewGlobal")) return true;
-  if (!requireWorkspacePerm(ctx, feature, "viewOwn")) return false;
+  const features = Array.isArray(feature) ? feature : [feature];
+  for (const f of features) {
+    if (requireWorkspacePerm(ctx, f, "viewGlobal")) return true;
+  }
+  if (!features.some((f) => requireWorkspacePerm(ctx, f, "viewOwn"))) return false;
   const worked = await loadWorkedProjects(req);
   return worked ? memberHasProjectAccess(worked, type, projectId) : false;
 }

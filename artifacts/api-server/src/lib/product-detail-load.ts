@@ -15,7 +15,7 @@ import {
   getActiveWorkspaceId,
   getWorkspaceCtx,
   loadWorkedProjects,
-  viewOwnIdFilter,
+  viewOwnIdFilterAny,
   workspaceOwnerFilter,
 } from "./workspace-route-helpers";
 import { buildProductSuggestions, type ProductSuggestionInput } from "./product-suggestions.js";
@@ -193,8 +193,7 @@ async function auditScopeWhere(req: Request, sourceType: "listing" | "audit") {
   const ownerId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
-  const feature = sourceType === "audit" ? "audits" : "build_brand";
-  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), feature, worked, "audit", auditsTable);
+  const ownFilter = viewOwnIdFilterAny(getWorkspaceCtx(req), ["audits", "build_brand"], worked, "audit", auditsTable);
   return and(
     eq(auditsTable.userId, ownerId),
     or(
@@ -219,7 +218,10 @@ async function projectScopeWhere(
   const ownerId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
-  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), feature, worked, type, table);
+  const viewFeatures = feature === "graphics"
+    ? (["graphics", "build_brand"] as const)
+    : ([feature] as const);
+  const ownFilter = viewOwnIdFilterAny(getWorkspaceCtx(req), [...viewFeatures], worked, type, table);
   return and(
     workspaceOwnerFilter(table, table, ownerId, workspaceId),
     eq(table.isDeleted, 0),

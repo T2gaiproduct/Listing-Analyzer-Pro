@@ -46,7 +46,7 @@ import {
   requireWorkspaceAction,
   requireWorkspaceActionAny,
   loadWorkedProjects,
-  viewOwnIdFilter,
+  viewOwnIdFilterAny,
   assertProjectViewAccess,
   workspaceOwnerFilter,
   buildTeamAwareCreditCtx,
@@ -109,7 +109,7 @@ async function auditScopeWhere(req: Request, extra?: ReturnType<typeof and>) {
   const ownerId = getEffectiveUserId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
-  const ownFilter = viewOwnIdFilter(getWorkspaceCtx(req), "audits", worked, "audit", auditsTable);
+  const ownFilter = viewOwnIdFilterAny(getWorkspaceCtx(req), ["audits", "build_brand"], worked, "audit", auditsTable);
   const base = and(
     workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
     eq(auditsTable.isDeleted, 0),
@@ -756,7 +756,7 @@ router.post("/audits/:id/sync-marketplaces", requireAuth, resolveTeamAndWorkspac
   }
 });
 
-router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -792,7 +792,7 @@ router.post("/audits/:id/generate-ebc", requireAuth, resolveTeamAndWorkspace, re
   }
 });
 
-router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -954,7 +954,7 @@ router.post("/audits/:id/generate-aplus", requireAuth, resolveTeamAndWorkspace, 
   })();
 });
 
-router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/generate-content", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
 
@@ -1054,7 +1054,7 @@ router.post("/audits/:id/generate-content", requireAuth, resolveTeamAndWorkspace
   }
 });
 
-router.post("/audits/:id/generate-images", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/generate-images", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -1126,7 +1126,7 @@ function buildAllRecordsFromAudit(audit: typeof auditsTable.$inferSelect): Image
   return records;
 }
 
-router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -1184,7 +1184,7 @@ router.post("/audits/:id/images/:type/:index/regenerate", requireAuth, resolveTe
   }
 });
 
-router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
@@ -1248,7 +1248,7 @@ router.post("/audits/:id/images/:type/:index/edit", requireAuth, resolveTeamAndW
   }
 });
 
-router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];
@@ -1315,7 +1315,7 @@ router.post("/audits/:id/aplus/:moduleId/regenerate", requireAuth, resolveTeamAn
   }
 });
 
-router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("audits", "edit"), async (req, res): Promise<void> => {
+router.post("/audits/:id/aplus/:moduleId/edit", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["audits", "build_brand"], "edit"), async (req, res): Promise<void> => {
   const ownerId = getEffectiveUserId(req);
   const id = parseInt(String(req.params.id ?? ""));
   const moduleId = String(req.params.moduleId ?? "") as AplusModule["id"];

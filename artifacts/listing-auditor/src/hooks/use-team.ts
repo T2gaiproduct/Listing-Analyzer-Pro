@@ -97,6 +97,7 @@ export function useTeam(): TeamContext {
   const canEditGraphics =
     isWorkspaceAccountOwner ||
     wsCanEdit("graphics") ||
+    wsCanEdit("build_brand") ||
     (!hasWorkspaces && (role === "admin" || role === "editor" || isOwner));
   const canEdit = canEditAudits || canEditGraphics;
   const canDeleteAudits = isWorkspaceAccountOwner || wsCanDelete("audits");
