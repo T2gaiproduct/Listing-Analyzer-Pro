@@ -32,7 +32,7 @@ const STATUS_LABELS: Record<ProductOrderStatus, string> = {
 
 const PAYMENT_STATUS_LABELS: Record<ProductOrderPaymentStatus, string> = {
   pending: "Pending",
-  received: "Received",
+  received: "Paid",
   refunded: "Refunded",
 };
 

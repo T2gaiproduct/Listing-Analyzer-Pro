@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, productOrdersTable } from "@workspace/db";
 import type { ProductOrderStatus, ProductOrderPaymentStatus } from "./product-orders.js";
+import { ensureProductOrdersSchemaMigrated } from "./ensure-product-orders-schema.js";
 import { isMissingProductOrdersColumnError } from "./product-order-sync-errors.js";
 
 type ProductOrderValues = {
@@ -124,6 +125,8 @@ async function updateProductOrderRow(id: number, input: ProductOrderValues): Pro
 }
 
 export async function upsertProductOrderRow(input: ProductOrderValues): Promise<"imported" | "updated"> {
+  await ensureProductOrdersSchemaMigrated();
+
   const [existing] = await db
     .select({ id: productOrdersTable.id })
     .from(productOrdersTable)

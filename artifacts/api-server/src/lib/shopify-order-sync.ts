@@ -9,10 +9,12 @@ import type { ProductOrderStatus } from "./product-orders.js";
 import { upsertProductOrderRow } from "./product-order-upsert.js";
 import { mapShopifyPaymentStatus } from "./product-order-payment.js";
 import { formatProductOrderSyncError } from "./product-order-sync-errors.js";
+import { ensureProductOrdersSchemaMigrated } from "./ensure-product-orders-schema.js";
 import { shopifyHandleFromAsin } from "./shopify-import-utils.js";
 import {
   clearShopifyAccessTokenCache,
   getShopifyAccessToken,
+  getShopifyOrder,
   listShopifyOrders,
   listShopifyProducts,
   parseShopifyShopHost,
@@ -230,6 +232,30 @@ function shopifyOrdersScopeMessage(): string {
   return "Shopify app needs read_orders API scope. Add it in Shopify Dev Dashboard → API credentials, release the app version, reinstall on your store, then reconnect on Marketplaces.";
 }
 
+async function enrichShopifyOrderForPayment(
+  order: ShopifyRestOrder,
+  opts: { shopHost: string; accessToken: string },
+): Promise<ShopifyRestOrder> {
+  if (mapShopifyPaymentStatus(order) !== "pending") {
+    return order;
+  }
+
+  try {
+    const detailed = await getShopifyOrder({
+      shopHost: opts.shopHost,
+      accessToken: opts.accessToken,
+      orderId: order.id,
+    });
+    return {
+      ...order,
+      ...detailed,
+      line_items: order.line_items?.length ? order.line_items : detailed.line_items,
+    };
+  } catch {
+    return order;
+  }
+}
+
 export async function syncShopifyOrders(input: {
   workspaceId: number;
   storeUrl: string;
@@ -249,6 +275,8 @@ export async function syncShopifyOrders(input: {
     result.errors.push("Shopify API credentials are required to sync orders.");
     return result;
   }
+
+  await ensureProductOrdersSchemaMigrated();
 
   const matchers = await loadShopifyAuditMatchers(input.workspaceId);
   if (matchers.byHandle.size === 0 && matchers.bySku.size === 0) {
@@ -319,7 +347,8 @@ export async function syncShopifyOrders(input: {
   result.totalOrders = orders.length;
 
   for (const order of orders) {
-    for (const lineItem of order.line_items ?? []) {
+    const orderForSync = await enrichShopifyOrderForPayment(order, { shopHost, accessToken });
+    for (const lineItem of orderForSync.line_items ?? []) {
       const auditId = resolveAuditIdForLineItem(lineItem, matchers);
       if (!auditId) {
         result.skipped += 1;
@@ -330,7 +359,7 @@ export async function syncShopifyOrders(input: {
         const outcome = await upsertShopifyOrderRow({
           auditId,
           workspaceId: input.workspaceId,
-          order,
+          order: orderForSync,
           lineItem,
         });
         if (outcome === "imported") result.imported += 1;

@@ -546,6 +546,12 @@ export type ShopifyRestOrderLineItem = {
   price: string;
 };
 
+export type ShopifyRestOrderTransaction = {
+  kind?: string | null;
+  status?: string | null;
+  amount?: string | null;
+};
+
 export type ShopifyRestOrder = {
   id: number;
   name: string;
@@ -556,6 +562,9 @@ export type ShopifyRestOrder = {
   cancelled_at?: string | null;
   created_at: string;
   currency: string;
+  total_price?: string | null;
+  current_total_price?: string | null;
+  total_outstanding?: string | null;
   customer?: {
     first_name?: string | null;
     last_name?: string | null;
@@ -566,6 +575,7 @@ export type ShopifyRestOrder = {
     tracking_number?: string | null;
     tracking_numbers?: string[] | null;
   }>;
+  transactions?: ShopifyRestOrderTransaction[];
 };
 
 export async function listShopifyOrders(opts: {
@@ -601,4 +611,21 @@ export async function listShopifyOrders(opts: {
   }
 
   return orders.slice(0, maxOrders);
+}
+
+export async function getShopifyOrder(opts: {
+  shopHost: string;
+  accessToken: string;
+  orderId: number;
+}): Promise<ShopifyRestOrder> {
+  const data = await shopifyAdminRequest<{ order: ShopifyRestOrder }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    method: "GET",
+    path: `/orders/${opts.orderId}.json`,
+  });
+  if (!data.order) {
+    throw new Error(`Shopify order ${opts.orderId} not found`);
+  }
+  return data.order;
 }

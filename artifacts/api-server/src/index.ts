@@ -12,6 +12,7 @@ import { ensureWorkspacesMigrated } from "./lib/ensure-workspaces";
 import { ensureWorkspaceCreditsMigrated } from "./lib/ensure-workspace-credits.js";
 import { ensureSellermateSchemaMigrated } from "./lib/ensure-sellermate-schema.js";
 import { ensureGraphicsProjectsSchemaMigrated } from "./lib/ensure-graphics-schema.js";
+import { ensureProductOrdersSchemaMigrated } from "./lib/ensure-product-orders-schema.js";
 import type Stripe from "stripe";
 
 process.on("uncaughtException", (err) => {
@@ -105,6 +106,10 @@ ensureSellermateSchemaMigrated()
 ensureGraphicsProjectsSchemaMigrated()
   .then(() => logger.info("Graphics projects schema migration ready"))
   .catch((err) => logger.error({ err }, "Graphics projects schema migration failed"));
+
+ensureProductOrdersSchemaMigrated()
+  .then(() => logger.info("Product orders schema migration ready"))
+  .catch((err) => logger.error({ err }, "Product orders schema migration failed"));
 
 // Create HTTP server and attach WebSocket
 const httpServer = createServer(app);
