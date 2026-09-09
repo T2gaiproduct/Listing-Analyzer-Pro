@@ -56,6 +56,7 @@ import {
 import { notifyWorkspaceMemberCreditsAssigned } from "../lib/workspace-member-credit-notify.js";
 import { deliverWorkspaceMemberInvite } from "../lib/workspace-invite.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
+import { listWorkspaceMemberInviteSuggestions } from "../lib/workspace-member-suggestions.js";
 import { createNotification } from "../lib/notifications.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import { resolvePlanCreditPools, computePlanCreditsFromAllocations } from "../lib/plan-credits.js";
@@ -620,6 +621,22 @@ router.get("/workspaces/:workspaceId/members", requireAuth, requireWorkspaceAcce
       };
     }),
   });
+});
+
+router.get("/workspaces/:workspaceId/member-suggestions", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {
+  const ctx = (req as WorkspaceAuthedRequest).workspace;
+  if (!checkPerm(ctx, "team", "create") && !ctx.isAccountOwner) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const q = typeof req.query.q === "string" ? req.query.q : "";
+  const suggestions = await listWorkspaceMemberInviteSuggestions(
+    ctx.accountOwnerId,
+    ctx.workspaceId,
+    q,
+  );
+  res.json({ suggestions });
 });
 
 router.patch("/workspaces/:workspaceId/members/:memberId/credits", requireAuth, requireWorkspaceAccess, async (req, res): Promise<void> => {

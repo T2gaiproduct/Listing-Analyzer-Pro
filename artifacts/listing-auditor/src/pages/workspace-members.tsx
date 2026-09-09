@@ -14,6 +14,7 @@ import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { accountRoleLabel } from "@/lib/role-display";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { MemberEmailAutocomplete } from "@/components/member-email-autocomplete";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -165,6 +166,7 @@ export default function WorkspaceMembersPage() {
       const invitedEmail = email.trim();
       qc.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
       qc.invalidateQueries({ queryKey: ["workspace-roles", workspaceId] });
+      qc.invalidateQueries({ queryKey: ["workspace-member-suggestions", workspaceId] });
       setEmail("");
       setName("");
       if (data.emailSent) {
@@ -346,7 +348,12 @@ export default function WorkspaceMembersPage() {
           <CardContent className="grid sm:grid-cols-3 gap-3">
             <div>
               <Label>Email</Label>
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@company.com" />
+              <MemberEmailAutocomplete
+                workspaceId={workspaceId}
+                value={email}
+                onValueChange={setEmail}
+                onSuggestionSelect={(suggestion) => setName(suggestion.name)}
+              />
             </div>
             <div>
               <Label>Name</Label>
