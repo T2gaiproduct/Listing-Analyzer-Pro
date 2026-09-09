@@ -151,9 +151,10 @@ export function requireWorkspaceView(feature: WorkspaceFeature) {
 
 /** Clerk user id of the workspace member who created a project (null for account owners). */
 export function memberCreatedByUserId(req: Request): string | null {
-  const ctx = getWorkspaceCtx(req);
-  if (ctx.isAccountOwner) return null;
-  return (req as AuthedRequest).userId;
+  const actorId = (req as AuthedRequest).userId;
+  const ownerId = getAccountOwnerId(req);
+  if (actorId === ownerId) return null;
+  return actorId;
 }
 
 export async function loadWorkedProjects(req: Request): Promise<MemberWorkedProjects | null> {
@@ -366,7 +367,10 @@ export async function loadGraphicsProjectForRequest(
       and(
         eq(graphicsProjectsTable.id, projectId),
         eq(graphicsProjectsTable.isDeleted, 0),
-        eq(graphicsProjectsTable.userId, ownerId),
+        or(
+          eq(graphicsProjectsTable.userId, ownerId),
+          eq(graphicsProjectsTable.createdByUserId, userId),
+        ),
       ),
     )
     .limit(1);
@@ -392,8 +396,31 @@ export async function loadGraphicsProjectForRequest(
   if (project.auditId != null && worked?.auditIds.includes(project.auditId)) return project;
 
   if (project.auditId != null) {
-    const audit = await loadAuditForRequest(req, project.auditId, "read");
+    const audit =
+      await loadAuditForRequest(req, project.auditId, "write")
+      ?? await loadAuditForRequest(req, project.auditId, "read");
     if (audit) return project;
+
+    // Build-brand workflow: members with edit can generate on audit-linked projects in scope.
+    for (const feature of GRAPHICS_SCOPE_FEATURES) {
+      if (!requireWorkspacePerm(ctx, feature, "edit")) continue;
+      const [scopedAudit] = await db
+        .select({ id: auditsTable.id })
+        .from(auditsTable)
+        .where(
+          and(
+            eq(auditsTable.id, project.auditId),
+            eq(auditsTable.userId, ownerId),
+            eq(auditsTable.isDeleted, 0),
+            or(
+              eq(auditsTable.workspaceId, workspaceId),
+              isNull(auditsTable.workspaceId),
+            ),
+          ),
+        )
+        .limit(1);
+      if (scopedAudit) return project;
+    }
   }
 
   return null;

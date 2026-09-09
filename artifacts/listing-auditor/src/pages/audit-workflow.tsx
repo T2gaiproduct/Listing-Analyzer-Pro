@@ -39,6 +39,7 @@ import { BuildBrandProductSearch } from "@/components/build-brand-product-search
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
+import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
@@ -876,12 +877,20 @@ export default function AuditWorkflow() {
     return () => clearInterval(interval);
   }, [currentAuditId, aplusStatus, queryClient, toast]);
 
+  const { user } = useUser();
+
   const fetchGraphicsProjectForAudit = useCallback(async (auditId: number) => {
-    const data = await fetchJson<{ projects?: Array<{ id: number }> }>(
+    const data = await fetchJson<{ projects?: Array<{ id: number; createdByUserId?: string | null }> }>(
       `${basePath}/api/graphics/projects?auditId=${auditId}`,
     );
-    return data.projects?.[0] ?? null;
-  }, []);
+    const projects = data.projects ?? [];
+    const myId = user?.id;
+    if (myId) {
+      const owned = projects.find((p) => p.createdByUserId === myId);
+      if (owned) return owned;
+    }
+    return projects[0] ?? null;
+  }, [user?.id]);
 
   /* ── Fetch existing graphics project for this audit ── */
   const { data: existingGraphicsProject } = useQuery({

@@ -714,7 +714,7 @@ function buildRegeneratePrompt(
 
 // ─── Create project ───────────────────────────────────────────────────────────
 router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireWorkspaceActionAny(["graphics", "build_brand"], "create"), async (req, res): Promise<void> => {
-  const userId = getEffectiveUserId(req);
+  const ownerId = getAccountOwnerId(req);
   const body = req.body as { name: string; productName: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number; imageTypes?: string[]; customPrompt?: string; auditId?: number };
 
   // Derive lifestyleCount and featureCount from imageTypes if provided
@@ -726,10 +726,47 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
   }
 
   const sourceImages = body.sourceImageUrls ?? [];
+  const actorId = (req as AuthedRequest).userId;
 
   try {
+    if (body.auditId) {
+      const [owned] = await db
+        .select()
+        .from(graphicsProjectsTable)
+        .where(and(
+          eq(graphicsProjectsTable.auditId, body.auditId),
+          eq(graphicsProjectsTable.userId, ownerId),
+          eq(graphicsProjectsTable.createdByUserId, actorId),
+          eq(graphicsProjectsTable.isDeleted, 0),
+        ))
+        .orderBy(desc(graphicsProjectsTable.updatedAt))
+        .limit(1);
+      if (owned) {
+        res.status(200).json(owned);
+        return;
+      }
+
+      const candidates = await db
+        .select()
+        .from(graphicsProjectsTable)
+        .where(and(
+          eq(graphicsProjectsTable.auditId, body.auditId),
+          eq(graphicsProjectsTable.userId, ownerId),
+          eq(graphicsProjectsTable.isDeleted, 0),
+        ))
+        .orderBy(desc(graphicsProjectsTable.updatedAt))
+        .limit(10);
+      for (const candidate of candidates) {
+        const accessible = await loadGraphicsProject(req, candidate.id);
+        if (accessible) {
+          res.status(200).json(accessible);
+          return;
+        }
+      }
+    }
+
     const [project] = await db.insert(graphicsProjectsTable).values({
-      userId,
+      userId: ownerId,
       createdByUserId: memberCreatedByUserId(req),
       workspaceId: getActiveWorkspaceId(req),
       auditId: body.auditId ?? null,
@@ -773,6 +810,7 @@ router.post("/graphics/projects", requireAuth, resolveTeamAndWorkspace, requireW
 // ─── List projects ────────────────────────────────────────────────────────────
 router.get("/graphics/projects", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
   const auditIdQuery = req.query.auditId ? parseInt(String(req.query.auditId)) : null;
+  const actorId = (req as AuthedRequest).userId;
 
   let projects;
   if (auditIdQuery && !isNaN(auditIdQuery)) {
@@ -782,6 +820,11 @@ router.get("/graphics/projects", requireAuth, resolveTeamAndWorkspace, async (re
       .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.auditId, auditIdQuery)))
       .orderBy(desc(graphicsProjectsTable.updatedAt))
       .limit(100);
+    projects.sort((a, b) => {
+      const aOwn = a.createdByUserId === actorId ? 1 : 0;
+      const bOwn = b.createdByUserId === actorId ? 1 : 0;
+      return bOwn - aOwn;
+    });
   } else {
     projects = await db
       .select()
