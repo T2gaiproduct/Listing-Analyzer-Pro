@@ -2444,19 +2444,9 @@ export default function ProductDetailPage({ id }: { id: number }) {
                   <CompactSummaryField label="SKU" value={product.sku} mono />
                   <CompactSummaryField label="Brand" value={product.brandName || "—"} />
                   <CompactSummaryField label="Category" value={product.category || "—"} />
-                  <CompactSummaryField label="Manager" value={product.manager?.name ?? "—"} />
                   <CompactSummaryField
                     label="Price"
                     value={formatOverviewPrice(listingProduct?.listingPrice, listingProduct?.listingCurrency)}
-                  />
-                  <CompactSummaryField
-                    label="Priority"
-                    value={
-                      <PriorityBadge
-                        label={(product.priorityLabel ?? "Medium Priority").replace(" Priority", "")}
-                        level={product.priorityLevel}
-                      />
-                    }
                   />
                   <CompactSummaryField
                     label="Listing Score"
