@@ -108,9 +108,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }>({
     queryKey: ["user-profile-summary"],
     queryFn: () =>
-      fetch(`${basePath}/api/profile/summary`, { credentials: "include" }).then((r) => r.json()),
+      fetchJson<{ accountRole?: { type: string; label: string } }>(`${basePath}/api/profile/summary`),
     enabled: isLoaded && !!user,
     staleTime: 30_000,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -208,7 +209,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
   const isBillingAccountOwner = isBillingAccountOwnerProfile;
   const skipPermLoadingForNav =
-    isBillingAccountOwnerProfile || (profileSummary?.accountRole?.type === "platform_admin");
+    isBillingAccountOwnerProfile
+    || isTeamMemberAccount
+    || profileSummary?.accountRole?.type === "platform_admin";
 
   const { data: permData, isLoading: permLoading } = useQuery({
     queryKey: ["workspace-permissions", activeWorkspaceId],
@@ -299,7 +302,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isAccountOwner,
     isWorkspaceAccountOwner,
     isTeamMemberAccount,
-    isLoading: listLoading || (!skipPermLoadingForNav && permLoading) || profileLoading || !isLoaded,
+    isLoading: listLoading || (!skipPermLoadingForNav && permLoading) || (profileLoading && workspaces.length === 0) || !isLoaded,
     setActiveWorkspaceId: setWorkspace,
     can,
     canView,
