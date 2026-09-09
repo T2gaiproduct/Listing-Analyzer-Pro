@@ -28,7 +28,12 @@ import {
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { getMemberCredits } from "../lib/credits";
 import { getMemberAiTransactions, type MemberWorkedProjects } from "../lib/member-projects";
-import { pickProjectThumbnail } from "../lib/scoped-recents-load.js";
+import {
+  displayProjectName,
+  disambiguateRecentProjectNames,
+  resolveGraphicsProjectUrl,
+  resolveGraphicsThumbnailUrl,
+} from "../lib/project-display.js";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
 import { getWorkspaceCredits, getWorkspaceMemberCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
@@ -167,24 +172,6 @@ function statusBadgeColor(label: string): "orange" | "green" | "blue" | "red" | 
   if (label === "In Progress") return "blue";
   if (label === "Failed") return "red";
   return "gray";
-}
-
-const GENERIC_PROJECT_NAMES = new Set(["product", "untitled project", "untitled", "new project"]);
-
-function displayProjectName(
-  name: string | null | undefined,
-  productName?: string | null,
-  category?: string | null,
-): string {
-  const trimmedName = name?.trim() ?? "";
-  const trimmedProduct = productName?.trim() ?? "";
-  const trimmedCategory = category?.trim() ?? "";
-  const nameIsGeneric = !trimmedName || GENERIC_PROJECT_NAMES.has(trimmedName.toLowerCase());
-  if (nameIsGeneric && trimmedProduct && !GENERIC_PROJECT_NAMES.has(trimmedProduct.toLowerCase())) {
-    return trimmedProduct;
-  }
-  if (nameIsGeneric && trimmedCategory) return trimmedCategory;
-  return trimmedName || trimmedProduct || "Untitled Project";
 }
 
 async function countProjectsSaved(
@@ -462,6 +449,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
           name: graphicsProjectsTable.name,
           productName: graphicsProjectsTable.productName,
           category: graphicsProjectsTable.category,
+          auditId: graphicsProjectsTable.auditId,
           status: graphicsProjectsTable.status,
           sourceImageUrls: graphicsProjectsTable.sourceImageUrls,
           imageRecords: graphicsProjectsTable.imageRecords,
@@ -685,13 +673,10 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
         typeLabel: typeLabel("graphics"),
         statusLabel,
         statusColor: statusBadgeColor(statusLabel),
-        url: `/projects/${g.id}`,
+        url: resolveGraphicsProjectUrl({ id: g.id, auditId: g.auditId, status: g.status }),
         createdAt: g.createdAt,
         updatedAt: g.updatedAt ?? g.createdAt,
-        imageUrl: pickProjectThumbnail({
-          sourceImageUrls: g.sourceImageUrls,
-          imageRecords: g.imageRecords,
-        }),
+        imageUrl: resolveGraphicsThumbnailUrl(g.id, g.sourceImageUrls, g.imageRecords),
         category: g.category ?? null,
       };
     }),
@@ -747,17 +732,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
         - sortTime(a.type, a.id, a.createdAt, a.updatedAt);
     });
 
-  const topRecentProjects = sortedRecentProjects.slice(0, 5);
-  const recentNameCounts = new Map<string, number>();
-  for (const project of topRecentProjects) {
-    const key = `${project.type}:${project.name.toLowerCase()}`;
-    recentNameCounts.set(key, (recentNameCounts.get(key) ?? 0) + 1);
-  }
-  const recentProjects = topRecentProjects.map((project) => {
-    const key = `${project.type}:${project.name.toLowerCase()}`;
-    if ((recentNameCounts.get(key) ?? 0) <= 1) return project;
-    return { ...project, name: `${project.name} #${project.id}` };
-  });
+  const recentProjects = disambiguateRecentProjectNames(sortedRecentProjects.slice(0, 5));
 
   res.json({
     greetingName: profile?.fullName?.split(" ")[0] ?? null,

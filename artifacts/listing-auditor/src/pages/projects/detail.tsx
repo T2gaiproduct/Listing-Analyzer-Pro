@@ -130,7 +130,7 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
     return configs;
   }, [moreImageTypes, moreImageTypePromptConfigs]);
 
-  const { data: project, isLoading } = useQuery({
+  const { data: project, isLoading, isError } = useQuery({
     queryKey: ["graphics-project", id],
     queryFn: () => fetchProject(id),
     enabled: !!id,
@@ -359,6 +359,16 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
         </div>
       )}
 
+      {!isLoading && (isError || !project) && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-10 text-center space-y-3">
+            <p className="text-slate-800 font-medium">This project could not be opened.</p>
+            <p className="text-sm text-slate-500">It may have been removed or you may not have access.</p>
+            <Button variant="outline" onClick={() => nav(returnTo)}>Back to projects</Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Generating state */}
       {!isLoading && isGenerating && (
         <div className="rounded-lg border bg-white p-8 text-center space-y-3">
@@ -397,12 +407,35 @@ export default function ProjectDetail({ params }: { params?: { id?: string } }) 
         </div>
       )}
 
-      {/* Empty state */}
-      {!isLoading && !isGenerating && project?.status === "completed" && records.length === 0 && (
+      {/* Draft / empty state */}
+      {!isLoading && project && !isGenerating && records.length === 0 && project.status !== "failed" && (
         <Card className="border-0 shadow-sm">
-          <CardContent className="py-12 text-center">
-            <ImageIcon className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-400">No images generated</p>
+          <CardContent className="py-12 text-center space-y-4">
+            <ImageIcon className="w-12 h-12 text-slate-200 mx-auto" />
+            <div>
+              <p className="text-slate-700 font-medium">
+                {project.status === "draft" ? "Ready to generate images" : "No images generated yet"}
+              </p>
+              <p className="text-sm text-slate-400 mt-1">
+                {canEditGraphics
+                  ? "Choose image types and start generation to see results here."
+                  : "Ask your workspace owner for edit access to generate images."}
+              </p>
+            </div>
+            {canEditGraphics && (
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => generateMutation.mutate(undefined)}
+                disabled={generateMutation.isPending}
+              >
+                {generateMutation.isPending ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                Generate Images
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

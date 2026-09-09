@@ -103,6 +103,21 @@ function resolveDashboardImageUrl(url: string | null | undefined): string | null
   return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
 }
 
+function DashboardProjectThumb({ imageUrl, alt }: { imageUrl: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!imageUrl || failed) {
+    return <Folder className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />;
+  }
+  return (
+    <img
+      src={imageUrl}
+      alt={alt}
+      className="w-full h-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 const STATUS_STYLES: Record<string, string> = {
   orange: "bg-orange-50 text-orange-700 border-orange-200",
   green: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -738,11 +753,7 @@ export default function Dashboard() {
                     <Link href={project.url}>
                       <div className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
                         <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {thumb ? (
-                            <img src={thumb} alt={project.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <Folder className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
-                          )}
+                          <DashboardProjectThumb imageUrl={thumb} alt="" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-orange-600 transition-colors">
