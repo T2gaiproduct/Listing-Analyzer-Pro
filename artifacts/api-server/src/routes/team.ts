@@ -28,6 +28,7 @@ import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.
 import { syncTeamMemberWorkspaceMemberships, syncPendingTeamInviteToWorkspaces } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
+import { sessionEmailFromClaims } from "../lib/admin-auth.js";
 import { buildWorkspaceMemberStats } from "../lib/workspace-member-stats.js";
 
 const router: IRouter = Router();
@@ -380,14 +381,20 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   const userId = (req as AuthedRequest).userId;
   const token = String(req.params.token ?? "");
   const auth = getAuth(req);
-  const sessionEmail = auth?.sessionClaims?.email as string | undefined;
+  const sessionEmail = sessionEmailFromClaims(auth?.sessionClaims as Record<string, unknown> | null);
 
   const [invite] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.inviteToken, token));
   if (!invite) { res.status(404).json({ error: "Invite not found" }); return; }
   if (invite.status === "revoked") { res.status(410).json({ error: "This invite has been revoked" }); return; }
   if (invite.status === "active") { res.status(409).json({ error: "Already accepted" }); return; }
 
-  if (sessionEmail && sessionEmail.toLowerCase() !== invite.invitedEmail.toLowerCase()) {
+  if (!sessionEmail) {
+    res.status(403).json({
+      error: "Sign in with the email address that received this invite to accept.",
+    });
+    return;
+  }
+  if (sessionEmail !== invite.invitedEmail.trim().toLowerCase()) {
     res.status(403).json({
       error: `This invite was sent to ${invite.invitedEmail}. Sign in with that email to accept.`,
     });

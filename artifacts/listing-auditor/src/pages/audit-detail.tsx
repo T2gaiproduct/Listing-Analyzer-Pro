@@ -17,6 +17,7 @@ import { ScoreRing, ScoreBadge } from "@/components/score-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -524,7 +525,7 @@ export default function AuditDetail({ id }: { id: number }) {
                 <CardContent className="space-y-4">
                   <div
                     className="prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
-                    dangerouslySetInnerHTML={{ __html: gc.htmlDescription }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(gc.htmlDescription) }}
                   />
                   <details className="text-xs">
                     <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-mono">View raw HTML</summary>

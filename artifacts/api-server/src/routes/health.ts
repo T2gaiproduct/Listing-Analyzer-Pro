@@ -16,6 +16,11 @@ async function checkClerkProxySecret(): Promise<"ok" | "missing" | "invalid" | "
 }
 
 router.get("/healthz", async (_req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    res.json({ status: "ok" });
+    return;
+  }
+
   const clerkProxySecret = await checkClerkProxySecret();
   res.json({
     status: "ok",

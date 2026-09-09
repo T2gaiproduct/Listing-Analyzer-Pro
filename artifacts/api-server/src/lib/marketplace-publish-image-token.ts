@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { requireSigningSecret } from "./require-production-secret.js";
 
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 
@@ -10,9 +11,11 @@ type PublishImageTokenPayload = {
 };
 
 function signingSecret(): string {
-  return process.env.CLERK_SECRET_KEY?.trim()
-    || process.env.PUBLISH_IMAGE_SECRET?.trim()
-    || "dev-publish-image-secret";
+  return requireSigningSecret(
+    ["PUBLISH_IMAGE_SECRET", "CLERK_SECRET_KEY"],
+    "dev-publish-image-secret",
+    "Publish image signing secret",
+  );
 }
 
 export function createPublishImageToken(input: {

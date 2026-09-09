@@ -1107,7 +1107,13 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
     }
 
     const invitedEmailLower = invite.invitedEmail.trim().toLowerCase();
-    if (sessionEmail && sessionEmail !== invitedEmailLower) {
+    if (!sessionEmail) {
+      res.status(403).json({
+        error: "Sign in with the email address that received this invite to accept.",
+      });
+      return;
+    }
+    if (sessionEmail !== invitedEmailLower) {
       res.status(403).json({
         error: `This invite was sent to ${invite.invitedEmail}. Sign in with that email to accept.`,
       });

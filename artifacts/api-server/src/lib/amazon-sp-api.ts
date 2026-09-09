@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import zlib from "node:zlib";
+import { requireSigningSecret } from "./require-production-secret.js";
 import {
   resolveSpMarketplaceId,
   sellerCentralOAuthConsentUrl,
@@ -18,9 +19,11 @@ export interface LwaTokenResponse {
 }
 
 export function oauthStateSecret(): string {
-  return process.env.AMAZON_OAUTH_STATE_SECRET
-    ?? process.env.CLERK_SECRET_KEY
-    ?? "amazon-oauth-dev-secret";
+  return requireSigningSecret(
+    ["AMAZON_OAUTH_STATE_SECRET", "CLERK_SECRET_KEY"],
+    "amazon-oauth-dev-secret",
+    "Amazon OAuth state signing secret",
+  );
 }
 
 export function createOAuthState(input: { userId: string; workspaceId?: number | null }): string {
