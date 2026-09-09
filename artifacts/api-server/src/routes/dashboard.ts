@@ -23,10 +23,12 @@ import {
   ownerProjectFilter,
   getWorkspaceCtx,
   canViewFeature,
+  loadWorkedProjects,
 } from "../lib/workspace-route-helpers";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { getMemberCredits } from "../lib/credits";
-import { getMemberWorkedProjects, type MemberWorkedProjects } from "../lib/member-projects";
+import { getMemberAiTransactions, type MemberWorkedProjects } from "../lib/member-projects";
+import { pickProjectThumbnail } from "../lib/scoped-recents-load.js";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
 import { getWorkspaceCredits, getWorkspaceMemberCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
@@ -165,6 +167,24 @@ function statusBadgeColor(label: string): "orange" | "green" | "blue" | "red" | 
   if (label === "In Progress") return "blue";
   if (label === "Failed") return "red";
   return "gray";
+}
+
+const GENERIC_PROJECT_NAMES = new Set(["product", "untitled project", "untitled", "new project"]);
+
+function displayProjectName(
+  name: string | null | undefined,
+  productName?: string | null,
+  category?: string | null,
+): string {
+  const trimmedName = name?.trim() ?? "";
+  const trimmedProduct = productName?.trim() ?? "";
+  const trimmedCategory = category?.trim() ?? "";
+  const nameIsGeneric = !trimmedName || GENERIC_PROJECT_NAMES.has(trimmedName.toLowerCase());
+  if (nameIsGeneric && trimmedProduct && !GENERIC_PROJECT_NAMES.has(trimmedProduct.toLowerCase())) {
+    return trimmedProduct;
+  }
+  if (nameIsGeneric && trimmedCategory) return trimmedCategory;
+  return trimmedName || trimmedProduct || "Untitled Project";
 }
 
 async function countProjectsSaved(
@@ -339,7 +359,8 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
   const transactionUserIds = [ownerId];
   if (userId !== ownerId) transactionUserIds.push(userId);
 
-  const memberWorked = team?.isTeamMember ? await getMemberWorkedProjects(userId, team) : null;
+  const memberWorked = await loadWorkedProjects(req);
+  const isMemberProjectView = memberWorked != null;
 
   const [
     projectsSaved,
@@ -348,8 +369,10 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     auditsThisWeek,
     auditsPrevWeek,
     allTransactions,
+    memberTransactions,
     ownerCredits,
     auditsThisWeekRows,
+    graphicsThisWeekRows,
     recentAudits,
     recentGraphics,
     recentVideos,
@@ -379,6 +402,12 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       createdAt: creditTransactionsTable.createdAt,
     }).from(creditTransactionsTable)
       .where(inArray(creditTransactionsTable.userId, transactionUserIds)),
+    isMemberProjectView
+      ? getMemberAiTransactions(userId, team, {
+        workspaceId: wsCtx.workspaceId,
+        workspaceMemberId: wsCtx.workspaceMemberId,
+      })
+      : Promise.resolve([]),
     db.select().from(creditsTable).where(eq(creditsTable.userId, ownerId)),
     db.select({
       id: auditsTable.id,
@@ -389,8 +418,25 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
         ownerProjectFilter(auditsTable, auditsTable, ownerId, statsWorkspaceId),
         eq(auditsTable.isDeleted, 0),
         gte(auditsTable.createdAt, weekStart),
+        ...(isMemberProjectView && memberWorked
+          ? [inArray(auditsTable.id, memberWorked.auditIds.length > 0 ? memberWorked.auditIds : [-1])]
+          : []),
       )),
-    team?.isTeamMember && (memberWorked?.auditIds.length ?? 0) === 0
+    isMemberProjectView && (memberWorked?.graphicsIds.length ?? 0) === 0
+      ? Promise.resolve([] as Array<{ id: number; status: string }>)
+      : db.select({
+          id: graphicsProjectsTable.id,
+          status: graphicsProjectsTable.status,
+        }).from(graphicsProjectsTable)
+          .where(and(
+            ownerProjectFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, statsWorkspaceId),
+            eq(graphicsProjectsTable.isDeleted, 0),
+            gte(graphicsProjectsTable.updatedAt, weekStart),
+            ...(isMemberProjectView && memberWorked
+              ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)]
+              : []),
+          )),
+    isMemberProjectView && (memberWorked?.auditIds.length ?? 0) === 0
       ? Promise.resolve([])
       : db.select({
           id: auditsTable.id,
@@ -405,28 +451,34 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
             ownerProjectFilter(auditsTable, auditsTable, ownerId, statsWorkspaceId),
             eq(auditsTable.isDeleted, 0),
             sql`${auditsTable.status} != 'archived'`,
-            ...(team?.isTeamMember && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
+            ...(isMemberProjectView && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
           ))
           .orderBy(desc(auditsTable.createdAt))
           .limit(5),
-    team?.isTeamMember && (memberWorked?.graphicsIds.length ?? 0) === 0
+    isMemberProjectView && (memberWorked?.graphicsIds.length ?? 0) === 0
       ? Promise.resolve([])
       : db.select({
           id: graphicsProjectsTable.id,
           name: graphicsProjectsTable.name,
+          productName: graphicsProjectsTable.productName,
+          category: graphicsProjectsTable.category,
           status: graphicsProjectsTable.status,
+          sourceImageUrls: graphicsProjectsTable.sourceImageUrls,
+          imageRecords: graphicsProjectsTable.imageRecords,
           createdAt: graphicsProjectsTable.createdAt,
+          updatedAt: graphicsProjectsTable.updatedAt,
         }).from(graphicsProjectsTable)
           .where(and(
             ownerProjectFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, statsWorkspaceId),
             eq(graphicsProjectsTable.isDeleted, 0),
             sql`${graphicsProjectsTable.status} != 'archived'`,
-            sql`${graphicsProjectsTable.auditId} IS NULL`,
-            ...(team?.isTeamMember && memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : []),
+            ...(isMemberProjectView
+              ? (memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : [sql`false`])
+              : [sql`${graphicsProjectsTable.auditId} IS NULL`]),
           ))
-          .orderBy(desc(graphicsProjectsTable.createdAt))
+          .orderBy(desc(graphicsProjectsTable.updatedAt))
           .limit(5),
-    team?.isTeamMember && (memberWorked?.videoIds.length ?? 0) === 0
+    isMemberProjectView && (memberWorked?.videoIds.length ?? 0) === 0
       ? Promise.resolve([])
       : db.select({
           id: videosProjectsTable.id,
@@ -438,11 +490,11 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
             ownerProjectFilter(videosProjectsTable, videosProjectsTable, ownerId, statsWorkspaceId),
             eq(videosProjectsTable.isDeleted, 0),
             sql`${videosProjectsTable.status} != 'archived'`,
-            ...(team?.isTeamMember && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
+            ...(isMemberProjectView && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
           ))
           .orderBy(desc(videosProjectsTable.createdAt))
           .limit(5),
-    team?.isTeamMember && (memberWorked?.adsIds.length ?? 0) === 0
+    isMemberProjectView && (memberWorked?.adsIds.length ?? 0) === 0
       ? Promise.resolve([])
       : db.select({
           id: adsProjectsTable.id,
@@ -454,7 +506,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
             ownerProjectFilter(adsProjectsTable, adsProjectsTable, ownerId, statsWorkspaceId),
             eq(adsProjectsTable.isDeleted, 0),
             sql`${adsProjectsTable.status} != 'archived'`,
-            ...(team?.isTeamMember && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
+            ...(isMemberProjectView && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
           ))
           .orderBy(desc(adsProjectsTable.createdAt))
           .limit(5),
@@ -575,10 +627,15 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     memberCreditsAllocated = allocated.aiCredits + allocated.imageCredits + allocated.auditCredits;
   }
 
-  const timeSavedHours = computeTimeSavedHours(allTransactions, filterStart, filterEnd);
-  const timeSavedThisWeek = computeTimeSavedHours(allTransactions, weekStart, now);
+  const transactionsForTimeSaved = isMemberProjectView ? memberTransactions : allTransactions;
+  const timeSavedHours = computeTimeSavedHours(transactionsForTimeSaved, filterStart, filterEnd);
+  const timeSavedThisWeek = computeTimeSavedHours(transactionsForTimeSaved, weekStart, now);
 
-  const impactListingsOptimized = auditsThisWeekRows.filter((a) => a.status === "complete").length;
+  const completedAuditsThisWeek = auditsThisWeekRows.filter((a) => a.status === "complete").length;
+  const completedGraphicsThisWeek = graphicsThisWeekRows.filter((g) => g.status === "completed").length;
+  const impactListingsOptimized = isMemberProjectView
+    ? completedAuditsThisWeek + completedGraphicsThisWeek
+    : completedAuditsThisWeek;
   const impactIssuesIdentified = auditsThisWeekRows.reduce((sum, a) => sum + countIssuesInResult(a.result), 0);
 
   const creditSegments = [
@@ -601,19 +658,22 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     pct: Math.round((seg.balance / segmentTotal) * 100),
   }));
 
-  const recentProjects = [
+  const sortedRecentProjects = [
     ...recentAudits.map((a) => {
       const type = a.asin ? "audit" as const : "listing" as const;
       const statusLabel = projectStatusLabel(type, a.status, a.overallScore);
       return {
         type,
         id: a.id,
-        name: a.name || a.productName || "Untitled Project",
+        name: displayProjectName(a.name, a.productName),
         typeLabel: typeLabel(type),
         statusLabel,
         statusColor: statusBadgeColor(statusLabel),
         url: type === "audit" ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
         createdAt: a.createdAt,
+        updatedAt: a.createdAt,
+        imageUrl: null,
+        category: null,
       };
     }),
     ...recentGraphics.map((g) => {
@@ -621,12 +681,18 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       return {
         type: "graphics" as const,
         id: g.id,
-        name: g.name,
+        name: displayProjectName(g.name, g.productName, g.category),
         typeLabel: typeLabel("graphics"),
         statusLabel,
         statusColor: statusBadgeColor(statusLabel),
         url: `/projects/${g.id}`,
         createdAt: g.createdAt,
+        updatedAt: g.updatedAt ?? g.createdAt,
+        imageUrl: pickProjectThumbnail({
+          sourceImageUrls: g.sourceImageUrls,
+          imageRecords: g.imageRecords,
+        }),
+        category: g.category ?? null,
       };
     }),
     ...recentVideos.map((v) => {
@@ -634,12 +700,15 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       return {
         type: "video" as const,
         id: v.id,
-        name: v.name,
+        name: displayProjectName(v.name),
         typeLabel: typeLabel("video"),
         statusLabel,
         statusColor: statusBadgeColor(statusLabel),
         url: `/videos/${v.id}`,
         createdAt: v.createdAt,
+        updatedAt: v.createdAt,
+        imageUrl: null,
+        category: null,
       };
     }),
     ...recentAds.map((a) => {
@@ -647,27 +716,48 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       return {
         type: "ads" as const,
         id: a.id,
-        name: a.name,
+        name: displayProjectName(a.name),
         typeLabel: typeLabel("ads"),
         statusLabel,
         statusColor: statusBadgeColor(statusLabel),
         url: `/ads/${a.id}`,
         createdAt: a.createdAt,
+        updatedAt: a.createdAt,
+        imageUrl: null,
+        category: null,
       };
     }),
   ]
     .sort((a, b) => {
-      const sortTime = (type: string, id: number, createdAt: Date | null | undefined) => {
+      const sortTime = (
+        type: string,
+        id: number,
+        createdAt: Date | null | undefined,
+        updatedAt: Date | null | undefined,
+      ) => {
         if (memberWorked) {
           const dbType = type === "listing" ? "audit" : type;
           const last = memberWorked.lastActivityAt.get(`${dbType}-${id}`);
           if (last) return last.getTime();
         }
-        return new Date(createdAt ?? 0).getTime();
+        const stamp = updatedAt ?? createdAt;
+        return new Date(stamp ?? 0).getTime();
       };
-      return sortTime(b.type, b.id, b.createdAt) - sortTime(a.type, a.id, a.createdAt);
-    })
-    .slice(0, 5);
+      return sortTime(b.type, b.id, b.createdAt, b.updatedAt)
+        - sortTime(a.type, a.id, a.createdAt, a.updatedAt);
+    });
+
+  const topRecentProjects = sortedRecentProjects.slice(0, 5);
+  const recentNameCounts = new Map<string, number>();
+  for (const project of topRecentProjects) {
+    const key = `${project.type}:${project.name.toLowerCase()}`;
+    recentNameCounts.set(key, (recentNameCounts.get(key) ?? 0) + 1);
+  }
+  const recentProjects = topRecentProjects.map((project) => {
+    const key = `${project.type}:${project.name.toLowerCase()}`;
+    if ((recentNameCounts.get(key) ?? 0) <= 1) return project;
+    return { ...project, name: `${project.name} #${project.id}` };
+  });
 
   res.json({
     greetingName: profile?.fullName?.split(" ")[0] ?? null,
@@ -695,8 +785,10 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     viewMode: accountOverview ? "account" : "workspace",
     impact: {
       listingsOptimized: impactListingsOptimized,
+      projectsWorkedThisWeek: isMemberProjectView ? projectsThisWeek : undefined,
       issuesIdentified: impactIssuesIdentified,
       timeSavedHours: timeSavedThisWeek,
+      isMemberView: isMemberProjectView,
     },
     creditBreakdown,
     recentProjects,

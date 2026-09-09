@@ -91,6 +91,28 @@ export interface MemberWorkedProjectsOptions {
   workspaceMemberId?: number;
 }
 
+export interface MemberAiTransactionRow {
+  featureType: string | null;
+  amount: number;
+  createdAt: Date;
+}
+
+/** Credit spend rows attributable to a workspace member (for dashboard time-saved). */
+export async function getMemberAiTransactions(
+  memberUserId: string,
+  team?: TeamContext,
+  options?: MemberWorkedProjectsOptions,
+): Promise<MemberAiTransactionRow[]> {
+  return db
+    .select({
+      featureType: creditTransactionsTable.featureType,
+      amount: creditTransactionsTable.amount,
+      createdAt: creditTransactionsTable.createdAt,
+    })
+    .from(creditTransactionsTable)
+    .where(memberTransactionFilter(memberUserId, team, options?.workspaceMemberId));
+}
+
 /** Collect project IDs a team member has worked on via credit spend metadata. */
 export async function getMemberWorkedProjects(
   memberUserId: string,

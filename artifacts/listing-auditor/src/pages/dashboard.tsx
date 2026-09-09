@@ -61,8 +61,10 @@ interface DashboardData {
   viewMode?: "account" | "workspace";
   impact: {
     listingsOptimized: number;
+    projectsWorkedThisWeek?: number;
     issuesIdentified: number;
     timeSavedHours: number;
+    isMemberView?: boolean;
   };
   creditBreakdown: Array<{ key: string; label: string; balance: number; pct: number; color: string }>;
   recentProjects: Array<{
@@ -74,6 +76,9 @@ interface DashboardData {
     statusColor: "orange" | "green" | "blue" | "red" | "gray";
     url: string;
     createdAt: string;
+    updatedAt?: string;
+    imageUrl?: string | null;
+    category?: string | null;
   }>;
   quickActions: Array<{ label: string; href: string; icon: string }>;
 }
@@ -81,6 +86,21 @@ interface DashboardData {
 function formatHours(hours: number): string {
   if (hours >= 1) return `${hours % 1 === 0 ? hours : hours.toFixed(1)} hrs`;
   return `${Math.round(hours * 60)} min`;
+}
+
+function resolveDashboardImageUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith("http://")
+    || trimmed.startsWith("https://")
+    || trimmed.startsWith("data:")
+    || trimmed.startsWith("blob:")
+  ) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  return `${basePath}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -640,15 +660,31 @@ export default function Dashboard() {
                 <ul className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
                   <li className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Listings Optimized</p>
-                      <p className="text-xs text-slate-500">Improve visibility and ranking</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {impact.isMemberView ? "Projects This Week" : "Listings Optimized"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {impact.isMemberView
+                          ? "Projects you started or worked on"
+                          : "Improve visibility and ranking"}
+                      </p>
                     </div>
-                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{impact.listingsOptimized}</span>
+                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">
+                      {impact.isMemberView
+                        ? (impact.projectsWorkedThisWeek ?? impact.listingsOptimized)
+                        : impact.listingsOptimized}
+                    </span>
                   </li>
                   <li className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Key Issues Identified</p>
-                      <p className="text-xs text-slate-500">Fixed or flagged for improvement</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {impact.isMemberView ? "Audit Issues Found" : "Key Issues Identified"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {impact.isMemberView
+                          ? "From audits you ran this week"
+                          : "Fixed or flagged for improvement"}
+                      </p>
                     </div>
                     <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{impact.issuesIdentified}</span>
                   </li>
@@ -691,19 +727,29 @@ export default function Dashboard() {
               </div>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {recentProjects.map((project) => (
+                {recentProjects.map((project) => {
+                  const thumb = resolveDashboardImageUrl(project.imageUrl);
+                  const activityDate = project.updatedAt ?? project.createdAt;
+                  const subtitleParts = [project.typeLabel];
+                  if (project.category?.trim()) subtitleParts.push(project.category.trim());
+                  subtitleParts.push(format(new Date(activityDate), "MMM d, yyyy"));
+                  return (
                   <li key={`${project.type}-${project.id}`}>
                     <Link href={project.url}>
                       <div className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <Folder className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {thumb ? (
+                            <img src={thumb} alt={project.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Folder className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-orange-600 transition-colors">
                             {project.name}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {project.typeLabel} • {format(new Date(project.createdAt), "MMM d, yyyy")}
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            {subtitleParts.join(" • ")}
                           </p>
                         </div>
                         <span className={cn(
@@ -716,7 +762,8 @@ export default function Dashboard() {
                       </div>
                     </Link>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>
