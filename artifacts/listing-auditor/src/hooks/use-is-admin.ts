@@ -13,18 +13,17 @@ export function useIsAdmin() {
   const { user, isLoaded } = useUser();
   const envAdmin = adminUserIdsEnv.includes(user?.id ?? "");
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isError, isFetched, refetch } = useQuery({
     queryKey: ["is-admin", user?.id],
     queryFn: () =>
       fetchJson<{ isAdmin: boolean }>(`${basePath}/api/admin/is-admin`),
     enabled: isLoaded && !!user && !envAdmin,
     staleTime: 60_000,
-    retry: 4,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    retry: 1,
   });
 
   const isAdmin = envAdmin || (data?.isAdmin ?? false);
-  const authResolved = isLoaded && (!user || envAdmin || !isLoading || isError);
+  const authResolved = isLoaded && (!user || envAdmin || isFetched || isError);
   const fatalError = isError && data === undefined;
 
   return { isAdmin, isLoaded: authResolved, isError: fatalError, refetch };

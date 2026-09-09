@@ -311,8 +311,9 @@ function HomeRedirect() {
   } = useOnboardingSummary();
   if (!isLoaded) return <Landing />;
   if (!user) return <Landing />;
-  if (!adminLoaded || ((envAdmin || isAdmin) && !permLoaded)) return <AuthLoading />;
-  if (envAdmin || isAdmin) return <Redirect to={defaultRoute} />;
+  if (envAdmin && !adminLoaded) return <AuthLoading />;
+  if ((envAdmin || (adminLoaded && isAdmin)) && !permLoaded) return <AuthLoading />;
+  if (envAdmin || (adminLoaded && isAdmin)) return <Redirect to={defaultRoute} />;
   if (!summaryFetched) return <AuthLoading />;
   if (summaryError || !summary) {
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;
@@ -335,7 +336,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   } = useOnboardingSummary();
   if (!isLoaded) return <AuthLoading />;
   const isAdminUser = envAdmin || (adminLoaded && isAdmin);
-  if (user && !isAdminUser && !adminLoaded) return <AuthLoading />;
+  if (user && envAdmin && !adminLoaded) return <AuthLoading />;
   if (user && !isAdminUser && !summaryFetched) return <AuthLoading />;
   if (user && !isAdminUser && (summaryError || !summary)) {
     return <ProfileSummaryError onRetry={() => void refetchSummary()} />;

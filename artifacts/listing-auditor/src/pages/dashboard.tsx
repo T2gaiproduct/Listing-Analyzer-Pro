@@ -357,9 +357,8 @@ export default function Dashboard() {
     enabled:
       clerkLoaded
       && !!user
-      && !profileLoading
-      && (isBillingAccountOwner || !!featureWorkspaceId)
-      && (isBillingAccountOwner || isAccountOwner || canView("dashboard")),
+      && (isBillingAccountOwner || !!featureWorkspaceId || !!activeWorkspaceId)
+      && (isBillingAccountOwner || isAccountOwner || canView("dashboard") || isMemberView),
     staleTime: 30_000,
     retry: (failureCount, err) => {
       if (err instanceof ApiFetchError && err.status >= 400) return failureCount < 1;
@@ -405,7 +404,7 @@ export default function Dashboard() {
     );
   }
 
-  if (wsLoading || provisioningWorkspace || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))) {
+  if (provisioningWorkspace || (wsLoading && !memberWorkspaceId && !isBillingAccountOwner) || (isLoading && !isError && (isBillingAccountOwner || memberWorkspaceId))) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in">
         <Skeleton className="h-10 w-64 sm:h-12 sm:w-96" />
