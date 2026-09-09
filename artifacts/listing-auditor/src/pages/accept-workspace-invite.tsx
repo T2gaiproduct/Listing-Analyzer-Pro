@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useUser } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Building2, CheckCircle, Mail, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,33 +23,50 @@ interface WorkspaceInviteDetails {
 
 export default function AcceptWorkspaceInvite() {
   const [, setLocation] = useLocation();
-  const { user, isLoaded } = useUser();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [token, setToken] = useState<string | null>(null);
+  const token = useMemo(
+    () => new URLSearchParams(window.location.search).get("token"),
+    [],
+  );
   const [invite, setInvite] = useState<WorkspaceInviteDetails | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(true);
   const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setToken(params.get("token"));
-  }, []);
+    if (!token) {
+      setInviteError("Invalid invite link");
+      setInviteLoading(false);
+      return;
+    }
 
-  useEffect(() => {
-    if (!token) return;
+    let cancelled = false;
+    setInviteError(null);
     setInviteLoading(true);
+
     fetchJson<WorkspaceInviteDetails>(`${basePath}/api/workspace-invite/${encodeURIComponent(token)}`)
-      .then((data) => setInvite(data))
-      .catch((e: Error) => setInviteError(e.message))
-      .finally(() => setInviteLoading(false));
+      .then((data) => {
+        if (!cancelled) setInvite(data);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setInviteError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setInviteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const signedInEmail = user?.primaryEmailAddress?.emailAddress?.trim().toLowerCase() ?? "";
   const inviteEmail = invite?.invitedEmail?.trim().toLowerCase() ?? "";
   const emailMismatch = Boolean(
-    user && invite && signedInEmail && inviteEmail && signedInEmail !== inviteEmail,
+    isSignedIn && invite && signedInEmail && inviteEmail && signedInEmail !== inviteEmail,
   );
 
   const acceptMutation = useMutation({
@@ -74,7 +91,16 @@ export default function AcceptWorkspaceInvite() {
       toast({ title: "Failed to accept invite", description: e.message, variant: "destructive" }),
   });
 
-  const acceptPath = `${basePath}/accept-workspace-invite?token=${token}`;
+  const acceptRedirectPath = token
+    ? `/accept-workspace-invite?token=${encodeURIComponent(token)}`
+    : "/accept-workspace-invite";
+
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn || !invite || emailMismatch || accepted) return;
+    if (acceptMutation.isPending || acceptMutation.isSuccess) return;
+    acceptMutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-accept once when signed in with a valid invite
+  }, [authLoaded, isSignedIn, invite, emailMismatch, accepted, token]);
 
   if (!token || inviteError) {
     return (
@@ -95,7 +121,7 @@ export default function AcceptWorkspaceInvite() {
     );
   }
 
-  if (inviteLoading) {
+  if (inviteLoading || !authLoaded || (isSignedIn && acceptMutation.isPending && !accepted)) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -157,18 +183,14 @@ export default function AcceptWorkspaceInvite() {
             </div>
           )}
 
-          {!isLoaded ? (
-            <div className="flex justify-center py-4">
-              <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : user ? (
+          {isSignedIn ? (
             <div className="space-y-3">
               <p className="text-sm text-slate-600 text-center">
-                Signed in as <strong>{user.primaryEmailAddress?.emailAddress}</strong>
+                Signed in as <strong>{user?.primaryEmailAddress?.emailAddress}</strong>
               </p>
               {emailMismatch && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  This invite was sent to <strong>{invite?.invitedEmail}</strong>. Sign out and sign in with that email, or ask the workspace admin to invite <strong>{user.primaryEmailAddress?.emailAddress}</strong>.
+                  This invite was sent to <strong>{invite?.invitedEmail}</strong>. Sign out and sign in with that email, or ask the workspace admin to invite <strong>{user?.primaryEmailAddress?.emailAddress}</strong>.
                 </div>
               )}
               <Button
@@ -192,7 +214,7 @@ export default function AcceptWorkspaceInvite() {
                 className="w-full bg-orange-500 hover:bg-orange-600"
                 onClick={() => {
                   const qs = new URLSearchParams({
-                    redirect_url: acceptPath,
+                    redirect_url: acceptRedirectPath,
                     email: invite?.invitedEmail ?? "",
                   });
                   setLocation(`/sign-up?${qs.toString()}`);
@@ -205,7 +227,7 @@ export default function AcceptWorkspaceInvite() {
                 className="w-full"
                 onClick={() => {
                   const qs = new URLSearchParams({
-                    redirect_url: acceptPath,
+                    redirect_url: acceptRedirectPath,
                     email: invite?.invitedEmail ?? "",
                   });
                   setLocation(`/sign-in?${qs.toString()}`);

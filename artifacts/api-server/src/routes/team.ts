@@ -28,7 +28,7 @@ import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.
 import { syncTeamMemberWorkspaceMemberships, syncPendingTeamInviteToWorkspaces } from "../lib/team-workspace-sync.js";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
-import { sessionEmailFromClaims } from "../lib/admin-auth.js";
+import { resolveSessionEmail } from "../lib/admin-auth.js";
 import { buildWorkspaceMemberStats } from "../lib/workspace-member-stats.js";
 
 const router: IRouter = Router();
@@ -381,7 +381,10 @@ router.post("/invite/:token/accept", requireAuth, async (req, res): Promise<void
   const userId = (req as AuthedRequest).userId;
   const token = String(req.params.token ?? "");
   const auth = getAuth(req);
-  const sessionEmail = sessionEmailFromClaims(auth?.sessionClaims as Record<string, unknown> | null);
+  const sessionEmail = await resolveSessionEmail(
+    userId,
+    auth?.sessionClaims as Record<string, unknown> | null,
+  );
 
   const [invite] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.inviteToken, token));
   if (!invite) { res.status(404).json({ error: "Invite not found" }); return; }

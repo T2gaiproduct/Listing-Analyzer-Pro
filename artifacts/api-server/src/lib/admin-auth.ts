@@ -102,18 +102,40 @@ export async function ensureDevClerkTestAdminAccess(
     });
 }
 
-async function resolveAuthEmail(userId: string, sessionEmail?: string | null): Promise<string | null> {
-  if (sessionEmail?.trim()) return sessionEmail.trim().toLowerCase();
+/** Resolve the signed-in user's email for invite acceptance and profile lookups. */
+export async function resolveSessionEmail(
+  userId: string,
+  sessionClaims?: Record<string, unknown> | null,
+): Promise<string | null> {
+  const fromClaims = sessionEmailFromClaims(sessionClaims);
+  if (fromClaims) return fromClaims;
+
   try {
     const cu = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
       headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY ?? ""}` },
     }).then((r) => r.json()) as Record<string, unknown>;
     const emails = cu.email_addresses as Array<{ email_address: string }> | undefined;
-    const email = emails?.[0]?.email_address;
-    return email ? email.trim().toLowerCase() : null;
+    const primaryId = cu.primary_email_address_id as string | undefined;
+    const primary = emails?.find((e) => (e as { id?: string }).id === primaryId)?.email_address
+      ?? emails?.[0]?.email_address;
+    if (primary?.trim()) return primary.trim().toLowerCase();
   } catch {
-    return null;
+    /* fall through to profile */
   }
+
+  try {
+    const [profile] = await db
+      .select({ loginEmail: userProfilesTable.loginEmail })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, userId))
+      .limit(1);
+    const loginEmail = profile?.loginEmail?.trim().toLowerCase();
+    if (loginEmail) return loginEmail;
+  } catch {
+    /* ignore */
+  }
+
+  return null;
 }
 
 export async function loadAdminContext(userId: string, email?: string | null): Promise<AdminContext | null> {
@@ -121,7 +143,7 @@ export async function loadAdminContext(userId: string, email?: string | null): P
     return { userId, isSuperAdmin: true, role: null, permissions: [...ADMIN_PERMISSIONS] };
   }
 
-  const resolvedEmail = await resolveAuthEmail(userId, email);
+  const resolvedEmail = await resolveSessionEmail(userId, email ? { email } : null);
   await ensureDevClerkTestAdminAccess(userId, resolvedEmail ?? email);
   await acceptAdminInviteForUser(userId, resolvedEmail);
 
@@ -151,7 +173,7 @@ export async function loadAdminContext(userId: string, email?: string | null): P
 
 export async function isAdminUser(userId: string, email?: string | null): Promise<boolean> {
   if (isEnvSuperAdmin(userId)) return true;
-  const resolvedEmail = await resolveAuthEmail(userId, email);
+  const resolvedEmail = await resolveSessionEmail(userId, email ? { email } : null);
   await ensureDevClerkTestAdminAccess(userId, resolvedEmail ?? email);
   await acceptAdminInviteForUser(userId, resolvedEmail);
   const [row] = await db.select({ id: adminUsersTable.id })

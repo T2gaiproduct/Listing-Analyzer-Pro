@@ -68,7 +68,7 @@ import {
   sumCreditTotals,
 } from "../lib/team-stats.js";
 import type { WorkspaceAuthedRequest } from "../middlewares/workspace-auth";
-import { sessionEmailFromClaims } from "../lib/admin-auth.js";
+import { resolveSessionEmail } from "../lib/admin-auth.js";
 
 const router: IRouter = Router();
 const MAX_WORKSPACES_PER_ACCOUNT = 50;
@@ -1077,7 +1077,10 @@ router.post("/workspace-invite/:token/accept", requireAuth, async (req, res): Pr
     const userId = (req as AuthedRequest).userId;
     const token = String(req.params.token ?? "");
     const auth = getAuth(req);
-    const sessionEmail = sessionEmailFromClaims(auth?.sessionClaims as Record<string, unknown> | null);
+    const sessionEmail = await resolveSessionEmail(
+      userId,
+      auth?.sessionClaims as Record<string, unknown> | null,
+    );
 
     const [row] = await db.select({
       member: workspaceMembersTable,
