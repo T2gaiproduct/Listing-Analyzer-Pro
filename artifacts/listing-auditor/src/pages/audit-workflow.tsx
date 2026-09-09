@@ -38,6 +38,7 @@ import {
 import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useTeam } from "@/hooks/use-team";
 import { AplusModuleGallery, type AplusModuleItem } from "@/components/aplus-module-gallery";
 import {
@@ -875,15 +876,19 @@ export default function AuditWorkflow() {
     return () => clearInterval(interval);
   }, [currentAuditId, aplusStatus, queryClient, toast]);
 
+  const fetchGraphicsProjectForAudit = useCallback(async (auditId: number) => {
+    const data = await fetchJson<{ projects?: Array<{ id: number }> }>(
+      `${basePath}/api/graphics/projects?auditId=${auditId}`,
+    );
+    return data.projects?.[0] ?? null;
+  }, []);
+
   /* ── Fetch existing graphics project for this audit ── */
   const { data: existingGraphicsProject } = useQuery({
     queryKey: ["graphics-project-for-audit", currentAuditId],
     queryFn: async () => {
       if (!currentAuditId) return null;
-      const res = await fetch(`${basePath}/api/graphics/projects?auditId=${currentAuditId}`, { credentials: "include" });
-      if (!res.ok) return null;
-      const data = await res.json() as { projects?: Array<{ id: number }> };
-      return data.projects?.[0] ?? null;
+      return fetchGraphicsProjectForAudit(currentAuditId);
     },
     enabled: !!currentAuditId,
     staleTime: 5 * 60 * 1000,
@@ -942,114 +947,65 @@ export default function AuditWorkflow() {
     return configs;
   }, [selectedImageTypes, imageTypePromptConfigs]);
 
-  /* ── Generate on existing project ── */
-  const generateExisting = useMutation({
-    mutationFn: async ({
-      projectId,
-      imageTypes,
-      typeConfigs,
-    }: {
-      projectId: number;
-      imageTypes: string[];
-      typeConfigs: Record<string, {
-        customPrompt?: string;
-        aspectRatio?: GraphicsAspectRatio;
-        quality?: GraphicsQuality;
-        promptReferenceImageUrls?: string[];
-      }>;
-    }) => {
-      const res = await fetch(`${basePath}/api/graphics/projects/${projectId}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          imageTypes,
-          typeConfigs,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
-      }
-      return res.json();
-    },
-    onSuccess: (_data, variables) => {
-      refreshCreditBalances(queryClient);
-      setGraphicsProjectId(variables.projectId);
-      setGraphicsStatus("generating");
-      completionToastShownRef.current = false;
-      hasSeenGeneratingRef.current = false;
-      setIsCreating(false);
-      setGraphicsProgress({ generated: 0, total: variables.imageTypes.length });
-    },
-    onError: (err) => {
-      setIsCreating(false);
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
-    },
-  });
+  type GraphicsTypeConfigs = Record<string, {
+    customPrompt?: string;
+    aspectRatio?: GraphicsAspectRatio;
+    quality?: GraphicsQuality;
+    promptReferenceImageUrls?: string[];
+  }>;
 
-  /* ── Graphics project mutation ── */
-  const createProject = useMutation({
-    mutationFn: async (input: {
-      createBody: object;
-      imageTypes: string[];
-      typeConfigs: Record<string, {
-        customPrompt?: string;
-        aspectRatio: GraphicsAspectRatio;
-        quality: GraphicsQuality;
-        promptReferenceImageUrls?: string[];
-      }>;
-    }) => {
-      const res = await fetch(`${basePath}/api/graphics/projects`, {
+  const startGraphicsGeneration = useCallback(async ({
+    auditId,
+    createBody,
+    imageTypes,
+    typeConfigs,
+    existingProjectId,
+  }: {
+    auditId: number;
+    createBody: object;
+    imageTypes: string[];
+    typeConfigs: GraphicsTypeConfigs;
+    existingProjectId?: number | null;
+  }) => {
+    const runGenerate = async (projectId: number) => {
+      await fetchJson(`${basePath}/api/graphics/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(input.createBody),
+        body: JSON.stringify({ imageTypes, typeConfigs }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
-      }
-      const project = await res.json() as { id: number; lifestyleCount?: number; featureCount?: number };
-      return { project, imageTypes: input.imageTypes, typeConfigs: input.typeConfigs };
-    },
-    onSuccess: async ({ project, imageTypes, typeConfigs }) => {
+      return projectId;
+    };
+
+    let projectId = existingProjectId ?? null;
+    if (projectId != null) {
       try {
-        const res = await fetch(`${basePath}/api/graphics/projects/${project.id}/generate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            imageTypes,
-            typeConfigs,
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error((err as { error?: string }).error || `Generation failed (${res.status})`);
-        }
-        setGraphicsProjectId(project.id);
-        setGraphicsStatus("generating");
-        completionToastShownRef.current = false;
-        hasSeenGeneratingRef.current = false;
-        setGraphicsProgress({ generated: 0, total: imageTypes.length });
-        refreshCreditBalances(queryClient);
+        await runGenerate(projectId);
       } catch (err) {
-        setGraphicsStatus("failed");
-        toast({
-          title: "Graphics generation failed",
-          description: err instanceof Error ? err.message : "Please try again",
-          variant: "destructive",
-        });
-      } finally {
-        setIsCreating(false);
+        const notFound = err instanceof ApiFetchError && err.status === 404;
+        if (!notFound) throw err;
+        projectId = null;
+        void queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
       }
-    },
-    onError: (err) => {
-      setIsCreating(false);
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
-    },
-  });
+    }
+
+    if (projectId == null) {
+      const project = await fetchJson<{ id: number }>(`${basePath}/api/graphics/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(createBody),
+      });
+      projectId = project.id;
+      await runGenerate(projectId);
+      void queryClient.invalidateQueries({ queryKey: ["graphics-project-for-audit", auditId] });
+    }
+
+    refreshCreditBalances(queryClient);
+    setGraphicsProjectId(projectId);
+    setGraphicsStatus("generating");
+    completionToastShownRef.current = false;
+    hasSeenGeneratingRef.current = false;
+    setGraphicsProgress({ generated: 0, total: imageTypes.length });
+  }, [queryClient]);
 
   /* ── Poll graphics project status ── */
   useEffect(() => {
@@ -1293,19 +1249,16 @@ export default function AuditWorkflow() {
         return;
       }
       // Reuse existing graphics project for this audit, or create new one
-      void ensureAuditDraft().then((auditId) => {
+      void ensureAuditDraft().then(async (auditId) => {
         if (!auditId) {
           setIsCreating(false);
           return;
         }
-        if (existingGraphicsProject?.id) {
-          generateExisting.mutate({
-            projectId: existingGraphicsProject.id,
-            imageTypes: selectedImageTypes,
-            typeConfigs: graphicsTypeConfigsPayload,
-          });
-        } else {
-          createProject.mutate({
+        try {
+          const freshProject = await fetchGraphicsProjectForAudit(auditId);
+          await startGraphicsGeneration({
+            auditId,
+            existingProjectId: freshProject?.id ?? existingGraphicsProject?.id ?? null,
             createBody: {
               name: projectName.trim() || productName || "Product",
               productName: productName || "Product",
@@ -1317,11 +1270,20 @@ export default function AuditWorkflow() {
             imageTypes: selectedImageTypes,
             typeConfigs: graphicsTypeConfigsPayload,
           });
+        } catch (err) {
+          setGraphicsStatus("failed");
+          toast({
+            title: "Graphics generation failed",
+            description: err instanceof Error ? err.message : "Please try again",
+            variant: "destructive",
+          });
+        } finally {
+          setIsCreating(false);
         }
       });
 
     }
-  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, createAuditDraft, createProject, generateExisting, existingGraphicsProject, queryClient, nav, toast, ensureAuditDraft]);
+  }, [activeStep, selectedImageTypes, productName, projectName, category, uploadedImages, graphicsTypeConfigsPayload, getImageTypeConfig, brandName, ensureAuditDraft, fetchGraphicsProjectForAudit, startGraphicsGeneration, existingGraphicsProject, toast]);
 
   const handleGenerateAplus = useCallback(() => {
     if (!productName.trim()) {

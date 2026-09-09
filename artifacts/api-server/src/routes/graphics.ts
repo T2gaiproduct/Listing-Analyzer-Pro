@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc, or, inArray, isNull } from "drizzle-orm";
+import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { db, graphicsProjectsTable, adminUsersTable } from "@workspace/db";
 import type { GraphicsImageRecord } from "@workspace/db";
@@ -15,7 +15,8 @@ import {
   loadWorkedProjects,
   memberCreatedByUserId,
   getWorkspaceCtx,
-  workspaceOwnerFilter,
+  graphicsWorkspaceScopeFilter,
+  loadGraphicsProjectForRequest,
   buildTeamAwareCreditCtx,
 } from "../lib/workspace-route-helpers";
 import { requireWorkspacePerm } from "../lib/workspace-context";
@@ -79,26 +80,29 @@ async function graphicsMemberAccessFilter(req: Request) {
   return clauses.length === 1 ? clauses[0] : or(...clauses);
 }
 
-function graphicsWorkspaceFilter(ownerId: string, workspaceId: number) {
-  return or(
-    workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, workspaceId),
-    and(
-      eq(graphicsProjectsTable.userId, ownerId),
-      isNull(graphicsProjectsTable.workspaceId),
-    ),
-  );
-}
-
 async function graphicsScopeWhere(req: Request, extra?: ReturnType<typeof eq>) {
   const ownerId = getAccountOwnerId(req);
   const workspaceId = getActiveWorkspaceId(req);
   const memberFilter = await graphicsMemberAccessFilter(req);
   return and(
-    graphicsWorkspaceFilter(ownerId, workspaceId),
+    graphicsWorkspaceScopeFilter(req, ownerId, workspaceId, graphicsProjectsTable, graphicsProjectsTable),
     eq(graphicsProjectsTable.isDeleted, 0),
     memberFilter,
     extra,
   );
+}
+
+async function loadGraphicsProject(req: Request, id: number) {
+  const userId = (req as AuthedRequest).userId;
+  const admin = await isAdminUser(userId);
+  if (admin) {
+    const [project] = await db
+      .select()
+      .from(graphicsProjectsTable)
+      .where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.isDeleted, 0)));
+    return project ?? null;
+  }
+  return loadGraphicsProjectForRequest(req, id);
 }
 
 function ensureDir(dir: string): void {
@@ -791,16 +795,10 @@ router.get("/graphics/projects", requireAuth, resolveTeamAndWorkspace, async (re
 
 // ─── Get project ──────────────────────────────────────────────────────────────
 router.get("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
-  const userId = (req as AuthedRequest).userId;
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const admin = await isAdminUser(userId);
-
-  const [project] = admin
-    ? await db.select().from(graphicsProjectsTable).where(and(eq(graphicsProjectsTable.id, id), eq(graphicsProjectsTable.isDeleted, 0)))
-    : await db.select().from(graphicsProjectsTable).where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
-
+  const project = await loadGraphicsProject(req, id);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   res.json(project);
 });
@@ -811,11 +809,7 @@ router.patch("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, req
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [existing] = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
-
+  const existing = await loadGraphicsProject(req, id);
   if (!existing) { res.status(404).json({ error: "Project not found" }); return; }
 
   const body = req.body as { name?: string; productName?: string; category?: string; sourceImageUrls?: string[]; lifestyleCount?: number; featureCount?: number };
@@ -834,11 +828,7 @@ router.post("/graphics/projects/:id/generate", requireAuth, resolveTeamAndWorksp
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [project] = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
-
+  const project = await loadGraphicsProject(req, id);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const body = req.body as {
@@ -987,11 +977,7 @@ router.post("/graphics/projects/:id/images/:imageId/edit", requireAuth, resolveT
   const imageId = String(req.params.imageId ?? "");
   if (isNaN(id) || !imageId) { res.status(400).json({ error: "Invalid parameters" }); return; }
 
-  const [project] = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
-
+  const project = await loadGraphicsProject(req, id);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const records = (project.imageRecords ?? []) as GraphicsImageRecord[];
@@ -1032,11 +1018,7 @@ router.post("/graphics/projects/:id/images/:imageId/regenerate", requireAuth, re
   const imageId = String(req.params.imageId ?? "");
   if (isNaN(id) || !imageId) { res.status(400).json({ error: "Invalid parameters" }); return; }
 
-  const [project] = await db
-    .select()
-    .from(graphicsProjectsTable)
-    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)));
-
+  const project = await loadGraphicsProject(req, id);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const records = (project.imageRecords ?? []) as GraphicsImageRecord[];
@@ -1113,16 +1095,16 @@ router.delete("/graphics/projects/:id", requireAuth, resolveTeamAndWorkspace, re
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [project] = await db
-    .update(graphicsProjectsTable)
-    .set({ isDeleted: 1, deletedAt: new Date() })
-    .where(await graphicsScopeWhere(req, eq(graphicsProjectsTable.id, id)))
-    .returning();
-
-  if (!project) {
+  const existing = await loadGraphicsProject(req, id);
+  if (!existing) {
     res.status(404).json({ error: "Project not found" });
     return;
   }
+
+  await db
+    .update(graphicsProjectsTable)
+    .set({ isDeleted: 1, deletedAt: new Date() })
+    .where(eq(graphicsProjectsTable.id, id));
 
   res.status(204).send();
 });

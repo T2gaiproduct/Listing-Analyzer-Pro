@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { and, eq, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { ownerPermissions } from "@workspace/workspace-permissions";
 import { db, auditsTable, graphicsProjectsTable } from "@workspace/db";
@@ -314,8 +314,90 @@ export function ownerProjectFilter(
 }
 
 const AUDIT_SCOPE_FEATURES: WorkspaceFeature[] = ["audits", "build_brand"];
+const GRAPHICS_SCOPE_FEATURES: WorkspaceFeature[] = ["graphics", "build_brand"];
 
 export type AuditAccessMode = "read" | "write";
+
+/** Workspace filter for graphics lists; members can always see projects they created. */
+export function graphicsWorkspaceScopeFilter(
+  req: Request,
+  ownerId: string,
+  workspaceId: number,
+  ownerColumn: { userId: unknown },
+  workspaceColumn: { workspaceId: unknown },
+): SQL {
+  const legacyNullWorkspace = and(
+    eq(ownerColumn.userId as never, ownerId),
+    isNull(workspaceColumn.workspaceId as never),
+  )!;
+  const scoped = and(
+    eq(ownerColumn.userId as never, ownerId),
+    eq(workspaceColumn.workspaceId as never, workspaceId),
+  )!;
+  const ctx = getWorkspaceCtx(req);
+  if (ctx.isAccountOwner) {
+    return or(scoped, legacyNullWorkspace)!;
+  }
+  const userId = (req as AuthedRequest).userId;
+  return or(
+    scoped,
+    legacyNullWorkspace,
+    and(
+      eq(ownerColumn.userId as never, ownerId),
+      eq(graphicsProjectsTable.createdByUserId, userId),
+    ),
+  )!;
+}
+
+/** Load one graphics project with workspace RBAC (members retain access to projects they created). */
+export async function loadGraphicsProjectForRequest(
+  req: Request,
+  projectId: number,
+): Promise<typeof graphicsProjectsTable.$inferSelect | null> {
+  const ctx = getWorkspaceCtx(req);
+  const userId = (req as AuthedRequest).userId;
+  const ownerId = getAccountOwnerId(req);
+  const workspaceId = getActiveWorkspaceId(req);
+
+  const [project] = await db
+    .select()
+    .from(graphicsProjectsTable)
+    .where(
+      and(
+        eq(graphicsProjectsTable.id, projectId),
+        eq(graphicsProjectsTable.isDeleted, 0),
+        eq(graphicsProjectsTable.userId, ownerId),
+      ),
+    )
+    .limit(1);
+
+  if (!project) return null;
+
+  const workspaceAllowed =
+    project.workspaceId === workspaceId
+    || project.workspaceId == null
+    || project.createdByUserId === userId;
+  if (!workspaceAllowed) return null;
+
+  if (ctx.isAccountOwner) return project;
+
+  for (const feature of GRAPHICS_SCOPE_FEATURES) {
+    if (requireWorkspacePerm(ctx, feature, "viewGlobal")) return project;
+  }
+
+  if (project.createdByUserId === userId) return project;
+
+  const worked = await loadWorkedProjects(req);
+  if (worked && memberHasProjectAccess(worked, "graphics", projectId)) return project;
+  if (project.auditId != null && worked?.auditIds.includes(project.auditId)) return project;
+
+  if (project.auditId != null) {
+    const audit = await loadAuditForRequest(req, project.auditId, "read");
+    if (audit) return project;
+  }
+
+  return null;
+}
 
 /** Load one audit with workspace RBAC; members can claim unassigned audits on write. */
 export async function loadAuditForRequest(
