@@ -1,5 +1,6 @@
 import { generateChatCompletion } from "./ai-provider";
 import type { GeneratedContent } from "@workspace/db";
+import { sanitizeHtmlDescription } from "./sanitize-html.js";
 
 export async function generateListingContent(data: {
   productName: string;
@@ -175,7 +176,9 @@ Return ONLY the JSON object, no markdown, no explanation.`;
       title: parsed.title ?? data.currentTitle,
       bulletPoints: parsed.bulletPoints ?? data.currentBullets,
       keywords: parsed.keywords ?? data.currentKeywords,
-      htmlDescription: parsed.htmlDescription ?? "<p>Description not available.</p>",
+      htmlDescription: sanitizeHtmlDescription(
+        parsed.htmlDescription ?? "<p>Description not available.</p>",
+      ),
     };
   } catch {
     return {

@@ -38,6 +38,7 @@ import {
 import { BuildBrandProductSearch } from "@/components/build-brand-product-search";
 import { cn } from "@/lib/utils";
 import { refreshCreditBalances } from "@/lib/credit-queries";
+import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useUser } from "@clerk/react";
 import { useTeam } from "@/hooks/use-team";
@@ -1919,7 +1920,7 @@ export default function AuditWorkflow() {
                       {descViewMode === "preview" ? (
                         <div
                           className="prose prose-sm max-w-none text-foreground/90 border rounded-md p-4 bg-muted/20"
-                          dangerouslySetInnerHTML={{ __html: generatedContent.htmlDescription }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(generatedContent.htmlDescription) }}
                         />
                       ) : (
                         <pre className="text-xs text-slate-100 leading-relaxed border rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">{generatedContent.htmlDescription}</pre>

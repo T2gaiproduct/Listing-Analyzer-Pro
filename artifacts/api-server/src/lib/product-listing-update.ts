@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { GeneratedContent } from "@workspace/db";
 import { db, auditsTable, productMarketplaceListingsTable } from "@workspace/db";
 import { bulletsToHtmlDescription } from "./resolve-listing-content.js";
+import { sanitizeHtmlDescription } from "./sanitize-html.js";
 
 export interface ProductListingPatchInput {
   listingTitle?: string;
@@ -89,10 +90,12 @@ export async function applyProductListingUpdates(
       : currentGenerated?.keywords?.length
         ? currentGenerated.keywords
         : nextKeywords;
-    const htmlDescription = typeof body.descriptionHtml === "string"
-      ? body.descriptionHtml.trim() || bulletsToHtmlDescription(resolvedBullets)
-      : currentGenerated?.htmlDescription?.trim()
-        || bulletsToHtmlDescription(resolvedBullets);
+    const htmlDescription = sanitizeHtmlDescription(
+      typeof body.descriptionHtml === "string"
+        ? body.descriptionHtml.trim() || bulletsToHtmlDescription(resolvedBullets)
+        : currentGenerated?.htmlDescription?.trim()
+          || bulletsToHtmlDescription(resolvedBullets),
+    );
 
     if (resolvedTitle || resolvedBullets.length > 0 || resolvedKeywords.length > 0 || htmlDescription) {
       auditUpdates.generatedContent = {

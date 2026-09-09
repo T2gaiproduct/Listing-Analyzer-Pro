@@ -27,6 +27,7 @@ import {
 import { useGetAudit, getGetAuditQueryKey, useGenerateContent, type GetAuditQueryResult } from "@workspace/api-client-react";
 import type { AuditResult, GeneratedContent } from "@workspace/api-client-react";
 import { formatAiErrorMessage } from "@/lib/ai-error-message";
+import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
@@ -914,7 +915,7 @@ function ListingContentCard({
             {descViewMode === "preview" ? (
               <div
                 className="prose prose-sm max-w-none text-slate-800 border border-slate-200 rounded-md p-3 bg-slate-50/50"
-                dangerouslySetInnerHTML={{ __html: htmlDescription }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtmlDescription(htmlDescription) }}
               />
             ) : (
               <pre className="text-[10px] text-slate-100 leading-relaxed border border-slate-700 rounded-md p-3 bg-slate-900 overflow-x-auto whitespace-pre-wrap font-mono">
