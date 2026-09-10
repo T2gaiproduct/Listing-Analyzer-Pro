@@ -44,10 +44,9 @@ export function workspaceFundedCreditTotal(pool: CreditTotals, usedInPeriod: num
   return sumCreditBalance(pool) + usedInPeriod;
 }
 
-/** Member balances only count toward workspace totals when the pool has been funded. */
-export function memberCreditsInWorkspace(pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
-  if (sumCreditBalance(pool) <= 0) return { ...ZERO };
-  return memberAllocated;
+/** Member balances assigned from a workspace pool (net model: valid even when unassigned pool is 0). */
+export function memberCreditsInWorkspace(_pool: CreditTotals, memberAllocated: CreditTotals): CreditTotals {
+  return normalizeCreditTotals(memberAllocated);
 }
 
 /** Sum of member credit balances that count within a funded workspace pool. */
@@ -121,9 +120,23 @@ export function computeAccountCreditSummary(
   };
 }
 
-/** Zero orphaned member_credits rows when the workspace pool has no balance. */
+/**
+ * Zero orphaned member_credits rows for legacy gross pools only.
+ * Net pools (pool_is_net) store unassigned remainder — pool can be 0 while members hold credits.
+ */
 export async function reconcileStaleMemberCreditsWithPool(workspaceId: number): Promise<void> {
-  const pool = await getWorkspaceCredits(workspaceId);
+  await ensureWorkspaceCreditsRow(workspaceId);
+  const [poolRow] = await db
+    .select()
+    .from(workspaceCreditsTable)
+    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+  if (!poolRow || poolRow.poolIsNet) return;
+
+  const pool = {
+    aiCredits: poolRow.aiCredits,
+    imageCredits: poolRow.imageCredits,
+    auditCredits: poolRow.auditCredits,
+  };
   if (sumCreditBalance(pool) > 0) return;
 
   const rows = await db
