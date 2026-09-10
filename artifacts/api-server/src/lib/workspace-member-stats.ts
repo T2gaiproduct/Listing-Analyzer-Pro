@@ -1,10 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, memberCreditsTable, teamMembersTable } from "@workspace/db";
 import type { WorkspaceMemberListItem } from "./workspace-member-summary.js";
+import type { WorkspaceMemberSummary } from "./workspace-member-summary.js";
 import {
   countAuditActivity,
   getLastActivityAt,
-  sumCreditsUsedInPeriod,
+  sumCreditsUsedInWorkspaceForUser,
 } from "./team-stats.js";
 
 export interface WorkspaceMemberStat {
@@ -17,12 +18,22 @@ export interface WorkspaceMemberStat {
   allocatedCredits: { aiCredits: number; imageCredits: number; auditCredits: number } | null;
 }
 
+export interface WorkspaceMemberBillingStat extends WorkspaceMemberStat {
+  workspaceId: number;
+  workspaceName: string;
+  invitedName: string;
+  invitedEmail: string;
+  userId: string | null;
+  status: string;
+}
+
 /** Activity and allocated credits for workspace_members (matched to account team when possible). */
 export async function buildWorkspaceMemberStats(
   ownerUserId: string,
   workspaceMembers: WorkspaceMemberListItem[],
   periodStart: Date,
   periodEnd: Date,
+  workspaceId: number,
 ): Promise<WorkspaceMemberStat[]> {
   const teamRows = await db
     .select()
@@ -59,7 +70,12 @@ export async function buildWorkspaceMemberStats(
       };
     }
 
-    const creditsUsed = await sumCreditsUsedInPeriod(wm.userId, periodStart, periodEnd);
+    const creditsUsed = await sumCreditsUsedInWorkspaceForUser(
+      wm.userId,
+      workspaceId,
+      periodStart,
+      periodEnd,
+    );
     const auditCount = await countAuditActivity(wm.userId, periodStart, periodEnd);
     const lastActivityAt = await getLastActivityAt(wm.userId);
     const allocated = creditsByWorkspaceMemberId.get(wm.id);
@@ -78,4 +94,40 @@ export async function buildWorkspaceMemberStats(
         : null,
     };
   }));
+}
+
+/** Per-workspace member usage for billing / account-wide team views. */
+export async function buildAllWorkspaceMemberBillingStats(
+  ownerUserId: string,
+  summary: WorkspaceMemberSummary,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<WorkspaceMemberBillingStat[]> {
+  const rows: WorkspaceMemberBillingStat[] = [];
+  for (const ws of summary.workspaces) {
+    const activeMembers = ws.members.filter((m) => m.status === "active");
+    if (activeMembers.length === 0) continue;
+    const stats = await buildWorkspaceMemberStats(
+      ownerUserId,
+      activeMembers,
+      periodStart,
+      periodEnd,
+      ws.id,
+    );
+    const memberById = new Map(activeMembers.map((m) => [m.id, m]));
+    for (const stat of stats) {
+      const wm = memberById.get(stat.workspaceMemberId);
+      if (!wm) continue;
+      rows.push({
+        ...stat,
+        workspaceId: ws.id,
+        workspaceName: ws.name,
+        invitedName: wm.invitedName,
+        invitedEmail: wm.invitedEmail,
+        userId: wm.userId,
+        status: wm.status,
+      });
+    }
+  }
+  return rows;
 }

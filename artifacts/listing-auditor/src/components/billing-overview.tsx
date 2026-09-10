@@ -78,10 +78,21 @@ interface MemberStat {
   allocatedCredits: Credits | null;
 }
 
+interface WorkspaceMemberBillingStat {
+  workspaceMemberId: number;
+  workspaceId: number;
+  workspaceName: string;
+  invitedName: string;
+  userId: string | null;
+  status: string;
+  creditsUsed: number;
+}
+
 interface TeamData {
   members: TeamMember[];
   memberStats: MemberStat[];
   ownerUsedInPeriod?: number;
+  allWorkspaceMemberStats?: WorkspaceMemberBillingStat[];
 }
 
 const SERVICE_CONFIG = [
@@ -382,16 +393,34 @@ export function BillingOverview({
       },
     ];
 
+    const seenUserIds = new Set<string>();
+    let avatarIdx = 1;
+
+    for (const wm of teamData?.allWorkspaceMemberStats ?? []) {
+      if (!wm.userId || wm.status !== "active") continue;
+      rows.push({
+        id: `wm-${wm.workspaceMemberId}`,
+        name: initials(wm.invitedName),
+        label: `${wm.invitedName} (${wm.workspaceName})`,
+        used: wm.creditsUsed,
+        color: AVATAR_COLORS[avatarIdx % AVATAR_COLORS.length],
+      });
+      seenUserIds.add(wm.userId);
+      avatarIdx += 1;
+    }
+
     const activeMembers = (teamData?.members ?? []).filter((m) => m.status === "active");
-    activeMembers.forEach((member, idx) => {
+    activeMembers.forEach((member) => {
+      if (member.memberUserId && seenUserIds.has(member.memberUserId)) return;
       const stat = teamData?.memberStats.find((s) => s.memberId === member.id);
       rows.push({
         id: String(member.id),
         name: initials(member.invitedName),
         label: member.invitedName,
         used: stat?.creditsUsed ?? 0,
-        color: AVATAR_COLORS[(idx + 1) % AVATAR_COLORS.length],
+        color: AVATAR_COLORS[avatarIdx % AVATAR_COLORS.length],
       });
+      avatarIdx += 1;
     });
 
     return rows;
@@ -545,7 +574,7 @@ export function BillingOverview({
             <div>
               <h3 className="text-base font-bold text-slate-900">Team credit usage</h3>
               <p className="text-sm text-slate-500 mt-0.5">
-                See how your team members are using credits.
+                Credits used this billing period by you and each workspace member.
               </p>
             </div>
             <Link href="/team">
@@ -571,7 +600,7 @@ export function BillingOverview({
                   <p className="text-xs font-semibold text-slate-900 mt-2 truncate" title={member.label}>
                     {member.label}
                   </p>
-                  <p className="text-xs text-slate-500">{member.used} Credits</p>
+                  <p className="text-xs text-slate-500">{member.used} Credits used</p>
                   <p className="text-xs font-medium text-slate-600">{memberShare.pctLabel}</p>
                 </div>
               );

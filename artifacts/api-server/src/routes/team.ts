@@ -29,7 +29,10 @@ import { syncTeamMemberWorkspaceMemberships, syncPendingTeamInviteToWorkspaces }
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces.js";
 import { getWorkspaceMemberSummaryForOwner } from "../lib/workspace-member-summary.js";
 import { resolveSessionEmail } from "../lib/admin-auth.js";
-import { buildWorkspaceMemberStats } from "../lib/workspace-member-stats.js";
+import {
+  buildAllWorkspaceMemberBillingStats,
+  buildWorkspaceMemberStats,
+} from "../lib/workspace-member-stats.js";
 
 const router: IRouter = Router();
 
@@ -156,8 +159,11 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
   const scopedMembers = scopedWorkspaceId != null
     ? workspaceMembers.workspaces[0]?.members ?? []
     : [];
-  const workspaceMemberStats = scopedMembers.length > 0
-    ? await buildWorkspaceMemberStats(userId, scopedMembers, periodStart, periodEnd)
+  const workspaceMemberStats = scopedWorkspaceId != null && scopedMembers.length > 0
+    ? await buildWorkspaceMemberStats(userId, scopedMembers, periodStart, periodEnd, scopedWorkspaceId)
+    : [];
+  const allWorkspaceMemberStats = scopedWorkspaceId == null
+    ? await buildAllWorkspaceMemberBillingStats(userId, workspaceMembers, periodStart, periodEnd)
     : [];
 
   res.json({
@@ -176,6 +182,7 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     memberStats,
     workspaceMembers,
     workspaceMemberStats,
+    allWorkspaceMemberStats,
   });
 });
 
