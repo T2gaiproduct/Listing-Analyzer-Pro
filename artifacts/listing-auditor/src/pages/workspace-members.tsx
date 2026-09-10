@@ -302,12 +302,10 @@ export default function WorkspaceMembersPage() {
         <Link href={`/workspaces/${workspaceId}`}>
           <Button variant="ghost" size="sm" className="gap-1.5">
             <ArrowLeft className="w-4 h-4" />
-            {ws.name}
+            Back
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{ws.name} — Members</h1>
-        </div>
+        <h1 className="text-2xl font-bold text-slate-900">{ws.name} — Members</h1>
       </div>
 
       {canViewCredits && membersData?.poolCredits && (
