@@ -583,11 +583,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const accountCreditSummary = creditsData?.accountCreditSummary;
 
   const showWorkspacePoolCredits =
-    isAccountOwner
+    !isAgencyAccountOverview
+    && isAccountOwner
     && !isTeamMember
     && featureWorkspaceId != null
-    && isWorkspaceApiScopeActive
-    && !(isAccountDashboardRoute && isAgencyAccountOverview);
+    && isWorkspaceApiScopeActive;
 
   const { data: workspacePoolData } = useQuery<{
     poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
@@ -632,18 +632,27 @@ export function Layout({ children }: { children: ReactNode }) {
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : showWorkspacePoolCredits
       ? (workspacePoolCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-      : isAccountDashboardRoute && accountCreditSummary?.accountTotalBuckets
+      : isAgencyAccountOverview && accountCreditSummary?.accountTotalBuckets
         ? accountCreditSummary.accountTotalBuckets
         : accountCreditSummary?.unallocated ?? ownerCredits;
   const creditsScopeLabel = showWorkspacePoolCredits
     ? "workspace"
     : usesMemberCredits
       ? "member"
-      : isAccountOwner && isAccountDashboardRoute && isAgencyAccountOverview
+      : isAccountOwner && isAgencyAccountOverview
         ? "account_total"
         : isAccountOwner && isAccountHubRoute
           ? "account_hub"
           : "account";
+
+  const workspaceScopeName =
+    creditsScopeLabel === "workspace"
+      ? (featureWorkspace?.name ?? workspaces.find((w) => w.id === featureWorkspaceId)?.name ?? null)
+      : null;
+  const workspaceManageHref =
+    creditsScopeLabel === "workspace" && featureWorkspaceId != null
+      ? `/workspaces/${featureWorkspaceId}`
+      : null;
 
   const profileName =
     fullProfileData?.profile?.fullName?.trim() ||
@@ -1041,6 +1050,8 @@ export function Layout({ children }: { children: ReactNode }) {
           credits={displayCredits}
           creditsScopeLabel={creditsScopeLabel}
           accountCreditSummary={accountCreditSummary}
+          workspaceScopeName={workspaceScopeName}
+          workspaceManageHref={workspaceManageHref}
           onMenuClick={() => setMobileNavOpen(true)}
         />
 
