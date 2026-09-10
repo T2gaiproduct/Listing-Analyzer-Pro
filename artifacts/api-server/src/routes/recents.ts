@@ -15,6 +15,7 @@ import {
   resolveTeamAndWorkspace,
   getAccountOwnerId,
   getActiveWorkspaceId,
+  getWorkspaceCtx,
   workspaceOwnerFilter,
 } from "../lib/workspace-route-helpers";
 import {
@@ -74,12 +75,17 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
   const workspaceId = getActiveWorkspaceId(req);
   const limit = Math.min(Number(req.query.limit) || 100, 500);
 
+  const wsCtx = getWorkspaceCtx(req);
   const scopedData = await loadRecentsScoped(
     ownerUserId,
     userId,
     team,
     workspaceId,
     limit,
+    {
+      restrictToWorkedProjects: !wsCtx.isAccountOwner,
+      workspaceMemberId: wsCtx.workspaceMemberId,
+    },
   );
 
   const pins = await db

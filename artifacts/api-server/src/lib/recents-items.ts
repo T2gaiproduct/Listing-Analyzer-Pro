@@ -120,9 +120,19 @@ export async function loadRecentsScoped(
   team: TeamAuthedRequest["team"],
   workspaceId: number,
   limit: number,
+  options?: {
+    restrictToWorkedProjects?: boolean;
+    workspaceMemberId?: number;
+  },
 ) {
-  const isMember = team.isTeamMember;
-  const worked = isMember ? await getMemberWorkedProjects(memberUserId, team) : null;
+  const restrictToWorked = options?.restrictToWorkedProjects ?? team.isTeamMember;
+  const worked = restrictToWorked
+    ? await getMemberWorkedProjects(memberUserId, team, {
+      workspaceId,
+      workspaceMemberId: options?.workspaceMemberId,
+    })
+    : null;
+  const isMember = restrictToWorked;
 
   const auditIds = worked?.auditIds ?? [];
   const graphicsIds = worked?.graphicsIds ?? [];

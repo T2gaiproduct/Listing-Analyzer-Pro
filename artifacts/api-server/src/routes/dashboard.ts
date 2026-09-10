@@ -20,6 +20,7 @@ import { type TeamAuthedRequest } from "../middlewares/team-auth";
 import {
   resolveTeamAndDashboardScope,
   getActiveWorkspaceId,
+  getAccountOwnerId,
   ownerProjectFilter,
   getWorkspaceCtx,
   canViewFeature,
@@ -99,11 +100,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   }
   (req as AuthedRequest).userId = userId;
   next();
-}
-
-function getOwnerId(req: Request): string {
-  const team = (req as TeamAuthedRequest).team;
-  return team?.ownerUserId ?? (req as AuthedRequest).userId;
 }
 
 function parseDate(value: string | undefined, fallback: Date): Date {
@@ -311,7 +307,7 @@ function computeTimeSavedHours(transactions: { featureType: string | null; amoun
 router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: Request, res: Response): Promise<void> => {
   try {
   const userId = (req as AuthedRequest).userId;
-  const ownerId = getOwnerId(req);
+  const ownerId = getAccountOwnerId(req);
   const team = (req as TeamAuthedRequest).team;
   const workspaceId = getActiveWorkspaceId(req);
   const wsCtx = getWorkspaceCtx(req);
@@ -374,12 +370,21 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     countProjectsSaved(ownerId, statsWorkspaceId, memberWorked),
     countProjectsCreatedSince(ownerId, statsWorkspaceId, weekStart, memberWorked),
     db.select({ c: count() }).from(auditsTable)
-      .where(and(ownerProjectFilter(auditsTable, auditsTable, ownerId, statsWorkspaceId), eq(auditsTable.isDeleted, 0))),
+      .where(and(
+        ownerProjectFilter(auditsTable, auditsTable, ownerId, statsWorkspaceId),
+        eq(auditsTable.isDeleted, 0),
+        ...(isMemberProjectView && memberWorked
+          ? [inArray(auditsTable.id, memberWorked.auditIds.length > 0 ? memberWorked.auditIds : [-1])]
+          : []),
+      )),
     db.select({ c: count() }).from(auditsTable)
       .where(and(
         ownerProjectFilter(auditsTable, auditsTable, ownerId, statsWorkspaceId),
         eq(auditsTable.isDeleted, 0),
         gte(auditsTable.createdAt, weekStart),
+        ...(isMemberProjectView && memberWorked
+          ? [inArray(auditsTable.id, memberWorked.auditIds.length > 0 ? memberWorked.auditIds : [-1])]
+          : []),
       )),
     db.select({ c: count() }).from(auditsTable)
       .where(and(
@@ -387,6 +392,9 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
         eq(auditsTable.isDeleted, 0),
         gte(auditsTable.createdAt, prevWeekStart),
         lte(auditsTable.createdAt, prevWeekEnd),
+        ...(isMemberProjectView && memberWorked
+          ? [inArray(auditsTable.id, memberWorked.auditIds.length > 0 ? memberWorked.auditIds : [-1])]
+          : []),
       )),
     db.select({
       featureType: creditTransactionsTable.featureType,
@@ -739,7 +747,10 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
 
     recentProjects = disambiguateRecentProjectNames(sortedRecentProjects.slice(0, 5));
   } else {
-    const scopedData = await loadRecentsScoped(ownerId, userId, team, workspaceId, 100);
+    const scopedData = await loadRecentsScoped(ownerId, userId, team, workspaceId, 100, {
+      restrictToWorkedProjects: isMemberProjectView,
+      workspaceMemberId: wsCtx.workspaceMemberId,
+    });
     recentProjects = buildDashboardRecentProjects(scopedData, 5);
   }
 
