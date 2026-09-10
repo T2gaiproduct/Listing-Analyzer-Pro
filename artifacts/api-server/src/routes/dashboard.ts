@@ -493,7 +493,9 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     creditScope = "member";
     const memberCredits = await getWorkspaceMemberCredits(wsCtx.workspaceMemberId);
     displayCredits = memberCredits ?? zeroCredits;
-    const memberUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+    const memberUsedInPeriod = workspaceId
+      ? await sumCreditsUsedInWorkspaceForUser(userId, workspaceId, periodStart, periodEnd)
+      : await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
     const memberRemaining =
       displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
     creditsAllowance = memberRemaining + memberUsedInPeriod;
@@ -501,10 +503,12 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     creditScope = "member";
     const memberCredits = await getMemberCredits(team.memberId, workspaceId);
     displayCredits = memberCredits ?? zeroCredits;
-    const memberUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+    const memberUsedInPeriod = workspaceId
+      ? await sumCreditsUsedInWorkspaceForUser(userId, workspaceId, periodStart, periodEnd)
+      : await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
     const memberRemaining =
       displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
-    // Total assigned by owner = remaining + spent this billing period
+    // Total assigned by owner = remaining + spent this billing period in this workspace
     creditsAllowance = memberRemaining + memberUsedInPeriod;
   } else {
     displayCredits = ownerCredits[0]
