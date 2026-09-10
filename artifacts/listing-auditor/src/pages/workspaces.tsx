@@ -192,18 +192,16 @@ export default function WorkspacesPage() {
     return sumCredits(overview?.availableToFundWorkspaces ?? overview?.ownerCredits);
   }, [overview]);
 
-  const inWorkspacePoolsTotal = useMemo(() => {
-    if (overview?.inWorkspacePoolsTotal != null) return overview.inWorkspacePoolsTotal;
-    return overview?.workspaces?.length
-      ? overview.workspaces.reduce((sum, ws) => sum + poolUnassignedTotal(ws), 0)
-      : 0;
+  const fundedInWorkspacesTotal = useMemo(() => {
+    if (!overview?.workspaces?.length) return 0;
+    return overview.workspaces.reduce((sum, ws) => sum + workspacePoolTotal(ws), 0);
   }, [overview]);
 
-  const workspacePoolsBreakdown = useMemo(() => {
+  const fundedInWorkspacesBreakdown = useMemo(() => {
     if (!overview?.workspaces?.length) return "";
     const parts = overview.workspaces
-      .filter((ws) => poolUnassignedTotal(ws) > 0)
-      .map((ws) => `${ws.name} ${poolUnassignedTotal(ws).toLocaleString()}`);
+      .filter((ws) => workspacePoolTotal(ws) > 0)
+      .map((ws) => `${ws.name} ${workspacePoolTotal(ws).toLocaleString()}`);
     return parts.join(" + ");
   }, [overview]);
 
@@ -456,32 +454,26 @@ export default function WorkspacesPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
                   <Layers className="w-4 h-4" />
-                  Unassigned in workspace pools
+                  Assigned credits in workspaces
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-slate-900">
-                  {overviewLoading ? "—" : inWorkspacePoolsTotal.toLocaleString()}
+                  {overviewLoading ? "—" : fundedInWorkspacesTotal.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Pool balance not yet assigned to members
-                  {overview?.inWorkspacePools ? (
+                  Total funded to each workspace (matches Funded column below)
+                  {fundedInWorkspacesBreakdown ? (
                     <>
                       <br />
-                      {formatCreditBuckets(overview.inWorkspacePools)}
+                      {fundedInWorkspacesBreakdown} = {fundedInWorkspacesTotal.toLocaleString()}
                     </>
-                  ) : null}
-                  {workspacePoolsBreakdown ? (
-                    <>
-                      <br />
-                      {workspacePoolsBreakdown} = {inWorkspacePoolsTotal.toLocaleString()}
-                    </>
-                  ) : !overview?.inWorkspacePools ? (
+                  ) : (
                     <>
                       <br />
                       {overview?.totalWorkspaces ?? 0} workspace{overview?.totalWorkspaces === 1 ? "" : "s"}
                     </>
-                  ) : null}
+                  )}
                 </p>
               </CardContent>
             </Card>
