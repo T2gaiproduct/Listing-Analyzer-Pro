@@ -21,7 +21,6 @@ import {
   getMemberWorkedProjects,
   assertMemberProjectAccess,
   ProjectAccessError,
-  type MemberWorkedProjects,
   type WorkedProjectType,
 } from "../lib/member-projects";
 import {
