@@ -17,8 +17,8 @@ import {
   getActiveWorkspaceId,
   getWorkspaceCtx,
   workspaceOwnerFilter,
+  isBillingOwnerAccountOverview,
 } from "../lib/workspace-route-helpers";
-import { WORKSPACE_HEADER } from "../lib/workspace-context";
 import {
   getMemberWorkedProjects,
   assertMemberProjectAccess,
@@ -77,12 +77,7 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
   const limit = Math.min(Number(req.query.limit) || 100, 500);
 
   const wsCtx = getWorkspaceCtx(req);
-  const hasExplicitWorkspace = Boolean(req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id"));
-  const accountOverview =
-    wsCtx.isAccountOwner
-    && userId === ownerUserId
-    && !team?.isTeamMember
-    && (req.query.scope === "account" || !hasExplicitWorkspace);
+  const accountOverview = isBillingOwnerAccountOverview(req);
   const recentsWorkspaceId: number | null = accountOverview ? null : workspaceId;
 
   const scopedData = await loadRecentsScoped(

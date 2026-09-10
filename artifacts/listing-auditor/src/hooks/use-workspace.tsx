@@ -171,7 +171,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isTeamMemberAccount = profileTeamMember || hasOnlySharedWorkspaces;
   const isBillingAccountOwnerProfile = profileSummary?.accountRole?.type === "user" && !profileTeamMember;
   const isMainDashboardRoute = location === "/dashboard" || location === "/";
-  const isRecentProjectsRoute = location === "/recent-projects";
+  const isProductExplorerRoute =
+    location === "/products" || location.startsWith("/products/");
+  const isAccountWideListRoute =
+    location === "/recent-projects" || isProductExplorerRoute;
 
   useEffect(() => {
     if (listLoading) return;
@@ -261,7 +264,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     && !isMainDashboardRoute;
 
   const withholdForAgencyOverview =
-    isAgencyAccountOverview && (isMainDashboardRoute || isRecentProjectsRoute);
+    isAgencyAccountOverview && (isMainDashboardRoute || isAccountWideListRoute);
 
   const featureWorkspaceId = workspaceApiScopeActive
     ? (withholdWorkspaceScope || withholdForAgencyOverview ? null : activeWorkspaceId)

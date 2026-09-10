@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { getMemberWorkedProjects } from "./member-projects";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
+import { ownerProjectFilter } from "./workspace-route-helpers";
 
 function isUsableImageUrl(url: string | null | undefined): url is string {
   const trimmed = url?.trim();
@@ -29,6 +30,18 @@ function workspaceScopeFilter(
       isNull(workspaceColumn.workspaceId as never),
     ),
   )!;
+}
+
+function listScopeFilter(
+  ownerColumn: { userId: unknown },
+  workspaceColumn: { workspaceId: unknown },
+  ownerId: string,
+  workspaceId: number | null,
+): SQL {
+  if (workspaceId == null) {
+    return ownerProjectFilter(ownerColumn, workspaceColumn, ownerId, null);
+  }
+  return workspaceScopeFilter(ownerColumn, workspaceColumn, ownerId, workspaceId);
 }
 
 function memberIdFilter(
@@ -76,7 +89,7 @@ export async function loadScopedRecents(
   ownerUserId: string,
   memberUserId: string,
   team: TeamAuthedRequest["team"],
-  workspaceId: number,
+  workspaceId: number | null,
   limit: number,
   options?: {
     restrictToWorkedProjects?: boolean;
@@ -122,7 +135,7 @@ export async function loadScopedRecents(
       .from(auditsTable)
       .where(
         and(
-          workspaceScopeFilter(auditsTable, auditsTable, ownerUserId, workspaceId),
+          listScopeFilter(auditsTable, auditsTable, ownerUserId, workspaceId),
           eq(auditsTable.isDeleted, 0),
           sql`${auditsTable.status} != 'archived'`,
           auditMemberFilter,
@@ -144,7 +157,7 @@ export async function loadScopedRecents(
       .from(graphicsProjectsTable)
       .where(
         and(
-          workspaceScopeFilter(graphicsProjectsTable, graphicsProjectsTable, ownerUserId, workspaceId),
+          listScopeFilter(graphicsProjectsTable, graphicsProjectsTable, ownerUserId, workspaceId),
           eq(graphicsProjectsTable.isDeleted, 0),
           sql`${graphicsProjectsTable.status} != 'archived'`,
           sql`${graphicsProjectsTable.auditId} IS NULL`,
@@ -165,7 +178,7 @@ export async function loadScopedRecents(
       .from(videosProjectsTable)
       .where(
         and(
-          workspaceScopeFilter(videosProjectsTable, videosProjectsTable, ownerUserId, workspaceId),
+          listScopeFilter(videosProjectsTable, videosProjectsTable, ownerUserId, workspaceId),
           eq(videosProjectsTable.isDeleted, 0),
           sql`${videosProjectsTable.status} != 'archived'`,
           videoMemberFilter,
@@ -185,7 +198,7 @@ export async function loadScopedRecents(
       .from(adsProjectsTable)
       .where(
         and(
-          workspaceScopeFilter(adsProjectsTable, adsProjectsTable, ownerUserId, workspaceId),
+          listScopeFilter(adsProjectsTable, adsProjectsTable, ownerUserId, workspaceId),
           eq(adsProjectsTable.isDeleted, 0),
           sql`${adsProjectsTable.status} != 'archived'`,
           adsMemberFilter,

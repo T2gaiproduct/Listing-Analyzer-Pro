@@ -15,3 +15,16 @@ export async function fetchAccountOverviewRecents(limit = 200) {
 export async function fetchWorkspaceRecents(limit = 200) {
   return getRecents({ limit });
 }
+
+/** Product Explorer list for billing-owner account overview (all workspaces). */
+export async function fetchAccountOverviewProducts() {
+  return fetchJson<{ products: unknown[] }>(
+    `${basePath}/api/products?scope=account`,
+    { skipWorkspaceHeader: true },
+  );
+}
+
+/** Workspace-scoped Product Explorer list (default). */
+export async function fetchWorkspaceProducts() {
+  return fetchJson<{ products: unknown[] }>(`${basePath}/api/products`);
+}

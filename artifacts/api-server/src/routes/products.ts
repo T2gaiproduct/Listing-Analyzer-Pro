@@ -11,6 +11,7 @@ import {
   getWorkspaceCtx,
   requireWorkspaceActionAny,
   buildTeamAwareCreditCtx,
+  isBillingOwnerAccountOverview,
 } from "../lib/workspace-route-helpers";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
 import { buildProductSuggestions, type ProductSuggestionInput } from "../lib/product-suggestions.js";
@@ -288,8 +289,9 @@ router.post("/products/import", requireAuth, resolveTeamAndWorkspace, requireWor
 
 router.get("/products", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const ownerUserId = getEffectiveUserId(req);
-  const workspaceId = getActiveWorkspaceId(req);
-  await backfillWorkspaceScopeForOwner(ownerUserId, workspaceId);
+  if (!isBillingOwnerAccountOverview(req)) {
+    await backfillWorkspaceScopeForOwner(ownerUserId, getActiveWorkspaceId(req));
+  }
 
   const products = await loadUnifiedProductList(req as AuthedRequest);
 

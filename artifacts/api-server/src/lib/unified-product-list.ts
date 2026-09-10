@@ -1,6 +1,6 @@
 import type { Request } from "express";
 import { loadScopedRecents, pickProjectThumbnail } from "./scoped-recents-load";
-import { getAccountOwnerId, getActiveWorkspaceId, getWorkspaceCtx } from "./workspace-route-helpers";
+import { getAccountOwnerId, getListScopeWorkspaceId, getWorkspaceCtx } from "./workspace-route-helpers";
 import { resolveTeamContext } from "../middlewares/team-auth";
 import { requireWorkspacePerm } from "./workspace-context";
 import { listLiveChannelsForAudits, loadAuditCatalogExtras } from "./product-marketplaces.js";
@@ -91,7 +91,7 @@ export async function loadUnifiedProductList(
 ): Promise<UnifiedProductListItem[]> {
   const userId = req.userId;
   const ownerUserId = getAccountOwnerId(req);
-  const workspaceId = getActiveWorkspaceId(req);
+  const workspaceId = getListScopeWorkspaceId(req);
   const team = await resolveTeamContext(userId);
   const wsCtx = getWorkspaceCtx(req);
 

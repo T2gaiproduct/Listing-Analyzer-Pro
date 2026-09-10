@@ -13,10 +13,11 @@ import {
 import {
   getAccountOwnerId,
   getActiveWorkspaceId,
+  getListScopeWorkspaceId,
   getWorkspaceCtx,
   loadWorkedProjects,
   viewOwnIdFilterAny,
-  workspaceOwnerFilter,
+  ownerProjectFilter,
   loadAuditForRequest,
 } from "./workspace-route-helpers";
 import { buildProductSuggestions, type ProductSuggestionInput } from "./product-suggestions.js";
@@ -192,15 +193,17 @@ function genericProgress(status: string): number {
 
 async function auditScopeWhere(req: Request, sourceType: "listing" | "audit") {
   const ownerId = getAccountOwnerId(req);
-  const workspaceId = getActiveWorkspaceId(req);
+  const workspaceId = getListScopeWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
   const ownFilter = viewOwnIdFilterAny(getWorkspaceCtx(req), ["audits", "build_brand"], worked, "audit", auditsTable);
-  return and(
-    eq(auditsTable.userId, ownerId),
-    or(
+  const workspacePart = workspaceId == null
+    ? eq(auditsTable.userId, ownerId)
+    : or(
       eq(auditsTable.workspaceId, workspaceId),
       and(isNull(auditsTable.workspaceId), eq(auditsTable.userId, ownerId)),
-    ),
+    );
+  return and(
+    workspacePart,
     eq(auditsTable.isDeleted, 0),
     sql`${auditsTable.status} != 'archived'`,
     sourceType === "listing"
@@ -217,14 +220,14 @@ async function projectScopeWhere(
   type: "graphics" | "video" | "ads",
 ) {
   const ownerId = getAccountOwnerId(req);
-  const workspaceId = getActiveWorkspaceId(req);
+  const workspaceId = getListScopeWorkspaceId(req);
   const worked = await loadWorkedProjects(req);
   const viewFeatures = feature === "graphics"
     ? (["graphics", "build_brand"] as const)
     : ([feature] as const);
   const ownFilter = viewOwnIdFilterAny(getWorkspaceCtx(req), [...viewFeatures], worked, type, table);
   return and(
-    workspaceOwnerFilter(table, table, ownerId, workspaceId),
+    ownerProjectFilter(table, table, ownerId, workspaceId),
     eq(table.isDeleted, 0),
     ownFilter,
   );

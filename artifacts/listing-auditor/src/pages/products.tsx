@@ -30,6 +30,8 @@ import { useActionDialog } from "@/components/ui/action-dialog";
 import { downloadProductImportTemplate, parseProductsCsv } from "@/lib/product-import";
 import { useBranding } from "@/hooks/use-branding";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
+import { fetchAccountOverviewProducts, fetchWorkspaceProducts } from "@/lib/account-recents-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { getGetRecentsQueryKey } from "@workspace/api-client-react";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
@@ -246,17 +248,36 @@ export default function ProductsPage() {
   const importInputRef = useRef<HTMLInputElement>(null);
   const { platformName } = useBranding();
   const { user, isLoaded: clerkLoaded } = useUser();
-  const { featureWorkspaceId, isLoading: wsLoading, needsWorkspaceSelection, canEdit, isAccountOwner, canDelete } = useWorkspace();
+  const {
+    featureWorkspaceId,
+    isLoading: wsLoading,
+    needsWorkspaceSelection,
+    canEdit,
+    isAccountOwner,
+    canDelete,
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
+  } = useWorkspace();
+  const showAccountProducts = isAgencyAccountOverviewDashboard(
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
+  );
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { trigger: triggerDeleteDialog, dialog: deleteDialog } = useActionDialog();
 
+  const productsQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
+  const productsQueryEnabled =
+    clerkLoaded && !!user && (showAccountProducts || !!featureWorkspaceId);
   const { data: apiData, isLoading } = useQuery({
-    queryKey: ["products", featureWorkspaceId],
-    queryFn: () => fetchJson<ProductsResponse>(`${basePath}/api/products`),
-    enabled: clerkLoaded && !!user && !!featureWorkspaceId,
+    queryKey: ["products", productsQueryScope],
+    queryFn: () =>
+      showAccountProducts
+        ? fetchAccountOverviewProducts()
+        : fetchWorkspaceProducts(),
+    enabled: productsQueryEnabled,
     staleTime: 10_000,
     refetchOnMount: "always",
     retry: 1,
@@ -427,7 +448,7 @@ export default function ProductsPage() {
     });
   };
 
-  if (wsLoading || (isLoading && featureWorkspaceId)) {
+  if (wsLoading || (isLoading && productsQueryEnabled)) {
     return (
       <div className="space-y-4 animate-in fade-in">
         <Skeleton className="h-4 w-32" />
@@ -438,7 +459,7 @@ export default function ProductsPage() {
     );
   }
 
-  if (!featureWorkspaceId || needsWorkspaceSelection) {
+  if (!showAccountProducts && (!featureWorkspaceId || needsWorkspaceSelection)) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
         <Package className="w-10 h-10 text-muted-foreground/60 mb-3" />
@@ -464,7 +485,14 @@ export default function ProductsPage() {
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-lg font-semibold text-foreground tracking-tight">Product Explorer</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-foreground tracking-tight">Product Explorer</h1>
+          {showAccountProducts && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Products across <span className="font-medium text-foreground">all workspaces</span>
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-xl sm:justify-end">
           <div className="relative flex-1 sm:max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />

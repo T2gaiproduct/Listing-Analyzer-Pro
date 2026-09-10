@@ -110,6 +110,26 @@ export function getActiveWorkspaceId(req: Request): number {
   return getWorkspaceCtx(req).workspaceId;
 }
 
+/** Billing owner rollup: all workspaces (no x-workspace-id or scope=account). */
+export function isBillingOwnerAccountOverview(req: Request): boolean {
+  const userId = (req as AuthedRequest).userId;
+  if (!userId) return false;
+  const wsCtx = getWorkspaceCtx(req);
+  const team = (req as TeamAuthedRequest).team;
+  const ownerId = wsCtx.accountOwnerId;
+  const hasExplicitWorkspace = Boolean(req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id"));
+  const accountScope = req.query.scope === "account";
+  return wsCtx.isAccountOwner
+    && userId === ownerId
+    && !team?.isTeamMember
+    && (accountScope || !hasExplicitWorkspace);
+}
+
+/** Workspace id for list feeds; null = all workspaces (account overview). */
+export function getListScopeWorkspaceId(req: Request): number | null {
+  return isBillingOwnerAccountOverview(req) ? null : getActiveWorkspaceId(req);
+}
+
 export function requireWorkspaceAction(
   feature: WorkspaceFeature,
   action: "create" | "edit" | "delete",
@@ -435,14 +455,14 @@ export async function loadAuditForRequest(
   const ctx = getWorkspaceCtx(req);
   const userId = (req as AuthedRequest).userId;
   const ownerId = getAccountOwnerId(req);
-  const workspaceId = getActiveWorkspaceId(req);
+  const workspaceId = getListScopeWorkspaceId(req);
 
   const [audit] = await db
     .select()
     .from(auditsTable)
     .where(
       and(
-        workspaceOwnerFilter(auditsTable, auditsTable, ownerId, workspaceId),
+        ownerProjectFilter(auditsTable, auditsTable, ownerId, workspaceId),
         eq(auditsTable.isDeleted, 0),
         eq(auditsTable.id, auditId),
       ),
