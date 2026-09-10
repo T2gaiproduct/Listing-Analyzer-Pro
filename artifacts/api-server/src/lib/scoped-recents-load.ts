@@ -99,7 +99,7 @@ export async function loadScopedRecents(
   const restrictToWorked = options?.restrictToWorkedProjects ?? team.isTeamMember;
   const worked = restrictToWorked
     ? await getMemberWorkedProjects(memberUserId, team, {
-      workspaceId,
+      workspaceId: workspaceId ?? undefined,
       workspaceMemberId: options?.workspaceMemberId,
     })
     : null;
