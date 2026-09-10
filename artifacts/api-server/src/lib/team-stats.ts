@@ -106,6 +106,34 @@ export async function sumCreditsUsedForAccountOwner(
   return workspaceUsage + Number(personalRow?.total ?? 0);
 }
 
+/** Owner debits on the main account (no workspace_id) this billing period. */
+export async function sumOwnerPersonalCreditsUsedInPeriod(
+  accountOwnerId: string,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<number> {
+  const usageConditions = [
+    sql`${creditTransactionsTable.amount} < 0`,
+    sql`coalesce(${creditTransactionsTable.featureType}, '') != 'subscription'`,
+    sql`coalesce(${creditTransactionsTable.featureType}, '') != 'workspace_pool_transfer'`,
+    gte(creditTransactionsTable.createdAt, periodStart),
+    lte(creditTransactionsTable.createdAt, periodEnd),
+  ];
+  const [personalRow] = await db
+    .select({
+      total: sql<number>`coalesce(sum(abs(${creditTransactionsTable.amount})), 0)`,
+    })
+    .from(creditTransactionsTable)
+    .where(
+      and(
+        eq(creditTransactionsTable.userId, accountOwnerId),
+        isNull(creditTransactionsTable.workspaceId),
+        ...usageConditions,
+      ),
+    );
+  return Number(personalRow?.total ?? 0);
+}
+
 /** Credits consumed from a workspace pool in a billing period (all members + owner). */
 export async function sumCreditsUsedForWorkspace(
   workspaceId: number,

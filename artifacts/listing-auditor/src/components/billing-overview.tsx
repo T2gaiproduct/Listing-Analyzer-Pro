@@ -88,10 +88,32 @@ interface WorkspaceMemberBillingStat {
   creditsUsed: number;
 }
 
+interface WorkspaceUsageRow {
+  workspaceId: number;
+  workspaceName: string;
+  creditsUsed: number;
+}
+
+interface WorkspaceMemberStatRow {
+  workspaceMemberId: number;
+  creditsUsed: number;
+}
+
 interface TeamData {
   members: TeamMember[];
   memberStats: MemberStat[];
   ownerUsedInPeriod?: number;
+  ownerPersonalUsedInPeriod?: number;
+  ownerUsedInScopedWorkspace?: number;
+  workspaceUsageInPeriod?: WorkspaceUsageRow[];
+  workspaceMemberStats?: WorkspaceMemberStatRow[];
+  workspaceMembers?: {
+    workspaces: Array<{
+      id: number;
+      name: string;
+      members: Array<{ id: number; invitedName: string; status: string }>;
+    }>;
+  };
   allWorkspaceMemberStats?: WorkspaceMemberBillingStat[];
 }
 
@@ -298,6 +320,11 @@ interface BillingOverviewProps {
   plans: Plan[];
   credits: Credits;
   creditUsage: CreditUsage | undefined;
+  accountOverviewUsage: boolean;
+  billingWorkspaceId: number | null;
+  billingWorkspaceName: string | null;
+  teamOverviewUrl: string;
+  teamQueryScope: string;
   onAddCredits: () => void;
   onUpgradePlan: () => void;
   paymentSection: ReactNode;
@@ -308,6 +335,11 @@ export function BillingOverview({
   plans,
   credits,
   creditUsage,
+  accountOverviewUsage,
+  billingWorkspaceId,
+  billingWorkspaceName,
+  teamOverviewUrl,
+  teamQueryScope,
   onAddCredits,
   onUpgradePlan,
   paymentSection,
@@ -321,8 +353,8 @@ export function BillingOverview({
   });
 
   const { data: teamData } = useQuery<TeamData>({
-    queryKey: ["team-overview"],
-    queryFn: () => fetch(`${basePath}/api/team`, { credentials: "include" }).then((r) => {
+    queryKey: ["team-overview", teamQueryScope],
+    queryFn: () => fetch(teamOverviewUrl, { credentials: "include" }).then((r) => {
       if (!r.ok) throw new Error("Failed to load team");
       return r.json();
     }),
@@ -380,51 +412,68 @@ export function BillingOverview({
   }, [transactions, filterStart, filterEnd, creditRules, totalCreditsPool]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
-  const ownerUsed = teamData?.ownerUsedInPeriod ?? totalSpentInRange(transactions, filterStart, filterEnd);
 
   const teamRows = useMemo(() => {
-    const rows: { id: string; name: string; label: string; used: number; color: string }[] = [
-      {
+    const rows: { id: string; name: string; label: string; used: number; color: string }[] = [];
+    let avatarIdx = 0;
+
+    if (accountOverviewUsage) {
+      const personal = teamData?.ownerPersonalUsedInPeriod ?? 0;
+      if (personal > 0) {
+        rows.push({
+          id: "owner-personal",
+          name: initials(displayName),
+          label: `You (${displayName}) — on account`,
+          used: personal,
+          color: AVATAR_COLORS[avatarIdx % AVATAR_COLORS.length],
+        });
+        avatarIdx += 1;
+      }
+      for (const ws of teamData?.workspaceUsageInPeriod ?? []) {
+        rows.push({
+          id: `ws-${ws.workspaceId}`,
+          name: initials(ws.workspaceName),
+          label: ws.workspaceName,
+          used: ws.creditsUsed,
+          color: AVATAR_COLORS[avatarIdx % AVATAR_COLORS.length],
+        });
+        avatarIdx += 1;
+      }
+      return rows;
+    }
+
+    const ownerInWorkspace = teamData?.ownerUsedInScopedWorkspace ?? 0;
+    if (ownerInWorkspace > 0 || billingWorkspaceId != null) {
+      rows.push({
         id: "owner",
         name: initials(displayName),
         label: `You (${displayName})`,
-        used: ownerUsed,
-        color: AVATAR_COLORS[0],
-      },
-    ];
-
-    const seenUserIds = new Set<string>();
-    let avatarIdx = 1;
-
-    for (const wm of teamData?.allWorkspaceMemberStats ?? []) {
-      if (!wm.userId || wm.status !== "active") continue;
-      rows.push({
-        id: `wm-${wm.workspaceMemberId}`,
-        name: initials(wm.invitedName),
-        label: `${wm.invitedName} (${wm.workspaceName})`,
-        used: wm.creditsUsed,
+        used: ownerInWorkspace,
         color: AVATAR_COLORS[avatarIdx % AVATAR_COLORS.length],
       });
-      seenUserIds.add(wm.userId);
       avatarIdx += 1;
     }
 
-    const activeMembers = (teamData?.members ?? []).filter((m) => m.status === "active");
-    activeMembers.forEach((member) => {
-      if (member.memberUserId && seenUserIds.has(member.memberUserId)) return;
-      const stat = teamData?.memberStats.find((s) => s.memberId === member.id);
+    const scopedWs = teamData?.workspaceMembers?.workspaces?.find((w) => w.id === billingWorkspaceId)
+      ?? teamData?.workspaceMembers?.workspaces?.[0];
+    const statsByMemberId = new Map(
+      (teamData?.workspaceMemberStats ?? []).map((s) => [s.workspaceMemberId, s]),
+    );
+    for (const member of scopedWs?.members ?? []) {
+      if (member.status !== "active") continue;
+      const stat = statsByMemberId.get(member.id);
       rows.push({
-        id: String(member.id),
+        id: `wm-${member.id}`,
         name: initials(member.invitedName),
         label: member.invitedName,
         used: stat?.creditsUsed ?? 0,
         color: AVATAR_COLORS[avatarIdx % AVATAR_COLORS.length],
       });
       avatarIdx += 1;
-    });
+    }
 
     return rows;
-  }, [teamData, displayName, ownerUsed]);
+  }, [teamData, displayName, accountOverviewUsage, billingWorkspaceId]);
 
   const teamTotalUsed = teamRows.reduce((sum, r) => sum + r.used, 0);
   const teamUsage = planUsageMetrics(teamTotalUsed, totalCreditsPool);
@@ -452,6 +501,11 @@ export function BillingOverview({
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-slate-900">Total credit usage</h2>
             <p className="text-sm text-slate-500 mt-0.5">
+              {accountOverviewUsage
+                ? "All workspaces · "
+                : billingWorkspaceName
+                  ? `${billingWorkspaceName} · `
+                  : ""}
               {format(periodStart, "MMM d, yyyy")} – {format(periodEnd, "MMM d, yyyy")}
             </p>
             <p className="text-3xl font-bold text-slate-900 mt-4">
@@ -572,9 +626,13 @@ export function BillingOverview({
         <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-6">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Team credit usage</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                {accountOverviewUsage ? "Usage by workspace" : "Team credit usage"}
+              </h3>
               <p className="text-sm text-slate-500 mt-0.5">
-                Credits used this billing period by you and each workspace member.
+                {accountOverviewUsage
+                  ? "Credits consumed this billing period in each workspace under your account."
+                  : `Credits used this billing period in ${billingWorkspaceName ?? "this workspace"}.`}
               </p>
             </div>
             <Link href="/team">

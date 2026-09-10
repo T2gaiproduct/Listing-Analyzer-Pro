@@ -1162,14 +1162,52 @@ async function workspaceUserIds(userId: string): Promise<string[]> {
 
 router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
-  const userIds = await workspaceUserIds(userId);
+  const { resolveTeamContext } = await import("../middlewares/team-auth.js");
+  const team = await resolveTeamContext(userId);
+  const accountOwnerId = team.ownerUserId;
+  const isBillingOwner = !team.isTeamMember && userId === accountOwnerId;
 
-  const transactions = await db
-    .select()
-    .from(creditTransactionsTable)
-    .where(inArray(creditTransactionsTable.userId, userIds))
-    .orderBy(desc(creditTransactionsTable.createdAt))
-    .limit(500);
+  let scope: "account" | "workspace" | "member" = "member";
+  let scopedWorkspaceId: number | null = null;
+
+  if (isBillingOwner) {
+    const workspaceParam = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
+    const accountScope = req.query.scope === "account";
+    if (workspaceParam != null && workspaceParam.trim() !== "") {
+      const wsId = Number(workspaceParam);
+      if (!Number.isFinite(wsId) || wsId <= 0) {
+        res.status(400).json({ error: "Invalid workspaceId" });
+        return;
+      }
+      const { assertWorkspaceOwnedByAccount } = await import("../lib/credit-usage-scope.js");
+      const owned = await assertWorkspaceOwnedByAccount(accountOwnerId, wsId);
+      if (!owned) {
+        res.status(404).json({ error: "Workspace not found" });
+        return;
+      }
+      scope = "workspace";
+      scopedWorkspaceId = wsId;
+    } else if (accountScope || workspaceParam == null) {
+      scope = "account";
+    }
+  }
+
+  let transactions;
+  if (scope === "account") {
+    const { loadCreditUsageTransactions } = await import("../lib/credit-usage-scope.js");
+    transactions = await loadCreditUsageTransactions(accountOwnerId, "account", null, 500);
+  } else if (scope === "workspace" && scopedWorkspaceId != null) {
+    const { loadCreditUsageTransactions } = await import("../lib/credit-usage-scope.js");
+    transactions = await loadCreditUsageTransactions(accountOwnerId, "workspace", scopedWorkspaceId, 500);
+  } else {
+    const userIds = await workspaceUserIds(userId);
+    transactions = await db
+      .select()
+      .from(creditTransactionsTable)
+      .where(inArray(creditTransactionsTable.userId, userIds))
+      .orderBy(desc(creditTransactionsTable.createdAt))
+      .limit(500);
+  }
 
   const breakdown: Record<string, { spent: number; earned: number; count: number }> = {};
   let totalSpent = 0;
@@ -1184,7 +1222,7 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
       if (isRefundedDebit(tx as CreditUsageTx, refunded)) continue;
       const spent = Math.abs(tx.amount);
       breakdown[ft].spent += spent;
-      if (ft !== "subscription") totalSpent += spent;
+      if (ft !== "subscription" && ft !== "workspace_pool_transfer") totalSpent += spent;
     } else {
       breakdown[ft].earned += tx.amount;
       totalEarned += tx.amount;
@@ -1196,7 +1234,8 @@ router.get("/credit-usage", requireAuth, async (req, res): Promise<void> => {
     breakdown,
     totalSpent,
     totalEarned,
-    workspaceUserIds: userIds,
+    scope,
+    workspaceId: scopedWorkspaceId,
   });
 });
 

@@ -22,6 +22,9 @@ import {
   getLastActivityAt,
   sumAllocatedCreditsForOwner,
   sumCreditsUsedInPeriod,
+  sumCreditsUsedForWorkspace,
+  sumCreditsUsedInWorkspaceForUser,
+  sumOwnerPersonalCreditsUsedInPeriod,
 } from "../lib/team-stats.js";
 import { ensureTeamMembersRoleId, getAccountRole } from "../lib/ensure-account-roles.js";
 import { ensureWorkspaceCreditsMigrated } from "../lib/ensure-workspace-credits.js";
@@ -166,6 +169,24 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     ? await buildAllWorkspaceMemberBillingStats(userId, workspaceMembers, periodStart, periodEnd)
     : [];
 
+  const workspaceUsageInPeriod = scopedWorkspaceId == null
+    ? await Promise.all(
+      workspaceMembers.workspaces.map(async (ws) => ({
+        workspaceId: ws.id,
+        workspaceName: ws.name,
+        creditsUsed: await sumCreditsUsedForWorkspace(ws.id, periodStart, periodEnd),
+      })),
+    )
+    : [];
+
+  const ownerPersonalUsedInPeriod = scopedWorkspaceId == null
+    ? await sumOwnerPersonalCreditsUsedInPeriod(userId, periodStart, periodEnd)
+    : 0;
+
+  const ownerUsedInScopedWorkspace = scopedWorkspaceId != null
+    ? await sumCreditsUsedInWorkspaceForUser(userId, scopedWorkspaceId, periodStart, periodEnd)
+    : undefined;
+
   res.json({
     maxSeats,
     planName: sub?.planName ?? null,
@@ -178,6 +199,9 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
     totalAllocated,
     availableToAllocate,
     ownerUsedInPeriod,
+    ownerPersonalUsedInPeriod,
+    ownerUsedInScopedWorkspace,
+    workspaceUsageInPeriod,
     members: [...members, ...pending],
     memberStats,
     workspaceMembers,

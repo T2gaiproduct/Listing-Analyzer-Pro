@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { BillingOverview } from "@/components/billing-overview";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
+import {
+  billingUsageScopeKey,
+  creditUsageApiUrl,
+  teamOverviewApiUrl,
+} from "@/lib/billing-scope";
 import { refetchCreditQueries } from "@/lib/credit-queries";
 import { useCreditPurchaseReturn } from "@/hooks/use-credit-purchase-return";
 import { useTeam } from "@/hooks/use-team";
@@ -550,6 +557,23 @@ export default function Billing() {
   const [location, setLocation] = useLocation();
   const search = useSearch();
   const { isTeamMember, isOwner } = useTeam();
+  const {
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
+    activeWorkspaceId,
+    featureWorkspace,
+  } = useWorkspace();
+  const accountOverviewUsage = isAgencyAccountOverviewDashboard(
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
+  );
+  const billingWorkspaceId = accountOverviewUsage
+    ? null
+    : (activeWorkspaceId ?? featureWorkspace?.id ?? null);
+  const billingWorkspaceName = accountOverviewUsage
+    ? null
+    : (featureWorkspace?.name ?? null);
+  const billingScopeKey = billingUsageScopeKey(accountOverviewUsage, billingWorkspaceId);
   const [tab, setTab] = useState<BillingTab>(() => parseBillingTab(window.location.search));
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -679,10 +703,14 @@ export default function Billing() {
     queryFn: () => fetch(`${basePath}/api/credit-packs`).then((r) => r.json()),
   });
 
+  const creditUsageEnabled =
+    (tab === "credits" || tab === "overview")
+    && (accountOverviewUsage || billingWorkspaceId != null);
   const { data: creditUsage } = useQuery<CreditUsage>({
-    queryKey: ["credit-usage"],
+    queryKey: ["credit-usage", billingScopeKey],
     queryFn: async () => {
-      const res = await fetch(`${basePath}/api/credit-usage`, { credentials: "include" });
+      const url = creditUsageApiUrl(accountOverviewUsage, billingWorkspaceId);
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load credit usage");
       const data = await res.json() as CreditUsage;
       return {
@@ -690,7 +718,7 @@ export default function Billing() {
         breakdown: data.breakdown ?? {},
       };
     },
-    enabled: tab === "credits" || tab === "overview",
+    enabled: creditUsageEnabled,
   });
 
   const creditTransactions = creditUsage?.transactions ?? [];
@@ -768,7 +796,13 @@ export default function Billing() {
     <div className="space-y-6 w-full min-w-0 max-w-full">
       <div>
         <h1 className="page-title font-bold text-slate-900">Subscription & Billing</h1>
-        <p className="text-slate-500 mt-1">Manage your plan, credits, and invoices.</p>
+        <p className="text-slate-500 mt-1">
+          {accountOverviewUsage
+            ? "Account-level plan, payment, and credits. Usage below includes all workspaces."
+            : billingWorkspaceName
+              ? `Account plan and balance · usage shown for ${billingWorkspaceName}.`
+              : "Manage your plan, credits, and invoices."}
+        </p>
       </div>
 
       <div className="flex gap-2 border-b border-slate-200 overflow-x-auto pb-px -mx-1 px-1">
@@ -789,6 +823,11 @@ export default function Billing() {
           plans={plans}
           credits={credits}
           creditUsage={creditUsage}
+          accountOverviewUsage={accountOverviewUsage}
+          billingWorkspaceId={billingWorkspaceId}
+          billingWorkspaceName={billingWorkspaceName}
+          teamOverviewUrl={teamOverviewApiUrl(accountOverviewUsage, billingWorkspaceId)}
+          teamQueryScope={billingScopeKey}
           onAddCredits={() => selectTab("credits")}
           onUpgradePlan={() => selectTab("plans")}
           paymentSection={<PaymentMethodSection sub={sub} config={config} onSuccess={invalidateSub} />}
