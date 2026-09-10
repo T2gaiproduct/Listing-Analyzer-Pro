@@ -482,7 +482,9 @@ export async function setWorkspaceMemberCredits(
   const deltaAudit = audit - oldAudit;
 
   if (deltaAi > pool.aiCredits || deltaImg > pool.imageCredits || deltaAudit > pool.auditCredits) {
-    const err = new Error("Allocation exceeds workspace pool credits available for members") as Error & { code?: string };
+    const err = new Error(
+      "This workspace doesn't have enough credits available to assign. Add credits to the workspace first (from Workspaces), then assign credits to members.",
+    ) as Error & { code?: string };
     err.code = "EXCEEDS_WORKSPACE_POOL";
     throw err;
   }

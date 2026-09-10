@@ -25,6 +25,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { accountRoleLabel } from "@/lib/role-display";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
 import { fetchJson } from "@/lib/api-fetch";
+import { memberCreditAssignmentErrorToast } from "@/lib/member-credit-assignment-errors";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -456,8 +457,12 @@ export default function Team() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ aiCredits, imageCredits, auditCredits }),
       }).then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error ?? "Failed to update credits");
+        const data = (await r.json()) as { error?: string; code?: string };
+        if (!r.ok) {
+          const err = new Error(data.error ?? "Failed to update credits") as Error & { code?: string };
+          err.code = data.code;
+          throw err;
+        }
         return data;
       });
     },
@@ -466,7 +471,10 @@ export default function Team() {
       qc.invalidateQueries({ queryKey: ["workspace-members"] });
       toast({ title: "Credits updated" });
     },
-    onError: (e: Error) => toast({ title: "Failed to update credits", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      const { title, description } = memberCreditAssignmentErrorToast(e);
+      toast({ title, description, variant: "destructive" });
+    },
   });
 
   const [editingCredits, setEditingCredits] = useState<Record<number, { aiCredits: string; imageCredits: string; auditCredits: string }>>({});

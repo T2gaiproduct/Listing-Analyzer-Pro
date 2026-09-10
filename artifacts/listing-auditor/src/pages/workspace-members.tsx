@@ -14,6 +14,7 @@ import { fetchJson } from "@/lib/api-fetch";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { accountRoleLabel } from "@/lib/role-display";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { memberCreditAssignmentErrorToast } from "@/lib/member-credit-assignment-errors";
 import { MemberEmailAutocomplete } from "@/components/member-email-autocomplete";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -124,7 +125,10 @@ export default function WorkspaceMembersPage() {
       qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
       toast({ title: "Credits updated" });
     },
-    onError: (err: Error) => toast({ title: "Failed to update credits", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => {
+      const { title, description } = memberCreditAssignmentErrorToast(err);
+      toast({ title, description, variant: "destructive" });
+    },
   });
 
   const resendInvite = useMutation({
