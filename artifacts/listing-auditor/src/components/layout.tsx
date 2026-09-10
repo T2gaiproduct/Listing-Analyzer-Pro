@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { useGetRecents, getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
+import { getGetRecentsQueryKey, useGetAudit, getGetAuditQueryKey } from "@workspace/api-client-react";
 import type { RecentItem } from "@workspace/api-client-react";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import {
@@ -46,6 +46,8 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { projectTypeToFeature } from "@/lib/workspace-route-access";
 import { isWorkspaceAdminOverviewRoute, isAccountScopedRoute } from "@/lib/workspace-routes";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
+import { fetchAccountOverviewRecents, fetchWorkspaceRecents } from "@/lib/account-recents-fetch";
 import type { WorkspaceFeature } from "@workspace/workspace-permissions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
@@ -235,6 +237,7 @@ export function Layout({ children }: { children: ReactNode }) {
     canDelete: wsCanDelete,
     roleName,
     isAgencyAccountOverview,
+    isBillingAccountOwner,
   } = useWorkspace();
 
   const homeHref = "/dashboard";
@@ -369,20 +372,27 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const { isTeamMember, memberCredits, isOwner } = useTeam();
 
-  const recentsReady = clerkLoaded && !!user && !!featureWorkspaceId && isWorkspaceApiScopeActive;
-
-  // Fetch unified recents for sidebar (scoped to active workspace)
-  const recentsScope = `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
-  const { data: recentsData } = useGetRecents(
-    { limit: 200 },
-    {
-      query: {
-        queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
-        staleTime: 30_000,
-        enabled: recentsReady,
-      },
-    },
+  const showAccountRecents = isAgencyAccountOverviewDashboard(
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
   );
+  const recentsReady =
+    clerkLoaded
+    && !!user
+    && isWorkspaceApiScopeActive
+    && (showAccountRecents || !!featureWorkspaceId);
+
+  // Fetch unified recents for sidebar (workspace-scoped or account overview)
+  const recentsScope = showAccountRecents
+    ? "owner-account"
+    : `${isTeamMember ? "member" : "owner"}-ws-${featureWorkspaceId ?? "none"}`;
+  const { data: recentsData } = useQuery({
+    queryKey: [...getGetRecentsQueryKey({ limit: 200 }), recentsScope],
+    queryFn: () =>
+      showAccountRecents ? fetchAccountOverviewRecents(200) : fetchWorkspaceRecents(200),
+    staleTime: 30_000,
+    enabled: recentsReady,
+  });
   const recents = (recentsData?.items ?? []) as RecentItem[];
 
   // Search projects (scoped to active workspace)

@@ -18,6 +18,7 @@ import {
   getWorkspaceCtx,
   workspaceOwnerFilter,
 } from "../lib/workspace-route-helpers";
+import { WORKSPACE_HEADER } from "../lib/workspace-context";
 import {
   getMemberWorkedProjects,
   assertMemberProjectAccess,
@@ -76,11 +77,19 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
   const limit = Math.min(Number(req.query.limit) || 100, 500);
 
   const wsCtx = getWorkspaceCtx(req);
+  const hasExplicitWorkspace = Boolean(req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id"));
+  const accountOverview =
+    wsCtx.isAccountOwner
+    && userId === ownerUserId
+    && !team?.isTeamMember
+    && (req.query.scope === "account" || !hasExplicitWorkspace);
+  const recentsWorkspaceId: number | null = accountOverview ? null : workspaceId;
+
   const scopedData = await loadRecentsScoped(
     ownerUserId,
     userId,
     team,
-    workspaceId,
+    recentsWorkspaceId,
     limit,
     {
       restrictToWorkedProjects: !wsCtx.isAccountOwner,
@@ -88,13 +97,17 @@ router.get("/recents", requireAuth, resolveTeamAndWorkspace, async (req: Request
     },
   );
 
+  const pinFilter = accountOverview
+    ? eq(pinnedProjectsTable.userId, userId)
+    : and(
+      eq(pinnedProjectsTable.userId, userId),
+      eq(pinnedProjectsTable.workspaceId, workspaceId),
+    );
+
   const pins = await db
     .select({ itemType: pinnedProjectsTable.itemType, itemId: pinnedProjectsTable.itemId })
     .from(pinnedProjectsTable)
-    .where(and(
-      eq(pinnedProjectsTable.userId, userId),
-      eq(pinnedProjectsTable.workspaceId, workspaceId),
-    ));
+    .where(pinFilter);
 
   const pinnedSet = new Set(pins.map((p) => `${p.itemType}-${p.itemId}`));
   const items = buildRecentsItems(scopedData, pinnedSet);

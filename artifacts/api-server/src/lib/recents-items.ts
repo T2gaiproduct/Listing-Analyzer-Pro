@@ -7,7 +7,7 @@ import {
   adsProjectsTable,
 } from "@workspace/db";
 import type { TeamAuthedRequest } from "../middlewares/team-auth";
-import { workspaceOwnerFilter } from "./workspace-route-helpers";
+import { ownerProjectFilter } from "./workspace-route-helpers";
 import {
   getMemberWorkedProjects,
   type MemberWorkedProjects,
@@ -118,7 +118,7 @@ export async function loadRecentsScoped(
   ownerUserId: string,
   memberUserId: string,
   team: TeamAuthedRequest["team"],
-  workspaceId: number,
+  workspaceId: number | null,
   limit: number,
   options?: {
     restrictToWorkedProjects?: boolean;
@@ -160,7 +160,7 @@ export async function loadRecentsScoped(
           .from(auditsTable)
           .where(
             and(
-              workspaceOwnerFilter(auditsTable, auditsTable, ownerUserId, workspaceId),
+              ownerProjectFilter(auditsTable, auditsTable, ownerUserId, workspaceId),
               eq(auditsTable.isDeleted, 0),
               sql`${auditsTable.status} != 'archived'`,
               ...(isMember ? [inArray(auditsTable.id, auditIds)] : []),
@@ -184,7 +184,7 @@ export async function loadRecentsScoped(
           .from(graphicsProjectsTable)
           .where(
             and(
-              workspaceOwnerFilter(graphicsProjectsTable, graphicsProjectsTable, ownerUserId, workspaceId),
+              ownerProjectFilter(graphicsProjectsTable, graphicsProjectsTable, ownerUserId, workspaceId),
               eq(graphicsProjectsTable.isDeleted, 0),
               sql`${graphicsProjectsTable.status} != 'archived'`,
               sql`${graphicsProjectsTable.auditId} IS NULL`,
@@ -207,7 +207,7 @@ export async function loadRecentsScoped(
           .from(videosProjectsTable)
           .where(
             and(
-              workspaceOwnerFilter(videosProjectsTable, videosProjectsTable, ownerUserId, workspaceId),
+              ownerProjectFilter(videosProjectsTable, videosProjectsTable, ownerUserId, workspaceId),
               eq(videosProjectsTable.isDeleted, 0),
               sql`${videosProjectsTable.status} != 'archived'`,
               ...(isMember ? [inArray(videosProjectsTable.id, videoIds)] : []),
@@ -228,7 +228,7 @@ export async function loadRecentsScoped(
           .from(adsProjectsTable)
           .where(
             and(
-              workspaceOwnerFilter(adsProjectsTable, adsProjectsTable, ownerUserId, workspaceId),
+              ownerProjectFilter(adsProjectsTable, adsProjectsTable, ownerUserId, workspaceId),
               eq(adsProjectsTable.isDeleted, 0),
               sql`${adsProjectsTable.status} != 'archived'`,
               ...(isMember ? [inArray(adsProjectsTable.id, adsIds)] : []),
