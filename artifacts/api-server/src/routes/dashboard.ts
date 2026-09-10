@@ -34,6 +34,10 @@ import {
   resolveGraphicsProjectUrl,
   resolveGraphicsThumbnailUrl,
 } from "../lib/project-display.js";
+import {
+  loadRecentsScoped,
+  buildDashboardRecentProjects,
+} from "../lib/recents-items";
 import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
 import { getWorkspaceCredits, getWorkspaceMemberCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
@@ -360,10 +364,6 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     ownerCredits,
     auditsThisWeekRows,
     graphicsThisWeekRows,
-    recentAudits,
-    recentGraphics,
-    recentVideos,
-    recentAds,
     workspaceCountRow,
   ] = await Promise.all([
     countProjectsSaved(ownerId, statsWorkspaceId, memberWorked),
@@ -423,81 +423,6 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
               ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)]
               : []),
           )),
-    isMemberProjectView && (memberWorked?.auditIds.length ?? 0) === 0
-      ? Promise.resolve([])
-      : db.select({
-          id: auditsTable.id,
-          name: auditsTable.projectName,
-          productName: auditsTable.productName,
-          asin: auditsTable.asin,
-          status: auditsTable.status,
-          overallScore: auditsTable.overallScore,
-          createdAt: auditsTable.createdAt,
-        }).from(auditsTable)
-          .where(and(
-            ownerProjectFilter(auditsTable, auditsTable, ownerId, statsWorkspaceId),
-            eq(auditsTable.isDeleted, 0),
-            sql`${auditsTable.status} != 'archived'`,
-            ...(isMemberProjectView && memberWorked ? [inArray(auditsTable.id, memberWorked.auditIds)] : []),
-          ))
-          .orderBy(desc(auditsTable.createdAt))
-          .limit(5),
-    isMemberProjectView && (memberWorked?.graphicsIds.length ?? 0) === 0
-      ? Promise.resolve([])
-      : db.select({
-          id: graphicsProjectsTable.id,
-          name: graphicsProjectsTable.name,
-          productName: graphicsProjectsTable.productName,
-          category: graphicsProjectsTable.category,
-          auditId: graphicsProjectsTable.auditId,
-          status: graphicsProjectsTable.status,
-          sourceImageUrls: graphicsProjectsTable.sourceImageUrls,
-          imageRecords: graphicsProjectsTable.imageRecords,
-          createdAt: graphicsProjectsTable.createdAt,
-          updatedAt: graphicsProjectsTable.updatedAt,
-        }).from(graphicsProjectsTable)
-          .where(and(
-            ownerProjectFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, statsWorkspaceId),
-            eq(graphicsProjectsTable.isDeleted, 0),
-            sql`${graphicsProjectsTable.status} != 'archived'`,
-            ...(isMemberProjectView
-              ? (memberWorked ? [inArray(graphicsProjectsTable.id, memberWorked.graphicsIds)] : [sql`false`])
-              : [sql`${graphicsProjectsTable.auditId} IS NULL`]),
-          ))
-          .orderBy(desc(graphicsProjectsTable.updatedAt))
-          .limit(5),
-    isMemberProjectView && (memberWorked?.videoIds.length ?? 0) === 0
-      ? Promise.resolve([])
-      : db.select({
-          id: videosProjectsTable.id,
-          name: videosProjectsTable.name,
-          status: videosProjectsTable.status,
-          createdAt: videosProjectsTable.createdAt,
-        }).from(videosProjectsTable)
-          .where(and(
-            ownerProjectFilter(videosProjectsTable, videosProjectsTable, ownerId, statsWorkspaceId),
-            eq(videosProjectsTable.isDeleted, 0),
-            sql`${videosProjectsTable.status} != 'archived'`,
-            ...(isMemberProjectView && memberWorked ? [inArray(videosProjectsTable.id, memberWorked.videoIds)] : []),
-          ))
-          .orderBy(desc(videosProjectsTable.createdAt))
-          .limit(5),
-    isMemberProjectView && (memberWorked?.adsIds.length ?? 0) === 0
-      ? Promise.resolve([])
-      : db.select({
-          id: adsProjectsTable.id,
-          name: adsProjectsTable.name,
-          status: adsProjectsTable.status,
-          createdAt: adsProjectsTable.createdAt,
-        }).from(adsProjectsTable)
-          .where(and(
-            ownerProjectFilter(adsProjectsTable, adsProjectsTable, ownerId, statsWorkspaceId),
-            eq(adsProjectsTable.isDeleted, 0),
-            sql`${adsProjectsTable.status} != 'archived'`,
-            ...(isMemberProjectView && memberWorked ? [inArray(adsProjectsTable.id, memberWorked.adsIds)] : []),
-          ))
-          .orderBy(desc(adsProjectsTable.createdAt))
-          .limit(5),
     db.select({ c: count() }).from(workspacesTable)
       .where(and(eq(workspacesTable.accountOwnerId, ownerId), eq(workspacesTable.isDeleted, 0))),
   ]);
@@ -646,93 +571,150 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
     pct: Math.round((seg.balance / segmentTotal) * 100),
   }));
 
-  const sortedRecentProjects = [
-    ...recentAudits.map((a) => {
-      const type = a.asin ? "audit" as const : "listing" as const;
-      const statusLabel = projectStatusLabel(type, a.status, a.overallScore);
-      return {
-        type,
-        id: a.id,
-        name: displayProjectName(a.name, a.productName),
-        typeLabel: typeLabel(type),
-        statusLabel,
-        statusColor: statusBadgeColor(statusLabel),
-        url: type === "audit" ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
-        createdAt: a.createdAt,
-        updatedAt: a.createdAt,
-        imageUrl: null,
-        category: null,
-      };
-    }),
-    ...recentGraphics.map((g) => {
-      const statusLabel = projectStatusLabel("graphics", g.status);
-      return {
-        type: "graphics" as const,
-        id: g.id,
-        name: displayProjectName(g.name, g.productName, g.category),
-        typeLabel: typeLabel("graphics"),
-        statusLabel,
-        statusColor: statusBadgeColor(statusLabel),
-        url: resolveGraphicsProjectUrl({ id: g.id, auditId: g.auditId, status: g.status }),
-        createdAt: g.createdAt,
-        updatedAt: g.updatedAt ?? g.createdAt,
-        imageUrl: resolveGraphicsThumbnailUrl(g.id, g.sourceImageUrls, g.imageRecords),
-        category: g.category ?? null,
-      };
-    }),
-    ...recentVideos.map((v) => {
-      const statusLabel = projectStatusLabel("video", v.status);
-      return {
-        type: "video" as const,
-        id: v.id,
-        name: displayProjectName(v.name),
-        typeLabel: typeLabel("video"),
-        statusLabel,
-        statusColor: statusBadgeColor(statusLabel),
-        url: `/videos/${v.id}`,
-        createdAt: v.createdAt,
-        updatedAt: v.createdAt,
-        imageUrl: null,
-        category: null,
-      };
-    }),
-    ...recentAds.map((a) => {
-      const statusLabel = projectStatusLabel("ads", a.status);
-      return {
-        type: "ads" as const,
-        id: a.id,
-        name: displayProjectName(a.name),
-        typeLabel: typeLabel("ads"),
-        statusLabel,
-        statusColor: statusBadgeColor(statusLabel),
-        url: `/ads/${a.id}`,
-        createdAt: a.createdAt,
-        updatedAt: a.createdAt,
-        imageUrl: null,
-        category: null,
-      };
-    }),
-  ]
-    .sort((a, b) => {
-      const sortTime = (
-        type: string,
-        id: number,
-        createdAt: Date | null | undefined,
-        updatedAt: Date | null | undefined,
-      ) => {
-        if (memberWorked) {
-          const dbType = type === "listing" ? "audit" : type;
-          const last = memberWorked.lastActivityAt.get(`${dbType}-${id}`);
-          if (last) return last.getTime();
-        }
-        const stamp = updatedAt ?? createdAt;
-        return new Date(stamp ?? 0).getTime();
-      };
-      return sortTime(b.type, b.id, b.createdAt, b.updatedAt)
-        - sortTime(a.type, a.id, a.createdAt, a.updatedAt);
+  let recentProjects;
+  if (accountOverview) {
+    const [recentAudits, recentGraphics, recentVideos, recentAds] = await Promise.all([
+      db.select({
+        id: auditsTable.id,
+        name: auditsTable.projectName,
+        productName: auditsTable.productName,
+        asin: auditsTable.asin,
+        status: auditsTable.status,
+        overallScore: auditsTable.overallScore,
+        createdAt: auditsTable.createdAt,
+      }).from(auditsTable)
+        .where(and(
+          ownerProjectFilter(auditsTable, auditsTable, ownerId, statsWorkspaceId),
+          eq(auditsTable.isDeleted, 0),
+          sql`${auditsTable.status} != 'archived'`,
+        ))
+        .orderBy(desc(auditsTable.createdAt))
+        .limit(5),
+      db.select({
+        id: graphicsProjectsTable.id,
+        name: graphicsProjectsTable.name,
+        productName: graphicsProjectsTable.productName,
+        category: graphicsProjectsTable.category,
+        auditId: graphicsProjectsTable.auditId,
+        status: graphicsProjectsTable.status,
+        sourceImageUrls: graphicsProjectsTable.sourceImageUrls,
+        imageRecords: graphicsProjectsTable.imageRecords,
+        createdAt: graphicsProjectsTable.createdAt,
+        updatedAt: graphicsProjectsTable.updatedAt,
+      }).from(graphicsProjectsTable)
+        .where(and(
+          ownerProjectFilter(graphicsProjectsTable, graphicsProjectsTable, ownerId, statsWorkspaceId),
+          eq(graphicsProjectsTable.isDeleted, 0),
+          sql`${graphicsProjectsTable.status} != 'archived'`,
+          sql`${graphicsProjectsTable.auditId} IS NULL`,
+        ))
+        .orderBy(desc(graphicsProjectsTable.updatedAt))
+        .limit(5),
+      db.select({
+        id: videosProjectsTable.id,
+        name: videosProjectsTable.name,
+        status: videosProjectsTable.status,
+        createdAt: videosProjectsTable.createdAt,
+      }).from(videosProjectsTable)
+        .where(and(
+          ownerProjectFilter(videosProjectsTable, videosProjectsTable, ownerId, statsWorkspaceId),
+          eq(videosProjectsTable.isDeleted, 0),
+          sql`${videosProjectsTable.status} != 'archived'`,
+        ))
+        .orderBy(desc(videosProjectsTable.createdAt))
+        .limit(5),
+      db.select({
+        id: adsProjectsTable.id,
+        name: adsProjectsTable.name,
+        status: adsProjectsTable.status,
+        createdAt: adsProjectsTable.createdAt,
+      }).from(adsProjectsTable)
+        .where(and(
+          ownerProjectFilter(adsProjectsTable, adsProjectsTable, ownerId, statsWorkspaceId),
+          eq(adsProjectsTable.isDeleted, 0),
+          sql`${adsProjectsTable.status} != 'archived'`,
+        ))
+        .orderBy(desc(adsProjectsTable.createdAt))
+        .limit(5),
+    ]);
+
+    const sortedRecentProjects = [
+      ...recentAudits.map((a) => {
+        const type = a.asin ? "audit" as const : "listing" as const;
+        const statusLabel = projectStatusLabel(type, a.status, a.overallScore);
+        return {
+          type,
+          id: a.id,
+          name: displayProjectName(a.name, a.productName),
+          typeLabel: typeLabel(type),
+          statusLabel,
+          statusColor: statusBadgeColor(statusLabel),
+          url: type === "audit" ? `/audits/${a.id}` : `/audits/workflow?resume=${a.id}`,
+          createdAt: a.createdAt,
+          updatedAt: a.createdAt,
+          imageUrl: null,
+          category: null,
+        };
+      }),
+      ...recentGraphics.map((g) => {
+        const statusLabel = projectStatusLabel("graphics", g.status);
+        return {
+          type: "graphics" as const,
+          id: g.id,
+          name: displayProjectName(g.name, g.productName, g.category),
+          typeLabel: typeLabel("graphics"),
+          statusLabel,
+          statusColor: statusBadgeColor(statusLabel),
+          url: resolveGraphicsProjectUrl({ id: g.id, auditId: g.auditId, status: g.status }),
+          createdAt: g.createdAt,
+          updatedAt: g.updatedAt ?? g.createdAt,
+          imageUrl: resolveGraphicsThumbnailUrl(g.id, g.sourceImageUrls, g.imageRecords),
+          category: g.category ?? null,
+        };
+      }),
+      ...recentVideos.map((v) => {
+        const statusLabel = projectStatusLabel("video", v.status);
+        return {
+          type: "video" as const,
+          id: v.id,
+          name: displayProjectName(v.name),
+          typeLabel: typeLabel("video"),
+          statusLabel,
+          statusColor: statusBadgeColor(statusLabel),
+          url: `/videos/${v.id}`,
+          createdAt: v.createdAt,
+          updatedAt: v.createdAt,
+          imageUrl: null,
+          category: null,
+        };
+      }),
+      ...recentAds.map((a) => {
+        const statusLabel = projectStatusLabel("ads", a.status);
+        return {
+          type: "ads" as const,
+          id: a.id,
+          name: displayProjectName(a.name),
+          typeLabel: typeLabel("ads"),
+          statusLabel,
+          statusColor: statusBadgeColor(statusLabel),
+          url: `/ads/${a.id}`,
+          createdAt: a.createdAt,
+          updatedAt: a.createdAt,
+          imageUrl: null,
+          category: null,
+        };
+      }),
+    ].sort((a, b) => {
+      const stamp = (p: { createdAt: Date; updatedAt?: Date }) =>
+        new Date(p.updatedAt ?? p.createdAt).getTime();
+      return stamp(b) - stamp(a);
     });
 
-  const recentProjects = disambiguateRecentProjectNames(sortedRecentProjects.slice(0, 5));
+    recentProjects = disambiguateRecentProjectNames(sortedRecentProjects.slice(0, 5));
+  } else {
+    const scopedData = await loadRecentsScoped(ownerId, userId, team, workspaceId, 100);
+    recentProjects = buildDashboardRecentProjects(scopedData, 5);
+  }
 
   res.json({
     greetingName: profile?.fullName?.split(" ")[0] ?? null,
