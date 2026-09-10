@@ -136,8 +136,6 @@ type ProductEditForm = {
   sku: string;
   brandName: string;
   category: string;
-  assignedManager: string;
-  priority: "high" | "medium" | "low";
   listingTitle: string;
   bulletPointsText: string;
   tagsText: string;
@@ -542,8 +540,6 @@ function buildListingEditForm(
     sku: product.sku,
     brandName: product.brandName ?? audit?.brandName ?? "",
     category: product.category ?? audit?.category ?? "",
-    assignedManager: product.manager?.name ?? "",
-    priority: product.priorityLevel ?? "medium",
     listingTitle: title,
     bulletPointsText: bulletsToTextarea(bullets),
     tagsText: tagsToTextarea(tags),
@@ -688,23 +684,6 @@ function OverviewMarketplaceStatus({
         ))}
       </div>
     </div>
-  );
-}
-
-function PriorityBadge({ label, level }: { label?: string | null; level?: string | null }) {
-  const text = label?.trim() || "Medium";
-  const lvl = level ?? "medium";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
-        level === "high" && "bg-orange-50 text-orange-700 border-orange-200",
-        lvl === "medium" && "bg-amber-50 text-amber-700 border-amber-200",
-        lvl === "low" && "bg-slate-50 text-slate-500 border-slate-200",
-      )}
-    >
-      {text}
-    </span>
   );
 }
 
@@ -1219,9 +1198,7 @@ function isValidProductDetail(p: ProductDetailView | undefined | null): p is Pro
     p?.id
     && p.name
     && p.statusLabel
-    && p.stageLabel
-    && p.priorityLabel
-    && p.manager?.name,
+    && p.stageLabel,
   );
 }
 
@@ -1759,8 +1736,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
         brandName: data.brandName.trim(),
         category: data.category.trim(),
         sku: data.sku.trim(),
-        priority: data.priority,
-        assignedManager: data.assignedManager.trim(),
       };
 
       const isStoreListing = isStoreImportProduct(product) || Boolean(data.listingTitle.trim());
@@ -2337,7 +2312,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                     : product.name}
                 </h1>
                 <LiveBadge label={product.statusLabel} />
-                <PriorityBadge label={product.priorityLabel} level={product.priorityLevel} />
               </div>
               <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
                 <span className="font-medium text-slate-600">SKU:</span> {product.sku}
@@ -2345,8 +2319,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 <span className="font-medium text-slate-600">Brand:</span> {product.brandName || "—"}
                 <span className="mx-1.5 text-slate-300">|</span>
                 <span className="font-medium text-slate-600">Category:</span> {product.category || "—"}
-                <span className="mx-1.5 text-slate-300">|</span>
-                <span className="font-medium text-slate-600">Manager:</span> {product.manager?.name ?? "—"}
               </p>
               {liveMarketplaces.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
@@ -2641,31 +2613,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
                         placeholder="e.g. Watches"
                       />
                     </EditDetailField>
-                    <EditDetailField label="Assigned Manager">
-                      <Input
-                        value={editForm.assignedManager}
-                        onChange={(e) => updateEditField("assignedManager", e.target.value)}
-                        className="text-[11px]"
-                      />
-                    </EditDetailField>
                     <EditDetailField label="Created Date">
                       <p className="text-xs text-slate-500 py-1.5">{createdDate}</p>
-                    </EditDetailField>
-                    <EditDetailField label="Priority">
-                      <select
-                        value={editForm.priority}
-                        onChange={(e) =>
-                          updateEditField(
-                            "priority",
-                            e.target.value as ProductEditForm["priority"],
-                          )
-                        }
-                        className="flex h-8 w-full rounded-lg border border-input bg-transparent px-3 text-[11px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      >
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                      </select>
                     </EditDetailField>
                   </div>
                 )}
