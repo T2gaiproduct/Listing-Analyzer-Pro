@@ -46,6 +46,7 @@ import {
   poolAvailableForMembers,
   workspacePoolFundedTotals,
   reconcileGrossWorkspacePool,
+  returnWorkspaceCreditsToAccountOnArchive,
   workspaceFundedCreditTotal,
   memberCreditsInWorkspace,
   memberCreditsTotalInWorkspace,
@@ -536,6 +537,19 @@ router.delete("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req
 
   const wasDefault = ws.isDefault;
 
+  let creditsReturned = { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+  try {
+    const { returned } = await returnWorkspaceCreditsToAccountOnArchive(
+      ctx.accountOwnerId,
+      ctx.workspaceId,
+    );
+    creditsReturned = returned;
+  } catch (err) {
+    console.error("[workspaces] return credits on delete failed", err);
+    res.status(500).json({ error: "Failed to return workspace credits to your account" });
+    return;
+  }
+
   await db.update(workspacesTable)
     .set({ isDeleted: 1, deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(workspacesTable.id, ctx.workspaceId));
@@ -558,7 +572,10 @@ router.delete("/workspaces/:id", requireAuth, requireWorkspaceAccess, async (req
     }
   }
 
-  res.sendStatus(204);
+  res.json({
+    creditsReturned,
+    creditsReturnedTotal: sumCreditBalance(creditsReturned),
+  });
 });
 
 // ─── Roles (account-global, shared across workspaces) ───────────────────────

@@ -12,6 +12,7 @@ import {
 import { resolveWorkspaceContext, WORKSPACE_HEADER } from "../lib/workspace-context";
 import { getDefaultWorkspaceId } from "../lib/ensure-workspaces";
 import { createNotification } from "../lib/notifications";
+import { returnWorkspaceCreditsToAccountOnArchive } from "../lib/workspace-credits.js";
 
 const router: IRouter = Router();
 
@@ -338,6 +339,13 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
         eq(workspacesTable.isDeleted, 1),
       )).limit(1);
       if (!archived) { res.status(404).json({ error: "Item not found" }); return; }
+      try {
+        await returnWorkspaceCreditsToAccountOnArchive(ownerId, id);
+      } catch (err) {
+        console.error("[archive] return workspace credits before permanent delete failed", err);
+        res.status(500).json({ error: "Failed to return workspace credits to your account" });
+        return;
+      }
       await db.delete(workspaceMembersTable).where(eq(workspaceMembersTable.workspaceId, id));
       const [item] = await db.delete(workspacesTable).where(eq(workspacesTable.id, id)).returning();
       result = item;

@@ -295,6 +295,97 @@ export async function reconcileGrossWorkspacePool(workspaceId: number): Promise<
     .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
 }
 
+/**
+ * Move unused workspace pool + member allocation balances back to the account owner
+ * (e.g. when a workspace is archived or permanently deleted).
+ */
+export async function returnWorkspaceCreditsToAccountOnArchive(
+  accountOwnerId: string,
+  workspaceId: number,
+): Promise<{ returned: CreditTotals }> {
+  const [ws] = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(
+      eq(workspacesTable.id, workspaceId),
+      eq(workspacesTable.accountOwnerId, accountOwnerId),
+    ))
+    .limit(1);
+  if (!ws) throw new Error("Workspace not found");
+
+  await ensureWorkspaceCreditsRow(workspaceId);
+  await reconcileGrossWorkspacePool(workspaceId);
+  const pool = await getWorkspaceCredits(workspaceId);
+
+  const memberRows = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.workspaceId, workspaceId));
+  const memberAllocated = memberRows.reduce(
+    (acc, row) => ({
+      aiCredits: acc.aiCredits + row.aiCredits,
+      imageCredits: acc.imageCredits + row.imageCredits,
+      auditCredits: acc.auditCredits + row.auditCredits,
+    }),
+    { ...ZERO },
+  );
+
+  const toReturn = workspacePoolFundedTotals(pool, memberAllocated);
+  const returnTotal = sumCreditBalance(toReturn);
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    if (returnTotal > 0) {
+      const [ownerRow] = await tx
+        .select()
+        .from(creditsTable)
+        .where(eq(creditsTable.userId, accountOwnerId));
+      const ownerBal = ownerRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
+      const newOwner = {
+        aiCredits: ownerBal.aiCredits + toReturn.aiCredits,
+        imageCredits: ownerBal.imageCredits + toReturn.imageCredits,
+        auditCredits: ownerBal.auditCredits + toReturn.auditCredits,
+      };
+      if (ownerRow) {
+        await tx.update(creditsTable)
+          .set({ ...newOwner, updatedAt: now })
+          .where(eq(creditsTable.userId, accountOwnerId));
+      } else {
+        await tx.insert(creditsTable).values({ userId: accountOwnerId, ...newOwner });
+      }
+
+      await tx.insert(creditTransactionsTable).values({
+        userId: accountOwnerId,
+        creditType: "audit",
+        amount: 0,
+        reason: "Workspace archived — unused credits returned to account",
+        featureType: "workspace_pool_transfer",
+        workspaceId,
+        metadata: { direction: "workspace_to_account", returned: toReturn },
+        createdAt: now,
+      });
+    }
+
+    await tx.update(workspaceCreditsTable)
+      .set({
+        aiCredits: 0,
+        imageCredits: 0,
+        auditCredits: 0,
+        poolIsNet: true,
+        updatedAt: now,
+      })
+      .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+
+    if (memberRows.length > 0) {
+      await tx.update(memberCreditsTable)
+        .set({ aiCredits: 0, imageCredits: 0, auditCredits: 0, updatedAt: now })
+        .where(eq(memberCreditsTable.workspaceId, workspaceId));
+    }
+  });
+
+  return { returned: toReturn };
+}
+
 /** Set workspace pool balances; moves credits between account owner balance and workspace pool. */
 export async function setWorkspaceCreditPool(
   accountOwnerId: string,

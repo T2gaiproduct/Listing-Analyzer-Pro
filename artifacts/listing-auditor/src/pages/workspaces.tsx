@@ -276,11 +276,17 @@ export default function WorkspacesPage() {
   });
 
   const deleteWorkspace = useMutation({
-    mutationFn: (id: number) =>
-      fetch(`${basePath}/api/workspaces/${id}`, { method: "DELETE", credentials: "include" }).then((r) => {
-        if (!r.ok) throw new Error("Delete failed");
-      }),
-    onSuccess: async (_data, deletedId) => {
+    mutationFn: async (id: number) => {
+      const r = await fetch(`${basePath}/api/workspaces/${id}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Delete failed");
+      }
+      return (await r.json().catch(() => ({}))) as {
+        creditsReturnedTotal?: number;
+      };
+    },
+    onSuccess: async (result, deletedId) => {
       const remaining = workspaces.filter((w) => w.id !== deletedId);
       if (activeWorkspaceId === deletedId) {
         const next = remaining.find((w) => w.isDefault) ?? remaining[0];
@@ -309,10 +315,14 @@ export default function WorkspacesPage() {
       await qc.invalidateQueries({ queryKey: ["workspaces"] });
       await qc.invalidateQueries({ queryKey: ["workspaces-overview"] });
       await qc.invalidateQueries({ queryKey: ["archive"] });
+      await refetchCreditQueries(qc);
       refetch();
+      const returnedTotal = result?.creditsReturnedTotal ?? 0;
       toast({
         title: "Workspace deleted",
-        description: "It was moved to Archive → Workspaces. You can restore it from there.",
+        description: returnedTotal > 0
+          ? `${returnedTotal.toLocaleString()} unused credits were returned to your account balance. The workspace was moved to Archive → Workspaces.`
+          : "It was moved to Archive → Workspaces. You can restore it from there.",
         action: (
           <Button variant="outline" size="sm" onClick={() => navigate("/archive?tab=workspaces")}>
             View Archive
@@ -584,9 +594,13 @@ export default function WorkspacesPage() {
                                       size="sm"
                                       className="h-8 text-red-600"
                                       onClick={() => {
+                                        const funded = ws.fundedTotal ?? 0;
+                                        const creditNote = funded > 0
+                                          ? ` Unused credits in this workspace (${funded.toLocaleString()}) will return to your account balance.`
+                                          : "";
                                         const message = ws.isDefault
-                                          ? `Delete default workspace "${ws.name}"?`
-                                          : `Delete workspace "${ws.name}"?`;
+                                          ? `Delete default workspace "${ws.name}"?${creditNote}`
+                                          : `Delete workspace "${ws.name}"?${creditNote}`;
                                         if (confirm(message)) deleteWorkspace.mutate(ws.id);
                                       }}
                                     >
