@@ -12,6 +12,7 @@ import {
   parseWorkspaceRouteId,
 } from "@/lib/workspace-routes";
 import { WORKSPACES_HUB_LABEL, WORKSPACES_HUB_PATH } from "@/lib/workspaces-hub";
+import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,6 +141,10 @@ export function TopbarWorkspaceSwitcher() {
         return;
       }
       if (location === "/dashboard" || location === "/") {
+        if (isBillingAccountOwner) {
+          void qc.invalidateQueries({ queryKey: ["dashboard"] });
+          return;
+        }
         navigate(`/workspaces/${id}`);
         return;
       }
@@ -181,7 +186,15 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
-  const onAccountDashboard = location === "/dashboard" && isBillingAccountOwner;
+  const agencyAccountOverviewOnDashboard =
+    location === "/dashboard"
+    && isAgencyAccountOverviewDashboard(isBillingAccountOwner, workspaces, activeWorkspaceId);
+  const onAccountDashboard = agencyAccountOverviewOnDashboard;
+  const onBillingOwnerClientDashboard =
+    location === "/dashboard"
+    && isBillingAccountOwner
+    && !agencyAccountOverviewOnDashboard
+    && activeWorkspaceId != null;
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
   const viewedWorkspaceId = parseWorkspaceRouteId(location);
@@ -189,16 +202,24 @@ export function TopbarWorkspaceSwitcher() {
     ? workspaces.find((w) => w.id === viewedWorkspaceId) ?? null
     : null;
 
-  const highlightedWorkspaceId = onWorkspaceDashboard || onAccountDashboard
+  const highlightedWorkspaceId = onWorkspaceDashboard
     ? null
-    : viewedWorkspaceId ?? (onAccountScopedPage ? null : (activeWorkspaceId ?? featureWorkspaceId));
+    : onAccountDashboard
+      ? (workspaces.find((w) => w.isDefault)?.id ?? activeWorkspaceId)
+      : viewedWorkspaceId ?? (onAccountScopedPage ? null : (activeWorkspaceId ?? featureWorkspaceId));
 
   const scopedWorkspace = viewedWorkspace ?? activeWorkspace ?? featureWorkspace;
+
+  const clientScopedWorkspace = onBillingOwnerClientDashboard
+    ? (workspaces.find((w) => w.id === activeWorkspaceId) ?? activeWorkspace)
+    : null;
 
   const pillName = onWorkspaceDashboard
     ? WORKSPACES_HUB_LABEL
     : onAccountDashboard
-      ? "Dashboard"
+      ? "Account overview"
+      : onBillingOwnerClientDashboard
+        ? (clientScopedWorkspace?.name ?? "Workspace")
       : accountPill?.name
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.name ?? scopedWorkspace?.name ?? "Workspace")
@@ -208,7 +229,9 @@ export function TopbarWorkspaceSwitcher() {
   const pillSubtitle = onWorkspaceDashboard
     ? "Manage pools & members"
     : onAccountDashboard
-      ? "Account overview"
+      ? "All workspaces"
+      : onBillingOwnerClientDashboard
+        ? (clientScopedWorkspace?.clientLabel?.trim() || null)
       : accountPill?.subtitle
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.clientLabel?.trim() || scopedWorkspace?.clientLabel?.trim() || null)

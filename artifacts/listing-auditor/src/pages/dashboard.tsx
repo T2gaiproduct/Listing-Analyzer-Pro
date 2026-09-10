@@ -35,6 +35,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { useWorkspacesPlan } from "@/hooks/use-workspaces-plan";
 import { DashboardDonutChart } from "@/components/dashboard-donut-chart";
 
@@ -363,34 +364,49 @@ export default function Dashboard() {
     ?? workspaces.find((w) => w.isAccountOwner)?.id
     ?? activeWorkspaceId;
 
+  const isAgencyAccountOverview = isAgencyAccountOverviewDashboard(
+    isBillingAccountOwner,
+    workspaces,
+    activeWorkspaceId,
+  );
+  const showAgencyAccountOverview = isAgencyAccountOverview;
+
   async function loadDashboardData(): Promise<DashboardData> {
-    if (isBillingAccountOwner) {
-      try {
-        return await fetchJson<DashboardData>(
-          `${basePath}/api/dashboard?scope=account`,
-          { skipWorkspaceHeader: true },
-        );
-      } catch (err) {
-        const wsId = defaultOwnedWorkspaceId ?? activeWorkspaceId;
-        if (wsId != null && err instanceof ApiFetchError && err.status >= 400) {
-          return await fetchJson<DashboardData>(`${basePath}/api/dashboard`);
-        }
-        throw err;
-      }
+    if (showAgencyAccountOverview) {
+      return await fetchJson<DashboardData>(
+        `${basePath}/api/dashboard?scope=account`,
+        { skipWorkspaceHeader: true },
+      );
     }
     return await fetchJson<DashboardData>(`${basePath}/api/dashboard`);
   }
 
+  const clientWorkspaceScoped =
+    isBillingAccountOwner
+    && !isAgencyAccountOverview
+    && activeWorkspaceId != null;
+
   const showWorkspacePoolCredits =
-    !isBillingAccountOwner
-    && isAccountOwner
-    && !isTeamMember
-    && featureWorkspaceId != null
-    && isWorkspaceApiScopeActive
-    && !featureWorkspace?.isDefault;
+    (clientWorkspaceScoped && isAccountOwner && !isTeamMember)
+    || (
+      !isBillingAccountOwner
+      && isAccountOwner
+      && !isTeamMember
+      && featureWorkspaceId != null
+      && isWorkspaceApiScopeActive
+      && !featureWorkspace?.isDefault
+    );
+
+  const workspacePoolQueryId = clientWorkspaceScoped
+    ? activeWorkspaceId
+    : featureWorkspaceId;
 
   const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard", isBillingAccountOwner ? "account" : featureWorkspaceId, defaultOwnedWorkspaceId],
+    queryKey: [
+      "dashboard",
+      showAgencyAccountOverview ? "account" : `workspace-${activeWorkspaceId ?? featureWorkspaceId}`,
+      defaultOwnedWorkspaceId,
+    ],
     queryFn: () => loadDashboardData(),
     enabled:
       clerkLoaded
@@ -408,13 +424,13 @@ export default function Dashboard() {
     poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
     memberAllocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
   }>({
-    queryKey: ["workspace-pool-credits", featureWorkspaceId],
+    queryKey: ["workspace-pool-credits", workspacePoolQueryId],
     queryFn: () =>
       fetchJson<{
         poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
         memberAllocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
-      }>(`${basePath}/api/workspaces/${featureWorkspaceId}/members`),
-    enabled: clerkLoaded && !!user && showWorkspacePoolCredits,
+      }>(`${basePath}/api/workspaces/${workspacePoolQueryId}/members`),
+    enabled: clerkLoaded && !!user && showWorkspacePoolCredits && workspacePoolQueryId != null,
     staleTime: 30_000,
   });
 
@@ -586,9 +602,9 @@ export default function Dashboard() {
             Welcome back, {name}! 👋
           </h1>
           <p className="text-sm sm:text-base text-slate-500 mt-0.5 sm:mt-1">
-            {isBillingAccountOwner || dashboard.viewMode === "account"
+            {showAgencyAccountOverview || dashboard.viewMode === "account"
               ? "Account overview across all your workspaces."
-              : <>Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? "this workspace"}</span>.</>}
+              : <>Overview for <span className="font-medium text-slate-700">{featureWorkspace?.name ?? workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? "this workspace"}</span>.</>}
           </p>
         </div>
         <DropdownMenu>
@@ -626,21 +642,21 @@ export default function Dashboard() {
         />
         <StatCard
           title={
-            isBillingAccountOwner
+            showAgencyAccountOverview
               ? "Number of Workspaces"
               : showMemberCredits
                 ? "Credits Used"
                 : "Time Saved"
           }
           value={
-            isBillingAccountOwner
+            showAgencyAccountOverview
               ? (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length)
               : showMemberCredits
                 ? (stats.creditsUsedInPeriod ?? 0).toLocaleString()
                 : formatHours(stats.timeSavedHours)
           }
           subtext={
-            isBillingAccountOwner
+            showAgencyAccountOverview
               ? workspacesEnabled
                 ? stats.workspaceCount === 1
                   ? "Includes your owner workspace"
@@ -652,10 +668,10 @@ export default function Dashboard() {
                   : "This billing period"
                 : "From AI tasks completed"
           }
-          icon={isBillingAccountOwner ? LayoutGrid : showMemberCredits ? Zap : Clock}
-          href={isBillingAccountOwner && workspacesEnabled ? "/workspaces" : undefined}
-          locked={isBillingAccountOwner && !workspacesEnabled}
-          lockedHref={isBillingAccountOwner && !workspacesEnabled ? "/billing" : undefined}
+          icon={showAgencyAccountOverview ? LayoutGrid : showMemberCredits ? Zap : Clock}
+          href={showAgencyAccountOverview && workspacesEnabled ? "/workspaces" : undefined}
+          locked={showAgencyAccountOverview && !workspacesEnabled}
+          lockedHref={showAgencyAccountOverview && !workspacesEnabled ? "/billing" : undefined}
         />
         <StatCard
           title="Credits Balance"
