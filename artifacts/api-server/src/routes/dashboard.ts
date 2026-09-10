@@ -45,7 +45,12 @@ import {
   sumCreditsUsedForWorkspace,
   sumCreditsUsedInWorkspaceForUser,
 } from "../lib/team-stats";
-import { getWorkspaceCredits, getWorkspaceMemberCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
+import {
+  getWorkspaceCredits,
+  getWorkspaceMemberCredits,
+  sumAllocatedMemberCreditsForWorkspace,
+  workspaceFundedPoolTotal,
+} from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
 import { WORKSPACE_HEADER } from "../lib/workspace-context";
 
@@ -483,12 +488,18 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       creditsAllowance =
         displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
     }
-  } else if (workspaceId && wsCtx.isAccountOwner && !wsCtx.isDefault) {
+  } else if (workspaceId && wsCtx.isAccountOwner) {
     creditScope = "workspace_pool";
-    displayCredits = await getWorkspaceCredits(workspaceId);
+    const unassignedPool = await getWorkspaceCredits(workspaceId);
+    const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(workspaceId);
     const workspaceUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
-    // Total funded to workspace = remaining pool balance + spent this period.
-    creditsAllowance = workspaceFundedCreditTotal(displayCredits, workspaceUsedInPeriod);
+    displayCredits = {
+      aiCredits: unassignedPool.aiCredits + memberRemaining.aiCredits,
+      imageCredits: unassignedPool.imageCredits + memberRemaining.imageCredits,
+      auditCredits: unassignedPool.auditCredits + memberRemaining.auditCredits,
+    };
+    // Match Workspaces hub "Funded" — pool + member remaining + used this period.
+    creditsAllowance = workspaceFundedPoolTotal(unassignedPool, memberRemaining, workspaceUsedInPeriod);
   } else if (!wsCtx.isAccountOwner && wsCtx.workspaceMemberId) {
     creditScope = "member";
     const memberCredits = await getWorkspaceMemberCredits(wsCtx.workspaceMemberId);
@@ -561,6 +572,9 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       creditsUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
       creditsUsedThisWeek = await sumCreditsUsedInPeriod(userId, weekStart, now);
     }
+  } else if (creditScope === "workspace_pool" && workspaceId != null) {
+    creditsUsedInPeriod = await sumCreditsUsedForWorkspace(workspaceId, periodStart, periodEnd);
+    creditsUsedThisWeek = await sumCreditsUsedForWorkspace(workspaceId, weekStart, now);
   }
 
   let teamCreditsUsedInPeriod = 0;
@@ -780,8 +794,10 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       isTeamMember: isMemberCreditView,
       teamCreditsUsedInPeriod,
       memberCreditsAllocated,
-      creditsUsedInPeriod: isMemberCreditView ? creditsUsedInPeriod : undefined,
-      creditsUsedThisWeek: isMemberCreditView ? creditsUsedThisWeek : undefined,
+      creditsUsedInPeriod:
+        isMemberCreditView || creditScope === "workspace_pool" ? creditsUsedInPeriod : undefined,
+      creditsUsedThisWeek:
+        isMemberCreditView || creditScope === "workspace_pool" ? creditsUsedThisWeek : undefined,
     },
     viewMode: accountOverview ? "account" : "workspace",
     impact: {

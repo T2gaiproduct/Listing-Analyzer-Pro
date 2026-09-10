@@ -547,6 +547,13 @@ export default function Dashboard() {
     stats.creditScope === "member"
     || (isWorkspaceMemberContext && (isTeamMember || stats.isTeamMember));
 
+  const showOwnerWorkspaceCreditsUsed =
+    clientWorkspaceScoped
+    && isBillingAccountOwner
+    && !isTeamMember
+    && !showMemberCredits
+    && stats.creditScope === "workspace_pool";
+
   const workspacePoolCredits = workspacePoolData?.poolCredits;
   const workspacePoolBalance = workspacePoolCredits
     ? workspacePoolCredits.auditCredits + workspacePoolCredits.aiCredits + workspacePoolCredits.imageCredits
@@ -643,14 +650,14 @@ export default function Dashboard() {
           title={
             showAgencyAccountOverview
               ? "Number of Workspaces"
-              : showMemberCredits
+              : showMemberCredits || showOwnerWorkspaceCreditsUsed
                 ? "Credits Used"
                 : "Time Saved"
           }
           value={
             showAgencyAccountOverview
               ? (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length)
-              : showMemberCredits
+              : showMemberCredits || showOwnerWorkspaceCreditsUsed
                 ? (stats.creditsUsedInPeriod ?? 0).toLocaleString()
                 : formatHours(stats.timeSavedHours)
           }
@@ -660,14 +667,18 @@ export default function Dashboard() {
                 ? stats.workspaceCount === 1
                   ? "Includes your owner workspace"
                   : "Includes owner workspace + clients"
-                : `Upgrade to ${includedPlansLabel} to manage multiple workspaces`
+                  : `Upgrade to ${includedPlansLabel} to manage multiple workspaces`
               : showMemberCredits
                 ? creditsAllowance > 0
                   ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
                   : "This billing period"
-                : "From AI tasks completed"
+                : showOwnerWorkspaceCreditsUsed
+                  ? creditsAllowance > 0
+                    ? `of ${creditsAllowance.toLocaleString()} funded to this workspace`
+                    : "This billing period"
+                  : "From AI tasks completed"
           }
-          icon={showAgencyAccountOverview ? LayoutGrid : showMemberCredits ? Zap : Clock}
+          icon={showAgencyAccountOverview ? LayoutGrid : (showMemberCredits || showOwnerWorkspaceCreditsUsed) ? Zap : Clock}
           href={showAgencyAccountOverview && workspacesEnabled ? "/workspaces" : undefined}
           locked={showAgencyAccountOverview && !workspacesEnabled}
           lockedHref={showAgencyAccountOverview && !workspacesEnabled ? "/billing" : undefined}
