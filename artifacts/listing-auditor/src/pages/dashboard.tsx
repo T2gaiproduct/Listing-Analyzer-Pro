@@ -56,6 +56,8 @@ interface DashboardData {
     isTeamMember?: boolean;
     teamCreditsUsedInPeriod?: number;
     memberCreditsAllocated?: number;
+    creditsUsedInPeriod?: number;
+    creditsUsedThisWeek?: number;
     workspaceCount?: number;
   };
   viewMode?: "account" | "workspace";
@@ -64,6 +66,7 @@ interface DashboardData {
     projectsWorkedThisWeek?: number;
     issuesIdentified: number;
     timeSavedHours: number;
+    creditsUsedThisWeek?: number;
     isMemberView?: boolean;
   };
   creditBreakdown: Array<{ key: string; label: string; balance: number; pct: number; color: string }>;
@@ -622,11 +625,19 @@ export default function Dashboard() {
           icon={TrendingUp}
         />
         <StatCard
-          title={isBillingAccountOwner ? "Number of Workspaces" : "Time Saved"}
+          title={
+            isBillingAccountOwner
+              ? "Number of Workspaces"
+              : showMemberCredits
+                ? "Credits Used"
+                : "Time Saved"
+          }
           value={
             isBillingAccountOwner
               ? (stats.workspaceCount ?? workspaces.filter((w) => w.isAccountOwner).length)
-              : formatHours(stats.timeSavedHours)
+              : showMemberCredits
+                ? (stats.creditsUsedInPeriod ?? 0).toLocaleString()
+                : formatHours(stats.timeSavedHours)
           }
           subtext={
             isBillingAccountOwner
@@ -635,9 +646,13 @@ export default function Dashboard() {
                   ? "Includes your owner workspace"
                   : "Includes owner workspace + clients"
                 : `Upgrade to ${includedPlansLabel} to manage multiple workspaces`
-              : "From AI tasks completed"
+              : showMemberCredits
+                ? creditsAllowance > 0
+                  ? `of ${creditsAllowance.toLocaleString()} allocated by owner`
+                  : "This billing period"
+                : "From AI tasks completed"
           }
-          icon={isBillingAccountOwner ? LayoutGrid : Clock}
+          icon={isBillingAccountOwner ? LayoutGrid : showMemberCredits ? Zap : Clock}
           href={isBillingAccountOwner && workspacesEnabled ? "/workspaces" : undefined}
           locked={isBillingAccountOwner && !workspacesEnabled}
           lockedHref={isBillingAccountOwner && !workspacesEnabled ? "/billing" : undefined}
@@ -705,10 +720,18 @@ export default function Dashboard() {
                   </li>
                   <li className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Time Saved</p>
-                      <p className="text-xs text-slate-500">By using SellerLens</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {impact.isMemberView ? "Credits Used" : "Time Saved"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {impact.isMemberView ? "This week in this workspace" : "By using SellerLens"}
+                      </p>
                     </div>
-                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{formatHours(impact.timeSavedHours)}</span>
+                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">
+                      {impact.isMemberView
+                        ? (impact.creditsUsedThisWeek ?? stats.creditsUsedThisWeek ?? 0).toLocaleString()
+                        : formatHours(impact.timeSavedHours)}
+                    </span>
                   </li>
                 </ul>
               </div>

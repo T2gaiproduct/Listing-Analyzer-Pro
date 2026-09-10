@@ -38,7 +38,12 @@ import {
   loadRecentsScoped,
   buildDashboardRecentProjects,
 } from "../lib/recents-items";
-import { sumAllocatedCreditsForOwner, sumCreditsUsedInPeriod, sumCreditsUsedForWorkspace } from "../lib/team-stats";
+import {
+  sumAllocatedCreditsForOwner,
+  sumCreditsUsedInPeriod,
+  sumCreditsUsedForWorkspace,
+  sumCreditsUsedInWorkspaceForUser,
+} from "../lib/team-stats";
 import { getWorkspaceCredits, getWorkspaceMemberCredits, workspaceFundedCreditTotal } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
 import { WORKSPACE_HEADER } from "../lib/workspace-context";
@@ -524,6 +529,28 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
   const creditsBalance = displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
   const isMemberCreditView = !wsCtx.isAccountOwner && (wsCtx.workspaceMemberId != null || team?.isTeamMember);
 
+  let creditsUsedInPeriod = 0;
+  let creditsUsedThisWeek = 0;
+  if (isMemberCreditView) {
+    if (statsWorkspaceId != null) {
+      creditsUsedInPeriod = await sumCreditsUsedInWorkspaceForUser(
+        userId,
+        statsWorkspaceId,
+        periodStart,
+        periodEnd,
+      );
+      creditsUsedThisWeek = await sumCreditsUsedInWorkspaceForUser(
+        userId,
+        statsWorkspaceId,
+        weekStart,
+        now,
+      );
+    } else {
+      creditsUsedInPeriod = await sumCreditsUsedInPeriod(userId, periodStart, periodEnd);
+      creditsUsedThisWeek = await sumCreditsUsedInPeriod(userId, weekStart, now);
+    }
+  }
+
   let teamCreditsUsedInPeriod = 0;
   let memberCreditsAllocated = 0;
   if (!isMemberCreditView && wsCtx.isAccountOwner) {
@@ -738,6 +765,8 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       isTeamMember: isMemberCreditView,
       teamCreditsUsedInPeriod,
       memberCreditsAllocated,
+      creditsUsedInPeriod: isMemberCreditView ? creditsUsedInPeriod : undefined,
+      creditsUsedThisWeek: isMemberCreditView ? creditsUsedThisWeek : undefined,
     },
     viewMode: accountOverview ? "account" : "workspace",
     impact: {
@@ -745,6 +774,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
       projectsWorkedThisWeek: isMemberProjectView ? projectsThisWeek : undefined,
       issuesIdentified: impactIssuesIdentified,
       timeSavedHours: timeSavedThisWeek,
+      creditsUsedThisWeek: isMemberProjectView ? creditsUsedThisWeek : undefined,
       isMemberView: isMemberProjectView,
     },
     creditBreakdown,
