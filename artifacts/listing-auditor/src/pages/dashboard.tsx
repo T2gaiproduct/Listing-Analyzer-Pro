@@ -323,6 +323,7 @@ export default function Dashboard() {
     isWorkspaceApiScopeActive,
     refetch: refetchWorkspaces,
     isBillingAccountOwner,
+    isAgencyAccountOverview,
     profileLoading,
   } = useWorkspace();
   const { workspacesEnabled, includedPlansLabel } = useWorkspacesPlan();
@@ -364,12 +365,10 @@ export default function Dashboard() {
     ?? workspaces.find((w) => w.isAccountOwner)?.id
     ?? activeWorkspaceId;
 
-  const isAgencyAccountOverview = isAgencyAccountOverviewDashboard(
+  const showAgencyAccountOverview = isAgencyAccountOverviewDashboard(
     isBillingAccountOwner,
-    workspaces,
-    activeWorkspaceId,
+    isAgencyAccountOverview,
   );
-  const showAgencyAccountOverview = isAgencyAccountOverview;
 
   async function loadDashboardData(): Promise<DashboardData> {
     if (showAgencyAccountOverview) {

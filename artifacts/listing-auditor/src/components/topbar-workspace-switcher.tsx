@@ -48,6 +48,8 @@ export function TopbarWorkspaceSwitcher() {
     isLoading,
     needsWorkspaceSelection,
     isBillingAccountOwner,
+    isAgencyAccountOverview,
+    setAgencyAccountOverview,
   } = useWorkspace();
   const { workspacesEnabled, upgradeShort } = useWorkspacesPlan();
   const workspacesLocked = isAccountOwner && !workspacesEnabled;
@@ -124,6 +126,15 @@ export function TopbarWorkspaceSwitcher() {
       toast({ title: "Failed to create workspace", description: err.message, variant: "destructive" }),
   });
 
+  const selectAccountOverview = () => {
+    setAgencyAccountOverview(true);
+    setOpen(false);
+    setSeeAllOpen(false);
+    if (location !== "/dashboard" && location !== "/") {
+      navigate("/dashboard");
+    }
+  };
+
   const selectWorkspace = (id: number) => {
     setActiveWorkspaceId(id);
     setOpen(false);
@@ -186,14 +197,11 @@ export function TopbarWorkspaceSwitcher() {
   const toggleDropdown = () => setOpen((v) => !v);
 
   const onWorkspaceDashboard = isAccountOwner && isWorkspaceAdminOverviewRoute(location);
-  const agencyAccountOverviewOnDashboard =
-    location === "/dashboard"
-    && isAgencyAccountOverviewDashboard(isBillingAccountOwner, workspaces, activeWorkspaceId);
-  const onAccountDashboard = agencyAccountOverviewOnDashboard;
-  const onBillingOwnerClientDashboard =
-    location === "/dashboard"
-    && isBillingAccountOwner
-    && !agencyAccountOverviewOnDashboard
+  const onAccountDashboard =
+    isAgencyAccountOverviewDashboard(isBillingAccountOwner, isAgencyAccountOverview);
+  const onBillingOwnerWorkspaceSelected =
+    isBillingAccountOwner
+    && !isAgencyAccountOverview
     && activeWorkspaceId != null;
   const onAccountScopedPage = isAccountScopedRoute(location);
   const accountPill = accountScopedPill(location);
@@ -205,12 +213,12 @@ export function TopbarWorkspaceSwitcher() {
   const highlightedWorkspaceId = onWorkspaceDashboard
     ? null
     : onAccountDashboard
-      ? (workspaces.find((w) => w.isDefault)?.id ?? activeWorkspaceId)
+      ? null
       : viewedWorkspaceId ?? (onAccountScopedPage ? null : (activeWorkspaceId ?? featureWorkspaceId));
 
   const scopedWorkspace = viewedWorkspace ?? activeWorkspace ?? featureWorkspace;
 
-  const clientScopedWorkspace = onBillingOwnerClientDashboard
+  const billingOwnerScopedWorkspace = onBillingOwnerWorkspaceSelected
     ? (workspaces.find((w) => w.id === activeWorkspaceId) ?? activeWorkspace)
     : null;
 
@@ -218,8 +226,8 @@ export function TopbarWorkspaceSwitcher() {
     ? WORKSPACES_HUB_LABEL
     : onAccountDashboard
       ? "Account overview"
-      : onBillingOwnerClientDashboard
-        ? (clientScopedWorkspace?.name ?? "Workspace")
+      : onBillingOwnerWorkspaceSelected
+        ? (billingOwnerScopedWorkspace?.name ?? "Workspace")
       : accountPill?.name
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.name ?? scopedWorkspace?.name ?? "Workspace")
@@ -230,8 +238,8 @@ export function TopbarWorkspaceSwitcher() {
     ? "Manage pools & members"
     : onAccountDashboard
       ? "All workspaces"
-      : onBillingOwnerClientDashboard
-        ? (clientScopedWorkspace?.clientLabel?.trim() || null)
+      : onBillingOwnerWorkspaceSelected
+        ? (billingOwnerScopedWorkspace?.clientLabel?.trim() || null)
       : accountPill?.subtitle
       ?? (viewedWorkspaceId != null
         ? (viewedWorkspace?.clientLabel?.trim() || scopedWorkspace?.clientLabel?.trim() || null)
@@ -328,6 +336,20 @@ export function TopbarWorkspaceSwitcher() {
               <p className="text-xs text-muted-foreground mt-0.5">Projects and data are scoped to the selected workspace.</p>
             </div>
             <div className="relative max-h-80 overflow-y-auto py-1">
+              {isBillingAccountOwner && (
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors border-b border-border",
+                    onAccountDashboard && "bg-orange-50 text-orange-800",
+                  )}
+                  onClick={selectAccountOverview}
+                >
+                  <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                  <span className="truncate flex-1 font-medium">Account overview</span>
+                  {onAccountDashboard && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+                </button>
+              )}
               {isLoading && workspaces.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-slate-500">Loading workspaces…</p>
               ) : (
@@ -430,6 +452,25 @@ export function TopbarWorkspaceSwitcher() {
               <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
               <span className="truncate flex-1 font-medium">{WORKSPACES_HUB_LABEL}</span>
               {onWorkspaceDashboard && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+            </button>
+          )}
+
+          {isBillingAccountOwner && (
+            <button
+              type="button"
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-orange-50 transition-colors border-b border-border",
+                onAccountDashboard && "bg-orange-50 text-orange-800",
+              )}
+              onClick={() => {
+                setSeeAllOpen(false);
+                selectAccountOverview();
+              }}
+            >
+              <LayoutGrid className="w-4 h-4 text-orange-500 flex-shrink-0" />
+              <span className="truncate flex-1 font-medium">Account overview</span>
+              <span className="text-[10px] text-slate-400 flex-shrink-0">All workspaces</span>
+              {onAccountDashboard && <Check className="w-4 h-4 text-orange-500 flex-shrink-0" />}
             </button>
           )}
 

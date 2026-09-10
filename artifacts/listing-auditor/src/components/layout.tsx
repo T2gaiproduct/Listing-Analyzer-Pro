@@ -234,6 +234,7 @@ export function Layout({ children }: { children: ReactNode }) {
     canEdit: wsCanEdit,
     canDelete: wsCanDelete,
     roleName,
+    isAgencyAccountOverview,
   } = useWorkspace();
 
   const homeHref = "/dashboard";
@@ -581,16 +582,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const isAccountDashboardRoute = location === "/dashboard" || location === "/";
   const accountCreditSummary = creditsData?.accountCreditSummary;
 
-  const isDefaultOwnerWorkspace =
-    isAccountOwner && featureWorkspace?.isDefault === true;
-
   const showWorkspacePoolCredits =
     isAccountOwner
     && !isTeamMember
     && featureWorkspaceId != null
     && isWorkspaceApiScopeActive
-    && !isAccountDashboardRoute
-    && !isDefaultOwnerWorkspace;
+    && !(isAccountDashboardRoute && isAgencyAccountOverview);
 
   const { data: workspacePoolData } = useQuery<{
     poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
@@ -642,7 +639,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ? "workspace"
     : usesMemberCredits
       ? "member"
-      : isAccountOwner && isAccountDashboardRoute
+      : isAccountOwner && isAccountDashboardRoute && isAgencyAccountOverview
         ? "account_total"
         : isAccountOwner && isAccountHubRoute
           ? "account_hub"

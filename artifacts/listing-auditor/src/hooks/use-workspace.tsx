@@ -14,6 +14,15 @@ import { setActiveWorkspaceId } from "@/lib/workspace-header";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "la_active_workspace_id";
+const AGENCY_OVERVIEW_KEY = "la_agency_account_overview";
+
+function readAgencyAccountOverview(): boolean {
+  try {
+    return localStorage.getItem(AGENCY_OVERVIEW_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
 
 export interface WorkspaceSummary {
   id: number;
@@ -62,6 +71,9 @@ interface WorkspaceContextValue {
   isBillingAccountOwner: boolean;
   /** Billing owner picked a workspace for scoped dashboard / project APIs (false after visiting workspace hub). */
   workspaceScopeCommitted: boolean;
+  /** Agency billing owner: rollup across all workspaces (not tied to isDefault / My Workspace). */
+  isAgencyAccountOverview: boolean;
+  setAgencyAccountOverview: (active: boolean) => void;
   profileLoading: boolean;
   refetch: () => void;
 }
@@ -89,6 +101,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(() => readStoredWorkspaceId());
+  const [agencyAccountOverview, setAgencyOverviewState] = useState(readAgencyAccountOverview);
   const [workspaceScopeCommitted, setWorkspaceScopeCommitted] = useState(false);
   const overviewVisitedThisSession = useRef(false);
   const workspaceApiScopeActive = isWorkspaceApiScopeActive(location);
@@ -129,6 +142,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setSelectedId(routeWorkspaceId);
       localStorage.setItem(STORAGE_KEY, String(routeWorkspaceId));
     }
+    setAgencyOverviewState(false);
+    try {
+      localStorage.setItem(AGENCY_OVERVIEW_KEY, "false");
+    } catch {
+      /* ignore */
+    }
     if (!workspaceScopeCommitted) setWorkspaceScopeCommitted(true);
   }, [location, workspaces, selectedId, workspaceScopeCommitted]);
 
@@ -168,6 +187,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     const billingAccountOwner = profileSummary?.accountRole?.type === "user";
     if (ownsAnyWorkspace && billingAccountOwner && !profileTeamMember) {
+      if (agencyAccountOverview) {
+        return;
+      }
       const owned = workspaces.filter((w) => w.isAccountOwner);
       const fallback = owned.find((w) => w.isDefault) ?? owned[0];
       if (fallback && selectedId !== fallback.id) {
@@ -180,7 +202,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const fallback = workspaces.find((w) => w.isDefault) ?? workspaces[0]!;
     setSelectedId(fallback.id);
     localStorage.setItem(STORAGE_KEY, String(fallback.id));
-  }, [workspaces, selectedId, profileSummary?.accountRole?.type, profileTeamMember, ownsAnyWorkspace, listLoading]);
+  }, [workspaces, selectedId, profileSummary?.accountRole?.type, profileTeamMember, ownsAnyWorkspace, listLoading, agencyAccountOverview]);
 
   useEffect(() => {
     if (!isTeamMemberAccount || !workspaces.length) return;
@@ -228,14 +250,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isAccountOwner =
     isWorkspaceAccountOwner || isBillingAccountOwner;
 
+  const isAgencyAccountOverview =
+    isBillingAccountOwner && ownsAnyWorkspace && agencyAccountOverview;
+
   const withholdWorkspaceScope =
     isBillingAccountOwner
     && ownsAnyWorkspace
     && !workspaceScopeCommitted
     && !isMainDashboardRoute;
 
+  const withholdForAgencyOverview =
+    isAgencyAccountOverview && isMainDashboardRoute;
+
   const featureWorkspaceId = workspaceApiScopeActive
-    ? (withholdWorkspaceScope ? null : activeWorkspaceId)
+    ? (withholdWorkspaceScope || withholdForAgencyOverview ? null : activeWorkspaceId)
     : null;
   const featureWorkspace = featureWorkspaceId
     ? workspaces.find((w) => w.id === featureWorkspaceId) ?? null
@@ -245,8 +273,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     && parseWorkspaceRouteId(location) == null;
 
   useEffect(() => {
+    if (isAgencyAccountOverview) {
+      setActiveWorkspaceId(null);
+      return;
+    }
     setActiveWorkspaceId(activeWorkspaceId);
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, isAgencyAccountOverview]);
 
   const can = useCallback(
     (feature: WorkspaceFeature, action: WorkspaceAction) => {
@@ -271,12 +303,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [can],
   );
 
+  const setAgencyAccountOverview = useCallback((active: boolean) => {
+    setAgencyOverviewState(active);
+    try {
+      localStorage.setItem(AGENCY_OVERVIEW_KEY, active ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+    void qc.invalidateQueries({ queryKey: ["dashboard"] });
+  }, [qc]);
+
   const setWorkspace = useCallback((id: number) => {
     const changed = selectedId !== id;
     setSelectedId(id);
+    setAgencyOverviewState(false);
+    try {
+      localStorage.setItem(AGENCY_OVERVIEW_KEY, "false");
+    } catch {
+      /* ignore */
+    }
     setWorkspaceScopeCommitted(true);
     localStorage.setItem(STORAGE_KEY, String(id));
-    if (!changed) return;
+    if (!changed && !agencyAccountOverview) return;
     void qc.invalidateQueries({ queryKey: ["workspace-permissions"] });
     void qc.invalidateQueries({ queryKey: ["products"] });
     void qc.invalidateQueries({ queryKey: ["product"] });
@@ -289,7 +337,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void qc.invalidateQueries({ queryKey: ["search-projects"] });
     void qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
     void qc.removeQueries({ queryKey: ["workspace-permissions"], exact: false });
-  }, [qc, selectedId]);
+  }, [qc, selectedId, agencyAccountOverview]);
 
   const value = useMemo<WorkspaceContextValue>(() => ({
     workspaces,
@@ -313,13 +361,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     needsWorkspaceSelection,
     isBillingAccountOwner,
     workspaceScopeCommitted,
+    isAgencyAccountOverview,
+    setAgencyAccountOverview,
     profileLoading,
     refetch: () => { void refetchList(); },
   }), [
     workspaces, activeWorkspace, activeWorkspaceId, featureWorkspaceId, featureWorkspace,
     permissions, roleName, isAccountOwner, isWorkspaceAccountOwner, isTeamMemberAccount, isBillingAccountOwner, profileLoading,
-    listLoading, permLoading, skipPermLoadingForNav, isLoaded, setWorkspace, can, canView, canEdit, canDelete, refetchList,
-    workspaceApiScopeActive, needsWorkspaceSelection, workspaceScopeCommitted,
+    listLoading, permLoading, skipPermLoadingForNav, isLoaded, setWorkspace, setAgencyAccountOverview, can, canView, canEdit, canDelete, refetchList,
+    workspaceApiScopeActive, needsWorkspaceSelection, workspaceScopeCommitted, isAgencyAccountOverview,
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
