@@ -51,6 +51,7 @@ interface WorkspaceMemberListItem {
   legacyRole?: string | null;
   userId?: string | null;
   allocatedCredits?: CreditBuckets;
+  allocatedCreditsTotal?: number;
   remainingCredits?: CreditBuckets;
   creditsUsedInPeriod?: number;
 }
@@ -653,13 +654,13 @@ export default function WorkspacesPage() {
                                             <td className="py-2 pr-3 text-slate-600">{m.roleName ?? "—"}</td>
                                             <td className="py-2 pr-3 capitalize text-slate-600">{m.status}</td>
                                             <td className="py-2 pr-3 text-right text-slate-800">
-                                              {sumCredits(m.allocatedCredits).toLocaleString()}
+                                              {(m.allocatedCreditsTotal ?? sumCredits(m.remainingCredits)).toLocaleString()}
                                             </td>
                                             <td className="py-2 pr-3 text-right text-slate-600">
                                               {(m.creditsUsedInPeriod ?? 0).toLocaleString()}
                                             </td>
                                             <td className="py-2 text-right font-medium text-slate-800">
-                                              {sumCredits(m.remainingCredits).toLocaleString()}
+                                              {sumCredits(m.remainingCredits ?? m.allocatedCredits).toLocaleString()}
                                             </td>
                                           </tr>
                                         ))}

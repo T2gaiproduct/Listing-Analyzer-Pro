@@ -49,6 +49,8 @@ import {
   workspaceFundedCreditTotal,
   memberCreditsInWorkspace,
   memberCreditsTotalInWorkspace,
+  workspaceMembersAllocationTotal,
+  workspaceFundedPoolTotal,
   reconcileStaleMemberCreditsWithPool,
   computeAccountCreditSummary,
   sumCreditBalance,
@@ -246,34 +248,40 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
     await reconcileStaleMemberCreditsWithPool(w.id);
     await reconcileGrossWorkspacePool(w.id);
     const pool = await getWorkspaceCredits(w.id);
-    const memberAllocated = await sumAllocatedMemberCreditsForWorkspace(w.id);
+    const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(w.id);
     const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
-    const memberAllocatedInPool = memberCreditsInWorkspace(pool, memberAllocated);
-    const fundedPool = workspacePoolFundedTotals(pool, memberAllocatedInPool);
+    const memberRemainingInPool = memberCreditsInWorkspace(pool, memberRemaining);
+    const fundedPool = workspacePoolFundedTotals(pool, memberRemainingInPool);
     const poolAvailable = poolAvailableForMembers(pool);
     const poolUnassigned = sumCreditBalance(poolAvailable);
-    const fundedTotal = workspaceFundedCreditTotal(fundedPool, creditsUsedInPeriod);
-    const toMembersTotal = memberCreditsTotalInWorkspace(fundedPool, memberAllocated);
-    const poolHasCredits = sumCreditBalance(fundedPool) > 0;
+    const poolHasCredits = workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedInPeriod) > 0
+      || sumCreditBalance(fundedPool) > 0;
 
     const membersWithCredits = await Promise.all(w.members.map(async (m) => {
-      const allocated = creditsByMemberId.get(m.id);
-      const allocatedCredits = !poolHasCredits
+      const row = creditsByMemberId.get(m.id);
+      const remainingCredits = !poolHasCredits
         ? { aiCredits: 0, imageCredits: 0, auditCredits: 0 }
-        : allocated
-          ? { aiCredits: allocated.aiCredits, imageCredits: allocated.imageCredits, auditCredits: allocated.auditCredits }
+        : row
+          ? { aiCredits: row.aiCredits, imageCredits: row.imageCredits, auditCredits: row.auditCredits }
           : { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-      const remainingTotal = sumCreditTotals(allocatedCredits);
+      const remainingTotal = sumCreditTotals(remainingCredits);
       const creditsUsedInPeriodMember = m.userId
         ? await sumCreditsUsedInWorkspaceForUser(m.userId, w.id, periodStart, periodEnd)
         : 0;
       return {
         ...m,
-        allocatedCredits,
-        remainingCredits: allocatedCredits,
+        remainingCredits,
+        allocatedCreditsTotal: remainingTotal + creditsUsedInPeriodMember,
         creditsUsedInPeriod: creditsUsedInPeriodMember,
       };
     }));
+
+    const creditsUsedByMembers = membersWithCredits.reduce(
+      (sum, m) => sum + (m.creditsUsedInPeriod ?? 0),
+      0,
+    );
+    const toMembersTotal = workspaceMembersAllocationTotal(memberRemaining, creditsUsedByMembers);
+    const fundedTotal = workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedInPeriod);
 
     return {
       id: w.id,
@@ -287,8 +295,8 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
       members: membersWithCredits,
       poolCredits: fundedPool,
       unassignedPoolCredits: pool,
-      poolCreditsTotal: sumCreditBalance(fundedPool),
-      memberAllocatedCredits: memberAllocatedInPool,
+      poolCreditsTotal: fundedTotal,
+      memberAllocatedCredits: memberRemainingInPool,
       toMembersTotal,
       creditsUsedInPeriod,
       fundedTotal,
