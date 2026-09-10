@@ -195,15 +195,15 @@ export default function WorkspacesPage() {
   const inWorkspacePoolsTotal = useMemo(() => {
     if (overview?.inWorkspacePoolsTotal != null) return overview.inWorkspacePoolsTotal;
     return overview?.workspaces?.length
-      ? overview.workspaces.reduce((sum, ws) => sum + workspacePoolTotal(ws), 0)
+      ? overview.workspaces.reduce((sum, ws) => sum + poolUnassignedTotal(ws), 0)
       : 0;
   }, [overview]);
 
   const workspacePoolsBreakdown = useMemo(() => {
     if (!overview?.workspaces?.length) return "";
     const parts = overview.workspaces
-      .filter((ws) => workspacePoolTotal(ws) > 0)
-      .map((ws) => `${ws.name} ${workspacePoolTotal(ws).toLocaleString()}`);
+      .filter((ws) => poolUnassignedTotal(ws) > 0)
+      .map((ws) => `${ws.name} ${poolUnassignedTotal(ws).toLocaleString()}`);
     return parts.join(" + ");
   }, [overview]);
 
@@ -214,18 +214,6 @@ export default function WorkspacesPage() {
       Math.max(0, parseInt(poolForm.imageCredits, 10) || 0)
     );
   }, [poolForm]);
-
-  const accountCreditsTotal = useMemo(() => {
-    if (overview?.accountCreditsTotal != null) return overview.accountCreditsTotal;
-    return accountUnallocatedTotal + inWorkspacePoolsTotal;
-  }, [overview, accountUnallocatedTotal, inWorkspacePoolsTotal]);
-
-  const accountUsedInPeriod = overview?.accountUsedInPeriod ?? 0;
-
-  const accountBalancePlusUsed = useMemo(() => {
-    if (overview?.accountBalancePlusUsed != null) return overview.accountBalancePlusUsed;
-    return accountCreditsTotal + accountUsedInPeriod;
-  }, [overview, accountCreditsTotal, accountUsedInPeriod]);
 
   const planDisplayName = overview?.planName ?? sub?.planName ?? "Your plan";
   const billingPeriod = overview?.billingPeriod ?? (
@@ -417,7 +405,7 @@ export default function WorkspacesPage() {
 
       {isAccountOwner && (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
@@ -460,7 +448,7 @@ export default function WorkspacesPage() {
                     ? formatCreditBuckets(overview.availableToFundWorkspaces)
                     : "Available to fund workspaces"}
                   {" · "}
-                  matches top bar unallocated balance
+                  same as top bar unallocated balance
                 </p>
               </CardContent>
             </Card>
@@ -468,7 +456,7 @@ export default function WorkspacesPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
                   <Layers className="w-4 h-4" />
-                  In workspace pools
+                  Unassigned in workspace pools
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -476,36 +464,24 @@ export default function WorkspacesPage() {
                   {overviewLoading ? "—" : inWorkspacePoolsTotal.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  {overview?.inWorkspacePools
-                    ? formatCreditBuckets(overview.inWorkspacePools)
-                    : null}
-                  {overview?.inWorkspacePools && workspacePoolsBreakdown ? " · " : null}
-                  {workspacePoolsBreakdown
-                    ? `${workspacePoolsBreakdown} = ${inWorkspacePoolsTotal.toLocaleString()}`
-                    : `${overview?.totalWorkspaces ?? 0} workspace${overview?.totalWorkspaces === 1 ? "" : "s"}`}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Used this period</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-slate-900">
-                  {overviewLoading ? "—" : accountUsedInPeriod.toLocaleString()}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  In account + workspaces this period
-                  <br />
-                  Total in account: {accountCreditsTotal.toLocaleString()}
-                  <br />
-                  {accountCreditsTotal.toLocaleString()} remaining + {accountUsedInPeriod.toLocaleString()} used ={" "}
-                  {accountBalancePlusUsed.toLocaleString()}
-                  {planCreditsTotal > 0 && accountBalancePlusUsed === planCreditsTotal
-                    ? " (matches plan)"
-                    : planCreditsTotal > 0
-                      ? ` · plan grants ${planCreditsTotal.toLocaleString()}`
-                      : ""}
+                  Pool balance not yet assigned to members
+                  {overview?.inWorkspacePools ? (
+                    <>
+                      <br />
+                      {formatCreditBuckets(overview.inWorkspacePools)}
+                    </>
+                  ) : null}
+                  {workspacePoolsBreakdown ? (
+                    <>
+                      <br />
+                      {workspacePoolsBreakdown} = {inWorkspacePoolsTotal.toLocaleString()}
+                    </>
+                  ) : !overview?.inWorkspacePools ? (
+                    <>
+                      <br />
+                      {overview?.totalWorkspaces ?? 0} workspace{overview?.totalWorkspaces === 1 ? "" : "s"}
+                    </>
+                  ) : null}
                 </p>
               </CardContent>
             </Card>
