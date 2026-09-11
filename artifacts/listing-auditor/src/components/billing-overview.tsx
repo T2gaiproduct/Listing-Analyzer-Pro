@@ -1,10 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileSearch, Palette, FilePlus2, Video, Megaphone,
-  Info, CheckCircle2, ArrowUp, ChevronDown,
+  Info, CheckCircle2, ArrowUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -199,8 +199,6 @@ const AVATAR_COLORS = [
   "bg-amber-500",
 ];
 
-type PeriodFilter = "this_month" | "billing_period";
-
 function sumCredits(c: Credits): number {
   return c.aiCredits + c.imageCredits + c.auditCredits;
 }
@@ -345,7 +343,6 @@ export function BillingOverview({
   paymentSection,
 }: BillingOverviewProps) {
   const { user } = useUser();
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("billing_period");
 
   const { data: creditRules = [] } = useQuery<CreditRule[]>({
     queryKey: ["credit-rules"],
@@ -383,9 +380,6 @@ export function BillingOverview({
   const periodStart = sub.currentPeriodStart ? new Date(sub.currentPeriodStart) : startOfMonth(new Date());
   const periodEnd = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : endOfMonth(new Date());
 
-  const filterStart = periodFilter === "this_month" ? startOfMonth(new Date()) : periodStart;
-  const filterEnd = periodFilter === "this_month" ? endOfMonth(new Date()) : periodEnd;
-
   const transactions = creditUsage?.transactions ?? [];
 
   const usedInPeriod = useMemo(
@@ -404,12 +398,12 @@ export function BillingOverview({
     return SERVICE_CONFIG.map((svc) => {
       const cost = serviceDisplayCost(svc, ruleCost);
       const spent = svc.id === "audit"
-        ? auditListingCreditsUsed(transactions, filterStart, filterEnd, cost)
-        : spentInRange(transactions, filterStart, filterEnd, svc.featureTypes);
+        ? auditListingCreditsUsed(transactions, periodStart, periodEnd, cost)
+        : spentInRange(transactions, periodStart, periodEnd, svc.featureTypes);
       const metrics = planUsageMetrics(spent, totalCreditsPool);
       return { ...svc, spent, ...metrics, cost };
     });
-  }, [transactions, filterStart, filterEnd, creditRules, totalCreditsPool]);
+  }, [transactions, periodStart, periodEnd, creditRules, totalCreditsPool]);
 
   const displayName = user?.fullName ?? user?.firstName ?? "You";
 
@@ -567,24 +561,11 @@ export function BillingOverview({
 
       {/* Credit usage breakdown */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
-            <p className="text-sm text-slate-500 mt-0.5">
-              See how your credits are being used across different services. Percentages are of your total available credits ({totalCreditsPool.toLocaleString()} credits).
-            </p>
-          </div>
-          <div className="relative">
-            <select
-              value={periodFilter}
-              onChange={(e) => setPeriodFilter(e.target.value as PeriodFilter)}
-              className="appearance-none h-9 pl-3 pr-8 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200"
-            >
-              <option value="billing_period">Billing Period</option>
-              <option value="this_month">This Month</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+        <div className="mb-5">
+          <h3 className="text-base font-bold text-slate-900">Credit usage breakdown</h3>
+          <p className="text-sm text-slate-500 mt-0.5">
+            See how your credits are being used across different services this billing period. Percentages are of your total available credits ({totalCreditsPool.toLocaleString()} credits).
+          </p>
         </div>
 
         <div className="space-y-5">
