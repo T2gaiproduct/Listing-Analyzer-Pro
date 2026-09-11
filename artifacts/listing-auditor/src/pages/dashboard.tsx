@@ -693,13 +693,9 @@ export default function Dashboard() {
                 ? creditsAllowance > 0
                   ? `of ${creditsAllowance.toLocaleString()} assigned to this workspace`
                   : `No credits assigned — fund on ${WORKSPACES_HUB_LABEL}`
-                : showAgencyAccountOverview || dashboard.viewMode === "account"
-                  ? creditsAllowance > 0
-                    ? `Across account & workspaces · plan ${creditsAllowance.toLocaleString()}`
-                    : "Across your account and workspaces"
-                  : (stats.teamCreditsUsedInPeriod ?? 0) > 0
-                    ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
-                    : `of ${creditsAllowance.toLocaleString()} credits`
+                : (stats.teamCreditsUsedInPeriod ?? 0) > 0
+                  ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
+                  : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
         />
