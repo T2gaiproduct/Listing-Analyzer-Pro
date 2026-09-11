@@ -16,6 +16,12 @@ import {
 import { publishListingToShopify, type ShopifyPublishMode } from "../lib/shopify-publish.js";
 import { loadAuditForExport } from "../lib/audit-export-loader.js";
 import { resolveMarketplacePublishBaseUrl } from "../lib/resolve-public-base-url.js";
+import {
+  clearShopifyAccessTokenCache,
+  fetchShopifyCustomCollections,
+  getShopifyAccessToken,
+  parseShopifyShopHost,
+} from "../lib/shopify-admin-client.js";
 
 const router: IRouter = Router();
 
@@ -38,6 +44,16 @@ function parsePublishMode(raw: unknown): ShopifyPublishMode {
   return raw === "live" ? "live" : "draft";
 }
 
+function parseShopifyCollectionGids(body: unknown): string[] {
+  if (!body || typeof body !== "object") return [];
+  const raw = (body as { shopifyCollectionGids?: unknown }).shopifyCollectionGids;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 router.get("/shopify/status", requireAuth, resolveTeamAndWorkspace, async (req: Request, res: Response): Promise<void> => {
   const workspaceId = getActiveWorkspaceId(req);
   const [connection, connectionWithSecret] = await Promise.all([
@@ -53,6 +69,54 @@ router.get("/shopify/status", requireAuth, resolveTeamAndWorkspace, async (req: 
     connectedAt: connection?.connectedAt ?? null,
   });
 });
+
+router.get(
+  "/shopify/collections",
+  requireAuth,
+  resolveTeamAndWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = getActiveWorkspaceId(req);
+    const connection = await getShopifyConnection(workspaceId);
+    if (!connection) {
+      res.status(400).json({ error: "Connect your Shopify store on the Marketplaces page first." });
+      return;
+    }
+    if (!isShopifyPublishReady(connection)) {
+      res.status(400).json({
+        error: "Add your Shopify Client ID and Client secret on the Marketplaces page to load collections.",
+      });
+      return;
+    }
+
+    const shopHost = parseShopifyShopHost(connection.storeUrl);
+    try {
+      let accessToken = await getShopifyAccessToken({
+        shopHost,
+        clientId: connection.clientId,
+        clientSecret: connection.clientSecret,
+      });
+      try {
+        const collections = await fetchShopifyCustomCollections({ shopHost, accessToken });
+        res.json({ collections });
+        return;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!/unauthorized|invalid/i.test(message)) throw err;
+        clearShopifyAccessTokenCache({ shopHost, clientId: connection.clientId });
+        accessToken = await getShopifyAccessToken({
+          shopHost,
+          clientId: connection.clientId,
+          clientSecret: connection.clientSecret,
+        });
+        const collections = await fetchShopifyCustomCollections({ shopHost, accessToken });
+        res.json({ collections });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load Shopify collections";
+      res.status(400).json({ error: message });
+    }
+  },
+);
 
 router.post(
   "/audits/:id/publish/shopify",
@@ -85,7 +149,16 @@ router.post(
       return;
     }
 
-    const publishMode = parsePublishMode((req.body as { publishMode?: string })?.publishMode);
+    const body = req.body as {
+      publishMode?: string;
+      shopifyCollectionGids?: string[];
+      shopifyCollectionTitles?: Record<string, string>;
+    };
+    const publishMode = parsePublishMode(body?.publishMode);
+    const shopifyCollectionGids = parseShopifyCollectionGids(body);
+    const shopifyCollectionTitles = body?.shopifyCollectionTitles && typeof body.shopifyCollectionTitles === "object"
+      ? body.shopifyCollectionTitles
+      : undefined;
     const graphicsImageRecords = (loaded.graphicsProject?.imageRecords as ImageRecord[] | null) ?? undefined;
     const graphicsProjectId = loaded.graphicsProject?.id ?? null;
 
@@ -97,6 +170,8 @@ router.post(
         graphicsProjectId,
         publicBaseUrl: resolveMarketplacePublishBaseUrl(req),
         publishMode,
+        shopifyCollectionGids,
+        shopifyCollectionTitles,
       });
 
       res.json({
@@ -108,6 +183,7 @@ router.post(
         status: result.status,
         created: result.created,
         warning: result.warning,
+        collectionsAssigned: result.collectionsAssigned,
         message: result.warning
           ? "Product updated in Shopify."
           : publishMode === "live"

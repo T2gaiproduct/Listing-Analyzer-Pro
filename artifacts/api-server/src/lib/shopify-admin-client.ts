@@ -522,6 +522,101 @@ export function shopifyProductGid(productId: number): string {
   return `gid://shopify/Product/${productId}`;
 }
 
+export type ShopifyCollectionOption = {
+  id: string;
+  title: string;
+  handle: string;
+};
+
+/** Manual (custom) collections — products can be added via collectionAddProducts. */
+export async function fetchShopifyCustomCollections(opts: {
+  shopHost: string;
+  accessToken: string;
+  limit?: number;
+}): Promise<ShopifyCollectionOption[]> {
+  const limit = Math.min(250, Math.max(1, opts.limit ?? 100));
+  const data = await shopifyAdminGraphqlRequest<{
+    collections: {
+      nodes: Array<{ id: string; title: string; handle: string }>;
+    };
+  }>({
+    shopHost: opts.shopHost,
+    accessToken: opts.accessToken,
+    query: `
+      query ShopifyCustomCollections($first: Int!) {
+        collections(first: $first, query: "collection_type:custom") {
+          nodes {
+            id
+            title
+            handle
+          }
+        }
+      }
+    `,
+    variables: { first: limit },
+  });
+
+  return (data.collections?.nodes ?? [])
+    .filter((node) => node.id && node.title)
+    .map((node) => ({
+      id: node.id,
+      title: node.title,
+      handle: node.handle,
+    }));
+}
+
+export async function addProductToShopifyCollections(opts: {
+  shopHost: string;
+  accessToken: string;
+  productGid: string;
+  collectionGids: string[];
+}): Promise<{ assigned: string[]; warnings: string[] }> {
+  const assigned: string[] = [];
+  const warnings: string[] = [];
+  const uniqueIds = [...new Set(opts.collectionGids.map((id) => id.trim()).filter(Boolean))];
+
+  for (const collectionId of uniqueIds) {
+    try {
+      const data = await shopifyAdminGraphqlRequest<{
+        collectionAddProducts: {
+          userErrors: Array<{ field?: string[] | null; message: string }>;
+        };
+      }>({
+        shopHost: opts.shopHost,
+        accessToken: opts.accessToken,
+        query: `
+          mutation CollectionAddProducts($id: ID!, $productIds: [ID!]!) {
+            collectionAddProducts(id: $id, productIds: $productIds) {
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          id: collectionId,
+          productIds: [opts.productGid],
+        },
+      });
+
+      const userErrors = data.collectionAddProducts?.userErrors ?? [];
+      if (userErrors.length > 0) {
+        warnings.push(
+          `${collectionId}: ${userErrors.map((error) => error.message).join(", ")}`,
+        );
+      } else {
+        assigned.push(collectionId);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      warnings.push(`${collectionId}: ${message}`);
+    }
+  }
+
+  return { assigned, warnings };
+}
+
 export async function fetchShopifyShopCurrency(opts: {
   shopHost: string;
   accessToken: string;

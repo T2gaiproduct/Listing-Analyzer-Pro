@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fetchJson, ApiFetchError } from "@/lib/api-fetch";
 import { MarketplaceLogo } from "@/components/marketplace-logos";
-import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
+import { fetchShopifyStatus } from "@/lib/shopify-publish";
+import { ShopifyPublishCollectionsDialog } from "@/components/shopify-publish-collections-dialog";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
 import { useToast } from "@/hooks/use-toast";
@@ -325,6 +326,8 @@ export function ProductMarketplacesTab({
   const queryClient = useQueryClient();
   const sourceQuery = source ? `?source=${encodeURIComponent(source)}` : "";
   const publishAuditId = auditId ?? productId;
+  const [shopifyPublishOpen, setShopifyPublishOpen] = useState(false);
+  const [shopifyPublishing, setShopifyPublishing] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["product-marketplaces", productId, source],
@@ -358,29 +361,6 @@ export function ProductMarketplacesTab({
     void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", productId, source] });
     void queryClient.invalidateQueries({ queryKey: ["product", productId] });
   };
-
-  const publishShopifyMutation = useMutation({
-    mutationFn: (publishMode: "draft" | "live") =>
-      publishAuditToShopify({ auditId: publishAuditId, publishMode }),
-    onSuccess: (result, publishMode) => {
-      invalidateAfterPublish();
-      if (result.warning) {
-        toast({ title: "Published with a warning", description: result.warning, variant: "destructive" });
-        return;
-      }
-      toast({
-        title: publishMode === "live" ? "Published to Shopify" : "Saved to Shopify draft",
-        description: result.message,
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Shopify publish failed",
-        description: error instanceof Error ? error.message : "Could not publish to Shopify.",
-        variant: "destructive",
-      });
-    },
-  });
 
   const publishWooCommerceMutation = useMutation({
     mutationFn: (publishMode: "draft" | "live") =>
@@ -466,8 +446,8 @@ export function ProductMarketplacesTab({
       connected: Boolean(shopifyStatus?.connected),
       publishReady: Boolean(shopifyStatus?.publishReady),
       connectHint: "Add Shopify Client ID and secret to publish.",
-      isPublishing: publishShopifyMutation.isPending,
-      onPublishLive: () => publishShopifyMutation.mutate("live"),
+      isPublishing: shopifyPublishing,
+      onPublishLive: () => setShopifyPublishOpen(true),
     },
     WooCommerce: {
       connected: Boolean(woocommerceStatus?.connected),
@@ -516,6 +496,36 @@ export function ProductMarketplacesTab({
           );
         })}
       </div>
+
+      <ShopifyPublishCollectionsDialog
+        auditId={publishAuditId}
+        open={shopifyPublishOpen}
+        onOpenChange={(open) => {
+          setShopifyPublishOpen(open);
+          if (!open) setShopifyPublishing(false);
+        }}
+        onPublishingChange={setShopifyPublishing}
+        publishMode="live"
+        onPublished={(result) => {
+          setShopifyPublishing(false);
+          invalidateAfterPublish();
+          const collectionNote = result.collectionsAssigned?.length
+            ? ` Added to ${result.collectionsAssigned.map((c) => c.title ?? "collection").join(", ")}.`
+            : "";
+          if (result.warning) {
+            toast({
+              title: "Published with a warning",
+              description: `${result.warning}${collectionNote}`,
+              variant: "destructive",
+            });
+            return;
+          }
+          toast({
+            title: "Published to Shopify",
+            description: `${result.message}${collectionNote}`,
+          });
+        }}
+      />
     </div>
   );
 }

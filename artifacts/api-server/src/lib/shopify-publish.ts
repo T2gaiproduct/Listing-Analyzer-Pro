@@ -9,6 +9,7 @@ import {
   resolvePublishImageUrlsFromAudit,
 } from "./materialize-audit-images-for-publish.js";
 import {
+  addProductToShopifyCollections,
   createShopifyProduct,
   clearShopifyAccessTokenCache,
   findShopifyProductByHandle,
@@ -30,6 +31,7 @@ export type ShopifyPublishResult = {
   status: "live" | "pending";
   created: boolean;
   warning?: string;
+  collectionsAssigned?: Array<{ id: string; title?: string }>;
 };
 
 function shopifyPublicationScopeMessage(): string {
@@ -241,6 +243,9 @@ export async function publishListingToShopify(opts: {
   graphicsProjectId?: number | null;
   publicBaseUrl?: string;
   publishMode?: ShopifyPublishMode;
+  /** Shopify collection GIDs (custom collections only). Amazon/other marketplaces unchanged. */
+  shopifyCollectionGids?: string[];
+  shopifyCollectionTitles?: Record<string, string>;
 }): Promise<ShopifyPublishResult> {
   const publishMode = opts.publishMode ?? "draft";
   const audit = await materializeAuditImagesForPublish(opts.audit);
@@ -341,9 +346,31 @@ export async function publishListingToShopify(opts: {
     created = true;
   }
 
+  const productGid = product.admin_graphql_api_id ?? shopifyProductGid(product.id);
+
+  let collectionWarning: string | undefined;
+  let collectionsAssigned: Array<{ id: string; title?: string }> = [];
+  const collectionGids = (opts.shopifyCollectionGids ?? [])
+    .map((id) => id.trim())
+    .filter(Boolean);
+  if (collectionGids.length > 0) {
+    const collectionResult = await addProductToShopifyCollections({
+      shopHost,
+      accessToken,
+      productGid,
+      collectionGids,
+    });
+    collectionsAssigned = collectionResult.assigned.map((id) => ({
+      id,
+      title: opts.shopifyCollectionTitles?.[id],
+    }));
+    if (collectionResult.warnings.length > 0) {
+      collectionWarning = `Some Shopify collections could not be updated: ${collectionResult.warnings.join("; ")}`;
+    }
+  }
+
   let channelWarning: string | undefined;
   if (publishMode === "live") {
-    const productGid = product.admin_graphql_api_id ?? shopifyProductGid(product.id);
     const channelResult = await tryPublishToOnlineStoreChannel({
       shopHost,
       accessToken,
@@ -353,6 +380,8 @@ export async function publishListingToShopify(opts: {
       channelWarning = channelResult.warning;
     }
   }
+
+  const combinedWarning = [collectionWarning, channelWarning].filter(Boolean).join(" ") || undefined;
 
   const listingUrl = shopifyProductUrl(shopHost, product.handle || handle);
   const listingStatus = publishMode === "live" && !channelWarning ? "live" : "pending";
@@ -408,6 +437,7 @@ export async function publishListingToShopify(opts: {
     listingUrl,
     status: listingStatus,
     created,
-    warning: channelWarning,
+    warning: combinedWarning,
+    collectionsAssigned: collectionsAssigned.length > 0 ? collectionsAssigned : undefined,
   };
 }

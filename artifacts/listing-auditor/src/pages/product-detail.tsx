@@ -31,7 +31,8 @@ import { sanitizeHtmlDescription } from "@/lib/sanitize-html";
 import { normalizeStoreImportProductDetail } from "@/lib/store-import-product-detail";
 import { isShopifyImportAsin } from "@/lib/shopify-import";
 import { isWooCommerceImportAsin } from "@/lib/woocommerce-import";
-import { fetchShopifyStatus, publishAuditToShopify } from "@/lib/shopify-publish";
+import { fetchShopifyStatus } from "@/lib/shopify-publish";
+import { ShopifyPublishCollectionsDialog } from "@/components/shopify-publish-collections-dialog";
 import { fetchWooCommerceStatus, publishAuditToWooCommerce } from "@/lib/woocommerce-publish";
 import { fetchAmazonStatus, publishAuditToAmazon } from "@/lib/amazon-publish";
 import { ScoreBadge, ScoreRing } from "@/components/score-ring";
@@ -1231,6 +1232,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
   const [selectedWorkflowStep, setSelectedWorkflowStep] = useState<ProductExplorerWorkflowStepId>(1);
   const [isSavingWorkflowStep, setIsSavingWorkflowStep] = useState(false);
+  const [shopifyPublishOpen, setShopifyPublishOpen] = useState(false);
+  const [shopifyPublishing, setShopifyPublishing] = useState(false);
   const workflowProductIdRef = useRef<number | null>(null);
 
   const source = useMemo(() => {
@@ -1536,45 +1539,6 @@ export default function ProductDetailPage({ id }: { id: number }) {
     queryFn: fetchAmazonStatus,
     enabled: canPublishToAmazon,
     staleTime: 60_000,
-  });
-
-  const publishShopifyMutation = useMutation({
-    mutationFn: async (publishMode: "draft" | "live") => {
-      const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
-      return publishAuditToShopify({ auditId, publishMode });
-    },
-    onSuccess: (result, publishMode) => {
-      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
-      void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
-      if (result.warning) {
-        toast({
-          title: "Published with a warning",
-          description: result.warning,
-          variant: "destructive",
-        });
-        return;
-      }
-      toast({
-        title: publishMode === "live" ? "Published to Shopify" : "Saved to Shopify draft",
-        description: publishMode === "live"
-          ? result.listingUrl
-            ? "Your listing is live on your Shopify Online Store."
-            : result.message
-          : result.message,
-      });
-    },
-    onError: (error) => {
-      const description = error instanceof ApiFetchError && error.status === 401
-        ? "Your session expired or the server could not verify your login. Sign in again and retry."
-        : error instanceof Error
-          ? error.message
-          : "Could not publish to Shopify.";
-      toast({
-        title: "Publish failed",
-        description,
-        variant: "destructive",
-      });
-    },
   });
 
   const publishWooCommerceMutation = useMutation({
@@ -2064,7 +2028,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
           if (product?.isWooCommerceImport) {
             publishWooCommerceMutation.mutate("live");
           } else {
-            publishShopifyMutation.mutate("live");
+            setShopifyPublishOpen(true);
           }
         },
       });
@@ -2074,7 +2038,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       publishWooCommerceMutation.mutate("live");
       return;
     }
-    publishShopifyMutation.mutate("live");
+    setShopifyPublishOpen(true);
   }
 
   function handlePublishToStore() {
@@ -2201,7 +2165,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const showBuildBrandWorkflow = resolvedSource === "listing" || resolvedSource === "audit";
 
   const canPublishToStore = Boolean(isStoreImportProduct(product) && canEditProduct);
-  const isPublishingToStore = publishShopifyMutation.isPending
+  const isPublishingToStore = shopifyPublishing
     || publishWooCommerceMutation.isPending
     || syncToStoreMutation.isPending;
   const isPublishingToAmazon = publishAmazonMutation.isPending;
@@ -2666,6 +2630,38 @@ export default function ProductDetailPage({ id }: { id: number }) {
         <ArrowLeft className="w-3 h-3" />
         Back to Product Explorer
       </button>
+
+      <ShopifyPublishCollectionsDialog
+        auditId={optimizeAuditId ?? product?.statsAuditId ?? id}
+        open={shopifyPublishOpen}
+        onOpenChange={(open) => {
+          setShopifyPublishOpen(open);
+          if (!open) setShopifyPublishing(false);
+        }}
+        onPublishingChange={setShopifyPublishing}
+        publishMode="live"
+        onPublished={(result) => {
+          void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+          void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
+          const collectionNote = result.collectionsAssigned?.length
+            ? ` Added to ${result.collectionsAssigned.map((c) => c.title ?? "collection").join(", ")}.`
+            : "";
+          if (result.warning) {
+            toast({
+              title: "Published with a warning",
+              description: `${result.warning}${collectionNote}`,
+              variant: "destructive",
+            });
+            return;
+          }
+          toast({
+            title: "Published to Shopify",
+            description: result.listingUrl
+              ? `Your listing is live on your Shopify Online Store.${collectionNote}`
+              : `${result.message}${collectionNote}`,
+          });
+        }}
+      />
     </div>
   );
 }
