@@ -50,6 +50,8 @@ import {
   getWorkspaceMemberCredits,
   sumAllocatedMemberCreditsForWorkspace,
   workspaceFundedPoolTotal,
+  computeAccountCreditSummary,
+  sumWorkspaceCreditsHeldForOwner,
 } from "../lib/workspace-credits.js";
 import { resolvePlanCreditPools } from "../lib/plan-credits";
 import { WORKSPACE_HEADER } from "../lib/workspace-context";
@@ -460,16 +462,19 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
   let creditsAllowance: number;
   let creditScope: "member" | "workspace_pool" | "account" = "account";
 
-  // Account overview: unallocated account credits and stats across all workspaces.
+  // Account overview: total credits (on account + in workspaces); stats across all workspaces.
   if (accountOverview) {
     creditScope = "account";
-    displayCredits = ownerCredits[0]
+    const ownerRow = ownerCredits[0]
       ? {
           aiCredits: ownerCredits[0].aiCredits,
           imageCredits: ownerCredits[0].imageCredits,
           auditCredits: ownerCredits[0].auditCredits,
         }
       : zeroCredits;
+    const inWorkspacePools = await sumWorkspaceCreditsHeldForOwner(ownerId);
+    const accountSummary = computeAccountCreditSummary(ownerRow, inWorkspacePools);
+    displayCredits = accountSummary.accountTotalBuckets;
     const alloc = (subRow?.creditAllocations ?? {}) as Record<string, number>;
     if (Object.keys(alloc).length > 0) {
       const pools = await resolvePlanCreditPools({
@@ -485,8 +490,7 @@ router.get("/dashboard", requireAuth, resolveTeamAndDashboardScope, async (req: 
         + (subRow?.planImageCredits ?? 0);
     }
     if (creditsAllowance <= 0) {
-      creditsAllowance =
-        displayCredits.auditCredits + displayCredits.aiCredits + displayCredits.imageCredits;
+      creditsAllowance = accountSummary.accountTotal;
     }
   } else if (workspaceId && wsCtx.isAccountOwner) {
     creditScope = "workspace_pool";
