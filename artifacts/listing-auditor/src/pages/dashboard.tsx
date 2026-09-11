@@ -629,7 +629,7 @@ export default function Dashboard() {
       </div>
 
       {/* Top stats row */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4 2xl:gap-6">
         <StatCard
           title="Projects Saved"
           value={stats.projectsSaved}
@@ -702,9 +702,9 @@ export default function Dashboard() {
       </div>
 
       {/* Main two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 2xl:grid-cols-12 gap-4 sm:gap-6 2xl:gap-8">
         {/* Left column */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="lg:col-span-2 2xl:col-span-8 space-y-4 sm:space-y-6">
           {/* Recent projects */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 gap-2">
@@ -761,7 +761,7 @@ export default function Dashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-4 sm:space-y-6">
+        <div className="lg:col-span-1 2xl:col-span-4 space-y-4 sm:space-y-6">
           {/* Credits donut */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
             <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Credits Usage</h2>
@@ -798,7 +798,7 @@ export default function Dashboard() {
           {/* Quick actions */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
             <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 sm:mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 2xl:grid-cols-2 gap-2 sm:gap-3">
               {quickActions.map((action) => {
                 const Icon = QUICK_ACTION_ICONS[action.icon] ?? FilePlus2;
                 return (

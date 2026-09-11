@@ -255,7 +255,7 @@
   }
 
   .app-content-max {
-    @apply w-full min-w-0 max-w-[1440px] mx-auto;
+    @apply w-full min-w-0 max-w-[1440px] mx-auto 2xl:max-w-none 2xl:mx-0;
   }
 
   .table-responsive {
