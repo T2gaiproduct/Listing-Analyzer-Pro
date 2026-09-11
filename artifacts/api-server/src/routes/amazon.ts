@@ -25,8 +25,10 @@ import { resolveMarketplacePublishBaseUrl, resolvePublicBaseUrl } from "../lib/r
 import {
   getActiveWorkspaceId,
   resolveTeamAndWorkspace,
+  requireWorkspaceAction,
   requireWorkspaceActionAny,
 } from "../lib/workspace-route-helpers.js";
+import { resolveWorkspaceContext, requireWorkspacePerm as checkPerm } from "../lib/workspace-context.js";
 import {
   resolveAmazonConnectionForWorkspace,
   resolveAmazonSettingsForWorkspace,
@@ -61,7 +63,7 @@ router.get("/amazon/status", requireAuth, resolveTeamAndWorkspace, async (req, r
   res.json(status);
 });
 
-router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("amazon", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const workspaceId = getActiveWorkspaceId(req);
   const { settings } = await resolveAmazonSettingsForWorkspace(workspaceId, req);
@@ -84,6 +86,8 @@ router.get("/amazon/oauth/authorize", requireAuth, resolveTeamAndWorkspace, asyn
 });
 
 router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const sessionUserId = auth?.userId;
   const amazonError = typeof req.query.error === "string" ? req.query.error : "";
   if (amazonError) {
     const detail = typeof req.query.error_description === "string"
@@ -100,6 +104,23 @@ router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
   if (!parsed) {
     res.status(400).send("Invalid or expired OAuth state. Please try connecting again.");
     return;
+  }
+
+  if (!sessionUserId || sessionUserId !== parsed.userId) {
+    res.status(403).send("Sign in as the account that started Amazon authorization, then try again.");
+    return;
+  }
+
+  if (parsed.workspaceId) {
+    const ctx = await resolveWorkspaceContext(sessionUserId, parsed.workspaceId);
+    if (!ctx) {
+      res.status(403).send("Workspace not found or access denied.");
+      return;
+    }
+    if (!ctx.isAccountOwner && !checkPerm(ctx, "amazon", "edit")) {
+      res.status(403).send("You do not have permission to connect Amazon for this workspace.");
+      return;
+    }
   }
 
   const code = typeof req.query.spapi_oauth_code === "string"
@@ -165,7 +186,7 @@ router.get("/amazon/oauth/callback", async (req, res): Promise<void> => {
 });
 
 /** Link a seller via Amazon Develop Apps self-authorization (refresh token + seller ID). */
-router.post("/amazon/connection/self-auth", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+router.post("/amazon/connection/self-auth", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("amazon", "edit"), async (req, res): Promise<void> => {
   const workspaceId = getActiveWorkspaceId(req);
   if (!workspaceId) {
     res.status(400).json({ error: "Select a workspace before linking Amazon." });
@@ -216,7 +237,7 @@ router.post("/amazon/connection/self-auth", requireAuth, resolveTeamAndWorkspace
   res.json({ ok: true, connected: true, sellerId });
 });
 
-router.delete("/amazon/connection", requireAuth, resolveTeamAndWorkspace, async (req, res): Promise<void> => {
+router.delete("/amazon/connection", requireAuth, resolveTeamAndWorkspace, requireWorkspaceAction("amazon", "edit"), async (req, res): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const workspaceId = getActiveWorkspaceId(req);
 

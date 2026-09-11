@@ -15,7 +15,7 @@ import { isRefundedDebit, refundedDebitIds, type CreditUsageTx } from "../lib/cr
 import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits, serializePlanForPublic } from "../lib/plan-credits";
 import { resolveAccountOwnerId } from "../lib/workspace-context.js";
-import { sumWorkspacePoolsForOwner, computeAccountCreditSummary } from "../lib/workspace-credits.js";
+import { sumWorkspaceCreditsHeldForOwner, computeAccountCreditSummary } from "../lib/workspace-credits.js";
 import { sumCreditTotals } from "../lib/team-stats.js";
 import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
@@ -589,7 +589,7 @@ router.get("/credits", requireAuth, async (req, res): Promise<void> => {
 
   const accountOwnerId = await resolveAccountOwnerId(userId);
   if (accountOwnerId === userId) {
-    const inWorkspacePools = await sumWorkspacePoolsForOwner(userId);
+    const inWorkspacePools = await sumWorkspaceCreditsHeldForOwner(userId);
     const summary = computeAccountCreditSummary(balances, inWorkspacePools);
     accountCreditSummary = {
       unallocatedTotal: summary.unallocatedTotal,

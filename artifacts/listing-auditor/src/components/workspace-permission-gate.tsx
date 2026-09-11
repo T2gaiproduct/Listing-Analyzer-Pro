@@ -27,9 +27,9 @@ function AccessDenied({ title, description }: { title: string; description: stri
 }
 
 export function WorkspacePermissionGate({ path, requireCreate, children }: WorkspacePermissionGateProps) {
-  const { isAccountOwner, isLoading, can, canView } = useWorkspace();
+  const { isWorkspaceAccountOwner, isBillingAccountOwner, isLoading, can, canView } = useWorkspace();
 
-  if (isLoading && !isAccountOwner) {
+  if (isLoading && !isWorkspaceAccountOwner && !isBillingAccountOwner) {
     return (
       <div className="space-y-4 p-6">
         <Skeleton className="h-10 w-64" />
@@ -38,7 +38,7 @@ export function WorkspacePermissionGate({ path, requireCreate, children }: Works
     );
   }
 
-  if (!canViewPath(path, isAccountOwner, canView, can)) {
+  if (!canViewPath(path, isWorkspaceAccountOwner, isBillingAccountOwner, canView, can)) {
     return (
       <AccessDenied
         title="Access restricted"
@@ -47,7 +47,7 @@ export function WorkspacePermissionGate({ path, requireCreate, children }: Works
     );
   }
 
-  if (requireCreate && !canCreateForPath(path, isAccountOwner, can)) {
+  if (requireCreate && !canCreateForPath(path, isWorkspaceAccountOwner, can)) {
     return (
       <AccessDenied
         title="Create not allowed"
@@ -68,8 +68,8 @@ interface WorkspaceFeatureGateProps {
 
 /** Gate inline UI (not full routes) by one or more feature permissions. */
 export function WorkspaceFeatureGate({ feature, action, anyOf, children }: WorkspaceFeatureGateProps) {
-  const { isAccountOwner, can } = useWorkspace();
-  if (isAccountOwner) return <>{children}</>;
+  const { isWorkspaceAccountOwner, can } = useWorkspace();
+  if (isWorkspaceAccountOwner) return <>{children}</>;
 
   if (anyOf?.length) {
     const allowed = anyOf.some((row) =>

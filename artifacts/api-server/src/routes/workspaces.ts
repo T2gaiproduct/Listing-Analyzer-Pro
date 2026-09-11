@@ -43,6 +43,8 @@ import {
   sumAllocatedMemberCreditsForWorkspace,
   getWorkspaceMemberCredits,
   sumWorkspacePoolsForOwner,
+  sumWorkspaceCreditsHeldForOwner,
+  reclaimWorkspaceMemberCreditsToPool,
   poolAvailableForMembers,
   workspacePoolFundedTotals,
   reconcileGrossWorkspacePool,
@@ -97,7 +99,7 @@ async function requireWorkspaceAccess(req: Request, res: Response, next: NextFun
     return;
   }
   const ctx = await resolveWorkspaceContext(userId, workspaceId);
-  if (!ctx) {
+  if (!ctx || ctx.workspaceId !== workspaceId) {
     res.status(403).json({ error: "Workspace not found or access denied" });
     return;
   }
@@ -144,7 +146,7 @@ router.get("/workspaces/overview", requireAuth, async (req, res): Promise<void> 
   await ensureSubscriptionCredits(accountOwnerId);
   const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, accountOwnerId));
   const ownerCreditsRaw = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const inWorkspacePools = await sumWorkspacePoolsForOwner(accountOwnerId);
+  const inWorkspacePools = await sumWorkspaceCreditsHeldForOwner(accountOwnerId);
   const accountCreditSummary = computeAccountCreditSummary(ownerCreditsRaw, inWorkspacePools);
   const ownerCredits = accountCreditSummary.unallocated;
   // Account balance already excludes credits moved into workspace pools.
@@ -428,7 +430,7 @@ router.patch("/workspaces/:id/credits", requireAuth, requireWorkspaceAccess, asy
       imageCredits ?? 0,
       auditCredits ?? 0,
     );
-    const inPools = await sumWorkspacePoolsForOwner(ctx.accountOwnerId);
+    const inPools = await sumWorkspaceCreditsHeldForOwner(ctx.accountOwnerId);
     res.json({
       workspaceCredits: result.workspaceCredits,
       accountCredits: result.accountCredits,
@@ -1061,6 +1063,14 @@ router.delete("/workspaces/:workspaceId/members/:memberId", requireAuth, require
   }
   if (existing.userId && existing.userId === workspace.accountOwnerId) {
     res.status(400).json({ error: "Cannot remove the workspace owner" });
+    return;
+  }
+
+  try {
+    await reclaimWorkspaceMemberCreditsToPool(memberId, ctx.workspaceId);
+  } catch (err) {
+    console.error("[workspaces] reclaim member credits failed", err);
+    res.status(500).json({ error: "Failed to reclaim member credits" });
     return;
   }
 

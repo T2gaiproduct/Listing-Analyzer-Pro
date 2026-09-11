@@ -102,30 +102,14 @@ export function computeAccountCreditSummary(
   const row = normalizeCreditTotals(accountRow);
   const pools = normalizeCreditTotals(inWorkspacePools);
   const inPoolsTotal = sumCreditBalance(pools);
-  const rowSum = sumCreditBalance(row);
 
-  const subtractUnallocated: CreditTotals = {
-    aiCredits: Math.max(0, row.aiCredits - pools.aiCredits),
-    imageCredits: Math.max(0, row.imageCredits - pools.imageCredits),
-    auditCredits: Math.max(0, row.auditCredits - pools.auditCredits),
+  // Owner `credits` row stores unallocated balance (net of workspace pool funding).
+  const unallocated = { ...row };
+  const accountTotalBuckets: CreditTotals = {
+    aiCredits: row.aiCredits + pools.aiCredits,
+    imageCredits: row.imageCredits + pools.imageCredits,
+    auditCredits: row.auditCredits + pools.auditCredits,
   };
-  const subtractSum = sumCreditBalance(subtractUnallocated);
-
-  let accountTotalBuckets: CreditTotals;
-  let unallocated: CreditTotals;
-
-  // Row stores full account total when subtracting pools reproduces the row sum.
-  if (inPoolsTotal > 0 && subtractSum + inPoolsTotal === rowSum) {
-    accountTotalBuckets = { ...row };
-    unallocated = subtractUnallocated;
-  } else {
-    accountTotalBuckets = {
-      aiCredits: row.aiCredits + pools.aiCredits,
-      imageCredits: row.imageCredits + pools.imageCredits,
-      auditCredits: row.auditCredits + pools.auditCredits,
-    };
-    unallocated = { ...row };
-  }
 
   const accountTotal = sumCreditBalance(accountTotalBuckets);
   const unallocatedTotal = sumCreditBalance(unallocated);
@@ -224,6 +208,48 @@ export async function sumWorkspacePoolsForOwner(accountOwnerId: string): Promise
     }),
     { ...ZERO },
   );
+}
+
+/** Unassigned pools plus member allocation balances across active workspaces. */
+export async function sumWorkspaceCreditsHeldForOwner(accountOwnerId: string): Promise<CreditTotals> {
+  const workspaces = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 0)));
+  if (workspaces.length === 0) return { ...ZERO };
+  const ids = workspaces.map((w) => w.id);
+
+  const poolRows = await db
+    .select()
+    .from(workspaceCreditsTable)
+    .where(inArray(workspaceCreditsTable.workspaceId, ids));
+  const poolTotals = poolRows.reduce(
+    (acc, row) => ({
+      aiCredits: acc.aiCredits + row.aiCredits,
+      imageCredits: acc.imageCredits + row.imageCredits,
+      auditCredits: acc.auditCredits + row.auditCredits,
+    }),
+    { ...ZERO },
+  );
+
+  const memberRows = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(inArray(memberCreditsTable.workspaceId, ids));
+  const memberTotals = memberRows.reduce(
+    (acc, row) => ({
+      aiCredits: acc.aiCredits + row.aiCredits,
+      imageCredits: acc.imageCredits + row.imageCredits,
+      auditCredits: acc.auditCredits + row.auditCredits,
+    }),
+    { ...ZERO },
+  );
+
+  return {
+    aiCredits: poolTotals.aiCredits + memberTotals.aiCredits,
+    imageCredits: poolTotals.imageCredits + memberTotals.imageCredits,
+    auditCredits: poolTotals.auditCredits + memberTotals.auditCredits,
+  };
 }
 
 export async function sumAllocatedMemberCreditsForWorkspace(
@@ -606,6 +632,46 @@ export async function setWorkspaceMemberCredits(
   }
 
   return { aiCredits: ai, imageCredits: img, auditCredits: audit };
+}
+
+/** Return a removed member's remaining allocation to the workspace unassigned pool. */
+export async function reclaimWorkspaceMemberCreditsToPool(
+  workspaceMemberId: number,
+  workspaceId: number,
+): Promise<CreditTotals> {
+  const [memberRow] = await db
+    .select()
+    .from(memberCreditsTable)
+    .where(eq(memberCreditsTable.workspaceMemberId, workspaceMemberId));
+  if (!memberRow) return { ...ZERO };
+
+  const reclaim = {
+    aiCredits: memberRow.aiCredits,
+    imageCredits: memberRow.imageCredits,
+    auditCredits: memberRow.auditCredits,
+  };
+  if (sumCreditBalance(reclaim) === 0) return { ...ZERO };
+
+  await ensureWorkspaceCreditsRow(workspaceId);
+  await reconcileGrossWorkspacePool(workspaceId);
+  const pool = await getWorkspaceCredits(workspaceId);
+  const now = new Date();
+
+  await db.update(workspaceCreditsTable)
+    .set({
+      aiCredits: pool.aiCredits + reclaim.aiCredits,
+      imageCredits: pool.imageCredits + reclaim.imageCredits,
+      auditCredits: pool.auditCredits + reclaim.auditCredits,
+      poolIsNet: true,
+      updatedAt: now,
+    })
+    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+
+  await db.update(memberCreditsTable)
+    .set({ aiCredits: 0, imageCredits: 0, auditCredits: 0, updatedAt: now })
+    .where(eq(memberCreditsTable.workspaceMemberId, workspaceMemberId));
+
+  return reclaim;
 }
 
 export async function deductWorkspaceMemberCredits(

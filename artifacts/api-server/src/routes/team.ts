@@ -15,12 +15,15 @@ import {
   shouldSendTeamWelcomeEmailToUser,
 } from "../lib/notification-preferences.js";
 import { getMemberCredits } from "../lib/credits.js";
-import { resolveWorkspaceMemberCreditsForUser } from "../lib/workspace-credits.js";
+import {
+  computeAccountCreditSummary,
+  resolveWorkspaceMemberCreditsForUser,
+  sumWorkspaceCreditsHeldForOwner,
+} from "../lib/workspace-credits.js";
 import { upsertUserProfile } from "../lib/user-profile.js";
 import {
   countAuditActivity,
   getLastActivityAt,
-  sumAllocatedCreditsForOwner,
   sumCreditsUsedInPeriod,
   sumCreditsUsedForWorkspace,
   sumCreditsUsedInWorkspaceForUser,
@@ -89,12 +92,10 @@ router.get("/team", requireAuth, async (req, res): Promise<void> => {
 
   const [ownerCreditsRow] = await db.select().from(creditsTable).where(eq(creditsTable.userId, userId));
   const ownerCredits = ownerCreditsRow ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
-  const totalAllocated = await sumAllocatedCreditsForOwner(userId);
-  const availableToAllocate = {
-    aiCredits: Math.max(0, ownerCredits.aiCredits - totalAllocated.aiCredits),
-    imageCredits: Math.max(0, ownerCredits.imageCredits - totalAllocated.imageCredits),
-    auditCredits: Math.max(0, ownerCredits.auditCredits - totalAllocated.auditCredits),
-  };
+  const inWorkspacePools = await sumWorkspaceCreditsHeldForOwner(userId);
+  const accountCreditSummary = computeAccountCreditSummary(ownerCredits, inWorkspacePools);
+  const availableToAllocate = accountCreditSummary.unallocated;
+  const totalAllocated = inWorkspacePools;
 
   const members = await db.select()
     .from(teamMembersTable)

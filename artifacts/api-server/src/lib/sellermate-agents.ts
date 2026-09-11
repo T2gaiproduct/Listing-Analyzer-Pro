@@ -327,6 +327,24 @@ export async function listSellermateMessages(threadId: number) {
     .orderBy(asc(sellermateMessagesTable.createdAt));
 }
 
+export async function getSellermateThreadForWorkspace(
+  threadId: number,
+  workspaceId: number,
+  userId: string,
+) {
+  const [thread] = await db
+    .select()
+    .from(sellermateThreadsTable)
+    .where(and(
+      eq(sellermateThreadsTable.id, threadId),
+      eq(sellermateThreadsTable.workspaceId, workspaceId),
+      eq(sellermateThreadsTable.userId, userId),
+      eq(sellermateThreadsTable.isDeleted, 0),
+    ))
+    .limit(1);
+  return thread ?? null;
+}
+
 async function sendNativeSellermateMessage(input: {
   agent: SellermateAgent;
   workspaceId: number;

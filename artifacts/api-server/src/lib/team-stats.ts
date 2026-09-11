@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db, creditTransactionsTable, workspacesTable } from "@workspace/db";
-import { sumWorkspacePoolsForOwner } from "./workspace-credits.js";
+import { sumWorkspaceCreditsHeldForOwner } from "./workspace-credits.js";
 
 export interface CreditTotals {
   aiCredits: number;
@@ -188,6 +188,6 @@ export async function getLastActivityAt(userId: string): Promise<Date | null> {
   return row?.createdAt ?? null;
 }
 
-export async function sumAllocatedCreditsForOwner(ownerUserId: string, excludeMemberId?: number): Promise<CreditTotals> {
-  return sumWorkspacePoolsForOwner(ownerUserId);
+export async function sumAllocatedCreditsForOwner(ownerUserId: string, _excludeMemberId?: number): Promise<CreditTotals> {
+  return sumWorkspaceCreditsHeldForOwner(ownerUserId);
 }

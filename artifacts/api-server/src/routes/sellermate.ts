@@ -14,6 +14,7 @@ import {
   listSellermateAgents,
   listSellermateMemory,
   listSellermateMessages,
+  getSellermateThreadForWorkspace,
   listSellermateThreads,
   sendSellermateMessage,
   updateSellermateAgent,
@@ -261,6 +262,18 @@ router.get(
     const threadId = Number(req.params.threadId);
     if (!Number.isFinite(threadId)) {
       res.status(400).json({ error: "Invalid thread." });
+      return;
+    }
+
+    const workspaceId = getActiveWorkspaceId(req);
+    const userId = (req as AuthedRequest).userId;
+    if (!workspaceId) {
+      res.status(400).json({ error: "Select a workspace." });
+      return;
+    }
+    const thread = await getSellermateThreadForWorkspace(threadId, workspaceId, userId);
+    if (!thread) {
+      res.status(404).json({ error: "Thread not found." });
       return;
     }
 

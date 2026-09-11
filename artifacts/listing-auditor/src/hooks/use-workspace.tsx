@@ -10,6 +10,7 @@ import {
   type WorkspaceRolePermissions,
 } from "@workspace/workspace-permissions";
 import { fetchJson } from "@/lib/api-fetch";
+import { refetchCreditQueries } from "@/lib/credit-queries";
 import { setActiveWorkspaceId } from "@/lib/workspace-header";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -341,6 +342,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void qc.invalidateQueries({ queryKey: ["search-projects"] });
     void qc.invalidateQueries({ queryKey: ["workspace-member-credits"] });
     void qc.removeQueries({ queryKey: ["workspace-permissions"], exact: false });
+    void refetchCreditQueries(qc);
   }, [qc, selectedId, agencyAccountOverview]);
 
   const value = useMemo<WorkspaceContextValue>(() => ({
@@ -360,7 +362,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     canView,
     canEdit,
     canDelete,
-    canManageWorkspaces: isAccountOwner || can("workspaces", "viewGlobal"),
+    canManageWorkspaces: isWorkspaceAccountOwner || can("workspaces", "viewGlobal"),
     isWorkspaceApiScopeActive: workspaceApiScopeActive,
     needsWorkspaceSelection,
     isBillingAccountOwner,

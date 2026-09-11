@@ -237,13 +237,7 @@ export async function resolveWorkspaceContext(
     .limit(1);
 
   if (!workspace) {
-    // Client may still send a deleted/stale workspace id (e.g. right after delete).
-    if (explicitWorkspaceId) {
-      const defaultId = await getDefaultWorkspaceId(accountOwnerId);
-      if (defaultId && defaultId !== workspaceId) {
-        return resolveWorkspaceContext(userId, defaultId);
-      }
-    }
+    // Explicit id (URL or x-workspace-id) must not fall back to another workspace — prevents wrong-workspace mutations.
     return null;
   }
 

@@ -32,14 +32,17 @@ export function viewFeatureForPath(path: string): WorkspaceFeature | null {
 
 export function canViewPath(
   path: string,
-  isAccountOwner: boolean,
+  isWorkspaceAccountOwner: boolean,
+  isBillingAccountOwner: boolean,
   canView: CanViewFn,
   can: CanFn,
 ): boolean {
-  if (isAccountOwner) return true;
+  if (isWorkspaceAccountOwner) return true;
   const p = path.split("?")[0] ?? path;
   if (p === "/" || p === "/dashboard") return true;
   if (p === "/roles") return false;
+
+  if (p === "/billing" && isBillingAccountOwner) return true;
 
   if (p === "/team") return can("team", "viewGlobal");
   if (p === "/workspaces" || p.startsWith("/workspaces/")) return canView("workspaces");
@@ -62,10 +65,10 @@ export function canViewPath(
 
 export function canCreateForPath(
   path: string,
-  isAccountOwner: boolean,
+  isWorkspaceAccountOwner: boolean,
   can: CanFn,
 ): boolean {
-  if (isAccountOwner) return true;
+  if (isWorkspaceAccountOwner) return true;
   const p = path.split("?")[0] ?? path;
   if (p === "/audits/new" || p === "/audits/workflow") {
     return can("build_brand", "create") || can("audits", "create");
