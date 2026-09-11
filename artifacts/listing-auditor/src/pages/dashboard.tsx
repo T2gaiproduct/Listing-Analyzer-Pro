@@ -25,8 +25,6 @@ import {
   Megaphone,
   LayoutGrid,
   Zap,
-  LineChart,
-  CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -537,7 +535,7 @@ export default function Dashboard() {
     ?? user?.firstName
     ?? user?.fullName?.split(" ")[0]
     ?? "there";
-  const { stats, impact, recentProjects, quickActions } = dashboard;
+  const { stats, recentProjects, quickActions } = dashboard;
   const auditsTrendPositive = stats.auditsWeekOverWeekPct >= 0;
 
   const memberPool = memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 };
@@ -707,73 +705,6 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-          {/* Impact card */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-sm sm:text-base font-semibold text-slate-900">Your Impact This Week</h2>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">You&apos;re doing great! Here&apos;s the value you&apos;ve created.</p>
-                <ul className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
-                  <li className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">
-                        {impact.isMemberView ? "Projects This Week" : "Listings Optimized"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {impact.isMemberView
-                          ? "Projects you started or worked on"
-                          : "Improve visibility and ranking"}
-                      </p>
-                    </div>
-                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">
-                      {impact.isMemberView
-                        ? (impact.projectsWorkedThisWeek ?? impact.listingsOptimized)
-                        : impact.listingsOptimized}
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">
-                        {impact.isMemberView ? "Audit Issues Found" : "Key Issues Identified"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {impact.isMemberView
-                          ? "From audits you ran this week"
-                          : "Fixed or flagged for improvement"}
-                      </p>
-                    </div>
-                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">{impact.issuesIdentified}</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">
-                        {impact.isMemberView ? "Credits Used" : "Time Saved"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {impact.isMemberView ? "This week in this workspace" : "By using SellerLens"}
-                      </p>
-                    </div>
-                    <span className="text-lg sm:text-xl font-bold text-slate-900 shrink-0 ml-2">
-                      {impact.isMemberView
-                        ? (impact.creditsUsedThisWeek ?? stats.creditsUsedThisWeek ?? 0).toLocaleString()
-                        : formatHours(impact.timeSavedHours)}
-                    </span>
-                  </li>
-                </ul>
-              </div>
-              <div className="hidden sm:flex w-40 items-center justify-center">
-                <div className="relative w-32 h-32">
-                  <div className="absolute inset-0 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center">
-                    <LineChart className="w-12 h-12 text-orange-400" />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shadow-md">
-                    <CheckCircle2 className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Recent projects */}
           <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 gap-2">
