@@ -1,4 +1,4 @@
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, gte } from "drizzle-orm";
 import {
   db,
   creditsTable,
@@ -459,36 +459,75 @@ export async function setWorkspaceCreditPool(
   }
 
   const now = new Date();
+
+  await db.transaction(async (tx) => {
+    if (delta.aiCredits > 0 || delta.imageCredits > 0 || delta.auditCredits > 0) {
+      const ownerWhere = and(
+        eq(creditsTable.userId, accountOwnerId),
+        gte(creditsTable.aiCredits, Math.max(0, delta.aiCredits)),
+        gte(creditsTable.imageCredits, Math.max(0, delta.imageCredits)),
+        gte(creditsTable.auditCredits, Math.max(0, delta.auditCredits)),
+      );
+      const newOwner = {
+        aiCredits: ownerBal.aiCredits - delta.aiCredits,
+        imageCredits: ownerBal.imageCredits - delta.imageCredits,
+        auditCredits: ownerBal.auditCredits - delta.auditCredits,
+        updatedAt: now,
+      };
+      if (ownerRow) {
+        const [updated] = await tx.update(creditsTable)
+          .set(newOwner)
+          .where(ownerWhere)
+          .returning({ id: creditsTable.userId });
+        if (!updated) {
+          const err = new Error("Insufficient account credits to fund this workspace pool") as Error & { code?: string };
+          err.code = "INSUFFICIENT_ACCOUNT";
+          throw err;
+        }
+      } else {
+        await tx.insert(creditsTable).values({ userId: accountOwnerId, ...newOwner });
+      }
+    } else if (ownerRow) {
+      await tx.update(creditsTable)
+        .set({
+          aiCredits: ownerBal.aiCredits - delta.aiCredits,
+          imageCredits: ownerBal.imageCredits - delta.imageCredits,
+          auditCredits: ownerBal.auditCredits - delta.auditCredits,
+          updatedAt: now,
+        })
+        .where(eq(creditsTable.userId, accountOwnerId));
+    } else if (delta.aiCredits < 0 || delta.imageCredits < 0 || delta.auditCredits < 0) {
+      await tx.insert(creditsTable).values({
+        userId: accountOwnerId,
+        aiCredits: ownerBal.aiCredits - delta.aiCredits,
+        imageCredits: ownerBal.imageCredits - delta.imageCredits,
+        auditCredits: ownerBal.auditCredits - delta.auditCredits,
+      });
+    }
+
+    await tx.update(workspaceCreditsTable)
+      .set({ aiCredits: ai, imageCredits: img, auditCredits: audit, poolIsNet: true, updatedAt: now })
+      .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+
+    if (delta.aiCredits !== 0 || delta.imageCredits !== 0 || delta.auditCredits !== 0) {
+      await tx.insert(creditTransactionsTable).values({
+        userId: accountOwnerId,
+        creditType: "audit",
+        amount: 0,
+        reason: "Workspace credit pool adjustment",
+        featureType: "workspace_pool_transfer",
+        workspaceId,
+        metadata: { delta, target: { ai, img, audit } },
+        createdAt: now,
+      });
+    }
+  });
+
   const newOwner = {
     aiCredits: ownerBal.aiCredits - delta.aiCredits,
     imageCredits: ownerBal.imageCredits - delta.imageCredits,
     auditCredits: ownerBal.auditCredits - delta.auditCredits,
   };
-
-  if (ownerRow) {
-    await db.update(creditsTable)
-      .set({ ...newOwner, updatedAt: now })
-      .where(eq(creditsTable.userId, accountOwnerId));
-  } else {
-    await db.insert(creditsTable).values({ userId: accountOwnerId, ...newOwner });
-  }
-
-  await db.update(workspaceCreditsTable)
-    .set({ aiCredits: ai, imageCredits: img, auditCredits: audit, poolIsNet: true, updatedAt: now })
-    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
-
-  if (delta.aiCredits !== 0 || delta.imageCredits !== 0 || delta.auditCredits !== 0) {
-    await db.insert(creditTransactionsTable).values({
-      userId: accountOwnerId,
-      creditType: "audit",
-      amount: 0,
-      reason: "Workspace credit pool adjustment",
-      featureType: "workspace_pool_transfer",
-      workspaceId,
-      metadata: { delta, target: { ai, img, audit } },
-      createdAt: now,
-    });
-  }
 
   return {
     workspaceCredits: { aiCredits: ai, imageCredits: img, auditCredits: audit },
@@ -612,24 +651,39 @@ export async function setWorkspaceMemberCredits(
     auditCredits: pool.auditCredits - deltaAudit,
   };
 
-  await db.update(workspaceCreditsTable)
-    .set({ ...newPool, poolIsNet: true, updatedAt: now })
-    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+  await db.transaction(async (tx) => {
+    const [poolUpdated] = await tx.update(workspaceCreditsTable)
+      .set({ ...newPool, poolIsNet: true, updatedAt: now })
+      .where(and(
+        eq(workspaceCreditsTable.workspaceId, workspaceId),
+        gte(workspaceCreditsTable.aiCredits, deltaAi),
+        gte(workspaceCreditsTable.imageCredits, deltaImg),
+        gte(workspaceCreditsTable.auditCredits, deltaAudit),
+      ))
+      .returning({ id: workspaceCreditsTable.id });
+    if (!poolUpdated) {
+      const err = new Error(
+        "This workspace doesn't have enough credits available to assign. Add credits to the workspace first (from Workspaces), then assign credits to members.",
+      ) as Error & { code?: string };
+      err.code = "EXCEEDS_WORKSPACE_POOL";
+      throw err;
+    }
 
-  if (existing) {
-    await db.update(memberCreditsTable)
-      .set({ aiCredits: ai, imageCredits: img, auditCredits: audit, memberId, updatedAt: now })
-      .where(eq(memberCreditsTable.workspaceMemberId, workspaceMemberId));
-  } else {
-    await db.insert(memberCreditsTable).values({
-      workspaceId,
-      workspaceMemberId,
-      memberId,
-      aiCredits: ai,
-      imageCredits: img,
-      auditCredits: audit,
-    });
-  }
+    if (existing) {
+      await tx.update(memberCreditsTable)
+        .set({ aiCredits: ai, imageCredits: img, auditCredits: audit, memberId, updatedAt: now })
+        .where(eq(memberCreditsTable.workspaceMemberId, workspaceMemberId));
+    } else {
+      await tx.insert(memberCreditsTable).values({
+        workspaceId,
+        workspaceMemberId,
+        memberId,
+        aiCredits: ai,
+        imageCredits: img,
+        auditCredits: audit,
+      });
+    }
+  });
 
   return { aiCredits: ai, imageCredits: img, auditCredits: audit };
 }
@@ -696,12 +750,19 @@ export async function deductWorkspaceMemberCredits(
   }
 
   const key = keyForType(type);
+  const column = memberCreditsTable[key];
   const now = new Date();
 
-  if (memberRow) {
-    await db.update(memberCreditsTable)
-      .set({ [key]: memberBal - amount, updatedAt: now })
-      .where(eq(memberCreditsTable.workspaceMemberId, workspaceMemberId));
+  const [updated] = await db.update(memberCreditsTable)
+    .set({ [key]: sql`${column} - ${amount}`, updatedAt: now })
+    .where(and(
+      eq(memberCreditsTable.workspaceMemberId, workspaceMemberId),
+      gte(column, amount),
+    ))
+    .returning({ balance: column });
+
+  if (!updated) {
+    return { success: false, remaining: memberBal };
   }
 
   await db.insert(creditTransactionsTable).values({
@@ -734,10 +795,19 @@ export async function deductWorkspacePoolForOwner(
     return { success: false, remaining: bal };
   }
 
+  const column = workspaceCreditsTable[key];
   const now = new Date();
-  await db.update(workspaceCreditsTable)
-    .set({ [key]: bal - amount, updatedAt: now })
-    .where(eq(workspaceCreditsTable.workspaceId, workspaceId));
+  const [updated] = await db.update(workspaceCreditsTable)
+    .set({ [key]: sql`${column} - ${amount}`, updatedAt: now })
+    .where(and(
+      eq(workspaceCreditsTable.workspaceId, workspaceId),
+      gte(column, amount),
+    ))
+    .returning({ balance: column });
+
+  if (!updated) {
+    return { success: false, remaining: bal };
+  }
 
   await db.insert(creditTransactionsTable).values({
     userId: ownerUserId,

@@ -514,7 +514,7 @@ router.patch("/projects/:type/:id/archive", requireAuth, resolveTeam, requireWri
 });
 
 // DELETE /projects/:type/:id — soft delete a project
-router.delete("/projects/:type/:id", requireAuth, resolveTeam, requireWriteAccess, async (req: Request, res: Response) => {
+router.delete("/projects/:type/:id", requireAuth, resolveTeamAndWorkspace, requireWriteAccess, async (req: Request, res: Response) => {
   const userId = (req as AuthedRequest).userId;
   const type = routeParam(req.params.type);
   const itemId = Number(routeParam(req.params.id));
@@ -524,34 +524,70 @@ router.delete("/projects/:type/:id", requireAuth, resolveTeam, requireWriteAcces
   const ownerUserId = await ensureProjectMutationAccess(req, res, dbType, itemId);
   if (!ownerUserId) return;
 
+  const workspaceId = getActiveWorkspaceId(req);
+  let deleted = false;
+
   switch (dbType) {
-    case "audit":
-      await db
+    case "audit": {
+      const [row] = await db
         .update(auditsTable)
         .set({ isDeleted: 1, deletedAt: now, updatedAt: now })
-        .where(and(eq(auditsTable.id, itemId), eq(auditsTable.userId, ownerUserId)));
+        .where(and(
+          eq(auditsTable.id, itemId),
+          eq(auditsTable.userId, ownerUserId),
+          eq(auditsTable.workspaceId, workspaceId),
+        ))
+        .returning({ id: auditsTable.id });
+      deleted = Boolean(row);
       break;
-    case "graphics":
-      await db
+    }
+    case "graphics": {
+      const [row] = await db
         .update(graphicsProjectsTable)
         .set({ isDeleted: 1, deletedAt: now, updatedAt: now })
-        .where(and(eq(graphicsProjectsTable.id, itemId), eq(graphicsProjectsTable.userId, ownerUserId)));
+        .where(and(
+          eq(graphicsProjectsTable.id, itemId),
+          eq(graphicsProjectsTable.userId, ownerUserId),
+          eq(graphicsProjectsTable.workspaceId, workspaceId),
+        ))
+        .returning({ id: graphicsProjectsTable.id });
+      deleted = Boolean(row);
       break;
-    case "video":
-      await db
+    }
+    case "video": {
+      const [row] = await db
         .update(videosProjectsTable)
         .set({ isDeleted: 1, deletedAt: now, updatedAt: now })
-        .where(and(eq(videosProjectsTable.id, itemId), eq(videosProjectsTable.userId, ownerUserId)));
+        .where(and(
+          eq(videosProjectsTable.id, itemId),
+          eq(videosProjectsTable.userId, ownerUserId),
+          eq(videosProjectsTable.workspaceId, workspaceId),
+        ))
+        .returning({ id: videosProjectsTable.id });
+      deleted = Boolean(row);
       break;
-    case "ads":
-      await db
+    }
+    case "ads": {
+      const [row] = await db
         .update(adsProjectsTable)
         .set({ isDeleted: 1, deletedAt: now, updatedAt: now })
-        .where(and(eq(adsProjectsTable.id, itemId), eq(adsProjectsTable.userId, ownerUserId)));
+        .where(and(
+          eq(adsProjectsTable.id, itemId),
+          eq(adsProjectsTable.userId, ownerUserId),
+          eq(adsProjectsTable.workspaceId, workspaceId),
+        ))
+        .returning({ id: adsProjectsTable.id });
+      deleted = Boolean(row);
       break;
+    }
     default:
       res.status(400).json({ error: "unknown type" });
       return;
+  }
+
+  if (!deleted) {
+    res.status(404).json({ error: "Project not found" });
+    return;
   }
 
   await db.delete(pinnedProjectsTable).where(

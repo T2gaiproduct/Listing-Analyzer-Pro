@@ -146,6 +146,7 @@ export async function deductCredits(
           eq(creditTransactionsTable.userId, userId),
           eq(creditTransactionsTable.featureType, featureType),
           eq(creditTransactionsTable.amount, -amount),
+          gte(creditTransactionsTable.createdAt, since),
         ),
       );
     if (existing && existing.metadata && (existing.metadata as Record<string, unknown>)?.idempotencyKey === idempotencyKey) {

@@ -32,6 +32,7 @@ export type UnifiedProductListItem = {
   auditPending: boolean;
   createdAt: Date;
   updatedAt: Date;
+  workspaceId: number | null;
 };
 
 function deriveSku(productName: string, id: number, prefix?: string): string {
@@ -160,6 +161,7 @@ export async function loadUnifiedProductList(
       auditPending: !hasAuditScore && a.status !== "failed",
       createdAt: a.createdAt,
       updatedAt: a.updatedAt ?? a.createdAt,
+      workspaceId: a.workspaceId ?? null,
     });
   }
 
@@ -191,6 +193,7 @@ export async function loadUnifiedProductList(
       auditPending: false,
       createdAt: g.createdAt,
       updatedAt: g.updatedAt ?? g.createdAt,
+      workspaceId: g.workspaceId ?? null,
     });
   }
 
@@ -219,6 +222,7 @@ export async function loadUnifiedProductList(
       auditPending: false,
       createdAt: v.createdAt,
       updatedAt: v.updatedAt ?? v.createdAt,
+      workspaceId: v.workspaceId ?? null,
     });
   }
 
@@ -247,6 +251,7 @@ export async function loadUnifiedProductList(
       auditPending: false,
       createdAt: ad.createdAt,
       updatedAt: ad.updatedAt ?? ad.createdAt,
+      workspaceId: ad.workspaceId ?? null,
     });
   }
 

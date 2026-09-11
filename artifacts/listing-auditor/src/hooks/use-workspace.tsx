@@ -11,6 +11,7 @@ import {
 } from "@workspace/workspace-permissions";
 import { fetchJson } from "@/lib/api-fetch";
 import { refetchCreditQueries } from "@/lib/credit-queries";
+import { pathUsesAgencyAccountWideApiScope } from "@/lib/agency-dashboard-scope";
 import { setActiveWorkspaceId } from "@/lib/workspace-header";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -172,10 +173,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const isTeamMemberAccount = profileTeamMember || hasOnlySharedWorkspaces;
   const isBillingAccountOwnerProfile = profileSummary?.accountRole?.type === "user" && !profileTeamMember;
   const isMainDashboardRoute = location === "/dashboard" || location === "/";
-  const isProductExplorerRoute =
-    location === "/products" || location.startsWith("/products/");
-  const isAccountWideListRoute =
-    location === "/recent-projects" || isProductExplorerRoute;
+  const isAccountWideListRoute = pathUsesAgencyAccountWideApiScope(location);
 
   useEffect(() => {
     if (listLoading) return;

@@ -9,6 +9,8 @@ import { formatDistanceToNow } from "date-fns";
 import { useActionDialog } from "@/components/ui/action-dialog";
 import { fetchJson } from "@/lib/api-fetch";
 import { WORKSPACES_HUB_LABEL } from "@/lib/workspaces-hub";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 
 interface ArchivedItem {
   id: number;
@@ -42,14 +44,22 @@ interface ArchiveResponse {
 
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-function fetchArchive(): Promise<ArchiveResponse> {
-  return fetchJson<ArchiveResponse>(`${basePath}/api/archive`);
+function fetchArchive(accountOverview: boolean): Promise<ArchiveResponse> {
+  const url = accountOverview
+    ? `${basePath}/api/archive?scope=account`
+    : `${basePath}/api/archive`;
+  return fetchJson<ArchiveResponse>(url, accountOverview ? { skipWorkspaceHeader: true } : undefined);
 }
 
 function useArchive() {
+  const { isBillingAccountOwner, isAgencyAccountOverview } = useWorkspace();
+  const accountOverview = isAgencyAccountOverviewDashboard(
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
+  );
   return useQuery({
-    queryKey: ["archive"],
-    queryFn: fetchArchive,
+    queryKey: ["archive", accountOverview ? "account" : "workspace"],
+    queryFn: () => fetchArchive(accountOverview),
     staleTime: 0,
     refetchOnMount: "always",
   });

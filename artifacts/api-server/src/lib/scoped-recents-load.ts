@@ -131,6 +131,7 @@ export async function loadScopedRecents(
         generatedImages: auditsTable.generatedImages,
         createdAt: auditsTable.createdAt,
         updatedAt: auditsTable.updatedAt,
+        workspaceId: auditsTable.workspaceId,
       })
       .from(auditsTable)
       .where(
@@ -153,6 +154,7 @@ export async function loadScopedRecents(
         imageRecords: graphicsProjectsTable.imageRecords,
         createdAt: graphicsProjectsTable.createdAt,
         updatedAt: graphicsProjectsTable.updatedAt,
+        workspaceId: graphicsProjectsTable.workspaceId,
       })
       .from(graphicsProjectsTable)
       .where(
@@ -174,6 +176,7 @@ export async function loadScopedRecents(
         thumbnailUrl: videosProjectsTable.thumbnailUrl,
         createdAt: videosProjectsTable.createdAt,
         updatedAt: videosProjectsTable.updatedAt,
+        workspaceId: videosProjectsTable.workspaceId,
       })
       .from(videosProjectsTable)
       .where(
@@ -194,6 +197,7 @@ export async function loadScopedRecents(
         platform: adsProjectsTable.platform,
         createdAt: adsProjectsTable.createdAt,
         updatedAt: adsProjectsTable.updatedAt,
+        workspaceId: adsProjectsTable.workspaceId,
       })
       .from(adsProjectsTable)
       .where(

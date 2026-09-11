@@ -1,16 +1,17 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, sql, type SQL } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import {
   db, auditsTable, competitorsTable, graphicsProjectsTable, teamMembersTable,
   videosProjectsTable, adsProjectsTable, workspacesTable, workspaceMembersTable,
 } from "@workspace/db";
 import { resolveTeamContext, type TeamAuthedRequest } from "../middlewares/team-auth";
+import { ownerProjectFilter } from "../lib/workspace-route-helpers";
 import {
-  workspaceOwnerFilter,
-} from "../lib/workspace-route-helpers";
-import { resolveWorkspaceContext, WORKSPACE_HEADER } from "../lib/workspace-context";
-import { getDefaultWorkspaceId } from "../lib/ensure-workspaces";
+  archiveItemWorkspaceClause,
+  resolveArchiveListScope,
+  type ArchiveListScope,
+} from "../lib/archive-scope.js";
 import { createNotification } from "../lib/notifications";
 import { returnWorkspaceCreditsToAccountOnArchive } from "../lib/workspace-credits.js";
 
@@ -52,12 +53,46 @@ function archivedCondition(
   userIdCol: Parameters<typeof eq>[0],
   workspaceIdCol: Parameters<typeof eq>[0],
   ownerId: string,
-  workspaceId: number,
+  scope: ArchiveListScope,
   admin: boolean,
 ) {
   const archived = or(eq(deletedCol, 1), eq(statusCol, "archived"));
-  const scoped = workspaceOwnerFilter({ userId: userIdCol }, { workspaceId: workspaceIdCol }, ownerId, workspaceId);
+  if (scope.mode === "denied") {
+    return and(archived, sql`false`);
+  }
+  const listWorkspaceId = scope.mode === "account" ? null : scope.workspaceId;
+  const scoped = ownerProjectFilter(
+    { userId: userIdCol },
+    { workspaceId: workspaceIdCol },
+    ownerId,
+    listWorkspaceId,
+  );
   if (admin) return and(archived, scoped);
+  return and(archived, scoped);
+}
+
+function scopedAnd(...clauses: (SQL | undefined)[]): SQL {
+  const defined = clauses.filter((c): c is SQL => c != null);
+  return defined.length === 1 ? defined[0]! : and(...defined)!;
+}
+
+function competitorArchiveFilter(
+  ownerId: string,
+  scope: ArchiveListScope,
+  admin: boolean,
+) {
+  const archived = eq(competitorsTable.isDeleted, 1);
+  if (scope.mode === "denied") {
+    return and(archived, sql`false`);
+  }
+  const listWorkspaceId = scope.mode === "account" ? null : scope.workspaceId;
+  const scoped = ownerProjectFilter(
+    { userId: auditsTable.userId },
+    { workspaceId: auditsTable.workspaceId },
+    ownerId,
+    listWorkspaceId,
+  );
+  if (admin) return archived;
   return and(archived, scoped);
 }
 
@@ -67,45 +102,42 @@ router.get("/archive", requireAuth, resolveTeam, async (req, res): Promise<void>
   const ownerId = getEffectiveUserId(req);
   const admin = isAdmin(userId);
 
-  const headerVal = req.get(WORKSPACE_HEADER) ?? req.get("X-Workspace-Id");
-  const queryVal = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
-  const ctx = await resolveWorkspaceContext(userId, headerVal ?? queryVal);
-  const workspaceId = ctx?.workspaceId ?? (await getDefaultWorkspaceId(ownerId));
+  const scope = await resolveArchiveListScope(userId, ownerId, req);
 
-  const audits = workspaceId != null
+  const audits = scope.mode !== "denied"
     ? await db
     .select({ id: auditsTable.id, userId: auditsTable.userId, productName: auditsTable.productName, asin: auditsTable.asin, category: auditsTable.category, overallScore: auditsTable.overallScore, status: auditsTable.status, deletedAt: auditsTable.deletedAt, updatedAt: auditsTable.updatedAt, createdAt: auditsTable.createdAt })
     .from(auditsTable)
-    .where(archivedCondition(auditsTable.isDeleted, auditsTable.status, auditsTable.userId, auditsTable.workspaceId, ownerId, workspaceId, admin))
+    .where(archivedCondition(auditsTable.isDeleted, auditsTable.status, auditsTable.userId, auditsTable.workspaceId, ownerId, scope, admin))
     .orderBy(desc(auditsTable.updatedAt))
     : [];
 
-  const projects = workspaceId != null
+  const projects = scope.mode !== "denied"
     ? await db
     .select({ id: graphicsProjectsTable.id, userId: graphicsProjectsTable.userId, name: graphicsProjectsTable.name, productName: graphicsProjectsTable.productName, status: graphicsProjectsTable.status, deletedAt: graphicsProjectsTable.deletedAt, updatedAt: graphicsProjectsTable.updatedAt, createdAt: graphicsProjectsTable.createdAt })
     .from(graphicsProjectsTable)
-    .where(archivedCondition(graphicsProjectsTable.isDeleted, graphicsProjectsTable.status, graphicsProjectsTable.userId, graphicsProjectsTable.workspaceId, ownerId, workspaceId, admin))
+    .where(archivedCondition(graphicsProjectsTable.isDeleted, graphicsProjectsTable.status, graphicsProjectsTable.userId, graphicsProjectsTable.workspaceId, ownerId, scope, admin))
     .orderBy(desc(graphicsProjectsTable.updatedAt))
     : [];
 
-  const videos = workspaceId != null
+  const videos = scope.mode !== "denied"
     ? await db
     .select({ id: videosProjectsTable.id, userId: videosProjectsTable.userId, name: videosProjectsTable.name, status: videosProjectsTable.status, deletedAt: videosProjectsTable.deletedAt, updatedAt: videosProjectsTable.updatedAt, createdAt: videosProjectsTable.createdAt })
     .from(videosProjectsTable)
-    .where(archivedCondition(videosProjectsTable.isDeleted, videosProjectsTable.status, videosProjectsTable.userId, videosProjectsTable.workspaceId, ownerId, workspaceId, admin))
+    .where(archivedCondition(videosProjectsTable.isDeleted, videosProjectsTable.status, videosProjectsTable.userId, videosProjectsTable.workspaceId, ownerId, scope, admin))
     .orderBy(desc(videosProjectsTable.updatedAt))
     : [];
 
-  const ads = workspaceId != null
+  const ads = scope.mode !== "denied"
     ? await db
     .select({ id: adsProjectsTable.id, userId: adsProjectsTable.userId, name: adsProjectsTable.name, status: adsProjectsTable.status, deletedAt: adsProjectsTable.deletedAt, updatedAt: adsProjectsTable.updatedAt, createdAt: adsProjectsTable.createdAt })
     .from(adsProjectsTable)
-    .where(archivedCondition(adsProjectsTable.isDeleted, adsProjectsTable.status, adsProjectsTable.userId, adsProjectsTable.workspaceId, ownerId, workspaceId, admin))
+    .where(archivedCondition(adsProjectsTable.isDeleted, adsProjectsTable.status, adsProjectsTable.userId, adsProjectsTable.workspaceId, ownerId, scope, admin))
     .orderBy(desc(adsProjectsTable.updatedAt))
     : [];
 
   // Competitors join audits to scope by owner
-  const competitorRows = workspaceId != null
+  const competitorRows = scope.mode !== "denied"
     ? await db
     .select({
       id: competitorsTable.id,
@@ -119,11 +151,7 @@ router.get("/archive", requireAuth, resolveTeam, async (req, res): Promise<void>
     })
     .from(competitorsTable)
     .innerJoin(auditsTable, eq(competitorsTable.auditId, auditsTable.id))
-    .where(
-      admin
-        ? eq(competitorsTable.isDeleted, 1)
-        : and(eq(competitorsTable.isDeleted, 1), eq(auditsTable.userId, ownerId))
-    )
+    .where(competitorArchiveFilter(ownerId, scope, admin))
     .orderBy(desc(competitorsTable.deletedAt))
     : [];
 
@@ -145,7 +173,7 @@ router.get("/archive", requireAuth, resolveTeam, async (req, res): Promise<void>
       createdAt: workspacesTable.createdAt,
     })
     .from(workspacesTable)
-    .where(and(eq(workspacesTable.accountOwnerId, userId), eq(workspacesTable.isDeleted, 1)))
+    .where(and(eq(workspacesTable.accountOwnerId, ownerId), eq(workspacesTable.isDeleted, 1)))
     .orderBy(desc(workspacesTable.deletedAt));
 
   res.json({
@@ -168,36 +196,44 @@ router.post("/archive/:type/:id/recover", requireAuth, resolveTeam, async (req, 
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const scope = await resolveArchiveListScope(userId, ownerId, req);
+  if (scope.mode === "denied") {
+    res.status(403).json({ error: "Workspace not found or access denied" });
+    return;
+  }
+  const wsClause = (col: { workspaceId: unknown }): SQL | undefined =>
+    archiveItemWorkspaceClause(col, scope);
+
   let result;
   switch (type) {
     case "audit": {
       const where = admin
-        ? and(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")))
-        : and(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), eq(auditsTable.userId, ownerId));
+        ? and(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), wsClause(auditsTable))
+        : and(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), eq(auditsTable.userId, ownerId), wsClause(auditsTable));
       const [item] = await db.update(auditsTable).set({ isDeleted: 0, deletedAt: null, status: "complete", updatedAt: new Date() }).where(where).returning();
       result = item;
       break;
     }
     case "project": {
       const where = admin
-        ? and(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")))
-        : and(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), eq(graphicsProjectsTable.userId, ownerId));
+        ? scopedAnd(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), wsClause(graphicsProjectsTable))
+        : scopedAnd(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), eq(graphicsProjectsTable.userId, ownerId), wsClause(graphicsProjectsTable));
       const [item] = await db.update(graphicsProjectsTable).set({ isDeleted: 0, deletedAt: null, status: "completed", updatedAt: new Date() }).where(where).returning();
       result = item;
       break;
     }
     case "video": {
       const where = admin
-        ? and(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")))
-        : and(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), eq(videosProjectsTable.userId, ownerId));
+        ? scopedAnd(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), wsClause(videosProjectsTable))
+        : scopedAnd(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), eq(videosProjectsTable.userId, ownerId), wsClause(videosProjectsTable));
       const [item] = await db.update(videosProjectsTable).set({ isDeleted: 0, deletedAt: null, status: "completed", updatedAt: new Date() }).where(where).returning();
       result = item;
       break;
     }
     case "ad": {
       const where = admin
-        ? and(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")))
-        : and(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), eq(adsProjectsTable.userId, ownerId));
+        ? scopedAnd(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), wsClause(adsProjectsTable))
+        : scopedAnd(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), eq(adsProjectsTable.userId, ownerId), wsClause(adsProjectsTable));
       const [item] = await db.update(adsProjectsTable).set({ isDeleted: 0, deletedAt: null, status: "completed", updatedAt: new Date() }).where(where).returning();
       result = item;
       break;
@@ -211,7 +247,7 @@ router.post("/archive/:type/:id/recover", requireAuth, resolveTeam, async (req, 
           .select({ competitorId: competitorsTable.id })
           .from(competitorsTable)
           .innerJoin(auditsTable, eq(competitorsTable.auditId, auditsTable.id))
-          .where(and(eq(competitorsTable.id, id), eq(competitorsTable.isDeleted, 1), eq(auditsTable.userId, ownerId)));
+          .where(and(eq(competitorsTable.id, id), eq(competitorsTable.isDeleted, 1), eq(auditsTable.userId, ownerId), wsClause(auditsTable)));
         if (rows.length === 0) { res.status(404).json({ error: "Item not found" }); return; }
         const [item] = await db.update(competitorsTable).set({ isDeleted: 0, deletedAt: null }).where(and(eq(competitorsTable.id, id))).returning();
         result = item;
@@ -274,38 +310,46 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
   const id = parseInt(String(req.params.id ?? ""));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const scope = await resolveArchiveListScope(userId, ownerId, req);
+  if (scope.mode === "denied") {
+    res.status(403).json({ error: "Workspace not found or access denied" });
+    return;
+  }
+  const wsClause = (col: { workspaceId: unknown }): SQL | undefined =>
+    archiveItemWorkspaceClause(col, scope);
+
   const isArchivedOrDeleted = or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived"));
 
   let result;
   switch (type) {
     case "audit": {
       const where = admin
-        ? and(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")))
-        : and(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), eq(auditsTable.userId, ownerId));
+        ? scopedAnd(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), wsClause(auditsTable))
+        : scopedAnd(eq(auditsTable.id, id), or(eq(auditsTable.isDeleted, 1), eq(auditsTable.status, "archived")), eq(auditsTable.userId, ownerId), wsClause(auditsTable));
       const [item] = await db.delete(auditsTable).where(where).returning();
       result = item;
       break;
     }
     case "project": {
       const where = admin
-        ? and(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")))
-        : and(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), eq(graphicsProjectsTable.userId, ownerId));
+        ? scopedAnd(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), wsClause(graphicsProjectsTable))
+        : scopedAnd(eq(graphicsProjectsTable.id, id), or(eq(graphicsProjectsTable.isDeleted, 1), eq(graphicsProjectsTable.status, "archived")), eq(graphicsProjectsTable.userId, ownerId), wsClause(graphicsProjectsTable));
       const [item] = await db.delete(graphicsProjectsTable).where(where).returning();
       result = item;
       break;
     }
     case "video": {
       const where = admin
-        ? and(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")))
-        : and(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), eq(videosProjectsTable.userId, ownerId));
+        ? scopedAnd(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), wsClause(videosProjectsTable))
+        : scopedAnd(eq(videosProjectsTable.id, id), or(eq(videosProjectsTable.isDeleted, 1), eq(videosProjectsTable.status, "archived")), eq(videosProjectsTable.userId, ownerId), wsClause(videosProjectsTable));
       const [item] = await db.delete(videosProjectsTable).where(where).returning();
       result = item;
       break;
     }
     case "ad": {
       const where = admin
-        ? and(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")))
-        : and(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), eq(adsProjectsTable.userId, ownerId));
+        ? scopedAnd(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), wsClause(adsProjectsTable))
+        : scopedAnd(eq(adsProjectsTable.id, id), or(eq(adsProjectsTable.isDeleted, 1), eq(adsProjectsTable.status, "archived")), eq(adsProjectsTable.userId, ownerId), wsClause(adsProjectsTable));
       const [item] = await db.delete(adsProjectsTable).where(where).returning();
       result = item;
       break;
@@ -319,7 +363,7 @@ router.delete("/archive/:type/:id", requireAuth, resolveTeam, async (req, res): 
           .select({ competitorId: competitorsTable.id })
           .from(competitorsTable)
           .innerJoin(auditsTable, eq(competitorsTable.auditId, auditsTable.id))
-          .where(and(eq(competitorsTable.id, id), eq(competitorsTable.isDeleted, 1), eq(auditsTable.userId, ownerId)));
+          .where(scopedAnd(eq(competitorsTable.id, id), eq(competitorsTable.isDeleted, 1), eq(auditsTable.userId, ownerId), wsClause(auditsTable)));
         if (rows.length === 0) { res.status(404).json({ error: "Item not found" }); return; }
         const [item] = await db.delete(competitorsTable).where(eq(competitorsTable.id, id)).returning();
         result = item;

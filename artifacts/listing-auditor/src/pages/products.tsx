@@ -70,6 +70,7 @@ interface ProductListItem {
   referenceUrl?: string | null;
   auditScore?: number | null;
   auditPending?: boolean;
+  workspaceId?: number | null;
 }
 
 interface ProductsResponse {
@@ -288,17 +289,22 @@ export default function ProductsPage() {
     [apiData],
   );
 
-  const canImportProducts = canEdit("build_brand") || canEdit("audits");
+  const canImportProducts = !showAccountProducts && (canEdit("build_brand") || canEdit("audits"));
 
   const canDeleteProduct = (product: ProductListItem) =>
     isAccountOwner || canDelete(productDeleteFeature(product.sourceType));
 
   const deleteProductsMutation = useMutation({
-    mutationFn: async (items: Array<{ type: ProductSourceType; id: number }>) => {
-      await Promise.all(items.map(async ({ type, id }) => {
+    mutationFn: async (items: Array<{ type: ProductSourceType; id: number; workspaceId?: number }>) => {
+      await Promise.all(items.map(async ({ type, id, workspaceId }) => {
+        const headers: HeadersInit = {};
+        if (workspaceId != null) {
+          headers["X-Workspace-Id"] = String(workspaceId);
+        }
         const response = await fetch(`${basePath}/api/projects/${type}/${id}`, {
           method: "DELETE",
           credentials: "include",
+          headers,
         });
         if (!response.ok) {
           throw new Error(`Failed to delete product #${id}`);
@@ -340,7 +346,11 @@ export default function ProductsPage() {
     triggerDeleteDialog(
       async () => {
         await deleteProductsMutation.mutateAsync(
-          deletable.map((product) => ({ type: product.sourceType, id: product.id })),
+          deletable.map((product) => ({
+            type: product.sourceType,
+            id: product.id,
+            workspaceId: product.workspaceId ?? undefined,
+          })),
         );
       },
       {
