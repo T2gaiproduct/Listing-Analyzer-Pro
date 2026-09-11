@@ -417,6 +417,20 @@ export default function Dashboard() {
     },
   });
 
+  const { data: ownerCreditsPayload } = useQuery<{
+    accountCreditSummary?: { workspaceCreditsAllocatedTotal?: number };
+  }>({
+    queryKey: ["user-credits"],
+    queryFn: () =>
+      fetchJson<{ accountCreditSummary?: { workspaceCreditsAllocatedTotal?: number } }>(
+        `${basePath}/api/credits`,
+      ),
+    enabled: clerkLoaded && !!user && showAgencyAccountOverview,
+    staleTime: 30_000,
+  });
+  const workspaceCreditsAllocatedTotal =
+    ownerCreditsPayload?.accountCreditSummary?.workspaceCreditsAllocatedTotal;
+
   const { data: workspacePoolData } = useQuery<{
     poolCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
     memberAllocatedCredits?: { aiCredits: number; imageCredits: number; auditCredits: number };
@@ -693,9 +707,13 @@ export default function Dashboard() {
                 ? creditsAllowance > 0
                   ? `of ${creditsAllowance.toLocaleString()} assigned to this workspace`
                   : `No credits assigned — fund on ${WORKSPACES_HUB_LABEL}`
-                : (stats.teamCreditsUsedInPeriod ?? 0) > 0
-                  ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
-                  : `of ${creditsAllowance.toLocaleString()} credits`
+                : showAgencyAccountOverview || dashboard.viewMode === "account"
+                  ? workspaceCreditsAllocatedTotal != null && workspaceCreditsAllocatedTotal > 0
+                    ? `On your account · ${workspaceCreditsAllocatedTotal.toLocaleString()} allocated to workspaces`
+                    : "On your account"
+                  : (stats.teamCreditsUsedInPeriod ?? 0) > 0
+                    ? `${(stats.teamCreditsUsedInPeriod ?? 0).toLocaleString()} used by team · ${(stats.memberCreditsAllocated ?? 0).toLocaleString()} assigned`
+                    : `of ${creditsAllowance.toLocaleString()} credits`
           }
           icon={Wallet}
         />

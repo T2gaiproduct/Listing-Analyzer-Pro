@@ -579,6 +579,7 @@ export function Layout({ children }: { children: ReactNode }) {
       accountTotal: number;
       unallocated: { aiCredits: number; imageCredits: number; auditCredits: number };
       accountTotalBuckets?: { aiCredits: number; imageCredits: number; auditCredits: number };
+      workspaceCreditsAllocatedTotal?: number;
     };
   }>({
     queryKey: ["user-credits"],
@@ -642,8 +643,8 @@ export function Layout({ children }: { children: ReactNode }) {
     ? (memberCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
     : showWorkspacePoolCredits
       ? (workspacePoolCredits ?? { aiCredits: 0, imageCredits: 0, auditCredits: 0 })
-      : isAgencyAccountOverview && accountCreditSummary?.accountTotalBuckets
-        ? accountCreditSummary.accountTotalBuckets
+      : isAgencyAccountOverview && accountCreditSummary?.unallocated
+        ? accountCreditSummary.unallocated
         : accountCreditSummary?.unallocated ?? ownerCredits;
   const creditsScopeLabel = showWorkspacePoolCredits
     ? "workspace"

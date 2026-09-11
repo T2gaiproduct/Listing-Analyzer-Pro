@@ -54,6 +54,7 @@ interface DashboardTopbarProps {
     accountTotal: number;
     unallocated?: { aiCredits: number; imageCredits: number; auditCredits: number };
     accountTotalBuckets?: { aiCredits: number; imageCredits: number; auditCredits: number };
+    workspaceCreditsAllocatedTotal?: number;
   };
   /** When scoped to a client workspace — pill subtitle and manage link. */
   workspaceScopeName?: string | null;
@@ -115,11 +116,11 @@ export function DashboardTopbar({
       : creditsScopeLabel === "account_hub"
         ? "Available to fund"
         : creditsScopeLabel === "account_total"
-          ? "Account balance"
+          ? "Credit balance"
           : "Credit balance";
   const creditBalanceHeadline =
     creditsScopeLabel === "account_total" && accountCreditSummary
-      ? accountCreditSummary.accountTotal
+      ? accountCreditSummary.unallocatedTotal
       : creditsScopeLabel === "account_hub" && accountCreditSummary
         ? accountCreditSummary.unallocatedTotal
         : accountCreditSummary && creditsScopeLabel === "account"
@@ -129,8 +130,8 @@ export function DashboardTopbar({
   const breakdownCredits =
     creditsScopeLabel === "workspace" || creditsScopeLabel === "member"
       ? credits
-      : creditsScopeLabel === "account_total" && accountCreditSummary?.accountTotalBuckets
-        ? accountCreditSummary.accountTotalBuckets
+      : creditsScopeLabel === "account_total" && accountCreditSummary?.unallocated
+        ? accountCreditSummary.unallocated
         : creditsScopeLabel === "account_hub" && accountCreditSummary?.unallocated
           ? accountCreditSummary.unallocated
           : accountCreditSummary?.unallocated ?? credits;
@@ -295,7 +296,7 @@ export function DashboardTopbar({
                       : creditsScopeLabel === "account_hub"
                         ? "Available on account"
                         : creditsScopeLabel === "account_total"
-                          ? "Account balance"
+                          ? "Credit balance"
                           : "Credit balance"}
                 </p>
                 <p className="text-lg font-bold text-foreground mt-0.5 tabular-nums">
@@ -312,31 +313,27 @@ export function DashboardTopbar({
                       : creditsScopeLabel === "account_hub"
                         ? "Not yet moved into client workspace pools."
                         : creditsScopeLabel === "account_total"
-                          ? "All credits you still have across your account and workspaces."
+                          ? "On your account — fund workspaces or spend from your account balance."
                           : "Credits available on your account."}
                 </p>
                 {accountCreditSummary && creditsScopeLabel === "account_total" && (
                   <div className="mt-2 pt-2 border-t border-border space-y-1.5 text-[11px] text-muted-foreground">
                     <div className="flex justify-between gap-2">
-                      <span>On your account</span>
+                      <span>Allocated to workspaces</span>
                       <span className="font-semibold text-foreground tabular-nums">
-                        {accountCreditSummary.unallocatedTotal.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <span>In client workspaces</span>
-                      <span className="font-semibold text-foreground tabular-nums">
-                        {accountCreditSummary.inPoolsTotal.toLocaleString()}
+                        {(accountCreditSummary.workspaceCreditsAllocatedTotal ?? 0).toLocaleString()}
                       </span>
                     </div>
                     <p className="text-[10px] leading-snug text-muted-foreground/90">
-                      In client workspaces = unassigned pool balance (not credits already with members).
+                      Total funded to workspaces this billing period (manage on Workspaces).
                     </p>
                   </div>
                 )}
               </div>
               <div className="px-4 py-2 space-y-1.5 text-sm border-b border-border">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pb-0.5">By type</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pb-0.5">
+                  {creditsScopeLabel === "account_total" ? "By type (on your account)" : "By type"}
+                </p>
                 {typeBreakdownRows.map((row) => (
                   <div key={row.label} className="flex justify-between text-muted-foreground">
                     <span>{row.label}</span>

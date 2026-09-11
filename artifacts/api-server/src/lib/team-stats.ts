@@ -1,6 +1,11 @@
 import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db, creditTransactionsTable, workspacesTable } from "@workspace/db";
-import { sumWorkspaceCreditsHeldForOwner } from "./workspace-credits.js";
+import {
+  getWorkspaceCredits,
+  sumAllocatedMemberCreditsForWorkspace,
+  sumWorkspaceCreditsHeldForOwner,
+  workspaceFundedPoolTotal,
+} from "./workspace-credits.js";
 
 export interface CreditTotals {
   aiCredits: number;
@@ -190,4 +195,24 @@ export async function getLastActivityAt(userId: string): Promise<Date | null> {
 
 export async function sumAllocatedCreditsForOwner(ownerUserId: string, _excludeMemberId?: number): Promise<CreditTotals> {
   return sumWorkspaceCreditsHeldForOwner(ownerUserId);
+}
+
+/** Sum of per-workspace funded totals (matches Workspaces hub “Assigned credits in workspaces”). */
+export async function sumWorkspaceCreditsFundedForOwner(
+  accountOwnerId: string,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<number> {
+  const workspaces = await db
+    .select({ id: workspacesTable.id })
+    .from(workspacesTable)
+    .where(and(eq(workspacesTable.accountOwnerId, accountOwnerId), eq(workspacesTable.isDeleted, 0)));
+  let total = 0;
+  for (const w of workspaces) {
+    const pool = await getWorkspaceCredits(w.id);
+    const memberRemaining = await sumAllocatedMemberCreditsForWorkspace(w.id);
+    const creditsUsedInPeriod = await sumCreditsUsedForWorkspace(w.id, periodStart, periodEnd);
+    total += workspaceFundedPoolTotal(pool, memberRemaining, creditsUsedInPeriod);
+  }
+  return total;
 }

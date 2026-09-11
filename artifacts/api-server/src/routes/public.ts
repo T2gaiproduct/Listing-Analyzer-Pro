@@ -16,7 +16,7 @@ import { ensureSubscriptionCredits } from "../lib/subscription-credits";
 import { planRowToGrantCredits, serializePlanForPublic } from "../lib/plan-credits";
 import { resolveAccountOwnerId } from "../lib/workspace-context.js";
 import { sumWorkspaceCreditsHeldForOwner, computeAccountCreditSummary } from "../lib/workspace-credits.js";
-import { sumCreditTotals } from "../lib/team-stats.js";
+import { sumCreditTotals, sumWorkspaceCreditsFundedForOwner } from "../lib/team-stats.js";
 import { upsertUserProfile, syncUserLoginEmail } from "../lib/user-profile";
 import { resolveUserAccountRole } from "../lib/user-role";
 import { findPendingWorkspaceInviteForEmail } from "../lib/workspace-invite.js";
@@ -585,12 +585,32 @@ router.get("/credits", requireAuth, async (req, res): Promise<void> => {
     unallocated: typeof balances;
     inWorkspacePools: { aiCredits: number; imageCredits: number; auditCredits: number };
     accountTotalBuckets: typeof balances;
+    workspaceCreditsAllocatedTotal?: number;
   } | null = null;
 
   const accountOwnerId = await resolveAccountOwnerId(userId);
   if (accountOwnerId === userId) {
     const inWorkspacePools = await sumWorkspaceCreditsHeldForOwner(userId);
     const summary = computeAccountCreditSummary(balances, inWorkspacePools);
+    const now = new Date();
+    const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const [subPeriod] = await db
+      .select({
+        currentPeriodStart: subscriptionsTable.currentPeriodStart,
+        currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+      })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.userId, userId))
+      .orderBy(desc(subscriptionsTable.id))
+      .limit(1);
+    const periodStart = subPeriod?.currentPeriodStart ? new Date(subPeriod.currentPeriodStart) : defaultStart;
+    const periodEnd = subPeriod?.currentPeriodEnd ? new Date(subPeriod.currentPeriodEnd) : defaultEnd;
+    const workspaceCreditsAllocatedTotal = await sumWorkspaceCreditsFundedForOwner(
+      userId,
+      periodStart,
+      periodEnd,
+    );
     accountCreditSummary = {
       unallocatedTotal: summary.unallocatedTotal,
       inPoolsTotal: summary.inPoolsTotal,
@@ -598,6 +618,7 @@ router.get("/credits", requireAuth, async (req, res): Promise<void> => {
       unallocated: summary.unallocated,
       inWorkspacePools: summary.inWorkspacePools,
       accountTotalBuckets: summary.accountTotalBuckets,
+      workspaceCreditsAllocatedTotal,
     };
     balances = summary.unallocated;
   }
