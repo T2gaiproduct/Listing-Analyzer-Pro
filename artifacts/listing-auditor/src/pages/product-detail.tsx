@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { ApiFetchError, fetchJson } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { isAgencyAccountOverviewDashboard } from "@/lib/agency-dashboard-scope";
 import { refreshCreditBalances } from "@/lib/credit-queries";
 import {
   mapAuditToProductDetail,
@@ -71,10 +72,31 @@ function parseProductSource(raw: string | null): ProductSourceType | null {
   return null;
 }
 
-async function fetchProductDetail(id: number, source: ProductSourceType | null): Promise<ProductDetailView> {
-  const sourceQuery = source ? `?source=${source}` : "";
+type ProductApiScope = {
+  accountOverview: boolean;
+};
+
+function productApiFetchInit(scope: ProductApiScope) {
+  return scope.accountOverview ? { skipWorkspaceHeader: true } : undefined;
+}
+
+function productDetailQueryString(source: ProductSourceType | null, scope: ProductApiScope): string {
+  const params = new URLSearchParams();
+  if (source) params.set("source", source);
+  if (scope.accountOverview) params.set("scope", "account");
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+async function fetchProductDetail(
+  id: number,
+  source: ProductSourceType | null,
+  scope: ProductApiScope,
+): Promise<ProductDetailView> {
+  const sourceQuery = productDetailQueryString(source, scope);
+  const fetchInit = productApiFetchInit(scope);
   try {
-    return await fetchJson<ProductDetailView>(`${basePath}/api/products/${id}${sourceQuery}`);
+    return await fetchJson<ProductDetailView>(`${basePath}/api/products/${id}${sourceQuery}`, fetchInit);
   } catch (error) {
     if (!(error instanceof ApiFetchError) || error.status !== 404 || source !== "graphics") {
       throw error;
@@ -90,7 +112,7 @@ async function fetchProductDetail(id: number, source: ProductSourceType | null):
       generatedCount?: number;
       createdAt?: string;
       updatedAt?: string;
-    }>(`${basePath}/api/graphics/projects/${id}`);
+    }>(`${basePath}/api/graphics/projects/${id}`, fetchInit);
     return mapGraphicsToProductDetail(graphics);
   }
 }
@@ -1225,7 +1247,19 @@ export default function ProductDetailPage({ id }: { id: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, isLoaded: clerkLoaded } = useUser();
-  const { featureWorkspaceId, isAccountOwner, canEdit: wsCanEdit } = useWorkspace();
+  const {
+    featureWorkspaceId,
+    isAccountOwner,
+    canEdit: wsCanEdit,
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
+  } = useWorkspace();
+  const showAccountProducts = isAgencyAccountOverviewDashboard(
+    isBillingAccountOwner,
+    isAgencyAccountOverview,
+  );
+  const productQueryScope = showAccountProducts ? "owner-account" : featureWorkspaceId;
+  const productApiScope: ProductApiScope = { accountOverview: showAccountProducts };
   const [location, navigate] = useLocation();
   const [imageFailed, setImageFailed] = useState(false);
   const [isEditingListing, setIsEditingListing] = useState(false);
@@ -1255,7 +1289,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     && (isAccountOwner || wsCanEdit("audits") || wsCanEdit("build_brand"));
 
   const validId = !Number.isNaN(id) && id > 0;
-  const queryEnabled = clerkLoaded && !!user && !!featureWorkspaceId && validId;
+  const queryEnabled = clerkLoaded && !!user && validId && (showAccountProducts || !!featureWorkspaceId);
 
   const {
     data: apiProduct,
@@ -1263,8 +1297,8 @@ export default function ProductDetailPage({ id }: { id: number }) {
     isError: apiError,
     error: apiErrorObj,
   } = useQuery({
-    queryKey: ["product", id, featureWorkspaceId, source ?? "auto"],
-    queryFn: () => fetchProductDetail(id, source),
+    queryKey: ["product", id, productQueryScope, source ?? "auto"],
+    queryFn: () => fetchProductDetail(id, source, productApiScope),
     enabled: queryEnabled,
     retry: false,
     staleTime: 10_000,
@@ -1327,8 +1361,15 @@ export default function ProductDetailPage({ id }: { id: number }) {
 
   const resolvedSource = product?.sourceType ?? source ?? "listing";
 
+  const marketplacesQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("source", resolvedSource);
+    if (showAccountProducts) params.set("scope", "account");
+    return params.toString();
+  }, [resolvedSource, showAccountProducts]);
+
   const { data: marketplaceData } = useQuery({
-    queryKey: ["product-marketplaces", id, resolvedSource],
+    queryKey: ["product-marketplaces", id, productQueryScope, resolvedSource],
     queryFn: () => fetchJson<{
       liveMarketplaces?: string[];
       listedMarketplaces?: string[];
@@ -1341,7 +1382,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
         currency: string;
         sku: string | null;
       }>;
-    }>(`${basePath}/api/products/${id}/marketplaces?source=${encodeURIComponent(resolvedSource)}`),
+    }>(`${basePath}/api/products/${id}/marketplaces?${marketplacesQueryString}`, productApiFetchInit(productApiScope)),
     enabled: queryEnabled && id > 0,
     staleTime: 15_000,
   });
@@ -1492,7 +1533,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
   async function refreshProductData() {
     const auditId = optimizeAuditId ?? product?.statsAuditId ?? id;
     await Promise.all([
-      queryClient.refetchQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] }),
+      queryClient.refetchQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] }),
       queryClient.refetchQueries({ queryKey: getGetAuditQueryKey(auditId) }),
       queryClient.refetchQueries({ queryKey: getGetAuditQueryKey(id) }),
       queryClient.refetchQueries({ queryKey: ["product-marketplaces", id, resolvedSource] }),
@@ -1517,7 +1558,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
     navigate(`/products/${id}?${preserved.toString()}`, { replace: true });
   }, [product?.sourceType, id, navigate]);
 
-  const isLoading = queryEnabled && apiLoading && !product && !(shouldFetchAudit && auditLoading);
+  const isLoading = queryEnabled && !product && (apiLoading || (shouldFetchAudit && auditLoading));
 
   const { data: shopifyStatus } = useQuery({
     queryKey: ["shopify-status"],
@@ -1547,7 +1588,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       return publishAuditToWooCommerce({ auditId, publishMode });
     },
     onSuccess: (result, publishMode) => {
-      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+      void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
       void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
       if (result.warning) {
         toast({
@@ -1589,7 +1630,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       });
     },
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+      void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
       void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
       if (result.warning) {
         toast({
@@ -1987,7 +2028,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentStep: apiStep }),
     });
-    void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+    void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
     void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(auditId) });
   }
 
@@ -2229,7 +2270,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
                 : current),
             );
           }
-          void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+          void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
           void queryClient.invalidateQueries({ queryKey: getGetAuditQueryKey(optimizeAuditId) });
           refreshCreditBalances(queryClient);
           toast({
@@ -2641,7 +2682,7 @@ export default function ProductDetailPage({ id }: { id: number }) {
         onPublishingChange={setShopifyPublishing}
         publishMode="live"
         onPublished={(result) => {
-          void queryClient.invalidateQueries({ queryKey: ["product", id, featureWorkspaceId, source ?? "auto"] });
+          void queryClient.invalidateQueries({ queryKey: ["product", id, productQueryScope, source ?? "auto"] });
           void queryClient.invalidateQueries({ queryKey: ["product-marketplaces", id] });
           const collectionNote = result.collectionsAssigned?.length
             ? ` Added to ${result.collectionsAssigned.map((c) => c.title ?? "collection").join(", ")}.`
